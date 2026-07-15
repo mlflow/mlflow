@@ -3028,6 +3028,30 @@ def test_search_traces_with_prompts_filter_invalid_format(
         store.search_traces([exp_id], filter_string=filter_string)
 
 
+def test_link_prompts_to_trace_nonexistent_trace(store: SqlAlchemyStore):
+    trace_id = "tr-does-not-exist"
+    prompt_version = PromptVersion(
+        name="my-prompt",
+        version=1,
+        template="Hello {{name}}",
+    )
+
+    with pytest.raises(MlflowException, match=r"Trace with ID .* not found") as excinfo:
+        store.link_prompts_to_trace(trace_id, [prompt_version])
+    assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+    with store.ManagedSessionMaker() as session:
+        count = (
+            session
+            .query(SqlEntityAssociation)
+            .filter(SqlEntityAssociation.source_id == trace_id)
+            .count()
+        )
+        assert count == 0
+
+
 def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_prompts_no_match")
 

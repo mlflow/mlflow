@@ -796,12 +796,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def _validate_trace_accessible(self, session, trace_id: str) -> None:
         """
-        Hook for subclasses to validate trace access. No-op by default.
+        Hook for subclasses to validate trace access.
 
-        In single-tenant mode, validation is not needed - the database will
-        raise appropriate errors if the trace doesn't exist.
+        In single-tenant mode, validates that the trace exists. Workspace-aware
+        subclasses override this to also enforce workspace scoping.
         """
-        return
+        exists_row = (
+            session
+            .query(SqlTraceInfo.request_id)
+            .filter(SqlTraceInfo.request_id == trace_id)
+            .first()
+        )
+        if exists_row is None:
+            raise MlflowException(
+                f"Trace with ID '{trace_id}' not found.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
 
     def _validate_dataset_accessible(self, session, dataset_id: str) -> None:
         """
