@@ -2,14 +2,18 @@ import { Card, Typography, useDesignSystemTheme } from '@databricks/design-syste
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
-import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles } from '../styles';
+import MCPRegistryRoutes from '../routes';
+import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
+import { resolveDisplayName } from '../utils';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import Utils from '../../common/utils/Utils';
+import { useNavigate } from '../../common/utils/RoutingUtils';
 
 export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
 
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
@@ -19,20 +23,19 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     <Card
       componentId="mlflow.mcp_registry.card"
       width="100%"
-      role="button"
-      onClick={() => {
-        // TODO: navigate to server detail page once it exists
+      navigateFn={async () => {
+        navigate(MCPRegistryRoutes.getMCPServerDetailRoute(server.name));
       }}
-      dangerouslyAppendEmotionCSS={{ height: '100%', cursor: 'pointer' }}
+      dangerouslyAppendEmotionCSS={{ height: '100%' }}
     >
       <div css={cardBodyStyles(theme)}>
         <div css={cardHeaderRowStyles(theme)}>
           <MCPServerIcon icons={server.icons} name={server.name} />
           <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
-            {server.name}
+            {resolveDisplayName(server)}
           </Typography.Text>
           {server.latest_version && (
-            <Typography.Text color="secondary" size="sm" css={{ flexShrink: 0 }}>
+            <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
               v{server.latest_version}
             </Typography.Text>
           )}

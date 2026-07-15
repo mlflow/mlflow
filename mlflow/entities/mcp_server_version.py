@@ -11,6 +11,11 @@ from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 @experimental(version="3.15.0")
 @dataclass
+class ConnectOptionSettings:
+    hidden: bool = False
+
+
+@dataclass
 class MCPServerVersion:
     name: str
     version: str
@@ -20,6 +25,7 @@ class MCPServerVersion:
     tools: list[MCPTool] | None = None
     aliases: list[str] = field(default_factory=list)
     tags: dict[str, str] = field(default_factory=dict)
+    connect_options: dict[str, ConnectOptionSettings] = field(default_factory=dict)
     source: str | None = None
     workspace: str | None = None
     created_by: str | None = None

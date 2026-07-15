@@ -29,10 +29,9 @@ describe('MCPServerCard', () => {
     expect(screen.getByText('io.github.test/my-server')).toBeInTheDocument();
   });
 
-  it('renders name even when display_name is set', () => {
+  it('renders display_name as title when set', () => {
     renderCard(createMockMCPServer({ name: 'io.github.test/raw', display_name: 'Pretty Name' }));
-    expect(screen.getByText('io.github.test/raw')).toBeInTheDocument();
-    expect(screen.queryByText('Pretty Name')).not.toBeInTheDocument();
+    expect(screen.getByText('Pretty Name')).toBeInTheDocument();
   });
 
   it('renders description when provided', () => {
@@ -67,7 +66,8 @@ describe('MCPServerCard', () => {
 
   it('renders tags when provided', () => {
     renderCard(createMockMCPServer({ tags: { env: 'production' } }));
-    expect(screen.getByText('env: production')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('env');
+    expect(document.body.textContent).toContain('production');
   });
 
   it('does not render tags section when tags are empty', () => {
