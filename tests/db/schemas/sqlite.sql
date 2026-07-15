@@ -275,7 +275,7 @@ CREATE TABLE logged_models (
 
 
 CREATE TABLE mcp_access_endpoints (
-	id INTEGER NOT NULL,
+	id VARCHAR(36) NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	server_name VARCHAR(256) NOT NULL,
 	server_version VARCHAR(128),
