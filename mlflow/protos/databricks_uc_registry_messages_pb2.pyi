@@ -1078,9 +1078,6 @@ class DeleteRegisteredModelAlias(_message.Message):
 
 class GenerateTemporaryModelVersionCredential(_message.Message):
     __slots__ = ("catalog_name", "schema_name", "model_name", "version", "operation")
-    class Response(_message.Message):
-        __slots__ = ()
-        def __init__(self) -> None: ...
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1102,19 +1099,29 @@ class TagAssignmentsChange(_message.Message):
     def __init__(self, remove: _Optional[_Iterable[str]] = ..., add_tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ...) -> None: ...
 
 class UpdateTagSecurableAssignments(_message.Message):
-    __slots__ = ("changes",)
+    __slots__ = ("changes", "securable_type_arg", "securable_full_name_arg")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     CHANGES_FIELD_NUMBER: _ClassVar[int]
+    SECURABLE_TYPE_ARG_FIELD_NUMBER: _ClassVar[int]
+    SECURABLE_FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     changes: TagAssignmentsChange
-    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ...) -> None: ...
+    securable_type_arg: str
+    securable_full_name_arg: str
+    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ..., securable_type_arg: _Optional[str] = ..., securable_full_name_arg: _Optional[str] = ...) -> None: ...
 
 class UpdateTagSubentityAssignments(_message.Message):
-    __slots__ = ("changes",)
+    __slots__ = ("changes", "securable_type_arg", "securable_full_name_arg", "subentity_name_arg")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     CHANGES_FIELD_NUMBER: _ClassVar[int]
+    SECURABLE_TYPE_ARG_FIELD_NUMBER: _ClassVar[int]
+    SECURABLE_FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    SUBENTITY_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     changes: TagAssignmentsChange
-    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ...) -> None: ...
+    securable_type_arg: str
+    securable_full_name_arg: str
+    subentity_name_arg: str
+    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ..., securable_type_arg: _Optional[str] = ..., securable_full_name_arg: _Optional[str] = ..., subentity_name_arg: _Optional[str] = ...) -> None: ...

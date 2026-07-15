@@ -978,16 +978,17 @@ enum TemporaryCredentialOperation {
 }
 
 message GenerateTemporaryModelVersionCredential {
-  optional string catalog_name = 1;
-  optional string schema_name = 2;
-  optional string model_name = 3;
-  optional int64 version = 4;
-  optional TemporaryCredentialOperation operation = 5;
-
-  message Response {}
+  optional string catalog_name = 1 [(validate_required) = true];
+  optional string schema_name = 2 [(validate_required) = true];
+  optional string model_name = 3 [(validate_required) = true];
+  optional int64 version = 4 [(validate_required) = true];
+  optional TemporaryCredentialOperation operation = 5 [(validate_required) = true];
 }
 
-// ----- Generic UC tag API (managed-catalog securable / subentity assignments) -----
+// ----- Generic UC tag API (managed-catalog securable / subentity assignments); path-param fields
+// use the *_arg convention, matching the
+// {securable_type_arg}/{securable_full_name_arg}/{subentity_name_arg} segments in the service
+// proto. -----
 message TagAssignmentsChange {
   repeated string remove = 3;
   repeated TagKeyValue add_tags = 4;
@@ -995,12 +996,17 @@ message TagAssignmentsChange {
 
 message UpdateTagSecurableAssignments {
   optional TagAssignmentsChange changes = 1;
+  optional string securable_type_arg = 2 [(validate_required) = true];
+  optional string securable_full_name_arg = 3 [(validate_required) = true];
 
   message Response {}
 }
 
 message UpdateTagSubentityAssignments {
   optional TagAssignmentsChange changes = 1;
+  optional string securable_type_arg = 2 [(validate_required) = true];
+  optional string securable_full_name_arg = 3 [(validate_required) = true];
+  optional string subentity_name_arg = 4 [(validate_required) = true];
 
   message Response {}
 }

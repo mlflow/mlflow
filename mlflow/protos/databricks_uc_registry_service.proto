@@ -391,7 +391,7 @@ service UcModelRegistryService {
 // service for the OSS client: the enriched model-registry RPCs plus the governance RPCs
 // (delete / alias / temp-cred / tag). Served on the /api/2.1/unity-catalog/* surface (the client
 // resolves these with the /api/2.1 prefix and substitutes the
-// {full_name_arg}/{version_arg}/{alias_arg}/{securable_*}/{subentity_name} path segments). These
+// {full_name_arg}/{version_arg}/{alias_arg}/{securable_*_arg}/{subentity_name_arg} path segments). These
 // replace the legacy /mlflow/unity-catalog/* model RPCs; the declared response types are advisory
 // (the client passes the concrete response proto to parse into at call time).
 service UcEnrichedModelRegistryService {
@@ -605,7 +605,7 @@ service UcEnrichedModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc generateTemporaryModelVersionCredential(GenerateTemporaryModelVersionCredential) returns (GenerateTemporaryModelVersionCredential.Response) {
+  rpc generateTemporaryModelVersionCredential(GenerateTemporaryModelVersionCredential) returns (TemporaryCredentials) {
     option (rpc) = {
       endpoints: [
         {
@@ -625,7 +625,7 @@ service UcEnrichedModelRegistryService {
       endpoints: [
         {
           method: "PATCH"
-          path: "/unity-catalog/securable-tags/{securable_type}/{securable_full_name}"
+          path: "/unity-catalog/securable-tags/{securable_type_arg}/{securable_full_name_arg}"
           since: {
             major: 2
             minor: 1
@@ -640,7 +640,7 @@ service UcEnrichedModelRegistryService {
       endpoints: [
         {
           method: "PATCH"
-          path: "/unity-catalog/subentity-tags/{securable_type}/{securable_full_name}/{subentity_name}"
+          path: "/unity-catalog/subentity-tags/{securable_type_arg}/{securable_full_name_arg}/{subentity_name_arg}"
           since: {
             major: 2
             minor: 1
