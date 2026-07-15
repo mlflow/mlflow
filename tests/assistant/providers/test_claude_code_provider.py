@@ -1,3 +1,4 @@
+import errno
 import subprocess
 import tempfile
 from pathlib import Path
@@ -288,12 +289,20 @@ async def test_astream_temp_file_cleanup_failure_does_not_mask_result():
 
 
 @pytest.mark.asyncio
-async def test_astream_surfaces_cli_error_when_stdin_pipe_breaks():
-    # If the CLI exits before reading stdin, writing the message raises
-    # BrokenPipeError; the provider must swallow it and surface the CLI's
-    # real stderr instead of a bare "Broken pipe" message.
+@pytest.mark.parametrize(
+    "write_error",
+    [
+        BrokenPipeError("broken pipe"),
+        # POSIX EPIPE can surface as a bare OSError rather than BrokenPipeError.
+        OSError(errno.EPIPE, "broken pipe"),
+    ],
+)
+async def test_astream_surfaces_cli_error_when_stdin_pipe_breaks(write_error):
+    # If the CLI exits before reading stdin, writing the message raises a pipe
+    # error; the provider must swallow it and surface the CLI's real stderr
+    # instead of a bare "Broken pipe" message.
     mock_process = _mock_process(stdout_lines=[], returncode=1, stderr=b"Invalid session id")
-    mock_process.stdin.write = MagicMock(side_effect=BrokenPipeError("broken pipe"))
+    mock_process.stdin.write = MagicMock(side_effect=write_error)
 
     with (
         patch(
