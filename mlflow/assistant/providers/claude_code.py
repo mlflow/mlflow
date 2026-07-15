@@ -439,15 +439,19 @@ class ClaudeCodeProvider(AssistantProvider):
 
             # Send the user message via stdin to keep it off the command line.
             # If the CLI has already exited (e.g. bad --resume, auth failure), the
-            # pipe is broken; swallow it here so the read loop below surfaces the
-            # CLI's actual stderr instead of a bare "Broken pipe".
+            # pipe is broken; swallow the write error so the read loop below
+            # surfaces the CLI's actual stderr instead of a bare "Broken pipe".
+            # BrokenPipeError/ConnectionResetError are OSError subclasses; catch
+            # OSError broadly to also cover the POSIX EPIPE variant. Any write
+            # failure means the process is gone, which is exactly the case the
+            # stderr-reading path below handles.
             if process.stdin is not None:
                 try:
                     process.stdin.write(user_message.encode("utf-8"))
                     await process.stdin.drain()
                     process.stdin.close()
                     await process.stdin.wait_closed()
-                except (BrokenPipeError, ConnectionResetError):
+                except OSError:
                     pass
 
             try:
