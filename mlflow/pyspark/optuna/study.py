@@ -250,16 +250,22 @@ class MlflowSparkStudy(Study):
 
         if self._is_resumed and (direction is not None or directions is not None):
             requested = [direction] if direction is not None else list(directions)
-            try:
-                requested = [
-                    d if isinstance(d, StudyDirection) else StudyDirection[d.upper()]
-                    for d in requested
-                ]
-            except KeyError as e:
-                raise ValueError(
-                    "Invalid value for `direction`/`directions`: each direction must be "
-                    "'minimize', 'maximize', or an `optuna.study.StudyDirection` member."
-                ) from e
+            invalid_direction_message = (
+                "Invalid value for `direction`/`directions`: each direction must be "
+                "'minimize', 'maximize', or an `optuna.study.StudyDirection` member."
+            )
+            requested_directions = []
+            for requested_direction in requested:
+                if isinstance(requested_direction, StudyDirection):
+                    requested_directions.append(requested_direction)
+                elif isinstance(requested_direction, str):
+                    try:
+                        requested_directions.append(StudyDirection[requested_direction.upper()])
+                    except KeyError as e:
+                        raise ValueError(invalid_direction_message) from e
+                else:
+                    raise ValueError(invalid_direction_message)
+            requested = requested_directions
             if requested != self._directions:
                 raise ValueError(
                     f"Direction(s) {requested} conflict with the existing study "
@@ -285,26 +291,38 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
+    def _get_single_objective_best_trial(self) -> FrozenTrial | None:
+        if len(self._directions) != 1 or self.completed_trials_count == 0:
+            return None
+
+        try:
+            return self._study.best_trial
+        except ValueError as e:
+            if "No feasible trials are completed yet" in str(e):
+                return None
+            raise
+
     def get_resume_info(self) -> ResumeInfo | None:
         """Get information about the resumed study.
 
         Returns:
             ResumeInfo dataclass containing resume information including trial
             counts and best results. ``best_value`` and ``best_params`` are ``None``
-            for multi-objective studies and when no trial has completed.
+            for multi-objective studies, when no trial has completed, and when
+            no completed trial is feasible.
         """
         if not self._is_resumed:
             return ResumeInfo(is_resumed=False)
 
         completed_trials = self.completed_trials_count
-        has_single_objective_best = len(self._directions) == 1 and completed_trials > 0
+        best_trial = self._get_single_objective_best_trial()
         return ResumeInfo(
             is_resumed=True,
             study_name=self.study_name,
             existing_trials=len(self._study.trials),
             completed_trials=completed_trials,
-            best_value=self._study.best_value if has_single_objective_best else None,
-            best_params=self._study.best_params if has_single_objective_best else None,
+            best_value=best_trial.value if best_trial is not None else None,
+            best_params=best_trial.params if best_trial is not None else None,
         )
 
     def optimize(
@@ -318,11 +336,10 @@ class MlflowSparkStudy(Study):
     ) -> None:
         # Add logging for resume information
         if self._is_resumed and self._study.trials:
-            # `best_value` is undefined for multi-objective studies and for studies
-            # without completed trials
             completed_trials = self.completed_trials_count
-            if len(self._directions) == 1 and completed_trials > 0:
-                best_summary = f"Current best value: {self._study.best_value}"
+            best_trial = self._get_single_objective_best_trial()
+            if best_trial is not None:
+                best_summary = f"Current best value: {best_trial.value}"
             else:
                 best_summary = f"Completed trials: {completed_trials}"
             _logger.info(f"""

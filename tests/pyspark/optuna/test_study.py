@@ -21,6 +21,10 @@ from tests.pyfunc.test_spark import get_spark_session
 _logger = logging.getLogger(__name__)
 
 
+def _always_infeasible(_):
+    return (1.0,)
+
+
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
     for attempt in range(max_tries):
@@ -212,6 +216,46 @@ def test_resume_preserves_best_results(setup_storage):
     assert study2.best_value <= original_best_value
 
 
+def test_resume_only_pruned_study(setup_storage):
+    storage = setup_storage
+    study_name = "only-pruned-study"
+
+    def pruned_objective(trial):
+        trial.report(1.0, step=0)
+        if trial.should_prune():
+            raise TrialPruned()
+
+    study = MlflowSparkStudy(study_name, storage, pruner=ThresholdPruner(upper=0.5))
+    study.optimize(pruned_objective, n_trials=1, n_jobs=1)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, pruner=NopPruner())
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 0
+    assert info.best_value is None
+    assert info.best_params is None
+
+    resumed_study.optimize(lambda _: 0.0, n_trials=1, n_jobs=1)
+    assert resumed_study.completed_trials_count == 1
+
+
+def test_resume_all_infeasible_study(setup_storage):
+    storage = setup_storage
+    study_name = "all-infeasible-study"
+    sampler = TPESampler(seed=123, constraints_func=_always_infeasible)
+
+    study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    study.optimize(lambda _: 1.0, n_trials=1, n_jobs=1)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 1
+    assert info.best_value is None
+    assert info.best_params is None
+
+    resumed_study.optimize(lambda _: 1.0, n_trials=1, n_jobs=1)
+    assert resumed_study.completed_trials_count == 2
+
+
 def test_pruner_threaded_to_driver_and_executor_studies(setup_storage):
     storage = setup_storage
     study_name = "pruner-test-study"
@@ -293,6 +337,9 @@ def test_direction_inherited_on_resume_and_conflict_raises(setup_storage):
 
     with pytest.raises(ValueError, match="fixed at creation time"):
         MlflowSparkStudy(study_name, storage, direction="minimize")
+
+    with pytest.raises(ValueError, match="Invalid value"):
+        MlflowSparkStudy(study_name, storage, direction=123)
 
 
 def test_direction_and_directions_mutually_exclusive(setup_storage):
