@@ -507,9 +507,16 @@ class ClaudeCodeProvider(AssistantProvider):
                 process.kill()
                 await process.wait()
             # Remove the system prompt temp file only after the process has
-            # exited, since the CLI reads it during startup.
+            # exited, since the CLI reads it during startup. Cleanup is
+            # best-effort: a failure here (e.g. a lingering handle on Windows)
+            # must not mask the real error already propagating from the body.
             if system_prompt_path is not None:
-                Path(system_prompt_path).unlink(missing_ok=True)
+                try:
+                    Path(system_prompt_path).unlink(missing_ok=True)
+                except OSError:
+                    _logger.warning(
+                        "Failed to remove temp system prompt file %s", system_prompt_path
+                    )
 
     @staticmethod
     def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:

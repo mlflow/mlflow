@@ -260,6 +260,34 @@ async def test_astream_cleans_up_system_prompt_file(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_astream_temp_file_cleanup_failure_does_not_mask_result():
+    # A failure while unlinking the temp file (e.g. a lingering handle on
+    # Windows) must be swallowed so it doesn't escape the generator or mask
+    # the real result.
+    mock_process = _mock_process(stdout_lines=[b'{"type": "result", "session_id": "s1"}\n'])
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.Path.unlink",
+            side_effect=PermissionError("file in use"),
+        ),
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    # The stream completes normally; the cleanup error is swallowed.
+    assert events[-1].type == EventType.DONE
+
+
+@pytest.mark.asyncio
 async def test_astream_surfaces_cli_error_when_stdin_pipe_breaks():
     # If the CLI exits before reading stdin, writing the message raises
     # BrokenPipeError; the provider must swallow it and surface the CLI's
