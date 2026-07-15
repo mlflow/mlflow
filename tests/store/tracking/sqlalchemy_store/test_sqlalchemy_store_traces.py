@@ -3038,7 +3038,7 @@ def test_link_prompts_to_trace_nonexistent_trace(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match=r"Trace with ID .* not found") as excinfo:
         store.link_prompts_to_trace(trace_id, [prompt_version])
-    assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert excinfo.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 

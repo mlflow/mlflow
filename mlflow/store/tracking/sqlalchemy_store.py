@@ -801,13 +801,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         In single-tenant mode, validates that the trace exists. Workspace-aware
         subclasses override this to also enforce workspace scoping.
         """
-        exists_row = (
-            session
-            .query(SqlTraceInfo.request_id)
-            .filter(SqlTraceInfo.request_id == trace_id)
-            .first()
-        )
-        if exists_row is None:
+        if session.get(SqlTraceInfo, trace_id) is None:
             raise MlflowException(
                 f"Trace with ID '{trace_id}' not found.",
                 RESOURCE_DOES_NOT_EXIST,
