@@ -291,13 +291,16 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def _get_single_objective_best_trial(self) -> FrozenTrial | None:
-        if len(self._directions) != 1 or self.completed_trials_count == 0:
+    def _get_single_objective_best_trial(self, completed_trials_count: int) -> FrozenTrial | None:
+        if len(self._directions) != 1 or completed_trials_count == 0:
             return None
 
         try:
             return self._study.best_trial
         except ValueError as e:
+            # Optuna raises this ValueError when every completed trial violates the
+            # sampler's constraints. Matching on the message is brittle across Optuna
+            # versions but fails loud (re-raises) if the message ever changes.
             if "No feasible trials are completed yet" in str(e):
                 return None
             raise
@@ -315,7 +318,7 @@ class MlflowSparkStudy(Study):
             return ResumeInfo(is_resumed=False)
 
         completed_trials = self.completed_trials_count
-        best_trial = self._get_single_objective_best_trial()
+        best_trial = self._get_single_objective_best_trial(completed_trials)
         return ResumeInfo(
             is_resumed=True,
             study_name=self.study_name,
@@ -337,7 +340,7 @@ class MlflowSparkStudy(Study):
         # Add logging for resume information
         if self._is_resumed and self._study.trials:
             completed_trials = self.completed_trials_count
-            best_trial = self._get_single_objective_best_trial()
+            best_trial = self._get_single_objective_best_trial(completed_trials)
             if best_trial is not None:
                 best_summary = f"Current best value: {best_trial.value}"
             else:
