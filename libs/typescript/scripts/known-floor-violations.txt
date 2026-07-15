@@ -1,10 +1,10 @@
-# Integrations known to import an @mlflow/* symbol that is newer than the
-# version their package.json declares as the floor. These are pre-existing
-# violations of the same class as mlflow#24167 (opencode dropped session
-# metadata against the published @mlflow/core). The min-version gate
-# (check-min-mlflow-deps.sh) reports them but does NOT fail on them, so the
-# gate can be turned on now and block *new* regressions immediately while
-# these are fixed incrementally.
+# Integrations that import an @mlflow/* symbol newer than the version their
+# package.json declares as the floor -- the same class as mlflow#24167 (opencode
+# dropped session metadata against the published @mlflow/core). The min-version
+# gate (check-min-mlflow-deps.sh) reports allowlisted entries but does NOT fail
+# on them, so pre-existing violations can be fixed incrementally while the gate
+# blocks *new* regressions immediately. This list is currently empty -- every
+# integration type-checks against its declared floor.
 #
 # To fix an entry, first check whether the missing symbol was ever published
 # ('npm view @mlflow/core versions', then 'npm pack @mlflow/core@latest' and grep
@@ -16,6 +16,3 @@
 # prints a notice asking you to remove it from this file.
 #
 # One integration directory name per line (matches integrations/<name>).
-claude-code
-codex
-qwen-code
