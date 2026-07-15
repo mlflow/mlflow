@@ -25,6 +25,10 @@ def _always_infeasible(_):
     return (1.0,)
 
 
+def _first_trial_infeasible(trial):
+    return (1.0 if trial.number == 0 else -1.0,)
+
+
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
     for attempt in range(max_tries):
@@ -256,6 +260,21 @@ def test_resume_all_infeasible_study(setup_storage):
     assert resumed_study.completed_trials_count == 2
 
 
+def test_resume_reports_best_feasible_trial(setup_storage):
+    storage = setup_storage
+    study_name = "mixed-feasibility-study"
+    sampler = TPESampler(seed=123, constraints_func=_first_trial_infeasible)
+
+    study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    study._study.optimize(lambda trial: float(trial.number), n_trials=2)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 2
+    assert info.best_value == 1.0
+    assert info.best_params == {}
+
+
 def test_pruner_threaded_to_driver_and_executor_studies(setup_storage):
     storage = setup_storage
     study_name = "pruner-test-study"
@@ -352,3 +371,15 @@ def test_directions_string_raises(setup_storage):
     storage = setup_storage
     with pytest.raises(ValueError, match="must be a sequence"):
         MlflowSparkStudy("directions-string-study", storage, directions="maximize")
+
+
+def test_empty_directions_raises(setup_storage):
+    storage = setup_storage
+    message = "The number of objectives must be greater than 0"
+
+    with pytest.raises(ValueError, match=message):
+        MlflowSparkStudy("empty-directions-study", storage, directions=[])
+
+    MlflowSparkStudy("existing-study", storage)
+    with pytest.raises(ValueError, match=message):
+        MlflowSparkStudy("existing-study", storage, directions=[])

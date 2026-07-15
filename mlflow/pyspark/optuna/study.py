@@ -200,10 +200,12 @@ class MlflowSparkStudy(Study):
                 "`directions` must be a sequence (e.g. list or tuple) of direction values, "
                 "not a string. For single-objective optimization, use `direction=` instead."
             )
+        if directions is not None and len(directions) == 0:
+            raise ValueError("The number of objectives must be greater than 0.")
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
         self.sampler = sampler or samplers.TPESampler()
-        self.pruner = pruner or pruners.MedianPruner()
+        self.pruner = pruner if pruner is not None else pruners.MedianPruner()
 
         self.spark = SparkSession.active()
 
@@ -291,19 +293,18 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def _get_single_objective_best_trial(self, completed_trials_count: int) -> FrozenTrial | None:
-        if len(self._directions) != 1 or completed_trials_count == 0:
+    def _get_single_objective_best_trial(self, trials: Sequence[FrozenTrial]) -> FrozenTrial | None:
+        if len(self._directions) != 1:
             return None
 
-        try:
-            return self._study.best_trial
-        except ValueError as e:
-            # Optuna raises this ValueError when every completed trial violates the
-            # sampler's constraints. Matching on the message is brittle across Optuna
-            # versions but fails loud (re-raises) if the message ever changes.
-            if "No feasible trials are completed yet" in str(e):
-                return None
-            raise
+        completed_trials = [trial for trial in trials if trial.state == TrialState.COMPLETE]
+        if not completed_trials:
+            return None
+
+        snapshot_study = optuna.create_study(direction=self._directions[0])
+        snapshot_study.add_trials(completed_trials)
+        best_trials = snapshot_study.best_trials
+        return best_trials[0] if best_trials else None
 
     def get_resume_info(self) -> ResumeInfo | None:
         """Get information about the resumed study.
@@ -317,12 +318,13 @@ class MlflowSparkStudy(Study):
         if not self._is_resumed:
             return ResumeInfo(is_resumed=False)
 
-        completed_trials = self.completed_trials_count
-        best_trial = self._get_single_objective_best_trial(completed_trials)
+        trials = self._study.trials
+        completed_trials = sum(trial.state == TrialState.COMPLETE for trial in trials)
+        best_trial = self._get_single_objective_best_trial(trials)
         return ResumeInfo(
             is_resumed=True,
             study_name=self.study_name,
-            existing_trials=len(self._study.trials),
+            existing_trials=len(trials),
             completed_trials=completed_trials,
             best_value=best_trial.value if best_trial is not None else None,
             best_params=best_trial.params if best_trial is not None else None,
@@ -338,19 +340,21 @@ class MlflowSparkStudy(Study):
         callbacks: Iterable[Callable[[Study, FrozenTrial], None]] | None = None,
     ) -> None:
         # Add logging for resume information
-        if self._is_resumed and self._study.trials:
-            completed_trials = self.completed_trials_count
-            best_trial = self._get_single_objective_best_trial(completed_trials)
-            if best_trial is not None:
-                best_summary = f"Current best value: {best_trial.value}"
+        if self._is_resumed:
+            trials = self._study.trials
+            if trials:
+                completed_trials = sum(trial.state == TrialState.COMPLETE for trial in trials)
+                best_trial = self._get_single_objective_best_trial(trials)
+                if best_trial is not None:
+                    best_summary = f"Current best value: {best_trial.value}"
+                else:
+                    best_summary = f"Completed trials: {completed_trials}"
+                _logger.info(f"""
+                Continuing optimization with {len(trials)} existing trials.
+                {best_summary}
+                """)
             else:
-                best_summary = f"Completed trials: {completed_trials}"
-            _logger.info(f"""
-            Continuing optimization with {len(self._study.trials)} existing trials.
-            {best_summary}
-            """)
-        elif self._is_resumed:
-            _logger.info("Resuming study with no previous trials")
+                _logger.info("Resuming study with no previous trials")
         else:
             _logger.info("Starting optimization for new study")
 
