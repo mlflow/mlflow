@@ -140,9 +140,15 @@ describe('ExperimentViewHeader', () => {
       expect(tooltip).toHaveTextContent('Trace Archival Retention: 30 days');
     });
 
-    it('displays share and management buttons', () => {
-      expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
+    it('displays the management button', () => {
       expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+
+    it('does not render a share button in the header', () => {
+      // Sharing lives in each tab's toolbar "Views" dropdown, not the header: the header button
+      // only ever serialized runs state and linked to the runs tab, so it was wrong on every
+      // other tab.
+      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
     });
   });
 
@@ -239,12 +245,11 @@ describe('ExperimentViewHeader', () => {
       );
     };
 
-    it('hides the share button and management menu when headerActionsHidden is true', async () => {
+    it('hides the management menu when headerActionsHidden is true', async () => {
       await act(async () => {
         renderWithHiddenActions();
       });
 
-      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
       expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
     });
   });
