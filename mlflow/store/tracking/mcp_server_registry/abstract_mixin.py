@@ -6,7 +6,7 @@ from typing_extensions import NotRequired
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
@@ -133,6 +133,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
 
@@ -156,6 +157,7 @@ class MCPServerRegistryMixin:
             tools: ``NOT_SET`` or ``None`` to store null, ``[]`` / a list to
                 store as-is.
             created_by: Authenticated username of the creator.
+            connect_options: Per-key settings for connect options (e.g. visibility).
 
         Returns:
             The created MCPServerVersion entity.
@@ -235,6 +237,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
@@ -246,6 +249,8 @@ class MCPServerRegistryMixin:
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
             last_updated_by: Authenticated username of the updater.
+            connect_options: Per-key settings for connect options (e.g. visibility).
+                Omit to leave unchanged; pass None to clear.
 
         Returns:
             The updated MCPServerVersion entity.
