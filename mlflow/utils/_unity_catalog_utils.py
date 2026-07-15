@@ -426,6 +426,24 @@ def get_full_name_from_sc(name, spark) -> str:
     return f"{catalog}.{schema}.{name}"
 
 
+def split_uc_model_name(full_name: str) -> tuple[str, str, str]:
+    """Split a Unity Catalog model name into ``(catalog, schema, model)``.
+
+    Raises ``MlflowException`` if ``full_name`` is not a valid three-level UC name.
+    """
+    match full_name.split("."):
+        case [catalog, schema, model] if all((catalog, schema, model)):
+            return catalog, schema, model
+        case _:
+            raise MlflowException(
+                f"Not a valid Unity Catalog model name: '{full_name}'. Unity Catalog model names "
+                "must have three levels (catalog.schema.model). If you are trying to use the "
+                "legacy Workspace Model Registry instead of the recommended Unity Catalog Model "
+                "Registry, set the Model Registry URI to 'databricks' (legacy) instead of "
+                "'databricks-uc'."
+            )
+
+
 def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
     # Return early if the environment variable is set to use the SDK models artifact repository
     if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.defined:
