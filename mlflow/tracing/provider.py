@@ -470,6 +470,37 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
     _initialize_tracer_provider()
 
 
+def get_bridged_tracer_provider() -> TracerProvider:
+    """
+    Return the OpenTelemetry ``TracerProvider`` that MLflow uses to generate traces.
+
+    This is intended for bridging pure-OpenTelemetry instrumentation libraries into MLflow's
+    tracing pipeline. Many OpenTelemetry instrumentors accept a ``tracer_provider=`` argument
+    (e.g. ``SomeInstrumentor().instrument(tracer_provider=...)``); passing the provider returned
+    by this function makes the spans they create flow through MLflow's span processors, so they
+    receive the correct trace ID and are exported to the configured MLflow destination.
+
+    In the default isolated tracer provider mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``) this returns MLflow's isolated provider, so
+    the bridged spans do not depend on the process-global OpenTelemetry provider pipeline and
+    the isolation of unrelated OpenTelemetry instrumentation is preserved. In unified mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``) this returns the shared global provider.
+
+    .. note::
+        This bridges where spans are *exported*. For the bridged spans to nest under an active
+        ``@mlflow.trace`` / ``mlflow.start_span`` span, the instrumentor must also read MLflow's
+        active span as the parent. Instrumentors that read the process-global OpenTelemetry
+        context can be enabled to do so by setting
+        ``MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True``.
+
+    Returns:
+        The ``TracerProvider`` instance used by MLflow, initializing it if necessary.
+    """
+    # Ensure the provider is initialized before handing it out to external instrumentors.
+    _get_tracer(__name__)
+    return provider.get()
+
+
 def _get_tracer(module_name: str) -> trace.Tracer:
     """
     Get a tracer instance for the given module name.

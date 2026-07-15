@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
-from mlflow.tracing.provider import provider, set_destination
+from mlflow.tracing.provider import get_bridged_tracer_provider, provider, set_destination
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import get_traces
@@ -416,3 +416,48 @@ def test_nested_mlflow_spans_maintain_otel_context_when_opted_in(monkeypatch):
         assert after_inner.is_recording(), (
             "Outer span's OTel context should be restored after inner span exits"
         )
+
+
+def test_get_bridged_tracer_provider_returns_mlflow_provider_isolated(monkeypatch):
+    """get_bridged_tracer_provider should hand out MLflow's isolated provider by default.
+
+    This lets OTel instrumentors that accept `tracer_provider=` route spans through MLflow's
+    pipeline without depending on the process-global provider (issue #24105).
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    assert bridged is provider.get()
+    processors = bridged._active_span_processor._span_processors
+    assert any(isinstance(p, MlflowV3SpanProcessor) for p in processors)
+
+
+def test_get_bridged_tracer_provider_routes_spans_to_mlflow(monkeypatch):
+    """Spans created via the bridged provider's tracer should be captured by MLflow."""
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    otel_tracer = bridged.get_tracer("external_instrumentor")
+    with otel_tracer.start_as_current_span("external_span") as span:
+        span.set_attribute("key", "value")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.experiment_id == experiment_id
+    assert any(s.name == "external_span" for s in trace.data.spans)
+
+
+def test_get_bridged_tracer_provider_returns_global_provider_unified(monkeypatch):
+    """In unified mode, the bridged provider is the shared global provider."""
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    assert bridged is otel_trace.get_tracer_provider()
