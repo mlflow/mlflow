@@ -493,11 +493,15 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     @classmethod
     def _get_databricks_uc_rest_store(cls, store_uri):
         from mlflow.environment_variables import MLFLOW_TRACKING_URI
-        from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+        from mlflow.store._unity_catalog.registry.utils import (
+            get_uc_model_registry_store_class,
+        )
 
         # Get tracking URI from environment or use "databricks-uc" as default
         tracking_uri = MLFLOW_TRACKING_URI.get() or "databricks-uc"
-        return UcModelRegistryStore(store_uri, tracking_uri)
+        # The native /api/2.1 store and the legacy /api/2.0 store are separate classes; select
+        # which one to instantiate based on MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY.
+        return get_uc_model_registry_store_class()(store_uri, tracking_uri)
 
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
