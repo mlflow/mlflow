@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784121763551,
+  "lastUpdate": 1784147423613,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -13985,6 +13985,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 33.255929399996376,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mprahl@users.noreply.github.com",
+            "name": "Matthew Prahl",
+            "username": "mprahl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14414ab000889614875b07d970af95093c12ff8a",
+          "message": "Add MCP registry backend and clients (#24380)\n\nSigned-off-by: Dan Kuc <dkuc@users.noreply.github.com>\nSigned-off-by: Jon Burdo <jon@jonburdo.com>\nSigned-off-by: Federico Mosca <fege85@gmail.com>\nCo-authored-by: Dan Kuc <dkuc@users.noreply.github.com>\nCo-authored-by: Jon Burdo <jon@jonburdo.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Dan Kuc <dkuc@redhat.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>\nCo-authored-by: Federico Mosca <fege85@gmail.com>",
+          "timestamp": "2026-07-15T20:26:35Z",
+          "tree_id": "902b3c88452f890fb56c9e8c0ff4a61130e0991a",
+          "url": "https://github.com/mlflow/mlflow/commit/14414ab000889614875b07d970af95093c12ff8a"
+        },
+        "date": 1784147421608,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 34.594297949998776,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 18.97843487179493,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 17.926045220778445,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 18.76855138571512,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 19.44278712499899,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.164651666663208,
             "unit": "ms"
           }
         ]
