@@ -387,11 +387,10 @@ service UcModelRegistryService {
   }
 }
 
-// UC-native (governance + MLflow enrichment) model-registry endpoints. Mirrors the enriched
-// UcEnrichedModelRegistryService in universe (uc-model-registry/api/proto/uc_enriched_model_registry.proto)
-// plus the managed-catalog UnityCatalogService governance RPCs (delete / alias / temp-cred / tag),
-// combined here into one service for the OSS client. Served on the /api/2.1/unity-catalog/* surface
-// (the client resolves these with the /api/2.1 prefix and substitutes the
+// UC-native (governance + MLflow enrichment) model-registry endpoints, combined here into one
+// service for the OSS client: the enriched model-registry RPCs plus the governance RPCs
+// (delete / alias / temp-cred / tag). Served on the /api/2.1/unity-catalog/* surface (the client
+// resolves these with the /api/2.1 prefix and substitutes the
 // {full_name_arg}/{version_arg}/{alias_arg}/{securable_*}/{subentity_name} path segments). These
 // replace the legacy /mlflow/unity-catalog/* model RPCs; the declared response types are advisory
 // (the client passes the concrete response proto to parse into at call time).

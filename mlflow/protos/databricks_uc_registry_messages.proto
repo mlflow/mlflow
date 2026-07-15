@@ -851,9 +851,8 @@ message UcModelVersionInfo {
   optional ModelVersionDeploymentJobState deployment_job_state = 24;
 }
 
-// ----- Enriched request messages (Uc-prefixed to mirror UcEnrichedModelRegistryService in
-// universe uc_enriched_model_registry.proto; full_name_arg/version_arg/alias_arg are URL path
-// params, matching the {full_name_arg}/{version_arg}/{alias_arg} segments in the service proto).
+// ----- Enriched request messages (Uc-prefixed; full_name_arg/version_arg/alias_arg are URL path
+// params, matching the {full_name_arg}/{version_arg}/{alias_arg} segments in the service proto). -----
 message UcGetRegisteredModel {
   optional string full_name_arg = 1 [(validate_required) = true];
   optional bool include_aliases = 2;
@@ -939,8 +938,8 @@ message UcFinalizeModelVersion {
   optional int64 version_arg = 2 [(validate_required) = true];
 }
 
-// ----- Passthrough request messages (bare governance / empty responses). Names mirror the
-// managed-catalog UnityCatalogService RPCs; path-param fields use the *_arg convention. -----
+// ----- Passthrough request messages (bare governance / empty responses); path-param fields use
+// the *_arg convention. -----
 message DeleteRegisteredModel {
   optional string full_name_arg = 1 [(validate_required) = true];
   optional bool force = 2;
