@@ -18,6 +18,7 @@ from mlflow.genai.scorers.guardrails import (
     ToxicLanguage,
     get_scorer,
 )
+from mlflow.telemetry.events import _get_scorer_class_name_for_tracking
 
 
 @register_validator(name="test/mock_validator", data_type="string")
@@ -252,3 +253,24 @@ def test_guardrails_scorer_with_trace_failure(mock_validator_class):
     assert result.name == "ToxicLanguage"
     assert result.value == CategoricalRating.NO
     assert "Content flagged as inappropriate" in result.rationale
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expected_class"),
+    [
+        (ToxicLanguage, "Guardrails:ToxicLanguage"),
+        (NSFWText, "Guardrails:NSFWText"),
+        (DetectJailbreak, "Guardrails:DetectJailbreak"),
+        (DetectPII, "Guardrails:DetectPII"),
+        (SecretsPresent, "Guardrails:SecretsPresent"),
+        (GibberishText, "Guardrails:GibberishText"),
+    ],
+)
+def test_guardrails_scorer_tracking_class_name(mock_validator_class, scorer_class, expected_class):
+    with patch(
+        "mlflow.genai.scorers.guardrails.get_validator_class",
+        return_value=mock_validator_class,
+    ):
+        scorer = scorer_class()
+
+    assert _get_scorer_class_name_for_tracking(scorer) == expected_class

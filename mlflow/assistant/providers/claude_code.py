@@ -465,7 +465,7 @@ class ClaudeCodeProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)
         finally:
             if process is not None and process.returncode is None:
                 process.kill()
