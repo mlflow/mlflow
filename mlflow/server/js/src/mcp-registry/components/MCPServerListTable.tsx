@@ -17,10 +17,12 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
+import MCPRegistryRoutes from '../routes';
 import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
-import { textEllipsisStyles } from '../styles';
+import { textEllipsisStyles, flexRowStyles } from '../styles';
+import { Link } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 
 const coreRowModel = getCoreRowModel<MCPServer>();
@@ -30,9 +32,14 @@ const MCPServerNameCell = ({ getValue, row }: CellContext<MCPServer, unknown>) =
   const { theme } = useDesignSystemTheme();
   const value = getValue() as string;
   return (
-    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+    <span css={flexRowStyles(theme)}>
       <MCPServerIcon icons={row.original.icons} name={value} />
-      {value}
+      <Link
+        componentId="mlflow.mcp_registry.table.name_link"
+        to={MCPRegistryRoutes.getMCPServerDetailRoute(row.original.name)}
+      >
+        {value}
+      </Link>
     </span>
   );
 };
