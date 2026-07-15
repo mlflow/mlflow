@@ -711,6 +711,10 @@
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
   },
+  "1LQIa7": {
+    "defaultMessage": "+ Save current view...",
+    "description": "Menu item that opens the modal to save the current experiment view"
+  },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
@@ -1154,6 +1158,10 @@
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
     "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
+  },
+  "3VcYyV": {
+    "defaultMessage": "Views",
+    "description": "Label for the saved views dropdown button in the experiment header"
   },
   "3X52Jw": {
     "defaultMessage": "This tab displays all the traces logged to this logged model. MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
@@ -2139,6 +2147,10 @@
     "defaultMessage": "No matching users",
     "description": "Review queue: no users match the owner search"
   },
+  "8Oqhz5": {
+    "defaultMessage": "Copy failed — clipboard unavailable.",
+    "description": "Error toast shown when copying a saved experiment view share link fails"
+  },
   "8Rlf8s": {
     "defaultMessage": "— The model decides whether to call one or more tools (default).",
     "description": "Description of the Auto tool choice in the Tools info popover"
@@ -2730,6 +2742,10 @@
   "B1Upnc": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
+  },
+  "B5ECVe": {
+    "defaultMessage": "Delete saved view",
+    "description": "Accessible label for the button that deletes a saved experiment view"
   },
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
@@ -4111,6 +4127,10 @@
     "defaultMessage": "Add tag \"{tagKey}\"",
     "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button"
   },
+  "IJgSCU": {
+    "defaultMessage": "No saved views yet",
+    "description": "Empty state shown in the saved views dropdown when no views exist"
+  },
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
     "description": "Code comment which states on how we can predict using pandas DataFrame"
@@ -4258,6 +4278,10 @@
   "J961B2": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
+  },
+  "JBZ+Q+": {
+    "defaultMessage": "Delete saved view",
+    "description": "Title of the confirmation dialog for deleting a saved experiment view"
   },
   "JCboZ7": {
     "defaultMessage": "Path copied",
@@ -6754,6 +6778,10 @@
   "VcNdOq": {
     "defaultMessage": "No description",
     "description": "Run page > Overview > Description section > Empty value placeholder"
+  },
+  "Vcxqhk": {
+    "defaultMessage": "No views match your search",
+    "description": "Empty state shown in the saved views dropdown when the search matches nothing"
   },
   "VfGJFc": {
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
@@ -9519,6 +9547,10 @@
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
   },
+  "i7fiTI": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button for deleting a saved experiment view"
+  },
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
@@ -9746,6 +9778,10 @@
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
+  },
+  "j5awQa": {
+    "defaultMessage": "Copy share link",
+    "description": "Label for the button that copies a saved experiment view share link"
   },
   "j77+aP": {
     "defaultMessage": "Fail",
@@ -10250,6 +10286,10 @@
   "lTrmPI": {
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
+  },
+  "lY4pBq": {
+    "defaultMessage": "Delete \"{name}\"? This can't be undone.",
+    "description": "Body of the confirmation dialog for deleting a saved experiment view"
   },
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
@@ -11034,6 +11074,10 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
+  },
+  "pJ57zV": {
+    "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
+    "description": "Confirmation toast shown after copying a saved experiment view share link"
   },
   "pMb1cg": {
     "defaultMessage": "Download {contentType} ({size})",
@@ -12910,6 +12954,10 @@
   "yoD1c7": {
     "defaultMessage": "Usage Tracking",
     "description": "Section title for usage tracking configuration"
+  },
+  "yqauYf": {
+    "defaultMessage": "Search saved views",
+    "description": "Placeholder for the search input in the saved views dropdown"
   },
   "yrsFOP": {
     "defaultMessage": "Datasets",

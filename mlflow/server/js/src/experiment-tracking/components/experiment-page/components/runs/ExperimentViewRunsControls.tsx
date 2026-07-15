@@ -1,5 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import type { UpdateExperimentViewStateFn } from '../../../../types';
+import type { ExperimentEntity, ExperimentStoreEntities } from '../../../../types';
+import { ExperimentViewSavedViewsButton } from '../header/ExperimentViewSavedViewsButton';
+import { ExperimentViewShareButton } from '../header/ExperimentViewShareButton';
 import { useRunSortOptions } from '../../hooks/useRunSortOptions';
 import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -67,6 +71,15 @@ export const ExperimentViewRunsControls = React.memo(
     const { orderByAsc, orderByKey } = searchFacetsState;
 
     const updateUIState = useUpdateExperimentViewUIState();
+
+    // The saved-views button (moved here from the experiment header so it sits with the table
+    // controls it captures) needs the experiment entity for its permission check and tag reads.
+    // experimentsById is typed as a total Record, so the index signature lies about missing keys;
+    // the explicit `| undefined` is what justifies the `&& experiment` render gate below.
+    const experiment = useSelector(
+      (state: { entities: ExperimentStoreEntities }) =>
+        state.entities.experimentsById[experimentId] as ExperimentEntity | undefined,
+    );
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
     const isEvaluationMode = compareRunsMode === 'ARTIFACT';
@@ -180,6 +193,20 @@ export const ExperimentViewRunsControls = React.memo(
                       updateUIState((state) => ({ ...state, useGroupedValuesInCharts }));
                     }}
                   />
+                )}
+                {!isComparingExperiments && experiment && (
+                  <>
+                    <ExperimentViewSavedViewsButton
+                      experiment={experiment}
+                      searchFacetsState={searchFacetsState}
+                      uiState={uiState}
+                    />
+                    <ExperimentViewShareButton
+                      experimentId={experiment.experimentId}
+                      searchFacetsState={searchFacetsState}
+                      uiState={uiState}
+                    />
+                  </>
                 )}
               </>
             }
