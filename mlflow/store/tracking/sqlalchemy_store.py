@@ -1034,7 +1034,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Rows are locked in request_id order so that concurrent transactions acquire them in the
         same order, and callers must lock before writing any span rows so that the trace row is
         always locked ahead of span rows, matching the order the archival paths use. Together
-        these keep overlapping transactions from deadlocking.
+        these reduce the likelihood of deadlocks between overlapping transactions.
 
         NB: this queries SqlTraceInfo directly instead of going through `_trace_query()`, whose
         workspace-aware override joins experiments. Locking through that join would also lock the
