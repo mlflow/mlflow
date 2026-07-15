@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
@@ -1071,6 +1072,46 @@ def test_update_mcp_server_version_deleted_raises(store):
             "io.github.test/servererver", "1.0.0", display_name="Updated"
         )
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_create_mcp_server_version_with_connect_options(store):
+    sv = store.create_mcp_server_version(
+        _server_json(),
+        connect_options={"packages": ConnectOptionSettings(hidden=True)},
+    )
+    assert sv.connect_options == {"packages": ConnectOptionSettings(hidden=True)}
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.connect_options == {"packages": ConnectOptionSettings(hidden=True)}
+
+
+def test_update_mcp_server_version_connect_options(store):
+    store.create_mcp_server_version(_server_json())
+    updated = store.update_mcp_server_version(
+        "io.github.test/servererver",
+        "1.0.0",
+        connect_options={
+            "packages": ConnectOptionSettings(hidden=True),
+            "remotes": ConnectOptionSettings(hidden=False),
+        },
+    )
+    assert updated.connect_options == {
+        "packages": ConnectOptionSettings(hidden=True),
+        "remotes": ConnectOptionSettings(hidden=False),
+    }
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.connect_options == {
+        "packages": ConnectOptionSettings(hidden=True),
+        "remotes": ConnectOptionSettings(hidden=False),
+    }
+
+    updated2 = store.update_mcp_server_version(
+        "io.github.test/servererver",
+        "1.0.0",
+        connect_options=None,
+    )
+    assert updated2.connect_options == {}
+    reloaded2 = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded2.connect_options == {}
 
 
 def test_delete_mcp_server_version_soft_delete(store):

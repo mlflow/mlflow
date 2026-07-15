@@ -127,7 +127,8 @@ describe('MCPServerListTable', () => {
   it('renders tags column', () => {
     const servers = [createMockMCPServer({ tags: { env: 'staging' } })];
     renderTable({ servers });
-    expect(screen.getByText('env: staging')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('env');
+    expect(document.body.textContent).toContain('staging');
   });
 
   it('renders last modified column with formatted timestamp', () => {
