@@ -77,6 +77,17 @@ export const deserializePersistedState = async (envelope: SavedViewEnvelope): Pr
 };
 
 /**
+ * Normalize the `experimentTagsByExperimentId` slice into plain {key, value} entities. The reducer
+ * stores Immutable ExperimentTag records (getKey/getValue) in production, but fixtures and some
+ * mock stores hold plain objects, so read either shape rather than assuming the Immutable API.
+ */
+export const toKeyValueEntities = (tagsById: unknown): KeyValueEntity[] =>
+  Object.values((tagsById as Record<string, any>) ?? {}).map((tag: any) => ({
+    key: typeof tag?.getKey === 'function' ? tag.getKey() : tag.key,
+    value: typeof tag?.getValue === 'function' ? tag.getValue() : tag.value,
+  }));
+
+/**
  * Filter a set of experiment tags down to saved-view summaries, in tag order. Tags whose value
  * fails to decode are skipped rather than throwing, so one corrupt view can't break the whole list.
  * State is intentionally not deserialized here — the list only needs the name and createdAt.

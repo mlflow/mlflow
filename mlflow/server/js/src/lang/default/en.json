@@ -99,6 +99,10 @@
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
   },
+  "+Vc8hK": {
+    "defaultMessage": "Share",
+    "description": "Label for the button that opens the save-and-share-view modal in the experiment runs toolbar"
+  },
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
@@ -1683,10 +1687,6 @@
     "defaultMessage": "Max. tokens: {max_tokens}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
   },
-  "6KFQMl": {
-    "defaultMessage": "Get shareable link",
-    "description": "Title text for the experiment \"Get link\" modal"
-  },
   "6Q/0BO": {
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of retrieval groundedness judge."
@@ -2267,6 +2267,10 @@
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
   },
+  "95ScZ3": {
+    "defaultMessage": "View name",
+    "description": "Placeholder for the name input when saving an experiment view"
+  },
   "961sxj": {
     "defaultMessage": "Success Rate",
     "description": "Label for success rate statistic"
@@ -2650,6 +2654,10 @@
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
+  },
+  "AiESnf": {
+    "defaultMessage": "This view is too large to save. Try hiding some columns or charts, then save again.",
+    "description": "Error shown when a saved experiment view exceeds the experiment-tag size limit"
   },
   "AmLGSf": {
     "defaultMessage": "Apply filters",
@@ -3722,6 +3730,10 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
+  },
+  "GFAm1C": {
+    "defaultMessage": "A view named \"{name}\" already exists. Choose a different name.",
+    "description": "Error shown when saving an experiment view whose name is already taken"
   },
   "GJWVBA": {
     "defaultMessage": "Inputs",
@@ -8787,6 +8799,10 @@
     "defaultMessage": "Numeric",
     "description": "Review question input type: numeric"
   },
+  "fCT8Fj": {
+    "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
+    "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
+  },
   "fHI22G": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs tab"
@@ -10267,6 +10283,10 @@
     "defaultMessage": "Admin",
     "description": "Users table admin header"
   },
+  "ll6dsG": {
+    "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
+    "description": "Message shown in the save-view modal when the experiment has reached the saved-view limit"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
@@ -11399,10 +11419,6 @@
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
   },
-  "r9EsGo": {
-    "defaultMessage": "This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts.",
-    "description": "Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
-  },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
     "description": "Aria label for the record-id activator in the V2 dataset records table"
@@ -11770,6 +11786,10 @@
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "sy4S+d": {
+    "defaultMessage": "Save & share view",
+    "description": "Title of the modal that saves the current experiment view and produces a shareable link"
   },
   "syQ4eZ": {
     "defaultMessage": "Are the tool calls and their arguments correct for the request?",
@@ -12227,6 +12247,10 @@
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
   },
+  "vQe6Gb": {
+    "defaultMessage": "Save the current column layout, filters, sort and charts as a named view, then share it by link.",
+    "description": "Explanation shown in the save-and-share-view modal describing what a saved view captures"
+  },
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
     "description": "Tooltip explaining why provider field is disabled in drawer edit"
@@ -12438,6 +12462,10 @@
   "wZtuCR": {
     "defaultMessage": "AutoML",
     "description": "Label for generic AutoML experiments"
+  },
+  "waKoIu": {
+    "defaultMessage": "Save",
+    "description": "Button that saves the current experiment view as a named view"
   },
   "wbRVln": {
     "defaultMessage": "Metrics",
