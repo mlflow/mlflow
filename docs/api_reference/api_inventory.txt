@@ -362,6 +362,7 @@ mlflow.entities.BudgetTargetScope.to_proto
 mlflow.entities.BudgetUnit
 mlflow.entities.BudgetUnit.from_proto
 mlflow.entities.BudgetUnit.to_proto
+mlflow.entities.ConnectOptionSettings
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -514,7 +515,6 @@ mlflow.entities.MCPRemoteTransportType
 mlflow.entities.MCPServer
 mlflow.entities.MCPServerAlias
 mlflow.entities.MCPServerTag
-mlflow.entities.ConnectOptionSettings
 mlflow.entities.MCPServerVersion
 mlflow.entities.MCPStatus
 mlflow.entities.MCPTool
