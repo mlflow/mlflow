@@ -30,14 +30,6 @@ const deserializePersistedState = async (state: string) => {
 };
 
 /**
- * URL-embedded shared links carry the (optionally compressed) view-state blob directly in the
- * viewStateShareKey URL param. Legacy links instead store a hash that points to an experiment
- * tag. A compressed blob carries the deflate header; an uncompressed blob is a JSON object
- * literal — both are distinguishable from a bare hash.
- */
-const isUrlEmbeddedShareState = (value: string) => isTextCompressedDeflate(value) || value.trimStart().startsWith('{');
-
-/**
  * Hook that handles loading shared view state from URL and updating the search facets/UI state accordingly
  */
 export const useSharedExperimentViewState = (
@@ -148,33 +140,8 @@ export const useSharedExperimentViewState = (
       );
     };
 
-    // URL-embedded shared link: the view state is carried directly in the viewStateShareKey param
-    if (isUrlEmbeddedShareState(viewStateShareKey)) {
-      // Mark as acted-on synchronously so a fast re-run can't slip past the pending async parse.
-      appliedShareKeyRef.current = viewStateShareKey;
-      const parseUrlEmbeddedShareState = async () => {
-        try {
-          const parsedSharedViewState = await deserializePersistedState(viewStateShareKey);
-          // Must be a plain object: arrays are typeof 'object' but pick()ing them yields {},
-          // which would silently reset the recipient's view to defaults instead of erroring.
-          if (
-            !parsedSharedViewState ||
-            typeof parsedSharedViewState !== 'object' ||
-            Array.isArray(parsedSharedViewState)
-          ) {
-            reportInvalidShareState();
-            return;
-          }
-          applyParsedState(parsedSharedViewState);
-        } catch (e) {
-          reportInvalidShareState();
-        }
-      };
-      parseUrlEmbeddedShareState();
-      return;
-    }
-
-    // Legacy shared link: the param is a hash pointing to an experiment tag.
+    // The share key references an experiment tag by id: a saved-view envelope tag, or a legacy
+    // pre-#24152 tag storing the raw serialized state. Resolving it requires the experiment.
     if (!experiment) {
       return;
     }
