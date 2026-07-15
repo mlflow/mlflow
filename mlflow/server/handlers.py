@@ -760,6 +760,10 @@ def initialize_backend_stores(
     _verify_tracking_store_trace_archival_support(tracking_store)
 
 
+def initialize_workspace_store(workspace_store_uri: str) -> None:
+    _get_workspace_store(workspace_uri=workspace_store_uri)
+
+
 def _store_supports_workspaces(
     store: AbstractTrackingStore | AbstractModelRegistryStore | AbstractJobStore,
 ) -> bool:
@@ -1347,6 +1351,7 @@ def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 @_disable_if_workspaces_disabled
 def _list_workspaces_handler():
     _get_request_message(ListWorkspaces())
@@ -1357,6 +1362,7 @@ def _list_workspaces_handler():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 @_disable_if_workspaces_disabled
 def _create_workspace_handler():
     request_message, request_json = _get_workspace_request_message(
@@ -1416,6 +1422,7 @@ def _create_workspace_handler():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 @_disable_if_workspaces_disabled
 def _get_workspace_handler(workspace_name: str):
     if workspace_name != DEFAULT_WORKSPACE_NAME:
@@ -1427,6 +1434,7 @@ def _get_workspace_handler(workspace_name: str):
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 @_disable_if_workspaces_disabled
 def _update_workspace_handler(workspace_name: str):
     if workspace_name != DEFAULT_WORKSPACE_NAME:
@@ -1492,6 +1500,7 @@ def _update_workspace_handler(workspace_name: str):
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 @_disable_if_workspaces_disabled
 def _delete_workspace_handler(workspace_name: str):
     if workspace_name == DEFAULT_WORKSPACE_NAME:
@@ -1516,6 +1525,7 @@ def _delete_workspace_handler(workspace_name: str):
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -2405,6 +2415,7 @@ def create_promptlab_run_handler():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 def upload_artifact_handler():
     args = request.args
     run_uuid = args.get("run_uuid")
@@ -3851,6 +3862,7 @@ def _get_presigned_download_url(artifact_path):
     a presigned URL for downloading an artifact directly from cloud storage.
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_download(artifact_repo)
