@@ -329,7 +329,7 @@ def test_mlflow_span_does_not_leak_to_otel_context_by_default(monkeypatch):
         current = otel_trace.get_current_span()
         # Isolated mode keeps the MLflow span out of the global OTel context.
         assert not current.is_recording()
-        assert type(current).__name__ == "NonRecordingSpan"
+        assert isinstance(current, otel_trace.NonRecordingSpan)
 
 
 def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypatch):
@@ -349,7 +349,7 @@ def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypat
     def my_function():
         current = otel_trace.get_current_span()
         captured["is_recording"] = current.is_recording()
-        captured["span_type"] = type(current).__name__
+        captured["is_non_recording"] = isinstance(current, otel_trace.NonRecordingSpan)
         return 42
 
     my_function()
@@ -357,7 +357,7 @@ def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypat
     assert captured["is_recording"], (
         "OTel current span should be recording inside @mlflow.trace"
     )
-    assert captured["span_type"] != "NonRecordingSpan"
+    assert not captured["is_non_recording"]
 
 
 def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
@@ -373,12 +373,12 @@ def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
     with mlflow.start_span(name="parent"):
         current = otel_trace.get_current_span()
         is_recording = current.is_recording()
-        span_type_name = type(current).__name__
+        is_non_recording = isinstance(current, otel_trace.NonRecordingSpan)
 
     assert is_recording, (
         "OTel current span should be recording inside mlflow.start_span()"
     )
-    assert span_type_name != "NonRecordingSpan"
+    assert not is_non_recording
 
 
 def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):

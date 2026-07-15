@@ -353,7 +353,10 @@ def set_span_in_context(span: "Span") -> object:
         # This is opt-in because it exposes the MLflow span to all OTel instrumentation in the
         # process (e.g. FastAPI, requests), reducing the isolation this mode normally provides.
         if MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get():
-            otel_context = trace.set_span_in_context(span._span)
+            # Build the new context from the current global OTel context so that other entries
+            # (e.g. baggage) set by unrelated OTel instrumentation are preserved while the MLflow
+            # span is active.
+            otel_context = trace.set_span_in_context(span._span, context=context_api.get_current())
             otel_token = context_api.attach(otel_context)
             return (mlflow_token, otel_token)
         return (mlflow_token, None)
@@ -371,10 +374,14 @@ def detach_span_from_context(token: object):
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
         mlflow_token, otel_token = token
-        # Detach the global OTel context first (reverse order of attach) if it was set.
-        if otel_token is not None:
-            context_api.detach(otel_token)
-        mlflow_runtime_context.detach(mlflow_token)
+        try:
+            # Detach the global OTel context first (reverse order of attach) if it was set.
+            if otel_token is not None:
+                context_api.detach(otel_token)
+        finally:
+            # Always detach MLflow's runtime context, even if the global detach above fails,
+            # so the isolated runtime context is not leaked.
+            mlflow_runtime_context.detach(mlflow_token)
     else:
         context_api.detach(token)
 
