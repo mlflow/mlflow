@@ -75,10 +75,11 @@ export const CompareRunArtifactView = ({
               key={runUuid}
               style={{
                 flex: `1 1 ${colWidth}px`,
-                minWidth: `${colWidth}px`,
+                minWidth: 0,
+                maxWidth: '100%',
                 borderBottom: `1px solid ${theme.colors.grey300}`,
                 padding: !artifactPath ? theme.spacing.md : 0,
-                overflow: 'auto',
+                overflow: 'hidden',
               }}
             >
               <ShowArtifactPage
