@@ -6,6 +6,7 @@ using WSGIMiddleware to maintain 100% API compatibility while enabling future mi
 to FastAPI endpoints.
 """
 
+import inspect
 import json
 import time
 import typing
@@ -166,6 +167,8 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
     if getattr(fastapi_app.state, "mcp_exception_handlers_added", False):
         return
 
+    original_mlflow_exception_handler = fastapi_app.exception_handlers.get(MlflowException)
+
     # These handlers are registered on the shared FastAPI app, so keep them
     # scoped to MCP routes to avoid changing response behavior for other APIs.
     @fastapi_app.exception_handler(MlflowException)
@@ -173,7 +176,12 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
         path = get_routed_asgi_path(request)
         if is_mcp_server_api_path(path):
             return _mlflow_error_response(exc)
-        raise exc
+        if original_mlflow_exception_handler is not None:
+            response = original_mlflow_exception_handler(request, exc)
+            if inspect.isawaitable(response):
+                return await response
+            return response
+        return _mlflow_error_response(exc)
 
     @fastapi_app.exception_handler(RequestValidationError)
     async def mcp_request_validation_error_handler(request: Request, exc: RequestValidationError):

@@ -106,13 +106,13 @@ def test_mcp_registry_mixin_signatures_match_exactly():
         assert rest_sig == abstract_sig, method_name
 
 
-def test_rest_client_url_encodes_slashed_name_and_version():
+def test_rest_client_url_encodes_slashed_name():
     client = _TestRestClient(TestClient(FastAPI()))
     response = mock.Mock(status_code=200, text="ok")
     response.json.return_value = {
         "name": "io.github.user/my-server",
-        "version": "2025/06",
-        "server_json": {"name": "io.github.user/my-server", "version": "2025/06"},
+        "version": "2025.6.0",
+        "server_json": {"name": "io.github.user/my-server", "version": "2025.6.0"},
         "status": "draft",
         "aliases": [],
         "tags": {},
@@ -121,11 +121,11 @@ def test_rest_client_url_encodes_slashed_name_and_version():
         "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
         return_value=response,
     ) as http_request_mock:
-        client.get_mcp_server_version("io.github.user/my-server", "2025/06")
+        client.get_mcp_server_version("io.github.user/my-server", "2025.6.0")
 
     assert (
         http_request_mock.call_args.kwargs["endpoint"]
-        == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025%2F06"
+        == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025.6.0"
     )
 
 
@@ -254,6 +254,20 @@ def test_create_and_get_version_with_slashed_name(rest_client):
     assert ver.version == version
 
     fetched = rest_client.get_mcp_server_version(name, version)
+    assert fetched.version == version
+
+
+def test_create_and_get_version_with_slashed_name_uses_current_rest_path_behavior(rest_client):
+    name = "io.github.user/versioned-server"
+    version = "2025.6.0"
+    ver = rest_client.create_mcp_server_version(
+        _server_json(name, version), status=MCPStatus.ACTIVE
+    )
+    assert ver.name == name
+    assert ver.version == version
+
+    fetched = rest_client.get_mcp_server_version(name, version)
+    assert fetched.name == name
     assert fetched.version == version
 
 

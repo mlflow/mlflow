@@ -2808,7 +2808,6 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {
         "server_name",
         "transport_type",
-        "status",
         "created_at",
         "last_updated_at",
     }

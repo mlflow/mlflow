@@ -315,6 +315,26 @@ def test_get_nonexistent_server(client):
     assert r.status_code == 404
 
 
+def test_encoded_slashed_name_path_round_trip_for_version_routes(client):
+    name = "com.example/encoded-server"
+    version = "2025.6.0"
+
+    create_r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={"server_json": _server_json(name, version), "status": "active"},
+    )
+    assert create_r.status_code == 200, create_r.text
+    assert create_r.json()["name"] == name
+    assert create_r.json()["version"] == version
+
+    get_r = client.get(
+        f"{PREFIX}/{_encode_path_param(name)}/versions/{_encode_path_param(version)}"
+    )
+    assert get_r.status_code == 200, get_r.text
+    assert get_r.json()["name"] == name
+    assert get_r.json()["version"] == version
+
+
 def test_search_servers(client):
     for name in ["alpha", "beta", "gamma"]:
         client.post(PREFIX, json={"name": f"com.example/{name}"})
