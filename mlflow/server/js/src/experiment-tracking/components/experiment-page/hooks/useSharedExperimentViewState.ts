@@ -20,6 +20,7 @@ import {
 } from '../../../constants';
 import Routes from '../../../routes';
 import { isTextCompressedDeflate, textDecompressDeflate } from '../../../../common/utils/StringUtils';
+import { decodeSavedViewEnvelope, inflateSavedViewState } from '../utils/savedViewEnvelope';
 
 const deserializePersistedState = async (state: string) => {
   if (isTextCompressedDeflate(state)) {
@@ -188,6 +189,18 @@ export const useSharedExperimentViewState = (
     appliedShareKeyRef.current = viewStateShareKey;
 
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
+      // A saved-view tag stores a {name, createdAt, state} envelope (state is the compressed
+      // view-state blob); a legacy pre-#24152 tag stores the raw serialized view state directly.
+      // Try the envelope first (all new writes use it); fall back to the raw parse so any
+      // straggler legacy tag still resolves. Only if both fail do we report an invalid share key.
+      try {
+        const envelope = decodeSavedViewEnvelope(shareViewTag.value);
+        const parsedSharedViewState = await inflateSavedViewState(envelope);
+        applyParsedState(parsedSharedViewState);
+        return;
+      } catch {
+        // Not an envelope — fall through to the legacy raw parse below.
+      }
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
         applyParsedState(parsedSharedViewState);
