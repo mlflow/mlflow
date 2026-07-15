@@ -184,4 +184,78 @@ service UnityCatalogService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
+
+  // ---- Governance operations served by the Databricks (databricks-uc) backend. The open-source
+  // UC backend does not serve these RPCs. ----
+
+  rpc getModelVersionByAlias(GetModelVersionByAlias) returns (GetModelVersionByAlias.Response) {
+    option idempotency_level = IDEMPOTENT;
+    option (rpc) = {
+      endpoints: {
+        method: "GET"
+        path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+        since: {
+          major: 2
+          minor: 1
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
+
+  rpc setRegisteredModelAlias(SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PUT"
+        path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+        since: {
+          major: 2
+          minor: 1
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
+
+  rpc deleteRegisteredModelAlias(DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "DELETE"
+        path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+        since: {
+          major: 2
+          minor: 1
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
+
+  rpc updateTagSecurableAssignments(UpdateTagSecurableAssignments) returns (UpdateTagSecurableAssignments.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH"
+        path: "/unity-catalog/securable-tags/{securable_type}/{securable_full_name}"
+        since: {
+          major: 2
+          minor: 1
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
+
+  rpc updateTagSubentityAssignments(UpdateTagSubentityAssignments) returns (UpdateTagSubentityAssignments.Response) {
+    option (rpc) = {
+      endpoints: {
+        method: "PATCH"
+        path: "/unity-catalog/subentity-tags/{securable_type}/{securable_full_name}/{subentity_name}"
+        since: {
+          major: 2
+          minor: 1
+        }
+      }
+      visibility: PUBLIC_UNDOCUMENTED
+    };
+  }
 }
