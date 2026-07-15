@@ -11,6 +11,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
@@ -364,13 +365,23 @@ class ClaudeCodeProvider(AssistantProvider):
             user_message = prompt
 
         # Build command
-        # Note: --verbose is required when using --output-format=stream-json with -p
-        cmd = [claude_path, "-p", user_message, "--output-format", "stream-json", "--verbose"]
+        # Note: --verbose is required when using --output-format=stream-json with -p.
+        # The user message is piped via stdin (--input-format text) rather than passed
+        # as a CLI arg. The system prompt (~10k chars) is written to a temp file and
+        # referenced with --append-system-prompt-file. Both avoid overflowing the
+        # Windows cmd.exe 8191-char command-line limit, which the npm `claude.CMD`
+        # shim is subject to (see issue #24406).
+        cmd = [
+            claude_path,
+            "-p",
+            "--input-format",
+            "text",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ]
 
-        # Add system prompt with tracking URI context
         system_prompt = _build_system_prompt(tracking_uri)
-        cmd.extend(["--append-system-prompt", system_prompt])
-
         config = load_config(self.name)
 
         # Handle permission mode
@@ -395,9 +406,21 @@ class ClaudeCodeProvider(AssistantProvider):
             cmd.extend(["--resume", session_id])
 
         process = None
+        system_prompt_path = None
         try:
+            # Write the system prompt to a temp file referenced with
+            # --append-system-prompt-file. mkstemp (rather than NamedTemporaryFile)
+            # lets us close the handle before the CLI opens the path, avoiding a
+            # Windows sharing violation. The file must outlive the streaming
+            # subprocess, so it is removed in the finally block below.
+            fd, system_prompt_path = tempfile.mkstemp(prefix="mlflow_assistant_", suffix=".txt")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(system_prompt)
+            cmd.extend(["--append-system-prompt-file", system_prompt_path])
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
@@ -413,6 +436,19 @@ class ClaudeCodeProvider(AssistantProvider):
             # Save PID for cancellation support
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
+
+            # Send the user message via stdin to keep it off the command line.
+            # If the CLI has already exited (e.g. bad --resume, auth failure), the
+            # pipe is broken; swallow it here so the read loop below surfaces the
+            # CLI's actual stderr instead of a bare "Broken pipe".
+            if process.stdin is not None:
+                try:
+                    process.stdin.write(user_message.encode("utf-8"))
+                    await process.stdin.drain()
+                    process.stdin.close()
+                    await process.stdin.wait_closed()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
 
             try:
                 if process.stdout is None:
@@ -470,6 +506,10 @@ class ClaudeCodeProvider(AssistantProvider):
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
+            # Remove the system prompt temp file only after the process has
+            # exited, since the CLI reads it during startup.
+            if system_prompt_path is not None:
+                Path(system_prompt_path).unlink(missing_ok=True)
 
     @staticmethod
     def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:
