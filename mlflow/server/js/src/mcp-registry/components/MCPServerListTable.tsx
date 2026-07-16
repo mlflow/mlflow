@@ -260,6 +260,7 @@ export const MCPServerListTable = ({
   onNextPage,
   onPreviousPage,
   pageSizeSelect,
+  onCreateServer,
 }: {
   servers?: MCPServer[];
   hasNextPage: boolean;
@@ -269,6 +270,7 @@ export const MCPServerListTable = ({
   onNextPage: () => void;
   onPreviousPage: () => void;
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
+  onCreateServer?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   // One auth check + pure isServerDimmed per row (avoid N hooks)
@@ -292,7 +294,7 @@ export const MCPServerListTable = ({
 
   const isEmptyList = !isLoading && (!servers || servers.length === 0);
   const emptyState = isEmptyList ? (
-    <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.table.empty_state.create_server" />
+    <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.table.empty_state.create_server" onCreateServer={onCreateServer} />
   ) : null;
 
   return (<>

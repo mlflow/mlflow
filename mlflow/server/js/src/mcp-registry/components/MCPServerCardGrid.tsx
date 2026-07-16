@@ -16,6 +16,7 @@ export const MCPServerCardGrid = ({
   onNextPage,
   onPreviousPage,
   pageSizeSelect,
+  onCreateServer,
 }: {
   servers?: MCPServer[];
   isLoading?: boolean;
@@ -25,6 +26,7 @@ export const MCPServerCardGrid = ({
   onNextPage: () => void;
   onPreviousPage: () => void;
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
+  onCreateServer?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -48,7 +50,7 @@ export const MCPServerCardGrid = ({
   }
 
   if (!servers?.length) {
-    return <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.empty_state.create_server" />;
+    return <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.empty_state.create_server" onCreateServer={onCreateServer} />;
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Button,
@@ -20,8 +20,7 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable, useCurrentUserQuery } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
-import { isServerDimmed, cannotManage, getServerPermissions } from '../utils';
-import type { MCPServer } from '../types';
+import { getServerPermissions } from '../utils';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
 import { MCPServerListTable } from '../components/MCPServerListTable';
 import { MCPServerListFilters } from '../components/MCPServerListFilters';
@@ -44,6 +43,9 @@ const MCPRegistryPage = () => {
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
   const navigate = useNavigate();
 
+  const effectiveFilterMode =
+    !isAuthLoading && isAuthAvailable ? filterMode : 'all';
+
   const {
     data: servers,
     isLoading,
@@ -55,26 +57,15 @@ const MCPRegistryPage = () => {
     pageSizeSelect,
   } = useMCPServersListQuery({
     searchFilter: debouncedSearchFilter,
+    availableOnly: effectiveFilterMode === 'available',
   });
 
   const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
     onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
   });
 
-  const hasManageOnAny = servers?.some((s) => getServerPermissions(s).canManage) ?? false;
-  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
-  const effectiveFilterMode = showAvailabilityFilter
-    ? filterMode
-    : !isAuthLoading && isAuthAvailable
-      ? 'available'
-      : 'all';
-
-  const filteredServers = useMemo(() => {
-    if (!servers) return servers;
-    const hideUnpermittedDimmed = (s: MCPServer) => !(isServerDimmed(s) && cannotManage(s));
-    if (effectiveFilterMode === 'all') return servers.filter(hideUnpermittedDimmed);
-    return servers.filter((s) => !isServerDimmed(s));
-  }, [servers, effectiveFilterMode]);
+  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable;
+  const filteredServers = servers;
 
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (

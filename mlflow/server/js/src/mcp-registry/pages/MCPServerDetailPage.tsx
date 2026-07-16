@@ -3,15 +3,19 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  ColumnsIcon,
   DropdownMenu,
   GenericSkeleton,
   Header,
   OverflowIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
   Spacer,
   TableSkeleton,
   Tag,
   Tooltip,
   Typography,
+  ZoomMarqueeSelection,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -35,7 +39,9 @@ import { useDeleteServerModal } from '../hooks/useDeleteServerModal';
 import { useEditDisplayNameModal } from '../hooks/useEditDisplayNameModal';
 import { MCPServerVersionList } from '../components/MCPServerVersionList';
 import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
+import { MCPServerVersionCompare } from '../components/MCPServerVersionCompare';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
+import { useMCPServerDetailViewState, MCPServerDetailViewMode } from '../hooks/useMCPServerDetailViewState';
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 
@@ -73,17 +79,54 @@ const MCPServerDetailPage = () => {
 
   const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
 
+  const {
+    viewState,
+    selectedVersion: hookSelectedVersion,
+    setSelectedVersion: hookSetSelectedVersion,
+    setPreviewMode,
+    setCompareMode,
+    setComparedVersion,
+    switchSides,
+  } = useMCPServerDetailViewState(versions);
+
   const versionFoundInList = versionFromUrl && versions?.some((v) => v.version === versionFromUrl);
 
-  const selectedVersion = useMemo(() => {
-    if (!versions?.length) return undefined;
-    if (versionFoundInList) return versionFromUrl;
-    if (!versionFromUrl) return versions[0].version;
-    return undefined;
-  }, [versions, versionFromUrl, versionFoundInList]);
+  useEffect(() => {
+    if (!versions?.length) {
+      hookSetSelectedVersion(undefined);
+      return;
+    }
+    const currentStillValid = versions.some((v) => v.version === hookSelectedVersion);
+    if (!currentStillValid) {
+      const urlVersion = versionFoundInList ? versionFromUrl : undefined;
+      hookSetSelectedVersion(urlVersion ?? versions[0].version);
+    }
+    if (viewState.mode === MCPServerDetailViewMode.COMPARE && versions.length < 2) {
+      setPreviewMode();
+    } else if (viewState.comparedVersion && !versions.some((v) => v.version === viewState.comparedVersion)) {
+      setComparedVersion(
+        versions[0]?.version === hookSelectedVersion
+          ? (versions[1]?.version ?? '')
+          : (versions[0]?.version ?? ''),
+      );
+    }
+  }, [
+    versions,
+    hookSelectedVersion,
+    versionFromUrl,
+    versionFoundInList,
+    viewState.comparedVersion,
+    viewState.mode,
+    setComparedVersion,
+    hookSetSelectedVersion,
+    setPreviewMode,
+  ]);
+
+  const selectedVersion = hookSelectedVersion;
 
   const setSelectedVersion = useCallback(
     (version: string | undefined) => {
+      hookSetSelectedVersion(version);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -97,16 +140,15 @@ const MCPServerDetailPage = () => {
         { replace: true },
       );
     },
-    [setSearchParams],
+    [hookSetSelectedVersion, setSearchParams],
   );
 
-  useEffect(() => {
-    if (selectedVersion && selectedVersion !== versionFromUrl && !versionFromUrl) {
-      setSelectedVersion(selectedVersion);
-    }
-  }, [selectedVersion, versionFromUrl, setSelectedVersion]);
-
   const currentVersion = versions?.find((v) => v.version === selectedVersion);
+
+  const comparedVersionEntity = useMemo(
+    () => versions?.find((v) => v.version === viewState.comparedVersion),
+    [versions, viewState.comparedVersion],
+  );
 
   const resolvedLatestVersion = latestVersion?.version;
 
@@ -129,16 +171,29 @@ const MCPServerDetailPage = () => {
     return result;
   }, [server?.aliases, resolvedLatestVersion]);
 
-  const versionBindings = useMemo(() => {
-    if (!bindings || !selectedVersion) return bindings;
-    const versionAliases = aliasesByVersion[selectedVersion] ?? [];
-    return bindings.filter((b) => {
-      if (b.server_version === selectedVersion) return true;
-      if (b.resolved_version?.version === selectedVersion) return true;
-      if (b.server_alias && versionAliases.includes(b.server_alias)) return true;
-      return false;
-    });
-  }, [bindings, selectedVersion, aliasesByVersion]);
+  const filterBindingsForVersion = useCallback(
+    (version?: string) => {
+      if (!bindings || !version) return undefined;
+      const versionAliases = aliasesByVersion[version] ?? [];
+      return bindings.filter((b) => {
+        if (b.server_version === version) return true;
+        if (b.resolved_version?.version === version) return true;
+        if (b.server_alias && versionAliases.includes(b.server_alias)) return true;
+        return false;
+      });
+    },
+    [bindings, aliasesByVersion],
+  );
+
+  const versionBindings = useMemo(
+    () => filterBindingsForVersion(selectedVersion) ?? bindings,
+    [filterBindingsForVersion, selectedVersion, bindings],
+  );
+
+  const comparedBindings = useMemo(
+    () => filterBindingsForVersion(viewState.comparedVersion),
+    [filterBindingsForVersion, viewState.comparedVersion],
+  );
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
     serverName: serverName,
@@ -335,6 +390,31 @@ const MCPServerDetailPage = () => {
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: '0 0 320px', display: 'flex', flexDirection: 'column' }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <SegmentedControlGroup
+              name="mcp-server-detail-view"
+              value={viewState.mode}
+              componentId="mlflow.mcp_registry.detail.view_toggle"
+            >
+              <SegmentedControlButton value={MCPServerDetailViewMode.PREVIEW} onClick={setPreviewMode}>
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <ZoomMarqueeSelection />
+                  <FormattedMessage defaultMessage="Preview" description="MCP server detail preview tab" />
+                </div>
+              </SegmentedControlButton>
+              <SegmentedControlButton
+                value={MCPServerDetailViewMode.COMPARE}
+                onClick={setCompareMode}
+                disabled={!versions?.length || versions.length < 2}
+              >
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <ColumnsIcon />
+                  <FormattedMessage defaultMessage="Compare" description="MCP server detail compare tab" />
+                </div>
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+          </div>
+          <Spacer shrinks={false} size="sm" />
           {versionsError ? (
             <Alert
               componentId="mlflow.mcp_registry.detail.versions_error"
@@ -346,7 +426,10 @@ const MCPServerDetailPage = () => {
             <MCPServerVersionList
               versions={versions}
               selectedVersion={selectedVersion}
+              comparedVersion={viewState.comparedVersion}
+              mode={viewState.mode}
               onSelectVersion={setSelectedVersion}
+              onSelectComparedVersion={setComparedVersion}
               isLoading={versionsLoading}
               serverDisplayName={displayName}
               aliasesByVersion={aliasesByVersion}
@@ -364,14 +447,25 @@ const MCPServerDetailPage = () => {
             overflow: 'hidden',
           }}
         >
-          <MCPServerVersionDetail
-            server={server}
-            version={currentVersion}
-            aliasesByVersion={aliasesByVersion}
-            showEditAliasesModal={showEditAliasesModal}
-            onEditMetadata={showEditMetadataModal}
-            bindings={versionBindings}
-          />
+          {viewState.mode === MCPServerDetailViewMode.COMPARE ? (
+            <MCPServerVersionCompare
+              baselineVersion={currentVersion}
+              comparedVersion={comparedVersionEntity}
+              aliasesByVersion={aliasesByVersion}
+              baselineBindings={versionBindings}
+              comparedBindings={comparedBindings}
+              onSwitchSides={switchSides}
+            />
+          ) : (
+            <MCPServerVersionDetail
+              server={server}
+              version={currentVersion}
+              aliasesByVersion={aliasesByVersion}
+              showEditAliasesModal={showEditAliasesModal}
+              onEditMetadata={showEditMetadataModal}
+              bindings={versionBindings}
+            />
+          )}
         </div>
       </div>
       {EditAliasesModal}
