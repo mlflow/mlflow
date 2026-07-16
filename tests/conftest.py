@@ -77,9 +77,10 @@ _logger = logging.getLogger(__name__)
 #     workers.
 #   - tests/gateway/providers/test_databricks.py: mocks the global `databricks.sdk` module;
 #     import/mock state leaks across workers ("module 'databricks' has no attribute 'sdk'").
-#   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py:
-#     spawn real env-building subprocesses that contend for CPU/disk, time out, or race on
-#     the shared conda env list when parallelized.
+#   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py,
+#     test_docker_projects.py: spawn real env-building / docker subprocesses that contend for
+#     CPU/disk, time out, race on the shared conda env list or docker daemon, and (for docker)
+#     write root-owned artifacts that can't be cleaned up under concurrency.
 #   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
 #   - tests/db/test_schema.py, tests/db/test_tracking_operations.py,
 #     tests/tracking/_model_registry/test_utils.py: assume a filesystem `./mlruns` store, but
@@ -103,6 +104,7 @@ _XDIST_SERIAL_PATHS = (
     "tests/gateway/providers/test_databricks.py",
     "tests/projects/test_virtualenv_projects.py",
     "tests/projects/test_projects_cli.py",
+    "tests/projects/test_docker_projects.py",
     "tests/projects/test_projects.py",
     "tests/server/jobs/",
     "tests/db/test_schema.py",
@@ -1306,7 +1308,12 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def db_uri(cached_db: Path) -> Iterator[str]:
     """Returns a fresh SQLite URI for each test by copying the cached database."""
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+    # Managed manually (not `TemporaryDirectory`) so cleanup can never raise. Tests that
+    # spawn a root-owned writer into the artifact tree (e.g. docker projects) leave files
+    # the non-root runner cannot remove; `TemporaryDirectory`'s cleanup re-raises on those
+    # and surfaces as a teardown ERROR, whereas `rmtree(ignore_errors=True)` swallows it.
+    tmp_dir = tempfile.mkdtemp()
+    try:
         db_path = Path(tmp_dir) / "mlflow.db"
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
@@ -1326,6 +1333,8 @@ def db_uri(cached_db: Path) -> Iterator[str]:
                 )
 
         yield f"sqlite:///{db_path}"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
