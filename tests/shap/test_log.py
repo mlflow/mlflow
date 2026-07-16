@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -373,6 +374,24 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
             ],
             ["a"],
         )
+
+
+def test_log_model_serializes_underlying_model_with_skops(shap_model):
+    # Guard that the underlying sklearn model is serialized with skops (not cloudpickle) by
+    # default. The serialization artifact is the only discriminating signal: both skops and
+    # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
+    # requirements can't guard this default.
+    with mlflow.start_run():
+        model_info = mlflow.shap.log_explainer(shap_model, "model")
+
+    underlying_model_path = Path(
+        _download_artifact_from_uri(model_info.model_uri), "underlying_model"
+    )
+    sklearn_conf = _get_flavor_configuration(
+        model_path=underlying_model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
+    assert (underlying_model_path / "model.skops").exists()
 
 
 def create_identity_function():
