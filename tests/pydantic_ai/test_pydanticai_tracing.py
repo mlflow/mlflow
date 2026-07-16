@@ -439,7 +439,10 @@ def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    # Should have Agent.run_sync > Agent.run > <ConcreteModel>.request (LLM span)
+    # Should have Agent.run_sync > Agent.run > <ConcreteModel>.request (LLM span).
+    # Exactly one LLM span: on versions that ship the capabilities module, only the
+    # Instrumentation hook instruments (InstrumentedModel is excluded), never both.
+    assert sum(1 for s in spans if s.span_type == SpanType.LLM) == 1
     llm_span = next(s for s in spans if s.span_type == SpanType.LLM)
     assert llm_span.name.endswith(".request")
 

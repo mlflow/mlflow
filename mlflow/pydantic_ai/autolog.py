@@ -106,9 +106,10 @@ def _set_span_attributes(span: LiveSpan, instance):
                 span.set_attribute(SpanAttributeKey.MODEL, model_name)
                 # Prefer the model's own provider identifier (`system`, e.g. "openai").
                 # Fall back to the "provider:model" prefix used by some model_name formats
-                # (e.g. "anthropic:claude-3-5-haiku").
+                # (e.g. "anthropic:claude-3-5-haiku"). Only fall back when `system` is
+                # genuinely absent (None), not when it's an explicit empty string.
                 provider = getattr(instance, "system", None)
-                if not provider:
+                if provider is None:
                     match model_name.split(":", 1):
                         case [prefix, _]:
                             provider = prefix
@@ -165,17 +166,31 @@ async def patched_capability_model_request(original, self, *args, **kwargs):
     ``wrap_model_request``. Unlike the ``InstrumentedModel`` path, the concrete model is
     available on the ``request_context`` argument rather than on ``self`` (which is the
     capability), so we extract it explicitly to type the span and set model attributes.
+
+    A plain span (rather than the ``start_span_no_context`` + finalize-on-completion
+    pattern used for ``Agent.run_stream``) is correct for streaming too: pydantic-ai's
+    streaming path awaits ``wrap_model_request`` via a cooperative hand-off (the handler
+    opens the stream, then blocks until the caller finishes consuming it), so this
+    ``await original(...)`` only returns once the stream is fully consumed and yields the
+    final ``ModelResponse`` with usage. The span therefore stays open for the whole stream
+    and captures outputs + token usage. This is verified by the streaming tests in
+    ``tests/pydantic_ai/test_pydanticai_fluent_tracing.py``.
     """
     cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not cfg.log_traces:
         return await original(self, *args, **kwargs)
 
     request_context = kwargs.get("request_context")
-    if request_context is None:
-        # request_context may be passed positionally on some versions.
-        request_context = next(
-            (a for a in args if hasattr(a, "model") and hasattr(a, "messages")), None
-        )
+    if request_context is None and args:
+        # `request_context` is keyword-only in current pydantic-ai; guard against a
+        # positional call on other versions by matching the concrete context type rather
+        # than duck-typing (which could pick up an unrelated argument).
+        try:
+            from pydantic_ai.models import ModelRequestContext
+
+            request_context = next((a for a in args if isinstance(a, ModelRequestContext)), None)
+        except ImportError:
+            request_context = None
     model = getattr(request_context, "model", None)
 
     span_name = f"{type(model).__name__}.request" if model is not None else "Model.request"
