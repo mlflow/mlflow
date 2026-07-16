@@ -332,7 +332,13 @@ def safe_set_span_in_context(span: "Span"):
         detach_span_from_context(token)
 
 
-def set_span_in_context(span: "Span") -> object:
+# Token(s) required to later detach a span from the context. In isolated tracer provider mode a
+# tuple of (MLflow runtime token, optional global OTel token) is returned; otherwise a single
+# OpenTelemetry context token is returned.
+SpanContextToken = contextvars.Token | tuple[contextvars.Token, contextvars.Token | None]
+
+
+def set_span_in_context(span: "Span") -> SpanContextToken:
     """
     Set the given OpenTelemetry span as the active span in the current context.
 
@@ -365,7 +371,7 @@ def set_span_in_context(span: "Span") -> object:
         return token
 
 
-def detach_span_from_context(token: object):
+def detach_span_from_context(token: SpanContextToken):
     """
     Remove the active span from the current context.
 
