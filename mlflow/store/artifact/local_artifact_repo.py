@@ -225,9 +225,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             _logger.warning("Failed to list artifacts in '%s': %s", list_dir, e)
             return []
         infos = [
-            get_file_info(
-                f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
-            )
+            get_file_info(f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir)))
             for f in artifact_files
             if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
         ]
