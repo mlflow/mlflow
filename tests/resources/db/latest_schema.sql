@@ -448,7 +448,7 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
