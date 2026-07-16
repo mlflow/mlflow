@@ -60,6 +60,38 @@ if not IS_TRACING_SDK_ONLY:
 _logger = logging.getLogger(__name__)
 
 
+# Test files that are NOT safe to run under pytest-xdist and must run serially (`-n0`).
+# Each entry is a posix-style path prefix relative to the repo root; a test is treated as
+# serial if its file path starts with any of these. Verified xdist-hostile against a
+# green serial baseline (they pass serially but fail under `-n auto`):
+#   - tests/data/test_spark_dataset.py, test_delta_dataset_source.py: all workers share one
+#     Spark/Delta JVM session and clobber the catalog config across processes.
+#   - tests/server/test_prometheus_exporter.py + test_handlers.py: both import the
+#     process-global Flask `app`; the conftest orders prometheus first, but under
+#     `--dist loadscope` they land on different workers and the ordering no longer holds
+#     (Flask forbids `before_request` after the first request).
+#   - tests/server/test_workspace_middleware.py: process-global server config leaks across
+#     workers.
+#   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py: spawn real
+#     env-building subprocesses that contend for CPU/disk and time out when parallelized.
+#   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
+_XDIST_SERIAL_PATHS = (
+    "tests/data/test_spark_dataset.py",
+    "tests/data/test_delta_dataset_source.py",
+    "tests/server/test_prometheus_exporter.py",
+    "tests/server/test_handlers.py",
+    "tests/server/test_workspace_middleware.py",
+    "tests/projects/test_virtualenv_projects.py",
+    "tests/projects/test_projects_cli.py",
+    "tests/server/jobs/",
+)
+
+
+def _is_serial_item(item) -> bool:
+    rel = os.path.relpath(str(item.path)).replace(os.sep, posixpath.sep)
+    return rel.startswith(_XDIST_SERIAL_PATHS)
+
+
 # Pytest hooks and configuration from root conftest.py
 def pytest_addoption(parser):
     parser.addoption(
@@ -95,6 +127,17 @@ def pytest_addoption(parser):
         action="store_true",
         default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
+    )
+    parser.addoption(
+        "--serial",
+        choices=["include", "only", "exclude"],
+        default="include",
+        help=(
+            "Select tests by their xdist-serial designation (see `_XDIST_SERIAL_PATHS`). "
+            "'include' (default) runs everything; 'exclude' drops the xdist-hostile tests so "
+            "the rest can run under `-n auto`; 'only' runs just the hostile tests (for a serial "
+            "`-n0` pass). Used by the two-pass `python` CI job."
+        ),
     )
     parser.addoption(
         "--profile",
@@ -602,6 +645,15 @@ def pytest_collection_modifyitems(session, config, items):
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+    # Partition xdist-hostile tests (see `_XDIST_SERIAL_PATHS`) so the `python` CI job can
+    # run the bulk under `-n auto` (`--serial=exclude`) and the hostile tests in a serial
+    # `-n0` pass (`--serial=only`). Default `include` keeps every test.
+    serial_mode = config.getoption("--serial")
+    if serial_mode == "exclude":
+        items[:] = [item for item in items if not _is_serial_item(item)]
+    elif serial_mode == "only":
+        items[:] = [item for item in items if _is_serial_item(item)]
 
     # Select the tests to run based on the group and splits
     if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
