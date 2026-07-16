@@ -165,7 +165,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
     **kwargs,
 ):
     """
@@ -273,11 +273,13 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, name="model")
+            mlflow.pytorch.log_model(model, name="model", input_example=X)
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, name="scripted_model")
+            mlflow.pytorch.log_model(
+                scripted_pytorch_model, name="scripted_model", serialization_format="pickle"
+            )
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -343,7 +345,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
     **kwargs,
 ):
     """
@@ -403,11 +405,13 @@ def save_model(
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
-            mlflow.pytorch.save_model(model, "model")
+            mlflow.pytorch.save_model(model, "model", input_example=torch.ones(1, 1))
 
             # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_model")
+            mlflow.pytorch.save_model(
+                scripted_pytorch_model, "scripted_model", serialization_format="pickle"
+            )
 
         # Load each saved model for inference
         for model_path in ["model", "scripted_model"]:

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 import {
   Overflow,
@@ -41,6 +42,7 @@ const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_detai
 export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: ModelTrace['info'] }) => {
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
@@ -84,15 +86,21 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
     return undefined;
   }, [rootNode]);
 
-  const handleTagClick = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleTagClick = async (text: string) => {
+    const success = await copyToClipboard(text);
+    handleCopy(success);
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
 
-  const handleCopy = useCallback(() => {
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 2000);
+  const handleCopy = useCallback((success: boolean = true) => {
+    if (success) {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   return (
@@ -177,7 +185,6 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
                       componentId="shared.model-trace-explorer.header-details.tag"
                       onClick={() => {
                         handleTagClick(fullText);
-                        handleCopy();
                       }}
                       css={{ cursor: 'pointer' }}
                     >
@@ -197,6 +204,19 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message for the notification"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId={BASE_NOTIFICATION_COMPONENT_ID}>
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

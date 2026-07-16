@@ -61,6 +61,10 @@ export function getDaemonLogPath(now: Date = new Date()): string {
   return join(getWalDir(), `daemon.log.${dateSuffix(now)}`);
 }
 
+export function getPidLockPath(): string {
+  return join(getWalDir(), 'daemon.pid');
+}
+
 /**
  * Stable per (user, wal_dir) identifier used to scope the daemon lock
  */

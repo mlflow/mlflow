@@ -28,7 +28,7 @@ curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
 # X-MLflow-Gateway-Overhead-Duration-Ms: 3
 ```
 
-:::note Streaming responses
+:::note[Streaming responses]
 For streaming responses, only `X-MLflow-Gateway-Duration-Ms` is present. It reflects gateway setup
 time up to the point the stream starts (time-to-first-stream), not the full streaming duration.
 `X-MLflow-Gateway-Overhead-Duration-Ms` is absent because provider timing is not tracked for

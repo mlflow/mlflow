@@ -31,8 +31,19 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlIssue,
+    SqlLabelSchema,
     SqlLoggedModel,
+    SqlMCPAccessEndpoint,
+    SqlMCPServer,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersion,
+    SqlMCPServerVersionTag,
     SqlOnlineScoringConfig,
+    SqlReviewQueue,
+    SqlReviewQueueItem,
+    SqlReviewQueueLabelSchema,
+    SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
     SqlTraceInfo,
@@ -110,6 +121,27 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
 
+        if model is SqlLabelSchema:
+            return query.join(
+                SqlExperiment, SqlLabelSchema.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlReviewQueue:
+            return query.join(
+                SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model in (SqlReviewQueueUser, SqlReviewQueueItem, SqlReviewQueueLabelSchema):
+            # Children inherit the queue's workspace; scope through the parent
+            # `review_queues` -> `experiments` even though the store always
+            # reaches them via an already workspace-validated queue_id.
+            return (
+                query
+                .join(SqlReviewQueue, model.queue_id == SqlReviewQueue.queue_id)
+                .join(SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id)
+                .filter(SqlExperiment.workspace == workspace)
+            )
+
         if model in (
             SqlGatewaySecret,
             SqlGatewayEndpoint,
@@ -125,6 +157,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlGatewayEndpointModelMapping:
             return query.join(SqlGatewayEndpoint).filter(SqlGatewayEndpoint.workspace == workspace)
+
+        if model in (
+            SqlMCPServer,
+            SqlMCPServerVersion,
+            SqlMCPServerTag,
+            SqlMCPServerVersionTag,
+            SqlMCPServerAlias,
+            SqlMCPAccessEndpoint,
+        ):
+            return query.filter(model.workspace == workspace)
 
         return query
 

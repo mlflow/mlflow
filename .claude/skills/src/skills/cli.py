@@ -3,7 +3,6 @@ import argparse
 from skills.commands import (
     fetch_diff,
     fetch_logs,
-    fetch_unresolved_comments,
     load_rules,
     validate_review,
 )
@@ -15,7 +14,6 @@ def main() -> None:
 
     fetch_diff.register(subparsers)
     fetch_logs.register(subparsers)
-    fetch_unresolved_comments.register(subparsers)
     load_rules.register(subparsers)
     validate_review.register(subparsers)
 

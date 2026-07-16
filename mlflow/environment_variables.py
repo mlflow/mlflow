@@ -640,6 +640,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: Timeout in seconds for Gateway provider requests before they are treated as timed out.
+#: This applies to both gateway provider proxy calls and GenAI judge requests routed through
+#: gateway-compatible providers.
+#: (default: ``300``)
+MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", int, 300
+)
+
 #: If True, the gateway will attempt to resolve API keys from environment variables
 #: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
 #: (``mlflow gateway start``).
@@ -827,6 +835,15 @@ MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
 #: many feedback examples, but may increase API rate limit errors. (default: ``8``)
 MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS", int, 8
+)
+
+#: Default LLM judge model URI used by built-in judges and scorers (e.g.
+#: ``Guidelines``, ``Safety``) when no ``model`` is passed explicitly. When unset,
+#: MLflow falls back to the Databricks managed judge on Databricks tracking URIs
+#: and ``openai:/gpt-4.1-mini`` otherwise. Set this to point every default judge
+#: at a single model URI, e.g. ``openai:/gpt-5-mini``. (default: unset)
+MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
+    "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
 
 
@@ -1346,6 +1363,26 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
 )
 
 
+#: Allowed schemes for icon URLs.
+#: Defaults to ``https``. Set to ``http,https`` for local development.
+MLFLOW_ICON_URL_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether to allow icon URLs that target private or loopback hosts.
+#: Intended for local development and testing only.
+MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", False
+)
+
+#: Optional allowlist of domains that icon URLs may target.
+#: Supports exact hosts and wildcard patterns like ``*.example.com``.
+#: When unset, icon URLs may use any public host allowed by the scheme/private-IP
+#: policy.
+MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
+
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
@@ -1552,9 +1589,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 
 
-#: Specifies whether to allow using the deprecated filesystem backend for tracking
-#: and model registry. Set to ``True`` to opt out of the error raised when
-#: instantiating the file-based stores.
+#: Specifies whether to allow using the filesystem backend for tracking and model
+#: registry, which is in maintenance mode (no further updates).
+#: Set to ``True`` to opt out of the error raised when instantiating the file-based
+#: stores and continue using the filesystem backend.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
 

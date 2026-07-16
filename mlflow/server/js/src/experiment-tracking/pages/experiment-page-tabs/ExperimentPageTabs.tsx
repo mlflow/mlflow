@@ -29,6 +29,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../components/experimen
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
+import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -58,6 +59,8 @@ const ExperimentPageTabsImpl = () => {
 
   // Put the experiment in the redux store so that the logged models page can transition smoothly
   useExperimentReduxStoreCompat(experiment);
+
+  const { headerHidden } = useHeaderVisibility();
 
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
@@ -186,25 +189,27 @@ const ExperimentPageTabsImpl = () => {
 
   return (
     <>
-      <ExperimentPageHeaderWithDescription
-        experiment={experiment}
-        loading={loadingExperiment || inferringExperimentType}
-        onNoteUpdated={refetchExperiment}
-        error={experimentError}
-        inferredExperimentKind={inferredExperimentKind}
-        experimentKindSelector={
-          !enableWorkflowBasedNavigation ? (
-            <ExperimentViewHeaderKindSelector
-              value={experimentKind}
-              inferredExperimentKind={inferredExperimentKind}
-              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-              isUpdating={updatingExperimentKind || inferringExperimentType}
-              key={inferredExperimentKind}
-              readOnly={!canUpdateExperimentKind}
-            />
-          ) : null
-        }
-      />
+      {!headerHidden && (
+        <ExperimentPageHeaderWithDescription
+          experiment={experiment}
+          loading={loadingExperiment || inferringExperimentType}
+          onNoteUpdated={refetchExperiment}
+          error={experimentError}
+          inferredExperimentKind={inferredExperimentKind}
+          experimentKindSelector={
+            !enableWorkflowBasedNavigation ? (
+              <ExperimentViewHeaderKindSelector
+                value={experimentKind}
+                inferredExperimentKind={inferredExperimentKind}
+                onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+                isUpdating={updatingExperimentKind || inferringExperimentType}
+                key={inferredExperimentKind}
+                readOnly={!canUpdateExperimentKind}
+              />
+            ) : null
+          }
+        />
+      )}
       {!enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
@@ -228,18 +233,20 @@ const ExperimentPageTabs = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div
-      css={{
-        flex: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: theme.spacing.md,
-        height: '100%',
-      }}
-    >
-      <ExperimentPageTabsImpl />
-    </div>
+    <HeaderVisibilityProvider>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: theme.spacing.md,
+          height: '100%',
+        }}
+      >
+        <ExperimentPageTabsImpl />
+      </div>
+    </HeaderVisibilityProvider>
   );
 };
 

@@ -435,6 +435,35 @@ def test_build_request_with_inference_params():
     assert payload["max_tokens"] == 100
 
 
+def test_build_request_response_format_is_strict():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23981: the AI
+    # Gateway (and openai/azure providers) reject a json_schema response format
+    # unless it is strict and every object - including nested $defs - declares
+    # additionalProperties=False.
+    class Address(pydantic.BaseModel):
+        city: str
+
+    class CustomSchema(pydantic.BaseModel):
+        result: int
+        rationale: str
+        address: Address
+
+    payload = _build_request(
+        messages=[ChatMessage(role="user", content="test")],
+        tools=None,
+        response_format=CustomSchema,
+        include_response_format=True,
+        inference_params=None,
+    )
+
+    response_format = payload["response_format"]
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    schema = response_format["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["Address"]["additionalProperties"] is False
+
+
 # --- _parse_response_message tests ---
 
 
@@ -597,6 +626,13 @@ def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
     assert "openai.com" in provider.get_endpoint_url("llm/v1/chat")
     header_keys_lower = {k.lower() for k in provider.headers}
     assert "authorization" in header_keys_lower or "api-key" in header_keys_lower
+
+
+def test_get_provider_openai_honors_custom_api_base(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_API_BASE", "http://127.0.0.1:9876/v1")
+    provider = _get_provider_instance("openai", "gpt-4")
+    assert provider.get_endpoint_url("llm/v1/chat").startswith("http://127.0.0.1:9876/v1")
 
 
 def test_get_provider_anthropic(monkeypatch):

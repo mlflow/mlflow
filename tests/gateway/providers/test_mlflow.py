@@ -5,11 +5,9 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, MlflowModelServingConfig
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
-    MLFLOW_SERVING_RESPONSE_KEY,
-)
+from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -74,7 +72,7 @@ async def test_completions():
                     "n": 1,
                 },
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -206,7 +204,7 @@ async def test_embeddings():
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:2000/invocations",
             json={"inputs": ["test1", "test2"]},
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -292,7 +290,7 @@ async def test_chat():
                 "inputs": ["Is this a test?"],
                 "params": {"n": 1},
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
