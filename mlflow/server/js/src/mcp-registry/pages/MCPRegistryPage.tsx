@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -16,6 +16,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
 import { MCPServerListTable } from '../components/MCPServerListTable';
@@ -24,11 +25,18 @@ import { flexColumnContainerStyles, headerIconStyles } from '../styles';
 import { useDebounce } from 'use-debounce';
 
 type ViewMode = 'list' | 'grid';
+type FilterMode = 'available' | 'all';
 
 const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const isAuthAvailable = useIsAuthAvailable();
+  const isUserAdmin = useCurrentUserIsAdmin();
+  const isAdmin = isAuthAvailable && isUserAdmin;
+  const showAvailabilityFilter = isAdmin;
+
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [searchFilter, setSearchFilter] = useState('');
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
 
@@ -44,6 +52,13 @@ const MCPRegistryPage = () => {
   } = useMCPServersListQuery({
     searchFilter: debouncedSearchFilter,
   });
+
+  const effectiveFilterMode = isAuthAvailable && !isUserAdmin ? 'available' : filterMode;
+
+  const filteredServers = useMemo(() => {
+    if (!servers || effectiveFilterMode === 'all') return servers;
+    return servers.filter((s) => (s.access_bindings?.length ?? 0) > 0 && s.status === 'active');
+  }, [servers, effectiveFilterMode]);
 
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (
@@ -83,6 +98,21 @@ const MCPRegistryPage = () => {
               componentId="mlflow.mcp_registry.search"
             />
           </div>
+          {showAvailabilityFilter && (
+            <SegmentedControlGroup
+              name="mcp-registry-filter-mode"
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value as FilterMode)}
+              componentId="mlflow.mcp_registry.filter_toggle"
+            >
+              <SegmentedControlButton value="available">
+                <FormattedMessage defaultMessage="Available" description="Filter to show only available servers" />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="all">
+                <FormattedMessage defaultMessage="All" description="Filter to show all servers" />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+          )}
           <SegmentedControlGroup
             name="mcp-registry-view-mode"
             value={viewMode}
@@ -119,7 +149,7 @@ const MCPRegistryPage = () => {
         {!error &&
           (viewMode === 'grid' ? (
             <MCPServerCardGrid
-              servers={servers}
+              servers={filteredServers}
               isLoading={isLoading}
               isFiltered={Boolean(debouncedSearchFilter)}
               hasNextPage={hasNextPage}
@@ -130,7 +160,7 @@ const MCPRegistryPage = () => {
             />
           ) : (
             <MCPServerListTable
-              servers={servers}
+              servers={filteredServers}
               hasNextPage={hasNextPage}
               hasPreviousPage={hasPreviousPage}
               isLoading={isLoading}

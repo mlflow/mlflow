@@ -1,5 +1,5 @@
 import type { TagProps } from '@databricks/design-system';
-import type { MCPStatus, MCPTool, ServerJSONPayload } from './types';
+import type { MCPRemoteTransportType, MCPStatus, MCPTool, ServerJSONPayload } from './types';
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
   if (!url) return undefined;
@@ -37,6 +37,7 @@ export const MCP_QUERY_KEYS = {
   SERVER: 'mcp_server',
   SERVER_VERSIONS: 'mcp_server_versions',
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
+  SERVER_BINDINGS: 'mcp_server_bindings',
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 25;
@@ -46,10 +47,43 @@ export const resolveDisplayName = (server: { display_name?: string; name: string
   return server.display_name || server.name;
 };
 
+const resolveVersionDisplayName = (
+  version: { display_name?: string; server_json?: { title?: string } } | null | undefined,
+  fallback: string,
+): string => {
+  return version?.display_name || version?.server_json?.title || fallback;
+};
+
+export const resolveBindingDisplayName = (binding: {
+  server_name: string;
+  resolved_version?: { display_name?: string; server_json?: { title?: string } } | null;
+}): string => {
+  return resolveVersionDisplayName(binding.resolved_version, binding.server_name);
+};
+
+const TRANSPORT_LABELS: Record<MCPRemoteTransportType, string> = {
+  'streamable-http': 'streamable-http',
+  sse: 'sse',
+};
+
+export const formatTransportType = (transport: MCPRemoteTransportType): string => {
+  return TRANSPORT_LABELS[transport] || transport;
+};
+
+export const isValidEndpointUrl = (url: string): boolean => {
+  const trimmed = url.trim();
+  if (!/^https?:\/\//.test(trimmed)) return false;
+  try {
+    return Boolean(new URL(trimmed).hostname);
+  } catch {
+    return false;
+  }
+};
+
 export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: string; value: string }[] =>
   Object.entries(tags).map(([key, value]) => ({ key, value }));
 
-export interface ServerJsonValidationResult {
+interface ServerJsonValidationResult {
   valid: boolean;
   error?: string;
   parsed?: ServerJSONPayload;

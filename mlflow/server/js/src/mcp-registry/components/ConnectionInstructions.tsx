@@ -11,7 +11,7 @@ import { FormattedMessage } from 'react-intl';
 import { sanitizeHref } from '../utils';
 
 import { ConnectionFormat, ConnectionSource } from '../types';
-import type { ServerJSONPayload } from '../types';
+import type { MCPAccessBinding, ServerJSONPayload, TransportType } from '../types';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { buildPackageInstruction, buildRemoteInstruction, formatMcpJsonSnippet } from '../installInstructions';
@@ -31,6 +31,7 @@ export type ConnectionInstructionsProps = {
 } & (
   | { source: ConnectionSource.PACKAGE; pkg: NonNullable<ServerJSONPayload['packages']>[number] }
   | { source: ConnectionSource.REMOTE; remote: NonNullable<ServerJSONPayload['remotes']>[number] }
+  | { source: ConnectionSource.BINDING; binding: MCPAccessBinding }
 );
 
 export const ConnectionInstructions = (props: ConnectionInstructionsProps) => {
@@ -39,10 +40,17 @@ export const ConnectionInstructions = (props: ConnectionInstructionsProps) => {
   const { source, derivedName } = props;
   const pkg = source === ConnectionSource.PACKAGE ? props.pkg : undefined;
   const remote = source === ConnectionSource.REMOTE ? props.remote : undefined;
+  const binding = source === ConnectionSource.BINDING ? props.binding : undefined;
 
   const block = useMemo((): InstructionBlock => {
     if (source === ConnectionSource.PACKAGE && pkg) {
       return buildPackageInstruction(pkg, derivedName);
+    }
+    if (source === ConnectionSource.BINDING && binding) {
+      return buildRemoteInstruction(
+        { type: binding.transport_type as TransportType, url: binding.endpoint_url },
+        derivedName,
+      );
     }
     if (remote) {
       return buildRemoteInstruction(remote, derivedName);
@@ -54,7 +62,7 @@ export const ConnectionInstructions = (props: ConnectionInstructionsProps) => {
       mcpJsonConfig: null,
       notes: [],
     };
-  }, [source, derivedName, pkg, remote]);
+  }, [source, derivedName, pkg, remote, binding]);
 
   const [format, setFormat] = useState<ConnectionFormat>(
     block.claudeCodeCommand ? ConnectionFormat.CLAUDE_CODE : ConnectionFormat.MCP_JSON,

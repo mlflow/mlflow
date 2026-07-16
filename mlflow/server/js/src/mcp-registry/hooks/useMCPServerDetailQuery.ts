@@ -1,6 +1,11 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MCPRegistryApi } from '../api';
-import type { MCPServer, MCPServerVersion, SearchMCPServerVersionsResponse } from '../types';
+import type {
+  MCPServer,
+  MCPServerVersion,
+  SearchMCPServerVersionsResponse,
+  SearchMCPAccessBindingsResponse,
+} from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
@@ -45,4 +50,17 @@ export const useLatestMCPServerVersionQuery = (name: string, enabled = true) => 
     retry: false,
     enabled: Boolean(name) && enabled,
   });
+};
+
+export const useMCPAccessBindingsQuery = (name: string) => {
+  const queryResult = useQuery<SearchMCPAccessBindingsResponse, Error>([MCP_QUERY_KEYS.SERVER_BINDINGS, name], {
+    queryFn: () => MCPRegistryApi.searchMCPAccessBindings(name),
+    retry: false,
+    enabled: Boolean(name),
+  });
+
+  return {
+    ...queryResult,
+    data: queryResult.data?.mcp_access_bindings,
+  };
 };

@@ -5,10 +5,10 @@ import type { MCPServer } from '../types';
 import { tagsRecordToArray } from '../utils';
 import { useUpdateMCPServerTags } from '../hooks/useUpdateMCPServerTags';
 
-export const MCPServerTagsBox = ({ server, onTagsUpdated }: { server?: MCPServer; onTagsUpdated?: () => void }) => {
+export const MCPServerTagsBox = ({ server }: { server?: MCPServer }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const { EditTagsModal, showEditServerTagsModal } = useUpdateMCPServerTags({ onSuccess: onTagsUpdated });
+  const { EditTagsModal, showEditServerTagsModal } = useUpdateMCPServerTags();
 
   const visibleTags = server ? tagsRecordToArray(server.tags) : [];
   const containsTags = visibleTags.length > 0;

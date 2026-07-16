@@ -1,5 +1,7 @@
 export type MCPStatus = 'draft' | 'active' | 'deprecated' | 'deleted';
 
+export type MCPRemoteTransportType = 'streamable-http' | 'sse';
+
 export enum TransportType {
   STDIO = 'stdio',
   STREAMABLE_HTTP = 'streamable-http',
@@ -9,6 +11,7 @@ export enum TransportType {
 export enum ConnectionSource {
   PACKAGE = 'package',
   REMOTE = 'remote',
+  BINDING = 'binding',
 }
 
 export enum ConnectionFormat {
@@ -47,6 +50,7 @@ export interface MCPServer {
   description?: string;
   icons?: MCPIcon[];
   status?: MCPStatus;
+  access_bindings?: MCPAccessBinding[];
   latest_version?: string;
   aliases: MCPServerAlias[];
   tags: Record<string, string>;
@@ -67,6 +71,21 @@ export interface MCPServerVersion {
   tags: Record<string, string>;
   connect_options?: Record<string, { hidden?: boolean }> | null;
   source?: string;
+  created_by?: string;
+  last_updated_by?: string;
+  creation_timestamp?: number;
+  last_updated_timestamp?: number;
+}
+
+export interface MCPAccessBinding {
+  binding_id: number;
+  server_name: string;
+  endpoint_url: string;
+  transport_type: MCPRemoteTransportType;
+  tools?: MCPTool[];
+  server_version?: string;
+  server_alias?: string;
+  resolved_version?: MCPServerVersion;
   created_by?: string;
   last_updated_by?: string;
   creation_timestamp?: number;
@@ -174,6 +193,20 @@ export interface UpdateMCPServerVersionRequest {
   connect_options?: Record<string, { hidden?: boolean }> | null;
 }
 
+export interface CreateMCPAccessBindingRequest {
+  server_version?: string;
+  server_alias?: string;
+  endpoint_url: string;
+  transport_type?: MCPRemoteTransportType;
+}
+
+export interface UpdateMCPAccessBindingRequest {
+  server_version?: string | null;
+  server_alias?: string | null;
+  endpoint_url?: string | null;
+  transport_type?: MCPRemoteTransportType | null;
+}
+
 export interface SetMCPServerTagRequest {
   key: string;
   value: string;
@@ -200,6 +233,15 @@ export interface SearchMCPServerVersionsParams {
   page_token?: string;
 }
 
+export interface SearchMCPAccessBindingsParams {
+  server_version?: string;
+  server_alias?: string;
+  filter_string?: string;
+  max_results?: number;
+  order_by?: string[];
+  page_token?: string;
+}
+
 // Response types
 
 export interface SearchMCPServersResponse {
@@ -209,5 +251,10 @@ export interface SearchMCPServersResponse {
 
 export interface SearchMCPServerVersionsResponse {
   mcp_server_versions: MCPServerVersion[];
+  next_page_token?: string;
+}
+
+export interface SearchMCPAccessBindingsResponse {
+  mcp_access_bindings: MCPAccessBinding[];
   next_page_token?: string;
 }

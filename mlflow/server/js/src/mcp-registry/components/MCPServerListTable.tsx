@@ -23,6 +23,7 @@ import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import { textEllipsisStyles, flexRowStyles } from '../styles';
 import { Link } from '../../common/utils/RoutingUtils';
+import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
 
 const coreRowModel = getCoreRowModel<MCPServer>();
@@ -76,6 +77,26 @@ const MCPServerTagsCell = ({ row: { original } }: CellContext<MCPServer, unknown
   return <MCPServerTags tags={original.tags || {}} />;
 };
 
+const MCPServerEndpointsCell = ({ row: { original } }: CellContext<MCPServer, unknown>) => {
+  const latestBinding = original.latest_version
+    ? (original.access_bindings ?? []).find((b) => b.resolved_version?.version === original.latest_version)
+    : undefined;
+  if (!latestBinding) return '—';
+  return (
+    <Typography.Text
+      size="sm"
+      css={{
+        fontFamily: 'monospace',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {latestBinding.endpoint_url}
+    </Typography.Text>
+  );
+};
+
 const useMCPServerTableColumns = () => {
   const intl = useIntl();
   return useMemo(() => {
@@ -105,6 +126,14 @@ const useMCPServerTableColumns = () => {
         }),
         id: 'latestVersion',
         accessorFn: (row) => row.latest_version || '—',
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Endpoints',
+          description: 'Header for the endpoints column in the MCP servers table',
+        }),
+        id: 'endpoints',
+        cell: MCPServerEndpointsCell,
       },
       {
         header: intl.formatMessage({
@@ -148,6 +177,7 @@ export const MCPServerListTable = ({
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
 }) => {
   const { theme } = useDesignSystemTheme();
+  const isAuthAvailable = useIsAuthAvailable();
   const columns = useMCPServerTableColumns();
 
   const table = useReactTable('mlflow/server/js/src/mcp-registry/components/MCPServerListTable.tsx', {
@@ -187,15 +217,23 @@ export const MCPServerListTable = ({
       {isLoading ? (
         <TableSkeletonRows table={table} />
       ) : (
-        table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id} css={{ alignItems: 'center' }}>
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))
+        table.getRowModel().rows.map((row) => {
+          const isUnavailable = isAuthAvailable && (row.original.access_bindings?.length ?? 0) === 0;
+          const isInactive = row.original.status !== 'active';
+          return (
+            <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
+              {row.getAllCells().map((cell) => (
+                <TableCell
+                  key={cell.id}
+                  css={{ alignItems: 'center' }}
+                  style={{ opacity: isUnavailable || isInactive ? 0.5 : 1 }}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          );
+        })
       )}
     </Table>
   );

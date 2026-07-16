@@ -42,19 +42,16 @@ const INITIAL_VISIBLE_PACKAGES = 5;
 export const PackagesSubsection = ({
   packages,
   derivedName,
-  isAdmin,
-  isAuthAvailable,
+  showVisibilityControls,
   connectOptions,
   onToggleConnectOption,
 }: {
   packages: NonNullable<ServerJSONPayload['packages']>;
   derivedName: string;
-  isAdmin?: boolean;
-  isAuthAvailable?: boolean;
+  showVisibilityControls?: boolean;
   connectOptions?: Record<string, { hidden?: boolean }>;
   onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
-  const showVisibilityControls = isAuthAvailable && isAdmin;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);

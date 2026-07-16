@@ -15,13 +15,7 @@ type UpdateMCPServerVersionMetadataPayload = {
   toDelete: { key: string }[];
 };
 
-export const useUpdateMCPServerVersionMetadataModal = ({
-  serverName,
-  onSuccess,
-}: {
-  serverName: string;
-  onSuccess?: () => void;
-}) => {
+export const useUpdateMCPServerVersionMetadataModal = ({ serverName }: { serverName: string }) => {
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation<unknown, Error, UpdateMCPServerVersionMetadataPayload>({
@@ -63,7 +57,6 @@ export const useUpdateMCPServerVersionMetadataModal = ({
               queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_LATEST_VERSION, serverName]);
               queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
               resolve();
-              onSuccess?.();
             },
             onError: reject,
           },

@@ -12,7 +12,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServer, MCPServerVersion, MCPStatus } from '../types';
 import { STATUS_TRANSITIONS, LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson } from '../utils';
-import { flexColumnGapStyles, blockLabelStyles, monoFontStyles } from '../styles';
+import { flexColumnGapStyles, blockLabelStyles } from '../styles';
 import { AliasSelect } from '../../common/components/AliasSelect';
 import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';

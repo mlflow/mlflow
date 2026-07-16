@@ -13,7 +13,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { MCPServer, MCPServerVersion } from '../types';
+import type { MCPAccessBinding, MCPServer, MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR, resolveDisplayName, sanitizeHref } from '../utils';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
@@ -21,7 +21,7 @@ import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { useUpdateMCPServerVersion, useDeleteMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { EditVersionModal } from './EditVersionModal';
-import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
+import { useIsAuthAvailable, useCurrentUserIsAdmin } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
 
 export const MCPServerVersionDetail = ({
@@ -30,12 +30,20 @@ export const MCPServerVersionDetail = ({
   aliasesByVersion,
   showEditAliasesModal,
   onEditMetadata,
+  bindings,
+  onAddBinding,
+  onEditBinding,
+  onDeleteBinding,
 }: {
   server: MCPServer;
   version?: MCPServerVersion;
   aliasesByVersion: Record<string, string[]>;
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditMetadata?: (version: MCPServerVersion) => void;
+  bindings?: MCPAccessBinding[];
+  onAddBinding?: () => void;
+  onEditBinding?: (binding: MCPAccessBinding) => void;
+  onDeleteBinding?: (binding: MCPAccessBinding) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -294,10 +302,14 @@ export const MCPServerVersionDetail = ({
             <ServerJSONSection
               serverJson={version.server_json}
               serverName={server.name}
+              bindings={bindings}
               isAdmin={isAdmin}
               isAuthAvailable={isAuthAvailable}
               connectOptions={localConnectOptions ?? version.connect_options ?? undefined}
               onToggleConnectOption={handleToggleConnectOption}
+              onAddBinding={onAddBinding}
+              onEditBinding={onEditBinding}
+              onDeleteBinding={onDeleteBinding}
             />
           )}
         </Tabs.Content>

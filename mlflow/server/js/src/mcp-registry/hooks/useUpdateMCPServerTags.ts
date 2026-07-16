@@ -14,7 +14,7 @@ type UpdateTagsPayload = {
   toDelete: { key: string }[];
 };
 
-export const useUpdateMCPServerTags = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+export const useUpdateMCPServerTags = () => {
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation<unknown, Error, UpdateTagsPayload>({
@@ -26,7 +26,6 @@ export const useUpdateMCPServerTags = ({ onSuccess }: { onSuccess?: () => void }
     onSuccess: (_data, { serverName }) => {
       queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
       queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
-      onSuccess?.();
     },
   });
 

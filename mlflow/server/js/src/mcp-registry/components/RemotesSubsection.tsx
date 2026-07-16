@@ -38,19 +38,16 @@ import { ConnectionInstructions } from './ConnectionInstructions';
 export const RemotesSubsection = ({
   remotes,
   derivedName,
-  isAdmin,
-  isAuthAvailable,
+  showVisibilityControls,
   connectOptions,
   onToggleConnectOption,
 }: {
   remotes: NonNullable<ServerJSONPayload['remotes']>;
   derivedName: string;
-  isAdmin?: boolean;
-  isAuthAvailable?: boolean;
+  showVisibilityControls?: boolean;
   connectOptions?: Record<string, { hidden?: boolean }>;
   onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
-  const showVisibilityControls = isAuthAvailable && isAdmin;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
