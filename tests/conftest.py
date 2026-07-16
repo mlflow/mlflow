@@ -8,6 +8,7 @@ import posixpath
 import pstats
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -1310,6 +1311,19 @@ def db_uri(cached_db: Path) -> Iterator[str]:
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
+            # `cached_db` is session-scoped, so the default experiment's
+            # `artifact_location` is baked in as an absolute path under the shared
+            # session dir. Copying only the DB would leave every test (and any
+            # `mlflow run` subprocess it spawns) writing artifacts into that one
+            # shared directory, which cross-contaminates and, once a subprocess
+            # leaves the tree read-only, fails later writes with EACCES. Repoint
+            # the artifact root at this test's own temp dir so each test is isolated.
+            artifact_root = Path(tmp_dir) / "artifacts"
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "UPDATE experiments SET artifact_location = ? WHERE experiment_id = 0",
+                    (artifact_root.joinpath("0").as_uri(),),
+                )
 
         yield f"sqlite:///{db_path}"
 
