@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import MCPServerDetailPage from './MCPServerDetailPage';
-import { TransportType } from '../types';
+import { TransportType, MCPStatus } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
@@ -44,7 +44,7 @@ const mockServer = createMockMCPServer({
 const mockVersion = createMockMCPServerVersion({
   name: 'dev.mainline/mcp',
   version: '1',
-  status: 'active',
+  status: MCPStatus.ACTIVE,
   server_json: {
     name: 'dev.mainline/mcp',
     version: '1.0.0',
@@ -234,7 +234,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -287,7 +287,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -314,7 +314,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -339,7 +339,7 @@ describe('MCPServerDetailPage', () => {
     const deletedVersion = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '1',
-      status: 'deleted',
+      status: MCPStatus.DELETED,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '1.0.0',
@@ -420,6 +420,70 @@ describe('MCPServerDetailPage', () => {
       await waitFor(() => {
         expect(screen.getByText('env')).toBeInTheDocument();
         expect(screen.getByText('team')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('permission gating via allowed_actions', () => {
+    const setupWithPermissions = (allowed_actions?: string[]) => {
+      const permServer = createMockMCPServer({
+        name: 'dev.mainline/mcp',
+        display_name: 'Mainline',
+        description: 'A test server',
+        allowed_actions,
+      });
+      server.use(getMockedGetMCPServerResponse(permServer), getMockedCurrentUserResponse({ isAdmin: false }));
+    };
+
+    it('hides all action buttons for READ-only user', async () => {
+      setupWithPermissions([]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getAllByText('Mainline').length).toBeGreaterThanOrEqual(1);
+      });
+      expect(screen.queryByText('Create MCP server version')).not.toBeInTheDocument();
+      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+      expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('More actions')).not.toBeInTheDocument();
+    });
+
+    it('shows edit buttons for EDIT user', async () => {
+      setupWithPermissions(['USE', 'UPDATE']);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByLabelText('More actions')).toBeInTheDocument();
+      expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
+    });
+
+    it('shows all buttons for MANAGE user', async () => {
+      setupWithPermissions(['USE', 'UPDATE', 'DELETE', 'MANAGE']);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByText('Delete version')).toBeInTheDocument();
+      expect(screen.getByLabelText('More actions')).toBeInTheDocument();
+    });
+
+    it('shows all buttons when allowed_actions is undefined (no auth)', async () => {
+      setupWithPermissions(undefined);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByText('Delete version')).toBeInTheDocument();
+    });
+
+    it('shows Unavailable tag when auth is available and server has no bindings', async () => {
+      setupWithPermissions([]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Unavailable')).toBeInTheDocument();
       });
     });
   });

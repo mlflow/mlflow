@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { flexColumnGapStyles } from '../styles';
 
-import type { MCPAccessBinding, MCPTool, ServerJSONPayload } from '../types';
+import type { MCPServer, MCPServerVersion, MCPTool, ServerJSONPayload } from '../types';
 import { deriveClientName } from '../installInstructions';
-import { AccessBindingsSubsection } from './AccessBindingsSubsection';
+import { useServerState } from '../hooks/useServerState';
+import { useConnectOptionToggle } from '../hooks/useConnectOptionToggle';
 import { RemotesSubsection } from './RemotesSubsection';
 import { PackagesSubsection } from './PackagesSubsection';
 import { ToolsSubsection } from './ToolsSubsection';
@@ -12,51 +13,29 @@ import { RawJSONToggle, RawToolsJSONToggle } from './JSONToggles';
 
 export const ServerJSONSection = ({
   serverJson,
-  serverName,
-  bindings,
-  isAdmin,
-  isAuthAvailable,
-  connectOptions,
-  onToggleConnectOption,
-  onAddBinding,
-  onEditBinding,
-  onDeleteBinding,
+  server,
+  version,
 }: {
   serverJson: ServerJSONPayload;
-  serverName: string;
-  bindings?: MCPAccessBinding[];
-  isAdmin?: boolean;
-  isAuthAvailable?: boolean;
-  connectOptions?: Record<string, { hidden?: boolean }>;
-  onToggleConnectOption?: (key: string, visible: boolean) => void;
-  onAddBinding?: () => void;
-  onEditBinding?: (binding: MCPAccessBinding) => void;
-  onDeleteBinding?: (binding: MCPAccessBinding) => void;
+  server: MCPServer;
+  version?: MCPServerVersion;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { showVisibilityControls } = useServerState(server);
+  const { connectOptions, handleToggleConnectOption } = useConnectOptionToggle(server.name, version);
   const packages = serverJson.packages ?? [];
   const remotes = serverJson.remotes ?? [];
-  const derivedName = useMemo(() => deriveClientName(serverName), [serverName]);
-  const showVisibilityControls = isAuthAvailable && isAdmin;
+  const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
 
   return (
     <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
-      <AccessBindingsSubsection
-        bindings={bindings ?? []}
-        derivedName={derivedName}
-        isAdmin={isAdmin}
-        isAuthAvailable={isAuthAvailable}
-        onAddBinding={onAddBinding}
-        onEditBinding={onEditBinding}
-        onDeleteBinding={onDeleteBinding}
-      />
       {remotes.length > 0 && (
         <RemotesSubsection
           remotes={remotes}
           derivedName={derivedName}
           showVisibilityControls={showVisibilityControls}
           connectOptions={connectOptions}
-          onToggleConnectOption={onToggleConnectOption}
+          onToggleConnectOption={handleToggleConnectOption}
         />
       )}
       {packages.length > 0 && (
@@ -65,7 +44,7 @@ export const ServerJSONSection = ({
           derivedName={derivedName}
           showVisibilityControls={showVisibilityControls}
           connectOptions={connectOptions}
-          onToggleConnectOption={onToggleConnectOption}
+          onToggleConnectOption={handleToggleConnectOption}
         />
       )}
       <RawJSONToggle serverJson={serverJson} />

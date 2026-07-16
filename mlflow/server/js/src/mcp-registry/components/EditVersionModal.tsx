@@ -10,7 +10,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { MCPServer, MCPServerVersion, MCPStatus } from '../types';
+import type { MCPServer, MCPServerVersion } from '../types';
+import { MCPStatus } from '../types';
 import { STATUS_TRANSITIONS, LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson } from '../utils';
 import { flexColumnGapStyles, blockLabelStyles } from '../styles';
 import { AliasSelect } from '../../common/components/AliasSelect';
@@ -141,7 +142,7 @@ export const EditVersionModal = ({
             value={status}
             onChange={({ target }) => setStatus(target.value as MCPStatus)}
           >
-            {(['draft', 'active', 'deprecated'] as MCPStatus[]).map((s) => (
+            {([MCPStatus.DRAFT, MCPStatus.ACTIVE, MCPStatus.DEPRECATED]).map((s) => (
               <SimpleSelectOption
                 key={s}
                 value={s}

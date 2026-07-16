@@ -15,7 +15,8 @@ import {
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { MCPServerVersion, MCPStatus } from '../types';
+import type { MCPServerVersion } from '../types';
+import { MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
 import { validateServerJson, validateToolsJson } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
@@ -36,7 +37,7 @@ interface CreateMCPServerVersionFormState {
 const INITIAL_FORM_STATE: CreateMCPServerVersionFormState = {
   displayName: '',
   serverJsonText: '',
-  status: 'draft',
+  status: MCPStatus.DRAFT,
   source: '',
   toolsText: '',
   tags: {},
@@ -342,7 +343,7 @@ export const useCreateMCPServerVersionModal = ({
       setFormState({
         displayName: '',
         serverJsonText: JSON.stringify(latestVersion.server_json, null, 2),
-        status: latestVersion.status === 'deleted' ? 'draft' : latestVersion.status,
+        status: latestVersion.status === MCPStatus.DELETED ? MCPStatus.DRAFT : latestVersion.status,
         source: latestVersion.source || '',
         toolsText: latestVersion.tools?.length ? JSON.stringify(latestVersion.tools, null, 2) : '',
         tags: { ...latestVersion.tags },

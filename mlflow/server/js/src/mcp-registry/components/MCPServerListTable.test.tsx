@@ -2,33 +2,38 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { MCPServerListTable } from './MCPServerListTable';
 import { createMockMCPServer } from '../test-utils';
 
 const noop = () => {};
 
-const renderTable = (props: Partial<React.ComponentProps<typeof MCPServerListTable>> = {}) =>
-  render(
+const renderTable = (props: Partial<React.ComponentProps<typeof MCPServerListTable>> = {}) => {
+  const queryClient = new QueryClient();
+  return render(
     <IntlProvider locale="en">
       <TestRouter
         routes={[
           testRoute(
-            <DesignSystemProvider>
-              <MCPServerListTable
-                hasNextPage={false}
-                hasPreviousPage={false}
-                onNextPage={noop}
-                onPreviousPage={noop}
-                {...props}
-              />
-            </DesignSystemProvider>,
+            <QueryClientProvider client={queryClient}>
+              <DesignSystemProvider>
+                <MCPServerListTable
+                  hasNextPage={false}
+                  hasPreviousPage={false}
+                  onNextPage={noop}
+                  onPreviousPage={noop}
+                  {...props}
+                />
+              </DesignSystemProvider>
+            </QueryClientProvider>,
             '/',
           ),
         ]}
       />
     </IntlProvider>,
   );
+};
 
 describe('MCPServerListTable', () => {
   it('renders all column headers', () => {

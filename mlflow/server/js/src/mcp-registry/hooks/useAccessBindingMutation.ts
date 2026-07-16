@@ -8,6 +8,7 @@ const useInvalidateBindingQueries = () => {
   return (serverName: string) => {
     queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_BINDINGS, serverName]);
     queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
+    queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
   };
 };
 

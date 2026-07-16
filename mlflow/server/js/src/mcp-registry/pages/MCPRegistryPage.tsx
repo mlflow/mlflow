@@ -16,8 +16,9 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
+import { useIsAuthAvailable } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
+import { isServerDimmed, getServerPermissions } from '../utils';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
 import { MCPServerListTable } from '../components/MCPServerListTable';
 import { MCPServerListFilters } from '../components/MCPServerListFilters';
@@ -31,9 +32,6 @@ const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const isAuthAvailable = useIsAuthAvailable();
-  const isUserAdmin = useCurrentUserIsAdmin();
-  const isAdmin = isAuthAvailable && isUserAdmin;
-  const showAvailabilityFilter = isAdmin;
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
@@ -53,11 +51,13 @@ const MCPRegistryPage = () => {
     searchFilter: debouncedSearchFilter,
   });
 
-  const effectiveFilterMode = isAuthAvailable && !isUserAdmin ? 'available' : filterMode;
+  const hasManageOnAny = servers?.some((s) => getServerPermissions(s).canManage) ?? false;
+  const showAvailabilityFilter = isAuthAvailable && hasManageOnAny;
+  const effectiveFilterMode = showAvailabilityFilter ? filterMode : 'available';
 
   const filteredServers = useMemo(() => {
     if (!servers || effectiveFilterMode === 'all') return servers;
-    return servers.filter((s) => (s.access_bindings?.length ?? 0) > 0 && s.status === 'active');
+    return servers.filter((s) => !isServerDimmed(s));
   }, [servers, effectiveFilterMode]);
 
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;

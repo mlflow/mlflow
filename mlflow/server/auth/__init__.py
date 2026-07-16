@@ -1049,6 +1049,19 @@ def _get_mcp_server_permission(name: str, username: str) -> Permission:
     )
 
 
+def _permission_to_allowed_actions(perm: Permission) -> list[str]:
+    actions = []
+    if perm.can_use:
+        actions.append("USE")
+    if perm.can_update:
+        actions.append("UPDATE")
+    if perm.can_delete:
+        actions.append("DELETE")
+    if perm.can_manage:
+        actions.append("MANAGE")
+    return actions
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -4518,6 +4531,13 @@ def _get_mcp_server_validator(
             case "GET":
                 return perm.can_read
             case "POST" | "PATCH":
+                if request.method == "PATCH" and not perm.can_manage:
+                    try:
+                        body = json.loads(await request.body())
+                    except (json.JSONDecodeError, ValueError):
+                        return False
+                    if "connect_options" in body:
+                        return False
                 return perm.can_update
             case "DELETE":
                 return perm.can_delete
@@ -4626,6 +4646,9 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
         get_name=lambda s: s.name,
         to_dict=lambda s: MCPServerResponse.from_entity(s).model_dump(mode="json"),
     )
+    for s in readable:
+        perm = _get_mcp_server_permission(s["name"], username)
+        s["allowed_actions"] = _permission_to_allowed_actions(perm)
     data["mcp_servers"] = readable[:max_results]
     return json.dumps(data).encode()
 
@@ -4765,14 +4788,45 @@ FASTAPI_RESPONSE_FILTERS: dict[
 }
 
 
+def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    name = data.get("name")
+    if name:
+        perm = _get_mcp_server_permission(name, username)
+        data["allowed_actions"] = _permission_to_allowed_actions(perm)
+    return json.dumps(data).encode()
+
+
+FASTAPI_PREFIX_RESPONSE_FILTERS: dict[
+    tuple[str, str],
+    Callable[[str, bytes, StarletteRequest], bytes],
+] = {
+    (prefix, "GET"): _filter_get_mcp_server for prefix in get_mcp_server_api_route_prefixes()
+}
+
+
 def _find_fastapi_response_filter(
     path: str, method: str
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    return next(
+    stripped = path.rstrip("/")
+    exact = next(
         (
             handler
             for (route, m), handler in FASTAPI_RESPONSE_FILTERS.items()
-            if m == method and path.rstrip("/") == route.rstrip("/")
+            if m == method and stripped == route.rstrip("/")
+        ),
+        None,
+    )
+    if exact:
+        return exact
+    return next(
+        (
+            handler
+            for (route, m), handler in sorted(
+                FASTAPI_PREFIX_RESPONSE_FILTERS.items(),
+                key=lambda x: -len(x[0][0]),
+            )
+            if m == method and stripped.startswith(route.rstrip("/") + "/")
         ),
         None,
     )

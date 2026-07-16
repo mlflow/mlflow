@@ -1,12 +1,7 @@
-import { useState } from 'react';
 import {
   Button,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  InfoIcon,
   PencilIcon,
   PlusIcon,
-  Popover,
   Tag,
   TrashIcon,
   Typography,
@@ -15,84 +10,72 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { ConnectionSource } from '../types';
-import type { MCPAccessBinding } from '../types';
-import { formatTransportType, resolveBindingDisplayName, STATUS_TAG_COLOR } from '../utils';
+import type { MCPAccessBinding, MCPServer } from '../types';
 import {
-  expandableRowButtonStyles,
-  chevronContainerStyles,
-  borderedSectionContainerStyles,
-  expandedContentPanelStyles,
-  popoverTriggerStyles,
-  ellipsisStyles,
-  sectionHeadingRowStyles,
-  noShrinkStyles,
-} from '../styles';
+  formatTransportType,
+  formatBindingTarget,
+  resolveBindingDisplayName,
+  STATUS_TAG_COLOR,
+} from '../utils';
+import { useServerState } from '../hooks/useServerState';
+import { ellipsisStyles, noShrinkStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
 import { ViewDetailsDrawer, DetailField } from './ViewDetailsDrawer';
 import { ConnectionInstructions } from './ConnectionInstructions';
+import { SubsectionHelpHeading } from './SubsectionHelpHeading';
+import { ExpandableListSection } from './ExpandableListSection';
 
 export const AccessBindingsSubsection = ({
   bindings,
   derivedName,
-  isAdmin,
-  isAuthAvailable,
+  server,
   onAddBinding,
   onEditBinding,
   onDeleteBinding,
 }: {
   bindings: MCPAccessBinding[];
   derivedName: string;
-  isAdmin?: boolean;
-  isAuthAvailable?: boolean;
+  server?: MCPServer;
   onAddBinding?: () => void;
   onEditBinding?: (binding: MCPAccessBinding) => void;
   onDeleteBinding?: (binding: MCPAccessBinding) => void;
 }) => {
-  const canManage = !isAuthAvailable || isAdmin;
-  const { theme } = useDesignSystemTheme();
+  const { canUpdate, canDelete, canManage } = useServerState(server);
   const intl = useIntl();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <div>
-      <div css={sectionHeadingRowStyles(theme)}>
-        <Typography.Text bold>
+      <SubsectionHelpHeading
+        title={
           <FormattedMessage
             defaultMessage="Access endpoints"
             description="MCP server access endpoints subsection heading"
           />
-        </Typography.Text>
-        <Popover.Root componentId="mlflow.mcp_registry.detail.access_bindings_help">
-          <Popover.Trigger
-            css={popoverTriggerStyles(theme)}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'About access endpoints',
-              description: 'Aria label for access endpoints subsection help popover',
-            })}
-          >
-            <InfoIcon />
-          </Popover.Trigger>
-          <Popover.Content align="start" css={{ maxWidth: 360 }}>
-            <Typography.Paragraph withoutMargins>
-              <FormattedMessage
-                defaultMessage="Live connections between this registered server and deployed endpoints."
-                description="Help text for MCP server access endpoints subsection"
-              />
-            </Typography.Paragraph>
-            <Popover.Arrow />
-          </Popover.Content>
-        </Popover.Root>
-        {onAddBinding && canManage && (
-          <Button
-            componentId="mlflow.mcp_registry.detail.add_binding"
-            icon={<PlusIcon />}
-            onClick={onAddBinding}
-            css={{ marginLeft: 'auto' }}
-          >
-            <FormattedMessage defaultMessage="Add endpoint" description="Button to add an access endpoint" />
-          </Button>
-        )}
-      </div>
+        }
+        componentId="mlflow.mcp_registry.detail.access_bindings_help"
+        helpAriaLabel={intl.formatMessage({
+          defaultMessage: 'About access endpoints',
+          description: 'Aria label for access endpoints subsection help popover',
+        })}
+        helpText={
+          <FormattedMessage
+            defaultMessage="Live connections between this registered server and deployed endpoints."
+            description="Help text for MCP server access endpoints subsection"
+          />
+        }
+        actions={
+          onAddBinding && canUpdate ? (
+            <Button
+              componentId="mlflow.mcp_registry.detail.add_binding"
+              icon={<PlusIcon />}
+              onClick={onAddBinding}
+              css={{ marginLeft: 'auto' }}
+            >
+              <FormattedMessage defaultMessage="Add endpoint" description="Button to add an access endpoint" />
+            </Button>
+          ) : undefined
+        }
+      />
       {bindings.length === 0 ? (
         <Typography.Text color="secondary">
           <FormattedMessage
@@ -101,130 +84,128 @@ export const AccessBindingsSubsection = ({
           />
         </Typography.Text>
       ) : (
-        <div css={borderedSectionContainerStyles(theme)}>
-          {bindings.map((binding, index) => (
-            <AccessBindingRow
-              key={binding.binding_id}
+        <ExpandableListSection
+          items={bindings}
+          getKey={(b) => String(b.binding_id)}
+          getAriaLabel={(b, expanded) =>
+            intl.formatMessage(
+              {
+                defaultMessage: '{action} binding {url}',
+                description: 'Aria label for expanding/collapsing an access endpoint row',
+              },
+              { action: expanded ? 'Collapse' : 'Expand', url: b.endpoint_url },
+            )
+          }
+          renderRow={({ item: binding }) => (
+            <AccessBindingRowContent
               binding={binding}
-              derivedName={derivedName}
-              expanded={expandedId === String(binding.binding_id)}
-              onToggle={() => setExpandedId(expandedId === String(binding.binding_id) ? null : String(binding.binding_id))}
               onEdit={onEditBinding && canManage ? () => onEditBinding(binding) : undefined}
               onDelete={onDeleteBinding && canManage ? () => onDeleteBinding(binding) : undefined}
-              showTopBorder={index > 0}
             />
-          ))}
-        </div>
+          )}
+          renderExpanded={(binding) => (
+            <AccessBindingExpandedContent binding={binding} derivedName={derivedName} />
+          )}
+        />
       )}
     </div>
   );
 };
 
-const AccessBindingRow = ({
+const AccessBindingRowContent = ({
   binding,
-  derivedName,
-  expanded,
-  onToggle,
   onEdit,
   onDelete,
-  showTopBorder,
 }: {
   binding: MCPAccessBinding;
-  derivedName: string;
-  expanded: boolean;
-  onToggle: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  showTopBorder: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const target = binding.server_alias ? `@${binding.server_alias}` : binding.server_version || '—';
+  const target = formatBindingTarget(binding);
 
   return (
-    <div css={{ borderTop: showTopBorder ? `1px solid ${theme.colors.border}` : 'none' }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        aria-label={intl.formatMessage(
-          {
-            defaultMessage: '{action} binding {url}',
-            description: 'Aria label for expanding/collapsing an access endpoint row',
-          },
-          { action: expanded ? 'Collapse' : 'Expand', url: binding.endpoint_url },
-        )}
-        css={expandableRowButtonStyles(theme)}
-      >
-        <div css={chevronContainerStyles(theme)}>{expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}</div>
-        <Tag componentId="mlflow.mcp_registry.detail.binding_transport_tag" color="indigo" css={noShrinkStyles}>
-          {formatTransportType(binding.transport_type)}
-        </Tag>
-        <Typography.Text css={ellipsisStyles(theme)}>{binding.endpoint_url}</Typography.Text>
-        <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
-          {target}
-        </Typography.Text>
-        {(onEdit || onDelete) && (
-          <div
-            css={{ ...noShrinkStyles, display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {onEdit && (
-              <Button
-                componentId="mlflow.mcp_registry.detail.binding.edit"
-                type="tertiary"
-                size="small"
-                icon={<PencilIcon />}
-                onClick={onEdit}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Edit access endpoint',
-                  description: 'Aria label for edit access endpoint button',
-                })}
-              />
-            )}
-            {onDelete && (
-              <Button
-                componentId="mlflow.mcp_registry.detail.binding.delete"
-                type="tertiary"
-                size="small"
-                icon={<TrashIcon />}
-                danger
-                onClick={onDelete}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Delete access endpoint',
-                  description: 'Aria label for delete access endpoint button',
-                })}
-              />
-            )}
-          </div>
-        )}
-      </button>
-
-      {expanded && (
-        <div css={expandedContentPanelStyles(theme)}>
-          <ConnectionInstructions
-            source={ConnectionSource.BINDING}
-            binding={binding}
-            derivedName={derivedName}
-            detailLink={<BindingDetailsDrawer binding={binding} />}
-          />
-          <div css={{ display: 'flex', gap: theme.spacing.lg }}>
-            <Typography.Text size="sm">
-              <Typography.Text bold size="sm">
-                <FormattedMessage defaultMessage="Target:" description="Binding expanded target label" />
-              </Typography.Text>{' '}
-              {target}
-            </Typography.Text>
-            <Typography.Text size="sm">
-              <Typography.Text bold size="sm">
-                <FormattedMessage defaultMessage="Updated:" description="Binding expanded updated label" />
-              </Typography.Text>{' '}
-              {binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'}
-            </Typography.Text>
-          </div>
+    <>
+      <Tag componentId="mlflow.mcp_registry.detail.binding_transport_tag" color="indigo" css={noShrinkStyles}>
+        {formatTransportType(binding.transport_type)}
+      </Tag>
+      <Typography.Text css={ellipsisStyles(theme)}>{binding.endpoint_url}</Typography.Text>
+      <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
+        {target}
+      </Typography.Text>
+      {(onEdit || onDelete) && (
+        <div
+          css={{ ...noShrinkStyles, display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onEdit && (
+            <Button
+              componentId="mlflow.mcp_registry.detail.binding.edit"
+              type="tertiary"
+              size="small"
+              icon={<PencilIcon />}
+              onClick={onEdit}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Edit access endpoint',
+                description: 'Aria label for edit access endpoint button',
+              })}
+            />
+          )}
+          {onDelete && (
+            <Button
+              componentId="mlflow.mcp_registry.detail.binding.delete"
+              type="tertiary"
+              size="small"
+              icon={<TrashIcon />}
+              danger
+              onClick={onDelete}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Delete access endpoint',
+                description: 'Aria label for delete access endpoint button',
+              })}
+            />
+          )}
         </div>
       )}
-    </div>
+    </>
+  );
+};
+
+const AccessBindingExpandedContent = ({
+  binding,
+  derivedName,
+}: {
+  binding: MCPAccessBinding;
+  derivedName: string;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const target = formatBindingTarget(binding);
+
+  return (
+    <>
+      <ConnectionInstructions
+        source={ConnectionSource.BINDING}
+        binding={binding}
+        derivedName={derivedName}
+        detailLink={<BindingDetailsDrawer binding={binding} />}
+      />
+      <div css={{ display: 'flex', gap: theme.spacing.lg }}>
+        <Typography.Text size="sm">
+          <Typography.Text bold size="sm">
+            <FormattedMessage defaultMessage="Target:" description="Binding expanded target label" />
+          </Typography.Text>{' '}
+          {target}
+        </Typography.Text>
+        <Typography.Text size="sm">
+          <Typography.Text bold size="sm">
+            <FormattedMessage defaultMessage="Updated:" description="Binding expanded updated label" />
+          </Typography.Text>{' '}
+          {binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'}
+        </Typography.Text>
+      </div>
+    </>
   );
 };
 

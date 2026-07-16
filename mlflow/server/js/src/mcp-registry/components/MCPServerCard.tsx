@@ -1,17 +1,17 @@
 import { useState } from 'react';
-import { Card, ConnectIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Card, ConnectIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
 import MCPRegistryRoutes from '../routes';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
 import { resolveDisplayName } from '../utils';
+import { useServerState } from '../hooks/useServerState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import { QuickConnectModal } from './QuickConnectModal';
 import Utils from '../../common/utils/Utils';
 import { useNavigate } from '../../common/utils/RoutingUtils';
-import { useIsAuthAvailable } from '../../account/hooks';
 
 export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const { theme } = useDesignSystemTheme();
@@ -22,10 +22,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
     : undefined;
-  const isAuthAvailable = useIsAuthAvailable();
-  const bindingCount = server.access_bindings?.length ?? 0;
-  const hasBindings = bindingCount > 0;
-  const isUnavailable = isAuthAvailable && !hasBindings;
+  const { isDimmed, isUnavailable } = useServerState(server);
 
   return (
     <>
@@ -35,10 +32,10 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
         navigateFn={async () => {
           navigate(MCPRegistryRoutes.getMCPServerDetailRoute(server.name));
         }}
-        disableHover={isUnavailable}
+        disableHover={isDimmed}
         dangerouslyAppendEmotionCSS={{
           height: '100%',
-          ...(isUnavailable
+          ...(isDimmed
             ? {
                 cursor: 'pointer',
                 '&:hover': {
@@ -48,7 +45,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
             : {}),
         }}
       >
-        <div css={{ ...cardBodyStyles(theme), opacity: isUnavailable ? 0.5 : 1 }}>
+        <div css={{ ...cardBodyStyles(theme), opacity: isDimmed ? 0.5 : 1 }}>
           <div css={cardHeaderRowStyles(theme)}>
             <MCPServerIcon icons={server.icons} name={server.name} />
             <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
@@ -72,29 +69,19 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
                 {timestamp}
               </Typography.Text>
             )}
-            {hasBindings && (
-              <button
-                type="button"
-                onClick={(e) => {
+            {!isUnavailable && (
+              <Button
+                componentId="mlflow.mcp_registry.card.connect"
+                type="tertiary"
+                size="small"
+                icon={<ConnectIcon />}
+                onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   e.preventDefault();
                   setConnectModalOpen(true);
                 }}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'none',
-                  border: 'none',
-                  padding: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusSm,
-                  cursor: 'pointer',
-                  color: theme.colors.actionPrimaryBackgroundDefault,
-                  '&:hover': { backgroundColor: theme.colors.actionTertiaryBackgroundHover },
-                }}
-              >
-                <ConnectIcon css={{ width: 16, height: 16 }} />
-              </button>
+                css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
+              />
             )}
             {isUnavailable && (
               <Tooltip

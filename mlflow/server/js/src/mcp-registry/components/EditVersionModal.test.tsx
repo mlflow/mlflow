@@ -1,4 +1,5 @@
 import { describe, it, expect, jest, beforeAll, afterAll, afterEach } from '@jest/globals';
+import { MCPStatus } from '../types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -35,7 +36,7 @@ const renderModal = (props: Partial<React.ComponentProps<typeof EditVersionModal
   const mockServer = createMockMCPServer();
   const mockVersion = createMockMCPServerVersion({
     display_name: 'Test Display Name',
-    status: 'draft',
+    status: MCPStatus.DRAFT,
     tools: [{ name: 'test_tool', description: 'A test tool' }],
   });
   const defaultProps = {
@@ -95,7 +96,7 @@ describe('EditVersionModal', () => {
   });
 
   it('submits successfully and calls onClose', async () => {
-    const updatedVersion = createMockMCPServerVersion({ display_name: 'Updated Name', status: 'active' });
+    const updatedVersion = createMockMCPServerVersion({ display_name: 'Updated Name', status: MCPStatus.ACTIVE });
     server.use(getMockedUpdateMCPServerVersionResponse(updatedVersion));
 
     const { onClose } = renderModal();

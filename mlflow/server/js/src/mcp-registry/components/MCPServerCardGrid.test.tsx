@@ -2,6 +2,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { MCPServerCardGrid } from './MCPServerCardGrid';
 import { createMockMCPServer } from '../test-utils';
@@ -15,21 +16,25 @@ const defaultPaginationProps = {
   onPreviousPage: noop,
 };
 
-const renderGrid = (props: React.ComponentProps<typeof MCPServerCardGrid>) =>
-  render(
+const renderGrid = (props: React.ComponentProps<typeof MCPServerCardGrid>) => {
+  const queryClient = new QueryClient();
+  return render(
     <IntlProvider locale="en">
       <TestRouter
         routes={[
           testRoute(
-            <DesignSystemProvider>
-              <MCPServerCardGrid {...props} />
-            </DesignSystemProvider>,
+            <QueryClientProvider client={queryClient}>
+              <DesignSystemProvider>
+                <MCPServerCardGrid {...props} />
+              </DesignSystemProvider>
+            </QueryClientProvider>,
             '/',
           ),
         ]}
       />
     </IntlProvider>,
   );
+};
 
 describe('MCPServerCardGrid', () => {
   it('renders loading spinner when isLoading is true', () => {

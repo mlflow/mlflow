@@ -8,7 +8,11 @@ import {
   validateToolsJson,
   buildPackageConnectOptionKey,
   buildRemoteConnectOptionKey,
+  isServerDimmed,
+  getServerPermissions,
 } from './utils';
+import { MCPStatus, TransportType } from './types';
+import { createMockMCPServer } from './test-utils';
 
 describe('resolveDisplayName', () => {
   it('returns display_name when set', () => {
@@ -237,5 +241,63 @@ describe('sanitizeHref', () => {
 
   it('returns undefined for malformed URLs', () => {
     expect(sanitizeHref('not a url')).toBeUndefined();
+  });
+});
+
+describe('getServerPermissions', () => {
+  it('grants all actions when allowed_actions is undefined (no auth or admin)', () => {
+    const perms = getServerPermissions(createMockMCPServer());
+    expect(perms.canUpdate).toBe(true);
+    expect(perms.canDelete).toBe(true);
+    expect(perms.canManage).toBe(true);
+  });
+
+  it('denies all actions when allowed_actions is empty (READ permission)', () => {
+    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: [] }));
+    expect(perms.canUpdate).toBe(false);
+    expect(perms.canDelete).toBe(false);
+    expect(perms.canManage).toBe(false);
+  });
+
+  it('grants only matching actions', () => {
+    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE'] }));
+    expect(perms.canUpdate).toBe(true);
+    expect(perms.canDelete).toBe(false);
+    expect(perms.canManage).toBe(false);
+  });
+
+  it('grants all actions for MANAGE permission', () => {
+    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE', 'DELETE', 'MANAGE'] }));
+    expect(perms.canUpdate).toBe(true);
+    expect(perms.canDelete).toBe(true);
+    expect(perms.canManage).toBe(true);
+  });
+});
+
+describe('isServerDimmed', () => {
+  const binding = { binding_id: 1, server_name: 'test', endpoint_url: 'https://example.com', transport_type: TransportType.STREAMABLE_HTTP as TransportType.STREAMABLE_HTTP };
+
+  it('returns false for active server with bindings', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [binding] }))).toBe(false);
+  });
+
+  it('returns true for active server without bindings', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [] }))).toBe(true);
+  });
+
+  it('returns true for draft server with bindings', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_bindings: [binding] }))).toBe(true);
+  });
+
+  it('returns true for draft server without bindings', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_bindings: [] }))).toBe(true);
+  });
+
+  it('returns true for deprecated server with bindings', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_bindings: [binding] }))).toBe(true);
+  });
+
+  it('returns true when status is undefined (no version resolved)', () => {
+    expect(isServerDimmed(createMockMCPServer({ access_bindings: [binding] }))).toBe(true);
   });
 });

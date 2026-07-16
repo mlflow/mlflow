@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { tagListStyles, textEllipsisStyles, mcpIconStyles, noShrinkStyles } from '../styles';
+import { useMemo, useState } from 'react';
+import { tagListStyles, textEllipsisStyles, mcpIconStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
 import {
   Button,
   McpIcon,
@@ -15,13 +15,17 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPAccessBinding, MCPServer, MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR, resolveDisplayName, sanitizeHref } from '../utils';
+import { useServerState } from '../hooks/useServerState';
+import { deriveClientName } from '../installInstructions';
+import { AccessBindingsSubsection } from './AccessBindingsSubsection';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
-import { ConfirmationModal } from '../../admin/ConfirmationModal';
+import { useAddAccessBindingModal } from '../hooks/useAddAccessBindingModal';
+import { useEditAccessBindingModal } from '../hooks/useEditAccessBindingModal';
+import { useDeleteAccessBindingModal } from '../hooks/useDeleteAccessBindingModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
-import { useUpdateMCPServerVersion, useDeleteMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { EditVersionModal } from './EditVersionModal';
-import { useIsAuthAvailable, useCurrentUserIsAdmin } from '../../account/hooks';
+import { useDeleteVersionModal } from '../hooks/useDeleteVersionModal';
 import Utils from '../../common/utils/Utils';
 
 export const MCPServerVersionDetail = ({
@@ -31,9 +35,6 @@ export const MCPServerVersionDetail = ({
   showEditAliasesModal,
   onEditMetadata,
   bindings,
-  onAddBinding,
-  onEditBinding,
-  onDeleteBinding,
 }: {
   server: MCPServer;
   version?: MCPServerVersion;
@@ -41,51 +42,21 @@ export const MCPServerVersionDetail = ({
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditMetadata?: (version: MCPServerVersion) => void;
   bindings?: MCPAccessBinding[];
-  onAddBinding?: () => void;
-  onEditBinding?: (binding: MCPAccessBinding) => void;
-  onDeleteBinding?: (binding: MCPAccessBinding) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const isAuthAvailable = useIsAuthAvailable();
-  const isUserAdmin = useCurrentUserIsAdmin();
-  const canEdit = !isAuthAvailable || isUserAdmin;
-  const isAdmin = isAuthAvailable && isUserAdmin;
+  const { canUpdate, canDelete } = useServerState(server);
 
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [localConnectOptions, setLocalConnectOptions] = useState<Record<string, { hidden?: boolean }> | undefined>(
-    undefined,
-  );
-  const currentVersionRef = useRef(version?.version);
-  currentVersionRef.current = version?.version;
-
-  useEffect(() => {
-    setLocalConnectOptions(undefined);
-  }, [version?.version]);
-  const updateVersionMutation = useUpdateMCPServerVersion(server.name);
-  const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
-
-  const handleToggleConnectOption = (key: string, visible: boolean) => {
-    if (!version) return;
-    const toggledVersion = version.version;
-    const current = localConnectOptions ?? version.connect_options ?? {};
-    const updated = { ...current, [key]: { hidden: !visible } };
-    setLocalConnectOptions(updated);
-    updateVersionMutation.mutate(
-      {
-        version: toggledVersion,
-        connectOptions: updated,
-      },
-      {
-        onError: () => {
-          if (currentVersionRef.current === toggledVersion) {
-            setLocalConnectOptions(current);
-          }
-        },
-      },
-    );
-  };
+  const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
+  const { DeleteVersionModal, openDeleteVersionModal } = useDeleteVersionModal({ serverName: server.name });
+  const { AddAccessBindingModal, openAddBinding } = useAddAccessBindingModal({
+    serverName: server.name,
+    scopedVersion: version?.version,
+    scopedAliases: version ? aliasesByVersion[version.version] : undefined,
+  });
+  const { EditAccessBindingModal, openEditBinding } = useEditAccessBindingModal({ serverName: server.name });
+  const { DeleteAccessBindingModal, openDeleteBinding } = useDeleteAccessBindingModal({ serverName: server.name });
 
   if (!version) {
     return (
@@ -132,24 +103,28 @@ export const MCPServerVersionDetail = ({
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>{version.server_json.description}</Typography.Hint>
           )}
         </div>
-        {canEdit && (
+        {(canUpdate || canDelete) && (
           <div css={{ display: 'flex', gap: theme.spacing.sm, ...noShrinkStyles }}>
-            <Button
-              componentId="mlflow.mcp_registry.detail.edit_version"
-              icon={<PencilIcon />}
-              onClick={() => setEditVersionModalVisible(true)}
-            >
-              <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
-            </Button>
-            <Button
-              componentId="mlflow.mcp_registry.detail.delete_version"
-              icon={<TrashIcon />}
-              type="primary"
-              danger
-              onClick={() => setDeleteModalVisible(true)}
-            >
-              <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
-            </Button>
+            {canUpdate && (
+              <Button
+                componentId="mlflow.mcp_registry.detail.edit_version"
+                icon={<PencilIcon />}
+                onClick={() => setEditVersionModalVisible(true)}
+              >
+                <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                componentId="mlflow.mcp_registry.detail.delete_version"
+                icon={<TrashIcon />}
+                type="primary"
+                danger
+                onClick={() => openDeleteVersionModal(version.version)}
+              >
+                <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -185,10 +160,10 @@ export const MCPServerVersionDetail = ({
           <FormattedMessage defaultMessage="Aliases:" description="MCP server version detail aliases label" />
         </Typography.Text>
         <div>
-          {(aliasesByVersion[version.version] ?? []).length > 0 || canEdit ? (
+          {(aliasesByVersion[version.version] ?? []).length > 0 || canUpdate ? (
             <MCPServerAliasesCell
               aliases={aliasesByVersion[version.version] ?? []}
-              onEdit={canEdit ? () => showEditAliasesModal?.(version.version) : undefined}
+              onEdit={canUpdate ? () => showEditAliasesModal?.(version.version) : undefined}
             />
           ) : (
             <Typography.Hint>—</Typography.Hint>
@@ -297,21 +272,16 @@ export const MCPServerVersionDetail = ({
           )}
         </Tabs.List>
 
-        <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md }}>
-          {version.server_json && (
-            <ServerJSONSection
-              serverJson={version.server_json}
-              serverName={server.name}
-              bindings={bindings}
-              isAdmin={isAdmin}
-              isAuthAvailable={isAuthAvailable}
-              connectOptions={localConnectOptions ?? version.connect_options ?? undefined}
-              onToggleConnectOption={handleToggleConnectOption}
-              onAddBinding={onAddBinding}
-              onEditBinding={onEditBinding}
-              onDeleteBinding={onDeleteBinding}
-            />
-          )}
+        <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md, ...flexColumnGapStyles(theme, theme.spacing.md) }}>
+          <AccessBindingsSubsection
+            bindings={bindings ?? []}
+            derivedName={derivedName}
+            server={server}
+            onAddBinding={openAddBinding}
+            onEditBinding={openEditBinding}
+            onDeleteBinding={openDeleteBinding}
+          />
+          <ServerJSONSection serverJson={version.server_json} server={server} version={version} />
         </Tabs.Content>
 
         {version.tools && version.tools.length > 0 && (
@@ -328,33 +298,10 @@ export const MCPServerVersionDetail = ({
         aliasesByVersion={aliasesByVersion}
         onClose={() => setEditVersionModalVisible(false)}
       />
-
-      <ConfirmationModal
-        componentId="mlflow.mcp_registry.detail.delete_version_modal"
-        title={intl.formatMessage({
-          defaultMessage: 'Delete version',
-          description: 'MCP server delete version confirmation modal title',
-        })}
-        visible={deleteModalVisible}
-        message={
-          <FormattedMessage
-            defaultMessage="Are you sure you want to delete version {version}? This action cannot be undone."
-            description="MCP server delete version confirmation message"
-            values={{ version: version.version }}
-          />
-        }
-        isLoading={deleteVersionMutation.isLoading}
-        error={deleteVersionMutation.error?.message ?? null}
-        onConfirm={() => {
-          deleteVersionMutation.mutate(version.version, {
-            onSuccess: () => setDeleteModalVisible(false),
-          });
-        }}
-        onCancel={() => {
-          deleteVersionMutation.reset();
-          setDeleteModalVisible(false);
-        }}
-      />
+      {DeleteVersionModal}
+      {AddAccessBindingModal}
+      {EditAccessBindingModal}
+      {DeleteAccessBindingModal}
     </div>
   );
 };

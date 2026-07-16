@@ -2,26 +2,31 @@ import { describe, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { MCPServerCard } from './MCPServerCard';
 import { createMockMCPServer } from '../test-utils';
 import type { MCPServer } from '../types';
 
-const renderCard = (server: MCPServer) =>
-  render(
+const renderCard = (server: MCPServer) => {
+  const queryClient = new QueryClient();
+  return render(
     <IntlProvider locale="en">
       <TestRouter
         routes={[
           testRoute(
-            <DesignSystemProvider>
-              <MCPServerCard server={server} />
-            </DesignSystemProvider>,
+            <QueryClientProvider client={queryClient}>
+              <DesignSystemProvider>
+                <MCPServerCard server={server} />
+              </DesignSystemProvider>
+            </QueryClientProvider>,
             '/',
           ),
         ]}
       />
     </IntlProvider>,
   );
+};
 
 describe('MCPServerCard', () => {
   it('renders server name when no display_name is set', () => {

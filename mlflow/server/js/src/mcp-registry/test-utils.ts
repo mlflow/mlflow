@@ -1,6 +1,7 @@
 import { rest } from 'msw';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import type { MCPServer, MCPServerVersion } from './types';
+import { MCPStatus } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
 
@@ -20,7 +21,7 @@ export const createMockMCPServerVersion = (overrides: Partial<MCPServerVersion> 
     title: 'Test Server',
     description: 'A test MCP server',
   },
-  status: 'active',
+  status: MCPStatus.ACTIVE,
   aliases: [],
   tags: {},
   creation_timestamp: 1717520552000,

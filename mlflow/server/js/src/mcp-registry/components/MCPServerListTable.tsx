@@ -17,11 +17,13 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
+
 import MCPRegistryRoutes from '../routes';
 import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
-import { textEllipsisStyles, flexRowStyles } from '../styles';
+import { textEllipsisStyles, flexRowStyles, monoFontStyles } from '../styles';
+import { isServerDimmed } from '../utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
@@ -86,7 +88,7 @@ const MCPServerEndpointsCell = ({ row: { original } }: CellContext<MCPServer, un
     <Typography.Text
       size="sm"
       css={{
-        fontFamily: 'monospace',
+        ...monoFontStyles,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
@@ -177,6 +179,7 @@ export const MCPServerListTable = ({
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
 }) => {
   const { theme } = useDesignSystemTheme();
+  // One auth check + pure isServerDimmed per row (avoid N hooks)
   const isAuthAvailable = useIsAuthAvailable();
   const columns = useMCPServerTableColumns();
 
@@ -218,15 +221,14 @@ export const MCPServerListTable = ({
         <TableSkeletonRows table={table} />
       ) : (
         table.getRowModel().rows.map((row) => {
-          const isUnavailable = isAuthAvailable && (row.original.access_bindings?.length ?? 0) === 0;
-          const isInactive = row.original.status !== 'active';
+          const isDimmed = isAuthAvailable && isServerDimmed(row.original);
           return (
             <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
               {row.getAllCells().map((cell) => (
                 <TableCell
                   key={cell.id}
                   css={{ alignItems: 'center' }}
-                  style={{ opacity: isUnavailable || isInactive ? 0.5 : 1 }}
+                  style={{ opacity: isDimmed ? 0.5 : 1 }}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>

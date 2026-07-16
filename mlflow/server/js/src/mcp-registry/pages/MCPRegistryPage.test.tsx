@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
+import { MCPStatus } from '../types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -13,6 +14,7 @@ import {
   createMockMCPServer,
   getMockedSearchMCPServersResponse,
   getMockedSearchMCPServersErrorResponse,
+  getMockedCurrentUserResponse,
 } from '../test-utils';
 
 describe('MCPRegistryPage', () => {
@@ -150,6 +152,56 @@ describe('MCPRegistryPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Latest version')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Available/All toggle visibility', () => {
+    const activeServer = (overrides: Partial<ReturnType<typeof createMockMCPServer>> = {}) =>
+      createMockMCPServer({
+        name: 'server-1',
+        status: MCPStatus.ACTIVE,
+        access_bindings: [
+          {
+            binding_id: 1,
+            server_name: 'server-1',
+            endpoint_url: 'https://example.com',
+            transport_type: 'streamable-http',
+          } as any,
+        ],
+        ...overrides,
+      });
+
+    it('hides toggle when user has no MANAGE permission', async () => {
+      server.use(
+        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })]),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('server-1')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Available')).not.toBeInTheDocument();
+    });
+
+    it('shows toggle when user has MANAGE permission on at least one server', async () => {
+      server.use(
+        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: ['USE', 'UPDATE', 'DELETE', 'MANAGE'] })]),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('server-1')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Available')).toBeInTheDocument();
+    });
+
+    it('shows toggle for admin users (allowed_actions undefined)', async () => {
+      server.use(getMockedSearchMCPServersResponse([activeServer()]), getMockedCurrentUserResponse({ isAdmin: true }));
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('server-1')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Available')).toBeInTheDocument();
     });
   });
 });

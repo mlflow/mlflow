@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -20,7 +20,6 @@ import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWra
 import { Link, useNavigate, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { ConfirmationModal } from '../../admin/ConfirmationModal';
 import { useEditAliasesModal } from '../../common/hooks/useEditAliasesModal';
 import MCPRegistryRoutes from '../routes';
 import {
@@ -29,10 +28,7 @@ import {
   useLatestMCPServerVersionQuery,
   useMCPAccessBindingsQuery,
 } from '../hooks/useMCPServerDetailQuery';
-import { useDeleteAccessBindingMutation } from '../hooks/useAccessBindingMutation';
 import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
-import { AccessBindingModal } from '../components/AccessBindingModal';
-import type { MCPAccessBinding } from '../types';
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
 import { useUpdateMCPServerVersionMetadataModal } from '../hooks/useUpdateMCPServerVersionMetadataModal';
 import { useDeleteServerModal } from '../hooks/useDeleteServerModal';
@@ -41,7 +37,7 @@ import { MCPServerVersionList } from '../components/MCPServerVersionList';
 import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
-import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
+import { useServerState } from '../hooks/useServerState';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -55,38 +51,27 @@ const MCPServerDetailPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
-  const isAuthAvailable = useIsAuthAvailable();
-  const isUserAdmin = useCurrentUserIsAdmin();
-  const canManage = !isAuthAvailable || isUserAdmin;
   const params = useParams<{ serverName: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const versionFromUrl = searchParams.get('version') ?? undefined;
   const serverName = decodeURIComponent(params.serverName ?? '');
-  const [addBindingModalOpen, setAddBindingModalOpen] = useState(false);
-  const [editBindingModalBinding, setEditBindingModalBinding] = useState<MCPAccessBinding | undefined>(undefined);
-  const [deleteBindingModalBinding, setDeleteBindingModalBinding] = useState<MCPAccessBinding | undefined>(undefined);
-  const deleteBindingMutation = useDeleteAccessBindingMutation();
   const updateVersionMutation = useUpdateMCPServerVersion(serverName);
   const { DeleteServerModal, openDeleteModal } = useDeleteServerModal({
     serverName,
     onDeleted: () => navigate(MCPRegistryRoutes.mcpRegistryPageRoute),
   });
   const { EditDisplayNameModal, openEditDisplayName } = useEditDisplayNameModal({ serverName });
-  const {
-    data: server,
-    isLoading: serverLoading,
-    error: serverError,
-    refetch: refetchServer,
-  } = useMCPServerQuery(serverName);
+  const { data: server, isLoading: serverLoading, error: serverError } = useMCPServerQuery(serverName);
   const {
     data: versions,
     isLoading: versionsLoading,
     error: versionsError,
-    refetch: refetchVersions,
     hasMoreVersions,
   } = useMCPServerVersionsQuery(serverName);
-  const { data: latestVersion, refetch: refetchLatestVersion } = useLatestMCPServerVersionQuery(serverName);
-  const { data: bindings, refetch: refetchBindings } = useMCPAccessBindingsQuery(serverName);
+  const { data: latestVersion } = useLatestMCPServerVersionQuery(serverName);
+  const { data: bindings } = useMCPAccessBindingsQuery(serverName);
+
+  const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
 
   const versionFoundInList = versionFromUrl && versions?.some((v) => v.version === versionFromUrl);
 
@@ -154,10 +139,6 @@ const MCPServerDetailPage = () => {
       return false;
     });
   }, [bindings, selectedVersion, aliasesByVersion]);
-
-  const refetchAll = useCallback(async () => {
-    await Promise.all([refetchServer(), refetchVersions(), refetchLatestVersion(), refetchBindings()]);
-  }, [refetchServer, refetchVersions, refetchLatestVersion, refetchBindings]);
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
     serverName: serverName,
@@ -250,22 +231,33 @@ const MCPServerDetailPage = () => {
         title={
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             {displayName}
-            {isAuthAvailable && isUserAdmin && (server.access_bindings?.length ?? 0) === 0 && (
+            {isDimmed && (
               <Tooltip
                 componentId="mlflow.mcp_registry.detail.unavailable_tooltip"
                 content={
-                  <FormattedMessage
-                    defaultMessage="No access endpoints configured for this server"
-                    description="Tooltip for unavailable label on MCP server detail page"
-                  />
+                  isUnavailable ? (
+                    <FormattedMessage
+                      defaultMessage="No access endpoints configured for this server"
+                      description="Tooltip for unavailable label on MCP server detail page"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Server status is not active"
+                      description="Tooltip for inactive status label on MCP server detail page"
+                    />
+                  )
                 }
               >
                 <span css={{ cursor: 'default' }}>
                   <Tag componentId="mlflow.mcp_registry.detail.unavailable_tag" color="coral">
-                    <FormattedMessage
-                      defaultMessage="Unavailable"
-                      description="Label for MCP server with no access endpoints"
-                    />
+                    {isUnavailable ? (
+                      <FormattedMessage
+                        defaultMessage="Unavailable"
+                        description="Label for MCP server with no access endpoints"
+                      />
+                    ) : (
+                      server.status
+                    )}
                   </Tag>
                 </span>
               </Tooltip>
@@ -273,44 +265,58 @@ const MCPServerDetailPage = () => {
           </span>
         }
         buttons={
-          canManage ? (
+          canUpdate || canDelete ? (
             <>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    componentId="mlflow.mcp_registry.detail.actions"
-                    icon={<OverflowIcon />}
-                    aria-label={intl.formatMessage({
-                      defaultMessage: 'More actions',
-                      description: 'Aria label for MCP server detail actions overflow menu',
-                    })}
-                  />
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  <DropdownMenu.Item
-                    componentId="mlflow.mcp_registry.detail.actions.edit_display_name"
-                    onClick={() => openEditDisplayName(server.display_name || '')}
-                  >
-                    <FormattedMessage
-                      defaultMessage="Edit display name"
-                      description="MCP server detail edit server display name action"
+              {(canUpdate || canDelete) && (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      componentId="mlflow.mcp_registry.detail.actions"
+                      icon={<OverflowIcon />}
+                      aria-label={intl.formatMessage({
+                        defaultMessage: 'More actions',
+                        description: 'Aria label for MCP server detail actions overflow menu',
+                      })}
                     />
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item componentId="mlflow.mcp_registry.detail.actions.delete" onClick={openDeleteModal}>
-                    <FormattedMessage defaultMessage="Delete" description="MCP server detail delete server action" />
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-              <Button
-                componentId="mlflow.mcp_registry.detail.create_version"
-                type="primary"
-                onClick={openCreateVersionModal}
-              >
-                <FormattedMessage
-                  defaultMessage="Create MCP server version"
-                  description="MCP server detail create version button"
-                />
-              </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content>
+                    {canUpdate && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.mcp_registry.detail.actions.edit_display_name"
+                        onClick={() => openEditDisplayName(server.display_name || '')}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Edit display name"
+                          description="MCP server detail edit server display name action"
+                        />
+                      </DropdownMenu.Item>
+                    )}
+                    {canDelete && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.mcp_registry.detail.actions.delete"
+                        onClick={openDeleteModal}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Delete"
+                          description="MCP server detail delete server action"
+                        />
+                      </DropdownMenu.Item>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              )}
+              {canUpdate && (
+                <Button
+                  componentId="mlflow.mcp_registry.detail.create_version"
+                  type="primary"
+                  onClick={openCreateVersionModal}
+                >
+                  <FormattedMessage
+                    defaultMessage="Create MCP server version"
+                    description="MCP server detail create version button"
+                  />
+                </Button>
+              )}
             </>
           ) : undefined
         }
@@ -360,9 +366,6 @@ const MCPServerDetailPage = () => {
             showEditAliasesModal={showEditAliasesModal}
             onEditMetadata={showEditMetadataModal}
             bindings={versionBindings}
-            onAddBinding={() => setAddBindingModalOpen(true)}
-            onEditBinding={(b) => setEditBindingModalBinding(b)}
-            onDeleteBinding={(b) => setDeleteBindingModalBinding(b)}
           />
         </div>
       </div>
@@ -371,57 +374,6 @@ const MCPServerDetailPage = () => {
       {CreateMCPServerVersionModal}
       {EditDisplayNameModal}
       {DeleteServerModal}
-      <AccessBindingModal
-        visible={addBindingModalOpen || Boolean(editBindingModalBinding)}
-        onCancel={() => {
-          setAddBindingModalOpen(false);
-          setEditBindingModalBinding(undefined);
-        }}
-        onSuccess={refetchAll}
-        editBinding={editBindingModalBinding}
-        lockedServer={serverName}
-        scopedVersion={currentVersion?.version}
-        scopedAliases={currentVersion ? aliasesByVersion[currentVersion.version] : undefined}
-        createTitle={
-          <FormattedMessage
-            defaultMessage="Add access endpoint"
-            description="MCP server add access endpoint modal title"
-          />
-        }
-      />
-      <ConfirmationModal
-        componentId="mlflow.mcp_registry.detail.delete_binding_modal"
-        title={intl.formatMessage({
-          defaultMessage: 'Delete access endpoint',
-          description: 'Access endpoint delete confirmation modal title',
-        })}
-        visible={Boolean(deleteBindingModalBinding)}
-        message={
-          <FormattedMessage
-            defaultMessage="Are you sure you want to delete this access endpoint? This action cannot be undone."
-            description="Access endpoint delete confirmation message"
-          />
-        }
-        isLoading={deleteBindingMutation.isLoading}
-        error={deleteBindingMutation.error?.message ?? null}
-        onConfirm={() => {
-          if (deleteBindingModalBinding) {
-            deleteBindingMutation.mutate(
-              { serverName, bindingId: deleteBindingModalBinding.binding_id },
-              {
-                onSuccess: () => {
-                  setDeleteBindingModalBinding(undefined);
-                  refetchAll();
-                },
-              },
-            );
-          }
-        }}
-        onCancel={() => {
-          deleteBindingMutation.reset();
-          setDeleteBindingModalBinding(undefined);
-        }}
-      />
     </ScrollablePageWrapper>
   );
 };

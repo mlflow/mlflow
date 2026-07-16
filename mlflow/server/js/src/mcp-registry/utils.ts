@@ -1,5 +1,6 @@
 import type { TagProps } from '@databricks/design-system';
-import type { MCPRemoteTransportType, MCPStatus, MCPTool, ServerJSONPayload } from './types';
+import type { MCPAccessBinding, MCPServer, MCPRemoteTransportType, MCPTool, ServerJSONPayload } from './types';
+import { MCPStatus, MCPServerAction } from './types';
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
   if (!url) return undefined;
@@ -15,17 +16,17 @@ export const sanitizeHref = (url: string | undefined): string | undefined => {
 };
 
 export const STATUS_TAG_COLOR: Record<MCPStatus, TagProps['color']> = {
-  draft: 'charcoal',
-  active: 'lime',
-  deprecated: 'lemon',
-  deleted: 'coral',
+  [MCPStatus.DRAFT]: 'charcoal',
+  [MCPStatus.ACTIVE]: 'lime',
+  [MCPStatus.DEPRECATED]: 'lemon',
+  [MCPStatus.DELETED]: 'coral',
 };
 
 export const STATUS_TRANSITIONS: Record<MCPStatus, MCPStatus[]> = {
-  draft: ['active'],
-  active: ['draft', 'deprecated'],
-  deprecated: ['active'],
-  deleted: [],
+  [MCPStatus.DRAFT]: [MCPStatus.ACTIVE],
+  [MCPStatus.ACTIVE]: [MCPStatus.DRAFT, MCPStatus.DEPRECATED],
+  [MCPStatus.DEPRECATED]: [MCPStatus.ACTIVE],
+  [MCPStatus.DELETED]: [],
 };
 
 export const LATEST_ALIAS = 'latest';
@@ -82,6 +83,26 @@ export const isValidEndpointUrl = (url: string): boolean => {
 
 export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: string; value: string }[] =>
   Object.entries(tags).map(([key, value]) => ({ key, value }));
+
+const hasNoBindings = (server: MCPServer): boolean => (server.access_bindings?.length ?? 0) === 0;
+
+export const isServerDimmed = (server: MCPServer): boolean =>
+  hasNoBindings(server) || server.status !== MCPStatus.ACTIVE;
+
+export const formatBindingTarget = (binding: Pick<MCPAccessBinding, 'server_alias' | 'server_version'>): string =>
+  binding.server_alias ? `@${binding.server_alias}` : binding.server_version || '—';
+
+const hasAction = (actions: MCPServerAction[] | undefined, action: MCPServerAction) =>
+  actions === undefined || actions.includes(action);
+
+export const getServerPermissions = (server?: MCPServer) => {
+  const actions = server?.allowed_actions;
+  return {
+    canUpdate: hasAction(actions, MCPServerAction.UPDATE),
+    canDelete: hasAction(actions, MCPServerAction.DELETE),
+    canManage: hasAction(actions, MCPServerAction.MANAGE),
+  };
+};
 
 interface ServerJsonValidationResult {
   valid: boolean;

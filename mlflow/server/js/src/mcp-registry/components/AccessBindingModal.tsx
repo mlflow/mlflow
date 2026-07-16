@@ -6,21 +6,21 @@ import {
   Modal,
   SimpleSelect,
   SimpleSelectOption,
-  SimpleSelectOptionGroup,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPAccessBinding, MCPRemoteTransportType } from '../types';
+import { TransportType } from '../types';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useMCPServerQuery, useMCPServerVersionsQuery } from '../hooks/useMCPServerDetailQuery';
-import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
+import { MCPRegistryApi } from '../api';
+import { MCP_QUERY_KEYS } from '../utils';
 import { useCreateAccessBindingMutation, useUpdateAccessBindingMutation } from '../hooks/useAccessBindingMutation';
 import { isValidEndpointUrl, resolveBindingDisplayName } from '../utils';
 import { FieldLabel } from '../../admin/components/FieldLabel';
-
-const ALIAS_PREFIX = 'alias:';
-const VERSION_PREFIX = 'version:';
+import { BindingTargetSelector, ALIAS_PREFIX, VERSION_PREFIX } from './BindingTargetSelector';
 
 function bindingToTarget(binding: MCPAccessBinding): string {
   if (binding.server_alias) return `${ALIAS_PREFIX}${binding.server_alias}`;
@@ -34,7 +34,6 @@ export const AccessBindingModal = ({
   onSuccess,
   editBinding,
   lockedServer,
-  defaultVersion,
   scopedVersion,
   scopedAliases,
   createTitle,
@@ -44,7 +43,6 @@ export const AccessBindingModal = ({
   onSuccess?: () => void;
   editBinding?: MCPAccessBinding;
   lockedServer?: string;
-  defaultVersion?: string;
   scopedVersion?: string;
   scopedAliases?: string[];
   createTitle?: React.ReactNode;
@@ -57,15 +55,20 @@ export const AccessBindingModal = ({
   const [selectedServer, setSelectedServer] = useState('');
   const [endpointUrl, setEndpointUrl] = useState('');
   const [selectedTarget, setSelectedTarget] = useState(`${ALIAS_PREFIX}latest`);
-  const [transportType, setTransportType] = useState<MCPRemoteTransportType>('streamable-http');
+  const [transportType, setTransportType] = useState<MCPRemoteTransportType>(TransportType.STREAMABLE_HTTP);
 
   const createMutation = useCreateAccessBindingMutation();
   const updateMutation = useUpdateAccessBindingMutation();
   const activeMutation = isEditMode ? updateMutation : createMutation;
 
-  // TODO: useMCPServersListQuery paginates; the dropdown only shows the first page.
-  // Switch to a searchable combobox with scroll-based pagination or fetch all pages.
-  const { data: servers } = useMCPServersListQuery({ enabled: !isServerLocked });
+  // TODO: Server list is capped at 1000 results. Switch to a searchable combobox
+  // with scroll-based pagination for registries with more servers.
+  const { data: allServersResponse } = useQuery({
+    queryKey: [MCP_QUERY_KEYS.SERVERS_LIST, 'all'],
+    queryFn: () => MCPRegistryApi.searchMCPServers({ max_results: 1000 }),
+    enabled: !isServerLocked,
+  });
+  const servers = allServersResponse?.mcp_servers;
   const { data: server } = useMCPServerQuery(selectedServer);
   const { data: versions } = useMCPServerVersionsQuery(selectedServer);
 
@@ -79,19 +82,13 @@ export const AccessBindingModal = ({
       } else {
         setSelectedServer(lockedServer || '');
         setEndpointUrl('');
-        setSelectedTarget(
-          scopedVersion
-            ? `${VERSION_PREFIX}${scopedVersion}`
-            : defaultVersion
-              ? `${VERSION_PREFIX}${defaultVersion}`
-              : `${ALIAS_PREFIX}latest`,
-        );
-        setTransportType('streamable-http');
+        setSelectedTarget(scopedVersion ? `${VERSION_PREFIX}${scopedVersion}` : `${ALIAS_PREFIX}latest`);
+        setTransportType(TransportType.STREAMABLE_HTTP);
       }
       createMutation.reset();
       updateMutation.reset();
     }
-  }, [visible, editBinding, lockedServer, defaultVersion, scopedVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
+  }, [visible, editBinding, lockedServer, scopedVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
 
   const aliases = server?.aliases ?? [];
   const isSubmitting = activeMutation.isLoading;
@@ -105,6 +102,12 @@ export const AccessBindingModal = ({
     const targetValue = isAlias
       ? selectedTarget.slice(ALIAS_PREFIX.length)
       : selectedTarget.slice(VERSION_PREFIX.length);
+    const onMutationSuccess = {
+      onSuccess: () => {
+        onCancel();
+        onSuccess?.();
+      },
+    };
 
     if (isEditMode && editBinding) {
       updateMutation.mutate(
@@ -118,12 +121,7 @@ export const AccessBindingModal = ({
             transport_type: transportType,
           },
         },
-        {
-          onSuccess: () => {
-            onCancel();
-            onSuccess?.();
-          },
-        },
+        onMutationSuccess,
       );
     } else {
       createMutation.mutate(
@@ -136,12 +134,7 @@ export const AccessBindingModal = ({
             transport_type: transportType,
           },
         },
-        {
-          onSuccess: () => {
-            onCancel();
-            onSuccess?.();
-          },
-        },
+        onMutationSuccess,
       );
     }
   };
@@ -253,72 +246,15 @@ export const AccessBindingModal = ({
               description="MCP registry binding modal version/alias label"
             />
           </FieldLabel>
-          <SimpleSelect
-            id="mcp-registry-binding-target"
-            componentId="mlflow.mcp_registry.binding_modal.target"
+          <BindingTargetSelector
             value={selectedTarget}
-            onChange={({ target }) => setSelectedTarget(target.value)}
+            onChange={setSelectedTarget}
             disabled={!selectedServer || isSubmitting}
-          >
-            {scopedVersion ? (
-              <>
-                <SimpleSelectOptionGroup
-                  label={intl.formatMessage({
-                    defaultMessage: 'Version',
-                    description: 'MCP registry binding modal version group label',
-                  })}
-                >
-                  <SimpleSelectOption value={`${VERSION_PREFIX}${scopedVersion}`}>{scopedVersion}</SimpleSelectOption>
-                </SimpleSelectOptionGroup>
-                {scopedAliases && scopedAliases.length > 0 && (
-                  <SimpleSelectOptionGroup
-                    label={intl.formatMessage({
-                      defaultMessage: 'Aliases',
-                      description: 'MCP registry binding modal aliases group label',
-                    })}
-                  >
-                    {scopedAliases.map((alias) => (
-                      <SimpleSelectOption key={alias} value={`${ALIAS_PREFIX}${alias}`}>
-                        @{alias}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelectOptionGroup>
-                )}
-              </>
-            ) : (
-              <>
-                <SimpleSelectOptionGroup
-                  label={intl.formatMessage({
-                    defaultMessage: 'Aliases',
-                    description: 'MCP registry binding modal aliases group label',
-                  })}
-                >
-                  <SimpleSelectOption value={`${ALIAS_PREFIX}latest`}>
-                    <FormattedMessage defaultMessage="@latest" description="MCP registry latest alias option" />
-                  </SimpleSelectOption>
-                  {aliases.map((a) => (
-                    <SimpleSelectOption key={a.alias} value={`${ALIAS_PREFIX}${a.alias}`}>
-                      @{a.alias}
-                    </SimpleSelectOption>
-                  ))}
-                </SimpleSelectOptionGroup>
-                {versions && versions.length > 0 && (
-                  <SimpleSelectOptionGroup
-                    label={intl.formatMessage({
-                      defaultMessage: 'Versions',
-                      description: 'MCP registry binding modal versions group label',
-                    })}
-                  >
-                    {versions.map((v) => (
-                      <SimpleSelectOption key={v.version} value={`${VERSION_PREFIX}${v.version}`}>
-                        {v.version}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelectOptionGroup>
-                )}
-              </>
-            )}
-          </SimpleSelect>
+            scopedVersion={scopedVersion}
+            scopedAliases={scopedAliases}
+            aliases={aliases}
+            versions={versions ?? []}
+          />
         </div>
 
         <div>

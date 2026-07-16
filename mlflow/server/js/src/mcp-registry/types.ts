@@ -1,12 +1,17 @@
-export type MCPStatus = 'draft' | 'active' | 'deprecated' | 'deleted';
-
-export type MCPRemoteTransportType = 'streamable-http' | 'sse';
+export enum MCPStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  DEPRECATED = 'deprecated',
+  DELETED = 'deleted',
+}
 
 export enum TransportType {
   STDIO = 'stdio',
   STREAMABLE_HTTP = 'streamable-http',
   SSE = 'sse',
 }
+
+export type MCPRemoteTransportType = TransportType.STREAMABLE_HTTP | TransportType.SSE;
 
 export enum ConnectionSource {
   PACKAGE = 'package',
@@ -17,6 +22,13 @@ export enum ConnectionSource {
 export enum ConnectionFormat {
   CLAUDE_CODE = 'claude-code',
   MCP_JSON = 'mcp-json',
+}
+
+export enum MCPServerAction {
+  USE = 'USE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  MANAGE = 'MANAGE',
 }
 
 // Entity types
@@ -58,6 +70,7 @@ export interface MCPServer {
   last_updated_by?: string;
   creation_timestamp?: number;
   last_updated_timestamp?: number;
+  allowed_actions?: MCPServerAction[];
 }
 
 export interface MCPServerVersion {
