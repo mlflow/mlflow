@@ -80,6 +80,6 @@ def map_with_context(
     A separate context copy is created per item so concurrent workers do not share
     the same ``Context.run()`` state.
     """
-    items = list(iterable)
+    items = iterable if isinstance(iterable, list) else list(iterable)
     contexts = [contextvars.copy_context() for _ in items]
     return executor.map(lambda item, ctx: ctx.run(fn, item), items, contexts)
