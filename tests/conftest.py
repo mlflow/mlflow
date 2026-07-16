@@ -86,11 +86,16 @@ _logger = logging.getLogger(__name__)
 #     leaks across the process and trips these.
 #   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
 #     which are perturbed by concurrent xdist workers.
+#   - tests/data/test_huggingface_dataset_and_source.py, tests/metrics/test_metric_definitions.py:
+#     download models/datasets from huggingface.co; 4 workers hitting HF at once trigger rate
+#     limiting / HTTP 504s. Running them serially keeps concurrent HF load down.
 _XDIST_SERIAL_PATHS = (
     "tests/data/test_spark_dataset.py",
     "tests/data/test_spark_dataset_source.py",
     "tests/data/test_delta_dataset_source.py",
     "tests/data/test_pandas_dataset.py",
+    "tests/data/test_huggingface_dataset_and_source.py",
+    "tests/metrics/test_metric_definitions.py",
     "tests/server/test_prometheus_exporter.py",
     "tests/server/test_handlers.py",
     "tests/server/test_workspace_middleware.py",
