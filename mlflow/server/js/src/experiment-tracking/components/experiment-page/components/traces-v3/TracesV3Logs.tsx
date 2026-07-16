@@ -65,7 +65,12 @@ import {
   GenAiTraceTableRowSelectionProvider,
   useIsInsideGenAiTraceTableRowSelectionProvider,
 } from '@databricks/web-shared/genai-traces-table';
+import { FormattedMessage } from 'react-intl';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
+import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { SharedViewBanner } from '../saved-views/SharedViewBanner';
+import { TRACE_SHARE_URL_PARAM_KEY, TraceLiveViewStateProvider } from './TracesV3SavedViews';
+import { useSavedViewPreview } from './traceSavedViewPreview';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
@@ -291,6 +296,50 @@ const TracesV3LogsImpl = React.memo(
       asc: false,
     });
 
+    // Saved-view preview override: when a shared view is open (its share key + serialized
+    // columns/sort ride in the URL), render the view's columns/sort in the table WITHOUT writing to
+    // the user's persisted state. Only an explicit "Override my view" adopts the preview; "Discard"
+    // drops the share params and returns to the user's own state.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const previewActive = Boolean(searchParams.get(TRACE_SHARE_URL_PARAM_KEY));
+    const rawPreviewColumns = searchParams.get('selectedColumns') ?? undefined;
+    const rawPreviewSort = searchParams.get('sort') ?? undefined;
+    // Leave preview by dropping only the share key — NOT by navigating to the bare route. Override
+    // writes columns/sort via the table setters first (which, when table-state persistence is in
+    // URL mode, write the selectedColumns/sort params); a bare-route navigation would clobber those
+    // writes. A functional setSearchParams updater composes with the setters' writes instead.
+    const exitPreview = useCallback(() => {
+      setSearchParams(
+        (params) => {
+          params.delete(TRACE_SHARE_URL_PARAM_KEY);
+          return params;
+        },
+        { replace: true },
+      );
+    }, [setSearchParams]);
+    const preview = useSavedViewPreview({
+      active: previewActive,
+      rawColumns: rawPreviewColumns,
+      rawSort: rawPreviewSort,
+      allColumns,
+      setSelectedColumns,
+      setTableSort,
+      exitPreview,
+    });
+
+    const effectiveColumns = preview.active && preview.columns ? preview.columns : selectedColumns;
+    const effectiveSort = preview.active && preview.sort ? preview.sort : tableSort;
+
+    // Expose the user's live column/sort selection to the saved-views "Save" action, which renders
+    // inside this tree via toolbarAddons. Capture the user's OWN state (selectedColumns/tableSort),
+    // NOT the preview override, so re-saving while previewing a shared view snapshots the user's
+    // current selection rather than the previewed one. The traces table persists these to local
+    // storage (not the URL) with URL persistence off, so without this the save would capture nothing.
+    const liveSavedViewState = useMemo(
+      () => ({ selectedColumnIds: selectedColumns.map((col) => col.id), tableSort }),
+      [selectedColumns, tableSort],
+    );
+
     // Set the initial time filter when there are no traces
     const { isInitialTimeFilterLoading } = useSetInitialTimeFilter({
       locations: traceSearchLocations,
@@ -315,7 +364,10 @@ const TracesV3LogsImpl = React.memo(
       filters: combinedFilters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
-      tableSort,
+      // Use the preview sort when a saved view is open so the fetched row order matches the sort
+      // indicator the table body shows (which also renders effectiveSort); otherwise the header
+      // would show the preview's sort while rows stayed ordered by the user's own sort.
+      tableSort: effectiveSort,
       disabled: isQueryDisabled,
     });
 
@@ -470,8 +522,8 @@ const TracesV3LogsImpl = React.memo(
                 assessmentInfos={assessmentInfos}
                 setFilters={setFilters}
                 filters={filters}
-                selectedColumns={selectedColumns}
-                tableSort={tableSort}
+                selectedColumns={effectiveColumns}
+                tableSort={effectiveSort}
                 onTraceTagsEdit={showEditTagsModalForTrace}
                 isTableLoading={isTableLoading}
                 isGroupedBySession={forceGroupBySession || isGroupedBySession}
@@ -546,8 +598,8 @@ const TracesV3LogsImpl = React.memo(
                   assessmentInfos={assessmentInfos}
                   setFilters={setFilters}
                   filters={filters}
-                  selectedColumns={selectedColumns}
-                  tableSort={tableSort}
+                  selectedColumns={effectiveColumns}
+                  tableSort={effectiveSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
@@ -606,13 +658,38 @@ const TracesV3LogsImpl = React.memo(
               isMetadataLoading={isMetadataLoading}
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
-              addons={toolbarAddons}
+              addons={
+                toolbarAddons ? (
+                  <TraceLiveViewStateProvider value={liveSavedViewState}>{toolbarAddons}</TraceLiveViewStateProvider>
+                ) : (
+                  toolbarAddons
+                )
+              }
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
               onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
             {JudgesStatusBanner}
+            {preview.active && (
+              <SharedViewBanner
+                componentId="mlflow.traces.shared_view"
+                message={
+                  <FormattedMessage
+                    defaultMessage="You're viewing a shared view. Your changes won't be saved unless you override your own view."
+                    description="Traces page > shared view banner explaining that changes are not persisted while previewing"
+                  />
+                }
+                overrideLabel={
+                  <FormattedMessage
+                    defaultMessage="Override my view"
+                    description="Traces shared view banner > button that adopts the shared view into the user's own view"
+                  />
+                }
+                onOverride={preview.override}
+                onDiscard={preview.discard}
+              />
+            )}
             {renderMainContent()}
           </div>
           {!disableActions && isIssueDetectionModalOpen && (

@@ -7467,6 +7467,10 @@
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
   },
+  "YXS+Tk": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own view.",
+    "description": "Traces page > shared view banner explaining that changes are not persisted while previewing"
+  },
   "YYqxG3": {
     "defaultMessage": "No matching users",
     "description": "Add to review queue: no users match the search"
@@ -7814,6 +7818,14 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAY0J8": {
+    "defaultMessage": "Override my view",
+    "description": "Traces shared view banner > button that adopts the shared view into the user's own view"
+  },
+  "aAcCh2": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
