@@ -340,8 +340,12 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
                 return reflective_datasets
 
+        # GEPA reuses `trainset` as the full-validation set when `valset` isn't passed,
+        # so the adapter's notion of "full validation pass" must match whichever one
+        # GEPA is actually using, or per-iteration logging silently never triggers.
+        full_dataset_size = len(self.gepa_kwargs.get("valset") or train_data)
         adapter = MlflowGEPAAdapter(
-            eval_fn, target_prompts, enable_tracking, full_dataset_size=len(train_data)
+            eval_fn, target_prompts, enable_tracking, full_dataset_size=full_dataset_size
         )
 
         kwargs = self.gepa_kwargs | {

@@ -615,6 +615,69 @@ def test_gepa_optimizer_logs_prompt_candidates(
     assert metrics["metrics"]["eval_score.relevance"] == 0.7
 
 
+def test_gepa_optimizer_logs_prompt_candidates_with_valset(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    # A valset with a different size than train_data: GEPA treats this as the
+    # full-validation batch instead of trainset when it's passed via gepa_kwargs.
+    valset = sample_train_data[:2]
+
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    mock_gepa_module.GEPAAdapter = object
+
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o", gepa_kwargs={"valset": valset}
+    )
+
+    logged_metrics = []
+
+    with patch.dict(sys.modules, mock_modules):
+        captured_adapter = None
+
+        def mock_optimize_fn(**kwargs):
+            nonlocal captured_adapter
+            captured_adapter = kwargs["adapter"]
+            mock_result = Mock()
+            mock_result.best_candidate = sample_target_prompts
+            mock_result.val_aggregate_scores = [0.8]
+            mock_result.val_aggregate_subscores = None
+            return mock_result
+
+        mock_gepa_module.optimize = mock_optimize_fn
+
+        with mlflow.start_run():
+            with patch(
+                "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_metrics"
+            ) as mock_log_metrics:
+                mock_log_metrics.side_effect = lambda metrics, step=None: logged_metrics.append({
+                    "metrics": metrics,
+                    "step": step,
+                })
+
+                optimizer.optimize(
+                    eval_fn=mock_eval_fn,
+                    train_data=sample_train_data,
+                    target_prompts=sample_target_prompts,
+                    enable_tracking=True,
+                )
+
+                # A full-valset evaluation (matches len(valset), not len(train_data))
+                # must be recognized as a full validation pass and logged.
+                candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
+                captured_adapter.evaluate(valset, candidate, capture_traces=False)
+
+    assert len(logged_metrics) == 1
+    assert logged_metrics[0]["metrics"]["eval_score"] == 0.8
+
+
 @pytest.mark.parametrize(
     ("val_aggregate_scores", "val_aggregate_subscores", "expected"),
     [
