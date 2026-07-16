@@ -58,10 +58,8 @@ import { columnStateToPrefs, getReorderCorrection, prefsToColumnState } from './
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
 
-// Leading pinned-left columns that must stay leftmost: Run Name, then Created (`runDateAndNestInfo`
-// is the Created column's field/colId). A user can drag another column in front of these but the
-// layout can't persist it there, so getReorderCorrection snaps it back. Order matters — it's the
-// order they're restored to.
+// Pinned-left anchors that must stay leftmost, in restore order: Run Name, then Created
+// (`runDateAndNestInfo` is the Created column's colId).
 const LEADING_ANCHOR_COLUMN_IDS = [
   makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.RUN_NAME),
   'runDateAndNestInfo',
@@ -302,18 +300,19 @@ export const ExperimentViewRunsTable = React.memo(
           return;
         }
         if (event.source === 'uiColumnMoved' || event.source === 'uiColumnDragged') {
-          // The leading Run Name + Created columns are pinned-left anchors. ag-grid lets a user drop
-          // another column in front of them, but that layout can't be persisted (see
-          // getReorderCorrection), so snap it back before capturing. The corrective applyColumnState
-          // re-fires this handler with source 'api', which the guard above ignores — no recursion,
-          // and the rejected order is never persisted.
+          // Wait for allColumns to populate (one tick after grid-ready) before reasoning about
+          // order — otherwise a very fast first drag would skip the anchor correction and capture
+          // an unvalidated layout.
+          if (allColumnsRef.current.length === 0) {
+            return;
+          }
+          // Snap a column dropped in front of the pinned anchors back (see getReorderCorrection).
+          // The corrective applyColumnState re-fires with source 'api', which is ignored above, so
+          // there's no recursion and the rejected order is never persisted.
           const currentOrder = event.columnApi.getColumnState().map((column) => column.colId);
           const corrected = getReorderCorrection(currentOrder, LEADING_ANCHOR_COLUMN_IDS, allColumnsRef.current);
           if (corrected) {
-            event.columnApi.applyColumnState({
-              state: corrected.map((colId) => ({ colId })),
-              applyOrder: true,
-            });
+            event.columnApi.applyColumnState({ state: corrected.map((colId) => ({ colId })), applyOrder: true });
             return;
           }
           captureColumnState(event.columnApi);

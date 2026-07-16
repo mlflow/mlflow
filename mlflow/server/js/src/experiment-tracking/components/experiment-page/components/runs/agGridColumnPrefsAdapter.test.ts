@@ -94,5 +94,12 @@ describe('agGridColumnPrefsAdapter', () => {
       const order = ['1', 'datasets', 'duration', 'attributes.`Source`'];
       expect(getReorderCorrection(order, ANCHORS, DATA)).toBeNull();
     });
+
+    test('returns null when anchors are configured but absent from the data columns', () => {
+      // dataColIds not yet populated (empty) — nothing is treated as a data column, so there is
+      // no order to protect and the correction is intentionally skipped.
+      const order = ['1', 'attributes.`Source`', RUN_NAME, CREATED];
+      expect(getReorderCorrection(order, ANCHORS, [])).toBeNull();
+    });
   });
 });
