@@ -4625,30 +4625,62 @@ def _backfill_readable_mcp_results(
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [s for s in data.get("mcp_servers", []) if can_read(s["name"])]
+
+    def _is_dimmed(s: dict[str, Any]) -> bool:
+        return not s.get("access_bindings") or s.get("status") != "active"
+
+    def _stamp_and_check(s: dict[str, Any]) -> bool:
+        # Intentional side-effect: stamps ``allowed_actions`` onto ``s`` so the
+        # caller can include the enriched dict in the response without a second
+        # permission lookup.  Used as a filter predicate that both gates and
+        # enriches in a single pass.
+        if not can_read(s["name"]):
+            return False
+        perm = _get_mcp_server_permission(s["name"], username)
+        s["allowed_actions"] = _permission_to_allowed_actions(perm)
+        if _is_dimmed(s) and MANAGE.name not in s.get("allowed_actions", []):
+            return False
+        return True
+
+    def _stamp_entity_and_check(entity: Any) -> dict[str, Any] | None:
+        s = MCPServerResponse.from_entity(entity).model_dump(mode="json")
+        return s if _stamp_and_check(s) else None
+
+    readable = [s for s in data.get("mcp_servers", []) if _stamp_and_check(s)]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
     filter_string = params.get("filter_string")
     order_by = params.getlist("order_by") or None
 
-    data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=can_read,
-        readable=readable,
-        max_results=max_results,
-        next_token=data.get("next_page_token"),
-        fetch_page=lambda token: _get_tracking_store().search_mcp_servers(
+    next_token = data.get("next_page_token")
+    while len(readable) < max_results and next_token:
+        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
+        page = _get_tracking_store().search_mcp_servers(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
-            page_token=token,
-        ),
-        get_name=lambda s: s.name,
-        to_dict=lambda s: MCPServerResponse.from_entity(s).model_dump(mode="json"),
-    )
-    for s in readable:
-        perm = _get_mcp_server_permission(s["name"], username)
-        s["allowed_actions"] = _permission_to_allowed_actions(perm)
+            page_token=next_token,
+        )
+        if not page:
+            next_token = None
+            break
+        consumed = 0
+        for item in page:
+            if len(readable) >= max_results:
+                break
+            consumed += 1
+            stamped = _stamp_entity_and_check(item)
+            if stamped is not None:
+                readable.append(stamped)
+        if consumed < len(page):
+            next_token = SearchUtils.create_page_token(start_offset + consumed)
+        else:
+            next_token = page.token
+        if isinstance(next_token, bytes):
+            next_token = next_token.decode("utf-8")
+
+    data["next_page_token"] = next_token
     data["mcp_servers"] = readable[:max_results]
     return json.dumps(data).encode()
 

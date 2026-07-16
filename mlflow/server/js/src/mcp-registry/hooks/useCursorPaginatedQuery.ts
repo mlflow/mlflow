@@ -11,6 +11,7 @@ interface PaginatedResponse {
 export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TData>({
   queryKeyPrefix,
   searchFilter,
+  extraQueryKeys,
   storageKey,
   queryFn,
   extractData,
@@ -18,6 +19,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
 }: {
   queryKeyPrefix: string;
   searchFilter?: string;
+  extraQueryKeys?: Record<string, unknown>;
   storageKey: string;
   queryFn: (params: { searchFilter?: string; pageToken?: string; pageSize: number }) => Promise<TResponse>;
   extractData: (response: TResponse) => TData | undefined;
@@ -51,7 +53,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
   );
 
   const queryResult = useQuery<TResponse, Error>(
-    [queryKeyPrefix, { searchFilter, pageToken: currentPageToken, pageSize }],
+    [queryKeyPrefix, { searchFilter, pageToken: currentPageToken, pageSize, ...extraQueryKeys }],
     {
       queryFn: () => queryFn({ searchFilter, pageToken: currentPageToken, pageSize }),
       retry: false,
