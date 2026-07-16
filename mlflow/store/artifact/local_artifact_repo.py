@@ -1,5 +1,7 @@
+import logging
 import os
 import shutil
+import stat
 import tempfile
 import threading
 from contextlib import suppress
@@ -24,6 +26,8 @@ from mlflow.utils.file_utils import (
     shutil_copytree_without_file_permissions,
 )
 from mlflow.utils.uri import validate_path_is_safe, validate_path_within_directory
+
+_logger = logging.getLogger(__name__)
 
 _TEMP_ARTIFACT_PREFIX = ".artifact.uploading."
 _UMASK_LOCK = threading.Lock()
@@ -200,18 +204,34 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         validate_path_within_directory(self.artifact_dir, list_dir)
-        if os.path.isdir(list_dir):
-            artifact_files = list_all(list_dir, full_path=True)
-            infos = [
-                get_file_info(
-                    f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
-                )
-                for f in artifact_files
-                if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
-            ]
-            return sorted(infos, key=lambda f: f.path)
-        else:
+        # NOTE: ``os.stat`` is used instead of ``os.path.isdir``/``os.path.exists`` because those
+        # helpers swallow every ``OSError`` and return ``False``. On an inaccessible or unsupported
+        # artifact filesystem (e.g. Lustre without the kernel module, which raises ``ENOSYS``), that
+        # would silently return an empty list and hide the failure. We log a warning so the problem
+        # is visible in the server logs, but still return an empty list rather than raising so that
+        # a broken artifact filesystem does not interrupt training or inference.
+        try:
+            list_dir_stat = os.stat(list_dir)
+        except (FileNotFoundError, NotADirectoryError):
             return []
+        except OSError as e:
+            _logger.warning("Failed to access artifact location '%s': %s", list_dir, e)
+            return []
+        if not stat.S_ISDIR(list_dir_stat.st_mode):
+            return []
+        try:
+            artifact_files = list_all(list_dir, full_path=True)
+        except OSError as e:
+            _logger.warning("Failed to list artifacts in '%s': %s", list_dir, e)
+            return []
+        infos = [
+            get_file_info(
+                f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
+            )
+            for f in artifact_files
+            if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
+        ]
+        return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
         remote_file_path = validate_path_is_safe(remote_file_path)
