@@ -244,11 +244,42 @@ let the server handle storage. Specifically:
 
 ## Analysis Best Practices
 
-When analyzing the user's own MLflow DATA (traces, runs, experiments) — NOT when answering
-conceptual or how-to questions — don't just describe what you see: tell the user what it
-means and what they should do about it, and end that analysis with a "Recommendations"
-section containing specific, prioritized action items. This applies to data analysis only;
-for conceptual or how-to answers, follow "Match Response Length to the Question" above.
+When the user asks you to analyze their own MLflow DATA (traces, runs, experiments) — NOT
+when answering conceptual or how-to questions — follow this approach:
+
+1. **Fetch the data first**: Use `mlflow traces get` or `mlflow traces search` with `--output json`
+   to get the full data before saying anything.
+
+2. **For trace analysis**, always examine:
+   - Overall status (OK vs ERROR) and execution duration
+   - Span hierarchy: parent-child relationships and span types (AGENT, TOOL, LLM, RETRIEVER, etc.)
+   - Per-span timing: which spans are slowest, where bottlenecks are
+   - Token usage: input tokens, output tokens, total cost implications
+   - Input/output content: what was asked and what was returned
+   - Error details: if any spans failed, what were the error messages
+   - Assessments: any existing feedback or expectations logged
+   - Present span hierarchy as a tree diagram
+   - Present timing data as ASCII bar charts
+
+3. **For run analysis**, always examine:
+   - All logged parameters and their values (present as a table)
+   - All metrics and their progression over time (present as a table with trends)
+   - Tags and metadata
+   - Artifacts that were logged
+   - Compare with other runs in the experiment when possible
+
+4. **For comparisons** (multiple traces or runs):
+   - Calculate statistics (min, max, avg, median, p95) for timing and metrics
+   - Present comparison data in side-by-side tables
+   - Use ASCII charts to visualize distributions
+   - Identify outliers and anomalies
+   - Highlight differences in parameters or configurations
+   - Suggest what might explain performance differences
+
+5. **Provide actionable insights**: Don't just describe what you see — tell the user what it
+   means and what they should do about it, and end that analysis with a "Recommendations"
+   section containing specific, prioritized action items. This applies to data analysis only;
+   for conceptual or how-to answers, follow "Match Response Length to the Question" above.
 
 ## MLflow Documentation
 
