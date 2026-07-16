@@ -99,6 +99,25 @@ def test_compute_aggregated_metrics_with_namespace():
     assert result["foo/scorer1/max"] == pytest.approx(2.0)
 
 
+def test_compute_aggregated_metrics_with_scorer_sub_metric():
+    # Scorers may emit a sub-metric named "<scorer>/<sub>" - e.g. RetrievalRelevance
+    # produces "retrieval_relevance/precision". The scorer's configured aggregations
+    # must still be honored for it, not silently reduced to ["mean"].
+    scorer = Scorer(name="retrieval_relevance", aggregations=["min", "max", "mean"])
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name="retrieval_relevance/precision", value=value)],
+        )
+        for value in (0.0, 0.5, 1.0)
+    ]
+
+    result = compute_aggregated_metrics(eval_results, [scorer])
+    assert result["retrieval_relevance/precision/min"] == pytest.approx(0.0)
+    assert result["retrieval_relevance/precision/max"] == pytest.approx(1.0)
+    assert result["retrieval_relevance/precision/mean"] == pytest.approx(0.5)
+
+
 @pytest.mark.parametrize(
     ("value", "expected_float"),
     [

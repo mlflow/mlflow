@@ -60,11 +60,21 @@ def compute_aggregated_metrics(
         if not values:
             continue
 
-        # Get the function name from the returned assessment name.
-        scorer_function_name = name.split("/", 1)[-1]
+        # Resolve which scorer produced this assessment. Names come in three shapes:
+        # the scorer name itself ("scorer1"), a namespaced name ("namespace/scorer1"),
+        # or a sub-metric emitted by a scorer ("retrieval_relevance/precision"). Taking
+        # only the suffix resolves the first two but misses the third, which then fell
+        # back to ["mean"] and silently dropped the scorer's configured aggregations.
+        candidates = [name]
+        if "/" in name:
+            prefix, suffix = name.split("/", 1)
+            candidates += [prefix, suffix]
 
         # Compute aggregations for the scorer, defaulting to just ["mean"]
-        aggregations_to_compute = scorer_aggregations.get(scorer_function_name, ["mean"])
+        aggregations_to_compute = next(
+            (scorer_aggregations[c] for c in candidates if c in scorer_aggregations),
+            ["mean"],
+        )
         aggregation_results = _compute_aggregations(values, aggregations_to_compute)
 
         # Each aggregation should be logged as a separate metric
