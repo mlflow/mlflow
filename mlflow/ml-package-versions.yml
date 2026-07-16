@@ -959,6 +959,10 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.2.19"
+    # 1.107.0 is the newest 1.x release. pydantic-ai 2.0 dropped the `Agent(instrument=...)`
+    # kwarg and removed `pydantic_ai.mcp.MCPServer`, so 2.x needs separate autologging work
+    # before the cap can move past it.
+    maximum: "1.107.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
