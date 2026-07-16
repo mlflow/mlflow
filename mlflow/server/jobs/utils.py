@@ -551,6 +551,7 @@ def _start_periodic_tasks_consumer_proc():
         "-m",
         "huey.bin.huey_consumer",
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+        "--flush-locks",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),
     ]

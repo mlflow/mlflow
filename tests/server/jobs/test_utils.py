@@ -1,9 +1,16 @@
 import os
+import sys
+from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
+from mlflow.server.jobs.utils import (
+    PERIODIC_TASKS_WORKER_COUNT,
+    _load_function,
+    _start_periodic_tasks_consumer_proc,
+    _validate_function_parameters,
+)
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -89,6 +96,25 @@ def test_load_function_module_not_found():
 def test_load_function_function_not_found():
     with pytest.raises(MlflowException, match="Function not found in module"):
         _load_function("os.non_exist_function")
+
+
+def test_start_periodic_tasks_consumer_proc_flushes_locks(monkeypatch):
+    monkeypatch.delenv("MLFLOW_LOGGING_LEVEL", raising=False)
+    with mock.patch("mlflow.server.jobs.utils._exec_cmd") as mock_exec_cmd:
+        _start_periodic_tasks_consumer_proc()
+
+    mock_exec_cmd.assert_called_once()
+    cmd = mock_exec_cmd.call_args.args[0]
+    assert cmd == [
+        sys.executable,
+        "-m",
+        "huey.bin.huey_consumer",
+        "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+        "--flush-locks",
+        "-w",
+        str(PERIODIC_TASKS_WORKER_COUNT),
+        "-q",
+    ]
 
 
 def test_compute_exclusive_lock_key():
