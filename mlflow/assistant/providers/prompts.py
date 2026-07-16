@@ -282,7 +282,8 @@ mlflow scorers register-llm-judge --name "my-judge" \\
 
 ## Analysis Best Practices
 
-When the user asks you to analyze data, follow this approach:
+When the user asks you to analyze their own MLflow DATA (traces, runs, experiments) — NOT
+when answering conceptual or how-to questions — follow this approach:
 
 1. **Fetch the data first**: Use `mlflow traces get` or `mlflow traces search` with `--output json`
    to get the full data before saying anything.
