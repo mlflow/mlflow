@@ -2,7 +2,15 @@ import { useState } from 'react';
 import type { MCPAccessBinding } from '../types';
 import { AccessBindingModal } from '../components/AccessBindingModal';
 
-export const useEditAccessBindingModal = ({ serverName }: { serverName: string }) => {
+export const useEditAccessBindingModal = ({
+  serverName,
+  scopedVersion,
+  scopedAliases,
+}: {
+  serverName: string;
+  scopedVersion?: string;
+  scopedAliases?: string[];
+}) => {
   const [binding, setBinding] = useState<MCPAccessBinding | undefined>(undefined);
 
   const EditAccessBindingModal = (
@@ -11,6 +19,8 @@ export const useEditAccessBindingModal = ({ serverName }: { serverName: string }
       onCancel={() => setBinding(undefined)}
       editBinding={binding}
       lockedServer={serverName}
+      scopedVersion={scopedVersion}
+      scopedAliases={scopedAliases}
     />
   );
 

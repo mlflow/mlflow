@@ -16,12 +16,16 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
-import { useIsAuthAvailable } from '../../account/hooks';
+import { useNavigate } from '../../common/utils/RoutingUtils';
+import { useIsAuthAvailable, useCurrentUserQuery } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
-import { isServerDimmed, getServerPermissions } from '../utils';
+import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
+import { isServerDimmed, cannotManage, getServerPermissions } from '../utils';
+import type { MCPServer } from '../types';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
 import { MCPServerListTable } from '../components/MCPServerListTable';
 import { MCPServerListFilters } from '../components/MCPServerListFilters';
+import MCPRegistryRoutes from '../routes';
 import { flexColumnContainerStyles, headerIconStyles } from '../styles';
 import { useDebounce } from 'use-debounce';
 
@@ -32,11 +36,13 @@ const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const isAuthAvailable = useIsAuthAvailable();
+  const { isLoading: isAuthLoading } = useCurrentUserQuery();
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [filterMode, setFilterMode] = useState<FilterMode>(isAuthAvailable ? 'available' : 'all');
   const [searchFilter, setSearchFilter] = useState('');
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
+  const navigate = useNavigate();
 
   const {
     data: servers,
@@ -51,23 +57,34 @@ const MCPRegistryPage = () => {
     searchFilter: debouncedSearchFilter,
   });
 
+  const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
+    onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
+  });
+
   const hasManageOnAny = servers?.some((s) => getServerPermissions(s).canManage) ?? false;
-  const showAvailabilityFilter = isAuthAvailable && hasManageOnAny;
-  const effectiveFilterMode = showAvailabilityFilter ? filterMode : 'available';
+  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
+  const effectiveFilterMode = showAvailabilityFilter
+    ? filterMode
+    : !isAuthLoading && isAuthAvailable
+      ? 'available'
+      : 'all';
 
   const filteredServers = useMemo(() => {
-    if (!servers || effectiveFilterMode === 'all') return servers;
+    if (!servers) return servers;
+    const hideUnpermittedDimmed = (s: MCPServer) => !(isServerDimmed(s) && cannotManage(s));
+    if (effectiveFilterMode === 'all') return servers.filter(hideUnpermittedDimmed);
     return servers.filter((s) => !isServerDimmed(s));
   }, [servers, effectiveFilterMode]);
 
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (
-    <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" disabled>
+    <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
       <FormattedMessage defaultMessage="Create MCP server" description="Button to create a new MCP server" />
     </Button>
   ) : null;
 
   return (
+    <>
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       <Spacer shrinks={false} />
       <Header
@@ -157,6 +174,7 @@ const MCPRegistryPage = () => {
               onNextPage={onNextPage}
               onPreviousPage={onPreviousPage}
               pageSizeSelect={pageSizeSelect}
+              onCreateServer={openModal}
             />
           ) : (
             <MCPServerListTable
@@ -168,10 +186,13 @@ const MCPRegistryPage = () => {
               onNextPage={onNextPage}
               onPreviousPage={onPreviousPage}
               pageSizeSelect={pageSizeSelect}
+              onCreateServer={openModal}
             />
           ))}
       </div>
     </ScrollablePageWrapper>
+    {CreateMCPServerVersionModal}
+    </>
   );
 };
 

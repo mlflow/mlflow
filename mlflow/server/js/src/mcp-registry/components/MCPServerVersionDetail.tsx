@@ -55,7 +55,11 @@ export const MCPServerVersionDetail = ({
     scopedVersion: version?.version,
     scopedAliases: version ? aliasesByVersion[version.version] : undefined,
   });
-  const { EditAccessBindingModal, openEditBinding } = useEditAccessBindingModal({ serverName: server.name });
+  const { EditAccessBindingModal, openEditBinding } = useEditAccessBindingModal({
+    serverName: server.name,
+    scopedVersion: version?.version,
+    scopedAliases: version ? aliasesByVersion[version.version] : undefined,
+  });
   const { DeleteAccessBindingModal, openDeleteBinding } = useDeleteAccessBindingModal({ serverName: server.name });
 
   if (!version) {

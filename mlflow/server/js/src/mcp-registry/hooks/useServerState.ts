@@ -12,7 +12,7 @@ export const useServerState = (server?: MCPServer) => {
     canDelete,
     canManage,
     isDimmed: isAuthAvailable && (server ? isServerDimmed(server) : false),
-    isUnavailable: isAuthAvailable && !hasBindings,
+    isUnavailable: !hasBindings,
     showVisibilityControls: isAuthAvailable && canManage,
     isAuthAvailable,
   };

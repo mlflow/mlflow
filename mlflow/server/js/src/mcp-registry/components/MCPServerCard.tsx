@@ -23,6 +23,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
     : undefined;
   const { isDimmed, isUnavailable } = useServerState(server);
+  const hasTags = Object.keys(server.tags || {}).length > 0;
 
   return (
     <>
@@ -35,6 +36,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
         disableHover={isDimmed}
         dangerouslyAppendEmotionCSS={{
           height: '100%',
+          '& > div': { display: 'flex', flexDirection: 'column', flexGrow: 1 },
           ...(isDimmed
             ? {
                 cursor: 'pointer',
@@ -58,12 +60,12 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
             )}
           </div>
           {server.description && (
-            <Typography.Text color="secondary" size="sm" css={textClampStyles(2)}>
+            <Typography.Text color="secondary" size="sm" css={textClampStyles(hasTags ? 2 : 3)}>
               {server.description}
             </Typography.Text>
           )}
-          {Object.keys(server.tags || {}).length > 0 && <MCPServerTags tags={server.tags || {}} />}
-          <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {hasTags && <MCPServerTags tags={server.tags || {}} />}
+          <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
             {timestamp && (
               <Typography.Text color="secondary" size="sm">
                 {timestamp}

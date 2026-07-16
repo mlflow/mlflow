@@ -1163,6 +1163,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text in the run evaluation modal"
   },
+  "3GjJJV": {
+    "defaultMessage": "Hidden from Connect tab. Click to show.",
+    "description": "Tooltip for hidden connect option toggle"
+  },
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
@@ -1566,6 +1570,10 @@
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
+  },
+  "5LxBxh": {
+    "defaultMessage": "Show {count} more",
+    "description": "Show more tools button"
   },
   "5Mzdx4": {
     "defaultMessage": "{count, plural, one {# resource} other {# resources}}",
@@ -2555,6 +2563,10 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9q7NFV": {
+    "defaultMessage": "Created:",
+    "description": "Binding expanded created label"
+  },
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
@@ -2995,10 +3007,6 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
-  "BfmA8L": {
-    "defaultMessage": "Shown in Connect tab. Click to hide.",
-    "description": "Tooltip for visible package toggle"
-  },
   "Bg/LgH": {
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
@@ -3143,10 +3151,6 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
-  "CHdcpF": {
-    "defaultMessage": "Show {count} more",
-    "description": "MCP server version detail show more packages button"
-  },
   "CIIUsc": {
     "defaultMessage": "SHA-256",
     "description": "Package file hash label"
@@ -3158,10 +3162,6 @@
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
-  },
-  "CLOwLw": {
-    "defaultMessage": "Raw tools JSON",
-    "description": "Aria label for raw tools JSON viewer"
   },
   "CO81il": {
     "defaultMessage": "No usage data available",
@@ -3202,10 +3202,6 @@
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
-  },
-  "CXtsWk": {
-    "defaultMessage": "Raw server.json",
-    "description": "Aria label for raw server.json viewer"
   },
   "CZW5JY": {
     "defaultMessage": "Messages",
@@ -3363,10 +3359,6 @@
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
   },
-  "DHYedL": {
-    "defaultMessage": "Description",
-    "description": "Binding drawer description label"
-  },
   "DHbrOD": {
     "defaultMessage": "No access endpoints configured",
     "description": "Tooltip for disabled access endpoints icon on MCP server card"
@@ -3474,6 +3466,10 @@
   "DxHEXN": {
     "defaultMessage": "Preview",
     "description": "Title of the preview section in the playground prompt-registry picker modal"
+  },
+  "DxzCEr": {
+    "defaultMessage": "Show less",
+    "description": "Show less packages button"
   },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
@@ -3987,10 +3983,6 @@
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
   },
-  "GeC7uZ": {
-    "defaultMessage": "Show less",
-    "description": "MCP server version detail show less tools button"
-  },
   "GfFwBD": {
     "defaultMessage": "Declined",
     "description": "Review queue status: declined"
@@ -4271,10 +4263,6 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
-  "HzNUhS": {
-    "defaultMessage": "Hidden from Connect tab. Click to show.",
-    "description": "Tooltip for hidden package toggle"
-  },
   "I1mNex": {
     "defaultMessage": "Select the events that will trigger this webhook.",
     "description": "Webhook events field description"
@@ -4338,10 +4326,6 @@
   "IJbauF": {
     "defaultMessage": "Add tag \"{tagKey}\"",
     "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Add new tag button"
-  },
-  "IJzPMh": {
-    "defaultMessage": "Disabled",
-    "description": "Label for disabled package"
   },
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
@@ -4878,6 +4862,10 @@
   "L/4iQO": {
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
+  },
+  "L/5r8Q": {
+    "defaultMessage": "Server status is not active",
+    "description": "Tooltip for inactive status label on MCP server detail page"
   },
   "L/U++H": {
     "defaultMessage": "Runs",
@@ -5879,6 +5867,10 @@
     "defaultMessage": "Failed to update password",
     "description": "Generic error when password update fails for an unknown reason"
   },
+  "PeKnIA": {
+    "defaultMessage": "Copy",
+    "description": "Copy button tooltip"
+  },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
@@ -6219,6 +6211,10 @@
     "defaultMessage": "Users",
     "description": "Add to review queue: per-user personal-queue section header"
   },
+  "RI8tSn": {
+    "defaultMessage": "Add",
+    "description": "Add tags link in MCP servers table"
+  },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
@@ -6310,10 +6306,6 @@
   "RmmAwm": {
     "defaultMessage": "Top P",
     "description": "Label for top P input"
-  },
-  "RmqCEi": {
-    "defaultMessage": "Disabled",
-    "description": "Label for disabled remote endpoint"
   },
   "RoO7UF": {
     "defaultMessage": "Create",
@@ -7339,6 +7331,10 @@
     "defaultMessage": "Tokens per Request",
     "description": "Title for the token stats chart in gateway"
   },
+  "WIl5iN": {
+    "defaultMessage": "Shown in Connect tab. Click to hide.",
+    "description": "Tooltip for visible connect option toggle"
+  },
   "WImn+W": {
     "defaultMessage": "LiteLLM ({count} providers)",
     "description": "Link to open modal with all LiteLLM providers"
@@ -7402,10 +7398,6 @@
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
-  },
-  "We46uF": {
-    "defaultMessage": "Input schema JSON",
-    "description": "Aria label for input schema JSON viewer"
   },
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
@@ -7526,6 +7518,10 @@
   "X1nbeT": {
     "defaultMessage": "Last Updated:",
     "description": "Label for last updated"
+  },
+  "X38RDh": {
+    "defaultMessage": "Copy {label}",
+    "description": "Aria label for copy button"
   },
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
@@ -7762,10 +7758,6 @@
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
-  },
-  "YA+73a": {
-    "defaultMessage": "Endpoints",
-    "description": "Header for the endpoints column in the MCP servers table"
   },
   "YECxws": {
     "defaultMessage": "Compare",
@@ -9407,10 +9399,6 @@
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
   },
-  "fbtFxp": {
-    "defaultMessage": "Hidden from Connect tab. Click to show.",
-    "description": "Tooltip for hidden endpoint toggle"
-  },
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
@@ -9587,10 +9575,6 @@
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
   },
-  "gFsq/N": {
-    "defaultMessage": "Shown in Connect tab. Click to hide.",
-    "description": "Tooltip for visible endpoint toggle"
-  },
   "gH6GGr": {
     "defaultMessage": "Function name",
     "description": "Label for the tool function name input in the playground Tools card"
@@ -9654,6 +9638,10 @@
   "gTEFCD": {
     "defaultMessage": "See less",
     "description": "A button label in a message renderer that truncates long content when clicked."
+  },
+  "gTUIv+": {
+    "defaultMessage": "Show less",
+    "description": "Show less tools button"
   },
   "gUdmaJ": {
     "defaultMessage": "Schema",
@@ -10095,6 +10083,10 @@
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
   },
+  "iJRv1X": {
+    "defaultMessage": "Access endpoint",
+    "description": "Header for the access endpoint column in the MCP servers table"
+  },
   "iLEEpo": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Queue settings: members field hint"
@@ -10515,6 +10507,10 @@
     "defaultMessage": "Tool choice",
     "description": "Label above the tool choice segmented picker inside the Tools card"
   },
+  "k1/vs6": {
+    "defaultMessage": "Disabled",
+    "description": "Label for disabled connect option"
+  },
   "k2bPN+": {
     "defaultMessage": "Last used",
     "description": "Badge for last used workspace"
@@ -10842,10 +10838,6 @@
   "lfe8zE": {
     "defaultMessage": "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
     "description": "Example placeholder text for instructions textarea"
-  },
-  "lfsyCQ": {
-    "defaultMessage": "Output schema JSON",
-    "description": "Aria label for output schema JSON viewer"
   },
   "lhFnAG": {
     "defaultMessage": "Insufficient",
@@ -11207,10 +11199,6 @@
     "defaultMessage": "Pass",
     "description": "The label for a passing asseessment above a bar-chart in the summary stats."
   },
-  "nE+gTQ": {
-    "defaultMessage": "Show less",
-    "description": "MCP server version detail show less packages button"
-  },
   "nEnDEu": {
     "defaultMessage": "Cancel",
     "description": "Cancel create evaluation dataset button text"
@@ -11222,10 +11210,6 @@
   "nF10K1": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
-  },
-  "nGF/Tf": {
-    "defaultMessage": "Show {count} more",
-    "description": "MCP server version detail show more tools button"
   },
   "nH5645": {
     "defaultMessage": "Package arguments",
@@ -13830,6 +13814,10 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "zfPkM2": {
+    "defaultMessage": "Show {count} more",
+    "description": "Show more packages button"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",

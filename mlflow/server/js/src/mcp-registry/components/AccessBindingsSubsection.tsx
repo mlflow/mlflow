@@ -200,7 +200,11 @@ const AccessBindingExpandedContent = ({
         </Typography.Text>
         <Typography.Text size="sm">
           <Typography.Text bold size="sm">
-            <FormattedMessage defaultMessage="Updated:" description="Binding expanded updated label" />
+            {binding.last_updated_timestamp !== binding.creation_timestamp ? (
+              <FormattedMessage defaultMessage="Updated:" description="Binding expanded updated label" />
+            ) : (
+              <FormattedMessage defaultMessage="Created:" description="Binding expanded created label" />
+            )}
           </Typography.Text>{' '}
           {binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'}
         </Typography.Text>
@@ -214,19 +218,19 @@ const BindingDetailsDrawer = ({ binding }: { binding: MCPAccessBinding }) => {
   const intl = useIntl();
   const displayName = resolveBindingDisplayName(binding);
   const target = binding.server_alias || binding.server_version || '—';
-  const description = binding.resolved_version?.server_json?.description || '—';
   const versionStatus = binding.resolved_version?.status;
+
+  const hasBeenUpdated =
+    binding.last_updated_timestamp !== binding.creation_timestamp ||
+    binding.last_updated_by !== binding.created_by;
 
   return (
     <ViewDetailsDrawer title={displayName}>
       <DetailField
-        label={intl.formatMessage({ defaultMessage: 'Description', description: 'Binding drawer description label' })}
-        value={description}
-      />
-      <DetailField
         label={intl.formatMessage({ defaultMessage: 'Endpoint URL', description: 'Binding drawer endpoint label' })}
         value={binding.endpoint_url}
         mono
+        copyable
       />
       <DetailField
         label={intl.formatMessage({ defaultMessage: 'Transport', description: 'Binding drawer transport label' })}
@@ -252,14 +256,26 @@ const BindingDetailsDrawer = ({ binding }: { binding: MCPAccessBinding }) => {
           </Tag>
         )}
       </div>
-      <DetailField
-        label={intl.formatMessage({ defaultMessage: 'Last updated', description: 'Binding drawer last updated label' })}
-        value={binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'}
-      />
-      <DetailField
-        label={intl.formatMessage({ defaultMessage: 'Updated by', description: 'Binding drawer updated by label' })}
-        value={binding.last_updated_by || '—'}
-      />
+      {hasBeenUpdated && (
+        <>
+          <DetailField
+            label={intl.formatMessage({
+              defaultMessage: 'Last updated',
+              description: 'Binding drawer last updated label',
+            })}
+            value={
+              binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'
+            }
+          />
+          <DetailField
+            label={intl.formatMessage({
+              defaultMessage: 'Updated by',
+              description: 'Binding drawer updated by label',
+            })}
+            value={binding.last_updated_by || '—'}
+          />
+        </>
+      )}
       <DetailField
         label={intl.formatMessage({ defaultMessage: 'Created at', description: 'Binding drawer created at label' })}
         value={binding.creation_timestamp ? Utils.formatTimestamp(binding.creation_timestamp, intl) : '—'}

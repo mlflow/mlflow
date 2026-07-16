@@ -326,6 +326,11 @@ const MCPServerDetailPage = () => {
           {server.name}
         </Typography.Text>
       )}
+      {server.description && (
+        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs }}>
+          {server.description}
+        </Typography.Text>
+      )}
       <MCPServerTagsBox server={server} />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

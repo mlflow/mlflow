@@ -2,19 +2,22 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import {
+  Button,
   CursorPagination,
+  PencilIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
   TableSkeletonRows,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
 
@@ -22,8 +25,10 @@ import MCPRegistryRoutes from '../routes';
 import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
-import { textEllipsisStyles, flexRowStyles, monoFontStyles } from '../styles';
-import { isServerDimmed } from '../utils';
+import { QuickConnectModal } from './QuickConnectModal';
+import { textEllipsisStyles, flexRowStyles, monoFontStyles, noShrinkStyles } from '../styles';
+import { useUpdateMCPServerTags } from '../hooks/useUpdateMCPServerTags';
+import { isServerDimmed, formatTransportType, resolveDisplayName } from '../utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
@@ -75,27 +80,114 @@ const MCPServerDescriptionCell = ({ getValue }: CellContext<MCPServer, unknown>)
   );
 };
 
-const MCPServerTagsCell = ({ row: { original } }: CellContext<MCPServer, unknown>) => {
-  return <MCPServerTags tags={original.tags || {}} />;
+interface MCPServerTableMeta {
+  onEditTags?: (server: MCPServer) => void;
+  onOpenConnect?: (server: MCPServer) => void;
+}
+
+const MCPServerTagsCell = ({
+  row: { original },
+  table: {
+    options: { meta },
+  },
+}: CellContext<MCPServer, unknown>) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { onEditTags } = (meta ?? {}) as MCPServerTableMeta;
+  const containsTags = Object.keys(original.tags || {}).length > 0;
+
+  return (
+    <div css={{ display: 'flex', alignItems: 'center' }}>
+      {containsTags && <MCPServerTags tags={original.tags || {}} />}
+      {onEditTags && (
+        <Button
+          componentId="mlflow.mcp_registry.table.edit_tags"
+          size="small"
+          icon={containsTags ? <PencilIcon /> : undefined}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onEditTags(original);
+          }}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Edit tags',
+            description: 'Label for the edit tags button in the MCP servers table',
+          })}
+          children={
+            !containsTags ? (
+              <FormattedMessage
+                defaultMessage="Add tags"
+                description="Label for the add tags button in the MCP servers table"
+              />
+            ) : undefined
+          }
+          css={{
+            flexShrink: 0,
+            marginLeft: containsTags ? theme.spacing.sm : 0,
+            opacity: 0,
+            '[role=row]:hover &': { opacity: 1 },
+            '[role=row]:focus-within &': { opacity: 1 },
+          }}
+          type="tertiary"
+        />
+      )}
+    </div>
+  );
 };
 
-const MCPServerEndpointsCell = ({ row: { original } }: CellContext<MCPServer, unknown>) => {
+const MCPServerEndpointsCell = ({
+  row: { original },
+  table: {
+    options: { meta },
+  },
+}: CellContext<MCPServer, unknown>) => {
+  const { theme } = useDesignSystemTheme();
+  const { onOpenConnect } = (meta ?? {}) as MCPServerTableMeta;
+
   const latestBinding = original.latest_version
     ? (original.access_bindings ?? []).find((b) => b.resolved_version?.version === original.latest_version)
     : undefined;
   if (!latestBinding) return '—';
+
+  const displayUrl = latestBinding.endpoint_url.replace(/^https?:\/\//, '');
+
   return (
-    <Typography.Text
-      size="sm"
-      css={{
-        ...monoFontStyles,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {latestBinding.endpoint_url}
-    </Typography.Text>
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
+      <Tag componentId="mlflow.mcp_registry.table.transport_tag" color="indigo" css={noShrinkStyles}>
+        {formatTransportType(latestBinding.transport_type)}
+      </Tag>
+      <Tooltip
+        content={<span css={{ wordBreak: 'break-all' }}>{latestBinding.endpoint_url}</span>}
+        componentId="mlflow.mcp_registry.table.endpoint_tooltip"
+      >
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenConnect?.(original);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              onOpenConnect?.(original);
+            }
+          }}
+          css={{
+            ...monoFontStyles,
+            fontSize: theme.typography.fontSizeSm,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            color: theme.colors.actionPrimaryBackgroundDefault,
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {displayUrl}
+        </span>
+      </Tooltip>
+    </span>
   );
 };
 
@@ -108,7 +200,7 @@ const useMCPServerTableColumns = () => {
           defaultMessage: 'Name',
           description: 'Header for the name column in the MCP servers table',
         }),
-        accessorFn: (row) => row.name,
+        accessorFn: (row) => resolveDisplayName(row),
         id: 'name',
         cell: MCPServerNameCell,
       },
@@ -131,8 +223,8 @@ const useMCPServerTableColumns = () => {
       },
       {
         header: intl.formatMessage({
-          defaultMessage: 'Endpoints',
-          description: 'Header for the endpoints column in the MCP servers table',
+          defaultMessage: 'Access endpoint',
+          description: 'Header for the access endpoint column in the MCP servers table',
         }),
         id: 'endpoints',
         cell: MCPServerEndpointsCell,
@@ -182,12 +274,20 @@ export const MCPServerListTable = ({
   // One auth check + pure isServerDimmed per row (avoid N hooks)
   const isAuthAvailable = useIsAuthAvailable();
   const columns = useMCPServerTableColumns();
+  const { EditTagsModal, showEditServerTagsModal } = useUpdateMCPServerTags();
+  const [connectServer, setConnectServer] = useState<MCPServer | null>(null);
+
+  const tableMeta = useMemo<MCPServerTableMeta>(
+    () => ({ onEditTags: showEditServerTagsModal, onOpenConnect: setConnectServer }),
+    [showEditServerTagsModal],
+  );
 
   const table = useReactTable('mlflow/server/js/src/mcp-registry/components/MCPServerListTable.tsx', {
     data: servers ?? [],
     columns,
     getCoreRowModel: coreRowModel,
     getRowId,
+    meta: tableMeta,
   });
 
   const isEmptyList = !isLoading && (!servers || servers.length === 0);
@@ -195,7 +295,7 @@ export const MCPServerListTable = ({
     <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.table.empty_state.create_server" />
   ) : null;
 
-  return (
+  return (<>
     <Table
       scrollable
       pagination={
@@ -212,7 +312,13 @@ export const MCPServerListTable = ({
     >
       <TableRow isHeader>
         {table.getLeafHeaders().map((header) => (
-          <TableHeader componentId="mlflow.mcp_registry.table.header" key={header.id}>
+          <TableHeader
+            componentId="mlflow.mcp_registry.table.header"
+            key={header.id}
+            style={
+              header.id === 'endpoints' ? { flex: 1.5 } : header.id === 'latestVersion' ? { flex: 0.5 } : undefined
+            }
+          >
             {flexRender(header.column.columnDef.header, header.getContext())}
           </TableHeader>
         ))}
@@ -228,7 +334,14 @@ export const MCPServerListTable = ({
                 <TableCell
                   key={cell.id}
                   css={{ alignItems: 'center' }}
-                  style={{ opacity: isDimmed ? 0.5 : 1 }}
+                  style={{
+                    opacity: isDimmed ? 0.5 : 1,
+                    ...(cell.column.id === 'endpoints'
+                      ? { flex: 1.5 }
+                      : cell.column.id === 'latestVersion'
+                        ? { flex: 0.5 }
+                        : undefined),
+                  }}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
@@ -238,5 +351,10 @@ export const MCPServerListTable = ({
         })
       )}
     </Table>
+    {EditTagsModal}
+    {connectServer && (
+      <QuickConnectModal visible server={connectServer} onClose={() => setConnectServer(null)} />
+    )}
+  </>
   );
 };

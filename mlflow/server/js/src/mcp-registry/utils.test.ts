@@ -9,6 +9,7 @@ import {
   buildPackageConnectOptionKey,
   buildRemoteConnectOptionKey,
   isServerDimmed,
+  cannotManage,
   getServerPermissions,
 } from './utils';
 import { MCPStatus, TransportType } from './types';
@@ -299,5 +300,27 @@ describe('isServerDimmed', () => {
 
   it('returns true when status is undefined (no version resolved)', () => {
     expect(isServerDimmed(createMockMCPServer({ access_bindings: [binding] }))).toBe(true);
+  });
+});
+
+describe('cannotManage', () => {
+  it('returns true when allowed_actions is empty', () => {
+    expect(cannotManage(createMockMCPServer({ allowed_actions: [] }))).toBe(true);
+  });
+
+  it('returns true when allowed_actions has USE but not MANAGE', () => {
+    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE'] }))).toBe(true);
+  });
+
+  it('returns true when allowed_actions has UPDATE but not MANAGE', () => {
+    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE'] }))).toBe(true);
+  });
+
+  it('returns false when allowed_actions includes MANAGE', () => {
+    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE', 'DELETE', 'MANAGE'] }))).toBe(false);
+  });
+
+  it('returns false when allowed_actions is undefined (admin/no-auth)', () => {
+    expect(cannotManage(createMockMCPServer())).toBe(false);
   });
 });
