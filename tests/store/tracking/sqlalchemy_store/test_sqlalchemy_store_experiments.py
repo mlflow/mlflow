@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 from pathlib import Path
@@ -18,13 +19,20 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessments,
     SqlExperiment,
+    SqlExperimentTag,
     SqlLoggedModel,
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlRun,
+    SqlSpan,
+    SqlSpanMetrics,
     SqlTraceInfo,
+    SqlTraceMetadata,
+    SqlTraceMetrics,
+    SqlTraceTag,
     TraceState,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -433,6 +441,7 @@ def test_hard_delete_experiment_cascades_to_child_tables(
     timestamp_ms = get_current_time_millis()
 
     with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(SqlExperimentTag(key="exp-tag", value="v", experiment_id=target_exp_id))
         session.add(
             SqlRun(
                 run_uuid=run_uuid,
@@ -461,6 +470,40 @@ def test_hard_delete_experiment_cascades_to_child_tables(
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=0,
                 status=TraceState.OK.value,
+            )
+        )
+        session.add(SqlTraceTag(request_id=request_id, key="tag", value="v"))
+        session.add(SqlTraceMetadata(request_id=request_id, key="metadata", value="v"))
+        session.add(SqlTraceMetrics(request_id=request_id, key="metric", value=1.0))
+        session.add(
+            SqlAssessments(
+                assessment_id=f"assessment-{uuid.uuid4().hex}",
+                trace_id=request_id,
+                name="assessment",
+                assessment_type="feedback",
+                value=json.dumps("value"),
+                created_timestamp=timestamp_ms,
+                last_updated_timestamp=timestamp_ms,
+                source_type="HUMAN",
+            )
+        )
+        session.add(
+            SqlSpan(
+                trace_id=request_id,
+                experiment_id=target_exp_id,
+                span_id="span-id",
+                status="OK",
+                start_time_unix_nano=timestamp_ms * 1_000_000,
+                end_time_unix_nano=timestamp_ms * 1_000_000,
+                content="{}",
+            )
+        )
+        session.add(
+            SqlSpanMetrics(
+                trace_id=request_id,
+                span_id="span-id",
+                key="span-metric",
+                value=1.0,
             )
         )
         session.add(
@@ -497,6 +540,7 @@ def test_hard_delete_experiment_cascades_to_child_tables(
 
     with store.ManagedSessionMaker() as session:
         for model in (
+            SqlExperimentTag,
             SqlTraceInfo,
             SqlLoggedModel,
             SqlLoggedModelMetric,
@@ -505,6 +549,11 @@ def test_hard_delete_experiment_cascades_to_child_tables(
         ):
             remaining = session.query(model).filter_by(experiment_id=target_exp_id).count()
             assert remaining == 0
+        for model in (SqlTraceTag, SqlTraceMetadata, SqlTraceMetrics):
+            assert session.query(model).filter_by(request_id=request_id).count() == 0
+        assert session.query(SqlAssessments).filter_by(trace_id=request_id).count() == 0
+        assert session.query(SqlSpan).filter_by(trace_id=request_id).count() == 0
+        assert session.query(SqlSpanMetrics).filter_by(trace_id=request_id).count() == 0
 
 
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
