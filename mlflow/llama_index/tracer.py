@@ -245,7 +245,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 # before this ancestor span exits. If so, its resolution was already recorded
                 # and we close it here instead of pending it (which would leave it open and
                 # the trace stuck in IN_PROGRESS).
-                if not self._stream_resolver.resolve_pending_parent(span, token=token):
+                if not self._stream_resolver.resolve_pending_parent(
+                    span, token=token, open_span_ids=self._open_mlflow_span_ids()
+                ):
                     # If the result is a generator, we keep the span in progress for streaming
                     # and end it when the generator is exhausted.
                     is_pended = self._stream_resolver.register_stream_span(span, result)
@@ -288,8 +290,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
-        self._stream_resolver.resolve(span, event)
+        self._stream_resolver.resolve(span, event, open_span_ids=self._open_mlflow_span_ids())
         self._pending_spans.pop(event.span_id, None)
+
+    def _open_mlflow_span_ids(self) -> set[str]:
+        """MLflow span IDs of the currently open (still executing) LlamaIndex spans."""
+        with self.lock:
+            return {
+                llama_span._mlflow_span.span_id
+                for llama_span in self.open_spans.values()
+                if llama_span is not None and llama_span._mlflow_span is not None
+            }
 
     def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
@@ -627,7 +638,33 @@ class StreamResolver:
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True
 
-    def resolve_pending_parent(self, span: LiveSpan, token: Any | None = None) -> bool:
+    def _record_pending_resolution(
+        self,
+        parent_id: str | None,
+        resolution: tuple[SpanStatusCode, str | None],
+        open_span_ids: set[str] | None,
+    ) -> None:
+        """
+        Record a resolution for an ancestor span that has not registered as a pending
+        stream yet, so it is closed immediately when it exits (see resolve_pending_parent).
+
+        Only record when the parent genuinely still needs resolving, i.e. it is still open
+        (executing) and awaiting resolution. A parent that is absent (root, parent_id is
+        None) or already closed does not need resolving through this mechanism, and
+        recording for it would leave a stale entry that could later close an unrelated span.
+        """
+        if parent_id is None:
+            return
+        if open_span_ids is not None and parent_id not in open_span_ids:
+            return
+        self._pending_parent_resolutions[parent_id] = resolution
+
+    def resolve_pending_parent(
+        self,
+        span: LiveSpan,
+        token: Any | None = None,
+        open_span_ids: set[str] | None = None,
+    ) -> bool:
         """
         Close a span whose descendant stream was already resolved out-of-order.
 
@@ -641,6 +678,8 @@ class StreamResolver:
         Args:
             span: The span that is about to be pended as a stream.
             token: The OTel context token for the span, detached when the span is closed.
+            open_span_ids: MLflow span IDs of the currently open spans, used to decide
+                whether the next ancestor still needs a recorded resolution.
 
         Returns:
             True if a recorded resolution was found and the span was closed, False otherwise.
@@ -654,11 +693,12 @@ class StreamResolver:
         # here (passing the token so it is detached) and do not register/pend it again.
         _end_span(span=span, status=status, outputs=output_text, token=token)
 
-        if span.parent_id is not None:
-            self._pending_parent_resolutions[span.parent_id] = resolution
+        self._record_pending_resolution(span.parent_id, resolution, open_span_ids)
         return True
 
-    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
+    def resolve(
+        self, span: LiveSpan, event: _StreamEndEvent, open_span_ids: set[str] | None = None
+    ):
         """
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.
@@ -702,5 +742,7 @@ class StreamResolver:
         # resolution for the first ancestor that has not registered yet so it can be
         # closed immediately when it exits (see resolve_pending_parent). Without this, such
         # ancestors would stay open and the trace would be stuck in the IN_PROGRESS state.
-        if span.parent_id is not None:
-            self._pending_parent_resolutions[span.parent_id] = (status, output_text)
+        # On the fully-resolved path (all ancestors already closed by the loop above), the
+        # loop stops at the root or a non-streaming ancestor that no longer needs resolving,
+        # so _record_pending_resolution skips it.
+        self._record_pending_resolution(span.parent_id, (status, output_text), open_span_ids)
