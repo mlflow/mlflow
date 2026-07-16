@@ -12,6 +12,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
 )
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus
 from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
@@ -41,6 +42,9 @@ from mlflow.telemetry.events import (
     GenAIEvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+    McpRegistryRegisterServerFromUrlEvent,
     MergeRecordsEvent,
     OptimizePromptsJobEvent,
     PromptOptimizationEvent,
@@ -873,3 +877,132 @@ def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data
 )
 def test_trace_attachments_event_parse(arguments, expected):
     assert TraceAttachmentsEvent.parse(arguments) == expected
+
+
+# --- MCP Server Registry Event Tests ---
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "server_json": {"name": "test", "version": "1.0.0", "remotes": [{"url": "http://x"}]},
+                "source": "https://github.com/test",
+                "status": MCPStatus.ACTIVE,
+                "tools": [Mock(), Mock()],
+            },
+            {
+                "status": "active",
+                "has_source": True,
+                "num_tools": 2,
+                "has_remotes": True,
+            },
+        ),
+        (
+            {
+                "server_json": {"name": "test", "version": "1.0.0"},
+                "source": None,
+                "status": MCPStatus.DRAFT,
+                "tools": None,
+            },
+            {
+                "status": "draft",
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+        (
+            {
+                "server_json": {"name": "test", "version": "1.0.0"},
+                "status": "draft",
+            },
+            {
+                "status": "draft",
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+        (
+            {},
+            {
+                "status": None,
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+    ],
+)
+def test_mcp_registry_create_server_version_parse_params(arguments, expected_params):
+    assert McpRegistryCreateServerVersionEvent.name == "mcp_registry_create_server_version"
+    assert McpRegistryCreateServerVersionEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"url": "https://example.com/server.json"},
+            {"url_scheme": "https"},
+        ),
+        (
+            {"url": "http://example.com/server.json"},
+            {"url_scheme": "http"},
+        ),
+        (
+            {"url": "file:///tmp/server.json"},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": "/tmp/server.json"},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": ""},
+            {"url_scheme": "file"},
+        ),
+        (
+            {},
+            {"url_scheme": "file"},
+        ),
+    ],
+)
+def test_mcp_registry_register_server_from_url_parse_params(arguments, expected_params):
+    assert McpRegistryRegisterServerFromUrlEvent.name == "mcp_registry_register_server_from_url"
+    assert McpRegistryRegisterServerFromUrlEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "transport_type": MCPRemoteTransportType.STREAMABLE_HTTP,
+                "server_alias": "production",
+            },
+            {"transport_type": "streamable-http", "uses_alias": True},
+        ),
+        (
+            {
+                "transport_type": MCPRemoteTransportType.SSE,
+                "server_version": "1.0.0",
+                "server_alias": None,
+            },
+            {"transport_type": "sse", "uses_alias": False},
+        ),
+        (
+            {"transport_type": None, "server_alias": None},
+            {"transport_type": None, "uses_alias": False},
+        ),
+        (
+            {},
+            {"transport_type": None, "uses_alias": False},
+        ),
+    ],
+)
+def test_mcp_registry_create_access_endpoint_parse_params(arguments, expected_params):
+    assert McpRegistryCreateAccessEndpointEvent.name == "mcp_registry_create_access_endpoint"
+    assert McpRegistryCreateAccessEndpointEvent.parse(arguments) == expected_params

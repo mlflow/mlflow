@@ -433,6 +433,51 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+# MCP Server Registry Events
+class McpRegistryCreateServerVersionEvent(Event):
+    name: str = "mcp_registry_create_server_version"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        server_json = arguments.get("server_json") or {}
+        tools = arguments.get("tools")
+        status = arguments.get("status")
+        return {
+            "status": status.value if hasattr(status, "value") else status,
+            "has_source": arguments.get("source") is not None,
+            "num_tools": len(tools) if tools is not None else None,
+            "has_remotes": bool(server_json.get("remotes")),
+        }
+
+
+class McpRegistryRegisterServerFromUrlEvent(Event):
+    name: str = "mcp_registry_register_server_from_url"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        url = arguments.get("url") or ""
+        scheme = urlparse(url).scheme
+        return {
+            "url_scheme": scheme or "file",
+        }
+
+
+class McpRegistryCreateAccessEndpointEvent(Event):
+    name: str = "mcp_registry_create_access_endpoint"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        transport_type = arguments.get("transport_type")
+        return {
+            "transport_type": transport_type.value
+            if hasattr(transport_type, "value")
+            else str(transport_type)
+            if transport_type
+            else None,
+            "uses_alias": arguments.get("server_alias") is not None,
+        }
+
+
 class TrackingServerStartEvent(Event):
     name: str = "tracking_server_start"
 
