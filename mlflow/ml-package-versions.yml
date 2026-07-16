@@ -959,10 +959,6 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.2.19"
-    # TODO: Bump past 1.94.0 once the tracing tests patch the right model request
-    # entrypoint. pydantic-ai >= 1.96 no longer routes through
-    # `InstrumentedModel.request`, so the mock is bypassed and tests hit the real API.
-    maximum: "1.94.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai

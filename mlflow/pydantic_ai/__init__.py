@@ -7,6 +7,7 @@ from mlflow.pydantic_ai.autolog import (
     patched_agent_init,
     patched_async_class_call,
     patched_async_stream_call,
+    patched_capability_model_request,
     patched_class_call,
     patched_sync_stream_call,
 )
@@ -180,6 +181,25 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 _patch_method(cls, method)
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    # pydantic-ai >= 1.95 no longer routes model calls through InstrumentedModel (patched
+    # via class_map above, which stays for older versions). Instead, both streaming and
+    # non-streaming model requests funnel through the Instrumentation capability's
+    # wrap_model_request. Patch it so LLM spans are captured on modern versions. This is
+    # provider-agnostic: it fires once per model request regardless of the concrete model.
+    try:
+        from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+        safe_patch(
+            FLAVOR_NAME,
+            Instrumentation,
+            "wrap_model_request",
+            patched_capability_model_request,
+        )
+    except (ImportError, AttributeError):
+        # Older pydantic-ai versions don't have the capabilities system; the
+        # InstrumentedModel patch above covers them.
+        pass
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

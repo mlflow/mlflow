@@ -93,22 +93,29 @@ def _set_span_attributes(span: LiveSpan, instance):
     except Exception as e:
         _logger.warning("Failed saving Agent attributes: %s", e)
 
-    # 3) InstrumentedModel attributes
+    # 3) Model attributes. `Model` covers both `InstrumentedModel` (pydantic-ai < 1.95)
+    #    and the concrete provider models (e.g. `OpenAIChatModel`) that the capabilities-era
+    #    request path invokes (pydantic-ai >= 1.95).
     try:
-        from pydantic_ai.models.instrumented import InstrumentedModel
+        from pydantic_ai.models import Model
 
-        if isinstance(instance, InstrumentedModel):
+        if isinstance(instance, Model):
             model_attrs = _get_model_attributes(instance)
             span.set_attributes({k: v for k, v in model_attrs.items() if v is not None})
             if model_name := getattr(instance, "model_name", None):
                 span.set_attribute(SpanAttributeKey.MODEL, model_name)
-                # Pydantic AI model_name uses "provider:model" format
-                # e.g., "openai:gpt-4o", "anthropic:claude-3-5-haiku"
-                match model_name.split(":", 1):
-                    case [provider, _]:
-                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+                # Prefer the model's own provider identifier (`system`, e.g. "openai").
+                # Fall back to the "provider:model" prefix used by some model_name formats
+                # (e.g. "anthropic:claude-3-5-haiku").
+                provider = getattr(instance, "system", None)
+                if not provider:
+                    match model_name.split(":", 1):
+                        case [prefix, _]:
+                            provider = prefix
+                if provider:
+                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
     except Exception as e:
-        _logger.warning("Failed saving InstrumentedModel attributes: %s", e)
+        _logger.warning("Failed saving model attributes: %s", e)
 
     # 4) Tool attributes
     try:
@@ -147,6 +154,52 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
+
+
+async def patched_capability_model_request(original, self, *args, **kwargs):
+    """Create an LLM span for the capabilities-era model request path.
+
+    pydantic-ai >= 1.95 no longer routes model calls through
+    ``InstrumentedModel.request``/``request_stream``. Instead, every model request
+    (streaming and non-streaming) funnels through the ``Instrumentation`` capability's
+    ``wrap_model_request``. Unlike the ``InstrumentedModel`` path, the concrete model is
+    available on the ``request_context`` argument rather than on ``self`` (which is the
+    capability), so we extract it explicitly to type the span and set model attributes.
+    """
+    cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not cfg.log_traces:
+        return await original(self, *args, **kwargs)
+
+    request_context = kwargs.get("request_context")
+    if request_context is None:
+        # request_context may be passed positionally on some versions.
+        request_context = next(
+            (a for a in args if hasattr(a, "model") and hasattr(a, "messages")), None
+        )
+    model = getattr(request_context, "model", None)
+
+    span_name = f"{type(model).__name__}.request" if model is not None else "Model.request"
+    with mlflow.start_span(name=span_name, span_type=SpanType.LLM) as span:
+        span.set_inputs(_model_request_inputs(request_context))
+        if model is not None:
+            _set_span_attributes(span, model)
+
+        result = await original(self, *args, **kwargs)
+        span.set_outputs(_serialize_output(result))
+        if usage_dict := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        return result
+
+
+def _model_request_inputs(request_context) -> dict[str, Any]:
+    if request_context is None:
+        return {}
+    inputs = {
+        "messages": getattr(request_context, "messages", None),
+        "model_settings": getattr(request_context, "model_settings", None),
+        "model_request_parameters": getattr(request_context, "model_request_parameters", None),
+    }
+    return {k: v for k, v in inputs.items() if v is not None}
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -340,11 +393,14 @@ def _get_span_type(instance) -> str:
     try:
         from pydantic_ai import Agent, Tool
         from pydantic_ai.mcp import MCPServer
-        from pydantic_ai.models.instrumented import InstrumentedModel
+        from pydantic_ai.models import Model
     except ImportError:
         return SpanType.UNKNOWN
 
-    if isinstance(instance, InstrumentedModel):
+    # `Model` covers both `InstrumentedModel` (used on pydantic-ai < 1.95) and the
+    # concrete provider models (e.g. `OpenAIChatModel`) invoked on the capabilities-era
+    # request path (pydantic-ai >= 1.95).
+    if isinstance(instance, Model):
         return SpanType.LLM
     if isinstance(instance, Agent):
         return SpanType.AGENT
