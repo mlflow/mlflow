@@ -64,8 +64,9 @@ _logger = logging.getLogger(__name__)
 # Each entry is a posix-style path prefix relative to the repo root; a test is treated as
 # serial if its file path starts with any of these. Verified xdist-hostile against a
 # green serial baseline (they pass serially but fail under `-n auto`):
-#   - tests/data/test_spark_dataset.py, test_delta_dataset_source.py: all workers share one
-#     Spark/Delta JVM session and clobber the catalog config across processes.
+#   - tests/data/test_spark_dataset.py, test_spark_dataset_source.py,
+#     test_delta_dataset_source.py: all workers share one Spark/Delta JVM session and
+#     clobber the catalog config across processes.
 #   - tests/server/test_prometheus_exporter.py + test_handlers.py: both import the
 #     process-global Flask `app`; the conftest orders prometheus first, but under
 #     `--dist loadscope` they land on different workers and the ordering no longer holds
@@ -75,8 +76,14 @@ _logger = logging.getLogger(__name__)
 #   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py: spawn real
 #     env-building subprocesses that contend for CPU/disk and time out when parallelized.
 #   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
+#   - tests/db/test_schema.py, tests/tracking/_model_registry/test_utils.py: assume a
+#     filesystem `./mlruns` store, but a sibling worker toggling `MLFLOW_ALLOW_FILE_STORE`
+#     (file-store "maintenance mode") leaks across the process and trips these.
+#   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
+#     which are perturbed by concurrent xdist workers.
 _XDIST_SERIAL_PATHS = (
     "tests/data/test_spark_dataset.py",
+    "tests/data/test_spark_dataset_source.py",
     "tests/data/test_delta_dataset_source.py",
     "tests/server/test_prometheus_exporter.py",
     "tests/server/test_handlers.py",
@@ -84,6 +91,9 @@ _XDIST_SERIAL_PATHS = (
     "tests/projects/test_virtualenv_projects.py",
     "tests/projects/test_projects_cli.py",
     "tests/server/jobs/",
+    "tests/db/test_schema.py",
+    "tests/tracking/_model_registry/test_utils.py",
+    "tests/tracing/export/test_async_export_queue.py",
 )
 
 
