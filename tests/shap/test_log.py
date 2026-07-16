@@ -294,7 +294,7 @@ def test_merge_environment_with_duplicates():
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -333,7 +333,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
 def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
