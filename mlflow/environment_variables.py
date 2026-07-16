@@ -115,6 +115,15 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: **Experimental** — subject to change or removal in a future release.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
+#: Remote access is still limited to providers that don't require local execution
+#: (e.g. the MLflow Gateway); this only opts into that check.
+#: (default: ``False``)
+MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
+)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
