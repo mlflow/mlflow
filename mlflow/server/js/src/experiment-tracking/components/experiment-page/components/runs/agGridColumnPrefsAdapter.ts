@@ -47,7 +47,9 @@ export const getReorderCorrection = (
   }
 
   const desiredData = [...anchorsPresent, ...dataOrder.filter((colId) => !isAnchor(colId))];
-  // Re-thread the desired data order through the original slots; non-data slots (checkbox) stay put.
+  // Re-thread the desired data order through the original slots. Non-data columns (e.g. the
+  // checkbox) are re-emitted in their existing position by colId — they are not dropped and not
+  // relied on to stay in place implicitly. Only null/undefined colIds are omitted.
   let d = 0;
   return currentOrder.reduce<string[]>((acc, colId) => {
     if (isData(colId)) {
