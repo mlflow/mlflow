@@ -1075,6 +1075,8 @@ def serve_wheel(request, tmp_path_factory):
     The server provides upload-time metadata so that uv's ``exclude-newer`` can correctly
     resolve the local dev wheel.
     """
+    from filelock import FileLock
+
     from tests.helper_functions import get_safe_port
     from tests.simple_repository_server import SimpleRepositoryServer
 
@@ -1086,10 +1088,6 @@ def serve_wheel(request, tmp_path_factory):
         yield  # pytest expects a generator fixture to yield
         return
 
-    root = tmp_path_factory.mktemp("root")
-    mlflow_dir = root.joinpath("mlflow")
-    mlflow_dir.mkdir()
-    port = get_safe_port()
     try:
         repo_root = subprocess.check_output(
             [
@@ -1104,18 +1102,39 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "--wheel-dir",
-            mlflow_dir,
-            "--no-deps",
-            repo_root,
-        ],
-    )
+    def build_wheel(wheel_dir):
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "wheel",
+                "--wheel-dir",
+                wheel_dir,
+                "--no-deps",
+                repo_root,
+            ],
+        )
+
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
+        # Not running under pytest-xdist: build into this session's own tmp dir.
+        mlflow_dir = tmp_path_factory.mktemp("root").joinpath("mlflow")
+        mlflow_dir.mkdir()
+        build_wheel(mlflow_dir)
+    else:
+        # Under pytest-xdist every worker runs its own session and would otherwise
+        # each run `pip wheel` concurrently, racing on the in-tree `build/` directory
+        # and failing the wheel build. Build the wheel exactly once in a directory
+        # shared across workers (the parent of each worker's basetemp), guarded by a
+        # file lock; the remaining workers reuse the already-built wheel.
+        shared_dir = tmp_path_factory.getbasetemp().parent
+        mlflow_dir = shared_dir.joinpath("mlflow-dev-wheel")
+        with FileLock(str(shared_dir.joinpath("mlflow-dev-wheel.lock"))):
+            if not (mlflow_dir.exists() and any(mlflow_dir.glob("*.whl"))):
+                mlflow_dir.mkdir(exist_ok=True)
+                build_wheel(mlflow_dir)
+
+    port = get_safe_port()
     with SimpleRepositoryServer(mlflow_dir, port) as server:
         index_url = (
             f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
