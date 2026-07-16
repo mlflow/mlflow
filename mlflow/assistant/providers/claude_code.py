@@ -242,6 +242,14 @@ let the server handle storage. Specifically:
 - NEVER read the filesystem or cloud storage to access MLflow artifact storage directly.
 - ALWAYS let the MLflow server handle all storage operations through its APIs.
 
+## Analysis Best Practices
+
+When analyzing the user's own MLflow DATA (traces, runs, experiments) — NOT when answering
+conceptual or how-to questions — don't just describe what you see: tell the user what it
+means and what they should do about it, and end that analysis with a "Recommendations"
+section containing specific, prioritized action items. This applies to data analysis only;
+for conceptual or how-to answers, follow "Match Response Length to the Question" above.
+
 ## MLflow Documentation
 
 If you have a permission to fetch MLflow documentation, use the WebFetch tool to fetch
