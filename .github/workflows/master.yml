@@ -110,12 +110,21 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
+            --junitxml=test-results/python-${GROUP}.xml \
             --quiet --requires-ssh --ignore-flavors \
             --ignore=tests/examples \
             --ignore=tests/evaluate \
             --ignore=tests/genai \
             --ignore=tests/docker \
             tests
+      - name: Upload test results
+        if: "!cancelled()"
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: test-results-python-${{ matrix.group }}
+          path: test-results/*.xml
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Run databricks-connect related tests
         run: |
@@ -448,6 +457,7 @@ jobs:
           uv run --no-sync pytest tests \
             --splits=$SPLITS \
             --group=$GROUP \
+            --junitxml=test-results/windows-${GROUP}.xml \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
@@ -465,3 +475,11 @@ jobs:
             --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
             --ignore=tests/docker \
             --ignore=tests/demo
+      - name: Upload test results
+        if: "!cancelled()"
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: test-results-windows-${{ matrix.group }}
+          path: test-results/*.xml
+          if-no-files-found: ignore
+          retention-days: 30
