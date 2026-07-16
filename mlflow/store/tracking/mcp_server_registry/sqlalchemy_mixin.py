@@ -586,6 +586,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPAccessEndpoint:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
+        _validate_mcp_access_endpoint_url(url)
 
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -777,6 +778,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                         "MCP access endpoint url cannot be None",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                _validate_mcp_access_endpoint_url(url)
                 endpoint.url = url
             if transport_type is not NOT_SET and transport_type is not None:
                 endpoint.transport_type = transport_type.value
@@ -1008,6 +1010,14 @@ def _validate_exactly_one(
     if (param1_value is None) == (param2_value is None):
         raise MlflowException(
             f"Exactly one of {param1_name} or {param2_name} must be provided",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_mcp_access_endpoint_url(url: str) -> None:
+    if not isinstance(url, str) or not url.strip():
+        raise MlflowException(
+            f"MCP access endpoint url cannot be empty or just whitespace: {url!r}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

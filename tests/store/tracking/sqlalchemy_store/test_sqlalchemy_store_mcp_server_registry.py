@@ -1119,6 +1119,25 @@ def test_create_mcp_access_endpoint_server_not_found(store):
         )
 
 
+@pytest.mark.parametrize("blank_url", ["", "   ", "\t"])
+def test_create_mcp_access_endpoint_rejects_blank_url(store, blank_url):
+    _setup_server(store, "io.github.test/blank-url")
+    with pytest.raises(MlflowException, match="cannot be empty or just whitespace"):
+        store.create_mcp_access_endpoint(
+            "io.github.test/blank-url", blank_url, server_version="1.0.0"
+        )
+
+
+@pytest.mark.parametrize("blank_url", ["", "   "])
+def test_update_mcp_access_endpoint_rejects_blank_url(store, blank_url):
+    _setup_server(store, "io.github.test/blank-url-upd")
+    endpoint = store.create_mcp_access_endpoint(
+        "io.github.test/blank-url-upd", "https://mcp.example.com", server_version="1.0.0"
+    )
+    with pytest.raises(MlflowException, match="cannot be empty or just whitespace"):
+        store.update_mcp_access_endpoint("io.github.test/blank-url-upd", endpoint.id, url=blank_url)
+
+
 def test_get_mcp_access_endpoint_not_found_raises(store):
     _setup_server(store, "io.github.test/server")
     with pytest.raises(MlflowException, match="not found"):

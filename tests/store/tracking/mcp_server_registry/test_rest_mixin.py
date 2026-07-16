@@ -475,6 +475,12 @@ def test_search_endpoints_server_scoped(rest_client):
     assert results[0].server_name == "io.github.test/sc-a"
 
 
+@pytest.mark.parametrize("empty_name", ["", "   "])
+def test_search_endpoints_rejects_empty_server_name(rest_client, empty_name):
+    with pytest.raises(MlflowException, match="server_name must be a non-empty string"):
+        rest_client.search_mcp_access_endpoints(server_name=empty_name)
+
+
 def test_update_endpoint(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/ub", "1.0.0"), status=MCPStatus.ACTIVE
