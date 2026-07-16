@@ -3773,3 +3773,59 @@ async def test_playground_log_trace_requires_messages(store: SqlAlchemyStore):
     with pytest.raises(HTTPException, match="messages must be a non-empty list") as exc_info:
         await playground_log_trace(mock_request)
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_requires_response(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("playground-no-response")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+        }
+    )
+    with pytest.raises(HTTPException, match="response must be a non-empty object") as exc_info:
+        await playground_log_trace(mock_request)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_params_do_not_overwrite_reserved_inputs(store: SqlAlchemyStore):
+    # Client-supplied params must not clobber reserved request keys (messages/model/tools/...),
+    # which would silently corrupt the saved trace.
+    experiment_id = store.create_experiment("playground-params-guard")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "model": "my-endpoint",
+            "params": {"temperature": 0.5, "messages": "hacked", "model": "hacked"},
+        }
+    )
+
+    await playground_log_trace(mock_request)
+
+    span = TracingClient().search_traces(locations=[experiment_id])[0].data.spans[0]
+    assert span.inputs["messages"] == [{"role": "user", "content": "Hi"}]
+    assert span.inputs["model"] == "my-endpoint"
+    assert span.inputs["temperature"] == 0.5
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_ignores_boolean_token_usage(store: SqlAlchemyStore):
+    # bool is a subclass of int; boolean/negative token counts must not be recorded as usage.
+    experiment_id = store.create_experiment("playground-bool-usage")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "usage": {"prompt_tokens": True, "completion_tokens": -1, "total_tokens": 8},
+        }
+    )
+
+    await playground_log_trace(mock_request)
+
+    span = TracingClient().search_traces(locations=[experiment_id])[0].data.spans[0]
+    assert span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {"total_tokens": 8}

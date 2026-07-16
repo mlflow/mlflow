@@ -851,7 +851,12 @@ def _playground_chat_token_usage(usage: Any) -> dict[str, int] | None:
         TokenUsageKey.OUTPUT_TOKENS: usage.get("completion_tokens"),
         TokenUsageKey.TOTAL_TOKENS: usage.get("total_tokens"),
     }
-    normalized = {k: v for k, v in mapping.items() if isinstance(v, int)}
+    # bool is a subclass of int, so exclude it explicitly; drop negative counts as well.
+    normalized = {
+        k: v
+        for k, v in mapping.items()
+        if isinstance(v, int) and not isinstance(v, bool) and v >= 0
+    }
     return normalized or None
 
 
@@ -898,7 +903,10 @@ def _log_playground_trace(
     inputs: dict[str, Any] = {"messages": messages}
     if model:
         inputs["model"] = model
-    inputs.update(params)
+    # Merge only sampling params; never let client-supplied params overwrite reserved request keys
+    # (messages/model/tools/tool_choice/response_format), which would corrupt the saved trace.
+    reserved_keys = {"messages", "model", "tools", "tool_choice", "response_format"}
+    inputs.update({k: v for k, v in params.items() if k not in reserved_keys})
     if tools:
         inputs["tools"] = tools
     if tool_choice is not None:
@@ -981,12 +989,18 @@ async def playground_log_trace(request: Request):
     if not isinstance(messages, list) or not messages:
         raise HTTPException(status_code=400, detail="messages must be a non-empty list")
 
+    # The saved trace's completion is built from `response`; a missing/empty one would produce a
+    # trace whose output message is null and break the Chat tab normalization.
+    response = body.get("response")
+    if not isinstance(response, dict) or not response:
+        raise HTTPException(status_code=400, detail="response must be a non-empty object")
+
     params = body.get("params")
     trace_id = await run_in_threadpool(
         _log_playground_trace,
         experiment_id=str(experiment_id),
         messages=messages,
-        response=body.get("response"),
+        response=response,
         usage=body.get("usage"),
         model=body.get("model"),
         params=params if isinstance(params, dict) else {},

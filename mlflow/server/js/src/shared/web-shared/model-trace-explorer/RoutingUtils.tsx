@@ -238,7 +238,13 @@ const useLocation = useLocationDirect;
 const useNavigate = () => {
   const navigate = useNavigateDirect();
   return useCallback(
-    (to: To, options?: NavigateOptions) => {
+    (to: To | number, options?: NavigateOptions) => {
+      // Numeric navigation (e.g. navigate(-1) for back) has no route to prefix; pass it through
+      // unchanged to match react-router's useNavigate signature.
+      if (typeof to === 'number') {
+        navigate(to);
+        return;
+      }
       navigate(prefixRouteWithWorkspaceForTo(to), options);
     },
     [navigate],
