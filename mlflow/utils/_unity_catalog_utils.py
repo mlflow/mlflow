@@ -39,7 +39,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     TemporaryCredentials as TemporaryCredentialsOSS,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
