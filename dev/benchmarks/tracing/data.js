@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784186576516,
+  "lastUpdate": 1784188565514,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14147,6 +14147,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.714320800000451,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "147849970+SuperSonnix71@users.noreply.github.com",
+            "name": "Sonny",
+            "username": "SuperSonnix71"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a716c25e78bd03a2e19642f6f0499ef7c3dcc6db",
+          "message": "Allow remote access to the MLflow Assistant for API-based providers (#24040)\n\nSigned-off-by: Sonny <sonnym@terranex.ai>",
+          "timestamp": "2026-07-16T07:52:29Z",
+          "tree_id": "1484137ae76f6516d85b83eafef081d1f81c99c7",
+          "url": "https://github.com/mlflow/mlflow/commit/a716c25e78bd03a2e19642f6f0499ef7c3dcc6db"
+        },
+        "date": 1784188564032,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.38500689999631,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 16.045858285715603,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.23585990476171,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.06921587719186,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.343588338982816,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 26.21395919999827,
             "unit": "ms"
           }
         ]
