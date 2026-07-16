@@ -1075,8 +1075,6 @@ def serve_wheel(request, tmp_path_factory):
     The server provides upload-time metadata so that uv's ``exclude-newer`` can correctly
     resolve the local dev wheel.
     """
-    from filelock import FileLock
-
     from tests.helper_functions import get_safe_port
     from tests.simple_repository_server import SimpleRepositoryServer
 
@@ -1127,6 +1125,10 @@ def serve_wheel(request, tmp_path_factory):
         # and failing the wheel build. Build the wheel exactly once in a directory
         # shared across workers (the parent of each worker's basetemp), guarded by a
         # file lock; the remaining workers reuse the already-built wheel.
+        # `filelock` is imported lazily here (not at module top) because the skinny
+        # test suite doesn't install it and never runs under xdist.
+        from filelock import FileLock
+
         shared_dir = tmp_path_factory.getbasetemp().parent
         mlflow_dir = shared_dir.joinpath("mlflow-dev-wheel")
         with FileLock(str(shared_dir.joinpath("mlflow-dev-wheel.lock"))):
