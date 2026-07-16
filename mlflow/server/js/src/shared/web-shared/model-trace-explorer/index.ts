@@ -27,6 +27,7 @@ export {
   parseV4TraceId,
   isV4TraceId,
   normalizeConversation,
+  parseModelTraceToTreeWithMultipleRoots,
 } from './ModelTraceExplorer.utils';
 export {
   SESSION_ID_METADATA_KEY,
@@ -92,3 +93,8 @@ export {
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
 export { formatCostUSD } from './CostUtils';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
+export {
+  getExperimentPagePlaygroundRoute,
+  PLAYGROUND_TRACE_ID_QUERY_PARAM,
+  PLAYGROUND_SPAN_ID_QUERY_PARAM,
+} from './routes';

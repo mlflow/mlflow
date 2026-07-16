@@ -14,9 +14,14 @@ from collections.abc import AsyncIterable, Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
+import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.config import (
@@ -77,7 +82,7 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
@@ -831,6 +836,166 @@ async def chat_completions(request: Request):
             )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
+
+
+def _playground_chat_token_usage(usage: Any) -> dict[str, int] | None:
+    """
+    Map an OpenAI-style usage dict (prompt_tokens/completion_tokens/total_tokens) to MLflow's
+    ``mlflow.chat.tokenUsage`` shape (input_tokens/output_tokens/total_tokens). Returns None when
+    no usable counts are present.
+    """
+    if not isinstance(usage, dict):
+        return None
+    mapping = {
+        TokenUsageKey.INPUT_TOKENS: usage.get("prompt_tokens"),
+        TokenUsageKey.OUTPUT_TOKENS: usage.get("completion_tokens"),
+        TokenUsageKey.TOTAL_TOKENS: usage.get("total_tokens"),
+    }
+    normalized = {k: v for k, v in mapping.items() if isinstance(v, int)}
+    return normalized or None
+
+
+def _log_playground_trace(
+    experiment_id: str,
+    messages: list[Any],
+    response: Any,
+    usage: Any,
+    model: str | None,
+    params: dict[str, Any],
+    tools: Any,
+    tool_choice: Any,
+    response_format: Any,
+    source_trace_id: str | None,
+) -> str:
+    """
+    Log a single CHAT_MODEL-span trace capturing a playground run and return its trace id.
+
+    The span is shaped to mirror a real gateway chat trace so the trace UI renders it identically:
+    the span inputs are an OpenAI-style chat request and the outputs an OpenAI-style chat
+    completion (``choices[0].message`` + ``usage``). The UI derives the Chat tab conversation by
+    normalizing inputs/outputs rather than from a dedicated attribute, so wrapping the assistant
+    reply in a completion envelope (instead of storing a bare message) is what makes the full
+    conversation, model, and token usage render. Token usage is also written to the
+    ``mlflow.chat.tokenUsage`` attribute explicitly because fluent spans do not carry the OTel
+    ``gen_ai.*`` attributes the exporter would otherwise derive it from, and the available tools to
+    the ``mlflow.chat.tools`` attribute so the Chat tab shows them and re-opening the trace in the
+    playground restores them.
+
+    Runs off the event loop (see ``playground_log_trace``) because the tracing store writes are
+    synchronous.
+    """
+    token_usage = _playground_chat_token_usage(usage)
+
+    attributes: dict[str, Any] = {}
+    if model:
+        attributes[SpanAttributeKey.MODEL] = model
+    if token_usage:
+        attributes[SpanAttributeKey.CHAT_USAGE] = token_usage
+    if tools:
+        attributes[SpanAttributeKey.CHAT_TOOLS] = tools
+
+    # OpenAI-style chat request, matching what the gateway records as span inputs.
+    inputs: dict[str, Any] = {"messages": messages}
+    if model:
+        inputs["model"] = model
+    inputs.update(params)
+    if tools:
+        inputs["tools"] = tools
+    if tool_choice is not None:
+        inputs["tool_choice"] = tool_choice
+    if response_format is not None:
+        inputs["response_format"] = response_format
+
+    # OpenAI-style chat completion, so the Chat tab can normalize the assistant reply into the
+    # conversation alongside the request messages.
+    outputs: dict[str, Any] = {
+        "object": "chat.completion",
+        "choices": [{"index": 0, "message": response, "finish_reason": "stop"}],
+    }
+    if model:
+        outputs["model"] = model
+    if isinstance(usage, dict) and usage:
+        outputs["usage"] = usage
+
+    # Unreserved (non-"mlflow.") tag keys so they pass trace-tag validation and surface as
+    # user-facing tags on the saved trace.
+    tags = {"playground": "true"}
+    if source_trace_id:
+        # Attribute the saved run to the trace it was derived from so the two can be compared.
+        tags["playground.source_trace_id"] = source_trace_id
+
+    with mlflow.start_span(
+        name="playground",
+        span_type=SpanType.CHAT_MODEL,
+        attributes=attributes or None,
+        trace_destination=MlflowExperimentLocation(experiment_id),
+    ) as span:
+        mlflow.update_current_trace(tags=tags)
+        span.set_inputs(inputs)
+        span.set_outputs(outputs)
+        trace_id = span.trace_id
+
+    # Force the async trace export to finish and confirm the trace actually persisted. On tracing
+    # failure (e.g. an invalid experiment id or a store write error) start_span degrades to a
+    # no-op span with a sentinel trace id — that must surface as an error, not as a successful
+    # save pointing the UI at a nonexistent trace.
+    if (
+        trace_id == NO_OP_SPAN_TRACE_ID
+        or mlflow.get_trace(trace_id, silent=True, flush=True) is None
+    ):
+        raise HTTPException(status_code=500, detail="Failed to log the playground trace")
+    return trace_id
+
+
+@gateway_router.post("/mlflow/v1/playground/log-trace", response_model=None)
+@translate_http_exception
+async def playground_log_trace(request: Request):
+    """
+    Log a playground chat completion as a new MLflow trace ("save back as a new trace").
+
+    After iterating on a prompt in the playground, the user can persist the run so it lands in the
+    same experiment's traces table for side-by-side comparison with the original trace.
+
+    Example:
+        POST /gateway/mlflow/v1/playground/log-trace
+        {
+            "experiment_id": "123",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "response": {"role": "assistant", "content": "Hi!"},
+            "usage": {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8},
+            "model": "my-endpoint",
+            "params": {"temperature": 0.7},
+            "tools": [{"type": "function", "function": {"name": "get_weather"}}],
+            "tool_choice": "auto",
+            "response_format": {"type": "json_object"},
+            "source_trace_id": "tr-abc"
+        }
+    """
+    body = await _get_request_body(request)
+
+    experiment_id = body.get("experiment_id")
+    if not experiment_id:
+        raise HTTPException(status_code=400, detail="experiment_id is required")
+
+    messages = body.get("messages")
+    if not isinstance(messages, list) or not messages:
+        raise HTTPException(status_code=400, detail="messages must be a non-empty list")
+
+    params = body.get("params")
+    trace_id = await run_in_threadpool(
+        _log_playground_trace,
+        experiment_id=str(experiment_id),
+        messages=messages,
+        response=body.get("response"),
+        usage=body.get("usage"),
+        model=body.get("model"),
+        params=params if isinstance(params, dict) else {},
+        tools=body.get("tools"),
+        tool_choice=body.get("tool_choice"),
+        response_format=body.get("response_format"),
+        source_trace_id=body.get("source_trace_id"),
+    )
+    return {"trace_id": trace_id}
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)

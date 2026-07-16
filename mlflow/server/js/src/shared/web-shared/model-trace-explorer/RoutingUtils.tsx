@@ -18,7 +18,10 @@ import {
   useParams as useParamsDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
+  useNavigate as useNavigateDirect,
+  useInRouterContext,
   BrowserRouter,
+  type NavigateOptions,
   type To,
 } from 'react-router-dom';
 import { Typography } from '@databricks/design-system';
@@ -228,6 +231,20 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+/**
+ * Wrapper around react-router's useNavigate that applies the same workspace-prefixing as the
+ * Link component, so programmatic navigation stays consistent with anchor-based navigation.
+ */
+const useNavigate = () => {
+  const navigate = useNavigateDirect();
+  return useCallback(
+    (to: To, options?: NavigateOptions) => {
+      navigate(prefixRouteWithWorkspaceForTo(to), options);
+    },
+    [navigate],
+  );
+};
+
 const Link = React.forwardRef<
   HTMLAnchorElement,
   ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
@@ -256,4 +273,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useNavigate, useInRouterContext, BrowserRouter };

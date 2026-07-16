@@ -19,6 +19,7 @@ import { useAssistant } from '@mlflow/mlflow/src/assistant';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { OpenInPlaygroundButton } from './OpenInPlaygroundButton';
 import { getAiGradientBorderStyle } from '../design-system/aiGradientBorderStyle';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -244,6 +245,7 @@ export const ModelTraceExplorerDrawer = ({
                 </Tooltip>
               </>
             )}
+            <OpenInPlaygroundButton experimentId={experimentId} traceId={traceInfo?.trace_id} />
             <Tooltip
               componentId="mlflow.evaluations_review.modal.share-tooltip"
               content={
