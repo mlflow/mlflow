@@ -46,6 +46,10 @@ BOTO_TO_MLFLOW_ERROR = {
     "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
     "InvalidAccessKeyId": UNAUTHENTICATED,
     "SignatureDoesNotMatch": UNAUTHENTICATED,
+    # HEAD responses (e.g. head_object) carry no error body, so botocore reports the
+    # bare HTTP status code instead of an S3 error code.
+    "403": PERMISSION_DENIED,
+    "404": RESOURCE_DOES_NOT_EXIST,
 }
 
 # Maps boto3 put_object parameter names to their HTTP header equivalents.

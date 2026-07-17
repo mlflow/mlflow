@@ -1904,6 +1904,44 @@ def test_create_presigned_download_url_blocked_in_artifacts_only_mode(monkeypatc
     assert "artifacts-only" in response.get_data(as_text=True).lower()
 
 
+@pytest.mark.parametrize("expiration", [-5, 0, 604801])
+def test_create_presigned_download_url_rejects_out_of_range_expiration(expiration):
+    # Cloud providers cap signed-URL lifetimes at 7 days (604800s) and reject
+    # out-of-range values only when the URL is used; the handler rejects them up front
+    # so a dead-on-arrival URL is never minted. Uses real request parsing (no
+    # _get_request_message mock) to exercise the full request path.
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"run_id": "abc123", "path": "model.pkl", "expiration": expiration}),
+    ):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
+
+
+def test_create_presigned_download_url_rejects_out_of_range_default_expiration(monkeypatch):
+    # The bound applies to the resolved value, so a misconfigured
+    # MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS is rejected too — not just an
+    # out-of-range value sent by the client.
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "999999999")
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"run_id": "abc123", "path": "model.pkl"}),
+    ):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
+
+
 @pytest.mark.parametrize(
     "uri",
     [

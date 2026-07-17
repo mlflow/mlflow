@@ -1014,6 +1014,17 @@ def test_get_download_presigned_url_returns_file_size(s3_artifact_root, tmp_path
     assert presigned_response.file_size == len(file_content)
 
 
+def test_get_download_presigned_url_missing_artifact(s3_artifact_root):
+    # A missing artifact must surface as RESOURCE_DOES_NOT_EXIST (HTTP 404), not
+    # INTERNAL_ERROR (500): `head_object` is a HEAD request with no error body, so
+    # botocore reports the bare HTTP status ("404") rather than "NoSuchKey".
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    with pytest.raises(MlflowException, match="Not Found") as exc_info:
+        repo.get_download_presigned_url("does-not-exist.pkl")
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_get_download_presigned_url_with_bucket_owner_signs_query(
     s3_artifact_root, tmp_path, monkeypatch
 ):
@@ -1042,7 +1053,7 @@ def test_get_download_presigned_url_with_bucket_owner_signs_query(
     assert presigned_response.headers == {}
 
     # The URL remains usable end to end.
-    response = requests.get(presigned_response.url)
+    response = requests.get(presigned_response.url, timeout=10)
     assert response.status_code == 200
     assert response.text == file_text
 

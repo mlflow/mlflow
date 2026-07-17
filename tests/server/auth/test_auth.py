@@ -328,6 +328,42 @@ def test_mpu_authorization_required(client, monkeypatch, mpu_action):
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_download_url_authorization_required(client, monkeypatch):
+    # Minting a presigned download URL grants direct read access to a run's artifacts,
+    # so it must enforce the same per-run READ permission as the proxied download paths.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-download-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+
+    # user2 has no permission on user1's experiment — the auth layer must reject with
+    # 403 before the handler runs (without the validator this reaches the handler and
+    # returns a handler-level status such as 501 for the local artifact repository).
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # user1 (creator, MANAGE on the experiment) passes the auth layer; the request
+    # reaches the handler, which rejects the local (file://) artifact repo with 501.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+
+
 def _mlflow_search_experiments_rest(base_uri, headers):
     response = requests.post(
         f"{base_uri}/api/2.0/mlflow/experiments/search",
