@@ -36,6 +36,8 @@ from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
+    from huey import Huey
+
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
 _logger = logging.getLogger(__name__)
@@ -421,7 +423,7 @@ def _exec_job(
 
 @dataclass
 class HueyInstance:
-    instance: Any
+    instance: "Huey"
     submit_task: Callable[..., Any]
 
 
