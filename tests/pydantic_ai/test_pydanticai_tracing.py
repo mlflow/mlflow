@@ -12,7 +12,11 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanLogLevel, SpanType
-from mlflow.pydantic_ai import _get_tool_manager_module_path, _tool_manager_uses_execute_tool_call
+from mlflow.pydantic_ai import (
+    _get_tool_manager_module_path,
+    _has_instrumentation_capability,
+    _tool_manager_uses_execute_tool_call,
+)
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
     _get_mcp_server_attributes,
@@ -27,9 +31,24 @@ from tests.tracing.helper import get_traces
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 # Usage was deprecated in favor of RequestUsage in 0.7.3
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
+HAS_INSTRUMENTATION_CAPABILITY = _has_instrumentation_capability()
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
+
+
+def _expected_llm_span_name(model_cls) -> str:
+    """Return the LLM span name for the path that must be exercised on this version.
+
+    On pydantic-ai >= 1.95 the span is produced by the Instrumentation capability hook
+    (``patched_capability_model_request``), which names it after the concrete model class,
+    e.g. ``OpenAIChatModel.request``. On < 1.95 it comes from the ``InstrumentedModel``
+    patch, which always names it ``InstrumentedModel.request``. Asserting the exact name
+    confirms the correct code path ran rather than merely "some LLM span exists".
+    """
+    if HAS_INSTRUMENTATION_CAPABILITY:
+        return f"{model_cls.__name__}.request"
+    return "InstrumentedModel.request"
 
 
 def _make_dummy_response_without_tool():
@@ -161,9 +180,9 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     assert len(outputs_1["_new_messages_serialized"]) > 0
 
     span2 = spans[2]
-    # Span name is "InstrumentedModel.request" on pydantic-ai < 1.95 and
-    # "<ConcreteModel>.request" (e.g. "OpenAIChatModel.request") on >= 1.95.
-    assert span2.name.endswith(".request")
+    # Exact name confirms which instrumentation path produced the LLM span: the capability
+    # hook (>= 1.95) names it after the concrete model, InstrumentedModel (< 1.95) does not.
+    assert span2.name == _expected_llm_span_name(model_cls)
     assert span2.span_type == SpanType.LLM
     assert span2.log_level == SpanLogLevel.INFO
     assert span2.parent_id == spans[1].span_id
@@ -216,7 +235,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost)
     assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
-    assert span1.name.endswith(".request")
+    assert span1.name == _expected_llm_span_name(type(simple_agent.model))
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
@@ -337,7 +356,7 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
-    assert spans[2].name.endswith(".request")
+    assert spans[2].name == _expected_llm_span_name(model_cls)
     assert spans[2].span_type == SpanType.LLM
 
     with patch.object(model_cls, "request", side_effect=ValueError("test error")):
@@ -444,7 +463,8 @@ def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
     # Instrumentation hook instruments (InstrumentedModel is excluded), never both.
     assert sum(1 for s in spans if s.span_type == SpanType.LLM) == 1
     llm_span = next(s for s in spans if s.span_type == SpanType.LLM)
-    assert llm_span.name.endswith(".request")
+    # Exact name confirms the correct path (capability hook on >= 1.95) was exercised.
+    assert llm_span.name == _expected_llm_span_name(type(agent.model))
 
 
 def test_autolog_does_not_capture_client_references(simple_agent):

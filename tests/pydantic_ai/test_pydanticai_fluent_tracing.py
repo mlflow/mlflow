@@ -11,6 +11,7 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.pydantic_ai import _has_instrumentation_capability
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -21,6 +22,24 @@ _FINAL_ANSWER_WITH_TOOL = "winner"
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 # Usage was deprecated in favor of RequestUsage in 0.7.3
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
+HAS_INSTRUMENTATION_CAPABILITY = _has_instrumentation_capability()
+
+
+def _expected_llm_span_name(model_cls, *, stream: bool = False) -> str:
+    """Return the LLM span name for the path that must be exercised on this version.
+
+    On pydantic-ai >= 1.95 the Instrumentation capability hook
+    (``patched_capability_model_request``) handles both streaming and non-streaming
+    requests and names the span after the concrete model, e.g. ``OpenAIChatModel.request``.
+    On < 1.95 the ``InstrumentedModel`` patch names it ``InstrumentedModel.request`` (or
+    ``InstrumentedModel.request_stream`` for streaming). Asserting the exact name confirms
+    the correct code path ran rather than merely "some LLM span exists".
+    """
+    if HAS_INSTRUMENTATION_CAPABILITY:
+        return f"{model_cls.__name__}.request"
+    return "InstrumentedModel.request_stream" if stream else "InstrumentedModel.request"
+
+
 # run_stream_sync was added in pydantic-ai 1.10.0
 HAS_RUN_STREAM_SYNC = hasattr(Agent, "run_stream_sync")
 # Streaming tests require pydantic-ai >= 1.0.0 due to API changes
@@ -209,8 +228,8 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     assert spans[1].span_type == SpanType.AGENT
 
     span2 = spans[2]
-    # "InstrumentedModel.request" on pydantic-ai < 1.95, "<ConcreteModel>.request" on >= 1.95.
-    assert span2.name.endswith(".request")
+    # Exact name confirms which instrumentation path produced the LLM span.
+    assert span2.name == _expected_llm_span_name(model_cls)
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
@@ -241,7 +260,7 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
-    assert span1.name.endswith(".request")
+    assert span1.name == _expected_llm_span_name(type(simple_agent.model))
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
@@ -312,9 +331,9 @@ async def test_agent_run_stream_creates_trace(simple_agent):
     assert spans[0].name == "Agent.run_stream"
     assert spans[0].span_type == SpanType.AGENT
 
-    # "InstrumentedModel.request_stream" on pydantic-ai < 1.95; on >= 1.95 the streaming
-    # call funnels through the same Instrumentation hook, producing "<ConcreteModel>.request".
-    assert "request" in spans[1].name
+    # Exact name confirms the streaming request went through the expected path: the
+    # Instrumentation hook (>= 1.95) or InstrumentedModel.request_stream (< 1.95).
+    assert spans[1].name == _expected_llm_span_name(type(simple_agent.model), stream=True)
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
 
@@ -358,7 +377,7 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
     assert "user_prompt" in spans[0].inputs
     assert spans[0].outputs is not None
 
-    assert "request" in spans[1].name
+    assert spans[1].name == _expected_llm_span_name(type(simple_agent.model), stream=True)
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
 
