@@ -34,6 +34,7 @@ jest.mock('./AssistantContext', () => ({
     isLoadingConfig: false,
     isLocalServer: true,
     pendingPrompt: mockPendingPrompt,
+    canUseAssistant: true,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,

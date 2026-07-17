@@ -3,16 +3,16 @@ import base64
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     READ_MODEL_VERSION as MODEL_VERSION_OPERATION_READ_OSS,
 )
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     GenerateTemporaryModelVersionCredential as GenerateTemporaryModelVersionCredentialsOSS,
 )
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     TemporaryCredentials,
 )
-from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
+from mlflow.protos.unity_catalog_service_pb2 import UnityCatalogService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.utils.models import (

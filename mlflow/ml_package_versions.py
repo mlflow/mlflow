@@ -242,11 +242,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.4.0",
-            "maximum": "3.14.1"
+            "maximum": "3.15.0"
         },
         "autologging": {
             "minimum": "3.4.0",
-            "maximum": "3.14.1"
+            "maximum": "3.15.0"
         }
     },
     "tensorflow": {

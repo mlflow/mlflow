@@ -149,7 +149,7 @@ export function MlflowSidebar({
   const isAdmin = useCurrentUserIsAdmin();
   const canManage = isAdmin;
 
-  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
+  const { openPanel, closePanel, isPanelOpen, canUseAssistant } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
   // Radix restores focus to the trigger on dismiss, but the browser
@@ -380,7 +380,7 @@ export function MlflowSidebar({
             ))}
         </ul>
         <div>
-          {isLocalServer && (
+          {canUseAssistant && (
             <Tooltip
               componentId="mlflow.sidebar.assistant_tooltip"
               content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
