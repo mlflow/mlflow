@@ -4747,6 +4747,76 @@ def test_log_spans_token_usage_redelivered_span_not_double_counted(
     }
 
 
+@pytest.mark.parametrize(
+    ("db_type", "expected_clause"),
+    [
+        (POSTGRES, "FOR UPDATE"),
+        (MYSQL, "FOR UPDATE"),
+        (MSSQL, "WITH (UPDLOCK, ROWLOCK)"),
+    ],
+)
+def test_trace_row_lock_query_locks_only_trace_rows(
+    store: SqlAlchemyStore, db_type: str, expected_clause: str
+) -> None:
+    # The lock log_spans() takes must compile to the backend's row-lock clause. It must not join
+    # experiments the way the workspace-aware _trace_query() does, because locking through that
+    # join would also lock the experiment row and serialize every trace in the experiment.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    exp_id = store.create_experiment(f"trace-row-lock-{db_type}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, exp_id)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._trace_row_lock_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert expected_clause in sql
+    assert "JOIN" not in sql
+    assert "ORDER BY" in sql
+
+
+def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> None:
+    # Concurrent log_spans() calls for the same trace must serialize on the trace row, so the
+    # recompute-and-overwrite of the trace-level token usage cannot lose an update. Traces
+    # created by the same call are not visible to other transactions and need no lock.
+    experiment_id = store.create_experiment("test_log_spans_locks_preexisting_traces")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    with mock.patch.object(
+        store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+    ) as mock_lock:
+        # The trace does not exist yet: it is created by this call, so no lock is taken.
+        store.log_spans(experiment_id, [_span(1, 100)])
+        mock_lock.assert_not_called()
+
+        # The trace now pre-exists: the next batch must lock its row before writing spans.
+        store.log_spans(experiment_id, [_span(2, 200)])
+        mock_lock.assert_called_once()
+        assert mock_lock.call_args.args[1] == [trace_id]
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
