@@ -1,8 +1,4 @@
-"""Unit tests for MCP server auth helper functions.
-
-Tests _permission_to_allowed_actions (importable) and the visibility
-logic that the response filter applies.
-"""
+from typing import Any
 
 import pytest
 
@@ -40,13 +36,11 @@ def test_permission_to_allowed_actions(permission, expected):
 # ---------------------------------------------------------------------------
 
 
-def _is_dimmed(s: dict) -> bool:
-    """Mirror of the closure in _filter_search_mcp_servers."""
+def _is_dimmed(s: dict[str, Any]) -> bool:
     return not s.get("access_endpoints") or s.get("status") != "active"
 
 
-def _is_visible(server: dict, permission) -> bool:
-    """Combine dimming + permission check as the production filter does."""
+def _is_visible(server: dict[str, Any], permission) -> bool:
     allowed_actions = _permission_to_allowed_actions(permission)
     dimmed = _is_dimmed(server)
     return not dimmed or "MANAGE" in allowed_actions
@@ -107,7 +101,6 @@ def test_visibility(server, permission, expected_visible):
 
 
 def test_stamp_enriches_dict():
-    """Verify that _permission_to_allowed_actions produces the right shape for stamping."""
     server = {"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]}
     actions = _permission_to_allowed_actions(EDIT)
     server["allowed_actions"] = actions

@@ -28,10 +28,7 @@ export const useDeleteAccessEndpointModal = ({ serverName }: { serverName: strin
       error={mutation.error?.message ?? null}
       onConfirm={() => {
         if (endpoint) {
-          mutation.mutate(
-            { serverName, endpointId: endpoint.id },
-            { onSuccess: () => setEndpoint(undefined) },
-          );
+          mutation.mutate({ serverName, endpointId: endpoint.id }, { onSuccess: () => setEndpoint(undefined) });
         }
       }}
       onCancel={() => {

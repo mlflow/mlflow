@@ -4822,8 +4822,7 @@ FASTAPI_RESPONSE_FILTERS: dict[
 
 def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    name = data.get("name")
-    if name:
+    if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)
         data["allowed_actions"] = _permission_to_allowed_actions(perm)
     return json.dumps(data).encode()

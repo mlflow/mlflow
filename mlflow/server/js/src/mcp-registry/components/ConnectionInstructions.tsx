@@ -47,10 +47,7 @@ export const ConnectionInstructions = (props: ConnectionInstructionsProps) => {
       return buildPackageInstruction(pkg, derivedName);
     }
     if (source === ConnectionSource.ENDPOINT && endpoint) {
-      return buildRemoteInstruction(
-        { type: endpoint.transport_type as TransportType, url: endpoint.url },
-        derivedName,
-      );
+      return buildRemoteInstruction({ type: endpoint.transport_type as TransportType, url: endpoint.url }, derivedName);
     }
     if (remote) {
       return buildRemoteInstruction(remote, derivedName);
