@@ -233,7 +233,7 @@ const TextDiffPanel = ({
       <pre css={preStyles}>
         <code>{baselineText || emptyFallback}</code>
       </pre>
-      <div css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
+      <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
         {switchButton}
       </div>
       <pre css={preStyles}>
@@ -401,7 +401,7 @@ export const MCPServerVersionCompare = ({
         <div css={{ flex: 1 }}>
           <VersionMetadataGrid version={baselineVersion} aliasesByVersion={aliasesByVersion} />
         </div>
-        <div css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
+        <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
           {switchButton}
         </div>
         <div css={{ flex: 1 }}>

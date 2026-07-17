@@ -17,6 +17,7 @@ import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useMCPServerQuery, useMCPServerVersionsQuery } from '../hooks/useMCPServerDetailQuery';
 import { MCPRegistryApi } from '../api';
 import { MCP_QUERY_KEYS } from '../utils';
+import { flexColumnGapStyles } from '../styles';
 import { useCreateAccessBindingMutation, useUpdateAccessBindingMutation } from '../hooks/useAccessBindingMutation';
 import { isValidEndpointUrl, resolveBindingDisplayName } from '../utils';
 import { FieldLabel } from '../../admin/components/FieldLabel';
@@ -174,7 +175,7 @@ export const AccessBindingModal = ({
       confirmLoading={isSubmitting}
       okButtonProps={{ disabled: !isFormValid || isSubmitting }}
     >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
         {activeMutation.error && (
           <Alert
             componentId="mlflow.mcp_registry.binding_modal.error"

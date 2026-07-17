@@ -66,8 +66,6 @@ const MCPRegistryPage = () => {
 
   const hasManageOnAny = servers?.some((s) => getServerPermissions(s).canManage) ?? false;
   const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
-  const filteredServers = servers;
-
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
@@ -158,7 +156,7 @@ const MCPRegistryPage = () => {
         {!error &&
           (viewMode === 'grid' ? (
             <MCPServerCardGrid
-              servers={filteredServers}
+              servers={servers}
               isLoading={isLoading}
               isFiltered={Boolean(debouncedSearchFilter)}
               hasNextPage={hasNextPage}
@@ -170,7 +168,7 @@ const MCPRegistryPage = () => {
             />
           ) : (
             <MCPServerListTable
-              servers={filteredServers}
+              servers={servers}
               hasNextPage={hasNextPage}
               hasPreviousPage={hasPreviousPage}
               isLoading={isLoading}

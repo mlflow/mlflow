@@ -86,9 +86,6 @@ export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: str
 
 const hasNoBindings = (server: MCPServer): boolean => (server.access_bindings?.length ?? 0) === 0;
 
-export const cannotManage = (server: MCPServer): boolean =>
-  Array.isArray(server.allowed_actions) && !server.allowed_actions.includes(MCPServerAction.MANAGE);
-
 export const isServerDimmed = (server: MCPServer): boolean =>
   hasNoBindings(server) || server.status !== MCPStatus.ACTIVE;
 

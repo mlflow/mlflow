@@ -24,17 +24,18 @@ export function ExpandableListSection<T>({
   footer?: React.ReactNode;
 }) {
   const { theme } = useDesignSystemTheme();
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   return (
     <div css={borderedSectionContainerStyles(theme)}>
       {items.map((item, index) => {
-        const expanded = expandedIndex === index;
+        const key = getKey(item, index);
+        const expanded = expandedKey === key;
         return (
-          <div key={getKey(item, index)} css={{ borderTop: index > 0 ? `1px solid ${theme.colors.border}` : 'none' }}>
+          <div key={key} css={{ borderTop: index > 0 ? `1px solid ${theme.colors.border}` : 'none' }}>
             <button
               type="button"
-              onClick={() => setExpandedIndex(expanded ? null : index)}
+              onClick={() => setExpandedKey(expanded ? null : key)}
               aria-expanded={expanded}
               aria-label={getAriaLabel(item, expanded)}
               css={expandableRowButtonStyles(theme)}
