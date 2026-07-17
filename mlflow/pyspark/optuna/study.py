@@ -251,23 +251,22 @@ class MlflowSparkStudy(Study):
         self._directions = self._storage.get_study_directions(self._study_id)
 
         if self._is_resumed and (direction is not None or directions is not None):
-            requested = [direction] if direction is not None else list(directions)
+            raw_requested = [direction] if direction is not None else list(directions)
             invalid_direction_message = (
                 "Invalid value for `direction`/`directions`: each direction must be "
                 "'minimize', 'maximize', or an `optuna.study.StudyDirection` member."
             )
-            requested_directions = []
-            for requested_direction in requested:
-                if isinstance(requested_direction, StudyDirection):
-                    requested_directions.append(requested_direction)
-                elif isinstance(requested_direction, str):
+            requested = []
+            for raw_requested_direction in raw_requested:
+                if isinstance(raw_requested_direction, StudyDirection):
+                    requested.append(raw_requested_direction)
+                elif isinstance(raw_requested_direction, str):
                     try:
-                        requested_directions.append(StudyDirection[requested_direction.upper()])
+                        requested.append(StudyDirection[raw_requested_direction.upper()])
                     except KeyError as e:
                         raise ValueError(invalid_direction_message) from e
                 else:
                     raise ValueError(invalid_direction_message)
-            requested = requested_directions
             if requested != self._directions:
                 raise ValueError(
                     f"Direction(s) {requested} conflict with the existing study "
@@ -341,8 +340,7 @@ class MlflowSparkStudy(Study):
     ) -> None:
         # Add logging for resume information
         if self._is_resumed:
-            trials = self._study.trials
-            if trials:
+            if trials := self._study.trials:
                 completed_trials = sum(trial.state == TrialState.COMPLETE for trial in trials)
                 best_trial = self._get_single_objective_best_trial(trials)
                 if best_trial is not None:

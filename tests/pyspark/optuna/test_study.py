@@ -21,10 +21,6 @@ from tests.pyfunc.test_spark import get_spark_session
 _logger = logging.getLogger(__name__)
 
 
-def _always_infeasible(_):
-    return (1.0,)
-
-
 def _first_trial_infeasible(trial):
     return (1.0 if trial.number == 0 else -1.0,)
 
@@ -245,7 +241,11 @@ def test_resume_only_pruned_study(setup_storage):
 def test_resume_all_infeasible_study(setup_storage):
     storage = setup_storage
     study_name = "all-infeasible-study"
-    sampler = TPESampler(seed=123, constraints_func=_always_infeasible)
+
+    def always_infeasible(_):
+        return (1.0,)
+
+    sampler = TPESampler(seed=123, constraints_func=always_infeasible)
 
     study = MlflowSparkStudy(study_name, storage, sampler=sampler)
     study.optimize(lambda _: 1.0, n_trials=1, n_jobs=1)
