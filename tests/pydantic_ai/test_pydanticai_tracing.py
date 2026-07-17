@@ -348,6 +348,11 @@ def test_agent_run_sync_failure(simple_agent):
 
     traces = get_traces()
     assert len(traces) == 1
+    # On pydantic-ai >= 1.95 the concrete model's exception propagates unchanged through
+    # the Instrumentation.wrap_model_request hook (patched_capability_model_request marks
+    # its span ERROR and re-raises), so the trace's ERROR status is set by the capability
+    # path rather than the error being swallowed. The exact LLM span name asserted below
+    # confirms the error span came from that path.
     assert traces[0].info.status == "ERROR"
     spans = traces[0].data.spans
 

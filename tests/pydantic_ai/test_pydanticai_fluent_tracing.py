@@ -331,8 +331,10 @@ async def test_agent_run_stream_creates_trace(simple_agent):
     assert spans[0].name == "Agent.run_stream"
     assert spans[0].span_type == SpanType.AGENT
 
-    # Exact name confirms the streaming request went through the expected path: the
-    # Instrumentation hook (>= 1.95) or InstrumentedModel.request_stream (< 1.95).
+    # The test patches the concrete model's request_stream, but on >= 1.95 the streamed
+    # call is delegated through Instrumentation.wrap_model_request. Asserting the exact
+    # capability-hook span name proves the stream came through that hook (not a bypass);
+    # on < 1.95 it is InstrumentedModel.request_stream.
     assert spans[1].name == _expected_llm_span_name(type(simple_agent.model), stream=True)
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
@@ -377,6 +379,9 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
     assert "user_prompt" in spans[0].inputs
     assert spans[0].outputs is not None
 
+    # The test patches the concrete model's request_stream, but on >= 1.95 the streamed
+    # call is delegated through Instrumentation.wrap_model_request. Asserting the exact
+    # capability-hook span name proves the stream came through that hook (not a bypass).
     assert spans[1].name == _expected_llm_span_name(type(simple_agent.model), stream=True)
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
