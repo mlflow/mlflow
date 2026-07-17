@@ -552,13 +552,19 @@ describe('AssistantContext — localStorage chat persistence', () => {
   });
 
   it('clears persisted messages when reset() is called', async () => {
+    // Seed a non-empty tokenUsage so the assertion below actually exercises the reset
+    // path rather than passing vacuously against a pre-zeroed value.
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify({ messages: [makeMessage({ id: 'restored' })], tokenUsage: EMPTY_TOKEN_USAGE }),
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored' })],
+        tokenUsage: { ...EMPTY_TOKEN_USAGE, promptTokens: 40, completionTokens: 60, totalTokens: 100 },
+      }),
     );
 
     const { result } = await renderAssistant();
     expect(result.current.messages).toHaveLength(1);
+    expect(result.current.tokenUsage.totalTokens).toBe(100);
 
     act(() => {
       result.current.reset();

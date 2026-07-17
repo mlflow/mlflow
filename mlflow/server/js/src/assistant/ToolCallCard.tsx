@@ -3,7 +3,7 @@
  * collapsible card whose header shows the tool name, a status badge, and a one-line
  * input summary, and whose expanded body shows the full input and (truncated) output.
  */
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   CheckCircleIcon,
   ChevronDownIcon,
@@ -211,7 +211,9 @@ export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
   const summary = toolInputSummary(part);
-  const inputJson = JSON.stringify(part.input ?? {}, null, 2);
+  // Only stringify the (potentially large) input when the card is expanded, so collapsed
+  // cards stay cheap while scrolling long transcripts.
+  const inputJson = useMemo(() => (expanded ? JSON.stringify(part.input ?? {}, null, 2) : ''), [expanded, part.input]);
   const toggle = () => setExpanded((prev) => !prev);
 
   return (

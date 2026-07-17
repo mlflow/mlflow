@@ -278,6 +278,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       if (!isOpenAssistantTurn(lastMessage)) {
         return prev;
       }
+      // When `buffered` is empty, everything was already flushed — leave the parts as-is.
+      // Do NOT call setOpenTextPart(parts, '') here: it would overwrite the last committed
+      // text part with an empty string and drop the turn's final line.
       const withBufferedText = buffered
         ? setOpenTextPart(lastMessage.parts ?? [], buffered)
         : (lastMessage.parts ?? []);
