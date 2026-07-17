@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784279545094,
+  "lastUpdate": 1784306934454,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14471,6 +14471,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.220638599998665,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gauthierpiarrette@gmail.com",
+            "name": "Gauthier Piarrette",
+            "username": "gauthierpiarrette"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdc41820cd97c1613c9aff28cea5419c96f5a456",
+          "message": "Fix double-counted trace token usage for rollup parent spans in `SqlAlchemyStore.log_spans` (#24339)\n\nSigned-off-by: Gauthier Piarrette <gauthierpiarrette@gmail.com>",
+          "timestamp": "2026-07-17T16:45:03Z",
+          "tree_id": "5c0d640a16d66cb1e0b42faea1e0758ee6304781",
+          "url": "https://github.com/mlflow/mlflow/commit/bdc41820cd97c1613c9aff28cea5419c96f5a456"
+        },
+        "date": 1784306933614,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.99378925000008,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.23116099999975,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.480461655737034,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.647336857142424,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.687225017543245,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.222553399998333,
             "unit": "ms"
           }
         ]
