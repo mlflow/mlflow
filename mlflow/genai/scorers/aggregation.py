@@ -65,10 +65,12 @@ def compute_aggregated_metrics(
         # or a sub-metric emitted by a scorer ("retrieval_relevance/precision"). Taking
         # only the suffix resolves the first two but misses the third, which then fell
         # back to ["mean"] and silently dropped the scorer's configured aggregations.
+        # The suffix is tried before the prefix so that a namespace colliding with a
+        # scorer name keeps resolving the way it always has.
         candidates = [name]
         if "/" in name:
             prefix, suffix = name.split("/", 1)
-            candidates += [prefix, suffix]
+            candidates += [suffix, prefix]
 
         # Compute aggregations for the scorer, defaulting to just ["mean"]
         aggregations_to_compute = next(

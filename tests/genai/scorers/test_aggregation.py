@@ -99,6 +99,24 @@ def test_compute_aggregated_metrics_with_namespace():
     assert result["foo/scorer1/max"] == pytest.approx(2.0)
 
 
+def test_compute_aggregated_metrics_namespace_shadowing_scorer_name():
+    # "foo/scorer1" is ambiguous once sub-metrics are resolvable: it could be scorer1
+    # under namespace foo, or a "foo" sub-metric of scorer1. The namespace reading is
+    # the established one, so the suffix must win even when the namespace itself is a
+    # registered scorer name.
+    namespace = Scorer(name="foo", aggregations=["mean"])
+    scorer = Scorer(name="scorer1", aggregations=["min", "max"])
+    eval_results = [
+        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="foo/scorer1", value=1.0)]),
+        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="foo/scorer1", value=2.0)]),
+    ]
+
+    result = compute_aggregated_metrics(eval_results, [namespace, scorer])
+    assert result["foo/scorer1/min"] == pytest.approx(1.0)
+    assert result["foo/scorer1/max"] == pytest.approx(2.0)
+    assert "foo/scorer1/mean" not in result
+
+
 def test_compute_aggregated_metrics_with_scorer_sub_metric():
     # Scorers may emit a sub-metric named "<scorer>/<sub>" - e.g. RetrievalRelevance
     # produces "retrieval_relevance/precision". The scorer's configured aggregations
