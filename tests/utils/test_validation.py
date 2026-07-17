@@ -634,6 +634,25 @@ def test_validate_public_https_url_rejects_unresolvable_hostname():
             )
 
 
+@pytest.mark.parametrize(
+    "side_effect",
+    [
+        UnicodeError("encoding with 'idna' codec failed"),
+        ValueError("invalid hostname"),
+    ],
+)
+def test_validate_public_https_url_maps_resolver_errors_to_invalid_parameter(side_effect):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=side_effect,
+    ):
+        with pytest.raises(MlflowException, match="Cannot resolve Icon URL hostname") as exc:
+            _validate_public_https_url(
+                "https://does-not-exist.invalid/icon.png", field_name="Icon URL"
+            )
+        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_validate_public_https_url_rejects_resolution_timeout():
     def slow_resolve(*args, **kwargs):
         time.sleep(0.1)
