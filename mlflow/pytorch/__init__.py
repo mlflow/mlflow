@@ -556,8 +556,8 @@ def save_model(
         dynamic_shapes = []
         # `strict=True` so a signature/`input_example` arity mismatch fails loudly instead of
         # silently truncating and misaligning `dynamic_shapes` with the exported inputs.
-        for input_idx, (tensor_spec, example_tensor) in enumerate(
-            zip(tensor_spec_list, input_example_tensors, strict=True)
+        for tensor_spec, example_tensor in zip(
+            tensor_spec_list, input_example_tensors, strict=True
         ):
             dynamic_shape = {}
             for dim_idx, dim_size in enumerate(tensor_spec.shape):
@@ -566,10 +566,13 @@ def save_model(
                 if hasattr(ExportDim, "AUTO"):
                     dynamic_shape[dim_idx] = ExportDim.AUTO
                 elif example_tensor.shape[dim_idx] > 1:
-                    # Names must be unique per (input, dim): `torch.export` treats identically
-                    # named `Dim`s as the same symbolic dimension and forces them equal, which
-                    # would wrongly couple independent inputs.
-                    dynamic_shape[dim_idx] = ExportDim(f"input_{input_idx}_dim_{dim_idx}")
+                    # Name is keyed on the dimension index and SHARED across inputs on purpose:
+                    # batched multi-inputs share the same batch dimension, so `torch.export`
+                    # requires the same-index dynamic dims to use one `Dim`. Per-input-unique
+                    # names make it treat them as independent and then raise "Constraints
+                    # violated" when it discovers they must be equal. `Dim.AUTO` infers this
+                    # coupling automatically on torch>=2.6.
+                    dynamic_shape[dim_idx] = ExportDim(f"dim_{dim_idx}")
             dynamic_shapes.append(dynamic_shape or None)
 
         exported_prog = torch.export.export(
