@@ -706,7 +706,9 @@ def test_gepa_optimizer_logs_prompt_candidates_with_custom_valset(
 
         with mlflow.start_run():
             with (
-                patch("mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_artifact"),
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_artifact"
+                ) as mock_log_artifact,
                 patch(
                     "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_table"
                 ) as mock_log_table,
@@ -741,6 +743,7 @@ def test_gepa_optimizer_logs_prompt_candidates_with_custom_valset(
                 )
                 assert logged_tables == []
                 assert logged_metrics == []
+                assert mock_log_artifact.call_count == 0
 
                 # Full validation pass over the custom valset SHOULD be logged
                 candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
@@ -753,3 +756,13 @@ def test_gepa_optimizer_logs_prompt_candidates_with_custom_valset(
     assert len(logged_metrics) == 1
     assert logged_metrics[0]["step"] == 0
     assert logged_metrics[0]["metrics"]["eval_score"] == pytest.approx(0.8)
+
+    # Artifacts (scores.json + one .txt per prompt in the candidate) are logged
+    # under the iteration directory for the full custom-valset pass
+    assert mock_log_artifact.call_count == 3
+    logged_names = {Path(call.args[0]).name for call in mock_log_artifact.call_args_list}
+    assert logged_names == {"scores.json", "system_prompt.txt", "instruction.txt"}
+    assert all(
+        call.kwargs["artifact_path"] == "prompt_candidates/iteration_0"
+        for call in mock_log_artifact.call_args_list
+    )
