@@ -1053,6 +1053,31 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         )
         return self._apply_trace_row_lock(query)
 
+    def _stored_span_rows_query(self, session, trace_ids: list[str]):
+        """
+        Fetch the stored span rows log_spans() recomputes trace-level token usage and cost from.
+
+        On MySQL this must be a locking read. Under InnoDB's default REPEATABLE READ, a plain
+        SELECT is served from the snapshot taken at the transaction's first read, which predates
+        the trace row lock, so it could miss spans committed by a log_spans() call that held the
+        lock before us. A locking read always reads the latest committed rows. The other backends
+        already see committed data once the lock wait ends (READ COMMITTED on PostgreSQL and SQL
+        Server, a single writer on SQLite), so they keep the plain SELECT and avoid taking span
+        row locks.
+        """
+        query = session.query(
+            SqlSpan.trace_id,
+            SqlSpan.span_id,
+            SqlSpan.parent_span_id,
+            SqlSpan.content,
+        ).filter(
+            SqlSpan.trace_id.in_(trace_ids),
+            SqlSpan.content != "",
+        )
+        if self.db_type == MYSQL:
+            query = query.with_for_update()
+        return query
+
     def _dataset_query(self, session):
         return self._get_query(session, SqlEvaluationDataset)
 
@@ -5326,20 +5351,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             if recompute_trace_ids:
                 batch_span_keys = {(row["trace_id"], row["span_id"]) for row in all_span_rows}
-                stored_span_rows = (
-                    session
-                    .query(
-                        SqlSpan.trace_id,
-                        SqlSpan.span_id,
-                        SqlSpan.parent_span_id,
-                        SqlSpan.content,
-                    )
-                    .filter(
-                        SqlSpan.trace_id.in_(recompute_trace_ids),
-                        SqlSpan.content != "",
-                    )
-                    .all()
-                )
+                stored_span_rows = self._stored_span_rows_query(session, recompute_trace_ids).all()
                 for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
                     # Phase 3 already upserted this batch's spans, so a span re-sent in this batch
                     # is read back here as well. Skip it, otherwise it would be counted twice: once

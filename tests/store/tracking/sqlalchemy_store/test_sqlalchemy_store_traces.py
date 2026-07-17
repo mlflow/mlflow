@@ -2,6 +2,7 @@ import contextlib
 import json
 import random
 import re
+import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -4815,6 +4816,79 @@ def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> 
         assert mock_lock.call_args.args[1] == [trace_id]
 
     assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
+@pytest.mark.parametrize(
+    ("db_type", "locking"),
+    [
+        (POSTGRES, False),
+        (MYSQL, True),
+        (MSSQL, False),
+    ],
+)
+def test_stored_span_rows_query_locking_read_only_on_mysql(
+    store: SqlAlchemyStore, db_type: str, locking: bool
+) -> None:
+    # Under MySQL REPEATABLE READ a plain SELECT reads from the snapshot taken at the
+    # transaction's first read, which predates the trace row lock, so the recompute must be a
+    # locking read there. The other backends read committed data once the lock wait ends.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._stored_span_rows_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert ("FOR UPDATE" in sql) == locking
+
+
+def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemyStore) -> None:
+    # Two log_spans() calls for the same pre-existing trace, held at a barrier inside the lock
+    # helper so both take their transaction snapshot before either acquires the trace row lock.
+    # The call that loses the lock race must still see the winner's committed span in its
+    # recompute, otherwise the last write drops the other batch's usage.
+    experiment_id = store.create_experiment("test_log_spans_concurrent_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(1, 100)])
+
+    barrier = threading.Barrier(2, timeout=30)
+    original = SqlAlchemyStore._trace_row_lock_query
+
+    def synchronized(self, session, trace_ids):
+        barrier.wait()
+        return original(self, session, trace_ids)
+
+    with mock.patch.object(SqlAlchemyStore, "_trace_row_lock_query", synchronized):
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_spans_race") as executor:
+            futures = [
+                executor.submit(store.log_spans, experiment_id, [_span(2, 200)]),
+                executor.submit(store.log_spans, experiment_id, [_span(3, 300)]),
+            ]
+            for future in futures:
+                future.result(timeout=60)
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 600
 
 
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
