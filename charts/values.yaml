@@ -169,6 +169,61 @@ tls:
   # Name of the TLS Secret containing tls.crt and tls.key.
   secretName: mlflow-tls
 
+# Create the backend store credential Secret via the External Secrets
+# Operator (https://external-secrets.io/) instead of managing it outside
+# the chart. When enabled, creates a SecretStore and ExternalSecret; disabled
+# by default so existing users are unaffected.
+#
+# Example (AWS Secrets Manager, building a postgres URI from separate
+# username/password fields in the remote secret):
+#   externalSecrets:
+#     enabled: true
+#     provider:
+#       aws:
+#         service: SecretsManager
+#         region: eu-west-1
+#         auth:
+#           jwt:
+#             serviceAccountRef:
+#               name: mlflow
+#     secretName: mlflow-backend-store
+#     template:
+#       engineVersion: v2
+#       data:
+#         db-uri: "postgresql://{{ .username }}:{{ .password }}@my-db-host:5432/mlflow"
+#     data:
+#       - secretKey: username
+#         remoteRef:
+#           key: my-remote-secret-name
+#           property: username
+#       - secretKey: password
+#         remoteRef:
+#           key: my-remote-secret-name
+#           property: password
+#   mlflow:
+#     backendStoreUriFrom:
+#       secretKeyRef:
+#         name: mlflow-backend-store
+#         key: db-uri
+externalSecrets:
+  enabled: false
+  # apiVersion for both the SecretStore and ExternalSecret resources.
+  apiVersion: external-secrets.io/v1
+  # Passed through as SecretStore.spec.provider — any provider ESO supports
+  # (aws, gcpsm, azurekv, vault, etc.). Required when enabled.
+  provider: {}
+  refreshInterval: 1h
+  # Name of the Secret the ExternalSecret creates. Defaults to the chart's
+  # fullname when empty.
+  secretName: ""
+  # Passed through as ExternalSecret.spec.target.template. Optional — use
+  # when the Secret's keys need to be derived from the remote data (e.g.
+  # assembling a connection URI from separate fields), rather than mapped
+  # one-to-one.
+  template: {}
+  # Passed through as ExternalSecret.spec.data. Required when enabled.
+  data: []
+
 # NetworkPolicy restricting ingress and egress traffic for the MLflow pod.
 # Egress rules allow DNS, HTTPS, Kubernetes API, common databases, and S3.
 networkPolicy:
