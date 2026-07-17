@@ -8,6 +8,7 @@ to FastAPI endpoints.
 
 import inspect
 import json
+import os
 import time
 import typing
 
@@ -27,6 +28,7 @@ from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.server.job_api import job_api_router
 from mlflow.server.mcp_server_api import (
     _mlflow_error_response,
@@ -131,9 +133,15 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     if getattr(fastapi_app.state, "gateway_timing_middleware_added", False):
         return
 
+    # `create_fastapi_app` also mirrors `gateway_router` under `--static-prefix`, so
+    # match both the unprefixed and prefixed path here.
+    gateway_path_prefixes = ("/gateway/",)
+    if static_prefix := os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/"):
+        gateway_path_prefixes += (f"{static_prefix}/gateway/",)
+
     @fastapi_app.middleware("http")
     async def gateway_timing_middleware(request: Request, call_next):
-        if not get_routed_asgi_path(request).startswith("/gateway/"):
+        if not get_routed_asgi_path(request).startswith(gateway_path_prefixes):
             return await call_next(request)
 
         # Reset the ContextVar so the handler task starts at 0. The handler task
@@ -235,6 +243,12 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     add_mcp_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
+
+    # Also mirror these routers under `--static-prefix`, like `_add_static_prefix` does
+    # for Flask routes and `get_mcp_server_api_route_prefixes()` does above.
+    if static_prefix := os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/"):
+        for router in (otel_router, job_api_router, gateway_router, assistant_router):
+            fastapi_app.include_router(router, prefix=static_prefix)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

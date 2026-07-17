@@ -15,6 +15,7 @@ import hmac
 import importlib
 import json
 import logging
+import os
 import re
 import secrets
 import threading
@@ -323,6 +324,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     _get_ajax_path,
     _get_model_registry_store,
@@ -468,6 +470,13 @@ def is_unprotected_route(path: str) -> bool:
     # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
     # both the unprefixed and the prefixed forms so health checks don't end
     # up requiring auth on prefixed deployments.
+    #
+    # NOTE: this is intentionally a lexical `.startswith()`, not segment-boundary
+    # aware, because the real static-files route is `/static-files/<path>` (there is
+    # no route at exactly `/static`) and is meant to match here. `--static-prefix`
+    # values that collide with `_UNPROTECTED_PATH_PREFIXES` under this same lexical
+    # rule are rejected at startup (mlflow/cli/__init__.py) so that collision can't
+    # be exploited to bypass auth on a mirrored FastAPI route instead.
     prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
     return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
@@ -4341,13 +4350,17 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    request_path = get_routed_asgi_path(request)
+    # `create_fastapi_app` also mirrors the gateway router under `--static-prefix`; this
+    # resolves the prefixed mirror to the canonical path, without letting a prefix that
+    # collides with `/gateway/` itself affect a genuinely unprefixed request (see
+    # `_canonical_fastapi_path`).
+    request_path = _canonical_fastapi_path(get_routed_asgi_path(request))
 
     # On /gateway/ routes, a coding agent's own provider key occupies the standard
     # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
     # header. Prefer it there; fall back to Authorization for backward compat.
     auth = None
-    if request_path.startswith("/gateway/"):
+    if _path_under_root(request_path, "/gateway"):
         auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER)
     # Treat a missing OR empty header as absent so an empty X-MLflow-Authorization
     # does not shadow a valid Authorization header.
@@ -4373,7 +4386,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         if (
             internal_token
-            and request_path.startswith("/gateway/")
+            and _path_under_root(request_path, "/gateway")
             and secrets.compare_digest(password, internal_token)
         ):
             return store.get_user(username)
@@ -4694,6 +4707,61 @@ def _get_otel_validator(
     return validator
 
 
+# The canonical (unprefixed) route roots that `create_fastapi_app` also mirrors under
+# `--static-prefix`. Used to resolve a routed path to its canonical form below. Kept in
+# sync with `_RESERVED_STATIC_PREFIX_ROOTS` in mlflow/cli/__init__.py.
+_CANONICAL_FASTAPI_PATH_ROOTS = (
+    "/gateway",
+    "/v1/traces",
+    "/ajax-api/3.0/jobs",
+    "/ajax-api/3.0/mlflow/assistant",
+)
+
+
+def _path_under_root(path: str, root: str) -> bool:
+    """
+    Return True if `path` is `root` itself or nested under it (matching on a `/`
+    segment boundary, not just a lexical string prefix — `/ajax-api/3.0/jobs-v2` must
+    NOT be considered under `/ajax-api/3.0/jobs`).
+    """
+    return path == root or path.startswith(f"{root}/")
+
+
+def _is_canonical_fastapi_path(path: str) -> bool:
+    return any(_path_under_root(path, root) for root in _CANONICAL_FASTAPI_PATH_ROOTS)
+
+
+def _strip_static_prefix(path: str) -> str:
+    """
+    Strip `--static-prefix` (`_MLFLOW_STATIC_PREFIX`) from an ASGI-routed path, if
+    present, so callers can match against the canonical unprefixed path regardless of
+    whether the request came in through the prefixed mirror or directly.
+    """
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and (path == static_prefix or path.startswith(f"{static_prefix}/")):
+        return path[len(static_prefix) :] or "/"
+    return path
+
+
+def _canonical_fastapi_path(path: str) -> str:
+    """
+    Resolve `path` to the canonical unprefixed form used by the dispatch checks below.
+
+    The raw path is checked against ``_CANONICAL_FASTAPI_PATH_ROOTS`` (on a segment
+    boundary — see `_path_under_root`) first, before ever stripping `--static-prefix`.
+    This matters when the configured prefix happens to collide with one of these
+    canonical route roots (e.g. `--static-prefix /gateway`): naively stripping it would
+    turn a genuine, unprefixed request to `/gateway/mlflow/v1/chat/completions` into
+    `/mlflow/v1/chat/completions`, which matches none of the checks below and would
+    incorrectly appear unprotected. Trying the raw path first means a real canonical
+    route is never affected by prefix stripping, regardless of what the configured
+    prefix is.
+    """
+    if _is_canonical_fastapi_path(path):
+        return path
+    return _strip_static_prefix(path)
+
+
 def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
@@ -4708,20 +4776,24 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
         An async validator function that takes (username, request) and returns
         True if authorized, or None if the route is handled by Flask (WSGI).
     """
-    if path.startswith("/gateway/"):
-        return _get_gateway_validator(path)
-
-    if path.startswith("/v1/traces"):
-        return _get_otel_validator(path)
-
-    if path.startswith("/ajax-api/3.0/jobs"):
-        return _get_require_authentication_validator()
-
-    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
-        return _get_require_authentication_validator()
-
+    # MCP routes are matched on the path as-is: `get_mcp_server_api_route_prefixes()`
+    # already returns the prefixed form when `--static-prefix` is set.
     if is_mcp_server_api_path(path):
         return _get_mcp_server_validator(path)
+
+    unprefixed = _canonical_fastapi_path(path)
+
+    if _path_under_root(unprefixed, "/gateway"):
+        return _get_gateway_validator(unprefixed)
+
+    if _path_under_root(unprefixed, "/v1/traces"):
+        return _get_otel_validator(unprefixed)
+
+    if _path_under_root(unprefixed, "/ajax-api/3.0/jobs"):
+        return _get_require_authentication_validator()
+
+    if _path_under_root(unprefixed, "/ajax-api/3.0/mlflow/assistant"):
+        return _get_require_authentication_validator()
 
     return None
 
