@@ -1,7 +1,12 @@
 import asyncio
 import base64
 import inspect
+import json
+import os
 import random
+import subprocess
+import sys
+import threading
 from dataclasses import asdict
 from importlib import metadata
 from pathlib import Path
@@ -13,6 +18,8 @@ import openai
 import pytest
 from llama_index.core import Settings
 from llama_index.core.base.response.schema import StreamingResponse
+from llama_index.core.instrumentation import get_dispatcher
+from llama_index.core.instrumentation.dispatcher import Dispatcher
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.llms.callbacks import llm_chat_callback
 from llama_index.core.retrievers import VectorIndexRetriever
@@ -34,6 +41,7 @@ from mlflow.llama_index.tracer import (
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -115,6 +123,297 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
             "output_cost": 14.0,
             "total_cost": 19.0,
         }
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
+def test_tracer_restores_propagated_mlflow_context_for_instrumented_span():
+    dispatcher = get_dispatcher()
+
+    @dispatcher.span
+    def instrumented_operation(value: str) -> str:
+        result = value.upper()
+        with mlflow.start_span("manual-child") as child:
+            child.set_outputs(result)
+        return result
+
+    with mlflow.start_span("workflow-root") as root:
+        context = dispatcher.capture_propagation_context()
+        root_trace_id = root.trace_id
+        root_span_id = root.span_id
+
+    assert mlflow.get_current_active_span() is None
+
+    dispatcher.restore_propagation_context(context)
+    assert instrumented_operation("done") == "DONE"
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    spans = traces[0].data.spans
+    instrumented_span = next(span for span in spans if span.name.endswith("instrumented_operation"))
+    manual_child = next(span for span in spans if span.name == "manual-child")
+
+    assert instrumented_span.trace_id == root_trace_id
+    assert instrumented_span.parent_id == root_span_id
+    assert manual_child.trace_id == root_trace_id
+    assert manual_child.parent_id == instrumented_span.span_id
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
+def test_tracer_keeps_restored_context_until_stream_resolves():
+    dispatcher = get_dispatcher()
+    llm = OpenAI(model="gpt-3.5-turbo")
+
+    @dispatcher.span
+    def instrumented_stream():
+        message = ChatMessage(role="system", content="Hello")
+        return llm.stream_chat([message], stream_options={"include_usage": True})
+
+    with mlflow.start_span("workflow-root") as root:
+        context = dispatcher.capture_propagation_context()
+        root_trace_id = root.trace_id
+        root_span_id = root.span_id
+
+    dispatcher.restore_propagation_context(context)
+    response_gen = instrumented_stream()
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    with trace_manager.get_trace(root_trace_id) as restored_trace:
+        assert restored_trace is not None
+
+    assert [response.message.content for response in response_gen] == ["Hello", "Hello world"]
+
+    with trace_manager.get_trace(root_trace_id) as restored_trace:
+        assert restored_trace is None
+
+    traces = get_traces()
+    assert len(traces) == 1
+    instrumented_span = next(
+        span for span in traces[0].data.spans if span.name.endswith("instrumented_stream")
+    )
+    stream_span = next(span for span in traces[0].data.spans if span.name == "OpenAI.stream_chat")
+    assert instrumented_span.trace_id == root_trace_id
+    assert instrumented_span.parent_id == root_span_id
+    assert stream_span.parent_id == instrumented_span.span_id
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
+def test_tracer_exports_restored_remote_spans_before_context_cleanup(tmp_path):
+    dispatcher = get_dispatcher()
+    tracking_uri = f"sqlite:///{tmp_path / 'mlflow.sqlite'}"
+
+    with _use_tracking_uri(tracking_uri):
+        experiment_id = mlflow.set_experiment(
+            f"llama-index-propagation-{random.random()}"
+        ).experiment_id
+
+        with mlflow.start_span("workflow-root") as root:
+            context = dispatcher.capture_propagation_context()
+            root_trace_id = root.trace_id
+            root_span_id = root.span_id
+
+        assert mlflow.get_current_active_span() is None
+        assert [trace.info.trace_id for trace in get_traces(experiment_id)] == [root_trace_id]
+
+        child_code = """
+import json
+import os
+
+import mlflow
+from llama_index.core.instrumentation import get_dispatcher
+
+from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
+
+mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+mlflow.set_experiment(experiment_id=os.environ["MLFLOW_EXPERIMENT_ID"])
+set_llama_index_tracer()
+dispatcher = get_dispatcher()
+
+@dispatcher.span
+def instrumented_operation(value: str) -> str:
+    with mlflow.start_span("manual-child") as child:
+        child.set_outputs(value)
+    return value
+
+dispatcher.restore_propagation_context(json.loads(os.environ["MLFLOW_PROPAGATION_CONTEXT"]))
+assert instrumented_operation("done") == "done"
+remove_llama_index_tracer()
+"""
+        repo_root = Path(__file__).parents[2]
+        env = {
+            **os.environ,
+            "MLFLOW_EXPERIMENT_ID": experiment_id,
+            "MLFLOW_PROPAGATION_CONTEXT": json.dumps(context),
+            "MLFLOW_TRACKING_URI": tracking_uri,
+            "PYTHONPATH": os.pathsep.join(
+                [str(repo_root), *filter(None, [os.environ.get("PYTHONPATH")])]
+            ),
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", child_code],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        traces = get_traces(experiment_id)
+        assert len(traces) == 1
+        assert traces[0].info.trace_id == root_trace_id
+
+    spans = traces[0].data.spans
+    instrumented_span = next(span for span in spans if span.name.endswith("instrumented_operation"))
+    manual_child = next(span for span in spans if span.name == "manual-child")
+
+    assert instrumented_span.parent_id == root_span_id
+    assert manual_child.parent_id == instrumented_span.span_id
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
+def test_tracer_replaces_unclaimed_propagation_context():
+    dispatcher = get_dispatcher()
+
+    @dispatcher.span
+    def instrumented_operation(value: str) -> str:
+        return value.upper()
+
+    roots = {}
+    for key in ("a", "b"):
+        with mlflow.start_span(f"root-{key}") as root:
+            roots[key] = {
+                "context": dispatcher.capture_propagation_context(),
+                "trace_id": root.trace_id,
+                "span_id": root.span_id,
+            }
+
+    assert mlflow.get_current_active_span() is None
+
+    dispatcher.restore_propagation_context(roots["a"]["context"])
+    dispatcher.restore_propagation_context(roots["b"]["context"])
+    assert instrumented_operation("b") == "B"
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    for key in ("a", "b"):
+        with trace_manager.get_trace(roots[key]["trace_id"]) as leaked_trace:
+            assert leaked_trace is None
+
+    traces = {trace.info.trace_id: trace for trace in get_traces()}
+    instrumented_spans = [
+        (trace, span)
+        for trace in traces.values()
+        for span in trace.data.spans
+        if span.name.endswith("instrumented_operation")
+    ]
+    assert len(instrumented_spans) == 1
+
+    trace, instrumented_span = instrumented_spans[0]
+    assert trace.info.trace_id == roots["b"]["trace_id"]
+    assert instrumented_span.parent_id == roots["b"]["span_id"]
+    assert all(
+        not span.name.endswith("instrumented_operation")
+        for span in traces[roots["a"]["trace_id"]].data.spans
+    )
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
+def test_tracer_restores_concurrent_propagated_contexts_independently():
+    dispatcher = get_dispatcher()
+
+    @dispatcher.span
+    def instrumented_operation(value: str) -> str:
+        result = value.upper()
+        with mlflow.start_span("manual-child") as child:
+            child.set_outputs(result)
+        return result
+
+    roots = {}
+    for key in ("a", "b"):
+        with mlflow.start_span(f"root-{key}") as root:
+            roots[key] = {
+                "context": dispatcher.capture_propagation_context(),
+                "trace_id": root.trace_id,
+                "span_id": root.span_id,
+            }
+
+    assert mlflow.get_current_active_span() is None
+
+    # Force the interleaving that exposes the bug deterministically: worker "a"
+    # restores first, worker "b" restores second, then worker "a" finishes its
+    # operation while worker "b"'s context is still the most recently restored one.
+    a_restored = threading.Event()
+    b_restored = threading.Event()
+    a_finished = threading.Event()
+    errors: dict[str, BaseException] = {}
+    results: dict[str, str] = {}
+
+    def run_a():
+        try:
+            dispatcher.restore_propagation_context(roots["a"]["context"])
+            a_restored.set()
+            assert b_restored.wait(10)
+            results["a"] = instrumented_operation("a")
+        except BaseException as e:
+            errors["a"] = e
+        finally:
+            a_finished.set()
+
+    def run_b():
+        try:
+            assert a_restored.wait(10)
+            dispatcher.restore_propagation_context(roots["b"]["context"])
+            b_restored.set()
+            assert a_finished.wait(10)
+            results["b"] = instrumented_operation("b")
+        except BaseException as e:
+            errors["b"] = e
+
+    threads = [
+        threading.Thread(target=run_a, name="propagation-worker-a"),
+        threading.Thread(target=run_b, name="propagation-worker-b"),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == {}
+    assert results == {"a": "A", "b": "B"}
+
+    # Each root must have torn down its own restored propagation context. A leaked remote
+    # trace here means one root's completion closed the other's context (e.g. a regression
+    # back to stack-ordered teardown), which the tree assertions below cannot catch: child
+    # spans parent through open_spans, and leaked dummies never reach get_traces().
+    trace_manager = InMemoryTraceManager.get_instance()
+    for key in ("a", "b"):
+        with trace_manager.get_trace(roots[key]["trace_id"]) as leaked_trace:
+            assert leaked_trace is None
+
+    # Both restored operations must land back in their own trace tree.
+    traces = {trace.info.trace_id: trace for trace in get_traces()}
+    for key in ("a", "b"):
+        root = roots[key]
+        trace = traces[root["trace_id"]]
+        instrumented_span = next(
+            span for span in trace.data.spans if span.name.endswith("instrumented_operation")
+        )
+        assert instrumented_span.trace_id == root["trace_id"]
+        assert instrumented_span.parent_id == root["span_id"]
 
 
 def test_trace_llm_complete_stream():
