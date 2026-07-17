@@ -4,7 +4,11 @@ import os
 import numpy as np
 import pyspark
 import pytest
+from optuna.exceptions import TrialPruned
+from optuna.pruners import NopPruner, ThresholdPruner
 from optuna.samplers import TPESampler
+from optuna.study import StudyDirection
+from optuna.trial import TrialState
 from packaging.version import Version
 
 import mlflow
@@ -15,6 +19,10 @@ from tests.optuna.test_storage import setup_storage  # noqa: F401
 from tests.pyfunc.test_spark import get_spark_session
 
 _logger = logging.getLogger(__name__)
+
+
+def _first_trial_infeasible(trial):
+    return (1.0 if trial.number == 0 else -1.0,)
 
 
 def _get_spark_session_with_retry(max_tries=3):
@@ -206,3 +214,172 @@ def test_resume_preserves_best_results(setup_storage):
 
     # Best value should be the same or better (lower for minimization)
     assert study2.best_value <= original_best_value
+
+
+def test_resume_only_pruned_study(setup_storage):
+    storage = setup_storage
+    study_name = "only-pruned-study"
+
+    def pruned_objective(trial):
+        trial.report(1.0, step=0)
+        if trial.should_prune():
+            raise TrialPruned()
+
+    study = MlflowSparkStudy(study_name, storage, pruner=ThresholdPruner(upper=0.5))
+    study.optimize(pruned_objective, n_trials=1, n_jobs=1)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, pruner=NopPruner())
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 0
+    assert info.best_value is None
+    assert info.best_params is None
+
+    resumed_study.optimize(lambda _: 0.0, n_trials=1, n_jobs=1)
+    assert resumed_study.completed_trials_count == 1
+
+
+def test_resume_all_infeasible_study(setup_storage):
+    storage = setup_storage
+    study_name = "all-infeasible-study"
+
+    def always_infeasible(_):
+        return (1.0,)
+
+    sampler = TPESampler(seed=123, constraints_func=always_infeasible)
+
+    study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    study.optimize(lambda _: 1.0, n_trials=1, n_jobs=1)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 1
+    assert info.best_value is None
+    assert info.best_params is None
+
+    resumed_study.optimize(lambda _: 1.0, n_trials=1, n_jobs=1)
+    assert resumed_study.completed_trials_count == 2
+
+
+def test_resume_reports_best_feasible_trial(setup_storage):
+    storage = setup_storage
+    study_name = "mixed-feasibility-study"
+    sampler = TPESampler(seed=123, constraints_func=_first_trial_infeasible)
+
+    study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    study._study.optimize(lambda trial: float(trial.number), n_trials=2)
+
+    resumed_study = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = resumed_study.get_resume_info()
+    assert info.completed_trials == 2
+    assert info.best_value == 1.0
+    assert info.best_params == {}
+
+
+def test_pruner_threaded_to_driver_and_executor_studies(setup_storage):
+    storage = setup_storage
+    study_name = "pruner-test-study"
+    mlflow_study = MlflowSparkStudy(study_name, storage, pruner=ThresholdPruner(upper=0.5))
+    assert isinstance(mlflow_study._study.pruner, ThresholdPruner)
+
+    # The default MedianPruner never prunes the first trials (n_startup_trials=5),
+    # so pruned trials prove the supplied pruner reached the executor-side study.
+    def objective(trial):
+        trial.report(1.0, step=0)
+        if trial.should_prune():
+            raise TrialPruned()
+        return 1.0
+
+    mlflow_study.optimize(objective, n_trials=2, n_jobs=1)
+    assert [t.state for t in mlflow_study.trials] == [TrialState.PRUNED, TrialState.PRUNED]
+
+    resumed_study = MlflowSparkStudy(study_name, storage, pruner=NopPruner())
+    assert isinstance(resumed_study._study.pruner, NopPruner)
+
+
+def test_study_direction_maximize(setup_storage):
+    storage = setup_storage
+    study_name = "maximize-study"
+    sampler = TPESampler(seed=10)
+    mlflow_study = MlflowSparkStudy(study_name, storage, sampler=sampler, direction="maximize")
+    assert mlflow_study.direction == StudyDirection.MAXIMIZE
+
+    def objective(trial):
+        x = trial.suggest_float("x", -10, 10)
+        return (x - 2) ** 2
+
+    mlflow_study.optimize(objective, n_trials=4, n_jobs=2)
+    values = [t.value for t in mlflow_study.trials]
+    assert mlflow_study.best_value == max(values)
+
+
+def test_study_directions_multi_objective(setup_storage):
+    storage = setup_storage
+    study_name = "multi-objective-study"
+    mlflow_study = MlflowSparkStudy(study_name, storage, directions=["minimize", "maximize"])
+    assert mlflow_study.directions == [StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE]
+
+    def objective(trial):
+        x = trial.suggest_float("x", 0, 1)
+        y = trial.suggest_float("y", 0, 1)
+        return x, y
+
+    mlflow_study.optimize(objective, n_trials=3, n_jobs=1)
+    assert all(len(t.values) == 2 for t in mlflow_study.trials)
+    assert len(mlflow_study.best_trials) >= 1
+
+    resumed_study = MlflowSparkStudy(study_name, storage)
+    assert resumed_study.directions == [StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE]
+    info = resumed_study.get_resume_info()
+    assert info.is_resumed
+    assert info.existing_trials == 3
+    assert info.completed_trials == 3
+    assert info.best_value is None
+    assert info.best_params is None
+
+    resumed_study.optimize(objective, n_trials=2, n_jobs=1)
+    assert len(resumed_study.trials) == 5
+
+    with pytest.raises(ValueError, match="fixed at creation time"):
+        MlflowSparkStudy(study_name, storage, directions=["maximize", "minimize"])
+
+
+def test_direction_inherited_on_resume_and_conflict_raises(setup_storage):
+    storage = setup_storage
+    study_name = "direction-resume-study"
+    MlflowSparkStudy(study_name, storage, direction="maximize")
+
+    resumed_study = MlflowSparkStudy(study_name, storage)
+    assert resumed_study.direction == StudyDirection.MAXIMIZE
+
+    same_direction_study = MlflowSparkStudy(study_name, storage, direction=StudyDirection.MAXIMIZE)
+    assert same_direction_study.direction == StudyDirection.MAXIMIZE
+
+    with pytest.raises(ValueError, match="fixed at creation time"):
+        MlflowSparkStudy(study_name, storage, direction="minimize")
+
+    with pytest.raises(ValueError, match="Invalid value"):
+        MlflowSparkStudy(study_name, storage, direction=123)
+
+
+def test_direction_and_directions_mutually_exclusive(setup_storage):
+    storage = setup_storage
+    with pytest.raises(ValueError, match="Specify only one of"):
+        MlflowSparkStudy("exclusive-study", storage, direction="minimize", directions=["minimize"])
+
+
+def test_directions_string_raises(setup_storage):
+    storage = setup_storage
+    with pytest.raises(ValueError, match="must be a sequence"):
+        MlflowSparkStudy("directions-string-study", storage, directions="maximize")
+
+
+def test_empty_directions_raises(setup_storage):
+    storage = setup_storage
+    message = "The number of objectives must be greater than 0"
+
+    with pytest.raises(ValueError, match=message):
+        MlflowSparkStudy("empty-directions-study", storage, directions=[])
+
+    MlflowSparkStudy("existing-study", storage)
+    with pytest.raises(ValueError, match=message):
+        MlflowSparkStudy("existing-study", storage, directions=[])
