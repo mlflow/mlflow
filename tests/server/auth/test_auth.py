@@ -4638,9 +4638,38 @@ def test_response_filter_matches_trailing_slash(path):
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/endpoints/123"])
-def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
-    assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
+def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, monkeypatch):
+    handler = _find_fastapi_response_filter(f"{prefix}/com.test/server", "GET")
+    assert handler is not None
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_permission",
+        lambda name, username: READ,
+    )
+    request = SimpleNamespace(url=SimpleNamespace(path=f"{prefix}/com.test/server"))
+    body = json.dumps({"name": "com.test/server"}).encode()
+    result = json.loads(handler("testuser", body, request))
+    assert result["name"] == "com.test/server"
+    assert result["allowed_actions"] == []
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+@pytest.mark.parametrize(
+    "path_suffix",
+    [
+        "/com.test/server/versions/1",
+        "/com.test/server/aliases/latest",
+        "/com.test/server/tags",
+        "/com.test/server/endpoints",
+    ],
+)
+def test_response_filter_skips_sub_resource_paths(prefix, path_suffix):
+    handler = _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET")
+    assert handler is not None
+    request = SimpleNamespace(url=SimpleNamespace(path=f"{prefix}{path_suffix}"))
+    body = json.dumps({"name": "com.test/server"}).encode()
+    result = handler("testuser", body, request)
+    assert result == body
 
 
 def test_apply_fastapi_response_filter_fails_closed():
@@ -5052,6 +5081,18 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
             json={"name": name},
             auth=admin_auth,
         ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
 
     for name in readable_names:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
@@ -5066,7 +5107,8 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
     assert readable_names[0] in admin_names
     assert hidden_name in admin_names
 
-    # Reader sees only servers with an explicit READ grant.
+    # Reader sees only servers with an explicit READ grant (all are available
+    # because they have active versions with endpoints).
     with User(reader, reader_pw, monkeypatch):
         resp = requests.get(
             url=fastapi_client.tracking_uri + prefix,
@@ -5145,6 +5187,18 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
         requests.post(
             url=fastapi_client.tracking_uri + prefix,
             json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
             auth=admin_auth,
         ).raise_for_status()
 

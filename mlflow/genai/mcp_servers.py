@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -434,6 +435,7 @@ def update_mcp_server_version(
     display_name: str | None = NOT_SET,
     status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
     tools: list[MCPTool] | None = NOT_SET,
+    connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
 ) -> MCPServerVersion:
     """
     Update mutable fields of an MCP server version.
@@ -448,6 +450,8 @@ def update_mcp_server_version(
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
             ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear.
+        connect_options: Per-key settings for connect options (e.g. visibility).
+            Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -458,6 +462,7 @@ def update_mcp_server_version(
         display_name=display_name,
         status=_parse_enum(status, MCPStatus, "status"),
         tools=tools,
+        connect_options=connect_options,
     )
 
 

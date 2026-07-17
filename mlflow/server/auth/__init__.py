@@ -4820,7 +4820,20 @@ FASTAPI_RESPONSE_FILTERS: dict[
 }
 
 
+_MCP_SUB_RESOURCE_SEGMENTS = frozenset({"versions", "aliases", "tags", "endpoints"})
+
+
+def _is_mcp_sub_resource_path(path: str) -> bool:
+    for prefix in get_mcp_server_api_route_prefixes():
+        if suffix := path[len(prefix) :].strip("/"):
+            if any(p in _MCP_SUB_RESOURCE_SEGMENTS for p in suffix.split("/")):
+                return True
+    return False
+
+
 def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    if _is_mcp_sub_resource_path(request.url.path):
+        return body
     data = json.loads(body)
     if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)

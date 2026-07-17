@@ -15,6 +15,7 @@ class ConnectOptionSettings:
     hidden: bool = False
 
 
+@experimental(version="3.15.0")
 @dataclass
 class MCPServerVersion:
     name: str
