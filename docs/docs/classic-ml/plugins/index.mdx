@@ -697,9 +697,9 @@ export ARTIFACTORY_ARTIFACTS_DELETE_SKIP=true
   </TabItem>
   <TabItem value="run-context-governance" label="Run Context & Governance">
 
-#### **falsify Plugin**
+#### **Falsify Plugin**
 
-Tag every run with a tamper-evident [PRML](https://spec.falsify.dev/v0.1) pre-registration manifest, binding the run to the metric, threshold, and dataset that were committed before the experiment ran:
+Tag every run with a tamper-evident [PRML](https://spec.falsify.dev/v0.1) pre-registration manifest, binding the run to the metric, threshold, and dataset that were committed before the experiment ran. The same locking pattern ships as an adapter on the [UK AI Safety Institute's Inspect extensions page](https://inspect.aisi.org.uk/extensions.html):
 
 ```bash
 pip install mlflow-falsify
