@@ -167,3 +167,41 @@ export const getExperimentKindForWorkflowType = (workflowType: WorkflowType): Ex
   }
   return ExperimentKind.CUSTOM_MODEL_DEVELOPMENT;
 };
+
+/**
+ * Maps an ExperimentKind to the WorkflowType that should be reflected in the
+ * sidebar when the user opens that experiment. Returns ``undefined`` for kinds
+ * with no definite mapping (missing tag, ``NO_INFERRED_TYPE``, ``EMPTY``) so
+ * the caller can leave the current selection (and the GENAI default) untouched
+ * rather than forcing a switch.
+ */
+export const getWorkflowTypeForExperimentKind = (
+  experimentKind: ExperimentKind | undefined,
+): WorkflowType | undefined => {
+  switch (experimentKind) {
+    case ExperimentKind.GENAI_DEVELOPMENT:
+    case ExperimentKind.GENAI_DEVELOPMENT_INFERRED:
+      return WorkflowType.GENAI;
+    case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT:
+    case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED:
+    case ExperimentKind.FINETUNING:
+    case ExperimentKind.REGRESSION:
+    case ExperimentKind.CLASSIFICATION:
+    case ExperimentKind.FORECASTING:
+    case ExperimentKind.AUTOML:
+      return WorkflowType.MACHINE_LEARNING;
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Reads the ``mlflow.experimentKind`` tag from an experiment's tags. Exported so
+ * consumers (e.g. the workflow-type sync) can reconcile UI state with the
+ * experiment the user actually opened.
+ */
+export const getExperimentKindFromTagsList = (
+  experimentTags?:
+    | ({ __typename: 'MlflowExperimentTag'; key: string | null; value: string | null }[] | null)
+    | KeyValueEntity[],
+): ExperimentKind | undefined => getExperimentKindFromTags(experimentTags);
