@@ -99,8 +99,8 @@ export const AccessBindingsSubsection = ({
           renderRow={({ item: binding }) => (
             <AccessBindingRowContent
               binding={binding}
-              onEdit={onEditBinding && canManage ? () => onEditBinding(binding) : undefined}
-              onDelete={onDeleteBinding && canManage ? () => onDeleteBinding(binding) : undefined}
+              onEdit={onEditBinding && canUpdate ? () => onEditBinding(binding) : undefined}
+              onDelete={onDeleteBinding && canDelete ? () => onDeleteBinding(binding) : undefined}
             />
           )}
           renderExpanded={(binding) => (

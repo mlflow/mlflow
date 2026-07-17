@@ -462,7 +462,7 @@ const MCPServerDetailPage = () => {
               version={currentVersion}
               aliasesByVersion={aliasesByVersion}
               showEditAliasesModal={showEditAliasesModal}
-              onEditMetadata={showEditMetadataModal}
+              onEditMetadata={canUpdate ? showEditMetadataModal : undefined}
               bindings={versionBindings}
             />
           )}
