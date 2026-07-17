@@ -14,9 +14,6 @@ from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 @pytest.fixture(autouse=True)
 def clear_autologging_config():
-    # Reset Keras global state so optimizer names aren't uniquified across tests
-    # (a second Adam in the same session becomes "adam_1", breaking name assertions).
-    keras.backend.clear_session()
     yield
     AUTOLOGGING_INTEGRATIONS.pop("keras", None)
 
