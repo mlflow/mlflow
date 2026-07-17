@@ -11,6 +11,7 @@ import { TransportType, MCPStatus, MCPServerAction } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
+  createMockAccessBinding,
   getMockedGetMCPServerResponse,
   getMockedGetMCPServerErrorResponse,
   getMockedSearchMCPServerVersionsResponse,
@@ -21,6 +22,7 @@ import {
   getMockedSetMCPServerTagResponse,
   getMockedDeleteMCPServerTagResponse,
   getMockedCurrentUserResponse,
+  getMockedSearchAccessBindingsResponse,
 } from '../test-utils';
 
 // Monaco does not render in jsdom; stand the editor in with a labelled textarea.
@@ -491,5 +493,49 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('Unavailable')).toBeInTheDocument();
       });
     });
+  });
+
+  it('switches to compare view when Compare button is clicked', async () => {
+    const version2 = createMockMCPServerVersion({
+      name: 'dev.mainline/mcp',
+      version: '2',
+      status: MCPStatus.DRAFT,
+      server_json: {
+        name: 'dev.mainline/mcp',
+        version: '2.0.0',
+        title: 'Mainline v2',
+        description: 'Updated version.',
+      },
+    });
+    server.use(getMockedSearchMCPServerVersionsResponse([mockVersion, version2]));
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Compare'));
+    await waitFor(() => {
+      expect(screen.getByText(/Comparing version/)).toBeInTheDocument();
+    });
+  });
+
+  it('renders AccessBindingsSubsection when bindings data is present', async () => {
+    const binding = createMockAccessBinding({
+      server_name: 'dev.mainline/mcp',
+      endpoint_url: 'https://api.mainline.dev/mcp',
+      transport_type: TransportType.STREAMABLE_HTTP,
+    });
+    server.use(getMockedSearchAccessBindingsResponse([binding]));
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Access endpoints')).toBeInTheDocument();
+    });
+    expect(screen.getByText('https://api.mainline.dev/mcp')).toBeInTheDocument();
   });
 });

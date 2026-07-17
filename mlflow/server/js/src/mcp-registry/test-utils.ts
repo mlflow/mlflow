@@ -1,7 +1,7 @@
 import { rest } from 'msw';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import type { MCPServer, MCPServerVersion } from './types';
-import { MCPStatus } from './types';
+import type { MCPAccessBinding, MCPServer, MCPServerVersion } from './types';
+import { MCPStatus, TransportType } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
 
@@ -87,3 +87,47 @@ export const getMockedCurrentUserResponse = ({ isAdmin = false }: { isAdmin?: bo
   rest.get(getAjaxUrl('ajax-api/2.0/mlflow/users/current'), (_req, res, ctx) =>
     res(ctx.json({ user: { username: 'testuser', is_admin: isAdmin } })),
   );
+
+// Access binding mocks
+
+export const createMockAccessBinding = (overrides: Partial<MCPAccessBinding> = {}): MCPAccessBinding => ({
+  binding_id: 1,
+  server_name: 'io.github.test/server',
+  endpoint_url: 'https://example.com/mcp',
+  transport_type: TransportType.STREAMABLE_HTTP,
+  ...overrides,
+});
+
+export const getMockedSearchAccessBindingsResponse = (bindings: MCPAccessBinding[] = []) =>
+  rest.get(getAjaxUrl(`${BASE_URL}/:name/bindings`), (_req, res, ctx) =>
+    res(ctx.json({ mcp_access_bindings: bindings, next_page_token: undefined })),
+  );
+
+export const getMockedCreateAccessBindingResponse = (binding?: MCPAccessBinding) =>
+  rest.post(getAjaxUrl(`${BASE_URL}/:name/bindings`), (_req, res, ctx) =>
+    res(ctx.json(binding ?? createMockAccessBinding())),
+  );
+
+export const getMockedUpdateAccessBindingResponse = (binding?: MCPAccessBinding) =>
+  rest.patch(getAjaxUrl(`${BASE_URL}/:name/bindings/:bindingId`), (_req, res, ctx) =>
+    res(ctx.json(binding ?? createMockAccessBinding())),
+  );
+
+export const getMockedDeleteAccessBindingResponse = () =>
+  rest.delete(getAjaxUrl(`${BASE_URL}/:name/bindings/:bindingId`), (_req, res, ctx) => res(ctx.json({})));
+
+export const getMockedAccessBindingErrorResponse = (
+  method: 'post' | 'patch' = 'post',
+  status = 400,
+  message = 'Bad request',
+) => {
+  const handler =
+    method === 'post'
+      ? rest.post(getAjaxUrl(`${BASE_URL}/:name/bindings`), (_req, res, ctx) =>
+          res(ctx.status(status), ctx.json({ message })),
+        )
+      : rest.patch(getAjaxUrl(`${BASE_URL}/:name/bindings/:bindingId`), (_req, res, ctx) =>
+          res(ctx.status(status), ctx.json({ message })),
+        );
+  return handler;
+};

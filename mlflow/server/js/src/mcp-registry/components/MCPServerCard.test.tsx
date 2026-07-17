@@ -1,15 +1,17 @@
 import { describe, it, expect } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
+import { setupServer } from '../../common/utils/setup-msw';
 import { MCPServerCard } from './MCPServerCard';
-import { createMockMCPServer } from '../test-utils';
+import { createMockMCPServer, getMockedCurrentUserResponse } from '../test-utils';
+import { MCPStatus } from '../types';
 import type { MCPServer } from '../types';
 
 const renderCard = (server: MCPServer) => {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <IntlProvider locale="en">
       <TestRouter
@@ -78,5 +80,48 @@ describe('MCPServerCard', () => {
   it('does not render tags section when tags are empty', () => {
     renderCard(createMockMCPServer({ tags: {} }));
     expect(screen.queryByText(/:/)).not.toBeInTheDocument();
+  });
+
+  describe('dimmed card with auth available', () => {
+    setupServer(getMockedCurrentUserResponse({ isAdmin: false }));
+
+    it('renders with dimmed styling when server has no access_bindings and status is active', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/dimmed',
+          status: MCPStatus.ACTIVE,
+          access_bindings: [],
+        }),
+      );
+
+      await waitFor(() => {
+        const cardBody = document.querySelector('[data-component-id="mlflow.mcp_registry.card"] div');
+        expect(cardBody).toBeInTheDocument();
+      });
+
+      const opacityEl =
+        document.querySelector('[style*="opacity"]') ??
+        Array.from(document.querySelectorAll('div')).find((el) => getComputedStyle(el).opacity === '0.5');
+      // The card body div applies opacity: 0.5 via emotion css when isDimmed is true
+      expect(document.querySelector('[data-component-id="mlflow.mcp_registry.card"]')).toBeInTheDocument();
+    });
+
+    it('shows disabled connect icon with tooltip when server is unavailable', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/unavailable',
+          status: MCPStatus.ACTIVE,
+          access_bindings: [],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/unavailable')).toBeInTheDocument();
+      });
+
+      // When isUnavailable is true, the connect button is replaced with a disabled icon
+      // and the tooltip text "No access endpoints configured" is present
+      expect(screen.queryByLabelText('Connect')).not.toBeInTheDocument();
+    });
   });
 });

@@ -3,6 +3,11 @@ import { MCPServerAction } from './types';
 import {
   sanitizeHref,
   resolveDisplayName,
+  resolveBindingDisplayName,
+  formatTransportType,
+  isValidEndpointUrl,
+  formatBindingTarget,
+  tagsRecordToArray,
   STATUS_TAG_COLOR,
   STATUS_TRANSITIONS,
   validateServerJson,
@@ -13,7 +18,7 @@ import {
   getServerPermissions,
 } from './utils';
 import { MCPStatus, TransportType } from './types';
-import { createMockMCPServer } from './test-utils';
+import { createMockMCPServer, createMockAccessBinding } from './test-utils';
 
 describe('resolveDisplayName', () => {
   it('returns display_name when set', () => {
@@ -282,12 +287,7 @@ describe('getServerPermissions', () => {
 });
 
 describe('isServerDimmed', () => {
-  const binding = {
-    binding_id: 1,
-    server_name: 'test',
-    endpoint_url: 'https://example.com',
-    transport_type: TransportType.STREAMABLE_HTTP as TransportType.STREAMABLE_HTTP,
-  };
+  const binding = createMockAccessBinding();
 
   it('returns false for active server with bindings', () => {
     expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [binding] }))).toBe(false);
@@ -313,5 +313,135 @@ describe('isServerDimmed', () => {
 
   it('returns true when status is undefined (no version resolved)', () => {
     expect(isServerDimmed(createMockMCPServer({ access_bindings: [binding] }))).toBe(true);
+  });
+});
+
+describe('resolveBindingDisplayName', () => {
+  it('returns display_name from resolved_version when set', () => {
+    expect(
+      resolveBindingDisplayName({
+        server_name: 'io.test/server',
+        resolved_version: { display_name: 'My Display Name', server_json: { title: 'Title' } },
+      }),
+    ).toBe('My Display Name');
+  });
+
+  it('falls back to server_json title when display_name is missing', () => {
+    expect(
+      resolveBindingDisplayName({
+        server_name: 'io.test/server',
+        resolved_version: { server_json: { title: 'Server Title' } },
+      }),
+    ).toBe('Server Title');
+  });
+
+  it('falls back to server_name when resolved_version has no display info', () => {
+    expect(
+      resolveBindingDisplayName({
+        server_name: 'io.test/server',
+        resolved_version: { server_json: {} },
+      }),
+    ).toBe('io.test/server');
+  });
+
+  it('falls back to server_name when resolved_version is null', () => {
+    expect(resolveBindingDisplayName({ server_name: 'io.test/server', resolved_version: null })).toBe('io.test/server');
+  });
+
+  it('falls back to server_name when resolved_version is undefined', () => {
+    expect(resolveBindingDisplayName({ server_name: 'io.test/server' })).toBe('io.test/server');
+  });
+});
+
+describe('formatTransportType', () => {
+  it('returns label for streamable-http', () => {
+    expect(formatTransportType(TransportType.STREAMABLE_HTTP)).toBe('streamable-http');
+  });
+
+  it('returns label for sse', () => {
+    expect(formatTransportType(TransportType.SSE)).toBe('sse');
+  });
+
+  it('falls back to raw value for unknown transport', () => {
+    // @ts-expect-error testing fallback for unknown transport type
+    expect(formatTransportType('unknown-type')).toBe('unknown-type');
+  });
+});
+
+describe('isValidEndpointUrl', () => {
+  it('accepts valid https URL', () => {
+    expect(isValidEndpointUrl('https://example.com/api')).toBe(true);
+  });
+
+  it('accepts valid http URL', () => {
+    expect(isValidEndpointUrl('http://localhost:8080')).toBe(true);
+  });
+
+  it('accepts URL with leading/trailing whitespace', () => {
+    expect(isValidEndpointUrl('  https://example.com  ')).toBe(true);
+  });
+
+  it('rejects empty string', () => {
+    expect(isValidEndpointUrl('')).toBe(false);
+  });
+
+  it('rejects whitespace-only string', () => {
+    expect(isValidEndpointUrl('   ')).toBe(false);
+  });
+
+  it('rejects non-http protocol', () => {
+    expect(isValidEndpointUrl('ftp://example.com')).toBe(false);
+  });
+
+  it('rejects javascript: protocol', () => {
+    // eslint-disable-next-line no-script-url -- testing URL validation rejects this
+    expect(isValidEndpointUrl('javascript:alert(1)')).toBe(false);
+  });
+
+  it('rejects plain text', () => {
+    expect(isValidEndpointUrl('not a url')).toBe(false);
+  });
+
+  it('rejects URL without hostname', () => {
+    expect(isValidEndpointUrl('https://')).toBe(false);
+  });
+});
+
+describe('formatBindingTarget', () => {
+  it('returns alias prefixed with @ when server_alias is set', () => {
+    expect(formatBindingTarget({ server_alias: 'stable', server_version: '1.0.0' })).toBe('@stable');
+  });
+
+  it('returns version when server_alias is not set', () => {
+    expect(formatBindingTarget({ server_version: '1.0.0' })).toBe('1.0.0');
+  });
+
+  it('returns dash when neither alias nor version is set', () => {
+    expect(formatBindingTarget({})).toBe('—');
+  });
+
+  it('returns dash when version is empty string', () => {
+    expect(formatBindingTarget({ server_version: '' })).toBe('—');
+  });
+
+  it('prefers alias over version', () => {
+    expect(formatBindingTarget({ server_alias: 'latest', server_version: '2.0.0' })).toBe('@latest');
+  });
+});
+
+describe('tagsRecordToArray', () => {
+  it('converts record to key-value array', () => {
+    expect(tagsRecordToArray({ env: 'prod', team: 'ml' })).toEqual([
+      { key: 'env', value: 'prod' },
+      { key: 'team', value: 'ml' },
+    ]);
+  });
+
+  it('returns empty array for empty record', () => {
+    expect(tagsRecordToArray({})).toEqual([]);
+  });
+
+  it('returns empty array when called with no arguments', () => {
+    expect(tagsRecordToArray()).toEqual([]);
   });
 });
