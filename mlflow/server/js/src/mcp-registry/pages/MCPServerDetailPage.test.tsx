@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import MCPServerDetailPage from './MCPServerDetailPage';
-import { TransportType, MCPStatus } from '../types';
+import { TransportType, MCPStatus, MCPServerAction } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
@@ -425,7 +425,7 @@ describe('MCPServerDetailPage', () => {
   });
 
   describe('permission gating via allowed_actions', () => {
-    const setupWithPermissions = (allowed_actions?: string[]) => {
+    const setupWithPermissions = (allowed_actions?: MCPServerAction[]) => {
       const permServer = createMockMCPServer({
         name: 'dev.mainline/mcp',
         display_name: 'Mainline',
@@ -448,7 +448,7 @@ describe('MCPServerDetailPage', () => {
     });
 
     it('shows edit buttons for EDIT user', async () => {
-      setupWithPermissions(['USE', 'UPDATE']);
+      setupWithPermissions([MCPServerAction.USE, MCPServerAction.UPDATE]);
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
@@ -459,7 +459,7 @@ describe('MCPServerDetailPage', () => {
     });
 
     it('shows all buttons for MANAGE user', async () => {
-      setupWithPermissions(['USE', 'UPDATE', 'DELETE', 'MANAGE']);
+      setupWithPermissions([MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE]);
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('Create MCP server version')).toBeInTheDocument();

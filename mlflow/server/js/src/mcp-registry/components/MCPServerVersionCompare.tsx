@@ -11,7 +11,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { diffChars, diffJson, diffLines, diffWords } from 'diff';
 
-import type { MCPAccessBinding, MCPServerVersion, ServerJSONPayload } from '../types';
+import type { MCPAccessBinding, MCPIcon, MCPServerVersion, ServerJSONPayload } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { MCPServerIcon } from './MCPServerIcon';
@@ -110,11 +110,11 @@ const VersionMetadataGrid = ({
         </MetadataRow>
       )}
 
-      {version.server_json?.['icons'] && (version.server_json['icons'] as any[]).length > 0 && (
+      {version.server_json?.['icons'] && (version.server_json['icons'] as MCPIcon[]).length > 0 && (
         <MetadataRow
           label={<FormattedMessage defaultMessage="Icon:" description="MCP compare metadata icon label" />}
         >
-          <MCPServerIcon icons={version.server_json['icons'] as any} name={version.server_json.name} />
+          <MCPServerIcon icons={version.server_json['icons'] as MCPIcon[]} name={version.server_json.name} />
         </MetadataRow>
       )}
 

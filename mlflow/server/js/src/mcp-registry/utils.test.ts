@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
+import { MCPServerAction } from './types';
 import {
   sanitizeHref,
   resolveDisplayName,
@@ -261,14 +262,14 @@ describe('getServerPermissions', () => {
   });
 
   it('grants only matching actions', () => {
-    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE'] }));
+    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE] }));
     expect(perms.canUpdate).toBe(true);
     expect(perms.canDelete).toBe(false);
     expect(perms.canManage).toBe(false);
   });
 
   it('grants all actions for MANAGE permission', () => {
-    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE', 'DELETE', 'MANAGE'] }));
+    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE] }));
     expect(perms.canUpdate).toBe(true);
     expect(perms.canDelete).toBe(true);
     expect(perms.canManage).toBe(true);
@@ -309,15 +310,15 @@ describe('cannotManage', () => {
   });
 
   it('returns true when allowed_actions has USE but not MANAGE', () => {
-    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE'] }))).toBe(true);
+    expect(cannotManage(createMockMCPServer({ allowed_actions: [MCPServerAction.USE] }))).toBe(true);
   });
 
   it('returns true when allowed_actions has UPDATE but not MANAGE', () => {
-    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE'] }))).toBe(true);
+    expect(cannotManage(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE] }))).toBe(true);
   });
 
   it('returns false when allowed_actions includes MANAGE', () => {
-    expect(cannotManage(createMockMCPServer({ allowed_actions: ['USE', 'UPDATE', 'DELETE', 'MANAGE'] }))).toBe(false);
+    expect(cannotManage(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE] }))).toBe(false);
   });
 
   it('returns false when allowed_actions is undefined (admin/no-auth)', () => {

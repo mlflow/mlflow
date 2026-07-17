@@ -64,7 +64,8 @@ const MCPRegistryPage = () => {
     onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
   });
 
-  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable;
+  const hasManageOnAny = servers?.some((s) => getServerPermissions(s).canManage) ?? false;
+  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
   const filteredServers = servers;
 
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;

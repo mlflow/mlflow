@@ -28,7 +28,7 @@ import { MCPServerTags } from './MCPServerTags';
 import { QuickConnectModal } from './QuickConnectModal';
 import { textEllipsisStyles, flexRowStyles, monoFontStyles, noShrinkStyles } from '../styles';
 import { useUpdateMCPServerTags } from '../hooks/useUpdateMCPServerTags';
-import { isServerDimmed, formatTransportType, resolveDisplayName } from '../utils';
+import { isServerDimmed, formatTransportType, resolveDisplayName, getServerPermissions } from '../utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
@@ -99,7 +99,7 @@ const MCPServerTagsCell = ({
   return (
     <div css={{ display: 'flex', alignItems: 'center' }}>
       {containsTags && <MCPServerTags tags={original.tags || {}} />}
-      {onEditTags && (
+      {onEditTags && getServerPermissions(original).canUpdate && (
         <Button
           componentId="mlflow.mcp_registry.table.edit_tags"
           size="small"
