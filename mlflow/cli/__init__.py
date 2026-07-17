@@ -57,6 +57,7 @@ from mlflow.utils.server_cli_utils import (
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
+from mlflow.utils.static_prefix_validation import validate_static_prefix_security
 from mlflow.utils.workspace_utils import resolve_workspace_store_uri
 
 _logger = logging.getLogger(__name__)
@@ -361,6 +362,11 @@ def _validate_static_prefix(ctx, param, value):
             raise UsageError("--static-prefix must begin with a '/'.")
         if value.endswith("/"):
             raise UsageError("--static-prefix should not end with a '/'.")
+
+        try:
+            validate_static_prefix_security(value)
+        except ValueError as e:
+            raise UsageError(f"--static-prefix '{value}' {e}")
     return value
 
 

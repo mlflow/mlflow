@@ -6,6 +6,7 @@ security implementations.
 """
 
 import fnmatch
+import os
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import (
@@ -126,9 +127,24 @@ def should_block_cors_request(origin: str, method: str, allowed_origins: list[st
 
 def is_api_endpoint(path: str) -> bool:
     """Check if a path is an API endpoint that should have CORS/OPTIONS handling."""
-    return (
-        path.startswith(API_PATH_PREFIX) or path.startswith(AJAX_API_PATH_PREFIX)
-    ) and path not in TEST_ENDPOINTS
+    if path in TEST_ENDPOINTS:
+        return False
+    if path.startswith(API_PATH_PREFIX) or path.startswith(AJAX_API_PATH_PREFIX):
+        return True
+
+    # Flask routes (`_add_static_prefix`) and the Job/Assistant APIs
+    # (`create_fastapi_app`) are served under `--static-prefix` when one is configured,
+    # so recognize the prefixed form of `/api/`/`/ajax-api/` too, or CORS blocking is
+    # silently skipped for API requests on such a deployment. (The Gateway/OTLP routes
+    # aren't `/api/`/`/ajax-api/` paths and are unaffected either way.) Imported lazily
+    # to keep this shared module's own import graph light.
+    from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    return bool(static_prefix) and (
+        path.startswith(f"{static_prefix}{API_PATH_PREFIX}")
+        or path.startswith(f"{static_prefix}{AJAX_API_PATH_PREFIX}")
+    )
 
 
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
