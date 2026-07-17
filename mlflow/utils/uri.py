@@ -525,7 +525,18 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
         The constructed_path if validation passes.
     """
     real_base_dir = pathlib.Path(base_dir).resolve()
-    real_constructed_path = pathlib.Path(constructed_path).resolve()
+    target = pathlib.Path(constructed_path)
+    # On Windows, resolve() canonicalizes the existing vs non-existing parts of a path
+    # differently (e.g. 8.3 short-name expansion only for the part that exists). With the
+    # async artifact queue's pool of worker threads sharing one repository, the boundary
+    # between existing/non-existing can shift between these two resolve() calls, making a
+    # valid destination look like it escapes the base dir. Resolve the leaf only when a
+    # real file/dir or a (possibly dangling) symlink exists there; otherwise resolve the
+    # existing parent and append the caller-sanitized leaf verbatim.
+    if target.is_symlink() or target.exists():
+        real_constructed_path = target.resolve()
+    else:
+        real_constructed_path = target.parent.resolve() / target.name
 
     if not real_constructed_path.is_relative_to(real_base_dir):
         raise MlflowException(
