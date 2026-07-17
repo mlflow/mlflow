@@ -2786,6 +2786,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
 
     name: str = "last_turn_knowledge_retention"
     model: str | None = None
+    extra_headers: dict[str, str] | None = None
     description: str = (
         "Evaluate whether the last AI response in a conversation correctly retains information "
         "provided by users in earlier conversation turns."

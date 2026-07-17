@@ -17,8 +17,9 @@ _MODEL_API_DOC = {
     "model": """Judge model to use. Must be either `"databricks"` or a form of
 `<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
 `"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
-`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
+`["openai", "anthropic", "bedrock", "mistral", "sap-ai-core"]`, and more providers are supported
 through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+For ``sap-ai-core``, set ``MLFLOW_GENAI_JUDGE_BASE_URL`` to the Orchestration v2 endpoint URL.
 Default model depends on the ``MLFLOW_GENAI_JUDGE_DEFAULT_MODEL`` environment
 variable and the tracking URI setup:
 

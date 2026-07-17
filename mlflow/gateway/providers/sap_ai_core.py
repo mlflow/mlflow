@@ -27,18 +27,16 @@ from mlflow.gateway.schemas import chat
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 #: Scalar inference parameter keys forwarded to the model's ``params`` block.
-_FORWARDED_PARAMS = frozenset(
-    {
-        "max_tokens",
-        "temperature",
-        "top_p",
-        "frequency_penalty",
-        "presence_penalty",
-        "stop",
-        "n",
-        "seed",
-    }
-)
+_FORWARDED_PARAMS = frozenset({
+    "max_tokens",
+    "temperature",
+    "top_p",
+    "frequency_penalty",
+    "presence_penalty",
+    "stop",
+    "n",
+    "seed",
+})
 
 
 class SapAiCoreConfig(ConfigModel):
@@ -85,8 +83,7 @@ class SapAiCoreAdapter(ProviderAdapter):
         prompt_templating: dict[str, Any] = {
             "prompt": {
                 "template": [
-                    {"role": m["role"], "content": m.get("content") or ""}
-                    for m in messages
+                    {"role": m["role"], "content": m.get("content") or ""} for m in messages
                 ]
             },
             "model": {

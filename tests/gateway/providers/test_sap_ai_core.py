@@ -1,5 +1,4 @@
-"""Tests for the SAP AI Core Orchestration v2 provider."""
-
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -29,7 +28,7 @@ def _make_provider(model_name: str = "gpt-4o-mini") -> SapAiCoreProvider:
     return SapAiCoreProvider(_make_endpoint_config(model_name))
 
 
-def _make_orch_response(content: str = "Hello!") -> dict:
+def _make_orch_response(content: str = "Hello!") -> dict[str, Any]:
     inner = {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
