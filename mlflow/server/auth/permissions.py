@@ -91,6 +91,7 @@ RESOURCE_TYPE_SCORER = "scorer"
 RESOURCE_TYPE_GATEWAY_SECRET = "gateway_secret"
 RESOURCE_TYPE_GATEWAY_ENDPOINT = "gateway_endpoint"
 RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION = "gateway_model_definition"
+RESOURCE_TYPE_MCP_SERVER = "mcp_server"
 
 # Workspace-wide permissions slot. ``resource_pattern`` must be ``"*"``. The
 # permission level distinguishes member from admin:
@@ -115,6 +116,7 @@ VALID_RESOURCE_TYPES = frozenset({
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+    RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_WORKSPACE,
 })
 

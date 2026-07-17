@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import {
   Pagination,
   Table,
@@ -11,6 +12,9 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { getCoreRowModel } from '@tanstack/react-table';
+import type { ColumnDef, ColumnSizingState, OnChangeFn } from '@tanstack/react-table';
 import {
   CreatedByCell,
   CreateTimeCell,
@@ -23,7 +27,12 @@ import {
   TagsInlinePreviewBody,
   TagsPreviewCell,
 } from './DatasetRecordCell';
-import { SORTABLE_RECORD_COLUMNS, type RecordColumnId, type SortDirection } from '../utils/constants';
+import {
+  RECORD_COLUMN_IDS,
+  SORTABLE_RECORD_COLUMNS,
+  type RecordColumnId,
+  type SortDirection,
+} from '../utils/constants';
 import type { PendingNewRecord } from '../hooks/useRecordCreateState';
 
 interface DatasetRecordsTableProps {
@@ -47,6 +56,8 @@ interface DatasetRecordsTableProps {
   onRecordSelected: (record: DatasetRecord) => void;
   selectedRecordId?: string;
   visibleColumns: RecordColumnId[];
+  columnSizing: ColumnSizingState;
+  setColumnSizing: OnChangeFn<ColumnSizingState>;
   /** Set of record IDs currently checked for bulk delete. */
   selectedForBulk: Set<string>;
   /** True iff every record currently rendered is in `selectedForBulk`. */
@@ -72,25 +83,89 @@ interface DatasetRecordsTableProps {
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 
-const cellStylesForColumn = (id: RecordColumnId) => {
-  if (id === 'inputs' || id === 'expectations') return wideCellStyles;
-  if (id === 'source') return narrowCellStyles;
-  if (id === 'tags') return tagsCellStyles;
-  return cellStyles;
+/**
+ * Column sizing model
+ * ===================
+ * Goal: columns render at a sensible width from the very first frame, without
+ * measuring the DOM. Pick a viewport bucket from `window.innerWidth` at mount,
+ * look up per-column widths from a static table, hand them to TanStack as
+ * `ColumnDef.size`. Persisted user drags (via `usePersistedTableColumnWidths`)
+ * override the bucket defaults on a per-column basis. No `useLayoutEffect`,
+ * no `ResizeObserver`, no DOM measurement.
+ *
+ * Why bucketed-on-mount, not flex or measured: flex-fill made `getSize()`
+ * disagree with the rendered width, which caused TanStack's drag handler to
+ * "snap" the column from its grown width back to the basis on first drag. DOM
+ * measurement fixed the snap but `offsetWidth` is 0 inside `display: none`
+ * ancestors (inactive tab / collapsed accordion / unopened modal), and the
+ * earlier seed wrote those zeros to localStorage — permanently locking every
+ * column to the minSize floor with no in-app recovery. `window.innerWidth`
+ * doesn't depend on any element being laid out, so the corruption path is
+ * impossible by construction.
+ *
+ * Bucket is fixed per mount — subsequent window resizes don't reflow. Users
+ * who dock/undock to a different display see their dragged columns at the
+ * persisted px regardless of viewport; un-dragged columns adapt to the new
+ * bucket on next visit.
+ */
+
+// Viewport thresholds (`window.innerWidth`) for each bucket. Boundaries are
+// inclusive lower bound — `pickViewportBucket(1280)` → 'medium'.
+const BREAKPOINT_PX = {
+  medium: 1280,
+  large: 2000,
+} as const;
+
+// Per-bucket, per-tier column widths in px. Edit here to retune defaults.
+const COLUMN_WIDTHS_BY_BREAKPOINT = {
+  small: { narrow: 100, normal: 140, wide: 280 }, // <1280: laptop, narrow window
+  medium: { narrow: 120, normal: 160, wide: 400 }, // 1280-2000: FHD / standard monitor
+  large: { narrow: 130, normal: 180, wide: 560 }, // >=2000: MBP 16" scaled, QHD, 4K, 5K
+} as const;
+
+type ViewportBucket = keyof typeof COLUMN_WIDTHS_BY_BREAKPOINT;
+type ColumnTier = keyof (typeof COLUMN_WIDTHS_BY_BREAKPOINT)['small'];
+
+// Per-column tier assignment. Single source of truth for which bucket entry
+// each column reads — change a column's tier here, not in every header def.
+const TIER_BY_COLUMN: Record<RecordColumnId, ColumnTier> = {
+  dataset_record_id: 'normal',
+  inputs: 'wide',
+  expectations: 'wide',
+  create_time: 'narrow',
+  created_by: 'normal',
+  source: 'narrow',
+  last_updated: 'narrow',
+  last_updated_by: 'normal',
+  tags: 'normal',
 };
 
+const pickViewportBucket = (viewportWidth: number): ViewportBucket => {
+  if (viewportWidth >= BREAKPOINT_PX.large) return 'large';
+  if (viewportWidth >= BREAKPOINT_PX.medium) return 'medium';
+  return 'small';
+};
+
+const COLUMN_MIN_WIDTH = 80;
+const COLUMN_MAX_WIDTH = 1200;
+
+// `window.innerWidth` is non-zero in every realistic scenario,
+// but inside an iframe with `display: none` on the
+// <iframe> element it can be 0 in some browsers. Clamping to 800 as fallback
+const MIN_VIEWPORT_WIDTH = 800;
+
+// SSR-safe read. `window` is undefined during server-side rendering and in
+// some pre-paint test contexts
+const readViewportWidth = (): number => {
+  if (typeof window === 'undefined') return MIN_VIEWPORT_WIDTH;
+  return Math.max(window.innerWidth, MIN_VIEWPORT_WIDTH);
+};
+
+// Call it once instead of allocating a new factory on every render.
+const CORE_ROW_MODEL_FACTORY = getCoreRowModel();
+
+// Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
-// Inputs/expectations carry the bulk of each record's payload — give their
-// cells (and headers) more horizontal room than the metadata columns. Source
-// shrinks because it renders a single short Tag. Tags sits slightly above
-// the default to fit the first-tag pill plus a "+N more" suffix without
-// crowding. Applied symmetrically to header and cell so columns line up.
-const wideCellStyles = { ...cellStyles, flex: 2.5 };
-const WIDE_HEADER_STYLE = { flex: 2.5 } as const;
-const narrowCellStyles = { ...cellStyles, flex: 0.5 };
-const NARROW_HEADER_STYLE = { flex: 0.5 } as const;
-const tagsCellStyles = { ...cellStyles, flex: 1.5 };
-const TAGS_HEADER_STYLE = { flex: 1.5 } as const;
 const stopPropagationProps = {
   // Row click opens the drawer; inner interactive elements (tag pills, etc.) must opt out.
   onClick: (event: React.MouseEvent) => event.stopPropagation(),
@@ -119,6 +194,8 @@ export const DatasetRecordsTable = ({
   onRecordSelected,
   selectedRecordId,
   visibleColumns,
+  columnSizing,
+  setColumnSizing,
   selectedForBulk,
   isAllOnPageSelected,
   isSomeOnPageSelected,
@@ -146,6 +223,62 @@ export const DatasetRecordsTable = ({
       onToggleSort: () => onSort(id, isActive && dir === 'desc' ? 'asc' : 'desc'),
     };
   };
+
+  // Pick the bucket once per mount. `readViewportWidth` is SSR-safe and never
+  // returns < MIN_VIEWPORT_WIDTH, so this can't crash or land on a 0 bucket.
+  const columnWidthsForViewport = useMemo(
+    () => COLUMN_WIDTHS_BY_BREAKPOINT[pickViewportBucket(readViewportWidth())],
+    [],
+  );
+
+  const columns = useMemo<ColumnDef<DatasetRecord>[]>(
+    () =>
+      RECORD_COLUMN_IDS.map((id) => ({
+        id,
+        accessorKey: id,
+        size: columnWidthsForViewport[TIER_BY_COLUMN[id]],
+      })),
+    [columnWidthsForViewport],
+  );
+
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/components/DatasetRecordsTable.tsx',
+    {
+      data: records,
+      columns: columns,
+      getCoreRowModel: CORE_ROW_MODEL_FACTORY,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      defaultColumn: {
+        minSize: COLUMN_MIN_WIDTH,
+        maxSize: COLUMN_MAX_WIDTH,
+      },
+      state: {
+        columnSizing,
+      },
+      onColumnSizingChange: setColumnSizing,
+    },
+  );
+
+  // `table` is stable across renders for the same column set; memo prevents
+  // the Object.fromEntries from running on every parent re-render.
+  const headersById = useMemo(
+    () => Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h])),
+    [table],
+  );
+
+  // Every column is pixel-locked from frame 1: `getSize()` returns the user's
+  // persisted width when present, otherwise the bucket default we set as
+  // `ColumnDef.size`. Both come from `columnWidthsForViewport[TIER_BY_COLUMN[id]]`
+  // ultimately, so there's no rendered-vs-model mismatch and no drag-start snap.
+  // `getSize()` already clamps to [`COLUMN_MIN_WIDTH`, `COLUMN_MAX_WIDTH`] from
+  // `defaultColumn`, so no extra clamping needed here.
+  const flexStyleForColumn = useCallback(
+    (id: RecordColumnId): React.CSSProperties => ({
+      flex: `0 0 ${table.getColumn(id)?.getSize() ?? columnWidthsForViewport[TIER_BY_COLUMN[id]]}px`,
+    }),
+    [table, columnWidthsForViewport],
+  );
 
   return (
     <div
@@ -178,18 +311,34 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('dataset_record_id') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.record-id"
+              style={flexStyleForColumn('dataset_record_id')}
               {...headerSortProps('dataset_record_id')}
+              header={headersById['dataset_record_id']}
+              column={headersById['dataset_record_id']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage defaultMessage="Record ID" description="Header for the dataset record id column" />
             </TableHeader>
           )}
           {isColumnVisible('inputs') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.inputs" style={WIDE_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.inputs"
+              style={flexStyleForColumn('inputs')}
+              header={headersById['inputs']}
+              column={headersById['inputs']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Inputs" description="Header for the dataset record inputs column" />
             </TableHeader>
           )}
           {isColumnVisible('expectations') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.expectations" style={WIDE_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.expectations"
+              style={flexStyleForColumn('expectations')}
+              header={headersById['expectations']}
+              column={headersById['expectations']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage
                 defaultMessage="Expectations"
                 description="Header for the dataset record expectations column"
@@ -199,7 +348,11 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('create_time') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.create-time"
+              style={flexStyleForColumn('create_time')}
               {...headerSortProps('create_time')}
+              header={headersById['create_time']}
+              column={headersById['create_time']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Created"
@@ -210,7 +363,11 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('created_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.created-by"
+              style={flexStyleForColumn('created_by')}
               {...headerSortProps('created_by')}
+              header={headersById['created_by']}
+              column={headersById['created_by']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Created by"
@@ -219,14 +376,24 @@ export const DatasetRecordsTable = ({
             </TableHeader>
           )}
           {isColumnVisible('source') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.source" style={NARROW_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.source"
+              style={flexStyleForColumn('source')}
+              header={headersById['source']}
+              column={headersById['source']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Source" description="Header for the dataset record source column" />
             </TableHeader>
           )}
           {isColumnVisible('last_updated') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated"
+              style={flexStyleForColumn('last_updated')}
               {...headerSortProps('last_updated')}
+              header={headersById['last_updated']}
+              column={headersById['last_updated']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Last updated"
@@ -237,7 +404,11 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated-by"
+              style={flexStyleForColumn('last_updated_by')}
               {...headerSortProps('last_updated_by')}
+              header={headersById['last_updated_by']}
+              column={headersById['last_updated_by']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Last updated by"
@@ -246,7 +417,13 @@ export const DatasetRecordsTable = ({
             </TableHeader>
           )}
           {isColumnVisible('tags') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.tags" style={TAGS_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.tags"
+              style={flexStyleForColumn('tags')}
+              header={headersById['tags']}
+              column={headersById['tags']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Tags" description="Header for the dataset record tags column" />
             </TableHeader>
           )}
@@ -258,7 +435,7 @@ export const DatasetRecordsTable = ({
                   <TableSkeleton seed={`records-select-${i}`} />
                 </TableCell>
                 {visibleColumns.map((col) => (
-                  <TableCell key={col} css={cellStylesForColumn(col)}>
+                  <TableCell key={col} css={cellStyles} style={flexStyleForColumn(col)}>
                     <TableSkeleton seed={`records-${col}-${i}`} />
                   </TableCell>
                 ))}
@@ -289,7 +466,7 @@ export const DatasetRecordsTable = ({
               // activator components that already render flush-left, so they don't need
               // this override.
               const colCellStyles = {
-                ...cellStylesForColumn(col),
+                ...cellStyles,
                 textAlign: 'left' as const,
                 justifyItems: 'start' as const,
               };
@@ -303,7 +480,13 @@ export const DatasetRecordsTable = ({
                 // line); otherwise echo the raw text so each keystroke shows up immediately.
                 const display = hasValidContent ? JSON.stringify(value) : trimmedText;
                 return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                  <TableCell
+                    key={col}
+                    css={colCellStyles}
+                    style={flexStyleForColumn(col)}
+                    align="left"
+                    wrapContent={false}
+                  >
                     {isEmpty ? (
                       <Typography.Text color="secondary" size="sm">
                         <FormattedMessage defaultMessage="(empty)" description="Placeholder for an empty JSON cell" />
@@ -328,13 +511,25 @@ export const DatasetRecordsTable = ({
                 const tagEntries = Object.entries(pendingNewRecord.tags);
                 if (tagEntries.length === 0) {
                   return (
-                    <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                    <TableCell
+                      key={col}
+                      css={colCellStyles}
+                      style={flexStyleForColumn(col)}
+                      align="left"
+                      wrapContent={false}
+                    >
                       <Typography.Text color="secondary">-</Typography.Text>
                     </TableCell>
                   );
                 }
                 return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                  <TableCell
+                    key={col}
+                    css={colCellStyles}
+                    style={flexStyleForColumn(col)}
+                    align="left"
+                    wrapContent={false}
+                  >
                     <TagsInlinePreviewBody
                       entries={tagEntries}
                       componentId="mlflow.eval-datasets-v2.records.tag.phantom-pill"
@@ -343,7 +538,13 @@ export const DatasetRecordsTable = ({
                 );
               }
               return (
-                <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                <TableCell
+                  key={col}
+                  css={colCellStyles}
+                  style={flexStyleForColumn(col)}
+                  align="left"
+                  wrapContent={false}
+                >
                   <Typography.Text color="secondary">-</Typography.Text>
                 </TableCell>
               );
@@ -407,12 +608,12 @@ export const DatasetRecordsTable = ({
                   {...stopPropagationProps}
                 />
                 {isColumnVisible('dataset_record_id') && (
-                  <TableCell css={cellStylesForColumn('dataset_record_id')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('dataset_record_id')}>
                     <RecordIdCell record={record} onActivate={openDrawer} accessibleLabel={recordIdLabel} />
                   </TableCell>
                 )}
                 {isColumnVisible('inputs') && (
-                  <TableCell css={cellStylesForColumn('inputs')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('inputs')}>
                     <JsonPreviewCell
                       value={record.inputs}
                       emptyLabel={
@@ -424,7 +625,7 @@ export const DatasetRecordsTable = ({
                   </TableCell>
                 )}
                 {isColumnVisible('expectations') && (
-                  <TableCell css={cellStylesForColumn('expectations')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('expectations')}>
                     <JsonPreviewCell
                       value={record.expectations}
                       emptyLabel={
@@ -436,32 +637,32 @@ export const DatasetRecordsTable = ({
                   </TableCell>
                 )}
                 {isColumnVisible('create_time') && (
-                  <TableCell css={cellStylesForColumn('create_time')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('create_time')}>
                     <CreateTimeCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('created_by') && (
-                  <TableCell css={cellStylesForColumn('created_by')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('created_by')}>
                     <CreatedByCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('source') && (
-                  <TableCell css={cellStylesForColumn('source')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('source')}>
                     <SourceCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('last_updated') && (
-                  <TableCell css={cellStylesForColumn('last_updated')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('last_updated')}>
                     <LastUpdatedCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('last_updated_by') && (
-                  <TableCell css={cellStylesForColumn('last_updated_by')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('last_updated_by')}>
                     <LastUpdatedByCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('tags') && (
-                  <TableCell css={cellStylesForColumn('tags')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('tags')}>
                     <TagsPreviewCell tags={record.tags} onActivate={openDrawer} accessibleLabel={tagsLabel} />
                   </TableCell>
                 )}

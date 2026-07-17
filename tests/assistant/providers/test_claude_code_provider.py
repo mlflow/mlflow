@@ -320,6 +320,29 @@ async def test_astream_handles_process_error():
 
 
 @pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
+
+
+@pytest.mark.asyncio
 async def test_astream_passes_session_id_for_resume():
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
