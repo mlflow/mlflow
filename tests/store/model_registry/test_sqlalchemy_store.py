@@ -1709,6 +1709,18 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_get_model_version_accepts_string_version(store):
+    # Regression test: a string version (e.g. as parsed from a REST request) must be
+    # coerced to int before being used in the SqlModelVersion query filter. Otherwise
+    # the VARCHAR-vs-INTEGER comparison fails on backends like PostgreSQL that don't
+    # apply implicit type coercion the way SQLite does.
+    name = "GetModelVersionStringVersion_TestMod"
+    _rm_maker(store, name)
+    _mv_maker(store, name)
+    mv = store.get_model_version(name, "1")
+    assert mv.version == 1
+
+
 def test_delete_model_version_tag(store):
     name1 = "DeleteModelVersionTag_TestMod"
     name2 = "DeleteModelVersionTag_TestMod 2"
