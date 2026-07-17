@@ -70,7 +70,7 @@ import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
-import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
+import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -1345,22 +1345,9 @@ export const getDefaultActiveTab = (
  */
 export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
   const getValue = (value: any) => {
-    if (!isObject(value)) {
-      return value;
-    }
-    if ('string_value' in value) {
-      return value.string_value;
-    }
-    if ('bool_value' in value) {
-      return value.bool_value;
-    }
-    if ('int_value' in value) {
-      return value.int_value;
-    }
-    if ('double_value' in value) {
-      return value.double_value;
-    }
-    return value;
+    // OTLP AnyValues (e.g. kvlist_value for dict-valued attributes like
+    // mlflow.spanInputs) need to be decoded recursively into plain JS values
+    return isOtelAnyValue(value) ? decodeOtelAnyValue(value) : value;
   };
 
   const convertAttributes = (attributes: any) => {

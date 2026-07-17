@@ -99,7 +99,7 @@ keras:
 
   models:
     minimum: "3.4.0"
-    maximum: "3.14.1"
+    maximum: "3.15.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -109,7 +109,7 @@ keras:
 
   autologging:
     minimum: "3.4.0"
-    maximum: "3.14.1"
+    maximum: "3.15.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
