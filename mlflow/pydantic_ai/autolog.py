@@ -248,7 +248,10 @@ def patched_async_stream_call(original, self, *args, **kwargs):
 
         # Skip span creation ONLY for Agent.run_stream when inside run_stream_sync.
         # Agent.run_stream_sync already creates a root span, so we don't need another
-        # Agent.run_stream span. But we DO want InstrumentedModel spans (LLM calls).
+        # Agent.run_stream span. But we DO still want the nested model-level LLM span,
+        # which is created regardless of this skip: from InstrumentedModel.request_stream
+        # on pydantic-ai < 1.95, or from the Instrumentation.wrap_model_request capability
+        # hook on >= 1.95 (see patched_capability_model_request).
         # The async context manager for Agent.run_stream won't properly exit when
         # called from run_stream_sync (pydantic_ai's implementation uses a generator
         # that pauses), so we skip it to avoid orphaned spans.
