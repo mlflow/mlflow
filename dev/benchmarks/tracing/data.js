@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784306934454,
+  "lastUpdate": 1784313355787,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14525,6 +14525,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.222553399998333,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mprahl@users.noreply.github.com",
+            "name": "Matthew Prahl",
+            "username": "mprahl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b4acea79fb10d64e9364206eb7a76de44083728",
+          "message": "Fix Huey orphan shutdown and periodic lock recovery (#24492)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-07-17T18:32:01Z",
+          "tree_id": "d523900cf3c2939f8a11a7462542be09f3a2923d",
+          "url": "https://github.com/mlflow/mlflow/commit/2b4acea79fb10d64e9364206eb7a76de44083728"
+        },
+        "date": 1784313354910,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.1551063499991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.080795428571882,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.354809888889587,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.414460561402183,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.543059542373367,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.5305673999991996,
             "unit": "ms"
           }
         ]
