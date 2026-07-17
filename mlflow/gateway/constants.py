@@ -1,6 +1,7 @@
 from enum import Enum
 
 MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
+MLFLOW_GATEWAY_AUTH_HEADER = "X-MLflow-Authorization"
 MLFLOW_GATEWAY_DURATION_HEADER = "X-MLflow-Gateway-Duration-Ms"
 MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
 

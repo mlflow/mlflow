@@ -10,6 +10,7 @@ from mlflow.assistant.config import PermissionsConfig
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
+# Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 
 
@@ -89,11 +90,11 @@ async def execute_tool(
             case "Bash":
                 return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
             case "Read":
-                return _execute_read(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
             case "Write":
-                return _execute_write(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_write, tool_input, cwd=cwd)
             case "Edit":
-                return _execute_edit(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_edit, tool_input, cwd=cwd)
             case _:
                 return f"Unknown tool: {tool_name}", True
     except Exception as e:

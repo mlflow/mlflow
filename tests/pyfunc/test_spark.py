@@ -1715,3 +1715,62 @@ def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
 
     res = spark_df.withColumn("res", udf("input_col")).toPandas()
     assert res["res"][0] == numpy_type(value)
+
+
+class _GatePassed(Exception):
+    """Raised by the sentinel to short-circuit `spark_udf` once the version gate is cleared."""
+
+
+def _make_sandbox_info(runtime_version):
+    from mlflow.utils.databricks_utils import DBConnectUDFSandboxInfo
+
+    return DBConnectUDFSandboxInfo(
+        spark=None,
+        image_version=runtime_version,
+        runtime_version=runtime_version,
+        platform_machine="aarch64",
+        mlflow_version=mlflow.__version__,
+    )
+
+
+# `get_dbconnect_udf_sandbox_info` normalizes runtime_version to '{major}.{minor}' / '{major}.x',
+# so these are the values production actually delivers to the gate.
+@pytest.mark.parametrize("runtime_version", ["18.x", "18.0", "15.4", "16.2"])
+def test_spark_udf_dbconnect_version_gate_passes(runtime_version):
+    # An uncut "18.x" runtime must not raise InvalidVersion and must clear the >= 15.4 gate.
+    with (
+        mock.patch("mlflow.pyfunc.is_databricks_connect", return_value=True) as mock_dbconnect,
+        mock.patch("mlflow.pyfunc.is_in_databricks_shared_cluster_runtime", return_value=False),
+        mock.patch("mlflow.pyfunc.is_in_databricks_serverless_runtime", return_value=False),
+        mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True),
+        mock.patch(
+            "mlflow.pyfunc.get_dbconnect_udf_sandbox_info",
+            return_value=_make_sandbox_info(runtime_version),
+        ) as mock_sandbox,
+        mock.patch("mlflow.pyfunc.get_nfs_cache_root_dir", side_effect=_GatePassed("gate passed")),
+    ):
+        spark = mock.MagicMock()
+        spark.conf.get.return_value = "false"
+        with pytest.raises(_GatePassed, match="gate passed"):
+            mlflow.pyfunc.spark_udf(spark, "models:/m/1", env_manager="local")
+        mock_dbconnect.assert_called_once()
+        mock_sandbox.assert_called_once()
+
+
+def test_spark_udf_dbconnect_version_gate_rejects_old_runtime():
+    with (
+        mock.patch("mlflow.pyfunc.is_databricks_connect", return_value=True) as mock_dbconnect,
+        mock.patch("mlflow.pyfunc.is_in_databricks_shared_cluster_runtime", return_value=False),
+        mock.patch("mlflow.pyfunc.is_in_databricks_serverless_runtime", return_value=False),
+        mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True),
+        mock.patch(
+            "mlflow.pyfunc.get_dbconnect_udf_sandbox_info",
+            return_value=_make_sandbox_info("15.3"),
+        ) as mock_sandbox,
+    ):
+        spark = mock.MagicMock()
+        spark.conf.get.return_value = "false"
+        with pytest.raises(MlflowException, match="requires Databricks runtime version >= 15.4"):
+            mlflow.pyfunc.spark_udf(spark, "models:/m/1", env_manager="local")
+        mock_dbconnect.assert_called_once()
+        mock_sandbox.assert_called_once()
