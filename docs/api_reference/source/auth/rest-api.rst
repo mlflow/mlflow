@@ -913,4 +913,3 @@ Role
 | permissions | ``ARRAY``   | List of permissions       |
 |             |             | associated with the role. |
 +-------------+-------------+---------------------------+
-
