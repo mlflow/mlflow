@@ -454,23 +454,31 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           export PATH=$PATH:$HADOOP_HOME/bin
-          uv run --no-sync pytest tests \
-            --splits=$SPLITS \
-            --group=$GROUP \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py \
-            --ignore=tests/data/test_spark_dataset_source.py \
-            --ignore=tests/data/test_delta_dataset_source.py \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
-            --ignore=tests/docker \
+          # Two passes, mirroring the `python` job: the bulk of the suite runs in
+          # parallel across cores with pytest-xdist (`--serial=exclude -n auto`), and
+          # the xdist-hostile tests (shared Flask app / server config, env-building
+          # subprocesses; see `_XDIST_SERIAL_PATHS` in tests/conftest.py) run serially
+          # afterward (`--serial=only`, no `-n`).
+          COMMON_ARGS=(
+            --splits="$SPLITS" --group="$GROUP"
+            --ignore-flavors
+            --ignore=tests/projects
+            --ignore=tests/examples
+            --ignore=tests/evaluate
+            --ignore=tests/optuna
+            --ignore=tests/pyspark/optuna
+            --ignore=tests/genai
+            --ignore=tests/sagemaker
+            --ignore=tests/gateway
+            --ignore=tests/server/auth
+            --ignore=tests/data/test_spark_dataset.py
+            --ignore=tests/data/test_spark_dataset_source.py
+            --ignore=tests/data/test_delta_dataset_source.py
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource
+            --ignore=tests/docker
             --ignore=tests/demo
+            tests
+          )
+          uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
