@@ -1,0 +1,90 @@
+name: Flaky test detector
+
+# Mines user-triggered CI re-runs for ground-truth flakes (a job that failed on
+# one run attempt and passed on the next attempt of the same commit; the failing
+# test + error are parsed from that attempt's logs) and posts a weekly report.
+# Tagging a test @pytest.mark.flaky stays a human decision; this job only surfaces
+# the evidence so tagged flakes have a visible, tracked home and don't get forgotten.
+
+on:
+  schedule:
+    # Mondays at 09:00 UTC — covers the previous week.
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "ISO date to scan from (default: 14 days ago)"
+        required: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  detect:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # actions: read is required for the GitHub API calls the detector makes
+      # (workflow runs, per-attempt jobs, and job logs); without it they 403.
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+
+      - name: Detect flaky tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SINCE: ${{ inputs.since }}
+        run: |
+          ARGS=(--repo "$REPO" --out flakes.json --summary flakes.md)
+          if [ -n "$SINCE" ]; then
+            ARGS+=(--since "$SINCE")
+          fi
+          python dev/detect_flaky_tests.py "${ARGS[@]}"
+          # Mirror the report into the run's step summary for at-a-glance viewing.
+          cat flakes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: "!cancelled()"
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: flaky-report
+          path: |
+            flakes.json
+            flakes.md
+          if-no-files-found: ignore
+          retention-days: 90
+
+      # File/update a single rolling GitHub issue with the week's report so flakes
+      # have a visible home. (A JIRA equivalent can replace this step once a
+      # service token is provisioned; the report body is identical.)
+      - name: Publish weekly issue
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -s flakes.md ]; then
+            echo "No report produced; skipping issue."
+            exit 0
+          fi
+          title="Weekly flaky-test report"
+          # Scope the dedup search to issues this bot authored so we never comment on
+          # an unrelated issue that happens to share the title.
+          existing=$(gh issue list --repo "$REPO" --author "@me" \
+            --search "in:title \"$title\"" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body-file flakes.md
+          else
+            gh issue create --repo "$REPO" \
+              --title "$title" --body-file flakes.md --label "area/build"
+          fi
