@@ -706,13 +706,17 @@ pip install mlflow-falsify
 ```
 
 ```python
-import mlflow
+import mlflow, mlflow_falsify
 
 # With a .prml.yaml (or prml.yaml) in the working directory or any
 # ancestor, every run is automatically tagged with the pre-registered
 # claim: prml.manifest_hash, prml.metric, prml.comparator,
 # prml.threshold, prml.dataset_id, ...
-with mlflow.start_run():
+#
+# locked_run() additionally verifies the locked predicate at run end,
+# tagging prml.verdict = PASS | FAIL | UNVERIFIED | TAMPERED (TAMPERED
+# means the manifest changed mid-run).
+with mlflow_falsify.locked_run():
     mlflow.log_metric("accuracy", 0.95)
 ```
 
