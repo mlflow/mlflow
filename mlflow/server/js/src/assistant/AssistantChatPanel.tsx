@@ -549,7 +549,7 @@ const ChatPanelContent = () => {
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
             }}
           >
-            {selectedProvider ? <ProviderIndicator provider={selectedProvider} /> : <div css={{ flex: 1 }} />}
+            {selectedProvider && <ProviderIndicator provider={selectedProvider} />}
             <div css={{ flex: 1 }} />
             {tokenUsage.totalTokens > 0 && (
               <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
