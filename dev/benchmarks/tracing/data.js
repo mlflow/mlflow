@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784260900355,
+  "lastUpdate": 1784274257127,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14363,6 +14363,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 25.734151599999677,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "76001552+joelrobin18@users.noreply.github.com",
+            "name": "Joel Robin P",
+            "username": "joelrobin18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "abc652d7c050d08cc1527573343d6ef151008fa2",
+          "message": "Fix gateway Try-in-Browser traces rendering as raw `kvlist` data in the UI (#24400)\n\nSigned-off-by: joelrobin18 <joelrobin1818@gmail.com>",
+          "timestamp": "2026-07-17T07:40:29Z",
+          "tree_id": "b51c4ba0d00e19e6a48a3657872d43b7573f7585",
+          "url": "https://github.com/mlflow/mlflow/commit/abc652d7c050d08cc1527573343d6ef151008fa2"
+        },
+        "date": 1784274256260,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.13418739999943,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 15.907944000001555,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.616006156249036,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.017174421053024,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.55022884482766,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.599538000000507,
             "unit": "ms"
           }
         ]
