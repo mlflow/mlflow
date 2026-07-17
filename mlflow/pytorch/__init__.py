@@ -537,20 +537,32 @@ def save_model(
             )
 
         tensor_spec_list = signature.inputs.inputs
+        input_example_tensors = [
+            torch.from_numpy(v) if isinstance(v, np.ndarray) else v for v in input_example
+        ]
 
+        # `torch.export` specializes size-0 and size-1 dimensions to constants. Marking such a
+        # dimension as a hard dynamic `Dim` raises a ConstraintViolation ("You marked ... as
+        # dynamic but your code specialized it to be a constant (1)"), which breaks logging a
+        # model whose `input_example` has a batch size of 1. `Dim.AUTO` (available in torch>=2.6)
+        # lets the exporter decide dynamic-vs-static per dimension and tolerates specialization,
+        # so a size-1 dimension is exported as static instead of failing. On older torch we fall
+        # back to only marking dimensions whose example size is > 1 as dynamic.
         dynamic_shapes = []
-
-        for tensor_spec in tensor_spec_list:
-            try:
-                dynamic_dim = tensor_spec.shape.index(-1)
-                dynamic_shape = {dynamic_dim: ExportDim("dynamic_dim")}
-            except ValueError:
-                dynamic_shape = None
-            dynamic_shapes.append(dynamic_shape)
+        for tensor_spec, example_tensor in zip(tensor_spec_list, input_example_tensors):
+            dynamic_shape = {}
+            for dim_idx, dim_size in enumerate(tensor_spec.shape):
+                if dim_size != -1:
+                    continue
+                if hasattr(ExportDim, "AUTO"):
+                    dynamic_shape[dim_idx] = ExportDim.AUTO
+                elif example_tensor.shape[dim_idx] > 1:
+                    dynamic_shape[dim_idx] = ExportDim(f"dim_{dim_idx}")
+            dynamic_shapes.append(dynamic_shape or None)
 
         exported_prog = torch.export.export(
             pytorch_model,
-            tuple(torch.from_numpy(v) if isinstance(v, np.ndarray) else v for v in input_example),
+            tuple(input_example_tensors),
             dynamic_shapes=dynamic_shapes,
         )
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
