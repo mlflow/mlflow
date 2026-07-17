@@ -21,7 +21,7 @@ export const useCreateMCPServerVersionMutation = () => {
       const name = serverJson.name;
       const version = await MCPRegistryApi.createMCPServerVersion(name, {
         server_json: serverJson,
-        display_name: displayName || undefined,
+        display_name: isNewServer ? undefined : displayName || undefined,
         status,
         source,
         tools,

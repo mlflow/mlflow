@@ -43,6 +43,7 @@ import { MCPServerVersionCompare } from '../components/MCPServerVersionCompare';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
 import { useMCPServerDetailViewState, MCPServerDetailViewMode } from '../hooks/useMCPServerDetailViewState';
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
+import { lineClampStyles } from '../styles';
 import { useServerState } from '../hooks/useServerState';
 
 const getAliasesModalTitle = (version: string) => (
@@ -380,7 +381,7 @@ const MCPServerDetailPage = () => {
         </Typography.Text>
       )}
       {server.description && (
-        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs }}>
+        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, ...lineClampStyles(1) }}>
           {server.description}
         </Typography.Text>
       )}

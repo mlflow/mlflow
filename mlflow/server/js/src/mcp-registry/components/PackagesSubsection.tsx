@@ -147,7 +147,7 @@ const PackageRowContent = ({
         <VisibilityToggle
           componentId="mlflow.mcp_registry.detail.package"
           isVisible={isVisible}
-          onToggle={() => onToggleVisibility?.(!!isHidden)}
+          onToggle={(nowVisible) => onToggleVisibility?.(nowVisible)}
           showDisabledTag
           ariaLabel={intl.formatMessage(
             {

@@ -171,6 +171,13 @@ export const ellipsisStyles = (theme: ThemeType) => ({
   minWidth: 0,
 });
 
+export const lineClampStyles = (lines = 1) => ({
+  display: '-webkit-box' as const,
+  WebkitLineClamp: lines,
+  WebkitBoxOrient: 'vertical' as const,
+  overflow: 'hidden' as const,
+});
+
 export const sectionHeadingRowStyles = (theme: ThemeType) => ({
   display: 'flex',
   alignItems: 'center',

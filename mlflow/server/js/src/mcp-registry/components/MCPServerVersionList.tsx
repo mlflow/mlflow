@@ -194,14 +194,12 @@ export const MCPServerVersionList = ({
                   </TableCell>
                 ))}
                 {isCompareMode && (
-                  <TableCell>
-                    <MCPServerVersionDiffSelectorButton
-                      isSelectedBaseline={isSelected}
-                      isSelectedCompared={isCompared}
-                      onSelectBaseline={() => onSelectVersion(version)}
-                      onSelectCompared={() => onSelectComparedVersion?.(version)}
-                    />
-                  </TableCell>
+                  <MCPServerVersionDiffSelectorButton
+                    isSelectedBaseline={isSelected}
+                    isSelectedCompared={isCompared}
+                    onSelectBaseline={() => onSelectVersion(version)}
+                    onSelectCompared={() => onSelectComparedVersion?.(version)}
+                  />
                 )}
               </TableRow>
             );
