@@ -46,6 +46,19 @@ def test_read_sensitive_file_denied_without_cwd(tmp_path):
     assert "SECRET_API_KEY" not in result
 
 
+def test_read_relative_path_denied_without_cwd(tmp_path, monkeypatch):
+    # Regression guard for GHSA-27c7-qx3r-x4f8: without cwd/experiment_id,
+    # Read must be denied even for a relative path, which would otherwise
+    # resolve against the server process's own working directory.
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    monkeypatch.chdir(tmp_path)
+    result, is_error = _run(execute_tool("Read", {"file_path": "secret.env"}))
+    assert is_error
+    assert "Permission denied" in result
+    assert "SECRET_API_KEY" not in result
+
+
 def test_write_denied_without_cwd():
     result, is_error = _run(execute_tool("Write", {"file_path": "test.txt", "content": "hi"}))
     assert is_error
