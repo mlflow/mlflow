@@ -2,7 +2,7 @@
 import { describe, jest, test, expect, beforeEach } from '@jest/globals';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { MemoryRouter, Route, Routes } from '../utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../utils/reactQueryHooks';
 import { renderWithDesignSystem } from '../utils/TestUtils.react18';
 import { WorkflowType, WorkflowTypeProvider, useWorkflowType } from './WorkflowTypeContext';
@@ -19,10 +19,10 @@ jest.mock('../../experiment-tracking/hooks/useExperimentQuery', () => ({
   useGetExperimentQuery: jest.fn(() => ({ data: undefined, loading: false })),
 }));
 
-jest.mock('@mlflow/mlflow/src/common/utils/RoutingUtils', () => ({
-  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/RoutingUtils')>(
-    '@mlflow/mlflow/src/common/utils/RoutingUtils',
-  ),
+// Mock the same module specifier the provider imports (``../utils/RoutingUtils``)
+// so the ``useNavigate`` override is guaranteed to apply to the code under test.
+jest.mock('../utils/RoutingUtils', () => ({
+  ...jest.requireActual<typeof import('../utils/RoutingUtils')>('../utils/RoutingUtils'),
   useNavigate: () => mockNavigate,
 }));
 
@@ -52,9 +52,9 @@ const WorkflowTypeProbe = () => {
 };
 
 describe('WorkflowTypeProvider experiment-kind sync', () => {
-  const renderAt = (path: string) => {
+  const routerTree = (path: string) => {
     const queryClient = new QueryClient();
-    return renderWithDesignSystem(
+    return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>
@@ -76,9 +76,11 @@ describe('WorkflowTypeProvider experiment-kind sync', () => {
             />
           </Routes>
         </MemoryRouter>
-      </QueryClientProvider>,
+      </QueryClientProvider>
     );
   };
+
+  const renderAt = (path: string) => renderWithDesignSystem(routerTree(path));
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -183,5 +185,18 @@ describe('WorkflowTypeProvider experiment-kind sync', () => {
     });
     // The user-driven toggle should redirect to the experiment default tab.
     expect(mockNavigate).toHaveBeenCalled();
+  });
+
+  test('reconciles when the experiment kind tag is populated later on the same experiment', async () => {
+    seedWorkflowType(WorkflowType.GENAI);
+    // First render: experiment loaded but kind tag not yet populated (ambiguous).
+    mockUseGetExperimentQuery.mockReturnValue(experimentWithKind(undefined, '42') as any);
+    const { rerender } = renderAt('/experiments/42/runs');
+    expect(await screen.findByTestId('workflow-type')).toHaveTextContent(WorkflowType.GENAI);
+
+    // Kind inference lands the tag afterwards while staying on the same experiment.
+    mockUseGetExperimentQuery.mockReturnValue(experimentWithKind('custom_model_development', '42') as any);
+    rerender(routerTree('/experiments/42/runs'));
+    expect(await screen.findByTestId('workflow-type')).toHaveTextContent(WorkflowType.MACHINE_LEARNING);
   });
 });
