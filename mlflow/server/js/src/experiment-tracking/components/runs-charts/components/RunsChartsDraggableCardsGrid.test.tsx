@@ -629,7 +629,7 @@ describe('RunsChartsDraggableCardsGrid', () => {
               groupBy={null}
               onRemoveChart={noop}
               onStartEditChart={noop}
-              hideEmptyCharts={true}
+              hideEmptyCharts
               sectionConfig={{
                 display: true,
                 isReordered: false,
