@@ -3,10 +3,10 @@ import { MCPServerAction } from './types';
 import {
   sanitizeHref,
   resolveDisplayName,
-  resolveBindingDisplayName,
+  resolveEndpointDisplayName,
   formatTransportType,
   isValidEndpointUrl,
-  formatBindingTarget,
+  formatEndpointTarget,
   tagsRecordToArray,
   STATUS_TAG_COLOR,
   STATUS_TRANSITIONS,
@@ -18,7 +18,7 @@ import {
   getServerPermissions,
 } from './utils';
 import { MCPStatus, TransportType } from './types';
-import { createMockMCPServer, createMockAccessBinding } from './test-utils';
+import { createMockMCPServer, createMockAccessEndpoint } from './test-utils';
 
 describe('resolveDisplayName', () => {
   it('returns display_name when set', () => {
@@ -287,39 +287,39 @@ describe('getServerPermissions', () => {
 });
 
 describe('isServerDimmed', () => {
-  const binding = createMockAccessBinding();
+  const endpoint = createMockAccessEndpoint();
 
-  it('returns false for active server with bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [binding] }))).toBe(false);
+  it('returns false for active server with endpoints', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_endpoints: [endpoint] }))).toBe(false);
   });
 
-  it('returns true for active server without bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [] }))).toBe(true);
+  it('returns true for active server without endpoints', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_endpoints: [] }))).toBe(true);
   });
 
-  it('returns true for draft server with bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_bindings: [binding] }))).toBe(true);
+  it('returns true for draft server with endpoints', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_endpoints: [endpoint] }))).toBe(true);
   });
 
-  it('returns true for draft server without bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_bindings: [] }))).toBe(true);
+  it('returns true for draft server without endpoints', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_endpoints: [] }))).toBe(true);
   });
 
-  it('returns true for deprecated server with bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_bindings: [binding] }))).toBe(
+  it('returns true for deprecated server with endpoints', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_endpoints: [endpoint] }))).toBe(
       true,
     );
   });
 
   it('returns true when status is undefined (no version resolved)', () => {
-    expect(isServerDimmed(createMockMCPServer({ access_bindings: [binding] }))).toBe(true);
+    expect(isServerDimmed(createMockMCPServer({ access_endpoints: [endpoint] }))).toBe(true);
   });
 });
 
-describe('resolveBindingDisplayName', () => {
+describe('resolveEndpointDisplayName', () => {
   it('returns display_name from resolved_version when set', () => {
     expect(
-      resolveBindingDisplayName({
+      resolveEndpointDisplayName({
         server_name: 'io.test/server',
         resolved_version: { display_name: 'My Display Name', server_json: { title: 'Title' } },
       }),
@@ -328,7 +328,7 @@ describe('resolveBindingDisplayName', () => {
 
   it('falls back to server_json title when display_name is missing', () => {
     expect(
-      resolveBindingDisplayName({
+      resolveEndpointDisplayName({
         server_name: 'io.test/server',
         resolved_version: { server_json: { title: 'Server Title' } },
       }),
@@ -337,7 +337,7 @@ describe('resolveBindingDisplayName', () => {
 
   it('falls back to server_name when resolved_version has no display info', () => {
     expect(
-      resolveBindingDisplayName({
+      resolveEndpointDisplayName({
         server_name: 'io.test/server',
         resolved_version: { server_json: {} },
       }),
@@ -345,11 +345,13 @@ describe('resolveBindingDisplayName', () => {
   });
 
   it('falls back to server_name when resolved_version is null', () => {
-    expect(resolveBindingDisplayName({ server_name: 'io.test/server', resolved_version: null })).toBe('io.test/server');
+    expect(resolveEndpointDisplayName({ server_name: 'io.test/server', resolved_version: null })).toBe(
+      'io.test/server',
+    );
   });
 
   it('falls back to server_name when resolved_version is undefined', () => {
-    expect(resolveBindingDisplayName({ server_name: 'io.test/server' })).toBe('io.test/server');
+    expect(resolveEndpointDisplayName({ server_name: 'io.test/server' })).toBe('io.test/server');
   });
 });
 
@@ -407,25 +409,25 @@ describe('isValidEndpointUrl', () => {
   });
 });
 
-describe('formatBindingTarget', () => {
+describe('formatEndpointTarget', () => {
   it('returns alias prefixed with @ when server_alias is set', () => {
-    expect(formatBindingTarget({ server_alias: 'stable', server_version: '1.0.0' })).toBe('@stable');
+    expect(formatEndpointTarget({ server_alias: 'stable', server_version: '1.0.0' })).toBe('@stable');
   });
 
   it('returns version when server_alias is not set', () => {
-    expect(formatBindingTarget({ server_version: '1.0.0' })).toBe('1.0.0');
+    expect(formatEndpointTarget({ server_version: '1.0.0' })).toBe('1.0.0');
   });
 
   it('returns dash when neither alias nor version is set', () => {
-    expect(formatBindingTarget({})).toBe('—');
+    expect(formatEndpointTarget({})).toBe('—');
   });
 
   it('returns dash when version is empty string', () => {
-    expect(formatBindingTarget({ server_version: '' })).toBe('—');
+    expect(formatEndpointTarget({ server_version: '' })).toBe('—');
   });
 
   it('prefers alias over version', () => {
-    expect(formatBindingTarget({ server_alias: 'latest', server_version: '2.0.0' })).toBe('@latest');
+    expect(formatEndpointTarget({ server_alias: 'latest', server_version: '2.0.0' })).toBe('@latest');
   });
 });
 

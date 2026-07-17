@@ -11,7 +11,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { diffChars, diffJson, diffLines, diffWords } from 'diff';
 
-import type { MCPAccessBinding, MCPIcon, MCPServerVersion, ServerJSONPayload } from '../types';
+import type { MCPAccessEndpoint, MCPIcon, MCPServerVersion, ServerJSONPayload } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { MCPServerIcon } from './MCPServerIcon';
@@ -153,12 +153,12 @@ const stringify = (value: unknown): string => {
   return JSON.stringify(value, null, 2);
 };
 
-const stringifyBindings = (bindings?: MCPAccessBinding[]): string => {
-  if (!bindings?.length) return '';
-  return bindings
+const stringifyEndpoints = (endpoints?: MCPAccessEndpoint[]): string => {
+  if (!endpoints?.length) return '';
+  return endpoints
     .map(
       (b) =>
-        `${b.transport_type} ${b.endpoint_url}${b.server_alias ? ` (alias: ${b.server_alias})` : ''}${b.server_version ? ` (version: ${b.server_version})` : ''}`,
+        `${b.transport_type} ${b.url}${b.server_alias ? ` (alias: ${b.server_alias})` : ''}${b.server_version ? ` (version: ${b.server_version})` : ''}`,
     )
     .join('\n');
 };
@@ -316,15 +316,15 @@ export const MCPServerVersionCompare = ({
   baselineVersion,
   comparedVersion,
   aliasesByVersion,
-  baselineBindings,
-  comparedBindings,
+  baselineEndpoints,
+  comparedEndpoints,
   onSwitchSides,
 }: {
   baselineVersion?: MCPServerVersion;
   comparedVersion?: MCPServerVersion;
   aliasesByVersion: Record<string, string[]>;
-  baselineBindings?: MCPAccessBinding[];
-  comparedBindings?: MCPAccessBinding[];
+  baselineEndpoints?: MCPAccessEndpoint[];
+  comparedEndpoints?: MCPAccessEndpoint[];
   onSwitchSides: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -343,14 +343,14 @@ export const MCPServerVersionCompare = ({
     const getText = (key: string, side: 'baseline' | 'compared'): string => {
       const split = side === 'baseline' ? baselineSplit : comparedSplit;
       const version = side === 'baseline' ? baselineVersion : comparedVersion;
-      const bindings = side === 'baseline' ? baselineBindings : comparedBindings;
+      const endpoints = side === 'baseline' ? baselineEndpoints : comparedEndpoints;
       switch (key) {
         case '_displayName':
           return version?.display_name ?? '';
         case '_source':
           return version?.source ?? '';
         case '_endpoints':
-          return stringifyBindings(bindings);
+          return stringifyEndpoints(endpoints);
         case '_tools':
           return version?.tools?.length ? stringify(version.tools) : '';
         case '_extra':
@@ -368,7 +368,7 @@ export const MCPServerVersionCompare = ({
       showWhenEmpty: key === '_tools',
       diffMode,
     }));
-  }, [baselineSplit, comparedSplit, baselineVersion, comparedVersion, baselineBindings, comparedBindings]);
+  }, [baselineSplit, comparedSplit, baselineVersion, comparedVersion, baselineEndpoints, comparedEndpoints]);
 
   const { changed, identical } = useMemo(() => {
     const changedEntries: DiffEntry[] = [];

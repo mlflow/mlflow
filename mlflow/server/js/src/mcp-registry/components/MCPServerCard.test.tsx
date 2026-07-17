@@ -85,12 +85,12 @@ describe('MCPServerCard', () => {
   describe('dimmed card with auth available', () => {
     setupServer(getMockedCurrentUserResponse({ isAdmin: false }));
 
-    it('renders with dimmed styling when server has no access_bindings and status is active', async () => {
+    it('renders with dimmed styling when server has no access_endpoints and status is active', async () => {
       renderCard(
         createMockMCPServer({
           name: 'io.github.test/dimmed',
           status: MCPStatus.ACTIVE,
-          access_bindings: [],
+          access_endpoints: [],
         }),
       );
 
@@ -111,7 +111,7 @@ describe('MCPServerCard', () => {
         createMockMCPServer({
           name: 'io.github.test/unavailable',
           status: MCPStatus.ACTIVE,
-          access_bindings: [],
+          access_endpoints: [],
         }),
       );
 

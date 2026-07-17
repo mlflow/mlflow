@@ -13,15 +13,15 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { MCPAccessBinding, MCPServer, MCPServerVersion } from '../types';
+import type { MCPAccessEndpoint, MCPServer, MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR, resolveDisplayName, sanitizeHref } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 import { deriveClientName } from '../installInstructions';
-import { AccessBindingsSubsection } from './AccessBindingsSubsection';
+import { AccessEndpointsSubsection } from './AccessEndpointsSubsection';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
-import { useAddAccessBindingModal } from '../hooks/useAddAccessBindingModal';
-import { useEditAccessBindingModal } from '../hooks/useEditAccessBindingModal';
-import { useDeleteAccessBindingModal } from '../hooks/useDeleteAccessBindingModal';
+import { useAddAccessEndpointModal } from '../hooks/useAddAccessEndpointModal';
+import { useEditAccessEndpointModal } from '../hooks/useEditAccessEndpointModal';
+import { useDeleteAccessEndpointModal } from '../hooks/useDeleteAccessEndpointModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { EditVersionModal } from './EditVersionModal';
@@ -34,14 +34,14 @@ export const MCPServerVersionDetail = ({
   aliasesByVersion,
   showEditAliasesModal,
   onEditMetadata,
-  bindings,
+  endpoints,
 }: {
   server: MCPServer;
   version?: MCPServerVersion;
   aliasesByVersion: Record<string, string[]>;
   showEditAliasesModal?: (versionNumber: string) => void;
   onEditMetadata?: (version: MCPServerVersion) => void;
-  bindings?: MCPAccessBinding[];
+  endpoints?: MCPAccessEndpoint[];
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -50,17 +50,17 @@ export const MCPServerVersionDetail = ({
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
   const { DeleteVersionModal, openDeleteVersionModal } = useDeleteVersionModal({ serverName: server.name });
-  const { AddAccessBindingModal, openAddBinding } = useAddAccessBindingModal({
+  const { AddAccessEndpointModal, openAddEndpoint } = useAddAccessEndpointModal({
     serverName: server.name,
     scopedVersion: version?.version,
     scopedAliases: version ? aliasesByVersion[version.version] : undefined,
   });
-  const { EditAccessBindingModal, openEditBinding } = useEditAccessBindingModal({
+  const { EditAccessEndpointModal, openEditEndpoint } = useEditAccessEndpointModal({
     serverName: server.name,
     scopedVersion: version?.version,
     scopedAliases: version ? aliasesByVersion[version.version] : undefined,
   });
-  const { DeleteAccessBindingModal, openDeleteBinding } = useDeleteAccessBindingModal({ serverName: server.name });
+  const { DeleteAccessEndpointModal, openDeleteEndpoint } = useDeleteAccessEndpointModal({ serverName: server.name });
 
   if (!version) {
     return (
@@ -280,13 +280,13 @@ export const MCPServerVersionDetail = ({
           value="connect"
           css={{ paddingTop: theme.spacing.md, ...flexColumnGapStyles(theme, theme.spacing.md) }}
         >
-          <AccessBindingsSubsection
-            bindings={bindings ?? []}
+          <AccessEndpointsSubsection
+            endpoints={endpoints ?? []}
             derivedName={derivedName}
             server={server}
-            onAddBinding={openAddBinding}
-            onEditBinding={openEditBinding}
-            onDeleteBinding={openDeleteBinding}
+            onAddEndpoint={openAddEndpoint}
+            onEditEndpoint={openEditEndpoint}
+            onDeleteEndpoint={openDeleteEndpoint}
           />
           <ServerJSONSection serverJson={version.server_json} server={server} version={version} />
         </Tabs.Content>
@@ -306,9 +306,9 @@ export const MCPServerVersionDetail = ({
         onClose={() => setEditVersionModalVisible(false)}
       />
       {DeleteVersionModal}
-      {AddAccessBindingModal}
-      {EditAccessBindingModal}
-      {DeleteAccessBindingModal}
+      {AddAccessEndpointModal}
+      {EditAccessEndpointModal}
+      {DeleteAccessEndpointModal}
     </div>
   );
 };

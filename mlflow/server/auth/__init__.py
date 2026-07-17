@@ -4627,7 +4627,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     can_read = _role_based_read_predicate(username, "mcp_server")
 
     def _is_dimmed(s: dict[str, Any]) -> bool:
-        return not s.get("access_bindings") or s.get("status") != "active"
+        return not s.get("access_endpoints") or s.get("status") != "active"
 
     def _stamp_and_check(s: dict[str, Any]) -> bool:
         # Intentional side-effect: stamps ``allowed_actions`` onto ``s`` so the

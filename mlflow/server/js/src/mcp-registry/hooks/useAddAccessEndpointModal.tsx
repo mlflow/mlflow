@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { AccessBindingModal } from '../components/AccessBindingModal';
+import { AccessEndpointModal } from '../components/AccessEndpointModal';
 
-export const useAddAccessBindingModal = ({
+export const useAddAccessEndpointModal = ({
   serverName,
   scopedVersion,
   scopedAliases,
@@ -13,8 +13,8 @@ export const useAddAccessBindingModal = ({
 }) => {
   const [open, setOpen] = useState(false);
 
-  const AddAccessBindingModal = (
-    <AccessBindingModal
+  const AddAccessEndpointModal = (
+    <AccessEndpointModal
       visible={open}
       onCancel={() => setOpen(false)}
       lockedServer={serverName}
@@ -29,5 +29,5 @@ export const useAddAccessBindingModal = ({
     />
   );
 
-  return { AddAccessBindingModal, openAddBinding: () => setOpen(true) };
+  return { AddAccessEndpointModal, openAddEndpoint: () => setOpen(true) };
 };

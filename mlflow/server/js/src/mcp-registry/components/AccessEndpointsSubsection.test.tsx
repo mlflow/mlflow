@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-import { AccessBindingsSubsection } from './AccessBindingsSubsection';
-import { createMockAccessBinding } from '../test-utils';
+import { AccessEndpointsSubsection } from './AccessEndpointsSubsection';
+import { createMockAccessEndpoint } from '../test-utils';
 import { TransportType } from '../types';
 
 // Mock useServerState to control permission flags without needing react-query / auth
@@ -38,39 +38,39 @@ const mockPermissions = ({
   });
 };
 
-const renderSubsection = (props: Partial<React.ComponentProps<typeof AccessBindingsSubsection>> = {}) =>
+const renderSubsection = (props: Partial<React.ComponentProps<typeof AccessEndpointsSubsection>> = {}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <AccessBindingsSubsection bindings={[]} derivedName="Test Server" {...props} />
+        <AccessEndpointsSubsection endpoints={[]} derivedName="Test Server" {...props} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
 
-describe('AccessBindingsSubsection', () => {
+describe('AccessEndpointsSubsection', () => {
   beforeEach(() => {
     mockPermissions();
   });
 
-  it('renders empty state when no bindings are provided', () => {
+  it('renders empty state when no endpoints are provided', () => {
     renderSubsection();
     expect(screen.getByText('No access endpoints configured for this server.')).toBeInTheDocument();
   });
 
-  it('renders bindings list with expandable rows', () => {
-    const bindings = [
-      createMockAccessBinding({
-        binding_id: 1,
-        endpoint_url: 'https://example.com/mcp-a',
+  it('renders endpoints list with expandable rows', () => {
+    const endpoints = [
+      createMockAccessEndpoint({
+        id: 'ae-1',
+        url: 'https://example.com/mcp-a',
         transport_type: TransportType.STREAMABLE_HTTP,
       }),
-      createMockAccessBinding({
-        binding_id: 2,
-        endpoint_url: 'https://example.com/mcp-b',
+      createMockAccessEndpoint({
+        id: 'ae-2',
+        url: 'https://example.com/mcp-b',
         transport_type: TransportType.SSE,
       }),
     ];
-    renderSubsection({ bindings });
+    renderSubsection({ endpoints });
 
     expect(screen.getByText('https://example.com/mcp-a')).toBeInTheDocument();
     expect(screen.getByText('https://example.com/mcp-b')).toBeInTheDocument();
@@ -78,31 +78,31 @@ describe('AccessBindingsSubsection', () => {
     expect(screen.getByText('sse')).toBeInTheDocument();
   });
 
-  it('shows Add endpoint button when canUpdate is true and onAddBinding is provided', () => {
+  it('shows Add endpoint button when canUpdate is true and onAddEndpoint is provided', () => {
     mockPermissions({ canUpdate: true });
-    renderSubsection({ onAddBinding: jest.fn() });
+    renderSubsection({ onAddEndpoint: jest.fn() });
     expect(screen.getByText('Add endpoint')).toBeInTheDocument();
   });
 
   it('hides Add endpoint button when canUpdate is false', () => {
     mockPermissions({ canUpdate: false });
-    renderSubsection({ onAddBinding: jest.fn() });
+    renderSubsection({ onAddEndpoint: jest.fn() });
     expect(screen.queryByText('Add endpoint')).not.toBeInTheDocument();
   });
 
-  it('hides Add endpoint button when onAddBinding is not provided', () => {
+  it('hides Add endpoint button when onAddEndpoint is not provided', () => {
     mockPermissions({ canUpdate: true });
-    renderSubsection({ onAddBinding: undefined });
+    renderSubsection({ onAddEndpoint: undefined });
     expect(screen.queryByText('Add endpoint')).not.toBeInTheDocument();
   });
 
   it('shows edit and delete icons per row when canUpdate and canDelete are true', () => {
     mockPermissions({ canUpdate: true, canDelete: true });
-    const bindings = [createMockAccessBinding({ binding_id: 1 })];
+    const endpoints = [createMockAccessEndpoint({ id: 'ae-1' })];
     renderSubsection({
-      bindings,
-      onEditBinding: jest.fn(),
-      onDeleteBinding: jest.fn(),
+      endpoints,
+      onEditEndpoint: jest.fn(),
+      onDeleteEndpoint: jest.fn(),
     });
 
     expect(screen.getByLabelText('Edit access endpoint')).toBeInTheDocument();
@@ -111,11 +111,11 @@ describe('AccessBindingsSubsection', () => {
 
   it('hides edit icon when canUpdate is false', () => {
     mockPermissions({ canUpdate: false, canDelete: true });
-    const bindings = [createMockAccessBinding({ binding_id: 1 })];
+    const endpoints = [createMockAccessEndpoint({ id: 'ae-1' })];
     renderSubsection({
-      bindings,
-      onEditBinding: jest.fn(),
-      onDeleteBinding: jest.fn(),
+      endpoints,
+      onEditEndpoint: jest.fn(),
+      onDeleteEndpoint: jest.fn(),
     });
 
     expect(screen.queryByLabelText('Edit access endpoint')).not.toBeInTheDocument();
@@ -124,11 +124,11 @@ describe('AccessBindingsSubsection', () => {
 
   it('hides delete icon when canDelete is false', () => {
     mockPermissions({ canUpdate: true, canDelete: false });
-    const bindings = [createMockAccessBinding({ binding_id: 1 })];
+    const endpoints = [createMockAccessEndpoint({ id: 'ae-1' })];
     renderSubsection({
-      bindings,
-      onEditBinding: jest.fn(),
-      onDeleteBinding: jest.fn(),
+      endpoints,
+      onEditEndpoint: jest.fn(),
+      onDeleteEndpoint: jest.fn(),
     });
 
     expect(screen.getByLabelText('Edit access endpoint')).toBeInTheDocument();
@@ -137,8 +137,8 @@ describe('AccessBindingsSubsection', () => {
 
   it('hides both action icons when neither callback is provided', () => {
     mockPermissions({ canUpdate: true, canDelete: true });
-    const bindings = [createMockAccessBinding({ binding_id: 1 })];
-    renderSubsection({ bindings });
+    const endpoints = [createMockAccessEndpoint({ id: 'ae-1' })];
+    renderSubsection({ endpoints });
 
     expect(screen.queryByLabelText('Edit access endpoint')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Delete access endpoint')).not.toBeInTheDocument();
@@ -146,30 +146,30 @@ describe('AccessBindingsSubsection', () => {
 
   it('expanding a row shows connection instructions content', async () => {
     mockPermissions();
-    const bindings = [
-      createMockAccessBinding({
-        binding_id: 1,
-        endpoint_url: 'https://example.com/mcp',
+    const endpoints = [
+      createMockAccessEndpoint({
+        id: 'ae-1',
+        url: 'https://example.com/mcp',
         transport_type: TransportType.STREAMABLE_HTTP,
       }),
     ];
-    renderSubsection({ bindings });
+    renderSubsection({ endpoints });
 
     // Click the expandable row to expand it
-    const expandButton = screen.getByLabelText('Expand binding https://example.com/mcp');
+    const expandButton = screen.getByLabelText('Expand endpoint https://example.com/mcp');
     await userEvent.click(expandButton);
 
     // The expanded content should show "Target:" label
     expect(screen.getByText('Target:')).toBeInTheDocument();
   });
 
-  it('calls onAddBinding when Add endpoint button is clicked', async () => {
+  it('calls onAddEndpoint when Add endpoint button is clicked', async () => {
     mockPermissions({ canUpdate: true });
-    const onAddBinding = jest.fn();
-    renderSubsection({ onAddBinding });
+    const onAddEndpoint = jest.fn();
+    renderSubsection({ onAddEndpoint });
 
     await userEvent.click(screen.getByText('Add endpoint'));
-    expect(onAddBinding).toHaveBeenCalledTimes(1);
+    expect(onAddEndpoint).toHaveBeenCalledTimes(1);
   });
 
   it('renders the section heading', () => {

@@ -18,17 +18,17 @@ export const QuickConnectModal = ({
   onClose: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const binding = server.access_bindings?.[0];
+  const endpoint = server.access_endpoints?.[0];
   const displayName = resolveDisplayName(server);
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
 
   useEffect(() => {
-    if (visible && !binding) {
+    if (visible && !endpoint) {
       onClose();
     }
-  }, [visible, binding, onClose]);
+  }, [visible, endpoint, onClose]);
 
-  if (!binding) return null;
+  if (!endpoint) return null;
 
   return (
     <Modal
@@ -64,16 +64,16 @@ export const QuickConnectModal = ({
             </Typography.Text>{' '}
             {server.latest_version ?? '—'}
           </Typography.Text>
-          {binding.resolved_version?.status && (
+          {endpoint.resolved_version?.status && (
             <Tag
               componentId="mlflow.mcp_registry.quick_connect.version_status"
-              color={STATUS_TAG_COLOR[binding.resolved_version.status]}
+              color={STATUS_TAG_COLOR[endpoint.resolved_version.status]}
             >
-              {binding.resolved_version.status}
+              {endpoint.resolved_version.status}
             </Tag>
           )}
         </span>
-        <ConnectionInstructions source={ConnectionSource.BINDING} binding={binding} derivedName={derivedName} />
+        <ConnectionInstructions source={ConnectionSource.ENDPOINT} endpoint={endpoint} derivedName={derivedName} />
       </div>
     </Modal>
   );

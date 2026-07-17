@@ -11,7 +11,7 @@ import { TransportType, MCPStatus, MCPServerAction } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
-  createMockAccessBinding,
+  createMockAccessEndpoint,
   getMockedGetMCPServerResponse,
   getMockedGetMCPServerErrorResponse,
   getMockedSearchMCPServerVersionsResponse,
@@ -22,7 +22,7 @@ import {
   getMockedSetMCPServerTagResponse,
   getMockedDeleteMCPServerTagResponse,
   getMockedCurrentUserResponse,
-  getMockedSearchAccessBindingsResponse,
+  getMockedSearchAccessEndpointsResponse,
 } from '../test-utils';
 
 // Monaco does not render in jsdom; stand the editor in with a labelled textarea.
@@ -486,7 +486,7 @@ describe('MCPServerDetailPage', () => {
       expect(screen.getByText('Delete version')).toBeInTheDocument();
     });
 
-    it('shows Unavailable tag when auth is available and server has no bindings', async () => {
+    it('shows Unavailable tag when auth is available and server has no endpoints', async () => {
       setupWithPermissions([]);
       renderPage();
       await waitFor(() => {
@@ -520,13 +520,13 @@ describe('MCPServerDetailPage', () => {
     });
   });
 
-  it('renders AccessBindingsSubsection when bindings data is present', async () => {
-    const binding = createMockAccessBinding({
+  it('renders AccessEndpointsSubsection when endpoints data is present', async () => {
+    const endpoint = createMockAccessEndpoint({
       server_name: 'dev.mainline/mcp',
-      endpoint_url: 'https://api.mainline.dev/mcp',
+      url: 'https://api.mainline.dev/mcp',
       transport_type: TransportType.STREAMABLE_HTTP,
     });
-    server.use(getMockedSearchAccessBindingsResponse([binding]));
+    server.use(getMockedSearchAccessEndpointsResponse([endpoint]));
 
     renderPage();
     await waitFor(() => {

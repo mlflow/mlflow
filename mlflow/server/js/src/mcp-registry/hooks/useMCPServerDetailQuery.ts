@@ -4,7 +4,7 @@ import type {
   MCPServer,
   MCPServerVersion,
   SearchMCPServerVersionsResponse,
-  SearchMCPAccessBindingsResponse,
+  SearchMCPAccessEndpointsResponse,
 } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
@@ -52,15 +52,15 @@ export const useLatestMCPServerVersionQuery = (name: string, enabled = true) => 
   });
 };
 
-export const useMCPAccessBindingsQuery = (name: string) => {
-  const queryResult = useQuery<SearchMCPAccessBindingsResponse, Error>([MCP_QUERY_KEYS.SERVER_BINDINGS, name], {
-    queryFn: () => MCPRegistryApi.searchMCPAccessBindings(name),
+export const useMCPAccessEndpointsQuery = (name: string) => {
+  const queryResult = useQuery<SearchMCPAccessEndpointsResponse, Error>([MCP_QUERY_KEYS.SERVER_ENDPOINTS, name], {
+    queryFn: () => MCPRegistryApi.searchMCPAccessEndpoints(name),
     retry: false,
     enabled: Boolean(name),
   });
 
   return {
     ...queryResult,
-    data: queryResult.data?.mcp_access_bindings,
+    data: queryResult.data?.mcp_access_endpoints,
   };
 };

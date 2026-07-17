@@ -11,29 +11,29 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { MCPAccessBinding, MCPRemoteTransportType } from '../types';
+import type { MCPAccessEndpoint, MCPRemoteTransportType } from '../types';
 import { TransportType } from '../types';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useMCPServerQuery, useMCPServerVersionsQuery } from '../hooks/useMCPServerDetailQuery';
 import { MCPRegistryApi } from '../api';
 import { MCP_QUERY_KEYS } from '../utils';
 import { flexColumnGapStyles } from '../styles';
-import { useCreateAccessBindingMutation, useUpdateAccessBindingMutation } from '../hooks/useAccessBindingMutation';
-import { isValidEndpointUrl, resolveBindingDisplayName } from '../utils';
+import { useCreateAccessEndpointMutation, useUpdateAccessEndpointMutation } from '../hooks/useAccessEndpointMutation';
+import { isValidEndpointUrl, resolveEndpointDisplayName } from '../utils';
 import { FieldLabel } from '../../admin/components/FieldLabel';
-import { BindingTargetSelector, ALIAS_PREFIX, VERSION_PREFIX } from './BindingTargetSelector';
+import { EndpointTargetSelector, ALIAS_PREFIX, VERSION_PREFIX } from './EndpointTargetSelector';
 
-function bindingToTarget(binding: MCPAccessBinding): string {
-  if (binding.server_alias) return `${ALIAS_PREFIX}${binding.server_alias}`;
-  if (binding.server_version) return `${VERSION_PREFIX}${binding.server_version}`;
+function endpointToTarget(endpoint: MCPAccessEndpoint): string {
+  if (endpoint.server_alias) return `${ALIAS_PREFIX}${endpoint.server_alias}`;
+  if (endpoint.server_version) return `${VERSION_PREFIX}${endpoint.server_version}`;
   return `${ALIAS_PREFIX}latest`;
 }
 
-export const AccessBindingModal = ({
+export const AccessEndpointModal = ({
   visible,
   onCancel,
   onSuccess,
-  editBinding,
+  editEndpoint,
   lockedServer,
   scopedVersion,
   scopedAliases,
@@ -42,7 +42,7 @@ export const AccessBindingModal = ({
   visible: boolean;
   onCancel: () => void;
   onSuccess?: () => void;
-  editBinding?: MCPAccessBinding;
+  editEndpoint?: MCPAccessEndpoint;
   lockedServer?: string;
   scopedVersion?: string;
   scopedAliases?: string[];
@@ -50,7 +50,7 @@ export const AccessBindingModal = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const isEditMode = Boolean(editBinding);
+  const isEditMode = Boolean(editEndpoint);
   const isServerLocked = isEditMode || Boolean(lockedServer);
 
   const [selectedServer, setSelectedServer] = useState('');
@@ -58,8 +58,8 @@ export const AccessBindingModal = ({
   const [selectedTarget, setSelectedTarget] = useState(`${ALIAS_PREFIX}latest`);
   const [transportType, setTransportType] = useState<MCPRemoteTransportType>(TransportType.STREAMABLE_HTTP);
 
-  const createMutation = useCreateAccessBindingMutation();
-  const updateMutation = useUpdateAccessBindingMutation();
+  const createMutation = useCreateAccessEndpointMutation();
+  const updateMutation = useUpdateAccessEndpointMutation();
   const activeMutation = isEditMode ? updateMutation : createMutation;
 
   // TODO: Server list is capped at 1000 results. Switch to a searchable combobox
@@ -75,11 +75,11 @@ export const AccessBindingModal = ({
 
   useEffect(() => {
     if (visible) {
-      if (editBinding) {
-        setSelectedServer(editBinding.server_name);
-        setEndpointUrl(editBinding.endpoint_url);
-        setSelectedTarget(bindingToTarget(editBinding));
-        setTransportType(editBinding.transport_type);
+      if (editEndpoint) {
+        setSelectedServer(editEndpoint.server_name);
+        setEndpointUrl(editEndpoint.url);
+        setSelectedTarget(endpointToTarget(editEndpoint));
+        setTransportType(editEndpoint.transport_type);
       } else {
         setSelectedServer(lockedServer || '');
         setEndpointUrl('');
@@ -89,7 +89,7 @@ export const AccessBindingModal = ({
       createMutation.reset();
       updateMutation.reset();
     }
-  }, [visible, editBinding, lockedServer, scopedVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
+  }, [visible, editEndpoint, lockedServer, scopedVersion]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
 
   const aliases = server?.aliases ?? [];
   const isSubmitting = activeMutation.isLoading;
@@ -110,13 +110,13 @@ export const AccessBindingModal = ({
       },
     };
 
-    if (isEditMode && editBinding) {
+    if (isEditMode && editEndpoint) {
       updateMutation.mutate(
         {
-          serverName: editBinding.server_name,
-          bindingId: editBinding.binding_id,
+          serverName: editEndpoint.server_name,
+          endpointId: editEndpoint.id,
           request: {
-            endpoint_url: endpointUrl.trim(),
+            url: endpointUrl.trim(),
             server_alias: isAlias ? targetValue : null,
             server_version: isAlias ? null : targetValue,
             transport_type: transportType,
@@ -129,7 +129,7 @@ export const AccessBindingModal = ({
         {
           serverName: selectedServer,
           request: {
-            endpoint_url: endpointUrl.trim(),
+            url: endpointUrl.trim(),
             server_alias: isAlias ? targetValue : undefined,
             server_version: isAlias ? undefined : targetValue,
             transport_type: transportType,
@@ -142,7 +142,7 @@ export const AccessBindingModal = ({
 
   return (
     <Modal
-      componentId="mlflow.mcp_registry.binding_modal"
+      componentId="mlflow.mcp_registry.endpoint_modal"
       title={
         isEditMode ? (
           <FormattedMessage
@@ -178,7 +178,7 @@ export const AccessBindingModal = ({
       <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
         {activeMutation.error && (
           <Alert
-            componentId="mlflow.mcp_registry.binding_modal.error"
+            componentId="mlflow.mcp_registry.endpoint_modal.error"
             type="error"
             message={activeMutation.error?.message}
             closable={false}
@@ -187,14 +187,16 @@ export const AccessBindingModal = ({
 
         <div>
           <FieldLabel>
-            <FormattedMessage defaultMessage="MCP Server:" description="MCP registry binding modal server label" />
+            <FormattedMessage defaultMessage="MCP Server:" description="MCP registry endpoint modal server label" />
           </FieldLabel>
           {isServerLocked ? (
-            <Typography.Text>{editBinding ? resolveBindingDisplayName(editBinding) : selectedServer}</Typography.Text>
+            <Typography.Text>
+              {editEndpoint ? resolveEndpointDisplayName(editEndpoint) : selectedServer}
+            </Typography.Text>
           ) : (
             <SimpleSelect
-              id="mcp-registry-binding-server"
-              componentId="mlflow.mcp_registry.binding_modal.server"
+              id="mcp-registry-endpoint-server"
+              componentId="mlflow.mcp_registry.endpoint_modal.server"
               value={selectedServer}
               onChange={({ target }) => {
                 setSelectedServer(target.value);
@@ -203,7 +205,7 @@ export const AccessBindingModal = ({
               disabled={isSubmitting}
               placeholder={intl.formatMessage({
                 defaultMessage: 'Select an MCP server',
-                description: 'MCP registry binding modal server placeholder',
+                description: 'MCP registry endpoint modal server placeholder',
               })}
             >
               {servers?.map((s) => (
@@ -217,16 +219,16 @@ export const AccessBindingModal = ({
 
         <div>
           <FieldLabel>
-            <FormattedMessage defaultMessage="Endpoint URL:" description="MCP registry binding modal endpoint label" />
+            <FormattedMessage defaultMessage="Endpoint URL:" description="MCP registry endpoint modal endpoint label" />
           </FieldLabel>
           <Input
-            componentId="mlflow.mcp_registry.binding_modal.endpoint"
+            componentId="mlflow.mcp_registry.endpoint_modal.endpoint"
             value={endpointUrl}
             onChange={(e) => setEndpointUrl(e.target.value)}
             disabled={isSubmitting}
             placeholder={intl.formatMessage({
               defaultMessage: 'https://mcp.example.com/server',
-              description: 'MCP registry binding modal endpoint placeholder',
+              description: 'MCP registry endpoint modal endpoint placeholder',
             })}
             validationState={endpointUrl.trim() && !isValidUrl ? 'error' : undefined}
           />
@@ -234,7 +236,7 @@ export const AccessBindingModal = ({
             <Typography.Text color="error" size="sm">
               <FormattedMessage
                 defaultMessage="Enter a valid HTTP or HTTPS URL"
-                description="MCP registry binding modal endpoint URL validation error"
+                description="MCP registry endpoint modal endpoint URL validation error"
               />
             </Typography.Text>
           )}
@@ -244,10 +246,10 @@ export const AccessBindingModal = ({
           <FieldLabel>
             <FormattedMessage
               defaultMessage="Version/Alias:"
-              description="MCP registry binding modal version/alias label"
+              description="MCP registry endpoint modal version/alias label"
             />
           </FieldLabel>
-          <BindingTargetSelector
+          <EndpointTargetSelector
             value={selectedTarget}
             onChange={setSelectedTarget}
             disabled={!selectedServer || isSubmitting}
@@ -262,12 +264,12 @@ export const AccessBindingModal = ({
           <FieldLabel>
             <FormattedMessage
               defaultMessage="Transport Type:"
-              description="MCP registry binding modal transport label"
+              description="MCP registry endpoint modal transport label"
             />
           </FieldLabel>
           <SimpleSelect
-            id="mcp-registry-binding-transport"
-            componentId="mlflow.mcp_registry.binding_modal.transport"
+            id="mcp-registry-endpoint-transport"
+            componentId="mlflow.mcp_registry.endpoint_modal.transport"
             value={transportType}
             onChange={({ target }) => setTransportType(target.value as MCPRemoteTransportType)}
             disabled={isSubmitting}

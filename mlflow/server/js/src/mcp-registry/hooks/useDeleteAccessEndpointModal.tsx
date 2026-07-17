@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { FormattedMessage } from 'react-intl';
-import type { MCPAccessBinding } from '../types';
+import type { MCPAccessEndpoint } from '../types';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
-import { useDeleteAccessBindingMutation } from './useAccessBindingMutation';
+import { useDeleteAccessEndpointMutation } from './useAccessEndpointMutation';
 
-export const useDeleteAccessBindingModal = ({ serverName }: { serverName: string }) => {
+export const useDeleteAccessEndpointModal = ({ serverName }: { serverName: string }) => {
   const intl = useIntl();
-  const [binding, setBinding] = useState<MCPAccessBinding | undefined>(undefined);
-  const mutation = useDeleteAccessBindingMutation();
+  const [endpoint, setEndpoint] = useState<MCPAccessEndpoint | undefined>(undefined);
+  const mutation = useDeleteAccessEndpointMutation();
 
-  const DeleteAccessBindingModal = (
+  const DeleteAccessEndpointModal = (
     <ConfirmationModal
-      componentId="mlflow.mcp_registry.detail.delete_binding_modal"
+      componentId="mlflow.mcp_registry.detail.delete_endpoint_modal"
       title={intl.formatMessage({
         defaultMessage: 'Delete access endpoint',
         description: 'Access endpoint delete confirmation modal title',
       })}
-      visible={Boolean(binding)}
+      visible={Boolean(endpoint)}
       message={
         <FormattedMessage
           defaultMessage="Are you sure you want to delete this access endpoint? This action cannot be undone."
@@ -27,16 +27,19 @@ export const useDeleteAccessBindingModal = ({ serverName }: { serverName: string
       isLoading={mutation.isLoading}
       error={mutation.error?.message ?? null}
       onConfirm={() => {
-        if (binding) {
-          mutation.mutate({ serverName, bindingId: binding.binding_id }, { onSuccess: () => setBinding(undefined) });
+        if (endpoint) {
+          mutation.mutate(
+            { serverName, endpointId: endpoint.id },
+            { onSuccess: () => setEndpoint(undefined) },
+          );
         }
       }}
       onCancel={() => {
         mutation.reset();
-        setBinding(undefined);
+        setEndpoint(undefined);
       }}
     />
   );
 
-  return { DeleteAccessBindingModal, openDeleteBinding: (b: MCPAccessBinding) => setBinding(b) };
+  return { DeleteAccessEndpointModal, openDeleteEndpoint: (b: MCPAccessEndpoint) => setEndpoint(b) };
 };

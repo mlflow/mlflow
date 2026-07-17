@@ -143,20 +143,20 @@ const MCPServerEndpointsCell = ({
   const { theme } = useDesignSystemTheme();
   const { onOpenConnect } = (meta ?? {}) as MCPServerTableMeta;
 
-  const latestBinding = original.latest_version
-    ? (original.access_bindings ?? []).find((b) => b.resolved_version?.version === original.latest_version)
+  const latestEndpoint = original.latest_version
+    ? (original.access_endpoints ?? []).find((b) => b.resolved_version?.version === original.latest_version)
     : undefined;
-  if (!latestBinding) return '—';
+  if (!latestEndpoint) return '—';
 
-  const displayUrl = latestBinding.endpoint_url.replace(/^https?:\/\//, '');
+  const displayUrl = latestEndpoint.url.replace(/^https?:\/\//, '');
 
   return (
     <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
       <Tag componentId="mlflow.mcp_registry.table.transport_tag" color="indigo" css={noShrinkStyles}>
-        {formatTransportType(latestBinding.transport_type)}
+        {formatTransportType(latestEndpoint.transport_type)}
       </Tag>
       <Tooltip
-        content={<span css={{ wordBreak: 'break-all' }}>{latestBinding.endpoint_url}</span>}
+        content={<span css={{ wordBreak: 'break-all' }}>{latestEndpoint.url}</span>}
         componentId="mlflow.mcp_registry.table.endpoint_tooltip"
       >
         <span

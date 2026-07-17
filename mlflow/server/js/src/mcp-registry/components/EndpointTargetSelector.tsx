@@ -6,7 +6,7 @@ const VERSION_PREFIX = 'version:';
 
 export { ALIAS_PREFIX, VERSION_PREFIX };
 
-export const BindingTargetSelector = ({
+export const EndpointTargetSelector = ({
   value,
   onChange,
   disabled,
@@ -27,8 +27,8 @@ export const BindingTargetSelector = ({
 
   return (
     <SimpleSelect
-      id="mcp-registry-binding-target"
-      componentId="mlflow.mcp_registry.binding_modal.target"
+      id="mcp-registry-endpoint-target"
+      componentId="mlflow.mcp_registry.endpoint_modal.target"
       value={value}
       onChange={({ target }) => onChange(target.value)}
       disabled={disabled}
@@ -38,7 +38,7 @@ export const BindingTargetSelector = ({
           <SimpleSelectOptionGroup
             label={intl.formatMessage({
               defaultMessage: 'Version',
-              description: 'MCP registry binding modal version group label',
+              description: 'MCP registry endpoint modal version group label',
             })}
           >
             <SimpleSelectOption value={`${VERSION_PREFIX}${scopedVersion}`}>{scopedVersion}</SimpleSelectOption>
@@ -47,7 +47,7 @@ export const BindingTargetSelector = ({
             <SimpleSelectOptionGroup
               label={intl.formatMessage({
                 defaultMessage: 'Aliases',
-                description: 'MCP registry binding modal aliases group label',
+                description: 'MCP registry endpoint modal aliases group label',
               })}
             >
               {scopedAliases.map((alias) => (
@@ -63,7 +63,7 @@ export const BindingTargetSelector = ({
           <SimpleSelectOptionGroup
             label={intl.formatMessage({
               defaultMessage: 'Aliases',
-              description: 'MCP registry binding modal aliases group label',
+              description: 'MCP registry endpoint modal aliases group label',
             })}
           >
             <SimpleSelectOption value={`${ALIAS_PREFIX}latest`}>
@@ -79,7 +79,7 @@ export const BindingTargetSelector = ({
             <SimpleSelectOptionGroup
               label={intl.formatMessage({
                 defaultMessage: 'Versions',
-                description: 'MCP registry binding modal versions group label',
+                description: 'MCP registry endpoint modal versions group label',
               })}
             >
               {versions.map((v) => (

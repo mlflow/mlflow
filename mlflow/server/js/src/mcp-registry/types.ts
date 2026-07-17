@@ -16,7 +16,7 @@ export type MCPRemoteTransportType = TransportType.STREAMABLE_HTTP | TransportTy
 export enum ConnectionSource {
   PACKAGE = 'package',
   REMOTE = 'remote',
-  BINDING = 'binding',
+  ENDPOINT = 'endpoint',
 }
 
 export enum ConnectionFormat {
@@ -62,7 +62,7 @@ export interface MCPServer {
   description?: string;
   icons?: MCPIcon[];
   status?: MCPStatus;
-  access_bindings?: MCPAccessBinding[];
+  access_endpoints?: MCPAccessEndpoint[];
   latest_version?: string;
   aliases: MCPServerAlias[];
   tags: Record<string, string>;
@@ -90,10 +90,10 @@ export interface MCPServerVersion {
   last_updated_timestamp?: number;
 }
 
-export interface MCPAccessBinding {
-  binding_id: number;
+export interface MCPAccessEndpoint {
+  id: string;
   server_name: string;
-  endpoint_url: string;
+  url: string;
   transport_type: MCPRemoteTransportType;
   tools?: MCPTool[];
   server_version?: string;
@@ -206,17 +206,17 @@ export interface UpdateMCPServerVersionRequest {
   connect_options?: Record<string, { hidden?: boolean }> | null;
 }
 
-export interface CreateMCPAccessBindingRequest {
+export interface CreateMCPAccessEndpointRequest {
   server_version?: string;
   server_alias?: string;
-  endpoint_url: string;
+  url: string;
   transport_type?: MCPRemoteTransportType;
 }
 
-export interface UpdateMCPAccessBindingRequest {
+export interface UpdateMCPAccessEndpointRequest {
   server_version?: string | null;
   server_alias?: string | null;
-  endpoint_url?: string | null;
+  url?: string | null;
   transport_type?: MCPRemoteTransportType | null;
 }
 
@@ -246,7 +246,7 @@ export interface SearchMCPServerVersionsParams {
   page_token?: string;
 }
 
-export interface SearchMCPAccessBindingsParams {
+export interface SearchMCPAccessEndpointsParams {
   server_version?: string;
   server_alias?: string;
   filter_string?: string;
@@ -267,7 +267,7 @@ export interface SearchMCPServerVersionsResponse {
   next_page_token?: string;
 }
 
-export interface SearchMCPAccessBindingsResponse {
-  mcp_access_bindings: MCPAccessBinding[];
+export interface SearchMCPAccessEndpointsResponse {
+  mcp_access_endpoints: MCPAccessEndpoint[];
   next_page_token?: string;
 }

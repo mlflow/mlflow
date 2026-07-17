@@ -160,11 +160,11 @@ describe('MCPRegistryPage', () => {
       createMockMCPServer({
         name: 'server-1',
         status: MCPStatus.ACTIVE,
-        access_bindings: [
+        access_endpoints: [
           {
-            binding_id: 1,
+            id: 1,
             server_name: 'server-1',
-            endpoint_url: 'https://example.com',
+            url: 'https://example.com',
             transport_type: 'streamable-http',
           } as any,
         ],

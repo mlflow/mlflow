@@ -4,7 +4,7 @@ import { MCP_QUERY_KEYS } from '../utils';
 import { buildSearchFilterClause } from '../../common/utils/SearchUtils';
 import { useCursorPaginatedQuery } from './useCursorPaginatedQuery';
 
-const AVAILABLE_FILTER = "status = 'active' AND has_access_bindings = 'true'";
+const AVAILABLE_FILTER = "status = 'active' AND has_access_endpoints = 'true'";
 
 export const useMCPServersListQuery = ({
   searchFilter,

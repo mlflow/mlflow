@@ -1,5 +1,5 @@
 import type { TagProps } from '@databricks/design-system';
-import type { MCPAccessBinding, MCPServer, MCPRemoteTransportType, MCPTool, ServerJSONPayload } from './types';
+import type { MCPAccessEndpoint, MCPServer, MCPRemoteTransportType, MCPTool, ServerJSONPayload } from './types';
 import { MCPStatus, MCPServerAction } from './types';
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
@@ -38,7 +38,7 @@ export const MCP_QUERY_KEYS = {
   SERVER: 'mcp_server',
   SERVER_VERSIONS: 'mcp_server_versions',
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
-  SERVER_BINDINGS: 'mcp_server_bindings',
+  SERVER_ENDPOINTS: 'mcp_server_endpoints',
 } as const;
 
 export const DEFAULT_PAGE_SIZE = 25;
@@ -55,11 +55,11 @@ const resolveVersionDisplayName = (
   return version?.display_name || version?.server_json?.title || fallback;
 };
 
-export const resolveBindingDisplayName = (binding: {
+export const resolveEndpointDisplayName = (endpoint: {
   server_name: string;
   resolved_version?: { display_name?: string; server_json?: { title?: string } } | null;
 }): string => {
-  return resolveVersionDisplayName(binding.resolved_version, binding.server_name);
+  return resolveVersionDisplayName(endpoint.resolved_version, endpoint.server_name);
 };
 
 const TRANSPORT_LABELS: Record<MCPRemoteTransportType, string> = {
@@ -84,13 +84,13 @@ export const isValidEndpointUrl = (url: string): boolean => {
 export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: string; value: string }[] =>
   Object.entries(tags).map(([key, value]) => ({ key, value }));
 
-const hasNoBindings = (server: MCPServer): boolean => (server.access_bindings?.length ?? 0) === 0;
+const hasNoEndpoints = (server: MCPServer): boolean => (server.access_endpoints?.length ?? 0) === 0;
 
 export const isServerDimmed = (server: MCPServer): boolean =>
-  hasNoBindings(server) || server.status !== MCPStatus.ACTIVE;
+  hasNoEndpoints(server) || server.status !== MCPStatus.ACTIVE;
 
-export const formatBindingTarget = (binding: Pick<MCPAccessBinding, 'server_alias' | 'server_version'>): string =>
-  binding.server_alias ? `@${binding.server_alias}` : binding.server_version || '—';
+export const formatEndpointTarget = (endpoint: Pick<MCPAccessEndpoint, 'server_alias' | 'server_version'>): string =>
+  endpoint.server_alias ? `@${endpoint.server_alias}` : endpoint.server_version || '—';
 
 const hasAction = (actions: MCPServerAction[] | undefined, action: MCPServerAction) =>
   actions === undefined || actions.includes(action);

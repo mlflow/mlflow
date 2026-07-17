@@ -30,7 +30,7 @@ import {
   useMCPServerQuery,
   useMCPServerVersionsQuery,
   useLatestMCPServerVersionQuery,
-  useMCPAccessBindingsQuery,
+  useMCPAccessEndpointsQuery,
 } from '../hooks/useMCPServerDetailQuery';
 import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
@@ -75,7 +75,7 @@ const MCPServerDetailPage = () => {
     hasMoreVersions,
   } = useMCPServerVersionsQuery(serverName);
   const { data: latestVersion } = useLatestMCPServerVersionQuery(serverName);
-  const { data: bindings } = useMCPAccessBindingsQuery(serverName);
+  const { data: endpoints } = useMCPAccessEndpointsQuery(serverName);
 
   const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
 
@@ -169,28 +169,28 @@ const MCPServerDetailPage = () => {
     return result;
   }, [server?.aliases, resolvedLatestVersion]);
 
-  const filterBindingsForVersion = useCallback(
+  const filterEndpointsForVersion = useCallback(
     (version?: string) => {
-      if (!bindings || !version) return undefined;
+      if (!endpoints || !version) return undefined;
       const versionAliases = aliasesByVersion[version] ?? [];
-      return bindings.filter((b) => {
+      return endpoints.filter((b) => {
         if (b.server_version === version) return true;
         if (b.resolved_version?.version === version) return true;
         if (b.server_alias && versionAliases.includes(b.server_alias)) return true;
         return false;
       });
     },
-    [bindings, aliasesByVersion],
+    [endpoints, aliasesByVersion],
   );
 
-  const versionBindings = useMemo(
-    () => filterBindingsForVersion(selectedVersion) ?? bindings,
-    [filterBindingsForVersion, selectedVersion, bindings],
+  const versionEndpoints = useMemo(
+    () => filterEndpointsForVersion(selectedVersion) ?? endpoints,
+    [filterEndpointsForVersion, selectedVersion, endpoints],
   );
 
-  const comparedBindings = useMemo(
-    () => filterBindingsForVersion(viewState.comparedVersion),
-    [filterBindingsForVersion, viewState.comparedVersion],
+  const comparedEndpoints = useMemo(
+    () => filterEndpointsForVersion(viewState.comparedVersion),
+    [filterEndpointsForVersion, viewState.comparedVersion],
   );
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
@@ -450,8 +450,8 @@ const MCPServerDetailPage = () => {
               baselineVersion={currentVersion}
               comparedVersion={comparedVersionEntity}
               aliasesByVersion={aliasesByVersion}
-              baselineBindings={versionBindings}
-              comparedBindings={comparedBindings}
+              baselineEndpoints={versionEndpoints}
+              comparedEndpoints={comparedEndpoints}
               onSwitchSides={switchSides}
             />
           ) : (
@@ -461,7 +461,7 @@ const MCPServerDetailPage = () => {
               aliasesByVersion={aliasesByVersion}
               showEditAliasesModal={showEditAliasesModal}
               onEditMetadata={canUpdate ? showEditMetadataModal : undefined}
-              bindings={versionBindings}
+              endpoints={versionEndpoints}
             />
           )}
         </div>

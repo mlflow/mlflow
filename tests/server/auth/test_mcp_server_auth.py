@@ -32,7 +32,7 @@ def test_permission_to_allowed_actions(permission, expected):
 # Visibility logic: _is_dimmed + stamp-and-check
 #
 # The response filter in _filter_search_mcp_servers uses this combined rule:
-#   dimmed = not server.get("access_bindings") or server.get("status") != "active"
+#   dimmed = not server.get("access_endpoints") or server.get("status") != "active"
 #   visible = not dimmed or "MANAGE" in allowed_actions
 #
 # These tests verify the logic against _permission_to_allowed_actions output,
@@ -42,7 +42,7 @@ def test_permission_to_allowed_actions(permission, expected):
 
 def _is_dimmed(s: dict) -> bool:
     """Mirror of the closure in _filter_search_mcp_servers."""
-    return not s.get("access_bindings") or s.get("status") != "active"
+    return not s.get("access_endpoints") or s.get("status") != "active"
 
 
 def _is_visible(server: dict, permission) -> bool:
@@ -55,14 +55,14 @@ def _is_visible(server: dict, permission) -> bool:
 @pytest.mark.parametrize(
     ("server", "expected"),
     [
-        ({"status": "active", "access_bindings": [{"binding_id": 1}]}, False),
-        ({"status": "active", "access_bindings": []}, True),
+        ({"status": "active", "access_endpoints": [{"endpoint_id": 1}]}, False),
+        ({"status": "active", "access_endpoints": []}, True),
         ({"status": "active"}, True),
-        ({"status": "draft", "access_bindings": [{"binding_id": 1}]}, True),
+        ({"status": "draft", "access_endpoints": [{"endpoint_id": 1}]}, True),
         ({"status": "draft"}, True),
-        ({"status": "deprecated", "access_bindings": [{"binding_id": 1}]}, True),
-        ({"access_bindings": [{"binding_id": 1}]}, True),
-        ({"status": "active", "access_bindings": None}, True),
+        ({"status": "deprecated", "access_endpoints": [{"endpoint_id": 1}]}, True),
+        ({"access_endpoints": [{"endpoint_id": 1}]}, True),
+        ({"status": "active", "access_endpoints": None}, True),
     ],
 )
 def test_is_dimmed(server, expected):
@@ -72,27 +72,31 @@ def test_is_dimmed(server, expected):
 @pytest.mark.parametrize(
     ("server", "permission", "expected_visible"),
     [
-        # Active server with bindings — visible to all permission levels
-        ({"name": "s1", "status": "active", "access_bindings": [{"binding_id": 1}]}, READ, True),
-        ({"name": "s1", "status": "active", "access_bindings": [{"binding_id": 1}]}, USE, True),
-        ({"name": "s1", "status": "active", "access_bindings": [{"binding_id": 1}]}, EDIT, True),
-        ({"name": "s1", "status": "active", "access_bindings": [{"binding_id": 1}]}, MANAGE, True),
-        # Dimmed server (no bindings) — hidden from non-MANAGE
-        ({"name": "s1", "status": "active", "access_bindings": []}, READ, False),
-        ({"name": "s1", "status": "active", "access_bindings": []}, USE, False),
-        ({"name": "s1", "status": "active", "access_bindings": []}, EDIT, False),
-        ({"name": "s1", "status": "active", "access_bindings": []}, MANAGE, True),
-        # Draft server with bindings — dimmed, hidden from non-MANAGE
-        ({"name": "s1", "status": "draft", "access_bindings": [{"binding_id": 1}]}, EDIT, False),
-        ({"name": "s1", "status": "draft", "access_bindings": [{"binding_id": 1}]}, MANAGE, True),
-        # Deprecated with bindings — dimmed, hidden from non-MANAGE
+        # Active server with endpoints — visible to all permission levels
+        ({"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]}, READ, True),
+        ({"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]}, USE, True),
+        ({"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]}, EDIT, True),
         (
-            {"name": "s1", "status": "deprecated", "access_bindings": [{"binding_id": 1}]},
+            {"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]},
+            MANAGE,
+            True,
+        ),
+        # Dimmed server (no endpoints) — hidden from non-MANAGE
+        ({"name": "s1", "status": "active", "access_endpoints": []}, READ, False),
+        ({"name": "s1", "status": "active", "access_endpoints": []}, USE, False),
+        ({"name": "s1", "status": "active", "access_endpoints": []}, EDIT, False),
+        ({"name": "s1", "status": "active", "access_endpoints": []}, MANAGE, True),
+        # Draft server with endpoints — dimmed, hidden from non-MANAGE
+        ({"name": "s1", "status": "draft", "access_endpoints": [{"endpoint_id": 1}]}, EDIT, False),
+        ({"name": "s1", "status": "draft", "access_endpoints": [{"endpoint_id": 1}]}, MANAGE, True),
+        # Deprecated with endpoints — dimmed, hidden from non-MANAGE
+        (
+            {"name": "s1", "status": "deprecated", "access_endpoints": [{"endpoint_id": 1}]},
             READ,
             False,
         ),
         (
-            {"name": "s1", "status": "deprecated", "access_bindings": [{"binding_id": 1}]},
+            {"name": "s1", "status": "deprecated", "access_endpoints": [{"endpoint_id": 1}]},
             MANAGE,
             True,
         ),
@@ -104,7 +108,7 @@ def test_visibility(server, permission, expected_visible):
 
 def test_stamp_enriches_dict():
     """Verify that _permission_to_allowed_actions produces the right shape for stamping."""
-    server = {"name": "s1", "status": "active", "access_bindings": [{"binding_id": 1}]}
+    server = {"name": "s1", "status": "active", "access_endpoints": [{"endpoint_id": 1}]}
     actions = _permission_to_allowed_actions(EDIT)
     server["allowed_actions"] = actions
     assert server["allowed_actions"] == ["USE", "UPDATE"]

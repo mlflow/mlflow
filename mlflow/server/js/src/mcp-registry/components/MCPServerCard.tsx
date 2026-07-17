@@ -87,7 +87,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
             )}
             {isUnavailable && (
               <Tooltip
-                componentId="mlflow.mcp_registry.card.bindings_tooltip"
+                componentId="mlflow.mcp_registry.card.endpoints_tooltip"
                 content={
                   <FormattedMessage
                     defaultMessage="No access endpoints configured"

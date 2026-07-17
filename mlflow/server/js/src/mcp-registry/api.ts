@@ -2,21 +2,21 @@ import { fetchAPI, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
 import type {
   MCPServer,
   MCPServerVersion,
-  MCPAccessBinding,
+  MCPAccessEndpoint,
   CreateMCPServerRequest,
   UpdateMCPServerRequest,
   CreateMCPServerVersionRequest,
   UpdateMCPServerVersionRequest,
-  CreateMCPAccessBindingRequest,
-  UpdateMCPAccessBindingRequest,
+  CreateMCPAccessEndpointRequest,
+  UpdateMCPAccessEndpointRequest,
   SetMCPServerTagRequest,
   SetMCPServerAliasRequest,
   SearchMCPServersParams,
   SearchMCPServerVersionsParams,
-  SearchMCPAccessBindingsParams,
+  SearchMCPAccessEndpointsParams,
   SearchMCPServersResponse,
   SearchMCPServerVersionsResponse,
-  SearchMCPAccessBindingsResponse,
+  SearchMCPAccessEndpointsResponse,
 } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
@@ -127,19 +127,19 @@ export const MCPRegistryApi = {
     return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/aliases/latest`)) as Promise<MCPServerVersion>;
   },
 
-  // MCP Access Binding endpoints
+  // MCP Access Endpoint endpoints
 
-  createMCPAccessBinding: (name: string, request: CreateMCPAccessBindingRequest): Promise<MCPAccessBinding> => {
-    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/bindings`), {
+  createMCPAccessEndpoint: (name: string, request: CreateMCPAccessEndpointRequest): Promise<MCPAccessEndpoint> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints`), {
       method: HTTPMethods.POST,
       body: request,
-    }) as Promise<MCPAccessBinding>;
+    }) as Promise<MCPAccessEndpoint>;
   },
 
-  searchMCPAccessBindings: (
+  searchMCPAccessEndpoints: (
     name: string,
-    params: SearchMCPAccessBindingsParams = {},
-  ): Promise<SearchMCPAccessBindingsResponse> => {
+    params: SearchMCPAccessEndpointsParams = {},
+  ): Promise<SearchMCPAccessEndpointsResponse> => {
     const query = buildSearchParams({
       server_version: params.server_version,
       server_alias: params.server_alias,
@@ -149,23 +149,23 @@ export const MCPRegistryApi = {
       page_token: params.page_token,
     });
     return fetchAPI(
-      getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/bindings${query}`),
-    ) as Promise<SearchMCPAccessBindingsResponse>;
+      getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints${query}`),
+    ) as Promise<SearchMCPAccessEndpointsResponse>;
   },
 
-  updateMCPAccessBinding: (
+  updateMCPAccessEndpoint: (
     name: string,
-    bindingId: number,
-    request: UpdateMCPAccessBindingRequest,
-  ): Promise<MCPAccessBinding> => {
-    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/bindings/${bindingId}`), {
+    endpointId: string,
+    request: UpdateMCPAccessEndpointRequest,
+  ): Promise<MCPAccessEndpoint> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${endpointId}`), {
       method: HTTPMethods.PATCH,
       body: request,
-    }) as Promise<MCPAccessBinding>;
+    }) as Promise<MCPAccessEndpoint>;
   },
 
-  deleteMCPAccessBinding: (name: string, bindingId: number): Promise<void> => {
-    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/bindings/${bindingId}`), {
+  deleteMCPAccessEndpoint: (name: string, endpointId: string): Promise<void> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${endpointId}`), {
       method: HTTPMethods.DELETE,
     }) as Promise<void>;
   },
