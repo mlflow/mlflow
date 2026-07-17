@@ -193,18 +193,20 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
         <DialogComboboxContent matchTriggerWidth>
           <DialogComboboxOptionList>
             {/* FIX: sort keys alphabetically so the dropdown list is always ordered consistently */}
-            {Object.keys(selectedTags).sort().map((tagString) => {
-              const isIndeterminate = selectedTags[tagString] === undefined;
-              return (
-                <DialogComboboxOptionListCheckboxItem
-                  key={tagString}
-                  value={tagString}
-                  onChange={handleChange}
-                  checked={selectedTags[tagString]}
-                  indeterminate={isIndeterminate}
-                />
-              );
-            })}
+            {Object.keys(selectedTags)
+              .sort()
+              .map((tagString) => {
+                const isIndeterminate = selectedTags[tagString] === undefined;
+                return (
+                  <DialogComboboxOptionListCheckboxItem
+                    key={tagString}
+                    value={tagString}
+                    onChange={handleChange}
+                    checked={selectedTags[tagString]}
+                    indeterminate={isIndeterminate}
+                  />
+                );
+              })}
           </DialogComboboxOptionList>
           <DialogComboboxFooter>
             <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
