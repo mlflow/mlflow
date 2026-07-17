@@ -129,7 +129,7 @@ class RestMCPServerRegistryMixin:
         display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
@@ -145,8 +145,10 @@ class RestMCPServerRegistryMixin:
             body["source"] = source
         if status is not None:
             body["status"] = str(status)
-        if tools is not None:
-            body["tools"] = [t.to_dict() for t in tools]
+        # Mirror update: NOT_SET → omit field (store null, no discovery);
+        # None → JSON null (store null, no discovery); list/[] → as-is.
+        if tools is not NOT_SET:
+            body["tools"] = None if tools is None else [t.to_dict() for t in tools]
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
         return MCPServerVersion.from_dict(data)
 

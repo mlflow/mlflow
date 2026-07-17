@@ -125,7 +125,7 @@ class MCPServerRegistryMixin:
         display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
@@ -133,12 +133,22 @@ class MCPServerRegistryMixin:
         The parent MCPServer is auto-created from server_json["name"] if it
         does not already exist.
 
+        ``tools`` uses the same value space as update (``NOT_SET``, ``None``,
+        ``[]``, or a list), but ``NOT_SET`` means different things:
+
+        * **create:** ``NOT_SET`` / JSON field omitted → store ``None``.
+          Explicit ``None`` / JSON null also stores no tools. ``[]`` / a list
+          are stored as-is.
+        * **update:** ``NOT_SET`` / omitted → leave unchanged; ``None`` / null
+          clears tools.
+
         Args:
             server_json: The server.json payload (must contain "name" and "version").
             display_name: Human-readable display name.
             source: Origin URL or identifier for this version.
             status: Initial status (defaults to DRAFT).
-            tools: List of MCPTool definitions.
+            tools: ``NOT_SET`` or ``None`` to store null, ``[]`` / a list to
+                store as-is.
             created_by: Authenticated username of the creator.
 
         Returns:

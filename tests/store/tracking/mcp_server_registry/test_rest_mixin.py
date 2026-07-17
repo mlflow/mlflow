@@ -13,13 +13,17 @@ from mlflow.entities.mcp_server import MCPStatus, MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
 from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, mcp_server_router
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPServerRegistryMixin
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import (
+    NOT_SET,
+    MCPServerRegistryMixin,
+)
 from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRegistryMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.workspace_context import WorkspaceContext
 
@@ -244,6 +248,27 @@ def test_create_and_get_version(rest_client):
     assert fetched.tools == []
 
 
+def test_client_create_mcp_server_version_via_rest_auto_discovers(rest_client):
+    sj = _server_json(
+        "io.github.test/rest-client-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/rest-client"}],
+    )
+    with (
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils._get_store",
+            return_value=rest_client,
+        ),
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+            return_value=[MCPTool(name="from_rest_client")],
+        ) as mock_discover,
+    ):
+        version = MlflowClient().create_mcp_server_version(server_json=sj)
+    mock_discover.assert_called_once()
+    assert version.tools[0].name == "from_rest_client"
+
+
 def test_create_and_get_version_with_slashed_name(rest_client):
     name = "io.github.user/versioned-server"
     version = "2025.6.0"
@@ -299,6 +324,7 @@ def test_create_version_accepts_remote_with_null_type(rest_client):
             remotes=[{"type": None, "url": "https://example.com/mcp"}],
         ),
         status=MCPStatus.ACTIVE,
+        tools=None,  # skip discovery; this test only covers server_json shape
     )
     assert ver.server_json["remotes"][0]["type"] is None
 
@@ -320,6 +346,116 @@ def test_create_version_preserves_empty_tools_list(rest_client):
     sj = _server_json("io.github.test/empty-tools-srv", "1.0.0")
     ver = rest_client.create_mcp_server_version(sj, status=MCPStatus.ACTIVE, tools=[])
     assert ver.tools == []
+
+
+def test_create_version_not_set_omits_json_field():
+    client = _TestRestClient(TestClient(FastAPI()))
+    response = mock.Mock(status_code=200, text="ok")
+    response.json.return_value = {
+        "name": "io.github.test/omit-tools-body",
+        "version": "1.0.0",
+        "server_json": {"name": "io.github.test/omit-tools-body", "version": "1.0.0"},
+        "status": "draft",
+        "tools": [],
+        "aliases": [],
+        "tags": {},
+    }
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
+        return_value=response,
+    ) as http_request_mock:
+        client.create_mcp_server_version(
+            _server_json("io.github.test/omit-tools-body", "1.0.0"), tools=NOT_SET
+        )
+        client.create_mcp_server_version(_server_json("io.github.test/omit-tools-default", "1.0.0"))
+
+    assert "tools" not in http_request_mock.call_args_list[0].kwargs["json"]
+    assert "tools" not in http_request_mock.call_args_list[1].kwargs["json"]
+
+
+def test_create_version_tools_none_sends_json_null():
+    client = _TestRestClient(TestClient(FastAPI()))
+    response = mock.Mock(status_code=200, text="ok")
+    response.json.return_value = {
+        "name": "io.github.test/null-tools-body",
+        "version": "1.0.0",
+        "server_json": {"name": "io.github.test/null-tools-body", "version": "1.0.0"},
+        "status": "draft",
+        "tools": [],
+        "aliases": [],
+        "tags": {},
+    }
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
+        return_value=response,
+    ) as http_request_mock:
+        client.create_mcp_server_version(
+            _server_json("io.github.test/null-tools-body", "1.0.0"), tools=None
+        )
+
+    body = http_request_mock.call_args.kwargs["json"]
+    assert "tools" in body
+    assert body["tools"] is None
+
+
+def test_create_version_empty_tools_sends_empty_list_in_json():
+    client = _TestRestClient(TestClient(FastAPI()))
+    response = mock.Mock(status_code=200, text="ok")
+    response.json.return_value = {
+        "name": "io.github.test/empty-tools-body",
+        "version": "1.0.0",
+        "server_json": {"name": "io.github.test/empty-tools-body", "version": "1.0.0"},
+        "status": "draft",
+        "tools": [],
+        "aliases": [],
+        "tags": {},
+    }
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
+        return_value=response,
+    ) as http_request_mock:
+        client.create_mcp_server_version(
+            _server_json("io.github.test/empty-tools-body", "1.0.0"), tools=[]
+        )
+
+    body = http_request_mock.call_args.kwargs["json"]
+    assert body["tools"] == []
+
+
+def test_update_version_omitted_tools_leaves_unchanged(rest_client):
+    rest_client.create_mcp_server_version(
+        _server_json("io.github.test/uv-omit-tools", "1.0.0"),
+        status=MCPStatus.ACTIVE,
+        tools=[MCPTool(name="search")],
+    )
+    updated = rest_client.update_mcp_server_version(
+        "io.github.test/uv-omit-tools", "1.0.0", display_name="kept-tools"
+    )
+    assert updated.display_name == "kept-tools"
+    assert updated.tools[0].name == "search"
+
+
+def test_update_version_tools_none_sends_json_null():
+    client = _TestRestClient(TestClient(FastAPI()))
+    response = mock.Mock(status_code=200, text="ok")
+    response.json.return_value = {
+        "name": "io.github.test/uv-clear-tools",
+        "version": "1.0.0",
+        "server_json": {"name": "io.github.test/uv-clear-tools", "version": "1.0.0"},
+        "status": "draft",
+        "tools": [],
+        "aliases": [],
+        "tags": {},
+    }
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
+        return_value=response,
+    ) as http_request_mock:
+        client.update_mcp_server_version("io.github.test/uv-clear-tools", "1.0.0", tools=None)
+
+    body = http_request_mock.call_args.kwargs["json"]
+    assert "tools" in body
+    assert body["tools"] is None
 
 
 def test_get_latest_version(rest_client):

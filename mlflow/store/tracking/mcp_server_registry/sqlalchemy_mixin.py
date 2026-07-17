@@ -246,7 +246,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
@@ -263,6 +263,10 @@ class SqlAlchemyMCPServerRegistryMixin:
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
         _validate_mcp_initial_status(status)
+
+        # Store/server create does not perform remote discovery. Omitted tools
+        # are stored as null; client-side callers may resolve before create.
+        tools = None if tools is NOT_SET else tools
         _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
