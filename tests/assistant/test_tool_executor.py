@@ -25,10 +25,25 @@ def test_read_resolves_relative_path_against_cwd(workspace):
     assert "print('hello')" in result
 
 
-def test_read_absolute_path_works_without_cwd(workspace):
+def test_read_absolute_path_denied_without_cwd(workspace):
+    # Regression guard for GHSA-27c7-qx3r-x4f8: without a configured project
+    # directory (cwd=None, e.g. no experiment_id), Read must be denied rather
+    # than allowed to read an arbitrary absolute path on the filesystem.
     result, is_error = _run(execute_tool("Read", {"file_path": str(workspace / "README.md")}))
-    assert not is_error
-    assert "# project" in result
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_read_sensitive_file_denied_without_cwd(tmp_path):
+    # Regression guard for GHSA-27c7-qx3r-x4f8: an absolute path to a file
+    # completely outside any workspace (e.g. an .env or SSH key) must be
+    # denied when no cwd/experiment_id is configured, not read back verbatim.
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    result, is_error = _run(execute_tool("Read", {"file_path": str(secret)}))
+    assert is_error
+    assert "Permission denied" in result
+    assert "SECRET_API_KEY" not in result
 
 
 def test_write_denied_without_cwd():
