@@ -659,3 +659,97 @@ def test_extract_eval_scores_per_scorer(val_aggregate_scores, val_aggregate_subs
 
     result = optimizer._extract_eval_scores(mock_result)
     assert result == expected
+
+
+@pytest.mark.parametrize("valset_size", [3, 6])  # smaller and larger than train_data (4)
+def test_gepa_optimizer_logs_prompt_candidates_with_custom_valset(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+    valset_size: int,
+):
+    valset = [
+        {"inputs": {"question": f"val question {i}?"}, "outputs": f"val answer {i}"}
+        for i in range(valset_size)
+    ]
+    assert len(valset) != len(sample_train_data)
+
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    mock_gepa_module.GEPAAdapter = object
+
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o", gepa_kwargs={"valset": valset}
+    )
+
+    logged_tables = []
+    logged_metrics = []
+
+    with patch.dict(sys.modules, mock_modules):
+        captured_adapter = None
+
+        def mock_optimize_fn(**kwargs):
+            nonlocal captured_adapter
+            captured_adapter = kwargs["adapter"]
+            mock_result = Mock()
+            mock_result.best_candidate = sample_target_prompts
+            mock_result.val_aggregate_scores = [0.8]
+            mock_result.val_aggregate_subscores = None
+            return mock_result
+
+        mock_gepa_module.optimize = mock_optimize_fn
+
+        with mlflow.start_run():
+            with (
+                patch("mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_artifact"),
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_table"
+                ) as mock_log_table,
+                patch(
+                    "mlflow.genai.optimize.optimizers.gepa_optimizer.mlflow.log_metrics"
+                ) as mock_log_metrics,
+            ):
+                mock_log_table.side_effect = lambda data, artifact_file: logged_tables.append({
+                    "data": data,
+                    "artifact_file": artifact_file,
+                })
+                mock_log_metrics.side_effect = lambda metrics, step=None: logged_metrics.append({
+                    "metrics": metrics,
+                    "step": step,
+                })
+
+                optimizer.optimize(
+                    eval_fn=mock_eval_fn,
+                    train_data=sample_train_data,
+                    target_prompts=sample_target_prompts,
+                    enable_tracking=True,
+                )
+
+                # Minibatch evaluation should NOT be logged
+                captured_adapter.evaluate(
+                    sample_train_data[:2], {"system_prompt": "Test"}, capture_traces=False
+                )
+                # A trainset-sized batch is no longer a full validation pass
+                # when a custom valset is provided, so it should NOT be logged
+                captured_adapter.evaluate(
+                    sample_train_data, {"system_prompt": "Test"}, capture_traces=False
+                )
+                assert logged_tables == []
+                assert logged_metrics == []
+
+                # Full validation pass over the custom valset SHOULD be logged
+                candidate = {"system_prompt": "Optimized prompt", "instruction": "New instruction"}
+                captured_adapter.evaluate(valset, candidate, capture_traces=False)
+
+    assert len(logged_tables) == 1
+    assert logged_tables[0]["artifact_file"] == "prompt_candidates/iteration_0/eval_results.json"
+    assert len(logged_tables[0]["data"]["inputs"]) == valset_size
+
+    assert len(logged_metrics) == 1
+    assert logged_metrics[0]["step"] == 0
+    assert logged_metrics[0]["metrics"]["eval_score"] == pytest.approx(0.8)
