@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784274257127,
+  "lastUpdate": 1784279545094,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14417,6 +14417,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.599538000000507,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sh.research.ml.rl@gmail.com",
+            "name": "HelloCybernetics",
+            "username": "hellocybernetics"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c557df01e3b7f1ec351df281f40d4c88d736ffdc",
+          "message": "Fix `MlflowSparkStudy` pruner and direction handling (#24425)\n\nSigned-off-by: HelloCybernetics <sh.research.ml.rl@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-07-17T09:08:56Z",
+          "tree_id": "92aaed8fdc705fb154909cfab26b8a4799083186",
+          "url": "https://github.com/mlflow/mlflow/commit/c557df01e3b7f1ec351df281f40d4c88d736ffdc"
+        },
+        "date": 1784279544257,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.55046680000001,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 16.914575857145206,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.14904372580502,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.95321963636199,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.998681913793316,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.220638599998665,
             "unit": "ms"
           }
         ]
