@@ -34,6 +34,8 @@ R = TypeVar("R")
 def experimental(
     f: Callable[P, R],
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[P, R]: ...
 
 
@@ -41,12 +43,16 @@ def experimental(
 def experimental(
     f: None = None,
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
 def experimental(
     f: Callable[P, R] | None = None,
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
@@ -55,6 +61,10 @@ def experimental(
         version: The version in which the API was introduced as experimental.
             The version is used to determine whether the API should be considered
             as stable or not when releasing a new version of MLflow.
+        skip: If True, the automated decorator removal script will skip this
+            decorator. Use this for APIs that are intentionally kept experimental
+            (e.g., because they are still evolving) and should not be auto-promoted
+            to stable.
 
     Returns:
         A decorator that adds a note to the docstring of the decorated API,
@@ -153,7 +163,7 @@ def deprecated(alternative: str | None = None, since: str | None = None, impact:
 
     def deprecated_decorator(obj):
         since_str = f" since {since}" if since else ""
-        impact_str = impact if impact else "This method will be removed in a future release."
+        impact_str = impact or "This method will be removed in a future release."
 
         qual_name = f"{obj.__module__}.{obj.__qualname__}"
         notice = f"``{qual_name}`` is deprecated{since_str}. {impact_str}"

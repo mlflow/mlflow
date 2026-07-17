@@ -128,7 +128,6 @@ def test_non_databricks_backend_allows_any_model(
 
 
 def test_error_message_shows_actual_model(mock_databricks_tracking_uri: mock.Mock):
-    """Test that error message includes the actual model that was rejected."""
     model = "openai:/gpt-4-turbo"
     scorer = Safety(model=model)
 

@@ -1,3 +1,4 @@
+import { describe, it, expect, jest } from '@jest/globals';
 import { useState } from 'react';
 import { useExperimentLoggedModelListPageTableColumns } from './hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
@@ -5,6 +6,9 @@ import { render, screen, waitFor, within } from '../../../common/utils/TestUtils
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const metrics = [
   { dataset_name: 'train', dataset_digest: '123456', key: 'rmse', value: 0.1 },
@@ -74,9 +78,9 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
 
     return render(<TestComponent />, {
       wrapper: ({ children }) => (
-        <DesignSystemProvider>
-          <IntlProvider locale="en">{children}</IntlProvider>
-        </DesignSystemProvider>
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
       ),
     });
   };
@@ -101,7 +105,9 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
     );
 
     await waitFor(() => {
-      screen.getByText('Currently sorting by: metrics.["test","987654"].rmse ascending');
+      screen.getByText(
+        'Currently sorting by: metrics.{"metricKey":"rmse","datasetName":"test","datasetDigest":"987654"} ascending',
+      );
     });
 
     expect(screen.getByRole('button', { name: 'Sort: rmse' })).toBeInTheDocument();
@@ -111,7 +117,9 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort descending' }));
 
     await waitFor(() => {
-      screen.getByText('Currently sorting by: metrics.["test","987654"].rmse descending');
+      screen.getByText(
+        'Currently sorting by: metrics.{"metricKey":"rmse","datasetName":"test","datasetDigest":"987654"} descending',
+      );
     });
 
     // Close the dropdown

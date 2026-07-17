@@ -1,5 +1,6 @@
 import contextlib
 import importlib
+import importlib.metadata
 import inspect
 import logging
 import threading
@@ -110,13 +111,11 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     params_to_log.update(kwargs)
     # Add parameters that were not explicitly specified by the caller to the mapping,
     # using their default values
-    params_to_log.update(
-        {
-            param.name: param.default
-            for param in list(relevant_params)[len(args) :]
-            if param.name not in kwargs
-        }
-    )
+    params_to_log.update({
+        param.name: param.default
+        for param in list(relevant_params)[len(args) :]
+        if param.name not in kwargs
+    })
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
     return {key: value for key, value in params_to_log.items() if key not in unlogged}
 
@@ -372,10 +371,13 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     ):
         min_var, _, pip_release = get_min_max_version_and_pip_release(integration_name)
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
+        installed_version = getattr(module, "__version__", None) or importlib.metadata.version(
+            pip_release
+        )
         _logger.warning(
             f"MLflow {integration_name} autologging is known to be compatible with "
-            f"{min_var} <= {pip_release}, but the installed version is "
-            f"{module.__version__}. If you encounter errors during autologging, try upgrading "
+            f"{min_var} <= {pip_release}, but the installed version is {installed_version}. "
+            "If you encounter errors during autologging, try upgrading "
             f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
 
@@ -411,9 +413,9 @@ def autologging_integration(name):
         @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
-            config_to_store.update(
-                {param.name: arg for arg, param in zip(args, param_spec.values())}
-            )
+            config_to_store.update({
+                param.name: arg for arg, param in zip(args, param_spec.values())
+            })
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 

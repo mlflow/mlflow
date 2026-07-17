@@ -25,8 +25,27 @@ class OtelSchemaTranslator:
     INPUT_TOKEN_KEY: str | None = None
     OUTPUT_TOKEN_KEY: str | None = None
     TOTAL_TOKEN_KEY: str | None = None
+    CACHE_READ_INPUT_TOKEN_KEY: str | None = None
+    CACHE_CREATION_INPUT_TOKEN_KEY: str | None = None
     INPUT_VALUE_KEYS: list[str] | None = None
     OUTPUT_VALUE_KEYS: list[str] | None = None
+    MODEL_NAME_KEYS: list[str] | None = None
+    LLM_PROVIDER_KEY: str | None = None
+    TOOL_DEFINITION_KEYS: list[str] | None = None
+
+    def get_message_format(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get message format identifier for chat UI rendering.
+
+        Subclasses should override this method to return their format identifier
+        when they can handle the given attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Message format string or None if not applicable
+        """
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -95,6 +114,52 @@ class OtelSchemaTranslator:
         if self.TOTAL_TOKEN_KEY:
             return attributes.get(self.TOTAL_TOKEN_KEY)
 
+    def get_cache_read_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        if self.CACHE_READ_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_READ_INPUT_TOKEN_KEY)
+
+    def get_cache_creation_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        if self.CACHE_CREATION_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_CREATION_INPUT_TOKEN_KEY)
+
+    def get_model_name(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get model name from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Model name string or None if not found
+        """
+        if value := self.get_attribute_value(attributes, self.MODEL_NAME_KEYS):
+            return self._try_decode_if_json(value)
+        return None
+
+    def get_model_provider(self, attributes: dict[str, Any]) -> str | None:
+        """
+        Get model provider from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Model provider string or None if not found
+        """
+        if self.LLM_PROVIDER_KEY:
+            if value := self._get_and_check_attribute_value(attributes, self.LLM_PROVIDER_KEY):
+                return self._try_decode_if_json(value)
+        return None
+
+    @staticmethod
+    def _try_decode_if_json(value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return value
+
     def get_input_value(self, attributes: dict[str, Any]) -> Any:
         """
         Get input value from OTEL attributes.
@@ -118,6 +183,18 @@ class OtelSchemaTranslator:
             Output value or None if not found
         """
         return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
+
+    def get_tool_definitions(self, attributes: dict[str, Any]) -> Any:
+        """
+        Get tool definitions from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Tool definitions or None if not found
+        """
+        return self.get_attribute_value(attributes, self.TOOL_DEFINITION_KEYS)
 
     def get_attribute_value(
         self, attributes: dict[str, Any], keys_to_check: list[str] | None = None
@@ -154,18 +231,7 @@ class OtelSchemaTranslator:
         value = attributes.get(key)
         if isinstance(value, str):
             try:
-                result = json.loads(value)
-                if isinstance(result, str):
-                    # the span attributes may be dumped several times in different places
-                    # (e.g. Span.from_otel_proto, span.to_dict)
-                    # so we try to load it twice here to get the dumped-once value
-                    try:
-                        if json.loads(result):
-                            return result
-                        return None
-                    except json.JSONDecodeError:
-                        pass
-                return value if result else None
+                return value if json.loads(value) else None
             except json.JSONDecodeError:
                 pass  # Use the string value as-is
         return value

@@ -2,7 +2,9 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
-from mlflow.entities.evaluation_dataset import EvaluationDataset as _EntityEvaluationDataset
+from mlflow.entities.evaluation_dataset import (
+    EvaluationDataset as _EntityEvaluationDataset,
+)
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
@@ -55,8 +57,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __setattr__(self, name, value):
         """Allow setting internal attributes on the wrapped dataset."""
         object.__setattr__(self, name, value)
-        if name == "_records" and hasattr(self, "_mlflow_dataset") and self._mlflow_dataset:
-            self._mlflow_dataset._records = value
 
     def __getattr__(self, name):
         """
@@ -65,7 +65,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         This handles attributes that don't require special logic and can be
         directly delegated to the underlying dataset implementation.
         """
-        if name.startswith("_"):
+        if name.startswith("_") or name == "records":
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         if self._mlflow_dataset and hasattr(self._mlflow_dataset, name):
@@ -141,17 +141,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """The experiment IDs associated with the dataset (MLflow only)."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.experiment_ids
-        raise NotImplementedError(
-            "Experiment associations are not available for Databricks managed datasets. "
-            "Dataset associations are managed through Unity Catalog."
-        )
-
-    @property
-    def records(self):
-        """The records in the dataset (MLflow only)."""
-        if self._mlflow_dataset:
-            return self._mlflow_dataset.records
-        raise NotImplementedError("Records access is not supported for Databricks managed datasets")
+        return self._databricks_dataset.experiment_ids
 
     @property
     def schema(self) -> str | None:
@@ -189,6 +179,16 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         with _databricks_profile_env():
             dataset = self._databricks_dataset.merge_records(records)
         return EvaluationDataset(dataset)
+
+    def delete_records(self, record_ids: list[str]) -> int:
+        """Delete specific records from the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.delete_records(record_ids)
+
+        from mlflow.genai.datasets import _databricks_profile_env
+
+        with _databricks_profile_env():
+            self._databricks_dataset.delete_records(record_ids)
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
@@ -259,7 +259,9 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Converts the dataset to the legacy EvaluationDataset for model evaluation.
         Required for use with mlflow.evaluate().
         """
-        from mlflow.data.evaluation_dataset import EvaluationDataset as LegacyEvaluationDataset
+        from mlflow.data.evaluation_dataset import (
+            EvaluationDataset as LegacyEvaluationDataset,
+        )
 
         return LegacyEvaluationDataset(
             data=self.to_df(),

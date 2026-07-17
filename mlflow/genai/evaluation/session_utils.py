@@ -1,0 +1,210 @@
+"""Utilities for session-level (multi-turn) evaluation."""
+
+from __future__ import annotations
+
+import traceback
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Any
+
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_error import AssessmentError
+from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.rate_limiter import (
+    NoOpRateLimiter,
+    RateLimiter,
+    call_with_retry,
+    eval_retry_context,
+)
+from mlflow.genai.evaluation.utils import (
+    make_code_type_assessment_source,
+    standardize_scorer_value,
+)
+from mlflow.genai.scorers import Scorer
+from mlflow.tracing.constant import TraceMetadataKey
+
+if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvalItem, EvalResult, ScorerStat
+
+
+def classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
+    """
+    Separate scorers into single-turn and multi-turn categories.
+
+    Args:
+        scorers: List of scorer instances.
+
+    Returns:
+        tuple: (single_turn_scorers, multi_turn_scorers)
+    """
+    single_turn_scorers = []
+    multi_turn_scorers = []
+
+    for scorer in scorers:
+        if scorer.is_session_level_scorer:
+            multi_turn_scorers.append(scorer)
+        else:
+            single_turn_scorers.append(scorer)
+
+    return single_turn_scorers, multi_turn_scorers
+
+
+def group_traces_by_session(
+    eval_items: list["EvalItem"],
+) -> dict[str, list["EvalItem"]]:
+    """
+    Group evaluation items containing traces by session_id.
+
+    Args:
+        eval_items: List of EvalItem objects.
+
+    Returns:
+        dict: {session_id: [eval_item, ...]} where eval items are grouped by session.
+              Only items with traces that have a session_id are included in the output.
+    """
+    session_groups = defaultdict(list)
+
+    for item in eval_items:
+        session_id = None
+
+        # First, try to get session_id from the trace metadata if trace exists
+        if getattr(item, "trace", None):
+            trace_metadata = item.trace.info.trace_metadata
+            session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+
+        # If no session_id found in trace, check the source data (for dataset records)
+        if not session_id and item.source is not None:
+            session_id = item.source.source_data.get("session_id")
+
+        if session_id:
+            session_groups[session_id].append(item)
+
+    return dict(session_groups)
+
+
+def get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
+    """
+    Find the chronologically first trace in a session based on request_time.
+
+    Args:
+        session_items: List of EvalItem objects from the same session.
+
+    Returns:
+        EvalItem: The eval item with the earliest trace in chronological order.
+    """
+    return min(session_items, key=lambda x: x.trace.info.request_time)
+
+
+def evaluate_session_level_scorers(
+    session_id: str,
+    session_items: list["EvalItem"],
+    multi_turn_scorers: list[Scorer],
+    scorer_rate_limiter: RateLimiter = NoOpRateLimiter(),
+    max_retries: int = 0,
+) -> EvalResult:
+    """
+    Evaluate all multi-turn scorers for a single session.
+
+    Args:
+        session_id: The session identifier
+        session_items: List of EvalItem objects from the same session
+        multi_turn_scorers: List of multi-turn scorer instances
+        scorer_rate_limiter: Rate limiter to throttle scorer invocations.
+        max_retries: Max 429-retry attempts per scorer call.
+
+    Returns:
+        EvalResult containing the assessments from all multi-turn scorers for this session.
+        The result is associated with the first item in the session (chronologically by
+        trace timestamp), and multi-turn assessments will be logged to that trace.
+    """
+    # Import lazily here since mlflow.genai.evaluation.entities imports pandas at the top level
+    # (needed for EvalResult.to_pd_series() and result DataFrame operations). By importing inside
+    # the function, we avoid loading pandas when this module is imported, improving startup time.
+    from mlflow.genai.evaluation.entities import EvalResult, ScorerStat
+
+    first_item = get_first_trace_in_session(session_items)
+    session_traces = [item.trace for item in session_items]
+
+    def run_scorer(scorer: Scorer) -> list[Feedback]:
+        try:
+            with eval_retry_context():
+                value = call_with_retry(
+                    lambda: scorer.run(session=session_traces),
+                    scorer_rate_limiter,
+                    max_retries,
+                )
+            feedbacks = standardize_scorer_value(scorer.name, value)
+
+            # Add session_id to metadata for each feedback
+            for feedback in feedbacks:
+                if feedback.metadata is None:
+                    feedback.metadata = {}
+                feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+
+            return feedbacks
+        except Exception as e:
+            return [
+                Feedback(
+                    name=scorer.name,
+                    source=make_code_type_assessment_source(scorer.name),
+                    error=AssessmentError(
+                        error_code="SCORER_ERROR",
+                        error_message=str(e),
+                        stack_trace=traceback.format_exc(),
+                    ),
+                    metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+                )
+            ]
+
+    # Run scorers in parallel (similar to _compute_eval_scores for single-turn)
+    with ThreadPoolExecutor(
+        max_workers=len(multi_turn_scorers),
+        thread_name_prefix="MlflowGenAIEvalMultiTurnScorer",
+    ) as executor:
+        futures = {executor.submit(run_scorer, scorer): scorer for scorer in multi_turn_scorers}
+
+        try:
+            results = [(scorer, future.result()) for future, scorer in futures.items()]
+        except KeyboardInterrupt:
+            executor.shutdown(cancel_futures=True)
+            raise
+
+    # Track scorer stats
+    scorer_stats: dict[str, ScorerStat] = {}
+    all_feedbacks = []
+    for scorer, feedbacks in results:
+        scorer_name = scorer.name
+        if scorer_name not in scorer_stats:
+            scorer_stats[scorer_name] = ScorerStat()
+        failed = len(feedbacks) == 1 and feedbacks[0].error is not None
+        scorer_stats[scorer_name].record_invocation(failed=failed)
+        all_feedbacks.extend(feedbacks)
+
+    return EvalResult(
+        eval_item=first_item,
+        assessments=all_feedbacks,
+        scorer_stats=scorer_stats,
+    )
+
+
+def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
+    """
+    Validate input parameters when session-level scorers are present.
+
+    Args:
+        scorers: List of scorer instances
+        predict_fn: Prediction function (if provided)
+
+    Raises:
+        MlflowException: If invalid configuration is detected
+    """
+    if session_level_scorers := [scorer for scorer in scorers if scorer.is_session_level_scorer]:
+        if predict_fn is not None:
+            scorer_names = [scorer.name for scorer in session_level_scorers]
+            raise MlflowException.invalid_parameter_value(
+                f"Session-level scorers require traces with session IDs. "
+                f"The following scorers are session-level: {scorer_names}. "
+                f"Either pass a ConversationSimulator to `data` with `predict_fn`, "
+                f"or pass existing traces containing session IDs to `data` "
+                f"(e.g., `data=mlflow.search_traces()`) without `predict_fn`."
+            )

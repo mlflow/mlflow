@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
@@ -280,12 +282,15 @@ class ParamProperty(ParamType):
 
     description: str | None = None
     enum: list[str] | None = None
-    items: ParamType | None = None
+    items: ParamProperty | None = None
 
     def __post_init__(self):
         self._validate_field("description", str, False)
         self._validate_list("enum", str, False)
-        self._convert_dataclass("items", ParamType, False)
+        # Convert recursively so nested arrays (e.g. list[list[str]]) preserve
+        # their inner `items` schema. If converted as `ParamType`, the inner
+        # `items` field would be silently dropped.
+        self._convert_dataclass("items", ParamProperty, False)
         super().__post_init__()
 
 
@@ -826,7 +831,7 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                     Property("content", DataType.string, False),
                     Property("name", DataType.string, False),
                     Property("refusal", DataType.string, False),
-                    Property("tool_calls",Array(Object([
+                    Property("tool_calls", Array(Object([
                         Property("id", DataType.string),
                         Property("function", Object([
                             Property("name", DataType.string),

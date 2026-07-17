@@ -1,5 +1,6 @@
 import json
 import math
+import re
 
 import keras
 import numpy as np
@@ -19,13 +20,11 @@ def clear_autologging_config():
 
 
 def _create_keras_model():
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -62,7 +61,9 @@ def test_default_autolog_behavior():
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics
@@ -151,7 +152,9 @@ def test_custom_autolog_behavior(
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics
@@ -199,24 +202,18 @@ def test_keras_autolog_log_datasets(log_datasets, log_models):
     dataset_inputs = run_inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
-        feature_schema = Schema(
-            [
-                TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3)),
-            ]
-        )
-        target_schema = Schema(
-            [
-                TensorSpec(np.dtype(np.int64), (-1,)),
-            ]
-        )
-        expected = json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        feature_schema = Schema([
+            TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3)),
+        ])
+        target_schema = Schema([
+            TensorSpec(np.dtype(np.int64), (-1,)),
+        ])
+        expected = json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
         assert dataset_inputs[0].dataset.schema == expected
     else:
         assert len(dataset_inputs) == 0

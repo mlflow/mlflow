@@ -21,7 +21,6 @@ def reset_tracing_config():
 
 
 def test_span_processors_no_processors_configured():
-    """Test that function returns early when no processors are configured."""
     mlflow.tracing.configure(span_processors=[])
 
     predict("test")
@@ -32,8 +31,6 @@ def test_span_processors_no_processors_configured():
 
 
 def test_span_processors_single_processor_success():
-    """Test successful execution of a single processor."""
-
     def test_processor(span):
         span.set_outputs("overridden_output")
         span.set_attribute("test_attribute", "test_value")
@@ -49,8 +46,6 @@ def test_span_processors_single_processor_success():
 
 
 def test_apply_span_processors_multiple_processors_success():
-    """Test successful execution of multiple processors in sequence."""
-
     def processor1(span):
         span.set_outputs("overridden_output_1")
         span.set_attribute("attr_1", "value_1")
@@ -71,8 +66,6 @@ def test_apply_span_processors_multiple_processors_success():
 
 
 def test_apply_span_processors_returns_non_none_warning():
-    """Test warning is logged when processor returns a non-None value."""
-
     def bad_processor(span):
         return "some_value"  # Should return nothing
 
@@ -94,8 +87,6 @@ def test_apply_span_processors_returns_non_none_warning():
 
 
 def test_apply_span_processors_exception_handling():
-    """Test that processor exceptions are caught and logged."""
-
     def failing_processor(span):
         raise ValueError("Test error")
 
@@ -131,7 +122,6 @@ def test_validate_span_processors_valid_processors():
 
 
 def test_validate_span_processors_non_callable_raises_exception():
-    """Test that non-callable processor raises MlflowException."""
     non_callable_processor = "not_a_function"
 
     with pytest.raises(MlflowException, match=r"Span processor must be"):
@@ -139,8 +129,6 @@ def test_validate_span_processors_non_callable_raises_exception():
 
 
 def test_validate_span_processors_invalid_arguments_raises_exception():
-    """Test that processor with no arguments raises MlflowException."""
-
     def processor_no_args():
         return None
 

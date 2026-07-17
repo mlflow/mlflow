@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
@@ -15,7 +16,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { ColumnDef, ColumnDefTemplate, CellContext } from '@tanstack/react-table';
-import { useReactTable, getCoreRowModel, getFilteredRowModel, flexRender } from '@tanstack/react-table';
+import { getCoreRowModel, getFilteredRowModel, flexRender } from '@tanstack/react-table';
 
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -39,10 +40,18 @@ const PromptNameCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) =>
     const searchParams = new URLSearchParams();
     searchParams.set(PROMPT_VERSION_QUERY_PARAM, version);
     const routeWithVersion = `${baseRoute}?${searchParams.toString()}`;
-    return <Link to={routeWithVersion}>{name}</Link>;
+    return (
+      <Link componentId="mlflow.experiment_tracking.linked_prompts.prompt_version_link" to={routeWithVersion}>
+        {name}
+      </Link>
+    );
   }
 
-  return <Link to={baseRoute}>{name}</Link>;
+  return (
+    <Link componentId="mlflow.experiment_tracking.linked_prompts.prompt_name_link" to={baseRoute}>
+      {name}
+    </Link>
+  );
 };
 
 const VersionCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) => {
@@ -83,20 +92,23 @@ export const ExperimentLinkedPromptsTable = ({ data }: Props) => {
     [intl],
   );
 
-  const table = useReactTable({
-    data,
-    getRowId: (row) => row.name,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-    state: {
-      globalFilter,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-prompts/ExperimentLinkedPromptsTable.tsx',
+    {
+      data,
+      getRowId: (row) => row.name,
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+      state: {
+        globalFilter,
+      },
+      onGlobalFilterChange: setGlobalFilter,
+      globalFilterFn: 'includesString',
     },
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: 'includesString',
-  });
+  );
 
   const renderTableContent = () => {
     return (

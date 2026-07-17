@@ -2,17 +2,27 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import mlflow
 import mlflow.telemetry.utils
-from mlflow.telemetry.client import TelemetryClient, _set_telemetry_client, get_telemetry_client
+from mlflow.telemetry.client import (
+    TelemetryClient,
+    _fetch_server_info,
+    _set_telemetry_client,
+    get_telemetry_client,
+)
 from mlflow.version import VERSION
+
+
+@pytest.fixture(autouse=True)
+def clear_server_store_type_cache():
+    _fetch_server_info.cache_clear()
+    yield
+    _fetch_server_info.cache_clear()
 
 
 @pytest.fixture(autouse=True)
 def terminate_telemetry_client():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()
         # set to None to avoid side effect in other tests
         _set_telemetry_client(None)

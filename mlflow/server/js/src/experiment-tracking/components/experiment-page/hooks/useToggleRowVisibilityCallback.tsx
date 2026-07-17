@@ -2,10 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useUpdateExperimentViewUIState } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import type { RunRowType } from '../utils/experimentPage.row-types';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseRunRowsVisibilityMap,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 
 export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroupedValuesInCharts = true) => {
   const updateUIState = useUpdateExperimentViewUIState();
@@ -31,11 +28,7 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
 
           // If we're toggling a group and we're not using grouped values in charts,
           // then toggle all runs in the group
-          if (
-            currentToggledGroupInfo &&
-            shouldEnableToggleIndividualRunsInGroups() &&
-            useGroupedValuesInCharts === false
-          ) {
+          if (currentToggledGroupInfo && useGroupedValuesInCharts === false) {
             for (const runUuid of currentToggledGroupInfo.runUuids) {
               newRunsVisibilityMap[runUuid] = !isCurrentlyVisible;
             }
@@ -131,11 +124,7 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
 
           // If we're toggling a group and we're not using grouped values in charts,
           // then toggle all runs in the group
-          if (
-            currentToggledGroupInfo &&
-            shouldEnableToggleIndividualRunsInGroups() &&
-            useGroupedValuesInCharts === false
-          ) {
+          if (currentToggledGroupInfo && useGroupedValuesInCharts === false) {
             let newHiddenRows: string[] = [];
 
             // Depending on the current state of the group, we either show all runs or hide all runs

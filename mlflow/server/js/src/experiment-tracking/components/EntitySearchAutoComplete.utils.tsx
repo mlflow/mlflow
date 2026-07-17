@@ -1,6 +1,7 @@
 import React from 'react';
 import { shouldEnableMinMaxMetricsOnExperimentPage } from '../../common/utils/FeatureUtils';
 import { MLFLOW_INTERNAL_PREFIX } from '../../common/utils/TagUtils';
+import { sanitizeStringForRegexp } from '../../common/utils/StringUtils';
 
 export type EntitySearchAutoCompleteOption = {
   label?: string | React.ReactNode;
@@ -83,8 +84,11 @@ export const getEntitySearchOptionsFromEntityNames = (
 
 // Bolds a specified segment of `wholeText`.
 const boldedText = (wholeText: string, shouldBeBold: string) => {
-  const textArray = wholeText.split(RegExp(shouldBeBold.replace('.', '\\.'), 'ig'));
-  const match = wholeText.match(RegExp(shouldBeBold.replace('.', '\\.'), 'ig'));
+  // Escape all the special characters
+  const escapedText = sanitizeStringForRegexp(shouldBeBold);
+
+  const textArray = wholeText.split(RegExp(escapedText, 'ig'));
+  const match = wholeText.match(RegExp(escapedText, 'ig'));
 
   return (
     // Autocomplete sets font weight to 600 on full match resulting in double bolding.

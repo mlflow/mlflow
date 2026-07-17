@@ -1,8 +1,8 @@
 ---
 sidebar_label: Ground Truth Expectations
+description: Define and log ground truth expectations in MLflow to establish reference outputs for evaluating LLM and AI agent quality.
 ---
 
-import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import WorkflowSteps from "@site/src/components/WorkflowSteps";
@@ -13,12 +13,12 @@ import TileCard from "@site/src/components/TileCard";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus, BarChart3 } from "lucide-react";
+import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus, BarChart3 } from "lucide-react";
 import AddExpectationImageUrl from '@site/static/images/assessments/add_expectation_ui.png';
 
 # Ground Truth Expectations
 
-MLflow Expectations provide a systematic way to capture ground truth - the correct or desired outputs that your AI should produce. By establishing these reference points, you create the foundation for meaningful evaluation and continuous improvement of your GenAI applications.
+MLflow Expectations provide a systematic way to capture ground truth - the correct or desired outputs that your AI should produce. By establishing these reference points, you create the foundation for meaningful evaluation and continuous improvement of your LLM applications and AI agents.
 
 For complete API documentation and implementation details, see the <APILink fn="mlflow.log_expectation" /> reference.
 
@@ -34,7 +34,7 @@ Before using the <APILink fn="mlflow.log_expectation">Expectations API</APILink>
 
 - MLflow 3.2.0 or later installed
 - An active MLflow tracking server or local tracking setup
-- Traces that have been logged from your GenAI application to an MLflow Experiment
+- Traces that have been logged from your LLM application or AI agent to an MLflow Experiment
 
 ## Why Annotate Ground Truth?
 
@@ -485,9 +485,7 @@ Remove expectations that were logged incorrectly:
 
 ```python
 # Delete specific expectation
-mlflow.delete_assessment(
-    trace_id="tr-1234567890abcdef", assessment_id="a-5555666677778888"
-)
+mlflow.delete_assessment(trace_id="tr-1234567890abcdef", assessment_id="a-5555666677778888")
 ```
 
 ## Integration with Evaluation
@@ -524,7 +522,7 @@ Expectations are most powerful when combined with systematic evaluation:
     icon={BarChart3}
     iconSize={48}
     title="LLM Evaluation"
-    description="Learn how to systematically evaluate and improve your GenAI applications"
+    description="Learn how to systematically evaluate and improve your LLM applications and AI agents"
     href="/genai/eval-monitor"
     linkText="Start evaluating →"
     containerHeight={64}

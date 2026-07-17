@@ -6,7 +6,15 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "dev/clint/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master
@@ -16,34 +24,50 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
 jobs:
   typescript-sdk:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
+        # 22.22.2 has a regression where `npm install -g` fails
+        # See: https://github.com/nodejs/node/issues/62425
+        node-version: [22.22.1, 24]
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
-          cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Check package-lock.json is up-to-date
+        run: |
+          npm install --package-lock-only --no-audit --no-fund
+          git diff --exit-code package-lock.json || {
+            echo "package-lock.json is out of date. Run 'npm install --package-lock-only' locally and commit the result."
+            exit 1
+          }
 
       - name: Run format check
         run: npm run format:check
@@ -59,3 +83,32 @@ jobs:
 
       - name: Run tests for integrations
         run: npm run test:integrations
+
+  # Guards against the mlflow#24167 class of bug: an integration importing an
+  # @mlflow/* symbol that exists in the workspace source but not in the published
+  # version its package.json declares as a floor. Every other gate resolves
+  # @mlflow/core through the workspace symlink (always latest), so only this job
+  # -- which type-checks each integration against the published floor -- can see
+  # it. Runs separately from typescript-sdk so it never gates the main matrix.
+  min-version-check:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm ci
+      - name: Check integrations against published @mlflow/* floors
+        run: bash scripts/check-min-mlflow-deps.sh

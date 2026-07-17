@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';

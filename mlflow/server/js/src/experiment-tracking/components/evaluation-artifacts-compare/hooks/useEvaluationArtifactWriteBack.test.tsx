@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import userEvent from '@testing-library/user-event';
@@ -87,7 +88,8 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
   });
 
   beforeEach(() => {
-    Utils.logErrorAndNotifyUser = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation();
   });
 
   afterEach(() => {

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactMapView from './ShowArtifactMapView';
@@ -92,7 +93,8 @@ describe('ShowArtifactMapView', () => {
 
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
-    instance.fetchArtifacts = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchArtifacts').mockImplementation();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();

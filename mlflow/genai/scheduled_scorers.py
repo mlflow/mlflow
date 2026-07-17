@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from mlflow.genai.scorers.base import Scorer
-from mlflow.utils.annotations import experimental
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.scheduled_scorers`. "
@@ -9,7 +8,6 @@ _ERROR_MSG = (
 )
 
 
-@experimental(version="3.0.0")
 @dataclass()
 class ScorerScheduleConfig:
     """

@@ -6,6 +6,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
@@ -58,7 +59,8 @@ describe('ShowArtifactHtmlView', () => {
     });
   });
 
-  test('should render html content in IFrame', (done: jest.DoneCallback) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render html content in IFrame', (done: any) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
     });
@@ -76,7 +78,8 @@ describe('ShowArtifactHtmlView', () => {
 
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
-    instance.fetchArtifacts = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchArtifacts').mockImplementation();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();

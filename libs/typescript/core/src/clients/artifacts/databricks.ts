@@ -2,16 +2,32 @@ import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
-import { getRequestHeaders, makeRequest } from '../utils';
+import { makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
+import { AuthProvider, HeadersProvider } from '../../auth';
+
+/**
+ * Options for creating a DatabricksArtifactsClient.
+ */
+export interface DatabricksArtifactsClientOptions {
+  /**
+   * The Databricks workspace host URL
+   */
+  host: string;
+
+  /**
+   * Authentication provider
+   */
+  authProvider: AuthProvider;
+}
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
-  private databricksToken?: string;
+  private headersProvider: HeadersProvider;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: DatabricksArtifactsClientOptions) {
     this.host = options.host;
-    this.databricksToken = options.databricksToken;
+    this.headersProvider = options.authProvider.getHeadersProvider();
   }
 
   /**
@@ -43,10 +59,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       return TraceData.fromJson(traceDataJson);
     } catch (error) {
       console.error(`Failed to download trace data for ${traceInfo.traceId}:`, error);
-
-      // Return empty trace data if download fails
-      // This allows getting trace info even if data is missing
-      return new TraceData([]);
+      throw error;
     }
   }
 
@@ -59,7 +72,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.headersProvider,
     );
     return response.credential_info;
   }
@@ -69,13 +82,13 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    * Endpoint: GET /mlflow/traces/{trace_id}/credentials-for-data-download
    */
   private async getCredentialsForTraceDataDownload(
-    traceId: string
+    traceId: string,
   ): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataDownload.getEndpoint(this.host, traceId);
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.headersProvider,
     );
 
     if (response.credential_info) {
@@ -90,10 +103,10 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    */
   private async uploadToCloudStorage(
     credentials: ArtifactCredentialInfo,
-    data: string
+    data: string,
   ): Promise<void> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     // Add headers from credentials (if they exist)
@@ -126,18 +139,18 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     signedUrl: string,
     data: string,
     headers: Record<string, string>,
-    credentialType: string
+    credentialType: string,
   ): Promise<void> {
     try {
       const response = await fetch(signedUrl, {
         method: 'PUT',
         headers,
-        body: data
+        body: data,
       });
 
       if (!response.ok) {
         throw new Error(
-          `${credentialType} upload failed: ${response.status} ${response.statusText}`
+          `${credentialType} upload failed: ${response.status} ${response.statusText}`,
         );
       }
     } catch (error) {
@@ -153,7 +166,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
   private async uploadToAzureBlob(
     sasUri: string,
     data: string,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<void> {
     try {
       const response = await fetch(sasUri, {
@@ -161,9 +174,9 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
         headers: {
           ...headers,
           'x-ms-blob-type': 'BlockBlob',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: data
+        body: data,
       });
 
       if (!response.ok) {
@@ -181,7 +194,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
   private async uploadToAzureAdlsGen2(
     sasUri: string,
     data: string,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<void> {
     try {
       const dataBuffer = new TextEncoder().encode(data);
@@ -193,13 +206,13 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
         method: 'PUT',
         headers: {
           ...headers,
-          'Content-Length': '0'
-        }
+          'Content-Length': '0',
+        },
       });
 
       if (!createResponse.ok) {
         throw new Error(
-          `Azure ADLS Gen2 file creation failed: ${createResponse.status} ${createResponse.statusText}`
+          `Azure ADLS Gen2 file creation failed: ${createResponse.status} ${createResponse.statusText}`,
         );
       }
 
@@ -209,14 +222,14 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
         method: 'PATCH',
         headers: {
           ...headers,
-          'Content-Type': 'application/octet-stream'
+          'Content-Type': 'application/octet-stream',
         },
-        body: dataBuffer
+        body: dataBuffer,
       });
 
       if (!appendResponse.ok) {
         throw new Error(
-          `Azure ADLS Gen2 data append failed: ${appendResponse.status} ${appendResponse.statusText}`
+          `Azure ADLS Gen2 data append failed: ${appendResponse.status} ${appendResponse.statusText}`,
         );
       }
 
@@ -226,13 +239,13 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
         method: 'PATCH',
         headers: {
           ...headers,
-          'Content-Length': '0'
-        }
+          'Content-Length': '0',
+        },
       });
 
       if (!flushResponse.ok) {
         throw new Error(
-          `Azure ADLS Gen2 flush failed: ${flushResponse.status} ${flushResponse.statusText}`
+          `Azure ADLS Gen2 flush failed: ${flushResponse.status} ${flushResponse.statusText}`,
         );
       }
     } catch (error) {
@@ -244,7 +257,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    * Download data from cloud storage using signed URL
    */
   private async downloadFromSignedUrl(
-    credentials: ArtifactCredentialInfo
+    credentials: ArtifactCredentialInfo,
   ): Promise<SerializedTraceData> {
     const headers: Record<string, string> = {};
 
@@ -258,7 +271,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     try {
       const response = await fetch(credentials.signed_uri, {
         method: 'GET',
-        headers
+        headers,
       });
 
       if (!response.ok) {

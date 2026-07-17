@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { useEditExperimentTraceTags } from './useEditExperimentTraceTags';

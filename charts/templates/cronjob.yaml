@@ -1,0 +1,106 @@
+{{- if .Values.garbageCollection.enabled }}
+{{- if and (not .Values.mlflow.backendStoreUri) (not .Values.mlflow.backendStoreUriFrom) }}
+{{- fail "garbageCollection.enabled requires either mlflow.backendStoreUri or mlflow.backendStoreUriFrom to be set" }}
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "mlflow.fullname" . }}-gc
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.garbageCollection.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "mlflow.selectorLabels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
+          restartPolicy: Never
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumes:
+            - name: tmp
+              emptyDir: {}
+            {{- if .Values.storage.enabled }}
+            - name: mlflow-storage
+              persistentVolumeClaim:
+                claimName: {{ include "mlflow.fullname" . }}
+            {{- end }}
+            {{- with .Values.garbageCollection.extraVolumes }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          containers:
+            - name: mlflow-gc
+              image: {{ include "mlflow.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  mlflow gc \
+                    --backend-store-uri="$MLFLOW_BACKEND_STORE_URI" \
+                    {{- if .Values.garbageCollection.olderThan }}
+                    --older-than={{ .Values.garbageCollection.olderThan | quote }} \
+                    {{- end }}
+                    {{- if .Values.garbageCollection.allWorkspaces }}
+                    --all-workspaces \
+                    {{- end }}
+                    ;
+              env:
+                - name: MLFLOW_TRACKING_URI
+                  value: {{ printf "%s://%s.%s.svc.cluster.local:%v" (ternary "https" "http" .Values.tls.enabled) (include "mlflow.fullname" .) .Release.Namespace .Values.server.value_options.port | quote }}
+                {{- if .Values.mlflow.backendStoreUriFrom }}
+                - name: MLFLOW_BACKEND_STORE_URI
+                  valueFrom:
+                    {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 20 }}
+                {{- else if .Values.mlflow.backendStoreUri }}
+                - name: MLFLOW_BACKEND_STORE_URI
+                  value: {{ .Values.mlflow.backendStoreUri | quote }}
+                {{- end }}
+                {{- with .Values.env }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- with .Values.envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+                {{- if .Values.storage.enabled }}
+                - name: mlflow-storage
+                  mountPath: {{ .Values.storage.mountPath }}
+                {{- end }}
+                {{- with .Values.garbageCollection.extraVolumeMounts }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- with .Values.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .Values.garbageCollection.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+{{- end }}

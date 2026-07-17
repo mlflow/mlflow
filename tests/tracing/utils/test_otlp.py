@@ -1,6 +1,10 @@
+import gzip
 import time
+import zlib
+from collections.abc import Callable
 
 import pytest
+from fastapi import HTTPException
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -8,6 +12,8 @@ from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracing.provider import provider as mlflow_provider
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -21,11 +27,16 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter as HttpExporter,
     )
+    from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 except ImportError:
     pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+    decompress_otlp_body,
+    get_otlp_exporter,
+    should_use_otlp_exporter,
+)
 
 _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
@@ -136,8 +147,20 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     model = TestModel()
     model.predict(2, 5)
 
-    # Tracer should be configured to export to OTLP
-    exporter = _get_trace_exporter()
+    # Tracer should be configured to export to OTLP.
+    # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+    # (since _get_span_processor prefers BaseMlflowSpanProcessor), so we find
+    # the OTLP exporter by looking for the OtelSpanProcessor directly.
+    if dual_export:
+        # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+        # (since _get_span_processor prefers BaseMlflowSpanProcessor). Find the
+        # OTLP exporter by looking up the OtelSpanProcessor from the tracer provider.
+        tp = mlflow_provider.get()
+        processors = tp._active_span_processor._span_processors
+        otel_processor = next(p for p in processors if isinstance(p, OtelSpanProcessor))
+        exporter = otel_processor.span_exporter
+    else:
+        exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
@@ -206,8 +229,10 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     result = parent_function()
     assert result == "Parent: Hello World"
 
+    mlflow.flush_trace_async_logging()
+
     client = MlflowClient()
-    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    traces = client.search_traces(locations=[experiment.experiment_id])
     assert len(traces) == 1
     trace = traces[0]
     assert len(trace.data.spans) == 2
@@ -237,3 +262,66 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
         f"Expected spans not found in collector logs after 60 seconds. "
         f"Logs: {collector_logs[:2000]}"
     )
+
+
+@pytest.mark.parametrize(
+    ("encoding", "compress_fn", "data"),
+    [
+        ("gzip", gzip.compress, b"otlp-data-test"),
+        ("deflate", zlib.compress, b"otlp-deflate-data"),
+        ("deflate", lambda d: zlib.compress(d)[2:-4], b"raw-deflate-data"),  # Raw deflate
+    ],
+    ids=["gzip", "deflate-rfc", "deflate-raw"],
+)
+def test_decompress_otlp_body_valid(
+    encoding: str, compress_fn: Callable[[bytes], bytes], data: bytes
+):
+    compressed = compress_fn(data)
+    output = decompress_otlp_body(compressed, encoding)
+    assert output == data
+
+
+@pytest.mark.parametrize(
+    ("encoding", "invalid_data", "expected_error"),
+    [
+        ("gzip", b"not-gzip-data", r"Failed to decompress gzip payload"),
+        ("deflate", b"not-deflate-data", r"Failed to decompress deflate payload"),
+        ("unknown-encoding", b"xxx", r"Unsupported Content-Encoding"),
+    ],
+    ids=["gzip-invalid", "deflate-invalid", "unknown-encoding"],
+)
+def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
+    with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
+        decompress_otlp_body(invalid_data, encoding)
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, "x" * 149 + "\ud83e")
+    assert value.string_value == "x" * 149 + "?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_fallback():
+    class BadStr:
+        def __str__(self):
+            return "bad\ud83e"
+
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, BadStr())
+    assert value.string_value == "bad?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_nested_lone_surrogate():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, {"items": ["ok", {"bad": "x\ud83e"}]})
+    nested = value.kvlist_value.values[0].value.array_value.values[1]
+    assert nested.kvlist_value.values[0].value.string_value == "x?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_dict_key():
+    value = AnyValue()
+
+    _set_otel_proto_anyvalue(value, {"bad\ud83e": "ok"})
+
+    assert value.kvlist_value.values[0].key == "bad?"
+    assert value.kvlist_value.values[0].value.string_value == "ok"

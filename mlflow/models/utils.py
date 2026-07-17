@@ -35,6 +35,7 @@ from mlflow.types.utils import (
     _is_none_or_nan,
     clean_tensor_type,
 )
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
@@ -108,7 +109,7 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str | dict[str, Any]
 
 if HAS_PYSPARK:
     PyFuncInput = PyFuncInput | SparkDataFrame
@@ -359,12 +360,10 @@ class _Example:
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
             orient = "split" if "columns" in model_input else "values"
-            self.info.update(
-                {
-                    "type": "dataframe",
-                    "pandas_orient": orient,
-                }
-            )
+            self.info.update({
+                "type": "dataframe",
+                "pandas_orient": orient,
+            })
         elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
@@ -761,7 +760,9 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == object:
+    if t == DataType.string and (
+        values.dtype == object or isinstance(values.dtype, pd.StringDtype)
+    ):
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
@@ -1189,16 +1190,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | N
                         # ColSpec model signatures do not support array columns, so subsequent
                         # validation logic will result in a clear "incompatible input types"
                         # exception. This is preferable to a pandas DataFrame construction error
-                        pf_input = pd.DataFrame(
-                            {
-                                key: (
-                                    value.tolist()
-                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
-                                    else value
-                                )
-                                for key, value in pf_input.items()
-                            }
-                        )
+                        pf_input = pd.DataFrame({
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        })
                     else:
                         pf_input = pd.DataFrame(pf_input)
                 except Exception as e:
@@ -1350,8 +1349,11 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     try:
         pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
     except MlflowException:
+        # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
         raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="SCHEMA_ENFORCEMENT_FAILED",
         )
     return pd_series[0]
 
@@ -1411,8 +1413,7 @@ def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
         )
     properties = {prop.name: prop for prop in obj.properties}
     required_props = {k for k, prop in properties.items() if prop.required}
-    missing_props = required_props - set(data.keys())
-    if missing_props:
+    if missing_props := required_props - set(data.keys()):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
@@ -1630,8 +1631,7 @@ def _enforce_params_schema(params: dict[str, Any] | None, schema: ParamSchema | 
         params = {str(k): v for k, v in params.items()}
 
     allowed_keys = {param.name for param in schema.params}
-    ignored_keys = set(params) - allowed_keys
-    if ignored_keys:
+    if ignored_keys := set(params) - allowed_keys:
         _logger.warning(
             f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
             f"Supported params are: {allowed_keys}. "
@@ -1682,8 +1682,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return [
             convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
-    converter = type_mapping.get(type(dataType))
-    if converter:
+    if converter := type_mapping.get(type(dataType)):
         return converter(value)
     return value
 
@@ -1979,10 +1978,13 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
+def _validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     """
-    Helper function to validate the model can be served and provided input is valid
-    prior to serving the model.
+    Internal helper used by MLflow's model logging pipeline to validate that an
+    ``input_example`` can be successfully served. The public-facing wrapper
+    ``validate_serving_input`` is deprecated, but this function is preserved so
+    that ``log_model`` can keep validating examples without emitting a
+    deprecation warning.
 
     Args:
         model_uri: URI of the model to be served.
@@ -2012,6 +2014,27 @@ def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     finally:
         if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)
+
+
+@deprecated(alternative="mlflow.models.predict", since="3.13.0")
+def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
+    """
+    Helper function to validate the model can be served and provided input is valid
+    prior to serving the model.
+
+    .. note::
+        This API is deprecated. Use :py:func:`mlflow.models.predict` instead, which
+        validates the input example by running prediction in an isolated environment
+        (e.g. with ``env_manager="uv"``) that closely mirrors the serving environment.
+
+    Args:
+        model_uri: URI of the model to be served.
+        serving_input: Input data to be validated. Should be a dictionary or a JSON string.
+
+    Returns:
+        The prediction result from the model.
+    """
+    return _validate_serving_input(model_uri, serving_input)
 
 
 def get_external_mlflow_model_spec(logged_model: LoggedModel) -> Model:

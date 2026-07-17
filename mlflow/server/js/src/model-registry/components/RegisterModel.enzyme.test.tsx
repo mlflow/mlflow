@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
@@ -66,7 +67,7 @@ describe('RegisterModelButton', () => {
 
   describe('source URI construction', () => {
     test('should use models:/ format for logged models with model_id', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         runUuid: 'test-run-uuid',
@@ -90,6 +91,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'models:/m-12345-model-id', // Should use models:/ format
@@ -101,7 +103,7 @@ describe('RegisterModelButton', () => {
     });
 
     test('should use runs:/ format for regular artifacts with run context', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         runUuid: 'test-run-uuid',
@@ -124,6 +126,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'runs:/test-run-uuid/my_model', // Should use runs:/ format
@@ -135,7 +138,7 @@ describe('RegisterModelButton', () => {
     });
 
     test('should fall back to absolute modelPath when no run context', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         modelPath: 'file:///absolute/path/to/model',
@@ -158,6 +161,7 @@ describe('RegisterModelButton', () => {
 
       await instance.handleRegisterModel();
 
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(createModelVersionApi).toHaveBeenCalledWith(
         'existing-model',
         'file:///absolute/path/to/model', // Should use absolute path as fallback

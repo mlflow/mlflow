@@ -57,4 +57,4 @@ Runs the Keras deep learning training with default parameters and log it in expe
 Runs the hyperparameter tuning with either random search or Hyperopt and log the
 results under ``hyperparam_experiment_id``.
 
-You can compare these results by using ``mlflow ui``.
+You can compare these results by using ``mlflow server``.

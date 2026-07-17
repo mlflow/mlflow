@@ -1,15 +1,14 @@
+import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { getUser } from '../global-settings/getUser';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
-import { GenAiTracesTable } from './GenAITracesTable';
-// eslint-disable-next-line import/no-namespace
+import { GenAiTracesTableDeprecated } from './GenAITracesTable';
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
-import type { GenAiEvaluationTracesReview } from './components/GenAiEvaluationTracesReview';
 import { createTestTraces } from './test-fixtures/EvaluatedTraceTestUtils';
 import type { RunEvaluationTracesDataEntry } from './types';
 import { testRoute, TestRouter } from './utils/RoutingTestUtils';
@@ -17,18 +16,37 @@ import { testRoute, TestRouter } from './utils/RoutingTestUtils';
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(120000); // This is quite expensive test
 
+jest.mock('../model-trace-explorer/FeatureUtils', () => ({
+  shouldEnableTracesTableStatePersistence: () => false,
+  shouldBlockLargeTraceDisplay: () => false,
+  getLargeTraceDisplaySizeThreshold: () => 1e9,
+  shouldUseTracesV4API: () => false,
+  shouldEnableTracesTabLabelingSchemas: () => false,
+  shouldEnableAssessmentsInSessions: () => false,
+  shouldUseModelTraceExplorerDrawerUI: () => false,
+  shouldUseUnifiedModelTraceComparisonUI: () => false,
+}));
+
 // Mock necessary modules
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../global-settings/getUser', () => ({
   getUser: jest.fn(),
 }));
 
-jest.mock('@databricks/web-shared/hooks', () => {
+jest.mock('../hooks/useLocalStorage', () => {
   return {
-    ...jest.requireActual<typeof import('@databricks/web-shared/hooks')>('@databricks/web-shared/hooks'),
+    ...jest.requireActual<typeof import('../hooks/useLocalStorage')>('../hooks/useLocalStorage'),
     getLocalStorageItemByParams: jest.fn().mockReturnValue({ hiddenColumns: undefined }),
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };
 });
+
+jest.mock('./hooks/useTableSortURL', () => ({
+  useTableSortURL: () => [undefined, jest.fn()] as const,
+}));
+
+jest.mock('./hooks/useColumnsURL', () => ({
+  useColumnsURL: () => [undefined, jest.fn()] as const,
+}));
 
 const testRunUuid = 'test-run-uuid';
 
@@ -229,7 +247,10 @@ describe('Evaluations overview - integration test', () => {
       },
     ]);
 
-    renderTestComponent(currentTestTraces, compareToTestTraces);
+    renderTestComponent(currentTestTraces, compareToTestTraces, {
+      compareToRunUuid: 'compare-run-uuid',
+      compareToRunDisplayName: 'Compare Run',
+    });
 
     await waitForViewToBeReady();
 
@@ -246,15 +267,13 @@ describe('Evaluations overview - integration test', () => {
     expect(screen.getAllByText('Pass').length).toBeGreaterThanOrEqual(1);
 
     // Make sure the null values are rendered as well.
-
-    // TODO ML-48427: Investigate why this is failing and re-enable or replace test with updated component
-    // expect(screen.getAllByText('null')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('null')[0]).toBeInTheDocument();
   });
 
   const renderTestComponent = (
     currentEvaluationResults: RunEvaluationTracesDataEntry[],
     compareToEvaluationResults: RunEvaluationTracesDataEntry[] = [],
-    additionalProps: Partial<ComponentProps<typeof GenAiEvaluationTracesReview>> = {},
+    additionalProps: Partial<ComponentProps<typeof GenAiTracesTableDeprecated>> = {},
   ) => {
     const TestComponent = () => {
       return (
@@ -273,7 +292,7 @@ describe('Evaluations overview - integration test', () => {
                     })
                   }
                 >
-                  <GenAiTracesTable
+                  <GenAiTracesTableDeprecated
                     experimentId="test-experiment-id"
                     currentRunDisplayName="Test Run"
                     currentEvaluationResults={currentEvaluationResults}

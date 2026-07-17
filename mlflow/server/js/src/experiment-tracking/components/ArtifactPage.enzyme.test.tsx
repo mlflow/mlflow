@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect, it } from '@jest/globals';
 import React from 'react';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
@@ -35,8 +36,10 @@ describe('ArtifactPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -179,8 +182,9 @@ describe('ArtifactPage', () => {
   });
   test('should not report multiple errors', () => {
     jest.useFakeTimers();
-    Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
-    Utils.logErrorAndNotifyUser = jest.fn();
+    jest.spyOn(Utils, 'isModelRegistryEnabled').mockReturnValue(true);
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation();
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(0);
     const props = {
       ...minimalProps,

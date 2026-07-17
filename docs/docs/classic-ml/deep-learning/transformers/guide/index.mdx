@@ -39,7 +39,7 @@ In the current version, audio and text-based large language
 models are supported for use with `pyfunc`, while computer vision, multi-modal, timeseries,
 reinforcement learning, and graph models are only supported for native type loading via <APILink fn="mlflow.transformers.load_model" />
 
-:::warning attention
+:::warning[attention]
 Not all `transformers` pipeline types are supported. See the table below for the list of currently supported Pipeline
 types that can be loaded as `pyfunc`.
 
@@ -49,7 +49,7 @@ Future releases of MLflow will introduce `pyfunc` support for these additional t
 The table below shows the mapping of `transformers` pipeline types to the [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor)
 data type inputs and outputs.
 
-:::warning important
+:::warning[important]
 The inputs and outputs of the `pyfunc` implementation of these pipelines _are not guaranteed to match_ the input types and output types that would
 return from a native use of a given pipeline type. If your use case requires access to scores, top_k results, or other additional references within
 the output from a pipeline inference call, please use the native implementation by loading via <APILink fn="mlflow.transformers.load_model" /> to
@@ -171,21 +171,12 @@ import transformers
 # Read a pre-trained conversation pipeline from HuggingFace hub
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 
-# Define the signature
-signature = mlflow.models.infer_signature(
-    "Hi there, chatbot!",
-    mlflow.transformers.generate_signature_output(
-        conversational_pipeline, "Hi there, chatbot!"
-    ),
-)
-
 # Log the pipeline
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=conversational_pipeline,
         name="chatbot",
         task="conversational",
-        signature=signature,
         input_example="A clever and witty question",
     )
 
@@ -199,71 +190,6 @@ print(response)
 
 # >> [It's a new thing that's been around for a while.]
 ```
-
-## Saving Prompt Templates with Transformer Pipelines
-
-:::note
-This feature is only available in MLflow 2.10.0 and above.
-:::
-
-MLflow supports specifying prompt templates for certain pipeline types:
-
-- [feature-extraction](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline)
-- [fill-mask](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline)
-- [summarization](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline)
-- [text2text-generation](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline)
-- [text-generation](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline)
-
-Prompt templates are strings that are used to format user inputs prior to `pyfunc` inference. To specify a prompt template,
-use the `prompt_template` argument when calling <APILink fn="mlflow.transformers.save_model" /> or <APILink fn="mlflow.transformers.log_model" />.
-The prompt template must be a string with a single format placeholder, `{prompt}`.
-
-For example:
-
-```python
-import mlflow
-from transformers import pipeline
-
-# Initialize a pipeline. `distilgpt2` uses a "text-generation" pipeline
-generator = pipeline(model="distilgpt2")
-
-# Define a prompt template
-prompt_template = "Answer the following question: {prompt}"
-
-# Save the model
-mlflow.transformers.save_model(
-    transformers_model=generator,
-    path="path/to/model",
-    prompt_template=prompt_template,
-)
-```
-
-When the model is then loaded with <APILink fn="mlflow.pyfunc.load_model" />, the prompt
-template will be used to format user inputs before passing them into the pipeline:
-
-```python
-import mlflow
-
-# Load the model with pyfunc
-model = mlflow.pyfunc.load_model("path/to/model")
-
-# The prompt template will be used to format this input, so the
-# string that is passed to the text-generation pipeline will be:
-# "Answer the following question: What is MLflow?"
-model.predict("What is MLflow?")
-```
-
-:::note
-`text-generation` pipelines with a prompt template will have the
-[return_full_text pipeline argument](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/inference_client#huggingface_hub.inference._text_generation.TextGenerationParameters.return_full_text)
-set to `False` by default. This is to prevent the template from being shown to the users,
-which could potentially cause confusion as it was not part of their original input. To
-override this behaviour, either set `return_full_text` to `True` via `params`, or by
-including it in a `model_config` dict in `log_model()`. See [this section](#using-model-config-and-model-signature-params-for-inference)
-for more details on how to do this.
-:::
-
-For a more in-depth guide, check out the [Prompt Templating notebook](/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating/)!
 
 ## Using model_config and Model Signature Params for Inference \{#using-model-config-and-model-signature-params-for-inference}
 
@@ -291,8 +217,6 @@ per each of the samples.
 
 ```python
 import mlflow
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -303,12 +227,6 @@ model = transformers.pipeline(
 )
 data = "pencil draw paper"
 
-# Infer the signature
-signature = infer_signature(
-    data,
-    generate_signature_output(model, data),
-)
-
 # Define an model_config
 model_config = {
     "num_beams": 5,
@@ -317,12 +235,12 @@ model_config = {
     "remove_invalid_values": True,
 }
 
-# Saving model_config with the model
+# Saving model_config with the model, signature is inferred from input_example
 mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature,
+    input_example=data,
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -330,9 +248,7 @@ pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
 result = pyfunc_loaded.predict(data)
 
 # overriding some inference configuration with different values
-pyfunc_loaded = mlflow.pyfunc.load_model(
-    "text2text", model_config=dict(do_sample=False)
-)
+pyfunc_loaded = mlflow.pyfunc.load_model("text2text", model_config=dict(do_sample=False))
 ```
 
 :::note
@@ -344,8 +260,6 @@ when calling `predict`.
 
 ```python
 import mlflow
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -368,19 +282,12 @@ inference_params = {
     "do_sample": True,
 }
 
-# Infer the signature including params
-signature_with_params = infer_signature(
-    data,
-    generate_signature_output(model, data),
-    params=inference_params,
-)
-
-# Saving model with signature and model config
+# Saving model with model config, signature is inferred from input_example
 mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature_with_params,
+    input_example=(data, inference_params),
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -456,7 +363,7 @@ After logging, the components are automatically inserted into the appropriate `P
 The components that are logged can be retrieved in their original structure (a dictionary) by setting the attribute `return_type` to "components" in the `load_model()` API.
 :::
 
-:::warning attention
+:::warning[attention]
 Not all model types are compatible with the pipeline API constructor via component elements. Incompatible models will raise an
 `MLflowException` error stating that the model is missing the _name_or_path_ attribute. In
 the event that this occurs, please construct the model directly via the `transformers.pipeline(<repo name>)` API and save the pipeline object directly.
@@ -483,9 +390,7 @@ with mlflow.start_run():
     )
 
 # Load the components as a pipeline
-loaded_pipeline = mlflow.transformers.load_model(
-    model_info.model_uri, return_type="pipeline"
-)
+loaded_pipeline = mlflow.transformers.load_model(model_info.model_uri, return_type="pipeline")
 
 print(type(loaded_pipeline).__name__)
 # >> TextClassificationPipeline
@@ -508,9 +413,7 @@ import mlflow
 translation_pipeline = transformers.pipeline(
     task="translation_en_to_fr",
     model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-    tokenizer=transformers.T5TokenizerFast.from_pretrained(
-        "t5-small", model_max_length=100
-    ),
+    tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
 )
 
 with mlflow.start_run():
@@ -562,15 +465,11 @@ the model directory. Within this file you will either find a copy of a declared 
 or, in the event that license information was never submitted to the huggingface hub when uploading a model repository, a link to the repository for you to use
 in order to determine what restrictions exist regarding the use of the model.
 
-:::note
-Model license information was introduced in **MLflow 2.10.0**. Previous versions do not include license information for models.
-:::
-
 ## Automatic Signature inference
 
 For pipelines that support `pyfunc`, there are 3 means of attaching a model signature to the `MLmodel` file.
 
-- Provide a model signature explicitly via setting a valid `ModelSignature` to the `signature` attribute. This can be generated via the helper utility <APILink fn="mlflow.transformers.generate_signature_output" />
+- Provide a model signature explicitly via setting a valid `ModelSignature` to the `signature` attribute.
 
 - Provide an `input_example`. The signature will be inferred and validated that it matches the appropriate input type. The output type will be validated by performing inference automatically (if the model is a `pyfunc` supported type).
 
@@ -602,9 +501,7 @@ task = "translation_en_to_fr"
 my_pipeline = transformers.pipeline(
     task=task,
     model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-    tokenizer=transformers.T5TokenizerFast.from_pretrained(
-        "t5-small", model_max_length=100
-    ),
+    tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
     framework="pt",
 )
 
@@ -649,9 +546,7 @@ task = "translation_en_to_fr"
 my_pipeline = transformers.pipeline(
     task=task,
     model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-    tokenizer=transformers.T5TokenizerFast.from_pretrained(
-        "t5-small", model_max_length=100
-    ),
+    tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
     framework="pt",
 )
 
@@ -674,11 +569,6 @@ Result:
 ```bash
 torch.float64
 ```
-
-:::note
-MLflow 2.12.1 slightly changed the `torch_dtype` extraction logic. Previously it depended on the `torch_dtype` attribute of the pipeline instance,
-but now it is extracted from the underlying model via `dtype` property. This enables MLflow to capture the dtype change of the model after pipeline instantiation.
-:::
 
 :::note
 Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.
@@ -717,16 +607,14 @@ to be thrown from the serving process stating that the soundfile is corrupt.
 An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
 
 ```python
-from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
+import mlflow
 
 url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
-signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=my_audio_pipeline,
         name="my_transcriber",
-        signature=signature,
+        input_example=url,
     )
 ```
 
@@ -769,8 +657,7 @@ lora_config = LoraConfig(...)
 peft_model = get_peft_model(base_model, lora_config)
 ```
 
-In MLflow 2.11.0, we introduced support for tracking PEFT models in the MLflow Transformers flavor.
-You can log and load PEFT models using the same APIs as other Transformers models, such as <APILink fn="mlflow.transformers.log_model" /> and <APILink fn="mlflow.transformers.load_model" />.
+MLflow supports tracking PEFT models in the Transformers flavor. You can log and load PEFT models using the same APIs as other Transformers models, such as <APILink fn="mlflow.transformers.log_model" /> and <APILink fn="mlflow.transformers.load_model" />.
 
 ```python
 import mlflow

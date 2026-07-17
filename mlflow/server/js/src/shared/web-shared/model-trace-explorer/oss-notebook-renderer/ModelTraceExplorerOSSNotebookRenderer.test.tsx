@@ -1,25 +1,34 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { ModelTraceExplorerOSSNotebookRenderer } from './ModelTraceExplorerOSSNotebookRenderer';
 import { getTraceArtifact } from './mlflow-fetch-utils';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
 
+// This test renders the full ModelTraceExplorer, which is a heavy component. The configured
+// React Testing Library asyncUtilTimeout (10s) exceeds Jest's default 5s per-test timeout, so on
+// slow CI workers the findBy* polls get killed by Jest before they can resolve. Raise the timeout
+// to match the sibling ModelTraceExplorer.test.tsx convention.
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 jest.mock('./mlflow-fetch-utils', () => ({
   getTraceArtifact: jest.fn(),
 }));
 
-jest.mock('../hooks/useGetModelTraceInfoV3', () => ({
-  useGetModelTraceInfoV3: jest.fn().mockReturnValue({
+jest.mock('../hooks/useGetModelTraceInfo', () => ({
+  useGetModelTraceInfo: jest.fn().mockReturnValue({
     refetch: jest.fn(),
   }),
 }));
 
 describe('ModelTraceExplorerOSSNotebookRenderer', () => {
   beforeEach(() => {
+    // eslint-disable-next-line @databricks/no-mock-location -- TODO(FEINF-4390)
     Object.defineProperty(window, 'location', {
       configurable: true,
       writable: true,

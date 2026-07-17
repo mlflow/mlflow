@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -103,6 +104,7 @@ def save_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     **kwargs,  # pylint: disable=unused-argument
 ):
     """
@@ -151,6 +153,7 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: {{ extra_files }}
         kwargs: {{ kwargs }}
     """
     import onnx
@@ -177,9 +180,11 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data=save_as_external_data)
+        onnx.save_model(
+            onnx_model, model_data_path, save_as_external_data=save_as_external_data, **kwargs
+        )
     else:
-        onnx.save_model(onnx_model, model_data_path)
+        onnx.save_model(onnx_model, model_data_path, **kwargs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -192,6 +197,8 @@ def save_model(
 
     _validate_onnx_session_options(onnx_session_options)
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,
@@ -199,6 +206,7 @@ def save_model(
         providers=onnx_execution_providers,
         onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -261,9 +269,16 @@ class _OnnxModelWrapper:
         else:
             providers = ONNX_EXECUTION_PROVIDERS
 
+        # Guard against malformed metadata: the providers field may have been hand-written
+        # as a single string or as null. Normalize to a non-empty list of provider names so
+        # the filtering below does not iterate over characters or fail on None.
+        if isinstance(providers, str):
+            providers = [providers]
+        elif not providers:
+            providers = ONNX_EXECUTION_PROVIDERS
+
         sess_options = onnxruntime.SessionOptions()
-        options = model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options")
-        if options:
+        if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
             if inter_op_num_threads := options.get("inter_op_num_threads"):
                 sess_options.inter_op_num_threads = inter_op_num_threads
             if intra_op_num_threads := options.get("intra_op_num_threads"):
@@ -281,33 +296,66 @@ class _OnnxModelWrapper:
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
 
-        # NOTE: Some distributions of onnxruntime require the specification of the providers
-        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differentiate
-        #  which architecture specific version has been installed, as all are imported with
-        # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
-        #  the providers list to be provided on calling an InferenceSession. Therefore the try
-        #  catch structure below attempts to create an inference session with just the model path
-        #  as pre v1.9.0. If that fails, it will use the providers list call.
-        # At the moment this is just CUDA and CPU, and probably should be expanded.
-        # A method of user customization has been provided by adding a variable in the save_model()
-        # function, which allows the ability to pass the list of execution providers via a
-        # optional argument e.g.
-        #
-        # mlflow.onnx.save_model(..., providers=['CUDAExecutionProvider'...])
-        #
-        # For details of the execution providers construct of onnxruntime, see:
-        # https://onnxruntime.ai/docs/execution-providers/
-        #
-        # For a information on how execution providers are used with onnxruntime InferenceSession,
-        # see the API page below:
-        # https://onnxruntime.ai/docs/api/python/api_summary.html#id8
-        #
-
+        # Honor the execution providers declared in the MLmodel metadata. We pass them on
+        # the InferenceSession construction directly: the previous try/except (construct
+        # without providers, retry with providers only on ValueError) was a pre-onnxruntime
+        # 1.9 relic. On onnxruntime >= 1.9 the no-providers constructor succeeds on CPU, so
+        # the retry never fired and declared GPU providers were silently dropped.
+        available = set(onnxruntime.get_available_providers())
+        usable = [p for p in providers if p in available]
+        if missing := [p for p in providers if p not in available]:
+            _logger.warning(
+                "ONNX model declares execution providers %s but %s are unavailable in "
+                "this onnxruntime build; serving with %s. GPU acceleration will not be "
+                "used if a GPU provider is missing.",
+                providers,
+                missing,
+                usable or ["CPUExecutionProvider"],
+            )
+        requested_providers = usable or ["CPUExecutionProvider"]
+        # Some providers are compiled into onnxruntime (so they appear in
+        # get_available_providers()) but fail to initialize at runtime -- e.g. TensorRT
+        # without the TensorRT libraries installed, or CUDA with a driver/runtime mismatch.
+        # Depending on the provider, construction either raises or silently falls back to
+        # CPU. To avoid regressing a previously-loadable model into a hard load failure, we
+        # retry on CPU if the requested providers raise, and warn loudly in both cases.
         try:
-            self.rt = onnxruntime.InferenceSession(path, sess_options=sess_options)
-        except ValueError:
             self.rt = onnxruntime.InferenceSession(
-                path, providers=providers, sess_options=sess_options
+                path, providers=requested_providers, sess_options=sess_options
+            )
+        except Exception as e:
+            if requested_providers == ["CPUExecutionProvider"]:
+                raise
+            _logger.warning(
+                "ONNX model requested execution providers %s but onnxruntime failed to "
+                "initialize them (%s); falling back to CPU. GPU acceleration will not be "
+                "used.",
+                requested_providers,
+                repr(e),
+            )
+            self.rt = onnxruntime.InferenceSession(
+                path, providers=["CPUExecutionProvider"], sess_options=sess_options
+            )
+
+        # Even when construction succeeds, onnxruntime may have silently dropped a requested
+        # provider that failed to initialize (activating fewer than requested). Compare
+        # requested vs actually-activated providers and warn on any drop. Whether this loses
+        # acceleration depends on which providers survived: dropping TensorRT while CUDA
+        # remains still runs on GPU, but dropping every non-CPU provider means CPU-only.
+        active_providers = self.rt.get_providers()
+        if inactive_providers := [p for p in requested_providers if p not in active_providers]:
+            still_accelerated = any(p != "CPUExecutionProvider" for p in active_providers)
+            _logger.warning(
+                "ONNX model requested execution providers %s but onnxruntime activated only "
+                "%s; %s failed to initialize at runtime and were dropped. %s",
+                requested_providers,
+                active_providers,
+                inactive_providers,
+                (
+                    "Inference will still use the remaining accelerated provider(s)."
+                    if still_accelerated
+                    else "Inference will run on CPU."
+                ),
             )
 
         assert len(self.rt.get_inputs()) >= 1
@@ -402,9 +450,9 @@ class _OnnxModelWrapper:
                 data = np.asarray(data)
                 return data.reshape(-1)
 
-            return pd.DataFrame.from_dict(
-                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
-            )
+            return pd.DataFrame.from_dict({
+                c: format_output(p) for (c, p) in zip(self.output_names, predicted)
+            })
         else:
             return dict(zip(self.output_names, predicted))
 
@@ -464,6 +512,7 @@ def log_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -523,6 +572,7 @@ def log_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -552,6 +602,7 @@ def log_model(
         onnx_session_options=onnx_session_options,
         metadata=metadata,
         save_as_external_data=save_as_external_data,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,

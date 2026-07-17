@@ -150,7 +150,6 @@ def test_on_end():
 
 
 def test_on_end_preserves_user_set_trace_state():
-    """Test that explicitly set trace state is preserved when span ends."""
     otel_span = create_mock_otel_span(
         name="foo",
         trace_id=_OTEL_TRACE_ID,
@@ -186,7 +185,6 @@ def test_on_end_preserves_user_set_trace_state():
 
 
 def test_on_end_updates_trace_state_when_in_progress():
-    """Test that trace state is updated from span when trace is still IN_PROGRESS."""
     otel_span = create_mock_otel_span(
         name="foo",
         trace_id=_OTEL_TRACE_ID,

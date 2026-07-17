@@ -1,6 +1,6 @@
-import os
+import gc
 import random
-import tempfile
+import threading
 import time
 from datetime import datetime
 from time import sleep
@@ -114,10 +114,8 @@ def _generate_trial(generator: random.Random) -> FrozenTrial:
 
 
 @pytest.fixture
-def setup_storage():
-    tempdir = tempfile.mkdtemp(prefix="optuna_tests_", dir="/tmp")
-    mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
-    mlflow.set_tracking_uri(mlflow_uri)
+def setup_storage(db_uri):
+    mlflow.set_tracking_uri(db_uri)
     experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
     storage = MlflowStorage(
         experiment_id=experiment_id, batch_flush_interval=1.0, batch_size_threshold=5
@@ -167,7 +165,6 @@ def test_queue_batch_operation_appends_to_existing_queue(setup_storage):
 
 
 def test_flush_batch_sends_data_to_mlflow(setup_storage):
-    """Test that _flush_batch properly sends data to MLflow client."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -198,7 +195,6 @@ def test_flush_batch_sends_data_to_mlflow(setup_storage):
 
 
 def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
-    """Test that _flush_batch does nothing when batch is empty."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -219,7 +215,6 @@ def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
 
 
 def test_flush_batch_handles_nonexistent_run(setup_storage):
-    """Test that _flush_batch handles nonexistent run gracefully."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "nonexistent-run"
@@ -237,7 +232,6 @@ def test_flush_batch_handles_nonexistent_run(setup_storage):
 
 
 def test_flush_all_batches_flushes_all_runs(setup_storage):
-    """Test that flush_all_batches flushes all pending runs."""
     storage = setup_storage
     # Setup multiple runs with data
     run_ids = ["run1", "run2", "run3"]
@@ -261,7 +255,6 @@ def test_flush_all_batches_flushes_all_runs(setup_storage):
 
 
 def test_flush_all_batches_handles_empty_queue(setup_storage):
-    """Test that flush_all_batches works with empty queue."""
     storage = setup_storage
     # Ensure batch queue is empty
     storage._batch_queue = {}
@@ -586,7 +579,8 @@ def test_set_trial_state_values_for_values(setup_storage):
 
     assert storage.get_trial(trial_id_1).value == 0.5
     assert storage.get_trial(trial_id_2).value is None
-    assert storage.get_trial(trial_id_3).value == float("inf")
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
+    assert storage.get_trial(trial_id_3).value == 1.7976931348623157e308
     assert storage.get_trial(trial_id_4).values == [0.1, 0.2, 0.3]
     assert storage.get_trial(trial_id_5).values == [0.1, 0.2, 0.3]
 
@@ -612,11 +606,12 @@ def test_set_trial_intermediate_value(setup_storage):
 
     assert storage.get_trial(trial_id_1).intermediate_values == {0: 0.3, 2: 0.4}
     assert storage.get_trial(trial_id_2).intermediate_values == {}
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
     assert storage.get_trial(trial_id_3).intermediate_values == {
         0: 0.1,
         1: 0.4,
         2: 0.5,
-        3: float("inf"),
+        3: 1.7976931348623157e308,
     }
     assert np.isnan(storage.get_trial(trial_id_4).intermediate_values[0])
 
@@ -706,3 +701,26 @@ def test_get_study_id_by_name_if_exists(setup_storage):
     # Test existing study
     result = storage.get_study_id_by_name_if_exists("test-study")
     assert result == study_id
+
+
+def test_flush_threads_exit_after_gc():
+    def _flush_threads():
+        return [t for t in threading.enumerate() if "mlflow_optuna_batch_flush_worker" in t.name]
+
+    threads_before = set(_flush_threads())
+
+    def _create_instances():
+        for _ in range(5):
+            MlflowStorage(experiment_id="1")
+
+    _create_instances()
+    gc.collect()
+
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        new_threads = [t for t in _flush_threads() if t not in threads_before]
+        if not new_threads:
+            break
+        time.sleep(0.1)
+    else:
+        raise TimeoutError(f"Flush threads still alive after 3s: {new_threads}")

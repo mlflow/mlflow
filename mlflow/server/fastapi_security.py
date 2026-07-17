@@ -13,6 +13,7 @@ from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
     HEALTH_ENDPOINTS,
     INVALID_HOST_MSG,
+    LOCALHOST_ORIGIN_PATTERNS,
     get_allowed_hosts_from_env,
     get_allowed_origins_from_env,
     get_default_allowed_hosts,
@@ -118,19 +119,15 @@ class CORSBlockingMiddleware:
 
         if should_block_cors_request(origin, method, self.allowed_origins):
             _logger.warning(f"Blocked cross-origin request from {origin}")
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": HTTPStatus.FORBIDDEN,
-                    "headers": [[b"content-type", b"text/plain"]],
-                }
-            )
-            await send(
-                {
-                    "type": "http.response.body",
-                    "body": CORS_BLOCKED_MSG.encode(),
-                }
-            )
+            await send({
+                "type": "http.response.start",
+                "status": HTTPStatus.FORBIDDEN,
+                "headers": [[b"content-type", b"text/plain"]],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": CORS_BLOCKED_MSG.encode(),
+            })
             return
 
         await self.app(scope, receive, send)
@@ -166,19 +163,32 @@ def init_fastapi_security(app: FastAPI) -> None:
     allowed_origins = get_allowed_origins()
 
     if allowed_origins and "*" in allowed_origins:
+        _logger.warning(
+            "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS=* is set; disabling credentialed CORS. "
+            "Wildcard origins with credentials is a CORS spec violation. "
+            "Set an explicit origin allowlist to enable credentialed cross-origin requests."
+        )
+        # CORSBlockingMiddleware is intentionally skipped here: the admin explicitly
+        # opted into wildcard CORS, so server-side rejection of cross-origin requests
+        # would defeat the purpose. The browser-side guardrail is that
+        # allow_credentials=False causes browsers to strip cookies/Authorization
+        # headers on cross-origin requests, so authenticated endpoints still 401.
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
-            allow_credentials=True,
+            allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
             expose_headers=["*"],
         )
     else:
+        # Use CORSBlockingMiddleware for blocking CORS requests on the server side,
+        # and CORSMiddleware for responding to OPTIONS requests.
         app.add_middleware(CORSBlockingMiddleware, allowed_origins=allowed_origins)
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=allowed_origins,
+            allow_origin_regex="|".join(LOCALHOST_ORIGIN_PATTERNS),
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             allow_headers=["*"],

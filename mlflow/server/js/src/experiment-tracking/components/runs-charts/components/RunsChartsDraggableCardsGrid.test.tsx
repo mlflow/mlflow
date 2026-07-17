@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RunsChartsDraggableCardsGridSection } from './RunsChartsDraggableCardsGridSection';
 import { noop } from 'lodash';
@@ -25,6 +26,7 @@ import type { ChartSectionConfig } from '../../../types';
 import { Checkbox, DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
@@ -44,15 +46,18 @@ jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop
 describe('RunsChartsDraggableCardsGrid', () => {
   const renderTestComponent = (element: React.ReactElement) => {
     const noopTooltipComponent = () => <div />;
+    const queryClient = new QueryClient();
     render(element, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
           <DesignSystemProvider>
             <RunsChartsTooltipWrapper component={noopTooltipComponent} contextData={{}}>
               <TestApolloProvider>
-                <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
-                  {children}
-                </MockedReduxStoreProvider>
+                <QueryClientProvider client={queryClient}>
+                  <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
+                    {children}
+                  </MockedReduxStoreProvider>
+                </QueryClientProvider>
               </TestApolloProvider>
             </RunsChartsTooltipWrapper>
           </DesignSystemProvider>
@@ -62,7 +67,8 @@ describe('RunsChartsDraggableCardsGrid', () => {
   };
 
   const mockGridElementSize = (element: Element, width: number, height: number) => {
-    element.getBoundingClientRect = jest.fn<any, any>(() => ({
+    // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
+    jest.spyOn(element, 'getBoundingClientRect').mockImplementation(() => ({
       top: 0,
       left: 0,
       width,

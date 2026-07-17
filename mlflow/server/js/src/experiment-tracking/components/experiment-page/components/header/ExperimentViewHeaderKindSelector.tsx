@@ -75,7 +75,10 @@ export const ExperimentViewHeaderKindSelector = ({
     </Tag>
   );
 
-  const tagElementWithTooltip = <ExperimentTypeTooltip>{tagElement}</ExperimentTypeTooltip>;
+  const tagElementWithTooltip = (
+    // If we're using read-only tag, we need to wrap it in a span so <Tooltip> won't facilitate clickable style
+    <ExperimentTypeTooltip>{usingDropdown ? tagElement : <span>{tagElement}</span>}</ExperimentTypeTooltip>
+  );
 
   if (readOnly) {
     return tagElementWithTooltip;
@@ -107,7 +110,7 @@ export const ExperimentViewHeaderKindSelector = ({
           return (
             <DropdownMenu.CheckboxItem
               key={key}
-              componentId={`mlflow.experiment_view.header.experiment_kind_selector.${key}`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_header_experimentviewheaderkindselector_113"
               onClick={() => onChange?.(key as ExperimentKind)}
               checked={isSelected}
             >

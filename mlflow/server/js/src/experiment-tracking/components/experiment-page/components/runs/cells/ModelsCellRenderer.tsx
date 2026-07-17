@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ModelsIcon, Overflow, Tag, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { ModelsIcon, Overflow, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
@@ -11,10 +11,7 @@ import { FormattedMessage } from 'react-intl';
 import { useExperimentLoggedModelRegisteredVersions } from '../../../../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { isEmpty, uniqBy, values } from 'lodash';
 import { isUCModelName } from '../../../../../utils/IsUCModelName';
-import {
-  shouldUnifyLoggedModelsAndRegisteredModels,
-  shouldUseGetLoggedModelsBatchAPI,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldUnifyLoggedModelsAndRegisteredModels } from '../../../../../../common/utils/FeatureUtils';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
 
@@ -69,6 +66,7 @@ const ModelLink = ({
             values={{
               originalModelLink: (
                 <Link
+                  componentId="mlflow.experiment_tracking.runs_table.logged_model_tooltip_link"
                   to={Routes.getExperimentLoggedModelDetailsPage(loggedModelExperimentId, loggedModelId)}
                   css={{ color: 'inherit', textDecoration: 'underline' }}
                 >
@@ -82,15 +80,22 @@ const ModelLink = ({
     }
     if (registeredModelName) {
       return (
-        <LegacyTooltip title={tooltipBody} placement="topLeft">
-          <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
-          <Tag
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
-            css={{ marginRight: 0, verticalAlign: 'middle' }}
-          >
-            v{registeredModelVersion}
-          </Tag>
-        </LegacyTooltip>
+        <Tooltip
+          componentId="mlflow.experiment-tracking.models-cell.model-link"
+          content={tooltipBody}
+          side="top"
+          align="start"
+        >
+          <span>
+            <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
+            <Tag
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
+              css={{ marginRight: 0, verticalAlign: 'middle' }}
+            >
+              v{registeredModelVersion}
+            </Tag>
+          </span>
+        </Tooltip>
       );
     }
 
@@ -128,6 +133,7 @@ const ModelLink = ({
         {renderModelIcon()}
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.model_version_link"
         to={renderModelLink()}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
@@ -150,6 +156,7 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
         <ModelsIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.logged_model_v3_link"
         to={Routes.getExperimentLoggedModelDetailsPage(model.info.experiment_id, model.info.model_id)}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
@@ -168,6 +175,7 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
  * - `loggedModelsV3` containing V3 logged models associated with the runs inputs and outputs, populated by API call
  * In the component, we also resolve registered model versions for V3 logged models based on loged model's tags
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
   const { registeredModels = [], loggedModels = [], loggedModelsV3, experimentId, runUuid } = props.value || {};
 
@@ -184,10 +192,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
 
   // We create a map of registered model versions by their source logged model.
   // This allows to unfurl logged model to registered model versions while hiding the original logged model.
+  // Always build this map (not just when GetLoggedModelsBatchAPI is used) so registered models
+  // display consistently on Runs page vs Models page regardless of navigation path.
   const registeredModelVersionsByLoggedModel = useMemo(() => {
-    if (!shouldUseGetLoggedModelsBatchAPI()) {
-      return {};
-    }
     const map: Record<string, CombinedModelType[]> = {};
     registeredModelVersions.forEach((modelVersion) => {
       const loggedModelId = modelVersion.sourceLoggedModel?.info?.model_id;

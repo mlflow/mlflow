@@ -78,13 +78,30 @@ export type OpenAIResponsesInput =
   | string
   | OpenAIResponsesInputMessage /* | OpenAIResponsesItem | OpenAIResponsesItemReference */[];
 
+export type OpenAIResponsesReasoningSummary = {
+  text: string;
+  type: 'summary_text';
+};
+
+export type OpenAIResponsesReasoning = {
+  type: 'reasoning';
+  id: string;
+  summary: OpenAIResponsesReasoningSummary[] | null;
+};
+
 export type OpenAIResponsesOutputItem =
   | RawModelTraceChatMessage
   | OpenAIResponsesFunctionCall
   | OpenAIResponsesImageGenerationCall
-  | OpenAIResponsesFunctionCallOutput;
+  | OpenAIResponsesFunctionCallOutput
+  | OpenAIResponsesReasoning;
 
-export type OpenAIResponsesStreamingOutputChunk = {
+export type OpenAIResponsesStreamingOutputDelta = {
+  type: 'response.output_text.delta';
+  delta: string;
+};
+
+export type OpenAIResponsesStreamingOutputDone = {
   type: 'response.output_item.done';
   role: 'assistant';
   item: OpenAIResponsesOutputItem;

@@ -37,6 +37,7 @@ export const useLoggedModelsForExperimentRunV2 = ({
     },
     {
       enabled: isHookEnabled,
+      refetchOnWindowFocus: false,
     },
   );
 

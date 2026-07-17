@@ -99,8 +99,7 @@ def load_project(directory):
         )
 
     # Validate config if docker_env parameter is present
-    docker_env = yaml_obj.get(env_type.DOCKER)
-    if docker_env:
+    if docker_env := yaml_obj.get(env_type.DOCKER):
         if not docker_env.get("image"):
             raise ExecutionException(
                 "Project configuration (MLproject file) was invalid: Docker "
@@ -136,8 +135,7 @@ def load_project(directory):
             name=project_name,
         )
 
-    python_env = yaml_obj.get(env_type.PYTHON)
-    if python_env:
+    if python_env := yaml_obj.get(env_type.PYTHON):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
@@ -151,8 +149,7 @@ def load_project(directory):
             name=project_name,
         )
 
-    conda_path = yaml_obj.get(env_type.CONDA)
-    if conda_path:
+    if conda_path := yaml_obj.get(env_type.CONDA):
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException(
@@ -257,10 +254,11 @@ class EntryPoint:
         self.command = command
 
     def _validate_parameters(self, user_parameters):
-        missing_params = []
-        for name in self.parameters:
-            if name not in user_parameters and self.parameters[name].default is None:
-                missing_params.append(name)
+        missing_params = [
+            name
+            for name in self.parameters
+            if name not in user_parameters and self.parameters[name].default is None
+        ]
         if missing_params:
             raise ExecutionException(
                 "No value given for missing parameters: {}".format(
@@ -298,7 +296,10 @@ class EntryPoint:
         for key in user_parameters:
             if key not in final_params:
                 extra_params[key] = user_parameters[key]
-        return self._sanitize_param_dict(final_params), self._sanitize_param_dict(extra_params)
+        return (
+            self._sanitize_value_dict(final_params),
+            self._sanitize_extra_param_dict(extra_params),
+        )
 
     def compute_command(self, user_parameters, storage_dir):
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
@@ -308,8 +309,18 @@ class EntryPoint:
         return " ".join(command_arr)
 
     @staticmethod
-    def _sanitize_param_dict(param_dict):
+    def _sanitize_value_dict(param_dict):
+        # Keys here are used as str.format placeholders against self.command,
+        # not shell tokens, so quoting them would break {placeholder} resolution.
+        # Only values flow into the shell command unquoted, so only values need
+        # shell-quoting.
         return {str(key): quote(str(value)) for key, value in param_dict.items()}
+
+    @staticmethod
+    def _sanitize_extra_param_dict(param_dict):
+        # Both keys and values get joined into the shell command as
+        # `--{key} {value}` tokens, so both need shell-quoting.
+        return {quote(str(key)): quote(str(value)) for key, value in param_dict.items()}
 
 
 class Parameter:
@@ -332,8 +343,7 @@ class Parameter:
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir, key_position):
-        local_path = get_local_path_or_none(user_param_value)
-        if local_path:
+        if local_path := get_local_path_or_none(user_param_value):
             if not os.path.exists(local_path):
                 raise ExecutionException(
                     f"Got value {user_param_value} for parameter {self.name}, but no such file or "

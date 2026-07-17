@@ -1,5 +1,4 @@
 import TOCInline from "@theme/TOCInline";
-import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
@@ -156,16 +155,14 @@ print(model_info.signature)
 
 # The model can be served with the OpenAI-compatible inference API
 pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-prediction = pyfunc_model.predict(
-    {
-        "messages": [
-            {"role": "system", "content": "You are a bot."},
-            {"role": "user", "content": "Hello, how are you?"},
-        ],
-        "temperature": 0.5,
-        "max_tokens": 200,
-    }
-)
+prediction = pyfunc_model.predict({
+    "messages": [
+        {"role": "system", "content": "You are a bot."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ],
+    "temperature": 0.5,
+    "max_tokens": 200,
+})
 print(prediction)
 # >> [{'choices': [{'finish_reason': 'stop',
 # >>               'index': 0,
@@ -217,7 +214,7 @@ with mlflow.start_run():
     )
 ```
 
-:::warning attention
+:::warning[attention]
 The `stop` parameter can be used to specify the stop sequence for the `llm/v1/chat` and `llm/v1/completions` tasks.
 We emulate the behavior of the `stop` parameter in the OpenAI APIs by passing the
 [stopping_criteria](https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationMixin.generate.stopping_criteria)

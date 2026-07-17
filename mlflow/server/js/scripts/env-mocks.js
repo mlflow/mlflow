@@ -8,6 +8,13 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// @xyflow/react reads m22 (zoom) from DOMMatrixReadOnly. JSDOM does not implement it.
+global.DOMMatrixReadOnly = class DOMMatrixReadOnly {
+  constructor() {
+    this.m22 = 1;
+  }
+};
+
 global.DOMRect = {
   fromRect: () => ({
     top: 0,

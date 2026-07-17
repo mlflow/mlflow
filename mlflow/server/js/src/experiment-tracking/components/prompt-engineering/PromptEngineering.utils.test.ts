@@ -1,3 +1,4 @@
+import { describe, test, expect, it } from '@jest/globals';
 import {
   canEvaluateOnRun,
   compilePromptInputText,

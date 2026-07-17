@@ -7,6 +7,22 @@ const path = require("path");
 const MARKER = "<!-- documentation preview -->";
 
 /**
+ * Check if a URL is accessible
+ * @param {string} url - URL to check
+ * @returns {Promise<boolean|undefined>} True if the URL is accessible (200 or 3xx), false otherwise; undefined if an error occurs
+ */
+async function isUrlAccessible(url) {
+  try {
+    const res = await fetch(url, { method: "GET", redirect: "manual" });
+    // treat 200 and 3xx as "accessible", 404 as "missing"
+    return res.ok || (res.status >= 300 && res.status < 400);
+  } catch (e) {
+    console.error(`Error checking accessibility for ${url}:`, e);
+    return undefined;
+  }
+}
+
+/**
  * Fetch changed files from a pull request
  * @param {object} params - Parameters object
  * @param {object} params.github - GitHub API client
@@ -34,7 +50,7 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
 /**
  * Get changed documentation pages from the list of changed files
  * @param {Array<{filename: string, status: string}>} changedFiles - Array of changed file objects
- * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status
+ * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status, sorted alphabetically by page path
  */
 function getChangedDocPages(changedFiles) {
   const DOCS_DIR = "docs/docs/";
@@ -63,6 +79,9 @@ function getChangedDocPages(changedFiles) {
 
     changedPages.push({ page: pagePath, status });
   }
+
+  // Sort alphabetically by page path for easier lookup
+  changedPages.sort((a, b) => a.page.localeCompare(b.page));
 
   return changedPages;
 }
@@ -115,7 +134,7 @@ async function upsertComment({ github, owner, repo, pullNumber, commentBody }) {
  * @param {string} params.workflowRunLink - Link to the workflow run
  * @param {string} params.docsWorkflowRunUrl - Link to the docs workflow run
  * @param {string} params.mainMessage - Main message content
- * @param {Array<{link: string, status: string}>} params.changedPages - Array of changed documentation page objects with link and status
+ * @param {Array<{link: string, status: string, isAccessible?: boolean}>} params.changedPages - Array of changed documentation page objects with link, status, and optional accessibility flag
  * @returns {string} Comment template
  */
 function getCommentTemplate({
@@ -128,8 +147,27 @@ function getCommentTemplate({
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
-    changedPagesSection = `
+    const pageLinks = changedPages
+      .map(({ link, status, isAccessible }) => {
+        let statusText = status;
+        // Add warning or success indicator for removed and renamed files
+        if (status === "removed" || status === "renamed") {
+          if (isAccessible === true) {
+            statusText = `${status}, ✅ redirect exists`;
+          } else if (isAccessible === false) {
+            statusText = `${status}, ❌ add a redirect`;
+          } else {
+            // If accessibility check failed
+            statusText = `${status}, ⚠️ failed to check`;
+          }
+        }
+        return `- ${link} (${statusText})`;
+      })
+      .join("\n");
+
+    // Only collapse if there are more than 5 changed pages
+    if (changedPages.length > 5) {
+      changedPagesSection = `
 
 <details>
 <summary>Changed Pages (${changedPages.length})</summary>
@@ -138,6 +176,14 @@ ${pageLinks}
 
 </details>
 `;
+    } else {
+      changedPagesSection = `
+
+**Changed Pages (${changedPages.length})**
+
+${pageLinks}
+`;
+    }
   }
 
   return `
@@ -201,10 +247,24 @@ module.exports = async ({ github, context, env }) => {
 
       // Convert to clickable links with status if we have changed pages
       if (docPages.length > 0) {
-        changedPages = docPages.map(({ page, status }) => ({
-          link: `[${page}](${netlifyUrl}/${page})`,
-          status,
-        }));
+        changedPages = await Promise.all(
+          docPages.map(async ({ page, status }) => {
+            const pageUrl = `${netlifyUrl}/${page}`;
+            const link = `[${page}](${pageUrl})`;
+
+            // Check accessibility for removed or renamed pages
+            let isAccessible;
+            if (status === "removed" || status === "renamed") {
+              isAccessible = await isUrlAccessible(pageUrl);
+            }
+
+            return {
+              link,
+              status,
+              isAccessible,
+            };
+          })
+        );
       }
     } catch (error) {
       console.error("Error fetching changed files:", error);

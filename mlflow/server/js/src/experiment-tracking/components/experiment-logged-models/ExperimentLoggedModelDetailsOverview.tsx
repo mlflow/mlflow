@@ -116,7 +116,10 @@ export const ExperimentLoggedModelDetailsOverview = ({
                 relatedRunsLoading ? (
                   <GenericSkeleton css={{ width: 200, height: theme.spacing.md }} />
                 ) : (
-                  <Link to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}>
+                  <Link
+                    componentId="mlflow.logged_models.details_overview.source_run_link"
+                    to={Routes.getRunPageRoute(loggedModel.info?.experiment_id, loggedModel.info?.source_run_id)}
+                  >
                     {relatedSourceRun?.info?.runName}
                   </Link>
                 )
@@ -173,7 +176,7 @@ export const ExperimentLoggedModelDetailsOverview = ({
 
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
-      <DetailsPageLayout css={{ flex: 1 }} usingSidebarLayout secondarySections={detailsSectionsV2}>
+      <DetailsPageLayout css={{ flex: 1 }} usingSidebarLayout secondarySections={detailsSectionsV2} sidebarSize="sm">
         <ExperimentLoggedModelDescription loggedModel={loggedModel} onDescriptionChanged={onDataUpdated} />
 
         {relatedRunsDataError?.message && (

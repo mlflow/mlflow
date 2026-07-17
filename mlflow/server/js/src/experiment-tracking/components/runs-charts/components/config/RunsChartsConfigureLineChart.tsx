@@ -3,7 +3,6 @@ import {
   Radio,
   LegacySelect,
   Switch,
-  LegacyTooltip,
   QuestionMarkIcon,
   useDesignSystemTheme,
   SegmentedControlGroup,
@@ -528,36 +527,36 @@ export const RunsChartsConfigureLineChart = ({
                 defaultMessage="Time (wall)"
                 description="Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
               />
-              <LegacyTooltip
-                title={
+              <Tooltip
+                componentId="mlflow.charts.line_chart_configure.x_axis_type.wall_time.tooltip"
+                content={
                   <FormattedMessage
                     defaultMessage="Absolute date and time"
                     description="A tooltip line chart configuration for the step function of wall time"
                   />
                 }
-                placement="right"
+                side="right"
               >
-                {' '}
                 <QuestionMarkIcon css={styles.timeStepQuestionMarkIcon} />
-              </LegacyTooltip>
+              </Tooltip>
             </Radio>
             <Radio value={RunsChartsLineChartXAxisType.TIME_RELATIVE}>
               <FormattedMessage
                 defaultMessage="Time (relative)"
                 description="Label for a radio button that configures the x-axis on a line chart. This option is for relative time since the first metric was logged."
               />
-              <LegacyTooltip
-                title={
+              <Tooltip
+                componentId="mlflow.charts.line_chart_configure.x_axis_type.relative_time.tooltip"
+                content={
                   <FormattedMessage
                     defaultMessage="Amount of time that has passed since the first metric value was logged"
                     description="A tooltip line chart configuration for the step function of relative time"
                   />
                 }
-                placement="right"
+                side="right"
               >
-                {' '}
                 <QuestionMarkIcon css={styles.timeStepQuestionMarkIcon} />
-              </LegacyTooltip>
+              </Tooltip>
             </Radio>
             {renderXAxisMetricSelector({
               theme,
@@ -674,6 +673,7 @@ export const RunsChartsConfigureLineChart = ({
             <Tooltip
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_703"
               delayDuration={0}
+              disableHoverableContent={false}
               content={
                 <FormattedMessage
                   defaultMessage="Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range"
@@ -751,8 +751,9 @@ export const RunsChartsConfigureLineChart = ({
               defaultMessage="Auto"
               description="Runs charts > line chart > display points > auto setting label"
             />{' '}
-            <LegacyTooltip
-              title={
+            <Tooltip
+              componentId="mlflow.charts.line_chart_configure.display_points.auto.tooltip"
+              content={
                 <FormattedMessage
                   defaultMessage="Show points on line charts if there are fewer than 60 data points per trace"
                   description="Runs charts > line chart > display points > auto tooltip"
@@ -760,7 +761,7 @@ export const RunsChartsConfigureLineChart = ({
               }
             >
               <InfoSmallIcon />
-            </LegacyTooltip>
+            </Tooltip>
           </SegmentedControlButton>
           <SegmentedControlButton
             value

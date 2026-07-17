@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   PlusIcon,
@@ -6,13 +7,13 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   TableSkeletonRows,
 } from '@databricks/design-system';
 import type { ColumnDef, RowSelectionState, SortingState, ColumnSort } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import type { ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../../common/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -38,6 +39,7 @@ import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliases
 import type { Interpolation, Theme } from '@emotion/react';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
 import { setModelVersionAliasesApi } from '../actions';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 type ModelVersionTableProps = {
   isLoading: boolean;
@@ -154,6 +156,7 @@ export const ModelVersionTable = ({
   });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedModelVersions', rowSelection);
 
   useEffect(() => {
     const selectedVersions = (versions || []).filter(({ version }) => rowSelection[version]);
@@ -168,12 +171,18 @@ export const ModelVersionTable = ({
         enableSorting: false,
         header: '', // Status column does not have title
         meta: { styles: { flexBasis: theme.general.heightSm, flexGrow: 0 } },
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
-            <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-              <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
-            </LegacyTooltip>
+            <Tooltip
+              componentId="mlflow.model-registry.model-view.model-versions.version-status.tooltip"
+              content={status_message || modelVersionStatusIconTooltips[status]}
+            >
+              <span>
+                <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
+              </span>
+            </Tooltip>
           );
         },
       },
@@ -188,13 +197,19 @@ export const ModelVersionTable = ({
         }),
         meta: { className: 'model-version' },
         accessorKey: 'version',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => (
           <FormattedMessage
             defaultMessage="<link>Version {versionNumber}</link>"
             description="Link to model version in the model version table"
             values={{
               link: (chunks) => (
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}>{chunks}</Link>
+                <Link
+                  componentId="mlflow.model_registry.version_table.version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}
+                >
+                  {chunks}
+                </Link>
               ),
               versionNumber: getValue(),
             }}
@@ -222,6 +237,7 @@ export const ModelVersionTable = ({
           description: 'Column title text for creator username in model version table',
         }),
         accessorKey: 'user_id',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => <span>{getValue()}</span>,
       },
     );
@@ -238,6 +254,7 @@ export const ModelVersionTable = ({
           }),
           meta: { styles: { flex: 2 } },
           accessorKey: 'tags',
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ getValue, row: { original } }) => {
             return (
               <KeyValueTagsEditorCell
@@ -258,6 +275,7 @@ export const ModelVersionTable = ({
             description: 'Column title text for model version aliases in model version table',
           }),
           meta: { styles: { flex: 2 }, multiline: true },
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ getValue, row: { original } }) => {
             const mvAliases = aliasesByVersion[original.version] || [];
             return (
@@ -311,19 +329,22 @@ export const ModelVersionTable = ({
     }
   };
 
-  const table = useReactTable<ModelVersionInfoEntity>({
-    data: versions || [],
-    columns: tableColumns,
-    state: {
-      rowSelection,
-      sorting,
+  const table = useReactTable<ModelVersionInfoEntity>(
+    'mlflow/server/js/src/model-registry/components/ModelVersionTable.tsx',
+    {
+      data: versions || [],
+      columns: tableColumns,
+      state: {
+        rowSelection,
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getRowId: ({ version }) => version,
+      onRowSelectionChange: setRowSelection,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: ({ version }) => version,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
-  });
+  );
 
   const isEmpty = () => table.getRowModel().rows.length === 0;
 

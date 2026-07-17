@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -8,7 +9,7 @@ import shap
 import sklearn
 from numba import njit
 from packaging.version import Version
-from sklearn.datasets import fetch_california_housing, load_diabetes
+from sklearn.datasets import load_diabetes
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -33,10 +34,9 @@ def shap_model():
     return shap.Explainer(model.predict, X, algorithm="permutation")
 
 
-def get_housing_data():
-    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
-
-    return X[:1000], y[:1000]
+def get_test_dataset():
+    X, y = load_diabetes(as_frame=True, return_X_y=True)
+    return X, y
 
 
 def test_sklearn_log_explainer():
@@ -47,7 +47,7 @@ def test_sklearn_log_explainer():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -83,7 +83,7 @@ def test_sklearn_log_explainer_self_serialization():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -122,7 +122,7 @@ def test_sklearn_log_explainer_pyfunc():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -163,7 +163,7 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 
 def test_load_pyfunc(tmp_path):
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
@@ -295,7 +295,7 @@ def test_merge_environment_with_duplicates():
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -334,7 +334,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
 def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
@@ -376,6 +376,24 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
         )
 
 
+def test_log_model_serializes_underlying_model_with_skops(shap_model):
+    # Guard that the underlying sklearn model is serialized with skops (not cloudpickle) by
+    # default. The serialization artifact is the only discriminating signal: both skops and
+    # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
+    # requirements can't guard this default.
+    with mlflow.start_run():
+        model_info = mlflow.shap.log_explainer(shap_model, "model")
+
+    underlying_model_path = Path(
+        _download_artifact_from_uri(model_info.model_uri), "underlying_model"
+    )
+    sklearn_conf = _get_flavor_configuration(
+        model_path=underlying_model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
+    assert (underlying_model_path / "model.skops").exists()
+
+
 def create_identity_function():
     def identity(x):
         return x
@@ -397,7 +415,7 @@ def test_pyfunc_serve_and_score_njit():
     def identity_function(x):
         return x
 
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
@@ -432,7 +450,7 @@ def test_pyfunc_serve_and_score():
     # Note: this implementation of an identify function is only compatible with versions of
     # shap <= 0.41.0. A breaking change was introduced with how numba is used with shap in version
     # 0.42.0.
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(

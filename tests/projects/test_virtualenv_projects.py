@@ -24,9 +24,9 @@ def use_dev_mlflow_for_projects():
     mlflow_root = os.path.dirname(os.path.dirname(mlflow.__file__))
 
     conda_env = read_yaml(TEST_VIRTUALENV_CONDA_PROJECT_DIR, "conda.yaml")
-    conda_pip_dependencies = [
+    conda_pip_dependencies = next(
         item for item in conda_env["dependencies"] if isinstance(item, dict) and "pip" in item
-    ][0]["pip"]
+    )["pip"]
     if "mlflow" in conda_pip_dependencies:
         conda_pip_dependencies.remove("mlflow")
         conda_pip_dependencies.append(mlflow_root)

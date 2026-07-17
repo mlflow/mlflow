@@ -432,6 +432,16 @@ html[data-genai-theme='true'] {
   flex-wrap: nowrap;
 }
 
+/* On narrow viewports the navbar collapses into the hamburger menu, which
+   already contains a "GitHub" entry. The persistent top-bar GitHub link
+   overlaps the search button at these widths and gets clipped to "GitHu",
+   so hide it here and rely on the hamburger menu entry instead. */
+@media (max-width: 996px) {
+  .navbar__items--right .github-link {
+    display: none;
+  }
+}
+
 /* --------------------------------
  * 4. Sidebar Styling
  * -------------------------------- */
@@ -439,6 +449,9 @@ html[data-genai-theme='true'] {
 /* Sidebar background color and spacing */
 .theme-doc-sidebar-container {
   background-color: transparent;
+  border-right: none !important;
+  padding-top: 1rem;
+  margin-right: 2rem;
 }
 
 /* Common sidebar styles for both themes */
@@ -448,12 +461,30 @@ html[data-genai-theme='true'] {
 
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-s);
   font-weight: var(--font-weight-medium);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1.5rem;
 }
 
-.menu__list-item:not(.sidebar-top-level-category) > .menu__link,
-.menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
+/* Style Overview doc link to match bold HTML section headers (e.g., "Getting Started")
+   Used in docs/sidebarsGenAI.ts */
+.sidebar-overview.menu__list-item {
+  padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal) !important;
+}
+
+.sidebar-overview.menu__list-item > .menu__link {
+  font-weight: bolder !important;
+  padding-left: 0 !important;
+}
+
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__link,
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
+  padding-left: 1.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 /* Regular menu links */
@@ -776,6 +807,16 @@ must be applied to the wrapping div along with the desired max-height */
 }
 
 /* --------------------------------
+ * 7.1. Video Styling
+ * -------------------------------- */
+
+video {
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-gray-300);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* --------------------------------
  * 8. Accessibility
  * -------------------------------- */
 
@@ -891,12 +932,12 @@ th {
   color: inherit;
 }
 
-/* Style admonition links to match main content */
-.admonition a {
-  color: var(--ifm-border-color);
+/* Add underline to admonition links for better visibility */
+.theme-admonition a {
+  text-decoration: underline;
 }
 
-.admonition a:hover {
+.theme-admonition a:hover {
   color: var(--ifm-color-emphasis-hover);
 }
 
@@ -936,4 +977,9 @@ th {
 
 .col--3 {
   padding-left: 0;
+}
+
+.theme-layout-main {
+  margin-left: auto;
+  margin-right: auto;
 }

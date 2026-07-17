@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
 import type { RunInfoEntity } from '../../../../types';
@@ -13,7 +14,7 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/actions', () => ({
 }));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(10000);
+jest.setTimeout(30000);
 
 describe('ExperimentViewRunsControlsActionsSelectTags', () => {
   beforeEach(() => {

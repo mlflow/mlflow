@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { useState } from 'react';
 import type { ReactWrapper } from 'enzyme';
 import { IntlProvider } from 'react-intl';
@@ -14,6 +15,7 @@ import type { ExperimentViewRunsControlsActionsProps } from './ExperimentViewRun
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -47,11 +49,13 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
       <Provider
         store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
       >
-        <MemoryRouter>
-          <IntlProvider locale="en">
-            <ExperimentViewRunsControlsActions {...props} />
-          </IntlProvider>
-        </MemoryRouter>
+        <DesignSystemProvider>
+          <MemoryRouter>
+            <IntlProvider locale="en">
+              <ExperimentViewRunsControlsActions {...props} />
+            </IntlProvider>
+          </MemoryRouter>
+        </DesignSystemProvider>
       </Provider>
     );
   };

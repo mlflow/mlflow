@@ -37,6 +37,7 @@ type ExperimentViewRunsControlsProps = {
   uiState: ExperimentPageUIState;
   isLoading: boolean;
   isComparingExperiments: boolean;
+  onResetColumns: () => void;
 };
 
 /**
@@ -44,6 +45,7 @@ type ExperimentViewRunsControlsProps = {
  * filters and run related actions (delete, restore, download CSV).
  */
 export const ExperimentViewRunsControls = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     viewState,
@@ -57,6 +59,7 @@ export const ExperimentViewRunsControls = React.memo(
     uiState,
     isLoading,
     isComparingExperiments,
+    onResetColumns,
   }: ExperimentViewRunsControlsProps) => {
     const [compareRunsMode, setCompareRunsMode] = useExperimentPageViewMode();
 
@@ -149,6 +152,7 @@ export const ExperimentViewRunsControls = React.memo(
                     onChangeColumnSelectorVisible={changeColumnSelectorVisible}
                     runsData={runsData}
                     selectedColumns={uiState.selectedColumns}
+                    onResetColumns={onResetColumns}
                   />
                 )}
 

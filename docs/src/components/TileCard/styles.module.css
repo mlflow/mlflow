@@ -7,14 +7,12 @@
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  opacity: 0.7;
 }
 
 .tileCard:hover {
   transform: translateY(-4px);
   box-shadow: var(--ifm-shadow-tile-hover);
   border-color: #0194e2;
-  opacity: 1;
 }
 
 .tileCard:hover .tileIcon {
@@ -64,6 +62,7 @@
   max-height: 100%;
   height: auto;
   object-fit: contain;
+  background: transparent;
 }
 
 /* Add subtle background for X logo for better contrast */
@@ -76,4 +75,34 @@
 /* Dark mode specific styling for X logo */
 [data-theme='dark'] .tileCard[href*='x.com'] .tileImage {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode adjustments for deep learning framework logos */
+/* PyTorch logo - has black text, needs inversion */
+[data-theme='dark'] .tileCard[href*='pytorch'] .tileImage {
+  filter: invert(1) hue-rotate(180deg);
+  background: transparent;
+}
+
+/* TensorFlow logo - has dark text, needs inversion */
+[data-theme='dark'] .tileCard[href*='tensorflow'] .tileImage {
+  filter: invert(1) hue-rotate(180deg);
+  background: transparent;
+}
+
+/* spaCy logo - bright blue, just needs brightening */
+[data-theme='dark'] .tileCard[href*='spacy'] .tileImage {
+  filter: brightness(1.3);
+  background: transparent;
+}
+
+/* HuggingFace/Transformers logo - now using proper dark mode SVG */
+[data-theme='dark'] .tileCard[href*='transformers'] .tileImage {
+  background: transparent;
+}
+
+/* Sentence Transformers logo */
+[data-theme='dark'] .tileCard[href*='sentence-transformers'] .tileImage {
+  filter: brightness(1.5);
+  background: transparent;
 }

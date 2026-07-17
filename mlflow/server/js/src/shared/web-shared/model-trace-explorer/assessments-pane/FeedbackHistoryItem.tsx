@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { AssessmentItemHeader } from './AssessmentItemHeader';
@@ -45,7 +45,7 @@ export const FeedbackHistoryItem = ({ feedback }: { feedback: FeedbackAssessment
               <FormattedMessage defaultMessage="Feedback" description="Label for the value of an feedback assessment" />
             </Typography.Text>
             <div>
-              <AssessmentDisplayValue jsonValue={JSON.stringify(value)} />
+              <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={feedback.assessment_name} />
             </div>
           </>
         )}

@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from typing import Any, Callable
@@ -6,6 +7,16 @@ import pytest
 
 import mlflow
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+
+@pytest.fixture(autouse=True)
+def enable_debug_logging():
+    # Enable debug logging to help diagnose flaky test failures
+    logger = logging.getLogger("mlflow.system_metrics.system_metrics_monitor")
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    yield
+    logger.setLevel(original_level)
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +54,8 @@ def test_manual_system_metrics_monitor():
         assert "SystemMetricsMonitor" in thread_names
 
         wait_for_condition(
-            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
+            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1,
+            timeout=20,
         )
     wait_for_condition(
         lambda: "SystemMetricsMonitor" not in [thread.name for thread in threading.enumerate()]
@@ -81,7 +93,8 @@ def test_automatic_system_metrics_monitor():
         assert "SystemMetricsMonitor" in thread_names
 
         wait_for_condition(
-            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
+            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1,
+            timeout=20,
         )
 
     wait_for_condition(

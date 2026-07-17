@@ -40,6 +40,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -85,6 +86,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    **kwargs,
 ):
     """Save an H2O model to a path on the local file system.
 
@@ -100,6 +103,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import h2o
 
@@ -135,7 +140,9 @@ def save_model(
             "If your cluster is remote, H2O may not store the model correctly. "
             "Please upgrade H2O version to a newer version"
         )
-        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+        h2o_save_location = h2o.save_model(
+            model=h2o_model, path=model_data_path, force=True, **kwargs
+        )
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -147,6 +154,8 @@ def save_model(
     with open(os.path.join(model_data_path, "h2o.yaml"), "w") as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.h2o",
@@ -156,7 +165,11 @@ def save_model(
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath, code=code_dir_subpath
+        FLAVOR_NAME,
+        h2o_version=h2o.__version__,
+        data=model_data_subpath,
+        code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -208,6 +221,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -231,6 +245,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -256,6 +271,7 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        extra_files=extra_files,
         metadata=metadata,
         params=params,
         tags=tags,

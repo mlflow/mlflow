@@ -15,7 +15,6 @@ from mlflow.genai.judges.tools.search_trace_regex import (
 
 @pytest.fixture
 def test_trace():
-    """Create a test trace with varied content for testing."""
     trace_dict = {
         "info": {
             "request_id": "test-trace-123",
@@ -38,12 +37,13 @@ def test_trace():
                     "status_message": "",
                     "attributes": {
                         "mlflow.traceRequestId": '"test-trace-123"',
-                        "mlflow.spanInputs": json.dumps(
-                            {"user_id": "12345", "query": "What is the weather today?"}
-                        ),
-                        "mlflow.spanOutputs": json.dumps(
-                            {"response": "I'll help you with the weather information."}
-                        ),
+                        "mlflow.spanInputs": json.dumps({
+                            "user_id": "12345",
+                            "query": "What is the weather today?",
+                        }),
+                        "mlflow.spanOutputs": json.dumps({
+                            "response": "I'll help you with the weather information."
+                        }),
                         "model": "gpt-4",
                         "temperature": "22°C",
                     },
@@ -239,7 +239,6 @@ def test_search_trace_regex_ellipses_in_surrounding_context():
 
 
 def test_search_trace_regex_configurable_surrounding_content_length():
-    """Test that the surrounding_content_length parameter controls the surrounding context size."""
     tool = SearchTraceRegexTool()
     # Create text with known positions: 50 'a's, then 'target', then 50 'b's
     long_text = "a" * 50 + "target" + "b" * 50
@@ -291,7 +290,6 @@ def test_search_trace_regex_configurable_surrounding_content_length():
 
 
 def test_search_trace_regex_default_surrounding_content_length(test_trace):
-    """Test that the default surrounding_content_length parameter works correctly."""
     tool = SearchTraceRegexTool()
 
     # Test with explicit default value

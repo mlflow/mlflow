@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pytest
+from packaging.version import Version
 
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
@@ -21,12 +22,20 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="module")
 def spark_session(tmp_path_factory: pytest.TempPathFactory):
+    import pyspark
     from pyspark.sql import SparkSession
+
+    pyspark_version = Version(pyspark.__version__)
+    if pyspark_version.major >= 4:
+        delta_package = "io.delta:delta-spark_2.13:4.0.0"
+    else:
+        delta_package = "io.delta:delta-spark_2.12:3.0.0"
 
     tmp_dir = tmp_path_factory.mktemp("spark_tmp")
     with (
-        SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+        SparkSession.builder
+        .master("local[*]")
+        .config("spark.jars.packages", delta_package)
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"

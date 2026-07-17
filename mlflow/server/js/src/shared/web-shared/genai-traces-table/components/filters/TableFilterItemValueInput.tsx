@@ -14,12 +14,15 @@ import { useGenAiExperimentRunsForComparison } from '../../hooks/useGenAiExperim
 import {
   EXECUTION_DURATION_COLUMN_ID,
   STATE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
-import { TracesTableColumnGroup } from '../../types';
 import type { AssessmentInfo, TableFilter, TableFilterOption, TableFilterOptions } from '../../types';
+import { TracesTableColumnGroup } from '../../types';
+import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { getAssessmentValueLabel } from '../GenAiEvaluationTracesReview.utils';
 
 export const TableFilterItemValueInput = ({
@@ -34,7 +37,7 @@ export const TableFilterItemValueInput = ({
   tableFilter: TableFilter;
   assessmentInfos: AssessmentInfo[];
   onChange: (tableFilter: TableFilter, index: number) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
 }) => {
   const intl = useIntl();
@@ -124,13 +127,44 @@ export const TableFilterItemValueInput = ({
 
   if (tableFilter.column === TracesTableColumnGroup.ASSESSMENT) {
     const assessmentInfo = assessmentInfos.find((assessment) => assessment.name === tableFilter.key);
-    if (assessmentInfo && assessmentInfo.dtype !== 'numeric' && assessmentInfo.dtype !== 'unknown') {
+    if (assessmentInfo && assessmentInfo.dtype === 'numeric') {
+      // Numeric assessments get a number input field
+      return (
+        <Input
+          aria-label="Value"
+          componentId="mlflow.evaluations_review.table_ui.filter_value_numeric"
+          id={id}
+          placeholder="Numeric value"
+          type="number"
+          value={localValue as string}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+          }}
+          onBlur={() => {
+            const numVal = localValue === '' || localValue === undefined ? '' : Number(localValue);
+            if (numVal !== tableFilter.value) {
+              onChange({ ...tableFilter, value: numVal === '' ? '' : numVal }, index);
+            }
+          }}
+          css={{ width: 200 }}
+        />
+      );
+    }
+    if (assessmentInfo && assessmentInfo.dtype !== 'unknown') {
       const options: TableFilterOption[] = Array.from(assessmentInfo.uniqueValues.values()).map((value) => {
         return {
           value: assessmentValueToSerializedString(value),
           renderValue: () => getAssessmentValueLabel(intl, theme, assessmentInfo, value).content,
         };
       });
+
+      // Add Error option when assessment contains errors, similar to how bar charts handle it
+      if (assessmentInfo.containsErrors) {
+        options.push({
+          value: assessmentValueToSerializedString(ERROR_KEY),
+          renderValue: () => getAssessmentValueLabel(intl, theme, assessmentInfo, ERROR_KEY).content,
+        });
+      }
 
       return (
         <TableFilterItemTypeahead
@@ -181,6 +215,44 @@ export const TableFilterItemValueInput = ({
     );
   }
 
+  if (tableFilter.column === SPAN_STATUS_COLUMN_ID) {
+    const spanStatusOptions: TableFilterOption[] = [
+      { value: 'OK', renderValue: () => intl.formatMessage(ExperimentViewTracesStatusLabels.OK) },
+      { value: 'ERROR', renderValue: () => intl.formatMessage(ExperimentViewTracesStatusLabels.ERROR) },
+    ];
+    return (
+      <TableFilterItemTypeahead
+        id={id}
+        item={spanStatusOptions.find((item) => item.value === tableFilter.value)}
+        options={spanStatusOptions}
+        onChange={(value: string) => {
+          onChange({ ...tableFilter, value }, index);
+        }}
+        placeholder="Select"
+        width={200}
+        canSearchCustomValue={false}
+      />
+    );
+  }
+
+  // Only available in OSS
+  if (tableFilter.column === LINKED_PROMPTS_COLUMN_ID) {
+    const promptOptions = tableFilterOptions.prompt || [];
+    return (
+      <TableFilterItemTypeahead
+        id={id}
+        item={promptOptions.find((item) => item.value === tableFilter.value)}
+        options={promptOptions}
+        onChange={(value: string) => {
+          onChange({ ...tableFilter, value }, index);
+        }}
+        placeholder="Select prompt"
+        width={200}
+        canSearchCustomValue
+      />
+    );
+  }
+
   return (
     <Input
       aria-label="Value"
@@ -194,8 +266,14 @@ export const TableFilterItemValueInput = ({
       }}
       onBlur={onValueBlur}
       css={{ width: 200 }}
-      // Disable it for assessment column at this point, since the data type is not supported yet.
-      disabled={tableFilter.column === TracesTableColumnGroup.ASSESSMENT}
+      // Disable it for assessment column when the data type is unknown
+      disabled={
+        tableFilter.column === TracesTableColumnGroup.ASSESSMENT &&
+        (() => {
+          const info = assessmentInfos.find((a) => a.name === tableFilter.key);
+          return !info || info.dtype === 'unknown';
+        })()
+      }
     />
   );
 };

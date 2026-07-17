@@ -13,7 +13,7 @@ import {
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -219,12 +219,14 @@ const EvaluationArtifactCompareViewImpl = ({
   const isViewConfigured = !isLoading && areTablesSelected && areRunsSelected;
 
   const filteredRows = useMemo(() => {
-    if (!debouncedFilter.trim()) {
+    const trimmedFilterLowerCase = debouncedFilter.trim().toLowerCase();
+    if (!trimmedFilterLowerCase) {
       return tableRows;
     }
-    const regexp = new RegExp(debouncedFilter, 'i');
     return tableRows.filter(({ groupByCellValues }) =>
-      Object.values(groupByCellValues).some((groupByValue) => groupByValue?.match(regexp)),
+      Object.values(groupByCellValues).some((groupByValue) =>
+        groupByValue?.toLowerCase().includes(trimmedFilterLowerCase),
+      ),
     );
   }, [tableRows, debouncedFilter]);
 
@@ -394,16 +396,19 @@ const EvaluationArtifactCompareViewImpl = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.evaluation-artifact-compare.run-header"
+            content={
               <FormattedMessage
                 defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
                 description="Experiment page > artifact compare view > table select dropdown tooltip"
               />
             }
           >
-            <InfoSmallIcon />
-          </LegacyTooltip>
+            <span>
+              <InfoSmallIcon />
+            </span>
+          </Tooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />

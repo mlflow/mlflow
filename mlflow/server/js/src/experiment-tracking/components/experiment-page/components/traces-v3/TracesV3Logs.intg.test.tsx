@@ -1,10 +1,10 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { ApolloProvider, ApolloClient, InMemoryCache } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   createTestTraceInfoV3,
@@ -69,6 +69,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
       isLoading: true,
       error: null,
       isEmpty: false,
+      evaluatedTraces: [],
+      otherEvaluatedTraces: [],
     }),
     useSelectedColumns: jest
       .fn()
@@ -76,7 +78,7 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
     useFilters: jest.fn().mockReturnValue([[], jest.fn()]),
     useTableSort: jest.fn().mockReturnValue([undefined, jest.fn()]),
     getEvalTabTotalTracesLimit: jest.fn().mockReturnValue(100),
-    invalidateMlflowSearchTracesCache: jest.fn().mockResolvedValue(undefined),
+    invalidateMlflowSearchTracesCache: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     getTracesTagKeys: jest.fn().mockReturnValue([]),
   };
 });
@@ -91,7 +93,9 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
 
 // Mock hooks
 jest.mock('../../../evaluations/hooks/useDeleteTraces', () => ({
-  useDeleteTracesMutation: jest.fn().mockReturnValue({ mutateAsync: jest.fn().mockResolvedValue(undefined) }),
+  useDeleteTracesMutation: jest
+    .fn()
+    .mockReturnValue({ mutateAsync: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) }),
 }));
 
 jest.mock('../../../traces/hooks/useEditExperimentTraceTags', () => ({
@@ -126,7 +130,7 @@ describe('TracesV3Logs - integration test', () => {
 
   const renderTestComponent = (additionalProps: Partial<ComponentProps<typeof TracesV3Logs>> = {}) => {
     const defaultProps: ComponentProps<typeof TracesV3Logs> = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',
@@ -211,7 +215,7 @@ describe('TracesV3Logs - integration test', () => {
     // Wrap in ApolloProvider for this test
     const mockApolloClient = new ApolloClient({ uri: '/graphql', cache: new InMemoryCache() });
     const defaultProps = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',
@@ -248,7 +252,7 @@ describe('TracesV3Logs - integration test', () => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     // Now check for the empty state text
-    expect(await screen.findByText(/No traces recorded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Start tracing your LLM application/i)).toBeInTheDocument();
   });
 
   it('renders traces table when traces exist', async () => {
@@ -307,7 +311,7 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.85')).toBeInTheDocument(); // quality_score value
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, or response')).toBeInTheDocument();
   });
 
   it('handles traces error state', async () => {
@@ -416,6 +420,6 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.75')).toBeInTheDocument(); // trace-2 quality_score
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, or response')).toBeInTheDocument();
   });
 });

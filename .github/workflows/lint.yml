@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
   push:
     branches:
       - master
@@ -27,54 +26,124 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   lint:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        run-macos:
+          - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+        exclude:
+          - os: macos-latest
+            run-macos: false
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 10
     permissions:
       contents: read
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+      pull-requests: read
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        id: setup-python
+        with:
+          pin-micro-version: false
+      - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "::add-matcher::.github/workflows/matchers/clint.json"
-          echo "::add-matcher::.github/workflows/matchers/format.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-          echo "::add-matcher::.github/workflows/matchers/typos.json"
-      - name: Install dependencies
+          for f in .github/workflows/matchers/*.json; do
+            echo "::add-matcher::$f"
+          done
+      - name: Install Python dependencies
         run: |
-          uv sync --locked --only-group lint --only-group test
+          uv sync --locked --only-group lint --only-group pytest
+      - name: Cache action pins
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .cache/action-pins.json
+          key: action-pins-${{ hashFiles('dev/check_actions.py') }}
+      - name: Cache mypy
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: mypy-${{ matrix.os }}-
+      - name: Cache install-bin tools
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            bin/*
+            !bin/install.py
+            !bin/README.md
+            !bin/.gitignore
+          key: install-bin-${{ matrix.os }}-${{ hashFiles('bin/install.py') }}
+          restore-keys: install-bin-${{ matrix.os }}-
+      - name: Cache pre-commit hooks
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-${{ matrix.os }}-
       - name: Install pre-commit hooks
         run: |
-          uv run --only-group lint pre-commit install --install-hooks
-          uv run --only-group lint pre-commit run install-bin -a -v
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
       - name: Run pre-commit
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |
-          uv run --only-group lint pre-commit run --all-files
+          uv run --no-sync pre-commit run --all-files
 
       - name: Test clint
         run: |
-          uv run --only-group test pytest dev/clint
+          uv run --no-sync pytest dev/clint
+
+      - name: Test pypi
+        run: |
+          uv run --no-sync pytest dev/pypi
 
       - name: Check function signatures
         if: matrix.os == 'ubuntu-latest'
         run: |
           uv run --no-project dev/check_function_signatures.py
+
+      - name: Check whitespace-only changes
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          uv run --no-project dev/check_whitespace_only.py \
+            --repo $REPO \
+            --pr $PR_NUMBER
+
+      - name: Check uv.lock changes
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path')
+          if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then
+            echo '::warning file=pyproject.toml,line=1,col=1::[Non-blocking]' \
+                 'Run `uv lock --upgrade-package <package>` if this PR should update package versions.' \
+                 '`uv lock` alone won'"'"'t bump them.'
+          fi
+
+      - name: Check unused media
+        run: |
+          dev/find-unused-media.sh

@@ -253,3 +253,17 @@ def test_git_diff_includes_staged_changes(tmp_git_repo: Path):
     assert context.info.diff is not None
     assert "file1 content" in context.info.diff  # Staged changes
     assert "modified content" in context.info.diff  # Unstaged changes
+
+
+def test_enable_git_model_versioning_from_subdirectory(
+    monkeypatch: pytest.MonkeyPatch, tmp_git_repo: Path
+):
+    subdir = tmp_git_repo / "subdir"
+    subdir.mkdir()
+    monkeypatch.chdir(subdir)
+
+    context = enable_git_model_versioning()
+    assert context.info is not None
+    assert context.info.commit is not None
+    assert context.info.branch is not None
+    assert context.info.dirty is False

@@ -1,3 +1,4 @@
+import { describe, jest, it, expect } from '@jest/globals';
 import React from 'react';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RenameForm } from './RenameForm';
@@ -8,7 +9,6 @@ describe('Render test', () => {
     type: 'run',
     name: 'Test',
     visible: true,
-    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn(() => identity) },
     innerRef: {},
   };

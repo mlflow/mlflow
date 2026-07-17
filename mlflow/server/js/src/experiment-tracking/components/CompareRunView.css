@@ -33,18 +33,18 @@
 }
 
 .mlflow-compare-table .diff-row .data-value {
-  background-color: rgba(249, 237, 190, 0.5);
-  color: #555;
+  background-color: var(--mlflow-compare-diff-bg, rgba(249, 237, 190, 0.5));
+  color: var(--mlflow-compare-diff-color, #555);
 }
 
 .mlflow-compare-table .diff-row .head-value {
-  background-color: rgba(249, 237, 190, 1);
-  color: #555;
+  background-color: var(--mlflow-compare-diff-bg, rgba(249, 237, 190, 1));
+  color: var(--mlflow-compare-diff-color, #555);
 }
 
 .mlflow-compare-table .diff-row:hover {
-  background-color: rgba(249, 237, 190, 1);
-  color: #555;
+  background-color: var(--mlflow-compare-diff-bg, rgba(249, 237, 190, 1));
+  color: var(--mlflow-compare-diff-color, #555);
 }
 
 /* Overrides to make it look more like antd */
@@ -56,14 +56,14 @@
 .mlflow-compare-table th,
 .mlflow-compare-table td {
   padding: 12px 8px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--mlflow-compare-border-color, #e8e8e8);
 }
 .mlflow-compare-table th {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--mlflow-compare-header-color, rgba(0, 0, 0, 0.85));
   font-weight: 500;
-  background-color: rgb(250, 250, 250);
+  background-color: var(--mlflow-compare-header-bg, rgb(250, 250, 250));
   text-align: left;
 }
 .mlflow-compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
-  background-color: rgb(250, 250, 250);
+  background-color: var(--mlflow-compare-hover-bg, rgb(250, 250, 250));
 }

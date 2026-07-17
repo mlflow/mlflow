@@ -6,7 +6,7 @@ To run this example,
 
 1. Start the tracking server
    ```shell
-   mlflow ui --app-name=basic-auth
+   mlflow server --app-name=basic-auth
    ```
 2. Go to `http://localhost:5000/signup` and register two users:
    - `(user_a, password_a)`

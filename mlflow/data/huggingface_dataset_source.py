@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any, Mapping, Sequence, Union
 
+from packaging.version import Version
+
 from mlflow.data.dataset_source import DatasetSource
 
 if TYPE_CHECKING:
@@ -59,7 +61,6 @@ class HuggingFaceDatasetSource(DatasetSource):
             An instance of `datasets.Dataset`.
         """
         import datasets
-        from packaging.version import Version
 
         load_kwargs = {
             "path": self.path,
@@ -74,8 +75,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         if Version(datasets.__version__) >= Version("2.16.0"):
             load_kwargs["trust_remote_code"] = self.trust_remote_code
 
-        intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
-        if intersecting_keys:
+        if intersecting_keys := set(load_kwargs.keys()) & set(kwargs.keys()):
             raise KeyError(
                 f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
                 f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."

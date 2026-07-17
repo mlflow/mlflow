@@ -2,15 +2,13 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/tests', '<rootDir>/src'],
+  roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
   },
-  globalSetup: '<rootDir>/../../jest.global-server-setup.ts',
-  globalTeardown: '<rootDir>/../../jest.global-server-teardown.ts',
-  testTimeout: 30000,
+  testTimeout: 10000,
   forceExit: true,
-  detectOpenHandles: true
+  detectOpenHandles: true,
 };

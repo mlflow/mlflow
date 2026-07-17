@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartCardFullScreenProps } from './ChartCard.common';
 import { type RunsChartCardReorderProps, RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
@@ -14,6 +14,8 @@ import {
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
 import type { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+
+const IMAGE_CHART_CARD_HEIGHT = 600;
 
 export interface RunsChartsImageChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsImageCardConfig;
@@ -35,8 +37,6 @@ export const RunsChartsImageChartCard = ({
   ...reorderProps
 }: RunsChartsImageChartCardProps) => {
   const { theme } = useDesignSystemTheme();
-  const containerRef = useRef(null);
-  const [containerWidth, setContainerWidth] = useState(0);
 
   // Optimizations for smoother slider experience. Maintain a local copy of config, and update
   // the global state only after the user has finished dragging the slider.
@@ -114,7 +114,6 @@ export const RunsChartsImageChartCard = ({
       }}
     >
       <div
-        ref={containerRef}
         css={{
           flex: 1,
           overflow: 'auto',
@@ -170,6 +169,7 @@ export const RunsChartsImageChartCard = ({
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       toggleFullScreenChart={toggleFullScreenChart}
+      height={IMAGE_CHART_CARD_HEIGHT}
       {...reorderProps}
     >
       {cardBodyToRender}

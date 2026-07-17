@@ -1,5 +1,12 @@
-import { ModelSpanType } from './ModelTrace.types';
-import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
+import { describe, expect, it } from '@jest/globals';
+
+import type {
+  Assessment,
+  ModelTraceChatMessage,
+  ModelTraceSpanNode,
+  RawModelTraceChatMessage,
+} from './ModelTrace.types';
+import { ModelSpanType, SpanLogLevel, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -13,9 +20,13 @@ import {
   MOCK_TRACE_INFO_V2,
   MOCK_TRACE_INFO_V3,
   MOCK_V3_SPANS,
+  MOCK_V3_TRACE,
 } from './ModelTraceExplorer.test-utils';
 import {
+  getSpanLogLevel,
   parseModelTraceToTree,
+  parseModelTraceToTreeWithMultipleRoots,
+  parseSpanLogLevel,
   searchTree,
   searchTreeBySpanId,
   getMatchesFromSpan,
@@ -30,6 +41,11 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  getTraceCost,
+  convertOtelAttributesToMap,
+  isSessionLevelAssessment,
+  createTraceV4SerializedLocation,
+  parseTraceV4SerializedLocation,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -67,6 +83,192 @@ describe('parseTraceToTree', () => {
     });
 
     expect(rootNode).toBeNull();
+  });
+
+  it('should sort children by start time when they are out of order', () => {
+    const commonSpanParts = {
+      span_type: 'TEST',
+      status: {
+        description: 'OK' as const,
+        status_code: 1 as const,
+      },
+      events: [],
+    };
+
+    // Create a trace with children in reverse chronological order
+    const outOfOrderSpans = [
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'root-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'root-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.CHAIN),
+        },
+        context: { span_id: 'root', trace_id: '1' },
+        parent_id: null,
+        name: 'root',
+        start_time: 0,
+        end_time: 100 * 1e9,
+      },
+      // Child 3 - starts at 50s
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child3-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child3-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child3', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child3',
+        start_time: 50 * 1e9,
+        end_time: 60 * 1e9,
+      },
+      // Child 1 - starts at 10s (earliest)
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child1-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child1-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child1', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child1',
+        start_time: 10 * 1e9,
+        end_time: 20 * 1e9,
+      },
+      // Child 2 - starts at 30s
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child2-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child2-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child2', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child2',
+        start_time: 30 * 1e9,
+        end_time: 40 * 1e9,
+      },
+    ];
+
+    const rootNode = parseModelTraceToTree({
+      ...MOCK_TRACE,
+      trace_data: { spans: outOfOrderSpans },
+    });
+
+    expect(rootNode).toBeDefined();
+    expect(rootNode?.children).toHaveLength(3);
+    // Verify children are sorted by start time: child1 (10s), child2 (30s), child3 (50s)
+    expect(rootNode?.children?.[0].key).toBe('child1');
+    expect(rootNode?.children?.[1].key).toBe('child2');
+    expect(rootNode?.children?.[2].key).toBe('child3');
+  });
+});
+
+describe('parseModelTraceToTreeWithMultipleRoots', () => {
+  it('should return empty array if the trace has no spans', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [],
+      },
+    });
+
+    expect(rootNodes).toEqual([]);
+  });
+
+  it('should return a single root node for a complete trace', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(
+      expect.objectContaining({
+        key: 'a96bcf7b57a48b3d',
+        children: [
+          expect.objectContaining({
+            key: '31323334',
+            children: [
+              expect.objectContaining({
+                key: '3132333435',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
+    // Simulate an in-progress trace where root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          // Two spans without parent_span_id - simulating multiple roots
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: '',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: '',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
+    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
+  });
+
+  it('should treat orphaned spans as top-level nodes', () => {
+    const traceWithOrphan = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          MOCK_V3_SPANS[0],
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'bm9uLWV4aXN0ZW50',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
+    expect(rootNodes[1].key).toBe('31323334');
+  });
+
+  it('should handle traces with only the root span', () => {
+    const singleSpanTrace = {
+      ...MOCK_V3_TRACE,
+      data: { spans: [MOCK_V3_SPANS[0]] },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
+  });
+
+  it('should calculate span times relative to global start time', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes[0].start).toBe(0);
+    expect(rootNodes[0].end).toBeGreaterThan(0);
+
+    const childSpan = rootNodes[0].children?.[0];
+    expect(childSpan?.start).toBe(0);
+    expect(childSpan?.end).toBeGreaterThan(0);
   });
 });
 
@@ -240,6 +442,51 @@ describe('normalizeConversation', () => {
     expect(
       normalizeConversation({ messages: [{ role: 'assistant', tool_calls: [{ id: 'hello', type: 'yay' }] }] }),
     ).toBeNull();
+  });
+
+  it('normalizes OpenAI Responses API output without explicit messageFormat', () => {
+    const responsesOutput = {
+      object: 'response',
+      output: [
+        {
+          type: 'function_call',
+          id: 'fc_1',
+          call_id: 'call_1',
+          name: 'my_tool',
+          arguments: '{"key": "value"}',
+        },
+        {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: 'tool result',
+        },
+        {
+          type: 'message',
+          id: 'msg_1',
+          content: [{ type: 'output_text', text: 'Hello from assistant' }],
+          role: 'assistant',
+        },
+      ],
+    };
+
+    const result = normalizeConversation(responsesOutput);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(3);
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        tool_calls: [
+          expect.objectContaining({
+            id: 'call_1',
+            function: expect.objectContaining({ name: 'my_tool' }),
+          }),
+        ],
+      }),
+    );
+    expect(result![1]).toEqual(
+      expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', content: 'tool result' }),
+    );
+    expect(result![2]).toEqual(expect.objectContaining({ role: 'assistant', content: 'Hello from assistant' }));
   });
 });
 
@@ -430,6 +677,35 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.chatMessages).toBeUndefined();
   });
 
+  it('should wrap plain string output as assistant message when inputs are chat messages', () => {
+    const inputs = {
+      messages: [
+        {
+          content: 'Hello!',
+          role: 'user',
+        },
+      ],
+    };
+
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'mlflow.spanInputs': inputs,
+        'mlflow.spanOutputs': 'Hi there, how can I help you?',
+        'mlflow.chat.messages': undefined,
+        'mlflow.chat.tools': undefined,
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages).toEqual([
+      prettyPrintChatMessage({ role: 'user', content: 'Hello!' }),
+      { role: 'assistant', content: 'Hi there, how can I help you?' },
+    ]);
+  });
+
   it('should process assessments', () => {
     const rootSpan = MOCK_V3_SPANS[0];
     const childSpan = MOCK_V3_SPANS[1];
@@ -451,6 +727,114 @@ describe('normalizeNewSpanData', () => {
 
     const childNormalized = normalizeNewSpanData(childSpan, 0, 0, [], assessmentMap, traceInfo.trace_id);
     expect(childNormalized.assessments).toEqual([traceInfo.assessments[2]]);
+  });
+
+  it('should sort children by start time', () => {
+    const child1: ModelTraceSpanNode = {
+      key: 'child1',
+      title: 'child1',
+      children: [],
+      start: 100,
+      end: 200,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    const child2: ModelTraceSpanNode = {
+      key: 'child2',
+      title: 'child2',
+      children: [],
+      start: 50, // Earlier start time
+      end: 150,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    const child3: ModelTraceSpanNode = {
+      key: 'child3',
+      title: 'child3',
+      children: [],
+      start: 75, // Middle start time
+      end: 125,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    // Pass children in non-chronological order
+    const outOfOrderChildren = [child1, child2, child3];
+
+    const normalized = normalizeNewSpanData(MOCK_CHAT_TOOL_CALL_SPAN, 0, 0, outOfOrderChildren, {}, '');
+
+    // Verify children are sorted: child2 (50), child3 (75), child1 (100)
+    expect(normalized.children).toHaveLength(3);
+    expect(normalized.children?.[0].key).toBe('child2');
+    expect(normalized.children?.[1].key).toBe('child3');
+    expect(normalized.children?.[2].key).toBe('child1');
+  });
+
+  it('should extract model name from mlflow.llm.model attribute', () => {
+    const spanWithModel: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.model': 'gpt-4o-mini',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithModel, 0, 0, [], {}, '');
+    expect(normalized.modelName).toBe('gpt-4o-mini');
+  });
+
+  it('should extract cost from mlflow.llm.cost attribute', () => {
+    const spanWithCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({
+          input_cost: 0.001,
+          output_cost: 0.002,
+          total_cost: 0.003,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return undefined cost when mlflow.llm.cost is malformed', () => {
+    const spanWithMalformedCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({ invalid: 'format' }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithMalformedCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toBeUndefined();
+  });
+
+  it('should return undefined model and cost when attributes are not present', () => {
+    const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
+    expect(normalized.modelName).toBeUndefined();
+    expect(normalized.cost).toBeUndefined();
   });
 });
 
@@ -639,6 +1023,14 @@ describe('isModelTrace', () => {
 });
 
 describe('getDefaultActiveTab', () => {
+  it('should return events if the node has exception events', () => {
+    const spanWithException: ModelTraceSpanNode = {
+      ...MOCK_CHAT_SPAN,
+      events: [{ name: 'exception', timestamp: 0, attributes: {} }],
+    };
+    expect(getDefaultActiveTab(spanWithException)).toBe('events');
+  });
+
   it('should return chat if the node has chat messages', () => {
     expect(getDefaultActiveTab(MOCK_CHAT_SPAN)).toBe('chat');
   });
@@ -701,5 +1093,626 @@ describe('getTotalTokens', () => {
     expect(
       getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
     ).toBeNull();
+  });
+});
+
+describe('getTraceCost', () => {
+  it('should return the cost breakdown from the trace metadata', () => {
+    const traceInfoWithCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.001, "output_cost": 0.002, "total_cost": 0.003}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithCost)).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return empty object if cost metadata is not present', () => {
+    expect(getTraceCost(MOCK_TRACE_INFO_V3)).toEqual({});
+  });
+
+  it('should return empty object if trace metadata is not present', () => {
+    expect(getTraceCost({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined })).toEqual({});
+  });
+
+  it('should return undefined if cost metadata is invalid JSON', () => {
+    const traceInfoWithInvalidCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': 'invalid',
+      },
+    };
+    expect(getTraceCost(traceInfoWithInvalidCost)).toBeUndefined();
+  });
+
+  it('should handle cost metadata with very small values', () => {
+    const traceInfoWithSmallCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.000022, "output_cost": 0.000028, "total_cost": 0.00005}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithSmallCost)).toEqual({
+      input_cost: 0.000022,
+      output_cost: 0.000028,
+      total_cost: 0.00005,
+    });
+  });
+});
+
+describe('convertOtelAttributesToMap', () => {
+  it('should return unchanged span if attributes do not use key-value array format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {
+        key1: 'value1',
+        key2: 'value2',
+      },
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is empty', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {},
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is undefined', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should convert key-value array attributes to map format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      name: 'test_span',
+      attributes: [
+        { key: 'string_attr', value: { string_value: 'test string' } },
+        { key: 'bool_attr', value: { bool_value: true } },
+        { key: 'int_attr', value: { int_value: 42 } },
+        { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      name: 'test_span',
+      attributes: {
+        string_attr: 'test string',
+        bool_attr: true,
+        int_attr: 42,
+        double_attr: 3.14,
+        null_attr: null,
+      },
+    });
+  });
+
+  it('should recursively decode kvlist and array values', () => {
+    // shape returned by OTLP-based endpoints (e.g. V3 traces/get) for
+    // dict-valued attributes like mlflow.spanInputs / mlflow.spanOutputs
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'mlflow.spanInputs',
+          value: {
+            kvlist_value: {
+              values: [
+                {
+                  key: 'messages',
+                  value: {
+                    array_value: {
+                      values: [
+                        {
+                          kvlist_value: {
+                            values: [
+                              { key: 'role', value: { string_value: 'user' } },
+                              { key: 'content', value: { string_value: 'How are you?' } },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                { key: 'n', value: { int_value: 1 } },
+                // null fields are serialized as kvlist entries without a value
+                { key: 'stop' },
+              ],
+            },
+          },
+        },
+        { key: 'empty_kvlist', value: { kvlist_value: {} } },
+        { key: 'empty_array', value: { array_value: {} } },
+        { key: 'int64_as_string', value: { int_value: '1783916154' } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        'mlflow.spanInputs': {
+          messages: [{ role: 'user', content: 'How are you?' }],
+          n: 1,
+          stop: null,
+        },
+        empty_kvlist: {},
+        empty_array: [],
+        int64_as_string: 1783916154,
+      },
+    });
+  });
+
+  it('should convert span with key-value array attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [{ key: 'converted_attr', value: { string_value: 'converted' } }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        converted_attr: 'converted',
+      },
+    });
+  });
+
+  it('should skip attributes without key or value', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'valid_attr', value: { string_value: 'valid' } },
+        { key: '', value: { string_value: 'no key' } },
+        { key: 'no_value' },
+        { value: { string_value: 'no key prop' } },
+        { key: 'another_valid', value: { bool_value: false } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        valid_attr: 'valid',
+        another_valid: false,
+      },
+    });
+  });
+
+  it('should handle unknown value types by returning the value as-is', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'unknown_type', value: { custom_field: 'custom_value' } },
+        { key: 'primitive_value', value: 'direct_string' },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        unknown_type: { custom_field: 'custom_value' },
+        primitive_value: 'direct_string',
+      },
+    });
+  });
+
+  it('should preserve other span properties unchanged', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: [{ key: 'converted', value: { string_value: 'value' } }],
+      events: [],
+      links: [],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: {
+        converted: 'value',
+      },
+      events: [],
+      links: [],
+    });
+  });
+
+  it('should handle events with attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      events: [{ attributes: [{ key: 'converted', value: { string_value: 'value' } }] }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      events: [{ attributes: { converted: 'value' } }],
+    });
+  });
+});
+
+describe('isSessionLevelAssessment', () => {
+  it('should return true when assessment has session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': 'session-123',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(true);
+  });
+
+  it('should return false when assessment has no session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'other.key': 'value',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment metadata is empty object', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {},
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment has no metadata at all', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is empty string', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': '',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is null', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': null,
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+});
+
+describe('prettyPrintChatMessage - audio parts', () => {
+  it('should extract audio parts and exclude them from content string', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Listen to this:' },
+        { type: 'input_audio', input_audio: { data: 'base64data', format: 'wav' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Listen to this:');
+    expect(result?.audioParts).toEqual([{ data: 'base64data', format: 'wav' }]);
+  });
+
+  it('should not add audioParts for messages without audio', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'text', text: 'Hello' }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Hello');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle multiple audio parts', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'input_audio', input_audio: { data: 'data1', format: 'wav' } },
+        { type: 'text', text: 'and' },
+        { type: 'input_audio', input_audio: { data: 'data2', format: 'mp3' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('and');
+    expect(result?.audioParts).toEqual([
+      { data: 'data1', format: 'wav' },
+      { data: 'data2', format: 'mp3' },
+    ]);
+  });
+
+  it('should handle string content (no audio parts)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: 'plain string',
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('plain string');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle audio-only message (no text content)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'input_audio', input_audio: { data: 'audiodata', format: 'wav' } }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('');
+    expect(result?.audioParts).toEqual([{ data: 'audiodata', format: 'wav' }]);
+  });
+});
+
+describe('createTraceV4SerializedLocation', () => {
+  it('should serialize MLFLOW_EXPERIMENT location to experiment ID', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: '123' },
+      }),
+    ).toBe('123');
+  });
+
+  it('should serialize UC_SCHEMA location to catalog.schema', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_SCHEMA',
+        uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+      }),
+    ).toBe('catalog.schema');
+  });
+
+  it('should serialize UC_TABLE_PREFIX location to catalog.schema.prefix', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+      }),
+    ).toBe('catalog.schema.prefix');
+  });
+});
+
+describe('parseTraceV4SerializedLocation', () => {
+  it('should parse 1-part string as MLFLOW_EXPERIMENT', () => {
+    expect(parseTraceV4SerializedLocation('123')).toEqual({
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: '123' },
+    });
+  });
+
+  it('should parse 2-part string as UC_SCHEMA', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema')).toEqual({
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+    });
+  });
+
+  it('should parse 3-part string as UC_TABLE_PREFIX', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema.prefix')).toEqual({
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+    });
+  });
+});
+
+describe('parseSpanLogLevel', () => {
+  it.each([
+    // wire shape: JSON-stringified int from the artifact endpoint
+    ['"30" string', '30', SpanLogLevel.WARNING],
+    ['"10" string', '10', SpanLogLevel.DEBUG],
+    // wire shape: int_value extracted by convertOtelAttributesToMap
+    ['number 30', 30, SpanLogLevel.WARNING],
+    ['number 50', 50, SpanLogLevel.CRITICAL],
+  ])('parses %s into the right SpanLogLevel', (_label, raw, expected) => {
+    expect(parseSpanLogLevel(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    // tryDeserializeAttribute returns the original string when it fails to parse JSON
+    ['non-numeric string', 'NOPE'],
+    ['malformed JSON', '{'],
+  ])('returns undefined for %s', (_label, raw) => {
+    expect(parseSpanLogLevel(raw)).toBeUndefined();
+  });
+});
+
+describe('getSpanLogLevel', () => {
+  const makeSpan = (logLevel: SpanLogLevel | undefined): ModelTraceSpanNode =>
+    ({
+      key: 's',
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      attributes: {},
+      assessments: [],
+      traceId: '',
+      logLevel,
+    }) as ModelTraceSpanNode;
+
+  it('returns the level set on the node', () => {
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.WARNING))).toBe(SpanLogLevel.WARNING);
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.DEBUG))).toBe(SpanLogLevel.DEBUG);
+  });
+
+  it('treats unset as DEBUG so old/unclassified spans stay visible by default', () => {
+    expect(getSpanLogLevel(makeSpan(undefined))).toBe(SpanLogLevel.DEBUG);
+  });
+});
+
+describe('searchTree log-level filter', () => {
+  // Build a small tree with mixed log levels so the threshold predicate can be
+  // exercised independently of the search and span-type filters.
+  const makeNode = (
+    key: string,
+    level: SpanLogLevel | undefined,
+    children: ModelTraceSpanNode[] = [],
+  ): ModelTraceSpanNode =>
+    ({
+      key,
+      title: key,
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      inputs: {},
+      outputs: {},
+      attributes: {},
+      assessments: [],
+      events: [],
+      traceId: '',
+      children,
+      logLevel: level,
+    }) as ModelTraceSpanNode;
+
+  const buildTree = () =>
+    makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('child-info', SpanLogLevel.INFO),
+      makeNode('child-debug', SpanLogLevel.DEBUG),
+      makeNode('child-error', SpanLogLevel.ERROR),
+    ]);
+
+  it('keeps every span when threshold is DEBUG (default behavior)', () => {
+    const filterState = { ...TEST_SPAN_FILTER_STATE, minLogLevel: SpanLogLevel.DEBUG };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-info', 'child-debug', 'child-error']);
+  });
+
+  it('hides spans below the threshold but keeps parents of matched children when showParents is on', () => {
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    // Only the ERROR child survives; root is preserved by showParents.
+    expect(filteredTreeNodes[0].key).toBe('root');
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-error']);
+  });
+
+  it('drops a sub-threshold parent (cutting it out of the tree) when showParents is off', () => {
+    // Re-shape the tree so the only above-threshold span is a grandchild,
+    // forcing the filter to surface it without an above-threshold parent.
+    const tree = makeNode('root', SpanLogLevel.DEBUG, [
+      makeNode('mid', SpanLogLevel.DEBUG, [makeNode('leaf', SpanLogLevel.ERROR)]),
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: false,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    // root and mid are below threshold and get cut out; leaf bubbles up.
+    expect(filteredTreeNodes.map((n) => n.key)).toEqual(['leaf']);
+  });
+
+  it('always shows spans with exceptions even when below the level threshold', () => {
+    const tree: ModelTraceSpanNode = makeNode('root', SpanLogLevel.WARNING, [
+      {
+        ...makeNode('child-with-exception', SpanLogLevel.DEBUG),
+        events: [{ name: 'exception', attributes: {} }],
+      } as ModelTraceSpanNode,
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.ERROR,
+      showExceptions: true,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-with-exception']);
+  });
+
+  it('treats spans with no level attribute as DEBUG so they stay visible at the default threshold', () => {
+    const tree = makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('unset-child', undefined), // no mlflow.spanLogLevel attribute
+    ]);
+    // DEBUG threshold (default): unset child stays (DEBUG >= DEBUG).
+    const debugState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.DEBUG,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', debugState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['unset-child']);
+
+    // INFO threshold drops the unset child (DEBUG < INFO); root has no surviving children
+    // but is preserved on its own merit (WARNING >= INFO).
+    const infoState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.INFO,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', infoState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual([]);
   });
 });

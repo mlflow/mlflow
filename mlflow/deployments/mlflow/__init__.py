@@ -170,12 +170,10 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
         route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
-        return Endpoint(
-            **{
-                **response,
-                "endpoint_url": resolve_endpoint_url(self.target_uri, response["endpoint_url"]),
-            }
-        )
+        return Endpoint(**{
+            **response,
+            "endpoint_url": resolve_endpoint_url(self.target_uri, response["endpoint_url"]),
+        })
 
     def _list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
         # Delayed import to avoid importing mlflow.gateway in the module scope
@@ -186,15 +184,13 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
         )
         routes = [
-            Endpoint(
-                **{
-                    **resp,
-                    "endpoint_url": resolve_endpoint_url(
-                        self.target_uri,
-                        resp["endpoint_url"],
-                    ),
-                }
-            )
+            Endpoint(**{
+                **resp,
+                "endpoint_url": resolve_endpoint_url(
+                    self.target_uri,
+                    resp["endpoint_url"],
+                ),
+            })
             for resp in response_json.get("endpoints", [])
         ]
         next_page_token = response_json.get("next_page_token")

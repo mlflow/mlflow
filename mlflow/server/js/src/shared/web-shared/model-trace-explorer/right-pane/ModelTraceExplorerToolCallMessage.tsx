@@ -35,7 +35,7 @@ export function ModelTraceExplorerToolCallMessage({ toolCall }: { toolCall: Mode
               </Tag>
             ),
             toolCallId: (
-              <Tooltip componentId="test" content={toolCall.id}>
+              <Tooltip componentId="shared.model-trace-explorer.tool-call-id-tooltip" content={toolCall.id}>
                 <div css={{ display: 'inline-flex', flexShrink: 1, overflow: 'hidden', marginLeft: theme.spacing.xs }}>
                   <Typography.Text
                     css={{

@@ -15,11 +15,8 @@ build_tsdoc() {
 
     pushd "$package_path"
 
-    # Skip npm install since we're using yarn workspaces
-    # Dependencies should be installed at the workspace root
-
     # Generate TypeDoc documentation
-    npx typedoc \
+    npm exec -- typedoc \
         --out "$output_path" \
         --name "$package_name" \
         --readme README.md \
@@ -44,7 +41,7 @@ DOCS_OUTPUT_BASE="build/html/typescript_api"
 # First ensure dependencies are installed at workspace root
 echo "Ensuring TypeScript workspace dependencies are installed..."
 pushd "$TYPESCRIPT_BASE"
-npm install
+npm ci
 popd
 
 # Remove existing docs if they exist
@@ -52,16 +49,16 @@ rm -rf "$DOCS_OUTPUT_BASE"
 # Create output directory
 mkdir -p "$DOCS_OUTPUT_BASE"
 
-# Build documentation for mlflow-tracing
+# Build documentation for @mlflow/core
 build_tsdoc \
     "$TYPESCRIPT_BASE/core" \
-    "mlflow-tracing" \
-    "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-tracing"
+    "@mlflow/core" \
+    "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-core"
 
-# Build documentation for mlflow-openai
+# Build documentation for @mlflow/openai
 build_tsdoc \
     "$TYPESCRIPT_BASE/integrations/openai" \
-    "mlflow-openai" \
+    "@mlflow/openai" \
     "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-openai"
 
 # Copy the HTML template to create index.html

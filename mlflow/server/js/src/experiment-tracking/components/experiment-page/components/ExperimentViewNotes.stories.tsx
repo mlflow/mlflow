@@ -47,18 +47,17 @@ const mockActions: any = {
   },
 };
 
-const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () =>
-  (
-    <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
-      <IntlProvider locale="en">
-        <MemoryRouter initialEntries={['/experiments/1234']}>
-          <GetExperimentsContextProvider actions={mockActions}>
-            <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
-          </GetExperimentsContextProvider>
-        </MemoryRouter>
-      </IntlProvider>
-    </Provider>
-  );
+const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () => (
+  <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
+    <IntlProvider locale="en">
+      <MemoryRouter initialEntries={['/experiments/1234']}>
+        <GetExperimentsContextProvider actions={mockActions}>
+          <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
+        </GetExperimentsContextProvider>
+      </MemoryRouter>
+    </IntlProvider>
+  </Provider>
+);
 
 /**
  * Story for the experiment with no note

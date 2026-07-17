@@ -14,7 +14,7 @@ The `custom_prompt_judge` API is being phased out. We strongly recommend using t
 - Support for both field-based and Agent-as-a-Judge evaluation
 - Alignment capabilities with human feedback
 
-See the [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for migration guidance.
+See the [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/custom-judges) for migration guidance.
 :::
 
 The <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> API is designed to help you quickly and easily create LLM scorers when you need full control over the judge's prompt or need to return multiple output values beyond "pass" / "fail", for example, "great", "ok", "bad".
@@ -75,7 +75,7 @@ The prompt template for the judge must have:
 - Placeholders for input values with **double curly braces**, e.g., `{{conversation}}`.
 - Choices for the judge to select from as output, enclosed in **square brackets**, e.g., `[[fully_resolved]]`. The choice name can contain alphanumeric characters and underscores.
 
-:::tip Handling Parsing Errors
+:::tip[Handling Parsing Errors]
 
 MLflow uses raw prompt-based instructions for handling structured outputs to make the API generic to all LLM providers. This may not be strict enough to enforce structured outputs in all cases. If you see output parsing errors frequently, consider using <ins>[code-based custom scorers](/genai/eval-monitor/scorers/custom)</ins> and invoke the specific structured output API for the LLM provider you are using to get more reliable results.
 
@@ -98,7 +98,7 @@ register_prompt(
 
 ## Selecting Judge Models
 
-MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more. See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
+MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more. See [Supported Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) for more details.
 
 ```python
 from mlflow.genai.judges import custom_prompt_judge

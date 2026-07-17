@@ -1,7 +1,7 @@
 import { Tooltip } from '@databricks/design-system';
-import { timeSinceStr } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/DisplayUtils';
-import { Row } from '@tanstack/react-table';
-import { EvaluationDataset } from '../types';
+import type { Row } from '@tanstack/react-table';
+import type { EvaluationDataset } from '../types';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 export const LastUpdatedCell = ({ row }: { row: Row<EvaluationDataset> }) => {
   return row.original.last_update_time ? (
@@ -9,7 +9,7 @@ export const LastUpdatedCell = ({ row }: { row: Row<EvaluationDataset> }) => {
       content={new Date(row.original.last_update_time).toLocaleString()}
       componentId="mlflow.eval-datasets.last-updated-cell-tooltip"
     >
-      <span>{timeSinceStr(row.original.last_update_time)}</span>
+      <span>{Utils.timeSinceStr(row.original.last_update_time)}</span>
     </Tooltip>
   ) : (
     <span>-</span>

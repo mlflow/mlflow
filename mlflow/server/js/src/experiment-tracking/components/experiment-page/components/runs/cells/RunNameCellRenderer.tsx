@@ -8,7 +8,6 @@ import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
@@ -18,6 +17,7 @@ export interface RunNameCellRendererProps extends ICellRendererParams {
   onExpand: (runUuid: string, childrenIds?: string[]) => void;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -40,12 +40,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
   const { hasExpander, expanderOpen, childrenIds, level, belongsToGroup } = runDateAndNestInfo;
 
   const renderingAsParent = !isNaN(level) && hasExpander;
-  const hideRunColorControl = (() => {
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      return belongsToGroup && useGroupedValuesInCharts;
-    }
-    return belongsToGroup;
-  })();
+  const hideRunColorControl = belongsToGroup && useGroupedValuesInCharts;
 
   return (
     <div css={styles.cellWrapper}>
@@ -83,7 +78,12 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
             onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
           />
         )}
-        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink} tabIndex={0}>
+        <Link
+          componentId="mlflow.experiment_tracking.runs_table.run_name_link"
+          to={Routes.getRunPageRoute(experimentId, runUuid)}
+          css={styles.runLink}
+          tabIndex={0}
+        >
           <span css={styles.runName}>{runName}</span>
         </Link>
       </div>

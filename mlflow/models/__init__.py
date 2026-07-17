@@ -5,7 +5,6 @@ The ``mlflow.models`` module provides an API for saving machine learning models 
 The built-in flavors are:
 
 - :py:mod:`mlflow.catboost`
-- :py:mod:`mlflow.diviner`
 - :py:mod:`mlflow.dspy`
 - :py:mod:`mlflow.h2o`
 - :py:mod:`mlflow.langchain`

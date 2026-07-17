@@ -4,10 +4,7 @@ import { useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table
 import { REQUEST_TIME_COLUMN_ID, TracesTableColumnType } from '@databricks/web-shared/genai-traces-table';
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { START_TIME_LABEL_QUERY_PARAM_KEY } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 
 const DEFAULT_EMPTY_CHECK_PAGE_SIZE = 500;
 
@@ -21,19 +18,18 @@ export const useSetInitialTimeFilter = ({
   sqlWarehouseId,
   disabled = false,
 }: {
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
   isTracesEmpty: boolean;
   isTraceMetadataLoading: boolean;
   sqlWarehouseId?: string;
   disabled?: boolean;
 }) => {
   const [searchParams] = useSearchParams();
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters, disableAutomaticInitialization] = useMonitoringFilters();
 
   // Additional hook for fetching traces when there is no time range filters set in the
   // url params and no traces.
-  const shouldFetchForEmptyCheck =
-    isTracesEmpty && !isTraceMetadataLoading && !searchParams.has(START_TIME_LABEL_QUERY_PARAM_KEY);
+  const shouldFetchForEmptyCheck = isTracesEmpty && !isTraceMetadataLoading && !disableAutomaticInitialization;
 
   const { data: emptyCheckTraces, isLoading: emptyCheckLoading } = useSearchMlflowTraces({
     locations,
@@ -48,17 +44,20 @@ export const useSetInitialTimeFilter = ({
     sqlWarehouseId,
   });
 
-  // Set monitoring filters based on oldest trace from empty check
-  if (shouldFetchForEmptyCheck && emptyCheckTraces && emptyCheckTraces.length > 0 && !emptyCheckLoading) {
-    // Since traces are sorted in descending order (newest first), the oldest trace is the last one while newest is the first one
+  useEffect(() => {
+    if (!shouldFetchForEmptyCheck || emptyCheckLoading || !emptyCheckTraces || emptyCheckTraces.length === 0) {
+      return;
+    }
     const oldestTrace = emptyCheckTraces[emptyCheckTraces.length - 1];
-
-    setMonitoringFilters({
-      startTimeLabel: 'CUSTOM',
-      startTime: oldestTrace.request_time,
-      endTime: new Date().toISOString(),
-    });
-  }
+    setMonitoringFilters(
+      {
+        startTimeLabel: 'CUSTOM',
+        startTime: oldestTrace.request_time,
+        endTime: new Date().toISOString(),
+      },
+      true,
+    );
+  }, [shouldFetchForEmptyCheck, emptyCheckLoading, emptyCheckTraces, setMonitoringFilters]);
 
   // Return loading state so component can show loading skeleton
   const isInitialTimeFilterLoading = shouldFetchForEmptyCheck && emptyCheckLoading;

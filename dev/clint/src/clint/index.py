@@ -195,7 +195,12 @@ class SymbolIndex:
 
     def _resolve_import(self, target: str) -> str:
         resolved = target
+        seen = {resolved}
         while v := self.import_mapping.get(resolved):
+            if v in seen:
+                # Circular import detected, break to avoid infinite loop
+                break
+            seen.add(v)
             resolved = v
         return resolved
 

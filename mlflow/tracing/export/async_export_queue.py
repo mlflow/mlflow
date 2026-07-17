@@ -46,15 +46,19 @@ class AsyncTraceExportQueue:
         # Thread event that indicates the queue should stop processing tasks
         self._stop_event = threading.Event()
         self._is_active = False
-        self._atexit_callback_registered = False
-
         self._active_tasks = set()
-
         self._last_full_queue_warning_time = None
+
+        atexit.register(self._at_exit_callback)
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
         if not self.is_active():
+            if self._stop_event.is_set():
+                # Queue was terminated via flush(terminate=True); _stop_event will never be
+                # cleared, so activating and then waiting would deadlock. Execute synchronously.
+                task.handle()
+                return
             self.activate()
 
         # If stop event is set, wait for the queue to be drained before putting the task
@@ -126,12 +130,6 @@ class AsyncTraceExportQueue:
                 return
 
             self._set_up_threads()
-
-            # Callback to ensure remaining tasks are processed before program exit
-            if not self._atexit_callback_registered:
-                atexit.register(self._at_exit_callback)
-                self._atexit_callback_registered = True
-
             self._is_active = True
 
     def is_active(self) -> bool:
@@ -153,6 +151,9 @@ class AsyncTraceExportQueue:
 
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
+        if not self.is_active():
+            return
+
         try:
             _logger.info(
                 "Flushing the async trace logging queue before program exit. "

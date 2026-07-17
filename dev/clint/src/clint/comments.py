@@ -20,11 +20,10 @@ class Noqa:
 
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
-        # Import here to avoid circular dependency
         from clint.linter import Position
 
         if match := NOQA_REGEX.match(token.string):
-            rules = set(match.group(1).upper().split(","))
+            rules = {r.strip() for r in match.group(1).upper().split(",")}
             start = Position(token.start[0], token.start[1])
             end = Position(token.end[0], token.end[1])
             return cls(start=start, end=end, rules=rules)
@@ -34,11 +33,9 @@ class Noqa:
 def iter_comments(code: str) -> Iterator[tokenize.TokenInfo]:
     readline = io.StringIO(code).readline
     try:
-        tokens = tokenize.generate_tokens(readline)
-        for token in tokens:
+        for token in tokenize.generate_tokens(readline):
             if token.type == tokenize.COMMENT:
                 yield token
-
     except tokenize.TokenError:
         # Handle incomplete tokens at end of file
         pass

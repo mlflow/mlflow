@@ -1,11 +1,9 @@
 import itertools
-import os
 
-from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_core.messages import AIMessageChunk, ToolCall
-from langchain_core.outputs import ChatGenerationChunk
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 
 import mlflow
@@ -21,15 +19,16 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Using itertools.cycle to create an infinite iterator
-        self._responses = itertools.cycle(
-            [
-                AIMessageChunk(
-                    content="",
-                    tool_calls=[ToolCall(name="multiply", args={"a": 2, "b": 3}, id="123")],
-                ),
-                AIMessageChunk(content="The result of 2 * 3 is 6."),
-            ]
-        )
+        self._responses = itertools.cycle([
+            AIMessageChunk(
+                content="",
+                tool_calls=[ToolCall(name="multiply", args={"a": 2, "b": 3}, id="123")],
+            ),
+            AIMessageChunk(content="The result of 2 * 3 is 6."),
+        ])
+
+    def _generate(self, *args, **kwargs):
+        return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
 
     def _stream(self, *args, **kwargs):
         yield ChatGenerationChunk(message=next(self._responses))
@@ -47,26 +46,6 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 
-def create_openai_agent():
-    llm = FakeOpenAI()
-    tools = [add, multiply]
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", "You are a helpful assistant"),
-            MessagesPlaceholder("chat_history", optional=True),
-            ("human", "{input}"),
-            MessagesPlaceholder("agent_scratchpad"),
-        ]
-    )
-    agent = create_openai_tools_agent(llm, tools, prompt)
-    return_immediate = os.environ.get("RETURN_INTERMEDIATE_STEPS", "false").lower() == "true"
-    return AgentExecutor(
-        agent=agent,
-        tools=tools,
-        # Use env var to switch model configuration during testing
-        return_intermediate_steps=return_immediate,
-    )
-
-
-agent = create_openai_agent()
+llm = FakeOpenAI()
+agent = create_agent(llm, [add, multiply], system_prompt="You are a helpful assistant")
 mlflow.models.set_model(agent)

@@ -1,10 +1,11 @@
 ## Dependencies required to run tests
 ## Test-only dependencies
-pytest
+pytest==9.0.2
 pytest-asyncio
 pytest-repeat
 pytest-cov
 pytest-timeout
+httpx
 moto>=4.2.0,<5,!=4.2.5
 azure-storage-blob>=12.0.0
 azure-storage-file-datalake>=12.9.1
@@ -26,7 +27,7 @@ tqdm[notebook]
 openai
 # Required for showing pytest stats
 psutil
-pyspark
+pyspark<4.1.0
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
@@ -38,3 +39,11 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
+# required for testing docker compose
+testcontainers
+# required for testing cost tracking
+litellm
+# required for testing Redis budget tracker
+fakeredis[lua]
+# required for testing claude_code tracing
+claude-agent-sdk

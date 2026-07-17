@@ -20,6 +20,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
   setExpandedKeys,
   spanFilterState,
   setSpanFilterState,
+  showGraph,
+  onToggleGraph,
   className,
 }: {
   selectedNode?: NodeType;
@@ -31,6 +33,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
   setExpandedKeys: (keys: Set<string | number>) => void;
   spanFilterState: SpanFilterState;
   setSpanFilterState: (state: SpanFilterState) => void;
+  showGraph?: boolean;
+  onToggleGraph?: () => void;
   className?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -129,6 +133,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
             setShowTimelineInfo={setShowTimelineInfo}
             spanFilterState={spanFilterState}
             setSpanFilterState={setSpanFilterState}
+            showGraph={showGraph}
+            onToggleGraph={onToggleGraph}
           />
           {rootNodes.length > 0 ? (
             <div css={{ flex: 1, overflowY: 'auto', display: 'flex' }}>{treeElement}</div>

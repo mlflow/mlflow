@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ColumnApi } from '@ag-grid-community/core';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLegacyNotification } from '@databricks/design-system';
 import type {
@@ -26,6 +27,8 @@ import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../common/utils/Fe
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { getDefaultSelectedColumns } from '../../models/ExperimentPageUIState';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
 import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import type { ReduxState } from '../../../../../redux-types';
@@ -73,6 +76,7 @@ const createCurrentTime = () => {
 const INITIAL_RUN_COLUMN_SIZE = 295;
 const CHARTS_MIN_WIDTH = 350;
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
   const {
@@ -237,12 +241,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   const autoRefreshEnabled = uiState.autoRefreshEnabled && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
+  // Published by the runs table on grid-ready so the column selector's
+  // "Reset to defaults" can imperatively reset ag-grid's column state.
+  const columnApiRef = useRef<ColumnApi | null>(null);
+  const updateUIState = useUpdateExperimentViewUIState();
+  const resetColumns = useCallback(() => {
+    updateUIState((state) => ({
+      ...state,
+      selectedColumns: getDefaultSelectedColumns(),
+      columnOrder: [],
+      columnWidths: {},
+    }));
+    columnApiRef.current?.resetColumnState();
+  }, [updateUIState]);
+
   const tableElement =
     requestError instanceof Error && !isLoadingRuns ? (
       <ExperimentViewRunsRequestError error={requestError} />
     ) : (
       <ExperimentViewRunsTable
         experiments={experiments}
+        columnApiRef={columnApiRef}
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         viewState={viewState}
@@ -287,6 +306,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           uiState={uiState}
           isLoading={isLoadingRuns}
           isComparingExperiments={isComparingExperiments}
+          onResetColumns={resetColumns}
         />
         <div
           ref={ref}

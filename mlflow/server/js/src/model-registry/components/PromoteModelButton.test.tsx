@@ -1,7 +1,9 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { DeepPartial } from 'redux';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import {
@@ -61,7 +63,7 @@ describe('PromoteModelButton', () => {
   });
 
   it('prepopulates the search registry on render', () => {
-    const searchRegistryMock = jest.fn();
+    const searchRegistryMock = jest.fn<typeof ModelRegistryService.searchRegisteredModels>();
     ModelRegistryService.searchRegisteredModels = searchRegistryMock;
     renderComponent();
     expect(searchRegistryMock).toHaveBeenCalledTimes(1);
@@ -106,7 +108,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as ReturnType<typeof useNavigate>);
 
     // Render the component with pre-populated redux state that already has a registered model entity
     renderComponent({
@@ -161,7 +163,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as ReturnType<typeof useNavigate>);
 
     renderComponent({
       entities: {

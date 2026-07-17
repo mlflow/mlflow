@@ -1,4 +1,4 @@
-import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import { getExperimentApi } from '../../actions';
@@ -12,23 +12,21 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
-import {
-  shouldEnableExperimentKindInference,
-  shouldUsePredefinedErrorsInExperimentTracking,
-} from '../../../common/utils/FeatureUtils';
+import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
+import { useSharedViewActions } from './hooks/useSharedViewActions';
+import { ExperimentViewSharedViewBanner } from './components/header/ExperimentViewSharedViewBanner';
 import { useDispatch } from 'react-redux';
 import type { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
 import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
-import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
+import { ExperimentViewMetadataEditor } from './components/ExperimentViewMetadataEditor';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
-import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
@@ -36,11 +34,12 @@ import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoP
 import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderKindSelector } from './components/header/ExperimentViewHeaderKindSelector';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useUpdateExperimentKind } from './hooks/useUpdateExperimentKind';
 import { canModifyExperiment } from './utils/experimentPage.common-utils';
 import { useInferExperimentKind } from './hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from './components/header/ExperimentViewInferredKindModal';
+import { shouldEnableWorkflowBasedNavigation } from '../../../common/utils/FeatureUtils';
 
 export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) => {
   const dispatch = useDispatch<ThunkDispatch>();
@@ -59,12 +58,21 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const [editing, setEditing] = useState(false);
 
-  const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
-
   // Create new version of the UI state for the experiment page on this level
   const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
-  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
+  const { isViewStateShared, sharedViewActive, exitSharedView } = useSharedExperimentViewState(
+    setUIState,
+    first(experiments),
+  );
+
+  const { handleOverrideSavedView, handleDiscardSharedView } = useSharedViewActions({
+    experimentIds,
+    searchFacets,
+    uiState,
+    setUIState,
+    exitSharedView,
+  });
 
   // Get the maximized state from the new view state model if flag is set
   const isMaximized = uiState.viewMaximized;
@@ -105,7 +113,15 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const isComparingExperiments = experimentIds.length > 1;
 
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
+  // `isViewStateShared` keeps persistence off while the share key is in the URL; `sharedViewActive`
+  // keeps it off after the key leaves the URL (e.g. tab navigation) until the user explicitly saves
+  // or discards — so a shared view never silently overwrites the user's own saved view.
+  usePersistExperimentPageViewState(
+    uiState,
+    searchFacets,
+    experimentIds,
+    isViewStateShared || sharedViewActive || isPreview,
+  );
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
@@ -116,7 +132,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     return dispatch(getExperimentApi(experimentIds[0]));
   });
 
-  const experimentKind = getExperimentKindFromTags(first(experiments)?.tags);
+  const experimentKind = useExperimentKind(first(experiments)?.tags);
   const firstExperimentId = first(experiments)?.experimentId;
 
   const {
@@ -126,7 +142,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
   } = useInferExperimentKind({
     experimentId: firstExperimentId,
     isLoadingExperiment,
-    enabled: showHeader && !isComparingExperiments && shouldEnableExperimentKindInference() && !experimentKind,
+    enabled: showHeader && !isComparingExperiments && !experimentKind,
     experimentTags: first(experiments)?.tags,
     updateExperimentKind,
   });
@@ -163,11 +179,12 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
   const isLoading = isLoadingExperiment || !experiments[0];
 
   const canUpdateExperimentKind = true;
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   if (
+    !enableWorkflowBasedNavigation &&
     inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
-    canUpdateExperimentKind &&
-    shouldEnableExperimentKindInference()
+    canUpdateExperimentKind
   ) {
     return (
       <ExperimentViewInferredKindModal
@@ -185,10 +202,6 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     );
   }
 
-  const renderMlflow3PromoBanner = () => {
-    return null;
-  };
-
   const renderTaskSection = () => {
     return null;
   };
@@ -202,7 +215,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
           uiState={uiState}
           setEditing={setEditing}
           experimentKindSelector={
-            !isComparingExperiments && firstExperimentId ? (
+            !enableWorkflowBasedNavigation && !isComparingExperiments && firstExperimentId ? (
               <ExperimentViewHeaderKindSelector
                 value={experimentKind}
                 inferredExperimentKind={inferredExperimentKind}
@@ -230,12 +243,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
       >
         <div ref={observeHeight}>
-          <ExperimentViewDescriptionNotes
-            experiment={firstExperiment}
-            setShowAddDescriptionButton={setShowAddDescriptionButton}
-            editing={editing}
-            setEditing={setEditing}
-          />
+          <ExperimentViewMetadataEditor experiment={firstExperiment} editing={editing} setEditing={setEditing} />
         </div>
       </div>
     </>
@@ -278,10 +286,13 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         ) : (
           // When the header is not shown, we still want to render the promo banner and task section
           <>
-            {renderMlflow3PromoBanner()}
+            {/* prettier-ignore */}
             {renderTaskSection()}
           </>
         )}
+        {sharedViewActive ? (
+          <ExperimentViewSharedViewBanner onOverride={handleOverrideSavedView} onDiscard={handleDiscardSharedView} />
+        ) : null}
         {getRenderedView()}
       </div>
     </ExperimentPageUIStateContextProvider>

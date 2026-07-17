@@ -82,7 +82,8 @@ def _create_local_spark_session_for_loading_spark_model():
     from pyspark.sql import SparkSession
 
     return (
-        SparkSession.builder.config("spark.python.worker.reuse", "true")
+        SparkSession.builder
+        .config("spark.python.worker.reuse", "true")
         # The config is a workaround for avoiding databricks delta cache issue when loading
         # some specific model such as ALSModel.
         .config("spark.databricks.io.cache.enabled", "false")

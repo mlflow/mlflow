@@ -1,10 +1,12 @@
 ---
+title: Quickstart Options and Troubleshooting
+description: Customize your MLflow installation, configure tracking URIs, set up remote servers, and troubleshoot common setup issues.
 sidebar_custom_props:
   hide: true
 displayed_sidebar: docsSidebar
 ---
 
-import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
 # Quickstart options and troubleshooting
@@ -34,7 +36,7 @@ Rather than the default MLflow library, you can install the following variations
     </tr>
     <tr>
       <td>mlflow[extras]</td>
-      <td>`pip install mlflow[extras]`</td>
+      <td>`pip install 'mlflow[extras]'`</td>
       <td>MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in [this document](https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt).</td>
     </tr>
     <tr>
@@ -88,7 +90,7 @@ python examples/sklearn_logistic_regression/train.py
 ```
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at the
-`mlflow ui`, you will also see that the run saved a **model** folder containing an `MLmodel`
+`mlflow server`, you will also see that the run saved a **model** folder containing an `MLmodel`
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here **model/**) to various tools. For example, MLflow includes a
 simple REST server for python-based models:

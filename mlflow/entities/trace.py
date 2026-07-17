@@ -80,14 +80,12 @@ class Trace(_MlflowObject):
         # databricks notebooks will use the trace ID to
         # fetch the trace from the backend. including the
         # full JSON can cause notebooks to exceed size limits
-        return json.dumps(
-            {
-                "trace_id": self.info.trace_id,
-                # TODO: remove this once sql_warehouse_id
-                # is optional in the v4 tracing APIs
-                "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-            }
-        )
+        return json.dumps({
+            "trace_id": self.info.trace_id,
+            # TODO: remove this once sql_warehouse_id
+            # is optional in the v4 tracing APIs
+            "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+        })
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """

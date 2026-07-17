@@ -1,3 +1,4 @@
+import { describe, jest, it, expect } from '@jest/globals';
 import React from 'react';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { CreateExperimentForm } from './CreateExperimentForm';
@@ -5,7 +6,6 @@ import { CreateExperimentForm } from './CreateExperimentForm';
 describe('Render test', () => {
   const minimalProps = {
     visible: true,
-    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },
   };
 

@@ -31,3 +31,24 @@ export const getEvalTabTotalTracesLimit = () => {
 export const shouldUseTracesV4API = () => {
   return false;
 };
+
+/**
+ * Determines if the long-running traces search API should be used.
+ * This is only applicable when V4 APIs are enabled.
+ * When enabled, trace searches will use an async polling pattern instead of synchronous requests.
+ */
+export const shouldUseLongRunningTracesAPI = () => {
+  return false;
+};
+
+export const shouldEnableSessionGrouping = () => {
+  return true;
+};
+
+/**
+ * Determines if the traces table should use infinite paginated queries
+ * instead of eagerly fetching all pages in a single query.
+ */
+export const shouldUseInfinitePaginatedTraces = () => {
+  return true;
+};

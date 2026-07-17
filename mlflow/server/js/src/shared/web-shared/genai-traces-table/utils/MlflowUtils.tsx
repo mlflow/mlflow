@@ -1,9 +1,10 @@
 /**
- * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
+ * This file is a subset of functions from mlflow/server/js/src/common/Utils.tsx
  */
-import { IntlShape } from 'react-intl';
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import moment from 'moment';
+
+import type { IntlShape } from '@databricks/i18n';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class MlflowUtils {
@@ -270,6 +271,9 @@ class MlflowUtils {
           title={sourceName || MlflowUtils.getDefaultNotebookRevisionName(notebookId, revisionId)}
           href={url}
           target="_top"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
         >
           {name}
         </a>
@@ -303,12 +307,10 @@ class MlflowUtils {
    * Returns the URL for the job source.
    */
   static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl = null) {
-    let url = MlflowUtils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
-    url += `#job/${jobId}`;
-    if (jobRunId) {
-      url += `/run/${jobRunId}`;
-    }
-    return url;
+    const baseUrl = workspaceUrl || window.location.origin;
+    // eslint-disable-next-line prefer-const -- reassigned in EDGE block
+    let jobPath = jobRunId ? `/jobs/${jobId}/runs/${jobRunId}` : `/jobs/${jobId}`;
+    return MlflowUtils.setQueryParams(baseUrl + jobPath, queryParams);
   }
 
   /**
@@ -331,7 +333,14 @@ class MlflowUtils {
     if (jobId) {
       const url = MlflowUtils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
       return (
-        <a title={reformatJobName} href={url} target="_top">
+        <a
+          title={reformatJobName}
+          href={url}
+          target="_top"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {name}
         </a>
       );
@@ -352,7 +361,13 @@ class MlflowUtils {
     const gitRepoUrlOrNull = MlflowUtils.getGitRepoUrl(sourceName, branchName);
     if (gitRepoUrlOrNull) {
       res = (
-        <a target="_top" href={gitRepoUrlOrNull}>
+        <a
+          target="_top"
+          href={gitRepoUrlOrNull}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {res}
         </a>
       );

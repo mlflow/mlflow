@@ -38,7 +38,6 @@
 }
 
 .conceptCard {
-  border: 1px solid var(--concept-border);
   border-radius: 8px;
   padding: 1.5rem;
   background: transparent;
@@ -79,7 +78,6 @@
 
 /* Dark mode styles */
 [data-theme='dark'] .conceptCard {
-  border: 1px solid var(--concept-border);
   background: transparent;
   box-shadow: none;
 }

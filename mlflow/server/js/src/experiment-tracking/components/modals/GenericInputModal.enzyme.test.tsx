@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React, { Component } from 'react';
 import { shallow } from 'enzyme';
 import { GenericInputModal } from './GenericInputModal';
@@ -92,9 +93,7 @@ describe('GenericInputModal', () => {
     expect(instance.state.isSubmitting).toEqual(true);
     try {
       await onValidationPromise;
-      // Reported during ESLint upgrade
-      // eslint-disable-next-line no-undef, jest/no-jasmine-globals -- TODO: Fix this (use throw new Error())
-      fail('Must throw');
+      throw new Error('Must throw');
     } catch (e) {
       // For validation errors, the form should not be reset (so that the user can fix the
       // validation error)

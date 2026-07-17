@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, test, expect } from '@jest/globals';
 import {
   metricsByKey,
   getLatestMetrics,

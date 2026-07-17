@@ -1,0 +1,96 @@
+<svg width="440" height="340" viewBox="114 10 440 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Chat Panel - Main container with shadow -->
+  <rect x="134.5" y="19.5" width="400" height="321" rx="7.5" fill="white" stroke="#E5E7EB" filter="url(#shadow)"/>
+
+  <!-- Header bar -->
+  <rect x="135" y="20" width="399" height="40" rx="7" fill="white"/>
+  <line x1="135" y1="60" x2="534" y2="60" stroke="#E5E7EB"/>
+
+  <!-- Double sparkle icon in header -->
+  <g>
+    <!-- Large sparkle (right/top) - stroke only -->
+    <path d="M156.5 35L153 36.2L156.5 37.4C157.3 37.7 158 38.4 158.3 39.2L159.5 43L160.7 39.2C161 38.4 161.7 37.7 162.5 37.4L166 36.2L162.5 35C161.7 34.7 161 34 160.7 33.2L159.5 29.5L158.3 33.2C158 34 157.3 34.7 156.5 35Z" fill="none" stroke="url(#paint_sparkle_header)" stroke-width="1.5"/>
+    <!-- Small sparkle (left/bottom) - stroke only -->
+    <path d="M148.5 43L146.5 43.7L148.5 44.4C149 44.6 149.4 45 149.6 45.5L150.2 47.5L150.8 45.5C151 45 151.4 44.6 151.9 44.4L154 43.7L151.9 43C151.4 42.8 151 42.4 150.8 41.9L150.2 40L149.6 41.9C149.4 42.4 149 42.8 148.5 43Z" fill="none" stroke="url(#paint_sparkle_header_small)" stroke-width="1.5"/>
+  </g>
+
+  <!-- "MLflow Assistant" text -->
+  <text x="174" y="45" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#11171C">MLflow Assistant</text>
+
+  <!-- Chat area -->
+
+  <!-- User message 1 (right-aligned) - "How should I evaluate my agent?" -->
+  <rect x="270" y="70" width="240" height="32" rx="8" fill="#F6F7F9"/>
+  <text x="285" y="91" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">How should I evaluate my agent?</text>
+
+  <!-- Tool call indicator 1 -->
+  <rect x="155" y="112" width="170" height="28" rx="6" fill="#F0F4FF" stroke="#B8C9E8"/>
+  <text x="164" y="130" font-family="monospace" font-size="11" font-weight="600" fill="#5F7281">&gt;_</text>
+  <text x="188" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#5F7281">Analyzing codebase...</text>
+
+  <!-- Assistant message 1 (left-aligned with sparkle) -->
+  <rect x="155" y="150" width="300" height="56" rx="8" fill="white" stroke="#E5E7EB"/>
+
+  <!-- Sparkle icon in assistant message 1 -->
+  <g clip-path="url(#clip_msg_sparkle1)">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M175.386 171.347L178.896 170.193L175.386 169.038C174.102 168.616 173.094 167.608 172.672 166.324L171.517 162.814L170.363 166.324C169.941 167.608 168.933 168.616 167.649 169.038L164.139 170.193L167.649 171.347C168.933 171.769 169.941 172.777 170.363 174.061L171.517 177.571L172.672 174.061C173.094 172.777 174.102 171.769 175.386 171.347ZM179.562 172.215C181.513 171.573 181.513 168.812 179.562 168.170L176.052 167.016C175.409 166.804 174.906 166.301 174.694 165.658L173.54 162.148C172.898 160.197 170.137 160.197 169.495 162.148L168.341 165.658C168.129 166.301 167.626 166.804 166.983 167.016L163.473 168.170C161.522 168.812 161.522 171.573 163.473 172.215L166.983 173.369C167.626 173.581 168.129 174.084 168.341 174.727L169.495 178.237C170.137 180.188 172.898 180.188 173.54 178.237L174.694 174.727C174.906 174.084 175.409 173.581 176.052 173.369L179.562 172.215Z" fill="url(#paint_sparkle_msg1)"/>
+  </g>
+
+  <!-- Assistant message 1 text -->
+  <text x="188" y="176" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#11171C">Here are recommended evaluation criteria</text>
+  <!-- Placeholder bar -->
+  <rect x="188" y="188" width="240" height="8" rx="4" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- User message 2 (right-aligned) - "Great, can we run it?" -->
+  <rect x="350" y="218" width="160" height="32" rx="8" fill="#F6F7F9"/>
+  <text x="370" y="239" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#5F7281">Great, can we run it?</text>
+
+  <!-- Tool call indicator 2 (two lines with results) -->
+  <rect x="155" y="258" width="280" height="64" rx="6" fill="#F0F4FF" stroke="#B8C9E8"/>
+  <text x="164" y="276" font-family="monospace" font-size="11" font-weight="600" fill="#5F7281">&gt;_</text>
+  <text x="188" y="276" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#5F7281">Running Correctness Judge on traces...</text>
+  <!-- Results row with green/red indicators -->
+  <circle cx="168" cy="293" r="4" fill="#99DDB4"/>
+  <text x="178" y="297" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#5F7281">3 passed</text>
+  <circle cx="235" cy="293" r="4" fill="#FCA4A1"/>
+  <text x="245" y="297" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#5F7281">1 failed</text>
+  <!-- Loading placeholder bar -->
+  <rect x="168" y="308" width="140" height="6" rx="3" fill="#90A4B5" fill-opacity="0.16"/>
+
+  <!-- Definitions -->
+  <defs>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+
+    <!-- Gradient for header sparkle (large - right/top) -->
+    <linearGradient id="paint_sparkle_header" x1="166" y1="29" x2="153" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+    <!-- Gradient for header sparkle (small - left/bottom) -->
+    <linearGradient id="paint_sparkle_header_small" x1="154" y1="40" x2="146" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Gradient for message sparkle 1 -->
+    <linearGradient id="paint_sparkle_msg1" x1="181.886" y1="159.296" x2="160.515" y2="180.666" gradientUnits="userSpaceOnUse">
+      <stop offset="0.235" stop-color="#4299E0"/>
+      <stop offset="0.47" stop-color="#CA42E0"/>
+      <stop offset="0.76" stop-color="#FF5F46"/>
+    </linearGradient>
+
+    <!-- Clip paths -->
+    <clipPath id="clip_header_sparkle">
+      <rect width="20" height="20" fill="white" transform="translate(147 30)"/>
+    </clipPath>
+    <clipPath id="clip_msg_sparkle1">
+      <rect width="20" height="20" fill="white" transform="translate(162 160)"/>
+    </clipPath>
+  </defs>
+</svg>

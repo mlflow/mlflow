@@ -277,6 +277,12 @@ class MlflowAg2Logger(BaseLogger):
             },
             start_time_ns=start_time_ns,
         )
+        if model := request.get("model"):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
+            if isinstance(model, str):
+                match model.split("/", 1):
+                    case [provider, _]:
+                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
         if usage := self._parse_usage(response):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 

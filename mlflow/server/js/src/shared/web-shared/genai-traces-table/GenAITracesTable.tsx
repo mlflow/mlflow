@@ -21,7 +21,7 @@ import {
   WarningIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
@@ -42,9 +42,10 @@ import {
 } from './hooks/useAssessmentFilters';
 import { useEvaluationsSearchQuery } from './hooks/useEvaluationsSearchQuery';
 import { GenAITracesTableConfigProvider, type GenAITracesTableConfig } from './hooks/useGenAITracesTableConfig';
+import { useSelectedColumns } from './hooks/useGenAITracesUIState';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { useTableColumns } from './hooks/useTableColumns';
-import { TracesTableColumnType } from './types';
+import { useTableSortURL } from './hooks/useTableSortURL';
 import type {
   AssessmentFilter,
   AssessmentInfo,
@@ -55,9 +56,9 @@ import type {
   TraceActions,
   EvaluationsOverviewTableSort,
 } from './types';
+import { TracesTableColumnType } from './types';
 import { getAssessmentInfos, sortAssessmentInfos } from './utils/AggregationUtils';
 import { displayPercentage } from './utils/DisplayUtils';
-import { FILTER_DROPDOWN_COMPONENT_ID } from './utils/EvaluationLogging';
 import { filterEvaluationResults } from './utils/EvaluationsFilterUtils';
 import { applyTraceInfoV3ToEvalEntry } from './utils/TraceUtils';
 
@@ -148,9 +149,12 @@ function GenAiTracesTableImpl({
     );
   }, [evaluationResults, searchQuery, assessmentFilters, currentRunDisplayName, compareToRunDisplayName]);
 
-  // TODO(nsthorat): Add these to the URL.
-  // Initially all assessments, inputs, and certain info columns are selected
-  const [selectedColumns, setSelectedColumns] = useState<TracesTableColumn[]>(allColumns);
+  const { selectedColumns, toggleColumns } = useSelectedColumns(
+    experimentId,
+    allColumns,
+    initialSelectedColumns,
+    runUuid,
+  );
 
   const selectedAssessmentInfos = useMemo(() => {
     const selectedAssessmentCols = selectedColumns.filter((col) => col.type === TracesTableColumnType.ASSESSMENT);
@@ -165,12 +169,31 @@ function GenAiTracesTableImpl({
       col.id === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT,
   );
 
-  const initialSort: EvaluationsOverviewTableSort | undefined =
-    defaultSortOption ||
-    (overallAssessmentCol
-      ? { key: overallAssessmentCol.id, type: TracesTableColumnType.ASSESSMENT, asc: true }
-      : undefined);
-  const [tableSort, setTableSort] = useState<EvaluationsOverviewTableSort | undefined>(initialSort);
+  const defaultSort = useMemo(
+    () =>
+      defaultSortOption ||
+      (overallAssessmentCol
+        ? { key: overallAssessmentCol.id, type: TracesTableColumnType.ASSESSMENT, asc: true }
+        : undefined),
+    [defaultSortOption, overallAssessmentCol],
+  );
+
+  const [urlTableSort, setUrlTableSort] = useTableSortURL();
+
+  const tableSort = useMemo(() => {
+    if (urlTableSort) {
+      const sortKeyExists = selectedColumns.some((col) => col.id === urlTableSort.key);
+      return sortKeyExists ? urlTableSort : defaultSort;
+    }
+    return defaultSort;
+  }, [urlTableSort, selectedColumns, defaultSort]);
+
+  const setTableSort = useCallback(
+    (sort: EvaluationsOverviewTableSort | undefined) => {
+      setUrlTableSort(sort, false);
+    },
+    [setUrlTableSort],
+  );
 
   const getAssessmentFilter = useCallback(
     (assessmentName: string, run: string): AssessmentFilter | undefined => {
@@ -337,7 +360,7 @@ function GenAiTracesTableImpl({
               >
                 <GenAiTracesTableSearchInput searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                 <DialogCombobox
-                  componentId={FILTER_DROPDOWN_COMPONENT_ID}
+                  componentId="mlflow.genai_traces_table.filter_dropdown"
                   label="Filters"
                   value={Array.from(assessmentFilters).map((filter) => filter.assessmentName)}
                   multiSelect
@@ -399,58 +422,55 @@ function GenAiTracesTableImpl({
                         gap: theme.spacing.md,
                       }}
                     >
-                      {selectedAssessmentInfos
-                        // For now, we don't support filtering on numeric values.
-                        .filter((info) => info.dtype !== 'numeric')
-                        .map((assessmentInfo) => (
+                      {selectedAssessmentInfos.map((assessmentInfo) => (
+                        <div
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.sm,
+                          }}
+                          key={assessmentInfo.name}
+                        >
                           <div
                             css={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: theme.spacing.sm,
+                              fontWeight: 500,
                             }}
-                            key={assessmentInfo.name}
                           >
+                            {assessmentInfo.displayName}
+                          </div>
+                          {currentRunDisplayName && (
+                            <AssessmentsFilterSelector
+                              assessmentLabel={assessmentInfo.displayName}
+                              assessmentName={assessmentInfo.name}
+                              assessmentInfo={assessmentInfo}
+                              assessmentFilter={getAssessmentFilter(assessmentInfo.name, currentRunDisplayName)}
+                              updateAssessmentFilter={updateAssessmentFilter}
+                              removeAssessmentFilter={removeAssessmentFilter}
+                              run={currentRunDisplayName}
+                            />
+                          )}
+                          {compareToRunUuid && compareToRunDisplayName && (
                             <div
                               css={{
-                                fontWeight: 500,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: theme.spacing.xs,
                               }}
                             >
-                              {assessmentInfo.displayName}
-                            </div>
-                            {currentRunDisplayName && (
+                              <Typography.Hint>{compareToRunDisplayName}</Typography.Hint>
                               <AssessmentsFilterSelector
                                 assessmentLabel={assessmentInfo.displayName}
                                 assessmentName={assessmentInfo.name}
                                 assessmentInfo={assessmentInfo}
-                                assessmentFilter={getAssessmentFilter(assessmentInfo.name, currentRunDisplayName)}
+                                assessmentFilter={getAssessmentFilter(assessmentInfo.name, compareToRunDisplayName)}
                                 updateAssessmentFilter={updateAssessmentFilter}
                                 removeAssessmentFilter={removeAssessmentFilter}
-                                run={currentRunDisplayName}
+                                run={compareToRunDisplayName}
                               />
-                            )}
-                            {compareToRunUuid && compareToRunDisplayName && (
-                              <div
-                                css={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: theme.spacing.xs,
-                                }}
-                              >
-                                <Typography.Hint>{compareToRunDisplayName}</Typography.Hint>
-                                <AssessmentsFilterSelector
-                                  assessmentLabel={assessmentInfo.displayName}
-                                  assessmentName={assessmentInfo.name}
-                                  assessmentInfo={assessmentInfo}
-                                  assessmentFilter={getAssessmentFilter(assessmentInfo.name, compareToRunDisplayName)}
-                                  updateAssessmentFilter={updateAssessmentFilter}
-                                  removeAssessmentFilter={removeAssessmentFilter}
-                                  run={compareToRunDisplayName}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </DialogComboboxContent>
                 </DialogCombobox>
@@ -466,7 +486,7 @@ function GenAiTracesTableImpl({
                 <EvaluationsOverviewColumnSelector
                   columns={allColumns}
                   selectedColumns={selectedColumns}
-                  setSelectedColumns={setSelectedColumns}
+                  setSelectedColumnsWithHiddenColumns={toggleColumns}
                 />
                 <GenAITracesTableActions
                   experimentId={experimentId}
@@ -609,6 +629,7 @@ const SampledInfoBadge = (props: { totalRowCount: number; sampledInfo?: SampleIn
 const ANY_VALUE = '__any_value__';
 
 const AssessmentsFilterSelector = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     assessmentName,
     assessmentInfo,
@@ -652,7 +673,7 @@ const AssessmentsFilterSelector = React.memo(
             updateAssessmentFilter(assessmentName, value, run);
           }}
           size="middle"
-          componentId={`mlflow.evaluations_review.table_ui.filter_control_${assessmentName}`}
+          componentId="mlflow.evaluations_review.table_ui.filter_control"
         >
           <SegmentedControlButton value={ANY_VALUE}>
             <div
@@ -706,5 +727,8 @@ export interface SampleInfo {
   maxAllowedCount?: number;
 }
 
+/**
+ * @deprecated Use `GenAITracesTableBodyContainer` and `GenAITracesTableToolbar` instead for new use cases.
+ */
 // TODO: Add an error boundary to the OSS trace table
-export const GenAiTracesTable = GenAiTracesTableImpl;
+export const GenAiTracesTableDeprecated = GenAiTracesTableImpl;

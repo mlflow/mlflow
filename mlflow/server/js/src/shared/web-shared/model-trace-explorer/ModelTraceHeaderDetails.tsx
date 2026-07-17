@@ -1,101 +1,82 @@
+import { useCallback, useMemo, useState } from 'react';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
+
 import {
   Overflow,
   Tag,
-  TagColors,
   Typography,
   useDesignSystemTheme,
   Tooltip,
   ClockIcon,
-  SpeechBubbleIcon,
+  Notification,
   UserIcon,
 } from '@databricks/design-system';
-import { Notification } from '@databricks/design-system';
-import { useCallback, useMemo, useState } from 'react';
+import { FormattedMessage } from '@databricks/i18n';
 
-import { FormattedMessage, useIntl } from 'react-intl';
-import type { ModelTrace, ModelTraceInfoV3 } from './ModelTrace.types';
-import { getModelTraceId } from './ModelTraceExplorer.utils';
-import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
+import type { ModelTrace, ModelTraceInfoV3, ModelTraceState } from './ModelTrace.types';
+import {
+  createTraceV4LongIdentifier,
+  doesTraceSupportV4API,
+  getTraceCost,
+  getTraceTokenUsage,
+  isV3ModelTraceInfo,
+} from './ModelTraceExplorer.utils';
+import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
+import { isTraceCostType, ModelTraceExplorerCostHoverCard, type TraceCost } from './ModelTraceExplorerCostHoverCard';
+import {
+  isTokenUsageType,
+  ModelTraceExplorerTokenUsageHoverCard,
+  type TokenUsage,
+} from './ModelTraceExplorerTokenUsageHoverCard';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
-import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
-import { MLFLOW_TRACE_SESSION_KEY, MLFLOW_TRACE_TOKEN_USAGE_KEY, MLFLOW_TRACE_USER_KEY } from './ModelTrace.types';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
+import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
 import { useParams } from './RoutingUtils';
+import { isUserFacingTag, truncateToFirstLineWithMaxLength } from './TagUtils';
+import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY } from './constants';
+import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 
-const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
 
-const ModelTraceHeaderMetricSection = ({
-  label,
-  value,
-  icon,
-  tagKey,
-  color = 'teal',
-  getTruncatedLabel,
-  getComponentId,
-  onCopy,
-}: {
-  label: React.ReactNode;
-  value: string;
-  icon?: React.ReactNode;
-  tagKey: string;
-  color?: TagColors;
-  getTruncatedLabel: (label: string) => string;
-  getComponentId: (key: string) => string;
-  onCopy: () => void;
-}) => {
-  const { theme } = useDesignSystemTheme();
-
-  const handleClick = () => {
-    navigator.clipboard.writeText(value);
-    onCopy();
-  };
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        gap: theme.spacing.sm,
-      }}
-    >
-      <Typography.Text size="md" color="secondary">
-        {label}
-      </Typography.Text>
-      <Tooltip componentId={getComponentId(tagKey)} content={value} maxWidth={400}>
-        <Tag componentId={getComponentId(tagKey)} color={color} onClick={handleClick} css={{ cursor: 'pointer' }}>
-          <span css={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
-            {icon && <span>{icon}</span>}
-            <span>{getTruncatedLabel(value)}</span>
-          </span>
-        </Tag>
-      </Tooltip>
-    </div>
-  );
-};
-
-export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace }) => {
-  const intl = useIntl();
+export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: ModelTrace['info'] }) => {
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
+  const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
-  const tags = Object.entries(modelTrace.info.tags ?? {}).filter(([key]) => isUserFacingTag(key));
+  const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {
+    if (doesTraceSupportV4API(modelTraceInfo) && isV3ModelTraceInfo(modelTraceInfo)) {
+      return [createTraceV4LongIdentifier(modelTraceInfo), modelTraceInfo.trace_id];
+    }
+    return [isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '')];
+  }, [modelTraceInfo]);
 
-  const modelTraceId = getModelTraceId(modelTrace);
+  const tokenUsage = useMemo<Partial<TokenUsage> | undefined>(
+    () => getTraceTokenUsage(modelTraceInfo as ModelTraceInfoV3) as Partial<TokenUsage> | undefined,
+    [modelTraceInfo],
+  );
 
-  const tokenUsage = useMemo(() => {
-    const tokenUsage = parseJSONSafe(
-      (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_TOKEN_USAGE_KEY] ?? '{}',
-    );
-    return tokenUsage;
-  }, [modelTrace.info]);
+  const cost = useMemo<Partial<TraceCost> | undefined>(
+    () => getTraceCost(modelTraceInfo as ModelTraceInfoV3) as Partial<TraceCost> | undefined,
+    [modelTraceInfo],
+  );
 
-  const totalTokens = useMemo(() => tokenUsage?.total_tokens, [tokenUsage]);
+  const sessionId = useMemo(() => {
+    return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[SESSION_ID_METADATA_KEY];
+  }, [modelTraceInfo]);
+
+  const userId = useMemo(() => {
+    return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
+  }, [modelTraceInfo]);
+
+  // Derive status label/icon from TraceInfo (V3 only)
+  const statusState: ModelTraceState | undefined = useMemo(
+    () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.state : undefined),
+    [modelTraceInfo],
+  );
 
   const latency = useMemo((): string | undefined => {
     if (rootNode) {
@@ -105,84 +86,77 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
     return undefined;
   }, [rootNode]);
 
-  const sessionId = useMemo(() => {
-    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_SESSION_KEY];
-  }, [modelTrace.info]);
-
-  const userId = useMemo(() => {
-    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
-  }, [modelTrace.info]);
-
-  const getComponentId = useCallback((key: string) => `${BASE_TAG_COMPONENT_ID}.tag-${key}`, []);
-
-  const handleTagClick = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleTagClick = async (text: string) => {
+    const success = await copyToClipboard(text);
+    handleCopy(success);
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
-  const getTruncatedSessionLabel = (label: string) => (label.length > 10 ? `${label.slice(0, 10)}...` : label);
 
-  const handleCopy = useCallback(() => {
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 2000);
+  const handleCopy = useCallback((success: boolean = true) => {
+    if (success) {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   return (
-    <>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+    <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: theme.spacing.md,
+          rowGap: theme.spacing.sm,
+          flexWrap: 'wrap',
+        }}
+      >
+        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
             value={modelTraceId}
-            tagKey={modelTraceId}
-            color="pink"
+            displayValue={modelTraceIdToDisplay}
+            color="purple"
             getTruncatedLabel={getTruncatedLabel}
-            getComponentId={getComponentId}
             onCopy={handleCopy}
           />
         )}
-        {totalTokens && (
-          <ModelTraceHeaderMetricSection
-            label={<FormattedMessage defaultMessage="Token count" description="Label for the token count section" />}
-            value={totalTokens.toString()}
-            tagKey="token-count"
-            color="default"
-            getTruncatedLabel={getTruncatedLabel}
-            getComponentId={getComponentId}
-            onCopy={handleCopy}
-          />
-        )}
+        {isTokenUsageType(tokenUsage) && <ModelTraceExplorerTokenUsageHoverCard tokenUsage={tokenUsage} />}
+        {isTraceCostType(cost) && <ModelTraceExplorerCostHoverCard cost={cost} />}
         {latency && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="Latency" description="Label for the latency section" />}
             icon={<ClockIcon css={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}
             value={latency}
-            tagKey="latency"
-            color="default"
             getTruncatedLabel={getTruncatedLabel}
-            getComponentId={getComponentId}
             onCopy={handleCopy}
           />
         )}
         {sessionId && experimentId && (
-          <ModelTraceHeaderSessionIdTag experimentId={experimentId} sessionId={sessionId} />
+          <ModelTraceHeaderSessionIdTag
+            handleCopy={handleCopy}
+            experimentId={experimentId}
+            sessionId={sessionId}
+            traceId={modelTraceId}
+          />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="User" description="Label for the user id section" />}
             icon={<UserIcon css={{ fontSize: 12, display: 'flex' }} />}
             value={userId}
-            tagKey="user"
             color="default"
             getTruncatedLabel={getTruncatedLabel}
-            getComponentId={getComponentId}
             onCopy={handleCopy}
           />
         )}
         <ModelTraceHeaderMetadataPill
-          traceMetadata={(modelTrace.info as ModelTraceInfoV3)?.trace_metadata}
+          traceMetadata={(modelTraceInfo as ModelTraceInfoV3)?.trace_metadata}
           getTruncatedLabel={getTruncatedLabel}
-          getComponentId={getComponentId}
         />
         {tags.length > 0 && (
           <div
@@ -199,17 +173,18 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
             </Typography.Text>
             <Overflow noMargin>
               {tags.map(([key, value]) => {
-                const tagKey = `${key}-${value}`;
                 const fullText = `${key}: ${value}`;
 
                 return (
-                  <Tooltip key={key} componentId={getComponentId(tagKey)} content={fullText}>
+                  <Tooltip
+                    key={key}
+                    componentId="shared.model-trace-explorer.header-details.tooltip"
+                    content={fullText}
+                  >
                     <Tag
-                      componentId={getComponentId(tagKey)}
-                      color="teal"
+                      componentId="shared.model-trace-explorer.header-details.tag"
                       onClick={() => {
                         handleTagClick(fullText);
-                        handleCopy();
                       }}
                       css={{ cursor: 'pointer' }}
                     >
@@ -222,7 +197,6 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
           </div>
         )}
       </div>
-
       {showNotification && (
         <Notification.Provider>
           <Notification.Root severity="success" componentId={BASE_NOTIFICATION_COMPONENT_ID}>
@@ -236,6 +210,19 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
           <Notification.Viewport />
         </Notification.Provider>
       )}
-    </>
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId={BASE_NOTIFICATION_COMPONENT_ID}>
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+    </div>
   );
 };

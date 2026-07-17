@@ -32,6 +32,8 @@ from mlflow.utils.rest_utils import (
     http_request,
     http_request_safe,
 )
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests import helper_functions
 
@@ -65,12 +67,10 @@ def test_call_endpoints():
         host_only = MlflowHostCreds("http://my-host")
         endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
         resp = call_endpoints(host_only, endpoints, "", response_proto)
-        mock_call_endpoint.assert_has_calls(
-            [
-                mock.call(host_only, endpoint, method, "", response_proto, None)
-                for endpoint, method in endpoints
-            ]
-        )
+        mock_call_endpoint.assert_has_calls([
+            mock.call(host_only, endpoint, method, "", response_proto, None)
+            for endpoint, method in endpoints
+        ])
         assert resp is None
 
 
@@ -104,6 +104,28 @@ def test_http_request_hostonly():
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
         )
+
+
+def test_http_request_includes_workspace_header_for_mlflow_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/2.0/mlflow/runs/search", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers[WORKSPACE_HEADER_NAME] == "team-a"
+
+
+def test_http_request_omits_workspace_header_for_workspace_admin_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/3.0/mlflow/workspaces/team-a", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert WORKSPACE_HEADER_NAME not in headers
 
 
 def test_http_request_cleans_hostname():
@@ -142,8 +164,6 @@ def test_http_request_with_basic_auth():
 
 
 def test_http_request_with_aws_sigv4(monkeypatch):
-    """This test requires the "requests_auth_aws_sigv4" package to be installed"""
-
     from requests_auth_aws_sigv4 import AWSSigV4
 
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
@@ -285,8 +305,6 @@ def test_http_request_with_content_type_header():
 
 
 def test_http_request_request_headers():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -311,8 +329,6 @@ def test_http_request_request_headers():
 
 
 def test_http_request_request_headers_default():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -348,8 +364,6 @@ def test_http_request_request_headers_default():
 
 
 def test_http_request_request_headers_default_and_extra_header():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -390,7 +404,6 @@ def test_http_request_request_headers_default_and_extra_header():
 
 
 def test_http_request_with_invalid_url_raise_invalid_url_exception():
-    """InvalidURL exception can be caught by a custom InvalidUrlException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
@@ -399,7 +412,6 @@ def test_http_request_with_invalid_url_raise_invalid_url_exception():
 
 
 def test_http_request_with_invalid_url_raise_mlflow_exception():
-    """The InvalidUrlException can be caught by the MlflowException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
@@ -582,11 +594,18 @@ def test_http_request_max_retries(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured max_retries"):
             http_request(host_creds, "/endpoint", "GET", max_retries=16)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", max_retries=15)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", max_retries=3)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_backoff_factor(monkeypatch):
@@ -594,11 +613,18 @@ def test_http_request_backoff_factor(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured backoff_factor"):
             http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", backoff_factor=200)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_negative_max_retries():
@@ -643,7 +669,6 @@ def test_suppress_databricks_retry_after_secs_warnings():
 
 
 def test_databricks_sdk_retry_on_transient_errors():
-    """Test that Databricks SDK retries on transient HTTP errors."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -683,7 +708,6 @@ def test_databricks_sdk_retry_on_transient_errors():
 
 
 def test_databricks_sdk_retry_max_retries_exceeded():
-    """Test that Databricks SDK stops retrying when max_retries is exceeded."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -715,7 +739,6 @@ def test_databricks_sdk_retry_max_retries_exceeded():
 
 
 def test_databricks_sdk_retry_timeout_exceeded():
-    """Test that Databricks SDK stops retrying when timeout is exceeded."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -755,7 +778,6 @@ def test_databricks_sdk_retry_timeout_exceeded():
 
 
 def test_databricks_sdk_retry_non_retryable_error():
-    """Test that Databricks SDK doesn't retry on non-retryable errors."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -780,7 +802,6 @@ def test_databricks_sdk_retry_non_retryable_error():
 
 
 def test_databricks_sdk_retry_backoff_calculation():
-    """Test that Databricks SDK uses correct exponential backoff timing."""
     from databricks.sdk.errors import DatabricksError
 
     from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
@@ -817,7 +838,6 @@ def test_databricks_sdk_retry_backoff_calculation():
 
 @pytest.mark.skip
 def test_timeout_parameter_propagation_with_timeout():
-    """Test timeout parameter propagation from http_request to get_workspace_client with timeout."""
     with (
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
         mock.patch("databricks.sdk.config.Config") as mock_config,
@@ -845,7 +865,6 @@ def test_timeout_parameter_propagation_with_timeout():
 
 @pytest.mark.skip
 def test_timeout_parameter_propagation_without_timeout():
-    """Test timeout param propagation from http_request to get_workspace_client without timeout."""
     with (
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
         mock.patch("databricks.sdk.config.Config") as mock_config,
@@ -871,8 +890,6 @@ def test_timeout_parameter_propagation_without_timeout():
 
 
 def test_deployment_client_timeout_propagation(monkeypatch):
-    """Test deployment client propagates timeout to workspace client."""
-
     with (
         mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
         mock.patch(
@@ -927,6 +944,68 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
         http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
         headers = mock_request.call_args.kwargs["headers"]
         assert "x-databricks-traffic-id" not in headers
+
+
+def test_http_request_with_workspace_id():
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # With workspace_id set, header should be included
+    creds = MlflowHostCreds("http://my-host", workspace_id="6051921418418893")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(creds, "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers["x-databricks-org-id"] == "6051921418418893"
+
+    # Without workspace_id, header should not be present
+    creds = MlflowHostCreds("http://my-host")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(creds, "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert "x-databricks-org-id" not in headers
+
+
+def test_mlflow_host_creds_workspace_id_equality():
+    creds1 = MlflowHostCreds("http://my-host", workspace_id="123")
+    creds2 = MlflowHostCreds("http://my-host", workspace_id="123")
+    creds3 = MlflowHostCreds("http://my-host", workspace_id="456")
+    creds4 = MlflowHostCreds("http://my-host")
+
+    assert creds1 == creds2
+    assert creds1 != creds3
+    assert creds1 != creds4
+    assert hash(creds1) == hash(creds2)
+    assert hash(creds1) != hash(creds3)
+
+
+def test_oauth_error_when_sdk_enabled(monkeypatch):
+    # When MLFLOW_ENABLE_DB_SDK=true and the SDK failed to initialize, the OAuth error
+    # must acknowledge the env var is set and point at the preceding SDK warning, instead
+    # of telling the user to set an env var they have already set.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+    )
+    with pytest.raises(MlflowException, match="SDK is enabled but failed to initialize") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'True'" in msg
+    assert "Failed to create databricks SDK workspace client" in msg
+
+
+def test_oauth_error_when_sdk_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+    )
+    with pytest.raises(MlflowException, match="Set 'MLFLOW_ENABLE_DB_SDK' to true") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'False'" in msg
 
 
 @pytest.mark.parametrize(

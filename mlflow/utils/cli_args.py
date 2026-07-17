@@ -101,7 +101,8 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to virtualenv.
@@ -115,7 +116,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -135,7 +136,8 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to None, then MLflow will automatically pick the env manager
@@ -151,7 +153,7 @@ INSTALL_MLFLOW = click.option(
     "--install-mlflow",
     is_flag=True,
     default=False,
-    help="If specified and there is a conda or virtualenv environment to be activated "
+    help="If specified and there is a conda, virtualenv, or uv environment to be activated "
     "mlflow will be installed into the environment after it has been "
     "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
@@ -201,17 +203,6 @@ MODELS_WORKERS = click.option(
     envvar="MLFLOW_MODELS_WORKERS",
     default=None,
     help="Number of uvicorn workers to handle requests when serving mlflow models (default: 1).",
-)
-
-ENABLE_MLSERVER = click.option(
-    "--enable-mlserver",
-    is_flag=True,
-    default=False,
-    help=(
-        "Enable serving with MLServer through the v2 inference protocol. "
-        "You can use environment variables to configure MLServer. "
-        "(See https://mlserver.readthedocs.io/en/latest/reference/settings.html)"
-    ),
 )
 
 ARTIFACTS_DESTINATION = click.option(

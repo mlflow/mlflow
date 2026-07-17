@@ -29,8 +29,9 @@ import type { DesignSystemHocProps } from '@databricks/design-system';
 import {
   Alert,
   Empty,
+  InfoTooltip,
   LayerIcon,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -41,7 +42,11 @@ import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
-import { getArtifactLocationUrl, getLoggedModelArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import {
+  getArtifactBlob,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
@@ -126,7 +131,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           <label>
             <FormattedMessage
               defaultMessage="Full Path:"
-              // eslint-disable-next-line max-len
               description="Label to display the full path of where the artifact of the experiment runs is located"
             />
           </label>{' '}
@@ -217,19 +221,31 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(
+  async onDownloadClick(
     // comment for copybara formatting
     runUuid: any,
     artifactPath: any,
     loggedModelId?: string,
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
-    // Logged model artifact API should be used when falling back to logged model artifacts on the run artifact page.
+    let url: string;
     if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+      url = getArtifactLocationUrl(artifactPath, runUuid);
     } else if (loggedModelId) {
-      window.location.href = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+      url = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+    } else {
+      return;
     }
+
+    const blob = await getArtifactBlob(url);
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = getBasename(artifactPath);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(blobUrl);
   }
 
   renderControls() {
@@ -254,10 +270,11 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          <LegacyTooltip
-            arrowPointAtCenter
-            placement="topLeft"
-            title={this.props.intl.formatMessage({
+          <Tooltip
+            componentId="mlflow.artifact_view.download_artifact"
+            side="top"
+            align="end"
+            content={this.props.intl.formatMessage({
               defaultMessage: 'Download artifact',
               description: 'Link to download the artifact of the experiment',
             })}
@@ -269,7 +286,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
                 this.onDownloadClick(runUuid, activeNodeId, loggedModelId, isFallbackToLoggedModelArtifacts)
               }
             />
-          </LegacyTooltip>
+          </Tooltip>
         </div>
       </div>
     );
@@ -342,7 +359,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           this.props.entityTags,
         );
       } else {
-        this.props.listArtifactsApi(this.props.runUuid, id);
+        this.props.listArtifactsApi(this.props.runUuid, id, undefined, this.props.experimentId, this.props.entityTags);
       }
     }
     this.setState({
@@ -455,8 +472,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           // or expand anything.
           ArtifactUtils.findChild(this.props.artifactNode, this.props.initialSelectedArtifactPath);
         } catch (err) {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(err);
+          // invalid artifact path, skip selection
           return;
         }
       }
@@ -582,21 +598,32 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   // eslint-disable-next-line prefer-const
   let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <LegacyTooltip title={`${name} version ${version}`}>
-      <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
-        <span className="model-name">{name}</span>
-        <span>,&nbsp;v{version}&nbsp;</span>
-        <i className="fa fa-external-link-o" />
-      </Link>
-    </LegacyTooltip>
+    <Tooltip componentId="mlflow.artifacts.model_version.link" content={`${name} version ${version}`}>
+      <span>
+        <Link
+          componentId="mlflow.experiment_tracking.artifacts.model_version_link"
+          to={mvPageRoute}
+          className="model-version-link"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="model-name">{name}</span>
+          <span>,&nbsp;v{version}&nbsp;</span>
+          <i className="fa fa-external-link-o" />
+        </Link>
+      </span>
+    </Tooltip>
   );
 
   return (
     <div className="model-version-info">
       <div className="model-version-link-section">
-        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+        <Tooltip
+          componentId="mlflow.artifacts.model_version.status"
+          content={status_message || modelVersionStatusIconTooltips[status]}
+        >
           <div>{ModelVersionStatusIcons[status]}</div>
-        </LegacyTooltip>
+        </Tooltip>
         {modelVersionLink}
       </div>
       <div className="model-version-status-text">

@@ -15,9 +15,8 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { TableFilterItem } from './components/filters/TableFilterItem';
-import { FilterOperator } from './types';
 import type { AssessmentInfo, TableFilterFormState, TableFilter, TableFilterOptions, TracesTableColumn } from './types';
-import { FILTER_DROPDOWN_COMPONENT_ID } from './utils/EvaluationLogging';
+import { FilterOperator } from './types';
 
 export const GenAiTracesTableFilter = ({
   filters,
@@ -26,17 +25,19 @@ export const GenAiTracesTableFilter = ({
   experimentId,
   tableFilterOptions,
   allColumns,
-  isMetadataLoading,
-  metadataError,
+  isLoading,
+  isError,
+  usesV4APIs,
 }: {
   filters: TableFilter[];
   setFilters: (filters: TableFilter[]) => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
-  isMetadataLoading?: boolean;
-  metadataError?: Error | null;
+  isLoading?: boolean;
+  isError?: boolean;
+  usesV4APIs?: boolean;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -48,7 +49,7 @@ export const GenAiTracesTableFilter = ({
   }, [setFilters]);
 
   return (
-    <Popover.Root componentId={FILTER_DROPDOWN_COMPONENT_ID}>
+    <Popover.Root componentId="mlflow.genai_traces_table_filter.filter_dropdown">
       <Popover.Trigger asChild>
         <Button
           endIcon={<ChevronDownIcon />}
@@ -94,7 +95,7 @@ export const GenAiTracesTableFilter = ({
         </Button>
       </Popover.Trigger>
       <Popover.Content align="start" css={{ padding: theme.spacing.md }}>
-        {metadataError ? (
+        {isError ? (
           <div
             css={{
               display: 'flex',
@@ -112,7 +113,7 @@ export const GenAiTracesTableFilter = ({
               description="Error message for fetching traces failed"
             />
           </div>
-        ) : isMetadataLoading ? (
+        ) : isLoading ? (
           <div
             css={{
               display: 'flex',
@@ -134,6 +135,7 @@ export const GenAiTracesTableFilter = ({
             experimentId={experimentId}
             tableFilterOptions={tableFilterOptions}
             allColumns={allColumns}
+            usesV4APIs={usesV4APIs}
           />
         )}
       </Popover.Content>
@@ -158,13 +160,15 @@ const FilterForm = ({
   experimentId,
   tableFilterOptions,
   allColumns,
+  usesV4APIs,
 }: {
   filters: TableFilter[];
   assessmentInfos: AssessmentInfo[];
   setFilters: (filters: TableFilter[]) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
+  usesV4APIs?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -213,6 +217,7 @@ const FilterForm = ({
               experimentId={experimentId}
               tableFilterOptions={tableFilterOptions}
               allColumns={allColumns}
+              usesV4APIs={usesV4APIs}
             />
           ))}
         </div>

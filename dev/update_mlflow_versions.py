@@ -18,11 +18,11 @@ _PYPROJECT_TOML_FILES = [
     Path("libs/tracing/pyproject.toml"),
 ]
 
-_JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
+_JAVA_VERSION_FILES = list(Path("mlflow", "java").rglob("*.java"))
 
-_JAVA_POM_XML_FILES = Path("mlflow", "java").rglob("*.xml")
+_JAVA_POM_XML_FILES = list(Path("mlflow", "java").rglob("*.xml"))
 
-_JS_VERSION_FILES = [
+_TS_VERSION_FILES = [
     Path(
         "mlflow",
         "server",
@@ -30,15 +30,21 @@ _JS_VERSION_FILES = [
         "src",
         "common",
         "constants.tsx",
-    )
+    ),
+    Path("docs", "src", "constants.ts"),
 ]
 
 _R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
 
+_HELM_CHART_FILES = [Path("charts", "Chart.yaml")]
+
 
 def get_current_py_version() -> str:
     text = Path("mlflow", "version.py").read_text()
-    return re.search(r'VERSION = "(.+)"', text).group(1)
+    match = re.search(r'VERSION = "(.+)"', text)
+    if match is None:
+        raise ValueError("Could not find VERSION in mlflow/version.py")
+    return match.group(1)
 
 
 def get_java_py_version_pattern(version: str) -> str:
@@ -50,13 +56,13 @@ def get_java_new_py_version(new_py_version: str) -> str:
     return replace_dev_or_rc_suffix_with(new_py_version, "-SNAPSHOT")
 
 
-def replace_dev_or_rc_suffix_with(version, repl):
+def replace_dev_or_rc_suffix_with(version: str, repl: str) -> str:
     parsed = Version(version)
     base_version = parsed.base_version
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: list[Path], pattern: str | re.Pattern, repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str | re.Pattern[str], repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:
@@ -94,7 +100,7 @@ def replace_pyproject_toml(new_py_version: str, paths: list[Path]) -> None:
     )
 
 
-def replace_js(old_version: str, new_py_version: str, paths: list[Path]) -> None:
+def replace_ts(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.escape(old_version),
@@ -144,6 +150,14 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path
     )
 
 
+def replace_helm_chart(new_py_version: str, paths: list[Path]) -> None:
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r'^appVersion:\s+".+"$', re.MULTILINE),
+        repl=f'appVersion: "{replace_dev_or_rc_suffix_with(new_py_version, "")}"',
+    )
+
+
 def replace_r(old_py_version: str, new_py_version: str, paths: list[Path]) -> None:
     current_py_version_without_suffix = replace_dev_or_rc_suffix_with(old_py_version, "")
 
@@ -154,21 +168,28 @@ def replace_r(old_py_version: str, new_py_version: str, paths: list[Path]) -> No
     )
 
 
-def update_versions(new_py_version: str) -> None:
+def update_versions(new_py_version: str, helm_app_version: str | None = None) -> None:
     """
     `new_py_version` is either:
       - a release version (e.g. "2.1.0")
       - a RC version (e.g. "2.1.0rc0")
       - a dev version (e.g. "2.1.0.dev0")
+
+    `helm_app_version` is the version written to the Helm chart's `appVersion`.
+    The Helm chart's `appVersion` is used as the default Docker image tag, so it
+    must point to a published release. When omitted, the Helm chart is left
+    untouched.
     """
     old_py_version = get_current_py_version()
 
     replace_python(old_py_version, new_py_version, _PYTHON_VERSION_FILES)
     replace_pyproject_toml(new_py_version, _PYPROJECT_TOML_FILES)
-    replace_js(old_py_version, new_py_version, _JS_VERSION_FILES)
+    replace_ts(old_py_version, new_py_version, _TS_VERSION_FILES)
     replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
     replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
     replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
+    if helm_app_version is not None:
+        replace_helm_chart(helm_app_version, _HELM_CHART_FILES)
 
 
 def validate_new_version(value: str) -> str:
@@ -188,7 +209,7 @@ def validate_new_version(value: str) -> str:
     return value
 
 
-def pre_release(new_version: str):
+def pre_release(new_version: str) -> None:
     """
     Update MLflow package versions BEFORE release.
 
@@ -200,7 +221,7 @@ def pre_release(new_version: str):
     update_versions(new_py_version=new_version)
 
 
-def post_release(new_version: str):
+def post_release(new_version: str) -> None:
     """
     Update MLflow package versions AFTER release.
 
@@ -216,10 +237,14 @@ def post_release(new_version: str):
         "branch."
     )
     assert current_version.is_devrelease, msg
-    new_version = Version(new_version)
+    new_version_parsed = Version(new_version)
     # Increment the patch version and append ".dev0"
-    new_py_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}.dev0"
-    update_versions(new_py_version=new_py_version)
+    new_py_version = (
+        f"{new_version_parsed.major}.{new_version_parsed.minor}.{new_version_parsed.micro + 1}.dev0"
+    )
+    # Helm `appVersion` must point to the released version, not the next dev
+    # version, since it's used as the default Docker image tag.
+    update_versions(new_py_version=new_py_version, helm_app_version=new_version)
 
 
 if __name__ == "__main__":

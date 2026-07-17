@@ -1,5 +1,7 @@
+import { describe, jest, beforeAll, afterAll, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
+import { DesignSystemProvider } from '@databricks/design-system';
 import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('KeyValueTagFullViewModal', () => {
@@ -23,12 +25,14 @@ describe('KeyValueTagFullViewModal', () => {
     const longValue = 'abc'.repeat(100);
 
     renderWithIntl(
-      <KeyValueTagFullViewModal
-        tagKey={longKey}
-        tagValue={longValue}
-        setIsKeyValueTagFullViewModalVisible={mockSetIsKeyValueTagFullViewModalVisible}
-        isKeyValueTagFullViewModalVisible
-      />,
+      <DesignSystemProvider>
+        <KeyValueTagFullViewModal
+          tagKey={longKey}
+          tagValue={longValue}
+          setIsKeyValueTagFullViewModalVisible={mockSetIsKeyValueTagFullViewModalVisible}
+          isKeyValueTagFullViewModalVisible
+        />
+      </DesignSystemProvider>,
     );
 
     expect(screen.getByText('Tag: ' + longKey)).toBeInTheDocument();

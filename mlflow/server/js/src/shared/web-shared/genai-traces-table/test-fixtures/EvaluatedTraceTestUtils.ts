@@ -1,4 +1,4 @@
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import type {
   RunEvaluationResultAssessment,

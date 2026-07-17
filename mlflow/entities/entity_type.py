@@ -14,3 +14,4 @@ class EntityAssociationType:
     RUN = "run"
     MODEL = "model"
     TRACE = "trace"
+    PROMPT_VERSION = "prompt_version"

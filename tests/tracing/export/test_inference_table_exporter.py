@@ -113,6 +113,9 @@ def test_export_warn_invalid_attributes():
     trace_dict = pop_trace(_DATABRICKS_REQUEST_ID_1)
     trace = Trace.from_dict(trace_dict)
     stored_span = trace.data.spans[0]
+    # NB: `mlflow.spanLogLevel` is intentionally absent — this test exports the
+    # LiveSpan directly without going through `span.end()`, which is where
+    # log-level resolution happens. Production traces always go through end().
     assert stored_span.attributes == {
         "mlflow.traceRequestId": trace_id,
         "mlflow.spanType": "UNKNOWN",
@@ -221,7 +224,6 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
 
 
 def test_prompt_linking_with_experiment_id(monkeypatch):
-    """Test that prompts are correctly linked when experiment ID is set."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
@@ -306,7 +308,6 @@ def test_prompt_linking_with_experiment_id(monkeypatch):
 
 
 def test_prompt_linking_disabled_without_experiment_id(monkeypatch):
-    """Test that prompt linking is not attempted when experiment ID is not set."""
     # Don't set MLFLOW_EXPERIMENT_ID to disable MLflow backend export
 
     # Create span and trace
@@ -358,7 +359,6 @@ def test_prompt_linking_disabled_without_experiment_id(monkeypatch):
 
 
 def test_prompt_linking_with_empty_prompts(monkeypatch):
-    """Test that empty prompts list doesn't cause issues when exporting to MLflow backend."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
@@ -414,7 +414,6 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
 
 
 def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
-    """Test that prompt linking errors are handled gracefully when exporting to MLflow backend."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)

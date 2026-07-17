@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { useGetExperimentPageActiveTabByRoute } from './useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../../constants';
@@ -36,6 +37,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       pathname: '/experiments/123/models',
       expectedTabName: ExperimentPageTabName.Models,
       expectedTopLevelTabName: ExperimentPageTabName.Models,
+    },
+    {
+      name: 'should return ReviewQueue tab when on review-queue route',
+      pathname: '/experiments/123/review-queue',
+      expectedTabName: ExperimentPageTabName.ReviewQueue,
+      expectedTopLevelTabName: ExperimentPageTabName.ReviewQueue,
     },
     {
       name: 'should return undefined when on unknown route',

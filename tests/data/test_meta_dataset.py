@@ -46,12 +46,10 @@ def test_create_meta_dataset_from_source(dataset_source_class, path):
 )
 def test_create_meta_dataset_from_source_with_schema(dataset_source_class, path):
     source = dataset_source_class(path)
-    schema = Schema(
-        [
-            ColSpec(type=DataType.long, name="foo"),
-            ColSpec(type=DataType.integer, name="bar"),
-        ]
-    )
+    schema = Schema([
+        ColSpec(type=DataType.long, name="foo"),
+        ColSpec(type=DataType.integer, name="bar"),
+    ])
     dataset = MetaDataset(source=source, schema=schema)
 
     json_str = dataset.to_json()
@@ -66,12 +64,10 @@ def test_create_meta_dataset_from_source_with_schema(dataset_source_class, path)
 def test_meta_dataset_digest():
     http_source = HTTPDatasetSource("test:/my/test/uri")
     dataset1 = MetaDataset(source=http_source)
-    schema = Schema(
-        [
-            ColSpec(type=DataType.long, name="foo"),
-            ColSpec(type=DataType.integer, name="bar"),
-        ]
-    )
+    schema = Schema([
+        ColSpec(type=DataType.long, name="foo"),
+        ColSpec(type=DataType.integer, name="bar"),
+    ])
     dataset2 = MetaDataset(source=http_source, schema=schema)
 
     assert dataset1.digest != dataset2.digest

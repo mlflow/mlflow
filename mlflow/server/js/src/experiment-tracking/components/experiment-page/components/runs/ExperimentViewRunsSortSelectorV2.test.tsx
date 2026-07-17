@@ -1,9 +1,13 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { IntlProvider } from 'react-intl';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const metricKeys = ['metric_alpha', 'metric_beta'];
 const paramKeys = ['param_1', 'param_2', 'param_3'];

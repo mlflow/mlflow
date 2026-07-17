@@ -25,6 +25,7 @@ import {
 } from './RunsCharts.common';
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { useNodeLevelMetricsFilterContext } from '../../run-page/node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
 import {
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
@@ -65,6 +66,7 @@ const getDataTraceForRun = ({
   xAxisScaleType,
   expression,
   evaluateExpression,
+  customColor,
 }: {
   runEntry: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags' | 'images'>;
   metricKey?: RunsMetricsLinePlotProps['metricKey'];
@@ -82,6 +84,7 @@ const getDataTraceForRun = ({
     expression: RunsChartsLineChartExpression,
     variables: Record<string, number>,
   ) => number | undefined;
+  customColor?: string;
 }): LineChartTraceData => {
   if (!runEntry.metricsHistory) {
     return {};
@@ -170,7 +173,9 @@ const getDataTraceForRun = ({
     type: 'scatter',
     line: { dash: lineDash, shape: optimizedLineShape },
     marker: {
-      color: originalLine ? createFadedTraceColor(runEntry.color, 0.15) : runEntry.color,
+      color: originalLine
+        ? createFadedTraceColor(customColor ?? runEntry.color, 0.15)
+        : (customColor ?? runEntry.color),
     },
   } as LineChartTraceData;
 };
@@ -268,10 +273,13 @@ const getBandTraceForRun = ({
  * return = [{step: 2, value: 3}, {step: 0, value: 1}, {step: 1, value: 2}]
  */
 const orderBySteps = (dataPoints: MetricEntity[], stepOrder: number[]) => {
-  const stepIndexes = stepOrder.reduce((acc, step, idx) => {
-    acc[step] = idx;
-    return acc;
-  }, {} as Record<number, number>);
+  const stepIndexes = stepOrder.reduce(
+    (acc, step, idx) => {
+      acc[step] = idx;
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
 
   // if there's a step mismatch, send all non-existing values to the end
   return dataPoints.slice().sort((a, b) => (stepIndexes[a.step] ?? Infinity) - (stepIndexes[b.step] ?? Infinity));
@@ -485,6 +493,7 @@ const getXAxisPlotlyType = (
  * set of experiments runs
  */
 export const RunsMetricsLinePlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     metricKey,
@@ -516,6 +525,8 @@ export const RunsMetricsLinePlot = React.memo(
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
     const { evaluateExpression } = useChartExpressionParser();
+    const filterContext = useNodeLevelMetricsFilterContext();
+    const getNodeLevelCustomLineStyle = filterContext?.getCustomLineStyle;
 
     const dynamicXAxisKey = useMemo(() => {
       let dynamicXAxisKey = xAxisKey;
@@ -589,6 +600,7 @@ export const RunsMetricsLinePlot = React.memo(
                 // Discard creating traces for metrics that don't have any history for a given run
                 .filter((metricKey) => !isEmpty(runEntry.metricsHistory?.[metricKey]))
                 .flatMap((metricKey, idx) => {
+                  const customLineStyle = getNodeLevelCustomLineStyle?.(metricKey);
                   return getTraceAndOriginalTrace({
                     runEntry,
                     metricKey,
@@ -597,9 +609,10 @@ export const RunsMetricsLinePlot = React.memo(
                     useDefaultHoverBox,
                     lineSmoothness,
                     lineShape,
-                    lineDash: lineDashStyles[idx % lineDashStyles.length],
+                    lineDash: customLineStyle?.dashStyle ?? lineDashStyles[idx % lineDashStyles.length],
                     displayPoints,
                     xAxisScaleType,
+                    customColor: customLineStyle?.color,
                   });
                 })
             );
@@ -621,6 +634,7 @@ export const RunsMetricsLinePlot = React.memo(
       yAxisExpressions,
       evaluateExpression,
       xAxisKey,
+      getNodeLevelCustomLineStyle,
     ]);
 
     const bandsData = useMemo(() => {
@@ -753,8 +767,16 @@ export const RunsMetricsLinePlot = React.memo(
     }
 
     const legendLabelData = useMemo(
-      () => getLineChartLegendData(runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions),
-      [runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions],
+      () =>
+        getLineChartLegendData(
+          runsData,
+          selectedMetricKeys,
+          metricKey,
+          yAxisKey,
+          yAxisExpressions,
+          getNodeLevelCustomLineStyle,
+        ),
+      [runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions, getNodeLevelCustomLineStyle],
     );
 
     const {

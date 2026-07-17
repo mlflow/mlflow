@@ -93,7 +93,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         )
 
     def _generate_model_predictions(self, model, input_df):
-        predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+        predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
         # Classifier model is guaranteed to output single column of predictions
         y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
 
@@ -121,6 +121,12 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.label_list.sort()
 
         if len(self.label_list) == 2:
+            # y_probs columns are aligned with the sorted label order; capture the column
+            # holding the positive class now, before label_list is reordered below.
+            if self.pos_label is not None and self.pos_label in self.label_list:
+                self.pos_index = int(np.where(self.label_list == self.pos_label)[0][0])
+            else:
+                self.pos_index = 1
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
             else:
@@ -175,7 +181,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.roc_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, self.pos_index],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="roc",
@@ -189,7 +195,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pr_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, self.pos_index],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="pr",
@@ -336,12 +342,10 @@ class ClassifierEvaluator(BuiltInEvaluator):
             import matplotlib
             import matplotlib.pyplot as plt
 
-            with matplotlib.rc_context(
-                {
-                    "font.size": min(8, math.ceil(50.0 / len(self.label_list))),
-                    "axes.labelsize": 8,
-                }
-            ):
+            with matplotlib.rc_context({
+                "font.size": min(8, math.ceil(50.0 / len(self.label_list))),
+                "axes.labelsize": 8,
+            }):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
                 disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
@@ -387,7 +391,7 @@ def _infer_model_type_by_labels(labels):
         return None  # Unknown
 
 
-def _extract_predict_fn_and_prodict_proba_fn(model):
+def _extract_predict_fn_and_predict_proba_fn(model):
     predict_fn = None
     predict_proba_fn = None
 
@@ -611,7 +615,11 @@ def _gen_classifier_curve(
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
 
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            auc = sk_metrics.roc_auc_score(
+                y_true=np.asarray(_y) == _pos_label,
+                y_score=_y_prob,
+                sample_weight=sample_weights,
+            )
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"

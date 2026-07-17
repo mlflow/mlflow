@@ -14,19 +14,25 @@ import { FormattedMessage } from '@databricks/i18n';
 import { TableFilterItemTypeahead } from './TableFilterItemTypeahead';
 import { TableFilterItemValueInput } from './TableFilterItemValueInput';
 import {
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
+  SESSION_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
 import type {
   AssessmentInfo,
   TableFilter,
@@ -34,18 +40,48 @@ import type {
   TableFilterOptions,
   TracesTableColumn,
 } from '../../types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap, isNullOperator } from '../../types';
 
-const FILTERABLE_INFO_COLUMNS = [
-  EXECUTION_DURATION_COLUMN_ID,
-  STATE_COLUMN_ID,
-  TRACE_NAME_COLUMN_ID,
-  USER_COLUMN_ID,
-  RUN_NAME_COLUMN_ID,
-  LOGGED_MODEL_COLUMN_ID,
-  SOURCE_COLUMN_ID,
-];
+const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
+  // We use a different set of filterable info columns depending on whether v4 APIs are used
+  if (usesV4APIs) {
+    return [
+      EXECUTION_DURATION_COLUMN_ID,
+      STATE_COLUMN_ID,
+      TRACE_NAME_COLUMN_ID,
+      USER_COLUMN_ID,
+      SESSION_COLUMN_ID,
+      RUN_NAME_COLUMN_ID,
+      LOGGED_MODEL_COLUMN_ID,
+      SOURCE_COLUMN_ID,
+      GIT_BRANCH_COLUMN_ID,
+      GIT_COMMIT_COLUMN_ID,
+      INPUTS_COLUMN_ID,
+      RESPONSE_COLUMN_ID,
+      LINKED_PROMPTS_COLUMN_ID,
+    ];
+  }
+  return [
+    EXECUTION_DURATION_COLUMN_ID,
+    STATE_COLUMN_ID,
+    TRACE_NAME_COLUMN_ID,
+    USER_COLUMN_ID,
+    SESSION_COLUMN_ID,
+    RUN_NAME_COLUMN_ID,
+    LOGGED_MODEL_COLUMN_ID,
+    SOURCE_COLUMN_ID,
+    GIT_BRANCH_COLUMN_ID,
+    GIT_COMMIT_COLUMN_ID,
+    LINKED_PROMPTS_COLUMN_ID,
+  ];
+};
 
-const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
+export const getAvailableOperators = (
+  column: string,
+  key?: string,
+  usesV4APIs?: boolean,
+  assessmentInfos?: AssessmentInfo[],
+): FilterOperator[] => {
   if (column === EXECUTION_DURATION_COLUMN_ID) {
     return [
       FilterOperator.EQUALS,
@@ -61,8 +97,47 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
   }
 
+  if (column === SPAN_STATUS_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS];
+  }
+
   if (column === SPAN_CONTENT_COLUMN_ID) {
     return [FilterOperator.CONTAINS];
+  }
+
+  if (column === INPUTS_COLUMN_ID || column === RESPONSE_COLUMN_ID) {
+    return [FilterOperator.RLIKE, FilterOperator.EQUALS];
+  }
+
+  if (column === TracesTableColumnGroup.ASSESSMENT) {
+    const baseAssessmentOperators = [
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ];
+    const assessmentInfo = assessmentInfos?.find((assessment) => assessment.name === key);
+    if (assessmentInfo?.dtype !== 'numeric') {
+      return baseAssessmentOperators;
+    }
+    return [
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.GREATER_THAN,
+      FilterOperator.LESS_THAN,
+      FilterOperator.GREATER_THAN_OR_EQUALS,
+      FilterOperator.LESS_THAN_OR_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ];
+  }
+
+  if (column === SESSION_COLUMN_ID) {
+    return usesV4APIs ? [FilterOperator.EQUALS, FilterOperator.CONTAINS] : [FilterOperator.EQUALS];
+  }
+
+  if (column === TracesTableColumnGroup.TAG) {
+    return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
   return [FilterOperator.EQUALS];
@@ -77,32 +152,37 @@ export const TableFilterItem = ({
   experimentId,
   tableFilterOptions,
   allColumns,
+  usesV4APIs,
 }: {
   tableFilter: TableFilter;
   index: number;
   onChange: (filter: TableFilter, index: number) => void;
   onDelete: () => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
+  usesV4APIs?: boolean;
 }) => {
   const { column, operator, key } = tableFilter;
   const { theme } = useDesignSystemTheme();
 
-  // For now, we don't support filtering on numeric values.
+  const availableFilterableInfoColumns = useMemo(() => getFilterableInfoColumns(usesV4APIs), [usesV4APIs]);
+
   const assessmentKeyOptions: TableFilterOption[] = useMemo(
-    () =>
-      assessmentInfos
-        .filter((assessment) => assessment.dtype !== 'numeric')
-        .map((assessment) => ({ value: assessment.name, renderValue: () => assessment.displayName })),
+    () => assessmentInfos.map((assessment) => ({ value: assessment.name, renderValue: () => assessment.displayName })),
     [assessmentInfos],
   );
 
   const columnOptions: TableFilterOption[] = useMemo(() => {
-    const result = allColumns
+    // Order the columns based on their filterOrder property, defaulting to 1 if not provided
+    const sortedColumns = allColumns.slice().sort((a, b) => {
+      return (a.filterOrder ?? 1) - (b.filterOrder ?? 1);
+    });
+    const result = sortedColumns
       .filter(
-        (column) => FILTERABLE_INFO_COLUMNS.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
+        (column) =>
+          availableFilterableInfoColumns.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
       )
       .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
@@ -119,14 +199,19 @@ export const TableFilterItem = ({
     );
 
     // Add individual span filter options
-    result.push(
-      { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
-      { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
-      { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
-    );
+    if (usesV4APIs) {
+      result.push(
+        // TODO: Added via UI sync, but doesn't work in databricks yet. Uncomment
+        // these when the search API supports them
+        { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+        { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_STATUS_COLUMN_ID, renderValue: () => 'Span status' },
+        { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+      );
+    }
 
     return result;
-  }, [allColumns]);
+  }, [allColumns, usesV4APIs, availableFilterableInfoColumns]);
 
   return (
     <>
@@ -155,7 +240,7 @@ export const TableFilterItem = ({
             options={columnOptions}
             onChange={(value: string) => {
               if (value !== column) {
-                const defaultOperator = getAvailableOperators(value)[0];
+                const defaultOperator = getAvailableOperators(value, undefined, usesV4APIs, assessmentInfos)[0];
                 onChange({ column: value, operator: defaultOperator, value: '' }, index);
               }
             }}
@@ -182,7 +267,18 @@ export const TableFilterItem = ({
               item={assessmentKeyOptions.find((item) => item.value === key)}
               options={assessmentKeyOptions}
               onChange={(value: string) => {
-                onChange({ ...tableFilter, key: value }, index);
+                const availableOperators = getAvailableOperators(column, value, usesV4APIs, assessmentInfos);
+                onChange(
+                  {
+                    ...tableFilter,
+                    key: value,
+                    operator: availableOperators.includes(operator as FilterOperator)
+                      ? operator
+                      : availableOperators[0],
+                    value: '',
+                  },
+                  index,
+                );
               }}
               placeholder="Select name"
               width={200}
@@ -230,7 +326,8 @@ export const TableFilterItem = ({
             />
           </FormUI.Label>
           {(() => {
-            const isOperatorSelectorDisabled = column !== '' && getAvailableOperators(column, key).length === 1;
+            const isOperatorSelectorDisabled =
+              column !== '' && getAvailableOperators(column, key, usesV4APIs, assessmentInfos).length === 1;
             return (
               <SimpleSelect
                 aria-label="Operator"
@@ -242,13 +339,17 @@ export const TableFilterItem = ({
                   // Set the z-index to be higher than the Popover
                   style: { zIndex: theme.options.zIndexBase + 100 },
                 }}
-                value={!isOperatorSelectorDisabled ? operator : getAvailableOperators(column, key)[0]}
+                value={
+                  !isOperatorSelectorDisabled
+                    ? operator
+                    : getAvailableOperators(column, key, usesV4APIs, assessmentInfos)[0]
+                }
                 disabled={isOperatorSelectorDisabled}
                 onChange={(e) => {
                   onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
                 }}
               >
-                {getAvailableOperators(column, key).map((op) => (
+                {getAvailableOperators(column, key, usesV4APIs, assessmentInfos).map((op) => (
                   <SimpleSelectOption key={op} value={op}>
                     {op}
                   </SimpleSelectOption>
@@ -257,27 +358,29 @@ export const TableFilterItem = ({
             );
           })()}
         </div>
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <FormUI.Label htmlFor={`filter-value-${index}`}>
-            <FormattedMessage
-              defaultMessage="Value"
-              description="Label for the value field in the GenAI Traces Table Filter form"
+        {!isNullOperator(operator as FilterOperator) && (
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <FormUI.Label htmlFor={`filter-value-${index}`}>
+              <FormattedMessage
+                defaultMessage="Value"
+                description="Label for the value field in the GenAI Traces Table Filter form"
+              />
+            </FormUI.Label>
+            <TableFilterItemValueInput
+              index={index}
+              tableFilter={tableFilter}
+              assessmentInfos={assessmentInfos}
+              onChange={onChange}
+              experimentId={experimentId}
+              tableFilterOptions={tableFilterOptions}
             />
-          </FormUI.Label>
-          <TableFilterItemValueInput
-            index={index}
-            tableFilter={tableFilter}
-            assessmentInfos={assessmentInfos}
-            onChange={onChange}
-            experimentId={experimentId}
-            tableFilterOptions={tableFilterOptions}
-          />
-        </div>
+          </div>
+        )}
         <div
           css={{
             alignSelf: 'flex-end',

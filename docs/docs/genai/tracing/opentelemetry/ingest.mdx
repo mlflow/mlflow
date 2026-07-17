@@ -1,35 +1,8 @@
+import OTelIngest from "@site/docs/genai/tracing/opentelemetry/ingest-shared.mdx";
+
 # Collect OpenTelemetry Traces into MLflow
 
-:::info
-
-OpenTelemetry trace ingestion is supported in **MLflow 3.6.0 and above**.
-
-:::
-
-## OpenTelemetry endpoint (OTLP)
-
-MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
-
-To use this endpoint, start MLflow Server with a SQL-based backend store. The following command starts MLflow Server with an SQLite backend store:
-
-```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db
-```
-
-To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store).
-
-In your application, configure the server endpoint and set the MLflow experiment ID in the OTLP header `x-mlflow-experiment-id`.
-
-```bash
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
-export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
-```
-
-:::note
-
-As of MLflow 3.6.0, MLflow Server supports only the OTLP/HTTP endpoint. The OTLP/gRPC endpoint is not yet supported.
-
-:::
+<OTelIngest />
 
 ## Basic Example
 
@@ -44,11 +17,14 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 # Set the endpoint and header
 MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT_ID = "123"
+MLFLOW_WORKSPACE = "team-a"  # Optional: only needed to override the default workspace.
 
 os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
-os.environ[
-    "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
-] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_HEADERS"] = (
+    f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID},"
+    # Optional: include only when workspaces are enabled and you want to override the default workspace.
+    f"X-MLFLOW-WORKSPACE={MLFLOW_WORKSPACE}"
+)
 
 
 app = FastAPI()
@@ -71,6 +47,8 @@ if __name__ == "__main__":
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=123
+# Optional: only needed to override the default workspace.
+export MLFLOW_WORKSPACE=team-a
 ```
 
 ```yaml title="opentelemetry-collector.yaml"
@@ -83,17 +61,19 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  otlp:
+  otlphttp:
     endpoint: ${MLFLOW_TRACKING_URI}
     headers:
       x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
+      # Optional: include only when workspaces are enabled and you want to override the default workspace.
+      X-MLFLOW-WORKSPACE: ${MLFLOW_WORKSPACE}
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp]
+      exporters: [otlphttp]
 ```
 
 ```bash
@@ -102,4 +82,28 @@ docker run -d --name opentelemetry-collector \
   -p 4318:4318 \
   -v $(pwd)/opentelemetry-collector.yaml:/etc/otel/collector/config.yaml \
   otel/opentelemetry-collector
+```
+
+## Compression
+
+Since MLflow 3.7.0, MLflow's OTLP/HTTP endpoint accepts compressed trace payloads. To enable compression, set the `OTEL_EXPORTER_OTLP_TRACES_COMPRESSION` environment variable to either `gzip` or `deflate`. Other encodings are not supported.
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
+# Optional: include X-MLFLOW-WORKSPACE only to override the default workspace.
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123,X-MLFLOW-WORKSPACE=team-a
+export OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
+```
+
+When routing through the OpenTelemetry Collector, set compression on the OTLP HTTP exporter so it forwards a compressed request to MLflow:
+
+```yaml
+exporters:
+  otlphttp:
+    endpoint: ${MLFLOW_TRACKING_URI}
+    headers:
+      x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
+      # Optional: include only when workspaces are enabled and you want to override the default workspace.
+      X-MLFLOW-WORKSPACE: ${MLFLOW_WORKSPACE}
+    compression: gzip
 ```

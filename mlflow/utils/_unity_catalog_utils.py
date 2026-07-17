@@ -39,7 +39,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     TemporaryCredentials as TemporaryCredentialsOSS,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -396,10 +396,9 @@ def _parse_aws_sse_credential(scoped_token: TemporaryCredentials):
             "ServerSideEncryption": "AES256",
         }
     if sse_encryption_details.algorithm == SseEncryptionAlgorithm.AWS_SSE_KMS:
-        key_id = sse_encryption_details.aws_kms_key_arn.split("/")[-1]
         return {
             "ServerSideEncryption": "aws:kms",
-            "SSEKMSKeyId": key_id,
+            "SSEKMSKeyId": sse_encryption_details.aws_kms_key_arn,
         }
     else:
         return {}

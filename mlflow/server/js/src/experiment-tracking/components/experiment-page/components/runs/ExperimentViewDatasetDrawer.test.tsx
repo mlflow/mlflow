@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { act, render, screen } from '../../../../../common/utils/TestUtils.react18';
 import type { RunDatasetWithTags } from '../../../../types';
@@ -49,7 +50,13 @@ describe('ExperimentViewDatasetDrawer', () => {
     (navigator.clipboard as any) = navigatorClipboard;
   });
 
-  const renderTestComponent = ({ dataset }: { dataset: RunDatasetWithTags['dataset'] }) => {
+  const renderTestComponent = ({
+    dataset,
+    runTags = {},
+  }: {
+    dataset: RunDatasetWithTags['dataset'];
+    runTags?: Record<string, { key: string; value: string }>;
+  }) => {
     return render(
       <ExperimentViewDatasetDrawer
         isOpen
@@ -62,6 +69,7 @@ describe('ExperimentViewDatasetDrawer', () => {
           runData: {
             runUuid: 'runUuid',
             datasets: [],
+            tags: runTags,
           },
         }}
         setSelectedDatasetWithRun={() => {}}

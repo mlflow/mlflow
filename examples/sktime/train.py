@@ -62,16 +62,14 @@ X_test_array = X_test.to_numpy()
 # Create configuration DataFrame for interval forecast with nominal coverage
 # value [0.9,0.95], future forecast horizon of 4 periods, and exogenous regressor.
 # Read more in the flavor.py module docstrings about the possible configurations.
-predict_conf = pd.DataFrame(
-    [
-        {
-            "fh": [1, 2, 3, 4],
-            "predict_method": "predict_interval",
-            "coverage": [0.9, 0.95],
-            "X": X_test_array,
-        }
-    ]
-)
+predict_conf = pd.DataFrame([
+    {
+        "fh": [1, 2, 3, 4],
+        "predict_method": "predict_interval",
+        "coverage": [0.9, 0.95],
+        "X": X_test_array,
+    }
+])
 
 # Generate interval forecasts with native sktime flavor and pyfunc flavor
 print(

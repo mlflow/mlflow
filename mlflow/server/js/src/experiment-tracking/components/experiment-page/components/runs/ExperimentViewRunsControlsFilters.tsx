@@ -1,8 +1,11 @@
 import {
   Button,
   Tag,
+  ChevronDownIcon,
+  ClockIcon,
   DialogCombobox,
   DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSelectItem,
@@ -15,16 +18,16 @@ import {
   OverflowIcon,
   PlusIcon,
   SidebarIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
   DropdownMenu,
   ToggleButton,
   SegmentedControlGroup,
   SegmentedControlButton,
   ListIcon,
-  Tooltip,
   ChartLineIcon,
   TableIcon,
+  XCircleFillIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
@@ -69,6 +72,7 @@ export type ExperimentViewRunsControlsFiltersProps = {
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     searchFacetsState,
     experimentId,
@@ -115,8 +119,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           });
 
     const currentStartTimeFilterLabel = intl.formatMessage({
-      defaultMessage: 'Time created',
-      description: 'Label for the start time select dropdown for experiment runs view',
+      defaultMessage: 'Time',
+      description: 'Label for the time select dropdown for experiment runs view',
     });
 
     // Show preview sidebar only on table view and artifact view
@@ -244,13 +248,36 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             label={currentStartTimeFilterLabel}
             value={startTime !== 'ALL' ? [startTimeColumnLabels[startTime]] : []}
           >
-            <DialogComboboxTrigger
-              allowClear={startTime !== 'ALL'}
-              onClear={() => {
-                setUrlSearchFacets({ startTime: 'ALL' });
-              }}
-              data-testid="start-time-select-dropdown"
-            />
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_time_button"
+                icon={<ClockIcon />}
+                endIcon={<ChevronDownIcon />}
+                data-testid="start-time-select-dropdown"
+              >
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  {startTime !== 'ALL' ? startTimeColumnLabels[startTime] : 'All time'}
+                  {startTime !== 'ALL' && (
+                    <XCircleFillIcon
+                      aria-hidden="false"
+                      role="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setUrlSearchFacets({ startTime: 'ALL' });
+                      }}
+                      css={{
+                        color: theme.colors.textPlaceholder,
+                        fontSize: theme.typography.fontSizeSm,
+                        ':hover': {
+                          color: theme.colors.actionTertiaryTextHover,
+                        },
+                      }}
+                    />
+                  )}
+                </div>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
             <DialogComboboxContent>
               <DialogComboboxOptionList>
                 {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
@@ -322,8 +349,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
             multiSelect
           >
-            <LegacyTooltip
-              title={
+            <Tooltip
+              componentId="mlflow.experiment-tracking.runs-filters.clear-1"
+              content={
                 !hasDatasets && (
                   <FormattedMessage
                     defaultMessage="No datasets were recorded for this experiment's runs."
@@ -332,42 +360,44 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 )
               }
             >
-              <DialogComboboxTrigger
-                allowClear
-                onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
-                data-testid="datasets-select-dropdown"
-                showTagAfterValueCount={1}
-                disabled={!hasDatasets}
-              />
-              {hasDatasets && (
-                <DialogComboboxContent maxHeight={600}>
-                  <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch>
-                      {datasetSummaries.map((summary: DatasetSummary) => (
-                        <DialogComboboxOptionListCheckboxItem
-                          key={summary.name + summary.digest + summary.context}
-                          checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
-                          title={summary.name}
-                          data-testid={`dataset-dropdown-${summary.name}`}
-                          value={summary.name}
-                          onChange={() => updateDatasetsFilter(summary)}
-                        >
-                          {summary.name} ({summary.digest}){' '}
-                          {summary.context && (
-                            <Tag
-                              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_329"
-                              css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
-                            >
-                              {summary.context}
-                            </Tag>
-                          )}
-                        </DialogComboboxOptionListCheckboxItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
-                  </DialogComboboxOptionList>
-                </DialogComboboxContent>
-              )}
-            </LegacyTooltip>
+              <>
+                <DialogComboboxTrigger
+                  allowClear
+                  onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
+                  data-testid="datasets-select-dropdown"
+                  showTagAfterValueCount={1}
+                  disabled={!hasDatasets}
+                />
+                {hasDatasets && (
+                  <DialogComboboxContent maxHeight={600}>
+                    <DialogComboboxOptionList>
+                      <DialogComboboxOptionListSearch>
+                        {datasetSummaries.map((summary: DatasetSummary) => (
+                          <DialogComboboxOptionListCheckboxItem
+                            key={summary.name + summary.digest + summary.context}
+                            checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
+                            title={summary.name}
+                            data-testid={`dataset-dropdown-${summary.name}`}
+                            value={summary.name}
+                            onChange={() => updateDatasetsFilter(summary)}
+                          >
+                            {summary.name} ({summary.digest}){' '}
+                            {summary.context && (
+                              <Tag
+                                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_329"
+                                css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
+                              >
+                                {summary.context}
+                              </Tag>
+                            )}
+                          </DialogComboboxOptionListCheckboxItem>
+                        ))}
+                      </DialogComboboxOptionListSearch>
+                    </DialogComboboxOptionList>
+                  </DialogComboboxContent>
+                )}
+              </>
+            </Tooltip>
           </DialogCombobox>
           {additionalControls}
         </div>
@@ -445,12 +475,12 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           />
 
           {displaySidebarToggleButton && (
-            <LegacyTooltip
-              title={intl.formatMessage({
+            <Tooltip
+              componentId="mlflow.experiment-tracking.runs-filters.toggle-sidepane"
+              content={intl.formatMessage({
                 defaultMessage: 'Toggle the preview sidepane',
                 description: 'Experiment page > control bar > expanded view toggle button tooltip',
               })}
-              useAsLabel
             >
               <ToggleIconButton
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_403"
@@ -458,7 +488,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 icon={<SidebarIcon />}
                 onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
               />
-            </LegacyTooltip>
+            </Tooltip>
           )}
           {/* TODO: Add tooltip to guide users to this button */}
           {!isComparingExperiments && (

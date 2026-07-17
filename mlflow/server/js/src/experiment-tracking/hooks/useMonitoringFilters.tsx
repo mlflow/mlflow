@@ -1,6 +1,10 @@
-import { useCallback, useMemo } from 'react';
-import { useSearchParams } from '../../common/utils/RoutingUtils';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+
+import { useLocalStorage } from '@databricks/web-shared/hooks';
+
+import { useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useMonitoringConfig } from './useMonitoringConfig';
+import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
 
 export const START_TIME_LABEL_QUERY_PARAM_KEY = 'startTimeLabel';
 const START_TIME_QUERY_PARAM_KEY = 'startTime';
@@ -22,13 +26,32 @@ export interface MonitoringFilters {
   endTime?: string;
 }
 
+export const MonitoringFiltersUpdateContext = createContext<{
+  params: MonitoringFilters;
+  setParams: (params: MonitoringFilters, replace?: boolean) => void;
+  disableAutomaticInitialization?: boolean;
+} | null>(null);
+
 /**
  * Query param-powered hook that returns the monitoring filters from the URL.
+ * Uses MonitoringFiltersUpdateContext if provided, otherwise falls back to URL search params.
  */
-export const useMonitoringFilters = () => {
+export const useMonitoringFilters = ({
+  persist = false,
+  loadPersistedValues = false,
+}: { persist?: boolean; loadPersistedValues?: boolean } = {}) => {
+  const { experimentId: persistKey } = useParams<{ experimentId: string }>();
   const monitoringConfig = useMonitoringConfig();
-
+  const context = useContext(MonitoringFiltersUpdateContext);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [localStorageFilters, persistLocalStorageFilters] = useLocalStorage<MonitoringFilters | undefined>({
+    initialValue: undefined,
+    key: `traces_useMonitoringFilters_${persistKey}`,
+    version: 1,
+  });
+
+  const isEmptySearchParams = useMemo(() => !searchParams.get(START_TIME_LABEL_QUERY_PARAM_KEY), [searchParams]);
 
   const startTimeLabel =
     (searchParams.get(START_TIME_LABEL_QUERY_PARAM_KEY) as START_TIME_LABEL | undefined) || DEFAULT_START_TIME_LABEL;
@@ -38,9 +61,6 @@ export const useMonitoringFilters = () => {
     const absoluteStartEndTime = getAbsoluteStartEndTime(monitoringConfig.dateNow, { startTimeLabel });
     startTime = absoluteStartEndTime.startTime;
     endTime = absoluteStartEndTime.endTime;
-  } else {
-    startTime = searchParams.get(START_TIME_QUERY_PARAM_KEY) || undefined;
-    endTime = searchParams.get(END_TIME_QUERY_PARAM_KEY) ?? undefined;
   }
 
   const monitoringFilters = useMemo<MonitoringFilters>(
@@ -54,6 +74,9 @@ export const useMonitoringFilters = () => {
 
   const setMonitoringFilters = useCallback(
     (monitoringFilters: MonitoringFilters | undefined, replace = false) => {
+      if (persist) {
+        persistLocalStorageFilters(monitoringFilters);
+      }
       setSearchParams(
         (params) => {
           if (monitoringFilters?.startTime === undefined) {
@@ -76,10 +99,36 @@ export const useMonitoringFilters = () => {
         { replace },
       );
     },
-    [setSearchParams],
+    [setSearchParams, persistLocalStorageFilters, persist],
   );
 
-  return [monitoringFilters, setMonitoringFilters] as const;
+  const disableAutomaticInitialization = Boolean(
+    searchParams.has(START_TIME_LABEL_QUERY_PARAM_KEY) || context?.disableAutomaticInitialization,
+  );
+
+  useEffect(() => {
+    if (isEmptySearchParams && loadPersistedValues && localStorageFilters) {
+      setMonitoringFilters(localStorageFilters, true);
+    }
+    // Rehydrate from local storage only once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPersistedValues]);
+
+  return [monitoringFilters, setMonitoringFilters, disableAutomaticInitialization] as const;
+};
+
+export const useMonitoringFiltersTimeRange = () => {
+  const [monitoringFilters] = useMonitoringFilters({
+    loadPersistedValues: shouldEnableTracesTableStatePersistence(),
+  });
+
+  return useMemo(() => {
+    const { startTime, endTime } = monitoringFilters;
+    return {
+      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
+      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
+    };
+  }, [monitoringFilters]);
 };
 
 export function getAbsoluteStartEndTime(

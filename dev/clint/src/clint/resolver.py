@@ -44,7 +44,7 @@ class Resolver:
             return
 
         for alias in node.names:
-            name = alias.asname if alias.asname else alias.name
+            name = alias.asname or alias.name
             module_parts = node.module.split(".")
             self.name_map[name] = module_parts + [alias.name]
 

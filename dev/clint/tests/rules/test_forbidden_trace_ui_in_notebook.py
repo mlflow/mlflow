@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
 
 
-def test_forbidden_trace_ui_in_notebook(index_path: Path) -> None:
+def test_forbidden_trace_ui_in_notebook(index: SymbolIndex) -> None:
     notebook_content = """
 {
  "cells": [
@@ -60,7 +61,7 @@ def test_forbidden_trace_ui_in_notebook(index_path: Path) -> None:
 """
     code = notebook_content
     config = Config(select={ForbiddenTraceUIInNotebook.name})
-    violations = lint_file(Path("test.ipynb"), code, config, index_path)
+    violations = lint_file(Path("test.ipynb"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ForbiddenTraceUIInNotebook) for v in violations)
     assert violations[0].cell == 2

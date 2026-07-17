@@ -1,6 +1,6 @@
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { EvaluationDataset } from '../types';
+import type { EvaluationDataset } from '../types';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
 
 type CreateDatasetResponse = {
@@ -28,11 +28,10 @@ export const useCreateEvaluationDatasetMutation = ({
         experiment_ids: experimentIds,
       };
 
-      const response = (await fetchAPI(
-        getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'),
-        'POST',
-        requestBody,
-      )) as CreateDatasetResponse;
+      const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'), {
+        method: 'POST',
+        body: requestBody,
+      })) as CreateDatasetResponse;
 
       return response.dataset;
     },

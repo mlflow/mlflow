@@ -13,9 +13,10 @@ import {
   Modal,
   PlusIcon,
   Spinner,
-  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
+  Tooltip,
+  InfoTooltip,
 } from '@databricks/design-system';
 import { sortBy, compact } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -302,13 +303,13 @@ export const EvaluationCreatePromptRunModal = ({
   // one input variable defined (otherwise prompt engineering won't make sense).
   const createRunButtonEnabled = Boolean(
     selectedModel &&
-      promptTemplateProvided &&
-      allInputValuesProvided &&
-      evaluationOutput &&
-      !outputDirty &&
-      inputVariables.length > 0 &&
-      runNameProvided &&
-      !lastEvaluationError,
+    promptTemplateProvided &&
+    allInputValuesProvided &&
+    evaluationOutput &&
+    !outputDirty &&
+    inputVariables.length > 0 &&
+    runNameProvided &&
+    !lastEvaluationError,
   );
 
   // Let's prepare a proper tooltip content for every scenario
@@ -445,20 +446,21 @@ export const EvaluationCreatePromptRunModal = ({
               description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <LegacyTooltip title={createRunButtonTooltip}>
-            <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
-              onClick={onHandleSubmit}
-              data-testid="button-create-run"
-              type="primary"
-              disabled={!createRunButtonEnabled}
-            >
-              <FormattedMessage
-                defaultMessage="Create run"
-                description='Experiment page > new run modal > "Create run" confirm button label'
-              />
-            </Button>
-          </LegacyTooltip>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
+            onClick={onHandleSubmit}
+            data-testid="button-create-run"
+            type="primary"
+            disabled={!createRunButtonEnabled}
+          >
+            <FormattedMessage
+              defaultMessage="Create run"
+              description='Experiment page > new run modal > "Create run" confirm button label'
+            />
+          </Button>
+          {createRunButtonTooltip && (
+            <InfoTooltip componentId="mlflow.run.artifact_view.create_run.tooltip" content={createRunButtonTooltip} />
+          )}
         </div>
       }
       title={

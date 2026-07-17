@@ -48,9 +48,9 @@ def test_evaluation_model_output():
     assert model1["parameters"] == {"temperature": 0.0}
 
     grading_context = {"ground_truth": "This is an output"}
-    args_string = "Additional information used by the model:\n" + "\n".join(
-        [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in grading_context.items()]
-    )
+    args_string = "Additional information used by the model:\n" + "\n".join([
+        f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in grading_context.items()
+    ])
     expected_prompt1 = """
     Task:
     You must return the following fields in your response in two lines, one below the other:

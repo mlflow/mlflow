@@ -7,7 +7,7 @@ describe('SpanStatus', () => {
     const testCases = [
       { input: 'STATUS_CODE_OK', expected: SpanStatusCode.OK },
       { input: 'STATUS_CODE_ERROR', expected: SpanStatusCode.ERROR },
-      { input: 'STATUS_CODE_UNSET', expected: SpanStatusCode.UNSET }
+      { input: 'STATUS_CODE_UNSET', expected: SpanStatusCode.UNSET },
     ];
 
     testCases.forEach(({ input, expected }) => {
@@ -23,16 +23,16 @@ describe('SpanStatus', () => {
     const conversionTestCases = [
       {
         mlflowStatus: SpanStatusCode.OK,
-        otelStatus: OTelSpanStatusCode.OK
+        otelStatus: OTelSpanStatusCode.OK,
       },
       {
         mlflowStatus: SpanStatusCode.ERROR,
-        otelStatus: OTelSpanStatusCode.ERROR
+        otelStatus: OTelSpanStatusCode.ERROR,
       },
       {
         mlflowStatus: SpanStatusCode.UNSET,
-        otelStatus: OTelSpanStatusCode.UNSET
-      }
+        otelStatus: OTelSpanStatusCode.UNSET,
+      },
     ];
 
     conversionTestCases.forEach(({ mlflowStatus, otelStatus }) => {
@@ -54,7 +54,7 @@ describe('SpanStatus', () => {
       // Verify JSON structure
       expect(json).toEqual({
         status_code: SpanStatusCode.ERROR,
-        description: 'Something went wrong'
+        description: 'Something went wrong',
       });
 
       // Create new status from JSON data
@@ -70,7 +70,7 @@ describe('SpanStatus', () => {
       const testCases = [
         { code: SpanStatusCode.OK, description: 'All good' },
         { code: SpanStatusCode.ERROR, description: 'Failed operation' },
-        { code: SpanStatusCode.UNSET, description: '' }
+        { code: SpanStatusCode.UNSET, description: '' },
       ];
 
       testCases.forEach(({ code, description }) => {
@@ -78,7 +78,7 @@ describe('SpanStatus', () => {
         const json = originalStatus.toJson();
         const recreatedStatus = new SpanStatus(
           json.status_code as SpanStatusCode,
-          json.description
+          json.description,
         );
 
         expect(recreatedStatus.statusCode).toBe(originalStatus.statusCode);
@@ -94,7 +94,7 @@ describe('SpanStatus', () => {
 
       expect(json).toEqual({
         status_code: SpanStatusCode.OK,
-        description: ''
+        description: '',
       });
 
       const recreatedStatus = new SpanStatus(json.status_code as SpanStatusCode, json.description);

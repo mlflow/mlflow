@@ -1,4 +1,4 @@
-import { Button, PlusIcon, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PlusIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 interface EvaluationTableActionsCellRendererProps {
@@ -25,9 +25,10 @@ export const EvaluationTableActionsCellRenderer = ({
         padding: theme.spacing.xs,
       }}
     >
-      <LegacyTooltip
-        placement="right"
-        title={
+      <Tooltip
+        componentId="mlflow.experiment-tracking.evaluation-table-actions.add-row"
+        side="right"
+        content={
           <FormattedMessage
             defaultMessage="Add row"
             description="Experiment page > artifact compare view > add new row button"
@@ -39,7 +40,7 @@ export const EvaluationTableActionsCellRenderer = ({
           icon={<PlusIcon />}
           onClick={onAddNewInputs}
         />
-      </LegacyTooltip>
+      </Tooltip>
     </div>
   );
 };

@@ -4,7 +4,7 @@
   },
   "2": {
     "path": "/static/lib/ml-model-trace-renderer/2/index.html",
-    "commit": "9682fa9bd0ab2bb087d8b8ab14e4035b867f79ca"
+    "commit": "4b4af7f303ca266b48e8c70d422b8a5173b662b2"
   },
   "oss": {
     "path": "/static/lib/ml-model-trace-renderer/oss/index.html",
@@ -12,6 +12,10 @@
   },
   "3": {
     "path": "/static/lib/ml-model-trace-renderer/3/index.html",
-    "commit": "9682fa9bd0ab2bb087d8b8ab14e4035b867f79ca"
+    "commit": "4b4af7f303ca266b48e8c70d422b8a5173b662b2"
+  },
+  "4": {
+    "path": "/static/lib/ml-model-trace-renderer/4/index.html",
+    "commit": "4b4af7f303ca266b48e8c70d422b8a5173b662b2"
   }
 }

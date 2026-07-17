@@ -5,21 +5,28 @@ import {
   updateCurrentTrace,
   startSpan,
   trace,
-  withSpan
+  withSpan,
 } from './core/api';
+import { tracingContext } from './core/context';
 import { flushTraces } from './core/provider';
-import { MlflowClient } from './clients';
+import { MlflowClient, MlflowHttpError } from './clients';
+import { InMemoryTraceManager } from './core/trace_manager';
+import { createAuthProvider } from './auth';
 
 export {
   getLastActiveTraceId,
   getCurrentActiveSpan,
   updateCurrentTrace,
+  tracingContext,
   flushTraces,
   init,
   startSpan,
   trace,
   withSpan,
-  MlflowClient
+  MlflowClient,
+  MlflowHttpError,
+  InMemoryTraceManager,
+  createAuthProvider,
 };
 
 // Export entities
@@ -28,6 +35,10 @@ export type { LiveSpan, Span } from './core/entities/span';
 export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
+export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_location';
+export type { SearchTracesOptions, SearchTracesResult } from './clients';
+export { TraceLocationType } from './core/entities/trace_location';
 export { SpanStatusCode } from './core/entities/span_status';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
+export type { TracingContextOptions } from './core/context';
 export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';

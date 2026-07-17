@@ -10,7 +10,6 @@ import yaml
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.statsmodels
-import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.utils import _read_example, load_serving_example

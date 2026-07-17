@@ -18,7 +18,7 @@ import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
-import { Alert, Modal, Button, InfoSmallIcon, LegacyTooltip, Typography } from '@databricks/design-system';
+import { Alert, Modal, Button, InfoSmallIcon, Tooltip, Typography } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageLabels,
@@ -199,9 +199,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(ex);
-
         const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
         Utils.displayGlobalErrorNotification(
@@ -222,9 +219,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -245,9 +239,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -320,9 +311,13 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       >
         <div css={{ display: 'flex', alignItems: 'center' }}>
           {StageLabels[modelVersion.current_stage]}
-          <LegacyTooltip title={tooltipContent} placement="bottom">
+          <Tooltip
+            componentId="codegen_mlflow_app_src_model-registry_components_modelversionview_tsx_394"
+            content={tooltipContent}
+            side="bottom"
+          >
             <InfoSmallIcon css={{ paddingLeft: '4px' }} />
-          </LegacyTooltip>
+          </Tooltip>
         </div>
       </Descriptions.Item>
     );
@@ -404,6 +399,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const link = (
       <>
         <Link
+          componentId="mlflow.model_registry.version_view.copied_from_link"
           data-testid="copied-from-link"
           to={ModelRegistryRoutes.getModelVersionPageRoute(sourceModelName, sourceModelVersion)}
         >
@@ -533,7 +529,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.runUuid);
       }
       return (
-        <Link to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}>
+        <Link
+          componentId="mlflow.model_registry.version_view.source_run_link"
+          to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}
+        >
           {this.resolveRunName()}
         </Link>
       );
@@ -609,7 +608,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     );
     const breadcrumbs = [
       // eslint-disable-next-line react/jsx-key
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to models page under the header on the model version
@@ -617,7 +619,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         />
       </Link>,
       // eslint-disable-next-line react/jsx-key
-      <Link data-testid="breadcrumbRegisteredModel" to={ModelRegistryRoutes.getModelPageRoute(modelName)}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_model_link"
+        data-testid="breadcrumbRegisteredModel"
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
         {modelName}
       </Link>,
     ];

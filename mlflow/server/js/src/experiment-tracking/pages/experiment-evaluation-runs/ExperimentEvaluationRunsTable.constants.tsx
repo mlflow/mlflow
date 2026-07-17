@@ -7,12 +7,15 @@ import {
   ModelVersionCell,
   RunNameCell,
   SortableHeaderCell,
+  StatusCell,
+  TypeCell,
   VisiblityCell,
 } from './ExperimentEvaluationRunsTableCellRenderers';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Theme, Interpolation } from '@emotion/react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
+import { EvalRunsVisibilityHeaderCell } from './EvalRunsVisibilityHeaderCell';
 
 export interface ExperimentEvaluationRunsTableMeta {
   setSelectedRunUuid: (runUuid: string) => void;
@@ -34,6 +37,8 @@ export enum EvalRunsTableColumnId {
   checkbox = 'checkbox',
   visibility = 'visibility',
   runName = 'run_name',
+  status = 'status',
+  type = 'type',
   dataset = 'dataset',
   modelVersion = 'model_version',
   createdAt = 'created_at',
@@ -56,9 +61,11 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.checkbox]: true,
   [EvalRunsTableColumnId.visibility]: true,
   [EvalRunsTableColumnId.runName]: true,
+  [EvalRunsTableColumnId.status]: true,
+  [EvalRunsTableColumnId.type]: true,
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
-  [EvalRunsTableColumnId.modelVersion]: true,
+  [EvalRunsTableColumnId.modelVersion]: false,
 };
 
 export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescriptor> = {
@@ -73,6 +80,14 @@ export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescr
   [EvalRunsTableColumnId.runName]: defineMessage({
     defaultMessage: 'Run Name',
     description: 'Column header for run name in the evaluation runs table',
+  }),
+  [EvalRunsTableColumnId.status]: defineMessage({
+    defaultMessage: 'Status',
+    description: 'Column header for run status in the evaluation runs table',
+  }),
+  [EvalRunsTableColumnId.type]: defineMessage({
+    defaultMessage: 'Type',
+    description: 'Column header for run type (Eval vs Test) in the evaluation runs table',
   }),
   [EvalRunsTableColumnId.createdAt]: defineMessage({
     defaultMessage: 'Created at',
@@ -124,10 +139,12 @@ export const getExperimentEvalRunsDefaultColumns = (
   if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
     unselectableColumns.push({
       id: EvalRunsTableColumnId.visibility,
+      header: EvalRunsVisibilityHeaderCell,
       cell: VisiblityCell,
-      enableResizing: true,
-      size: 32,
-      meta: { styles: { minWidth: 32, maxWidth: 32 } },
+      enableResizing: false,
+      enableSorting: false,
+      size: 40,
+      meta: { styles: { minWidth: 40, maxWidth: 40, padding: '0 4px' } },
     });
   }
 
@@ -140,6 +157,36 @@ export const getExperimentEvalRunsDefaultColumns = (
       meta: {
         styles: {
           minWidth: 100,
+        },
+      },
+    },
+    {
+      id: EvalRunsTableColumnId.status,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
+      accessorFn: (row) => {
+        if ('subRuns' in row) {
+          return undefined;
+        }
+        return row.info.status;
+      },
+      cell: StatusCell,
+      enableResizing: false,
+      meta: {
+        styles: {
+          minWidth: 60,
+          maxWidth: 80,
+        },
+      },
+    },
+    {
+      id: EvalRunsTableColumnId.type,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.type]} />,
+      cell: TypeCell,
+      enableResizing: false,
+      meta: {
+        styles: {
+          minWidth: 80,
+          maxWidth: 110,
         },
       },
     },

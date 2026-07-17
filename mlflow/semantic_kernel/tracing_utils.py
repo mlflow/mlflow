@@ -1,6 +1,8 @@
 import logging
 from typing import Any
 
+from opentelemetry import context as otel_context_api
+from opentelemetry import trace as otel_trace
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.kernel_content import KernelContent
@@ -11,9 +13,7 @@ from semantic_kernel.utils.telemetry.model_diagnostics import (
 )
 from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
     CHAT_COMPLETION_OPERATION,
-    CHAT_STREAMING_COMPLETION_OPERATION,
     TEXT_COMPLETION_OPERATION,
-    TEXT_STREAMING_COMPLETION_OPERATION,
 )
 from semantic_kernel.utils.telemetry.model_diagnostics.function_tracer import (
     OPERATION_NAME as FUNCTION_OPERATION_NAME,
@@ -30,13 +30,23 @@ from mlflow.tracing.utils import (
 
 _OPERATION_TO_SPAN_TYPE = {
     CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-    CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
     TEXT_COMPLETION_OPERATION: SpanType.LLM,
-    TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
     FUNCTION_OPERATION_NAME: SpanType.TOOL,
     # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/agent_diagnostics/decorators.py#L22
     "invoke_agent": SpanType.AGENT,
 }
+
+# NB: Streaming operation names were removed in Semantic Kernel 1.38.0
+try:
+    from semantic_kernel.utils.telemetry.agent_diagnostics.decorators import (
+        CHAT_STREAMING_COMPLETION_OPERATION,
+        TEXT_STREAMING_COMPLETION_OPERATION,
+    )
+
+    _OPERATION_TO_SPAN_TYPE[CHAT_STREAMING_COMPLETION_OPERATION] = SpanType.CHAT_MODEL
+    _OPERATION_TO_SPAN_TYPE[TEXT_STREAMING_COMPLETION_OPERATION] = SpanType.LLM
+except ImportError:
+    pass
 
 _logger = logging.getLogger(__name__)
 
@@ -82,7 +92,15 @@ async def patched_kernel_entry_point(original, self, *args, **kwargs):
         inputs = construct_full_inputs(original, self, *args, **kwargs)
         mlflow_span.set_inputs(_parse_content(inputs))
 
-        result = await original(self, *args, **kwargs)
+        # Attach the MLflow span to the global OTel context so that Semantic Kernel's
+        # internal OTel spans (e.g., execute_tool, chat.completions) will inherit the
+        # same trace_id and be properly linked as child spans.
+        global_ctx = otel_trace.set_span_in_context(mlflow_span._span)
+        token = otel_context_api.attach(global_ctx)
+        try:
+            result = await original(self, *args, **kwargs)
+        finally:
+            otel_context_api.detach(token)
 
         mlflow_span.set_outputs(_parse_content(result))
 
@@ -138,3 +156,11 @@ def set_token_usage(mlflow_span: LiveSpan) -> None:
 
     if usage_dict:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+
+def set_model(mlflow_span: LiveSpan) -> None:
+    """Set model name and provider attributes on the MLflow span."""
+    if model := mlflow_span.get_attribute(model_gen_ai_attributes.MODEL):
+        mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
+    if provider := mlflow_span.get_attribute(model_gen_ai_attributes.SYSTEM):
+        mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)

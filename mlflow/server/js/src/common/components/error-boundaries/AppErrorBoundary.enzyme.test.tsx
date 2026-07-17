@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, afterEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';

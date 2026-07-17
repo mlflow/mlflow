@@ -5,8 +5,8 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -78,12 +78,11 @@ async def test_completions():
                 "prompt": {
                     "text": "This is a test",
                 },
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "maxOutputTokens": 1000,
                 "stopSequences": ["foobar"],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -130,7 +129,6 @@ def chat_response():
         (
             {"messages": [{"role": "user", "content": "Tell me a joke"}]},
             {
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
             },
@@ -143,7 +141,6 @@ def chat_response():
                 ]
             },
             {
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "prompt": {
                     "messages": [
@@ -181,6 +178,7 @@ async def test_chat(payload, expected_llm_input):
             "created": 1700242674,
             "object": "chat.completion",
             "model": "chat-bison",
+            "provider": "palm",
             "choices": [
                 {
                     "message": {
@@ -202,7 +200,7 @@ async def test_chat(payload, expected_llm_input):
         mock_post.assert_called_once_with(
             "https://generativelanguage.googleapis.com/v1beta3/models/chat-bison:generateMessage",
             json=expected_llm_input,
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

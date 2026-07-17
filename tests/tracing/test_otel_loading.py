@@ -1,4 +1,6 @@
 import uuid
+from pathlib import Path
+from unittest import mock
 
 import pytest
 from opentelemetry import trace as otel_trace
@@ -13,7 +15,10 @@ import mlflow
 from mlflow.entities import SpanStatusCode
 from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.tracing.constant import SpanAttributeKey, SpansLocation, TraceTagKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
@@ -24,19 +29,23 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel get_trace tests require full MLflow server", allow_module_level=True)
 
 
 @pytest.fixture
-def mlflow_server(tmp_path):
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-    artifact_root = tmp_path.as_uri()
+def mlflow_server(tmp_path: Path, db_uri: str):
+    artifact_uri = tmp_path.joinpath("artifacts").as_uri()
 
-    # Use _init_server with FastAPI (which is now the default)
-    with _init_server(backend_store_uri, artifact_root) as url:
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
         yield url
 
 
@@ -100,7 +109,7 @@ def test_get_trace_for_otel_sent_span(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) > 0, "No traces found in the database"
@@ -130,6 +139,76 @@ def test_get_trace_for_otel_sent_span(mlflow_server: str, is_async):
     assert trace_id == expected_trace_id
 
 
+def test_rest_client_reads_archived_trace_via_server(mlflow_server: str, tmp_path: Path, is_async):
+    experiment = mlflow.set_experiment("otel-archived-trace-rest-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "test-service-archive-read")
+
+    with tracer.start_as_current_span("archived-otel-span") as span:
+        span.set_attribute("archived.attribute", "server-owned")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) == 1, "Expected a single trace to archive in this isolated test"
+
+    trace_info = traces[0].info
+    trace_id = trace_info.trace_id
+
+    store = handlers._get_tracking_store()
+    archive_root = tmp_path.joinpath("archive")
+    archive_root.mkdir()
+    with mock.patch.object(
+        store,
+        "_get_archive_traces_now_millis",
+        return_value=trace_info.request_time + 2 * 60 * 1000,
+    ):
+        archived = store.archive_traces(
+            resolved_trace_archival_location=archive_root.as_uri(),
+            broader_retention="1m",
+            long_retention_allowlist=None,
+            max_traces_per_pass=100,
+        )
+
+    assert archived == 1
+    archived_trace_info = store.get_trace_info(trace_id)
+    assert archived_trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert TraceTagKey.ARCHIVE_LOCATION in archived_trace_info.tags
+
+    client = mlflow.MlflowClient(mlflow_server)
+    with (
+        mock.patch.object(
+            client._tracing_client,
+            "_download_trace_data",
+            side_effect=AssertionError("client-side archive download should not be used"),
+        ) as mock_download_trace_data,
+        mock.patch.object(
+            client._tracing_client,
+            "_download_spans_from_artifact_repo",
+            side_effect=AssertionError("artifact-repo batch download should not be used"),
+        ) as mock_download_spans_from_artifact_repo,
+    ):
+        retrieved_trace = client.get_trace(trace_id)
+        searched_traces = client.search_traces(locations=[experiment_id], include_spans=True)
+
+    assert retrieved_trace.info.trace_id == trace_id
+    assert len(retrieved_trace.data.spans) == 1
+    assert retrieved_trace.data.spans[0].name == "archived-otel-span"
+    assert retrieved_trace.data.spans[0].attributes["archived.attribute"] == "server-owned"
+
+    assert len(searched_traces) == 1
+    assert searched_traces[0].info.trace_id == trace_id
+    assert len(searched_traces[0].data.spans) == 1
+    assert searched_traces[0].data.spans[0].name == "archived-otel-span"
+
+    mock_download_trace_data.assert_not_called()
+    mock_download_spans_from_artifact_repo.assert_not_called()
+
+
 def test_get_trace_for_otel_nested_spans(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-nested-spans-test")
     experiment_id = experiment.experiment_id
@@ -148,7 +227,7 @@ def test_get_trace_for_otel_nested_spans(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) > 0, "No traces found in the database"
@@ -188,7 +267,7 @@ def test_get_trace_with_otel_span_events(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id
@@ -228,7 +307,7 @@ def test_get_trace_with_otel_span_status(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id
@@ -255,7 +334,7 @@ def test_set_trace_tag_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -282,7 +361,7 @@ def test_log_expectation_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -321,7 +400,7 @@ def test_log_feedback_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) > 0, "No traces found in the database"
     trace_id = traces[0].info.trace_id
@@ -380,7 +459,7 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -435,7 +514,7 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
     assert span_names == {"conversation", "retrieval", "generation"}
 
     tagged_traces = mlflow.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string='tags.topic = "quantum_computing"',
         return_type="list",
     )
@@ -462,7 +541,7 @@ def test_span_kind_translation(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -498,7 +577,7 @@ def test_span_inputs_outputs_translation(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) == 1
     retrieved_trace = mlflow.get_trace(traces[0].info.trace_id)
@@ -529,7 +608,7 @@ def test_span_token_usage_translation(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) > 0
     for trace_info in traces:
@@ -556,10 +635,10 @@ def test_aggregated_token_usage_from_multiple_spans(
 
     tracer = create_tracer(mlflow_server, experiment_id, "token-aggregation-service")
 
-    with tracer.start_as_current_span("parent-llm-call") as parent:
-        parent.set_attribute(translator.INPUT_TOKEN_KEY, 100)
-        parent.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
-
+    # Usage is set on sibling child spans only: a parent span carrying usage is treated
+    # as a rollup of its descendants and would win over the children (see
+    # aggregate_usage_from_spans).
+    with tracer.start_as_current_span("agent-run"):
         with tracer.start_as_current_span("child-llm-call-1") as child1:
             child1.set_attribute(translator.INPUT_TOKEN_KEY, 200)
             child1.set_attribute(translator.OUTPUT_TOKEN_KEY, 75)
@@ -572,13 +651,50 @@ def test_aggregated_token_usage_from_multiple_spans(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id
     retrieved_trace = mlflow.get_trace(trace_id)
 
     assert retrieved_trace.info.token_usage is not None
-    assert retrieved_trace.info.token_usage["input_tokens"] == 450
-    assert retrieved_trace.info.token_usage["output_tokens"] == 225
-    assert retrieved_trace.info.token_usage["total_tokens"] == 675
+    assert retrieved_trace.info.token_usage["input_tokens"] == 350
+    assert retrieved_trace.info.token_usage["output_tokens"] == 175
+    assert retrieved_trace.info.token_usage["total_tokens"] == 525
+
+
+@pytest.mark.parametrize(
+    "translator", [GenAiTranslator, OpenInferenceTranslator, TraceloopTranslator]
+)
+def test_token_usage_on_parent_span_deduplicates_children(
+    mlflow_server: str, is_async, translator: OtelSchemaTranslator
+):
+    experiment = mlflow.set_experiment("rollup-token-usage-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "token-rollup-service")
+
+    with tracer.start_as_current_span("parent-llm-call") as parent:
+        parent.set_attribute(translator.INPUT_TOKEN_KEY, 100)
+        parent.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
+
+        with tracer.start_as_current_span("child-llm-call-1") as child1:
+            child1.set_attribute(translator.INPUT_TOKEN_KEY, 200)
+            child1.set_attribute(translator.OUTPUT_TOKEN_KEY, 75)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    trace_id = traces[0].info.trace_id
+    retrieved_trace = mlflow.get_trace(trace_id)
+
+    # The parent's usage is authoritative for its subtree, matching the client-side
+    # aggregator's de-duplication of rollup parents (e.g. pydantic_ai, agno, dspy).
+    assert retrieved_trace.info.token_usage is not None
+    assert retrieved_trace.info.token_usage["input_tokens"] == 100
+    assert retrieved_trace.info.token_usage["output_tokens"] == 50
+    assert retrieved_trace.info.token_usage["total_tokens"] == 150

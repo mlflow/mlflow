@@ -11,7 +11,7 @@ import pandas as pd
 import pydantic
 import pytest
 import sklearn.datasets
-import sklearn.neighbors
+import sklearn.linear_model
 from packaging.version import Version
 from scipy.sparse import csc_matrix
 
@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example, _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
@@ -40,9 +41,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 def test_model_save_load():
@@ -257,6 +258,22 @@ def test_model_info_with_model_version(tmp_path):
         assert model_info.registered_model_version is None
 
 
+def test_model_log_tags_propagated_to_registered_model_version(tmp_path):
+    experiment_id = mlflow.create_experiment("test_tags", artifact_location=str(tmp_path))
+    tags = {"stage": "training", "framework": "test"}
+    with mlflow.start_run(experiment_id=experiment_id):
+        model_info = Model.log(
+            "model",
+            TestFlavor,
+            registered_model_name="model_with_tags",
+            tags=tags,
+        )
+
+    client = mlflow.MlflowClient()
+    model_version = client.get_model_version("model_with_tags", model_info.registered_model_version)
+    assert model_version.tags == tags
+
+
 def test_model_metadata():
     with TempDir(chdr=True) as tmp:
         metadata = {"metadata_key": "metadata_value"}
@@ -289,18 +306,37 @@ def test_model_log_with_databricks_runtime():
     assert loaded_model.databricks_runtime == dbr_version
 
 
+def test_model_log_with_databricks_runtime_gpu():
+    dbr_version = "client.8.1-gpu"
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
+        ) as mock_get_dbr_version:
+            model = Model.log("path", TestFlavor, signature=None, input_example=None)
+            mock_get_dbr_version.assert_called()
+
+    # Verify the GPU suffix is preserved in the MLmodel file
+    loaded_model = Model.load(model.model_uri)
+    assert loaded_model.databricks_runtime == dbr_version
+
+    # Verify that the version can be parsed correctly and is_gpu_image is True
+    parsed_version = DatabricksRuntimeVersion.parse(loaded_model.databricks_runtime)
+    assert parsed_version.is_client_image is True
+    assert parsed_version.major == 8
+    assert parsed_version.minor == 1
+    assert parsed_version.is_gpu_image is True
+
+
 def test_model_log_with_input_example_succeeds():
     with TempDir(chdr=True) as tmp:
         sig = ModelSignature(
-            inputs=Schema(
-                [
-                    ColSpec("integer", "a"),
-                    ColSpec("string", "b"),
-                    ColSpec("boolean", "c"),
-                    ColSpec("string", "d"),
-                    ColSpec("datetime", "e"),
-                ]
-            ),
+            inputs=Schema([
+                ColSpec("integer", "a"),
+                ColSpec("string", "b"),
+                ColSpec("boolean", "c"),
+                ColSpec("string", "d"),
+                ColSpec("datetime", "e"),
+            ]),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
         input_example = pd.DataFrame(
@@ -344,19 +380,18 @@ def test_model_input_example_with_params_log_load_succeeds(tmp_path):
     input_example = (pdf, {"a": 1, "b": "string"})
 
     sig = ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec("integer", "a"),
-                ColSpec("string", "b"),
-                ColSpec("boolean", "c"),
-                ColSpec("string", "d"),
-                ColSpec("datetime", "e"),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec("integer", "a"),
+            ColSpec("string", "b"),
+            ColSpec("boolean", "c"),
+            ColSpec("string", "d"),
+            ColSpec("datetime", "e"),
+        ]),
         outputs=Schema([ColSpec(name=None, type="double")]),
-        params=ParamSchema(
-            [ParamSpec("a", DataType.long, 1), ParamSpec("b", DataType.string, "string")]
-        ),
+        params=ParamSchema([
+            ParamSpec("a", DataType.long, 1),
+            ParamSpec("b", DataType.string, "string"),
+        ]),
     )
 
     local_path, _ = _log_model_with_signature_and_example(tmp_path, sig, input_example)
@@ -419,12 +454,12 @@ def test_model_load_input_example_failures():
         loaded_example = loaded_model.load_input_example(local_path)
         assert loaded_example is not None
 
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
 
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         os.remove(path)
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(local_path)
 
 
@@ -586,22 +621,17 @@ def test_pyfunc_set_model():
 
 
 def test_langchain_set_model():
-    from langchain.chains import LLMChain
+    from langchain_core.runnables import RunnableLambda
 
-    def create_openai_llmchain():
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
+    def create_runnable():
+        def my_runnable(input):
+            return f"Input was: {input}"
 
-        llm = OpenAI(temperature=0.9, openai_api_key="api_key")
-        prompt = PromptTemplate(
-            input_variables=["product"],
-            template="What is a good name for a company that makes {product}?",
-        )
-        model = LLMChain(llm=llm, prompt=prompt)
-        set_model(model)
+        runnable = RunnableLambda(my_runnable)
+        set_model(runnable)
 
-    create_openai_llmchain()
-    assert isinstance(mlflow.models.model.__mlflow_model__, LLMChain)
+    create_runnable()
+    assert isinstance(mlflow.models.model.__mlflow_model__, RunnableLambda)
 
 
 def test_error_set_model(sklearn_knn_model):
@@ -678,10 +708,10 @@ def test_save_model_with_prompts():
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.tracing.constant import TraceTagKey
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -716,7 +746,6 @@ def test_logged_model_status():
 
 
 def test_model_log_links_prompts_to_logged_model():
-    """Test that Model.log links prompts to the run when prompts are provided."""
     client = mlflow.MlflowClient()
 
     # Create actual prompts in the registry

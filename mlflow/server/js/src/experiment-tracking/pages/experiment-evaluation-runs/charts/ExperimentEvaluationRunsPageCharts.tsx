@@ -51,7 +51,7 @@ const ExperimentEvaluationRunsPageChartsImpl = ({
   const chartData: RunsChartsRunData[] = useMemo(() => {
     return runs
       .filter((run) => run.info)
-      .map<RunsChartsRunData>((run) => {
+      .map<RunsChartsRunData>((run, index) => {
         const metricsByKey = keyBy(run.data?.metrics, 'key');
         const paramsByKey = keyBy(run.data?.params, 'key');
         const tagsByKey = keyBy(run.data?.tags, 'key');
@@ -65,7 +65,7 @@ const ExperimentEvaluationRunsPageChartsImpl = ({
           uuid: run.info.runUuid,
           color: getRunColor(run.info.runUuid),
           runInfo: run.info,
-          hidden: isRowHidden(run.info.runUuid),
+          hidden: isRowHidden(run.info.runUuid, index, run.info.status),
         };
       });
   }, [runs, isRowHidden, getRunColor]);

@@ -1,4 +1,6 @@
 import {
+  BeakerIcon,
+  ChartLineIcon,
   ModelsIcon,
   TableIcon,
   Tag,
@@ -12,22 +14,35 @@ import {
   SortUnsortedIcon,
   VisibleIcon,
   VisibleOffIcon,
+  SparkleIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
-import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { FormattedMessage } from 'react-intl';
-import { RunPageTabName } from '../../constants';
+import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
 import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
+import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { RunPageTabName } from '../../constants';
+import {
+  shouldEnableImprovedEvalRunsComparison,
+  shouldShowEvalRunsIssuesPanel,
+} from '../../../common/utils/FeatureUtils';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  MLFLOW_RUN_TYPE_VALUE_TEST,
+} from '../../constants';
+import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
+import { RunStatusIcon } from '../../components/RunStatusIcon';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -47,6 +62,7 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
       onChange={() => row.toggleSelected()}
+      onClick={(e) => e.stopPropagation()}
     />
   );
 };
@@ -60,24 +76,58 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const { theme } = useDesignSystemTheme();
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
   }
 
   const runUuid = row.original.info.runUuid;
+  const experimentId = row.original.info.experimentId;
+  const tags = row.original.data?.tags ?? [];
+  const isIssueDetectionRun = tags.some(
+    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  );
+  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
+    if (isIssueDetectionRun && showIssuesPanelFlag) {
+      const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
+      const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+      navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
+      return;
+    }
+    // Otherwise follow old behavior - open the right-side panel
+    (meta as any).setSelectedRunUuid?.(runUuid);
+  };
 
   return (
     <div
       css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
-      onClick={() => {
-        (meta as any).setSelectedRunUuid?.(runUuid);
-      }}
+      onClick={handleClick}
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      <RunColorPill
-        color={getRunColor(runUuid)}
-        onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
-      />
+      {isIssueDetectionRun && showIssuesPanelFlag ? (
+        <Tooltip
+          content={
+            <FormattedMessage
+              defaultMessage="Issue detection run"
+              description="Tooltip for the AI icon indicating this is an issue detection run"
+            />
+          }
+          componentId="mlflow.eval-runs.issue-detection-run-icon-tooltip"
+        >
+          <SparkleIcon color="ai" css={{ flexShrink: 0, fontSize: 14, marginLeft: -1, marginRight: -1 }} />
+        </Tooltip>
+      ) : (
+        <RunColorPill
+          color={getRunColor(runUuid)}
+          onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
+        />
+      )}
       <Typography.Link
         css={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flexShrink: 1 }}
         componentId="mlflow.eval-runs.run-name-cell"
@@ -85,41 +135,44 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       >
         {row.original.info.runName}
       </Typography.Link>
-      <div
-        css={{
-          display: 'none',
-          flexShrink: 0,
-          '.eval-runs-table-row:hover &': { display: 'inline' },
-          svg: {
-            width: theme.typography.fontSizeMd,
-            height: theme.typography.fontSizeMd,
-          },
-        }}
-      >
-        <Link
-          target="_blank"
-          rel="noreferrer"
-          to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
+      {!shouldEnableImprovedEvalRunsComparison() && (
+        <div
+          css={{
+            display: 'none',
+            flexShrink: 0,
+            '.eval-runs-table-row:hover &': { display: 'inline' },
+            svg: {
+              width: theme.typography.fontSizeMd,
+              height: theme.typography.fontSizeMd,
+            },
+          }}
         >
-          <Tooltip
-            content={
-              <FormattedMessage
-                defaultMessage="Go to the run"
-                description="Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
-              />
-            }
-            componentId="mlflow.eval-runs.run-name-cell.tooltip"
+          <Link
+            componentId="mlflow.experiment_tracking.evaluation_runs.run_link"
+            target="_blank"
+            rel="noreferrer"
+            to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
           >
-            <Button
-              type="link"
-              target="_blank"
-              icon={<NewWindowIcon />}
-              size="small"
-              componentId="mlflow.eval-runs.run-name-cell.open-run-page"
-            />
-          </Tooltip>
-        </Link>
-      </div>
+            <Tooltip
+              content={
+                <FormattedMessage
+                  defaultMessage="Go to the run"
+                  description="Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
+                />
+              }
+              componentId="mlflow.eval-runs.run-name-cell.tooltip"
+            >
+              <Button
+                type="link"
+                target="_blank"
+                icon={<NewWindowIcon />}
+                size="small"
+                componentId="mlflow.eval-runs.run-name-cell.open-run-page"
+              />
+            </Tooltip>
+          </Link>
+        </div>
+      )}
     </div>
   );
 };
@@ -144,7 +197,8 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  const openDatasetDrawer = () => {
+  const openDatasetDrawer = (e: React.MouseEvent) => {
+    e.stopPropagation();
     (meta as any).setSelectedDatasetWithRun({
       datasetWithTags: { dataset: displayedDataset },
       runData: {
@@ -173,7 +227,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       </Typography.Text>
     </div>
   );
-  const tagContent = baseTagContent;
+  const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
 
   return (
     <div>
@@ -212,6 +266,7 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
         css={{ maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
       >
         <Link
+          componentId="mlflow.experiment_tracking.evaluation_runs.model_version_link"
           to={Routes.getExperimentLoggedModelDetailsPageRoute(row.original.info.experimentId, modelId)}
           target="_blank"
           css={{ maxWidth: '100%' }}
@@ -258,7 +313,10 @@ export const SortableHeaderCell = ({
         ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } },
       }}
     >
-      <Tooltip componentId={`mlflow.eval-runs.sortable-header-cell.tooltip-${column.id}`} content={displayedKey}>
+      <Tooltip
+        componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
+        content={displayedKey}
+      >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
           <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
         </span>
@@ -296,7 +354,81 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const Icon = isRowHidden(runUuid) ? VisibleOffIcon : VisibleIcon;
+  const rowIndex = row.index;
+  const runStatus = row.original.info.status;
+  const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
-  return <Icon onClick={() => toggleRowVisibility(runUuid)} />;
+  return (
+    <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+      <Icon
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          toggleRowVisibility(runUuid);
+        }}
+        css={{ cursor: 'pointer' }}
+      />
+    </div>
+  );
+};
+
+export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const status = row.original.info.status;
+  if (!status) {
+    return <div>-</div>;
+  }
+
+  return <RunStatusIcon status={status} />;
+};
+
+/**
+ * Renders the run's Type pill, keyed off the `mlflow.runType` tag:
+ * - a purple "Test" pill with a beaker icon for `@mlflow.test` pytest runs,
+ * - an indigo "Issue detection" pill with a sparkle icon for issue-detection runs,
+ * - a turquoise "Eval" pill with a chart-line icon for everything else.
+ * Lets users tell the run kinds apart at a glance.
+ */
+export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+  const tags = row.original.data?.tags ?? [];
+  const runType = tags.find((tag) => tag.key === MLFLOW_RUN_TYPE_TAG)?.value;
+  const pillCss = { display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 } as const;
+
+  switch (runType) {
+    case MLFLOW_RUN_TYPE_VALUE_TEST:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.test" color="purple" css={pillCss}>
+          <BeakerIcon />
+          <FormattedMessage
+            defaultMessage="Test"
+            description="Type pill text for a regression-test run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    case MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.issue-detection" color="indigo" css={pillCss}>
+          <SparkleIcon />
+          <FormattedMessage
+            defaultMessage="Issue detection"
+            description="Type pill text for an issue-detection run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    default:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.eval" color="turquoise" css={pillCss}>
+          <ChartLineIcon />
+          <FormattedMessage
+            defaultMessage="Eval"
+            description="Type pill text for a regular evaluation run in the evaluation runs table"
+          />
+        </Tag>
+      );
+  }
 };

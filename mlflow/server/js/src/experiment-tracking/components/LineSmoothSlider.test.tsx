@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LineSmoothSlider } from './LineSmoothSlider';
 import { useState } from 'react';

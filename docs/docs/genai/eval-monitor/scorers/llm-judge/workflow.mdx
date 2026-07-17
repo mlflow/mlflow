@@ -6,15 +6,13 @@ description: Complete workflow for developing, testing, and deploying custom LLM
 
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import DAGLoop from "@site/src/components/DAGLoop";
-import { Code, Brain, Zap, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
+import { Code, Brain, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
 
 # End-to-End Judge Workflow
 
@@ -66,7 +64,7 @@ This guide walks through the complete lifecycle of developing and optimizing cus
       icon: Brain,
       title: "Align with Humans",
       description: "Optimize instructions",
-      detailedDescription: "Use SIMBA optimizer to refine judge instructions based on human feedback."
+      detailedDescription: "Use the MemAlign optimizer to refine judge instructions based on human feedback."
     },
     {
       icon: ChartBar,
@@ -211,9 +209,7 @@ for trace_id, truth_value in ground_truth.items():
         trace_id=trace_id,
         name="support_quality",  # MUST match judge name
         value=truth_value,
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"
-        ),
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"),
     )
 ```
 
@@ -223,22 +219,18 @@ for trace_id, truth_value in ground_truth.items():
 
 ## Step 3: Align Judge with Human Feedback
 
-Use the SIMBA optimizer to improve judge accuracy:
+Use the MemAlign optimizer to improve judge accuracy:
 
 ```python
 # Retrieve traces with both judge and human assessments
-traces = mlflow.search_traces(experiment_ids=[experiment_id], return_type="list")
+traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
 
 # Filter for traces with both assessments
 aligned_traces = []
 for trace in traces:
     assessments = trace.search_assessments(name="support_quality")
-    has_judge = any(
-        a.source.source_type == AssessmentSourceType.LLM_JUDGE for a in assessments
-    )
-    has_human = any(
-        a.source.source_type == AssessmentSourceType.HUMAN for a in assessments
-    )
+    has_judge = any(a.source.source_type == AssessmentSourceType.LLM_JUDGE for a in assessments)
+    has_human = any(a.source.source_type == AssessmentSourceType.HUMAN for a in assessments)
 
     if has_judge and has_human:
         aligned_traces.append(trace)
@@ -251,8 +243,8 @@ if len(aligned_traces) >= 10:
     aligned_judge = support_judge.align(aligned_traces)
 
     # Option 2: Explicitly specify optimizer with custom model
-    # from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
-    # optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
+    # from mlflow.genai.judges.optimizers import MemAlignOptimizer
+    # optimizer = MemAlignOptimizer(reflection_lm="anthropic:/claude-opus-4-1-20250805")
     # aligned_judge = support_judge.align(aligned_traces, optimizer)
 
     print("Judge aligned successfully!")
@@ -294,25 +286,23 @@ print("Judge registered and ready for deployment!")
 Retrieve and use your registered judge with `mlflow.genai.evaluate()`:
 
 ```python
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai import get_scorer
 import pandas as pd
 
 # Retrieve the registered judge
 production_judge = get_scorer(name="support_quality", experiment_id=experiment_id)
 
 # Prepare evaluation data
-eval_data = pd.DataFrame(
-    [
-        {
-            "inputs": {"issue": "Can't access my account"},
-            "outputs": {"response": "I'll help you regain access immediately."},
-        },
-        {
-            "inputs": {"issue": "Slow website performance"},
-            "outputs": {"response": "Let me investigate the performance issues."},
-        },
-    ]
-)
+eval_data = pd.DataFrame([
+    {
+        "inputs": {"issue": "Can't access my account"},
+        "outputs": {"response": "I'll help you regain access immediately."},
+    },
+    {
+        "inputs": {"issue": "Slow website performance"},
+        "outputs": {"response": "Let me investigate the performance issues."},
+    },
+])
 
 # Run evaluation with the aligned judge
 results = mlflow.genai.evaluate(data=eval_data, scorers=[production_judge])
@@ -377,7 +367,7 @@ print(results.tables["eval_results_table"])
     iconSize={48}
     title="Main Documentation"
     description="Return to the custom judges overview"
-    link="/genai/eval-monitor/scorers/llm-judge/"
+    link="/genai/eval-monitor/scorers/#llms-as-judges"
     linkText="Back to overview →"
     containerHeight={64}
   />

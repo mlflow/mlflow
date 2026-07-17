@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DiscoverNews } from './DiscoverNews';

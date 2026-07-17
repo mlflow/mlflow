@@ -19,20 +19,22 @@ import type { ChatPromptMessage } from '../types';
 const SUGGESTED_ROLES = ['system', 'user', 'assistant'];
 
 const ChatRoleTypeaheadField = ({
-  id,
+  componentId,
+  index,
   value,
   onChange,
   onBlur,
   placeholder,
 }: {
-  id: string;
+  componentId: string;
+  index: number;
   value: string;
   onChange: (value: string) => void;
   onBlur: () => void;
   placeholder: string;
 }) => {
   const comboboxState = useComboboxState<string>({
-    componentId: id,
+    componentId,
     items: SUGGESTED_ROLES,
     allItems: SUGGESTED_ROLES,
     setItems: () => {},
@@ -58,7 +60,7 @@ const ChatRoleTypeaheadField = ({
   });
 
   return (
-    <TypeaheadComboboxRoot id={id} comboboxState={comboboxState}>
+    <TypeaheadComboboxRoot id={`${componentId}_${index}`} comboboxState={comboboxState}>
       <TypeaheadComboboxInput
         placeholder={placeholder}
         comboboxState={comboboxState}
@@ -108,7 +110,8 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
               name={`${name}.${index}.role`}
               render={({ field: { value, onChange, onBlur } }) => (
                 <ChatRoleTypeaheadField
-                  id={`mlflow.prompts.chat_creator.role_${index}`}
+                  componentId="mlflow.prompts.chat_creator.role"
+                  index={index}
                   placeholder={formatMessage({
                     defaultMessage: 'role',
                     description: 'Placeholder for chat message role input',
@@ -121,14 +124,14 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
             />
           </Fragment>
           <RHFControlledComponents.TextArea
-            componentId={`mlflow.prompts.chat_creator.content_${index}`}
+            componentId="mlflow.prompts.chat_creator.content"
             name={`${name}.${index}.content`}
             control={control}
             autoSize={{ minRows: 1, maxRows: 6 }}
             css={{ width: '100%' }}
           />
           <Button
-            componentId={`mlflow.prompts.chat_creator.add_after_${index}`}
+            componentId="mlflow.prompts.chat_creator.add_after"
             type="tertiary"
             icon={<PlusIcon />}
             aria-label={formatMessage({
@@ -138,7 +141,7 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
             onClick={() => addMessageAfter(index)}
           />
           <Button
-            componentId={`mlflow.prompts.chat_creator.remove_${index}`}
+            componentId="mlflow.prompts.chat_creator.remove"
             type="tertiary"
             icon={<TrashIcon />}
             aria-label={formatMessage({

@@ -33,8 +33,6 @@ class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> 
 
   componentDidCatch(error: any, errorInfo: any) {
     this.setState({ hasError: true });
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error(error, errorInfo);
   }
 
   render() {

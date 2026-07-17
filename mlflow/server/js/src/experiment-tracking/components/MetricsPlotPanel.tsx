@@ -26,13 +26,10 @@ import {
 } from '../utils/MetricsUtils';
 import type { Location, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { RunsChartsCard } from './runs-charts/components/cards/RunsChartsCard';
-import {
-  RunsChartsCardConfig,
-  RunsChartsLineCardConfig,
-  RunsChartsLineChartYAxisType,
-  RunsChartType,
-} from './runs-charts/runs-charts.types';
-import { RunsChartsRunData, RunsChartsLineChartXAxisType } from './runs-charts/components/RunsCharts.common';
+import type { RunsChartsLineCardConfig } from './runs-charts/runs-charts.types';
+import { RunsChartsCardConfig, RunsChartsLineChartYAxisType, RunsChartType } from './runs-charts/runs-charts.types';
+import type { RunsChartsRunData } from './runs-charts/components/RunsCharts.common';
+import { RunsChartsLineChartXAxisType } from './runs-charts/components/RunsCharts.common';
 import { RunsChartsTooltipWrapper } from './runs-charts/hooks/useRunsChartsTooltip';
 import { RunsChartsTooltipBody } from './runs-charts/components/RunsChartsTooltipBody';
 import { RunsChartsFullScreenModal } from './runs-charts/components/RunsChartsFullScreenModal';
@@ -293,7 +290,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         while (nextPageToken) {
           const uid = getUUID();
           requestIds.push(uid);
-          /* eslint-disable no-await-in-loop */
           const nextPageResp = await this.props.getMetricHistoryApi(
             runUuid,
             metricKey,
@@ -326,7 +322,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   };
 
   getMetrics = () => {
-    /* eslint-disable no-param-reassign */
     const state = this.getUrlState();
     const selectedMetricsSet = new Set(state.selectedMetricKeys);
     const { selectedXAxis } = state;
@@ -539,7 +534,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           hidden: false,
           color: getStableColorForRun(runUuid),
           displayName: runNames?.[index] || runDisplayNames?.[index] || runUuid,
-        } as RunsChartsRunData),
+        }) as RunsChartsRunData,
     );
   };
 

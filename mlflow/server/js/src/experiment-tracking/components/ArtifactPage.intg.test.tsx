@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect, afterEach, test } from '@jest/globals';
 import { last } from 'lodash';
 import { render, screen, waitFor } from '@testing-library/react';
 import ArtifactPage from './ArtifactPage';
@@ -17,6 +18,7 @@ import type { KeyValueEntity } from '../../common/types';
 // eslint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'fs';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
@@ -37,6 +39,9 @@ const artifactTestCases: string[] = [
   'json/table_eval_data.json',
   'json/table_unnamed_columns.json',
   'json/table_eval_broken.json',
+
+  // JSON Lines files
+  'jsonl/events.jsonl',
 
   // GeoJSON files
   'geojson/sample.geojson',
@@ -96,6 +101,7 @@ const mockArtifactRetrieval = <T extends BlobPart>(artifactData: T) => {
       }
     });
   };
+  // @ts-expect-error Type 'unknown' is not assignable to type 'R'
   jest.mocked(getArtifactContent).mockImplementation(getArtifactContentMocked);
   jest.mocked(getArtifactBytesContent).mockImplementation((...props) => getArtifactContentMocked(...props, true));
 };
@@ -157,9 +163,11 @@ describe('Artifact page, artifact files rendering integration test', () => {
         <TestRouter
           routes={[
             testRoute(
-              <IntlProvider locale="en">
-                <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
-              </IntlProvider>,
+              <DesignSystemProvider>
+                <IntlProvider locale="en">
+                  <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                </IntlProvider>
+              </DesignSystemProvider>,
             ),
           ]}
         />
@@ -231,7 +239,9 @@ describe('Artifact page, artifact files rendering integration test', () => {
           routes={[
             testRoute(
               <IntlProvider locale="en">
-                <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                <DesignSystemProvider>
+                  <MockedReduxStoreProvider state={testReduxStoreState}>{children}</MockedReduxStoreProvider>
+                </DesignSystemProvider>
               </IntlProvider>,
             ),
           ]}

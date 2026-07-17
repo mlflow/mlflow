@@ -342,9 +342,7 @@ can simply log a predict method via the keyword argument ``python_model``.
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            name="model", python_model=predict, pip_requirements=["pandas"]
-        )
+        mlflow.pyfunc.log_model(name="model", python_model=predict, pip_requirements=["pandas"])
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -377,9 +375,7 @@ we would recommend using the functional-based Model instead for this simple case
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            name="model", python_model=MyModel(), pip_requirements=["pandas"]
-        )
+        mlflow.pyfunc.log_model(name="model", python_model=MyModel(), pip_requirements=["pandas"])
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -430,11 +426,13 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -553,6 +551,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -590,6 +589,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
+from mlflow.utils.uv_utils import copy_uv_project_files
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -740,7 +740,10 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                     f"with schema '{input_schema}'. "
                     f"Error: {e}"
                 )
-            raise MlflowException.invalid_parameter_value(message)
+            # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
+            raise MlflowException.invalid_parameter_value(
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
+            )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -1301,7 +1304,6 @@ def _load_model_or_server(
             port=server_port,
             host="127.0.0.1",
             timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-            enable_mlserver=False,
             synchronous=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -1485,8 +1487,9 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
     # mkdtemp creates a directory with permission 0o700
-    # change it to be 0o770 to ensure it can be seen in spark UDF
-    os.chmod(tmp_model_dir, 0o770)
+    # For Spark UDFs, we need to make it accessible to other processes
+    # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o770
+    os.chmod(tmp_model_dir, 0o750)
     return tmp_model_dir
 
 
@@ -1525,18 +1528,16 @@ def _convert_spec_type_to_spark_type(spec_type):
         return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
 
     if isinstance(spec_type, Object):
-        return StructType(
-            [
-                StructField(
-                    property.name,
-                    _convert_spec_type_to_spark_type(property.dtype),
-                    # we set nullable to True for all properties
-                    # to avoid some errors like java.lang.NullPointerException
-                    # when the signature is not inferred based on correct data.
-                )
-                for property in spec_type.properties
-            ]
-        )
+        return StructType([
+            StructField(
+                property.name,
+                _convert_spec_type_to_spark_type(property.dtype),
+                # we set nullable to True for all properties
+                # to avoid some errors like java.lang.NullPointerException
+                # when the signature is not inferred based on correct data.
+            )
+            for property in spec_type.properties
+        ])
 
     # Map only supports string as key
     if isinstance(spec_type, Map):
@@ -1585,12 +1586,10 @@ def _infer_spark_udf_return_type(model_output_schema):
     if len(model_output_schema.inputs) == 1:
         return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
 
-    return StructType(
-        [
-            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
-            for i, spec in enumerate(model_output_schema.inputs)
-        ]
-    )
+    return StructType([
+        StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
+        for i, spec in enumerate(model_output_schema.inputs)
+    ])
 
 
 def _parse_spark_datatype(datatype: str):
@@ -1605,7 +1604,8 @@ def _parse_spark_datatype(datatype: str):
         # returns UnparsedDataType, which is not compatible with signature inference.
         # Note: SparkSession.active only exists for spark >= 3.5.0
         schema = (
-            SparkSession.active()
+            SparkSession
+            .active()
             .range(0)
             .select(udf(lambda x: x, returnType=return_type)("id"))
             .schema
@@ -1761,27 +1761,22 @@ def _convert_struct_values(
                 field_values = _convert_array_values(field_values, field_type)
         elif isinstance(field_type, StructType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        _convert_struct_values(field_value, field_type)
-                        for field_value in field_values
-                    ]
-                )
+                field_values = pandas.Series([
+                    _convert_struct_values(field_value, field_type) for field_value in field_values
+                ])
             else:
                 if isinstance(field_values, pydantic.BaseModel):
                     field_values = field_values.model_dump()
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        {
-                            key: _convert_value_based_on_spark_type(value, field_type.valueType)
-                            for key, value in field_value.items()
-                        }
-                        for field_value in field_values
-                    ]
-                ).astype(object)
+                field_values = pandas.Series([
+                    {
+                        key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                        for key, value in field_value.items()
+                    }
+                    for field_value in field_values
+                ]).astype(object)
             else:
                 field_values = {
                     key: _convert_value_based_on_spark_type(value, field_type.valueType)
@@ -2269,10 +2264,19 @@ def spark_udf(
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
-    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
-    # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it.
+    # For Databricks Serverless runtime (notebook REPL), spark.addArtifact may not reliably
+    # make archives available to UDF executor sandboxes. As a temporary workaround, set
+    # _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
+    # and let each executor fetch the model directly from the MLflow artifact store instead.
+    use_dbconnect_artifact = (
+        is_dbconnect_mode
+        and not is_in_databricks_shared_cluster_runtime()
+        and not (
+            is_in_databricks_serverless_runtime()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+        )
+    )
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
@@ -2282,15 +2286,17 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading (major, minor) components instead of constructing a `Version`,
+        # which crashes with `InvalidVersion` on newer image strings whose minor is non-numeric
+        # (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor denotes the latest uncut minor of that
+        # major, always ahead of any released minor, so it sorts above every concrete minor.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (
@@ -2394,7 +2400,7 @@ def spark_udf(
     dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if use_dbconnect_artifact:
-        # Upload model artifacts and python environment to NFS as DBConncet artifacts.
+        # Upload model artifacts and python environment to NFS as DBConnect artifacts.
         if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:
@@ -2538,9 +2544,13 @@ e.g., struct<a:int, b:array<int>>.
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
         if type(elem_type) == IntegerType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, np.int32]
-            ).astype(np.int32)
+            result = result.select_dtypes([
+                np.byte,
+                np.ubyte,
+                np.short,
+                np.ushort,
+                np.int32,
+            ]).astype(np.int32)
 
         elif type(elem_type) == LongType:
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(
@@ -2659,7 +2669,6 @@ e.g., struct<a:int, b:array<int>>.
                         port=server_port,
                         host=host,
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                        enable_mlserver=False,
                         synchronous=False,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
@@ -2857,6 +2866,9 @@ def save_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     **kwargs,
 ):
     """
@@ -2889,10 +2901,15 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3033,8 +3050,50 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_project_path: Explicit path to the uv project directory containing uv.lock,
+            pyproject.toml, and optionally .python-version. This is useful for monorepos
+            or non-standard project layouts where the uv project is not in the current
+            working directory. If ``None``, MLflow will auto-detect uv.lock, pyproject.toml,
+            and .python-version files in the current working directory.
+
+            When a uv project is detected (either via this parameter or auto-detection),
+            pip requirements are generated by running ``uv export`` against the lockfile
+            instead of inferring dependencies by capturing imported packages during model
+            inference.
+
+            Auto-detection can be disabled by setting the environment variable
+            ``MLFLOW_UV_AUTO_DETECT=false``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         kwargs: Extra keyword arguments.
     """
+    if (
+        python_model is not None
+        and not isinstance(python_model, (Path, str))
+        and not is_in_databricks_runtime()
+    ):
+        _logger.warning(
+            "Passing a Python object as `python_model` causes it to be serialized "
+            "using CloudPickle, "
+            "it requires exercising caution as Python object serialization mechanisms may "
+            "execute arbitrary code during deserialization."
+            "Consider using a file path (str or Path) instead. See "
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details."
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
@@ -3172,7 +3231,7 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
@@ -3336,6 +3395,9 @@ def save_model(
             model_config=model_config,
             streamable=streamable,
             infer_code_paths=infer_code_paths,
+            uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3352,6 +3414,9 @@ def save_model(
             streamable=streamable,
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
+            uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
 
 
@@ -3389,6 +3454,9 @@ def log_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3424,10 +3492,15 @@ def log_model(
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3584,6 +3657,34 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_project_path: Explicit path to the uv project directory containing uv.lock,
+            pyproject.toml, and optionally .python-version. This is useful for monorepos
+            or non-standard project layouts where the uv project is not in the current
+            working directory. If ``None``, MLflow will auto-detect uv.lock, pyproject.toml,
+            and .python-version files in the current working directory.
+
+            When a uv project is detected (either via this parameter or auto-detection),
+            pip requirements are generated by running ``uv export`` against the lockfile
+            instead of inferring dependencies by capturing imported packages during model
+            inference.
+
+            Auto-detection can be disabled by setting the environment variable
+            ``MLFLOW_UV_AUTO_DETECT=false``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -3620,6 +3721,9 @@ def log_model(
         resources=resources,
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
+        uv_project_path=uv_project_path,
+        uv_groups=uv_groups,
+        uv_extras=uv_extras,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -3658,6 +3762,9 @@ def _save_model_with_loader_module_and_data_path(
     model_config=None,
     streamable=None,
     infer_code_paths=False,
+    uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Export model as a generic Python function model.
@@ -3680,6 +3787,9 @@ def _save_model_with_loader_module_and_data_path(
     Returns:
         Model configuration containing model info.
     """
+    # Capture original working directory for uv project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
 
     data = None
 
@@ -3713,6 +3823,13 @@ def _save_model_with_loader_module_and_data_path(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    if uv_project_path is not None:
+        uv_source_dir = uv_project_path
+    elif MLFLOW_UV_AUTO_DETECT.get():
+        uv_source_dir = original_cwd
+    else:
+        uv_source_dir = None
+
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
@@ -3728,6 +3845,9 @@ def _save_model_with_loader_module_and_data_path(
                 FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_project_dir=uv_source_dir,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -3750,11 +3870,17 @@ def _save_model_with_loader_module_and_data_path(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    # Copy uv project files (uv.lock and pyproject.toml) if detected
+    if uv_source_dir is not None:
+        copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
+
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 
-def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_chat_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ChatAgent models
 
     Returns: a dict input_example
@@ -3792,6 +3918,8 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ChatAgentRequest(**input_example)
     output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:

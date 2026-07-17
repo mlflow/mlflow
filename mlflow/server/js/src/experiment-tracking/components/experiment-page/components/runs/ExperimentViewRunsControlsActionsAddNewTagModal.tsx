@@ -2,6 +2,7 @@ import { FormUI, Input, Modal, useDesignSystemTheme } from '@databricks/design-s
 import { FormattedMessage } from 'react-intl';
 import type { KeyValueEntity } from '../../../../../common/types';
 import { useState } from 'react';
+import { isValidTagKey } from '../../../../../common/utils/tagKeyValidation';
 
 export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
   isOpen,
@@ -18,9 +19,9 @@ export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
   const [tagKey, setTagKey] = useState<string>('');
   const [tagValue, setTagValue] = useState<string>('');
 
-  const isTagKeyAllowedChars = tagKey === '' || /^[^,.:/=\-\s]+$/.test(tagKey);
+  const isTagKeyValidChars = tagKey === '' || isValidTagKey(tagKey);
   const isTagKeyDuplicate = selectedRunsExistingTagKeys.includes(tagKey);
-  const isTagKeyValid = isTagKeyAllowedChars && !isTagKeyDuplicate;
+  const isTagKeyValid = isTagKeyValidChars && !isTagKeyDuplicate;
   const isTagNonEmptyAndTagKeyValid = tagKey.length > 0 && tagValue.length > 0 && isTagKeyValid;
 
   const onConfirmTag = () => {
@@ -58,11 +59,11 @@ export const ExperimentViewRunsControlsActionsAddNewTagModal = ({
               validationState={isTagKeyValid ? undefined : 'warning'}
               data-testid="add-new-tag-key-input"
             />
-            {!isTagKeyAllowedChars && (
+            {!isTagKeyValidChars && (
               <FormUI.Hint>
                 <FormattedMessage
-                  defaultMessage=", . : / - = and blank spaces are not allowed"
-                  description="Add new key-value tag modal > Invalid characters error"
+                  defaultMessage="Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'."
+                  description="Add new key-value tag modal > Invalid characters or path error"
                 />
               </FormUI.Hint>
             )}

@@ -48,6 +48,8 @@ class SystemMetricsMonitor:
             evnironment variable. This is useful in multi-node training to distinguish the metrics
             from different nodes. For example, if you set node_id to "node_0", the system metrics
             getting logged will be of format "system/node_0/cpu_utilization_percentage".
+        tracking_uri: string, default to None. The tracking URI of the MLflow server, or `None` to
+            use whatever is set via `mlflow.set_tracking_uri()`.
     """
 
     def __init__(
@@ -57,7 +59,9 @@ class SystemMetricsMonitor:
         samples_before_logging=1,
         resume_logging=False,
         node_id=None,
+        tracking_uri=None,
     ):
+        from mlflow.tracking import get_tracking_uri
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -72,17 +76,18 @@ class SystemMetricsMonitor:
         )
 
         self._run_id = run_id
-        self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
         self._metrics_prefix = "system/"
         self.node_id = MLFLOW_SYSTEM_METRICS_NODE_ID.get() or node_id
+        self._tracking_uri = tracking_uri or get_tracking_uri()
         self._logging_step = self._get_next_logging_step(run_id) if resume_logging else 0
+        self.mlflow_logger = BatchMetricsLogger(self._run_id, tracking_uri=self._tracking_uri)
 
     def _get_next_logging_step(self, run_id):
         from mlflow.tracking.client import MlflowClient
 
-        client = MlflowClient()
+        client = MlflowClient(self._tracking_uri)
         try:
             run = client.get_run(run_id)
         except MlflowException:
@@ -113,25 +118,38 @@ class SystemMetricsMonitor:
 
     def monitor(self):
         """Main monitoring loop, which consistently collect and log system metrics."""
-        from mlflow.tracking.fluent import get_run
+        from mlflow.tracking.client import MlflowClient
 
+        _logger.debug(
+            f"Monitor loop started (interval={self.sampling_interval}s, "
+            f"samples={self.samples_before_logging})"
+        )
         while not self._shutdown_event.is_set():
-            for _ in range(self.samples_before_logging):
+            for sample_idx in range(self.samples_before_logging):
                 self.collect_metrics()
+                _logger.debug(f"Collected sample {sample_idx + 1}/{self.samples_before_logging}")
                 self._shutdown_event.wait(self.sampling_interval)
                 try:
                     # Get the MLflow run to check if the run is not RUNNING.
-                    run = get_run(self._run_id)
+                    run = MlflowClient(self._tracking_uri).get_run(self._run_id)
                 except Exception as e:
                     _logger.warning(f"Failed to get mlflow run: {e}.")
                     return
                 if run.info.status != "RUNNING" or self._shutdown_event.is_set():
                     # If the mlflow run is terminated or receives the shutdown signal, stop
                     # monitoring.
+                    _logger.debug(f"Monitor loop exiting (status={run.info.status})")
                     return
             metrics = self.aggregate_metrics()
+            _logger.debug(f"Aggregated {len(metrics)} metrics")
             try:
                 self.publish_metrics(metrics)
+                _logger.debug(
+                    f"Queued metrics at step {self._logging_step - 1} "
+                    f"(training_time={self.mlflow_logger.total_training_time:.3f}s, "
+                    f"log_batch_time={self.mlflow_logger.total_log_batch_time:.3f}s, "
+                    f"batch_size={len(self.mlflow_logger.data)})"
+                )
             except Exception as e:
                 _logger.warning(
                     f"Failed to log system metrics: {e}, this is expected if the experiment/run is "
@@ -174,6 +192,7 @@ class SystemMetricsMonitor:
         self._shutdown_event.set()
         try:
             self._process.join()
+            _logger.debug(f"Flushing {len(self.mlflow_logger.data)} metrics")
             self.mlflow_logger.flush()
             _logger.info("Successfully terminated system metrics monitoring!")
         except Exception as e:

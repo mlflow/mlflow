@@ -6390,7 +6390,6 @@ a .rst-content code {
 }
 
 .rst-content dl:not(.docutils) .property {
-  display: inline-block;
   padding-right: 8px;
 }
 

@@ -1,12 +1,15 @@
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -16,19 +19,37 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace_metrics import (
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
+    from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
+    from mlflow.genai.scorers.online.entities import (
+        CompletedSession,
+        OnlineScorer,
+        OnlineScoringConfig,
+    )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
+    MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -37,7 +58,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore:
+class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -51,6 +72,16 @@ class AbstractStore:
         derived class would be forced to create one.
         """
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
+
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this tracking store."""
+        return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
+        return False
 
     @abstractmethod
     def search_experiments(
@@ -294,7 +325,7 @@ class AbstractStore:
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
@@ -329,7 +360,23 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        """
+        Get a trace with spans for given trace id.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+            allow_partial: Whether to allow partial traces. If True, the trace will be returned
+                even if it is not fully exported yet. If False, MLflow retries and returns
+                the trace until all spans are exported or retries are exhausted. Default
+                to False.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        raise MlflowNotImplementedException()
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
@@ -344,6 +391,83 @@ class AbstractStore:
         # instead of default internal server error and retry
         # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
+
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        This is more efficient than batch_get_traces when only metadata is needed,
+        as it avoids loading potentially large span data.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of TraceInfo objects containing only metadata (no spans).
+        """
+        raise MlflowNotImplementedException()
+
+    def archive_traces(
+        self,
+        *,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces_per_pass: int | None = None,
+    ) -> int:
+        """
+        Archive eligible DB-backed trace payloads into the archival repository.
+
+        Concurrent executions of this method against the same backing store / trace population
+        are not supported.
+
+        Args:
+            resolved_trace_archival_location: Final archival repository root for this archival
+                pass after broader-scope server and workspace resolution has already been applied.
+            broader_retention: Resolved broader-scope retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Experiment-level retention overrides are
+                resolved against this value during the pass.
+            long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
+                retention with a longer experiment-level retention override.
+            max_traces_per_pass: Maximum number of traces to archive in this invocation. When the
+                scheduler applies a pass-level budget across multiple scopes, it passes the
+                remaining budget for the current scope here. If unset, archive all eligible
+                traces.
+
+        Returns:
+            The number of traces archived during the pass.
+        """
+        raise MlflowNotImplementedException()
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Resolve the effective trace archival configuration for the current store context.
+
+        Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the effective archival location,
+            retention, and whether additional workspace path scoping should be applied by the
+            caller.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
 
     def get_online_trace_details(
         self,
@@ -387,6 +511,75 @@ class AbstractStore:
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+        filter_string: str | None = None,
+    ) -> list["CompletedSession"]:
+        """
+        Find completed sessions based on their last trace timestamp.
+
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
+        deterministic and stable ordering, especially when timestamp ties occur. This is
+        useful when repeatedly calling this method with a ``max_results`` limit.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+            filter_string: Optional filter string to apply to the first trace in each session.
+                Uses the same syntax as search_traces. If provided, only sessions whose
+                first trace matches this filter will be included.
+
+        Returns:
+            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
+            session_id ASC).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[list[MetricDataPoint]]:
+        """
+        Query trace metrics for the given experiment ids.
+
+        Args:
+            experiment_ids: List of experiment ids to query metrics for.
+            view_type: The view type to query metrics for.
+            metric_name: The metric name to query metrics for.
+            aggregations: The aggregations to apply to the metrics.
+            dimensions: The dimensions to group metrics by.
+            filters: The filters to apply to the traces.
+            time_interval_seconds: The time interval in seconds to group traces metrics by.
+            start_time_ms: The start time to query traces metrics for.
+            end_time_ms: The end time to query traces metrics for.
+            max_results: The maximum number of traces metrics to return. Default is 1000.
+            page_token: The page token to use for pagination.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
@@ -478,6 +671,95 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException()
+
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -485,14 +767,12 @@ class AbstractStore:
         Args:
             location: The location to log spans to. Can be either experiment ID or the
                 full UC table name.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -502,13 +782,10 @@ class AbstractStore:
 
         Args:
             location: The location to log spans to.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -1009,12 +1286,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
@@ -1112,6 +1391,24 @@ class AbstractStore:
 
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1248,6 +1545,21 @@ class AbstractStore:
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
         )
 
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+
+        Raises:
+            NotImplementedError: If the operation is not supported by this store.
+        """
+        raise NotImplementedError(
+            f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
+        )
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
@@ -1314,6 +1626,18 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+        """
+        List all scorers across multiple experiments in one batch. The default
+        impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
+        overrides with a single JOIN for admin pickers that need to enumerate
+        scorers across hundreds of experiments without N+1 round trips.
+        """
+        result: list[ScorerVersion] = []
+        for exp_id in experiment_ids:
+            result.extend(self.list_scorers(exp_id))
+        return result
+
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
@@ -1358,5 +1682,406 @@ class AbstractStore:
 
         Raises:
             MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Create or update online scoring configuration for a scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Each OnlineScorer contains the serialized scorer and sampling configuration.
+
+        Returns:
+            List of OnlineScorer entities with serialized_scorer, sample_rate,
+            and filter_string fields populated.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Label schemas: UI rendering hints attached to an experiment.
+    # See mlflow/genai/label_schemas/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: Literal["feedback", "expectation"],
+        input: "InputType",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name, unique within the experiment. Shown to
+                reviewers as the label prompt and used as the assessment key.
+            type: Schema type (``"feedback"`` or ``"expectation"``).
+            input: One of ``InputPassFail`` / ``InputCategorical`` /
+                ``InputNumeric`` / ``InputText``.
+            instruction: Optional supplementary guidance shown to reviewers.
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema(self, schema_id: str) -> "LabelSchema":
+        """Fetch a label schema by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        """Fetch a label schema by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> PagedList["LabelSchema"]:
+        """List label schemas for an experiment, ordered by creation time descending."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputType | None" = None,
+    ) -> "LabelSchema":
+        """Sparse update on a label schema.
+
+        ``type`` is immutable post-create and is not accepted as a parameter.
+        Renames are supported (set ``name`` to the new value); existing
+        assessment rows are not migrated.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if schema_id doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on rename collision.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_label_schema(self, schema_id: str) -> None:
+        """Hard-delete a label schema. No-op if it doesn't exist.
+
+        Assessments whose ``name`` matches this schema retain their data
+        but render as free-form values in the UI after deletion.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Review queues: named bundles of attached items + questions (label
+    # schemas) + assigned users, scoped to an experiment. See
+    # mlflow/genai/review_queues/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: Literal["user", "custom"],
+        created_by: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        """Create a review queue scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Queue name, unique within the experiment. For a user
+                queue this is the user identifier; ``"default"``/``"Default"``
+                are reserved and rejected for custom queues.
+            queue_type: ``"user"`` (exactly one assigned user equal to
+                ``name``, inherits all of the experiment's schemas) or
+                ``"custom"`` (0..N users, an explicit schema subset).
+            created_by: User who created the queue (audit).
+            users: Assigned users. For a user queue this must be ``[name]``
+                or omitted (derived); for a custom queue, 0..N users.
+            schema_ids: Attached label-schema ids. Must be empty/omitted for
+                a user queue (resolves to all schemas at read time); the
+                chosen subset for a custom queue.
+
+        Returns:
+            The created :py:class:`ReviewQueue` with backend-generated
+            ``queue_id`` and its hydrated ``users`` / ``schema_ids``.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_or_create_user_queue(
+        self,
+        experiment_id: str,
+        *,
+        user: str,
+    ) -> "ReviewQueue":
+        """Return the user's personal queue for an experiment, creating it
+        if absent.
+
+        The queue is owned by its user (``created_by`` is set to ``user``),
+        so there is no caller-supplied owner. Atomic and idempotent:
+        concurrent callers converge on the single ``(experiment_id, name=user)``
+        user queue. This is the backbone of "assign these traces to this
+        person" — get-or-create then attach.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        """Fetch a review queue by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue_by_name(self, experiment_id: str, *, name: str) -> "ReviewQueue":
+        """Fetch a review queue by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        item_id: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueue"]:
+        """List an experiment's review queues, newest first.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            user: If set, restrict to queues this user is assigned to (their
+                user queue plus any custom queue they belong to).
+            item_id: If set, restrict to queues that already contain this item
+                (a trace id), so callers can see which queues it is a member of.
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+        name: str | None = None,
+        new_owner: str | None = None,
+    ) -> "ReviewQueue":
+        """Edit a custom queue's name, assigned users, attached schemas, and/or owner.
+
+        ``None`` leaves that field untouched; a value (a list, possibly empty,
+        for the association sets; a string for ``name`` / ``new_owner``) replaces
+        it wholesale. ``queue_type`` is immutable and user queues reject this
+        call (their name, user, schemas, and owner are fixed). ``name`` is
+        validated as a custom queue name (non-empty, non-reserved) and must be
+        unique within the experiment. ``new_owner`` reassigns ownership
+        (``created_by``); it is stored case-preserved (matching is
+        case-insensitive). Authorization differs per field — owner reassignment
+        is MANAGE-only while the other edits are allowed to an owning EDIT user —
+        but that gate lives at the handler layer, not here.
+
+        ``schema_ids`` (the questions) are frozen once the queue has any
+        attached items: changing them after reviewers start would strand
+        answers or leave completed items with never-seen questions. Detach
+        the items first to edit questions. Assigned users, name, and owner stay
+        editable.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(RESOURCE_ALREADY_EXISTS): if ``name`` collides with
+                another queue in the experiment.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
+                when called against a user queue, or when changing
+                ``schema_ids`` on a queue that already has items.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_review_queue(self, queue_id: str) -> None:
+        """Hard-delete a queue and its user / item / schema associations.
+
+        No-op if the queue doesn't exist. Assessments written by reviewers
+        against the queue's items are unaffected.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_items_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        item_ids: list[str],
+        item_type: Literal["trace"] = "trace",
+    ) -> list["ReviewQueueItem"]:
+        """Attach items to a queue, returning the resulting queue items.
+
+        Idempotent per item: re-attaching an already-attached item is a
+        no-op that preserves its existing status. Newly-attached items
+        start ``pending``. The returned list covers every requested
+        ``item_id`` (newly-added and already-present), in the requested
+        order, except that an item removed concurrently (between its insert
+        and the read-back) is omitted — callers should reconcile the
+        returned items against their requested ``item_ids`` rather than
+        assume a 1:1 result.
+
+        ``item_ids`` are stored as soft references — this store method
+        validates only their shape, NOT that each is a real trace in the
+        queue's experiment/workspace. Trace existence and workspace
+        membership are enforced at the handler/API layer that fronts this
+        method (the proto/REST stack), keeping attachment resilient to
+        archived traces.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        """Detach items from a queue. No-op for items not attached.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queue_items(
+        self,
+        queue_id: str,
+        *,
+        status: Literal["pending", "complete", "declined"] | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueueItem"]:
+        """List a queue's attached items, newest-attached first.
+
+        Args:
+            queue_id: The queue to list.
+            status: Optional filter on shared-pool status.
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_review_queue_item_status(
+        self,
+        queue_id: str,
+        *,
+        item_id: str,
+        status: Literal["pending", "complete", "declined"],
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        """Set the shared-pool status of an attached item.
+
+        Moving to ``complete`` / ``declined`` records ``completed_by`` and a
+        completion timestamp; moving back to ``pending`` (reopen) clears
+        both. ``completed_by`` is required for the terminal states and
+        rejected for ``pending``. This is an explicit reviewer action and is
+        never triggered by writing an assessment.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue or the
+                attached item doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)

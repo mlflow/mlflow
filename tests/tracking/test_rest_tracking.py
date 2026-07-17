@@ -1,19 +1,14 @@
-"""
-Integration test which starts a local Tracking Server on an ephemeral port,
-and ensures we can use the tracking API to communicate with it.
-"""
-
 import json
 import logging
 import math
 import os
 import pathlib
 import posixpath
-import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -26,15 +21,24 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow.experiments
 import mlflow.pyfunc
+import mlflow.tracing.trace_archival_config as trace_archival_config_module
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
+    GatewayResourceType,
     InputTag,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
+    RoutingStrategy,
     RunInputs,
     RunTag,
     Span,
@@ -49,6 +53,11 @@ from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -56,8 +65,14 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.genai.datasets import (
+    add_dataset_to_experiments,
+    create_dataset,
+    remove_dataset_from_experiments,
+)
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
@@ -66,7 +81,11 @@ from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetricDimensionKey,
+    TraceMetricKey,
+)
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -97,37 +116,60 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     return request.param
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture
-def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
+def mlflow_client(store_type: str, tmp_path: Path, db_uri: str, monkeypatch):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    # Set passphrase for secrets management (required for encryption)
+    monkeypatch.setenv(
+        "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
+    )
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+    monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
+
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif store_type == "sqlalchemy":
-        # Copy the cached database for this test
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        backend_uri = f"sqlite:///{db_path}"
+        backend_uri = db_uri
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
     handlers._model_registry_store = None
     initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
+        yield MlflowClient(url)
+
+
+@pytest.fixture
+def mlflow_client_with_secrets(tmp_path: Path, monkeypatch):
+    """Provides an MLflow Tracking API client with fresh database for secrets management.
+
+    Creates a fresh SQLite database for each test to avoid encryption state pollution.
+    This is necessary because the KEK encryption state can persist across tests when
+    using a shared cached database.
+    """
+    # Set passphrase for secrets management (required for encryption)
+    monkeypatch.setenv(
+        "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
+    )
+
+    # Create fresh database for this test (not using cached_db)
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    # Initialize the store (which creates tables)
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
 
     with ServerThread(app, get_safe_port()) as url:
         yield MlflowClient(url)
@@ -618,10 +660,9 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
-            "error_code": "INVALID_PARAMETER_VALUE",
-            "message": "Invalid path",
-        }
+        body = response.json()
+        assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert body["message"] == "Invalid path"
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",
@@ -1149,12 +1190,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         flask_app.test_request_context() as mock_context,
     ):
         run_ids = [str(i) for i in range(10)]
-        mock_context.request.args = MockRequestArgs(
-            {
-                "run_id": run_ids,
-                "metric_key": "mock_key",
-            }
-        )
+        mock_context.request.args = MockRequestArgs({
+            "run_id": run_ids,
+            "metric_key": "mock_key",
+        })
 
         get_metric_history_bulk_handler()
 
@@ -1293,6 +1332,41 @@ def test_get_metric_history_with_page_token(mlflow_client):
     assert "INVALID_PARAMETER_VALUE" in response_data.get("error_code", "")
 
 
+def test_get_metric_history_without_max_results_returns_full_history(mlflow_client):
+    # Regression test: an unset proto2 `max_results` reads as 0, which previously became
+    # a `LIMIT 1` query that returned an empty page with a never-advancing next_page_token
+    experiment_id = mlflow_client.create_experiment("test no max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    for i in range(10):
+        mlflow_client.log_metric(run_id, key="test_metric", value=float(i), step=i)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["metrics"]) == 10
+    assert data.get("next_page_token") is None
+
+
+@pytest.mark.parametrize("max_results", [0, -5])
+def test_get_metric_history_rejects_non_positive_max_results(mlflow_client, max_results):
+    experiment_id = mlflow_client.create_experiment(f"test max_results {max_results}")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+    mlflow_client.log_metric(run_id, key="test_metric", value=1.0, step=0)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": max_results},
+    )
+    assert response.status_code == 400
+    assert "max_results" in response.text
+
+
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400
@@ -1423,13 +1497,11 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         (run_id1, metric_history),
         (run_id2, metric_history2),
     ]:
-        expected_metrics.extend(
-            [
-                {**metric, "run_id": run_id}
-                for metric in metric_history
-                if metric["step"] in expected_steps
-            ]
-        )
+        expected_metrics.extend([
+            {**metric, "run_id": run_id}
+            for metric in metric_history
+            if metric["step"] in expected_steps
+        ])
     assert response_limited.json().get("metrics") == expected_metrics
 
     # test metrics with same steps
@@ -1844,7 +1916,7 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
-def test_create_model_version_with_validation_regex(tmp_path: Path):
+def test_create_model_version_with_validation_regex(db_uri: str):
     port = get_safe_port()
     with subprocess.Popen(
         [
@@ -1855,18 +1927,19 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "--port",
             str(port),
             "--backend-store-uri",
-            f"sqlite:///{tmp_path / 'mlflow.db'}",
+            db_uri,
         ],
         env=(
             os.environ.copy()
             | {
                 "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
+                "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "false",
             }
         ),
     ) as proc:
         try:
             # Wait for the server to start
-            for _ in range(10):
+            for _ in range(30):
                 try:
                     if requests.get(f"http://localhost:{port}/health").ok:
                         break
@@ -2293,6 +2366,17 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     )
     assert_response(response, "Request must specify data.")
 
+    large_data = b"x" * (10 * 1024 * 1024 + 1)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data=large_data,
+    )
+    assert_response(response, "Artifact size is too large")
+
 
 def test_upload_artifact_handler(mlflow_client):
     experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
@@ -2335,12 +2419,10 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     # Test max root fields limit
     batch_query = (
         "query testQuery {"
-        + " ".join(
-            [
-                f"key_{i}: " + 'test(inputString: "abc") { output }'
-                for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
-            ]
-        )
+        + " ".join([
+            f"key_{i}: " + 'test(inputString: "abc") { output }'
+            for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
+        ])
         + "}"
     )
     response = requests.post(
@@ -2399,9 +2481,8 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
 
     # Test max selections limit
-    selections = []
-    for i in range(1002):  # Exceed the 1000 selection limit
-        selections.append(f"field_{i} {{ name }}")
+    # Exceed the 1000 selection limit
+    selections = [f"field_{i} {{ name }}" for i in range(1002)]
     selections_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
         + " ".join(selections)
@@ -2425,7 +2506,7 @@ def test_get_experiment_graphql(mlflow_client):
         json={
             "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
             + experiment_id
-            + '"}) { experiment { name } }}',
+            + '"}) { experiment { name effectiveTraceArchivalRetention } }}',
             "operationName": "testQuery",
         },
         headers={"content-type": "application/json; charset=utf-8"},
@@ -2433,6 +2514,10 @@ def test_get_experiment_graphql(mlflow_client):
     assert response.status_code == 200
     json = response.json()
     assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["effectiveTraceArchivalRetention"] in (
+        None,
+        "",
+    )
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):
@@ -2562,7 +2647,7 @@ def test_start_trace(mlflow_client):
                 },
             )
 
-    trace = mlflow_client.get_trace(span.trace_id)
+    trace = mlflow_client.get_trace(span.trace_id, flush=True)
     assert trace.info.trace_id == span.trace_id
     assert trace.info.experiment_id == experiment_id
     assert trace.info.request_time > 0
@@ -2588,7 +2673,7 @@ def test_get_trace(mlflow_client):
     experiment_id = mlflow_client.create_experiment("get trace")
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
-    trace = mlflow_client.get_trace(span.request_id)
+    trace = mlflow_client.get_trace(span.request_id, flush=True)
     assert trace is not None
     assert trace.info.request_id == span.request_id
     assert trace.info.experiment_id == experiment_id
@@ -2609,34 +2694,40 @@ def test_search_traces(mlflow_client):
         mlflow_client.end_trace(request_id=span.request_id, status=status)
         return span.request_id
 
+    # Flush between creations to ensure distinct timestamps. Without this, all three traces
+    # can land in the same millisecond on a fast local server, making max_results ordering
+    # non-deterministic.
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_3 = _create_trace(name="trace3", status=TraceStatus.ERROR)
+    mlflow.flush_trace_async_logging()
 
     def _get_request_ids(traces):
         return [t.info.request_id for t in traces]
 
     # Validate search
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
-    assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
+    traces = mlflow_client.search_traces(locations=[experiment_id])
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2, request_id_1}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
-    assert _get_request_ids(traces) == [request_id_1, request_id_2]
+    assert set(_get_request_ids(traces)) == {request_id_1, request_id_2}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         max_results=2,
     )
-    assert _get_request_ids(traces) == [request_id_3, request_id_2]
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2}
     assert traces.token is not None
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         page_token=traces.token,
     )
     assert _get_request_ids(traces) == [request_id_1]
@@ -2669,23 +2760,23 @@ def test_search_traces_match_text(mlflow_client, store_type):
     trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
     trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%trace%'"
     )
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%value%'"
     )
     assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
     )
     assert [t.info.trace_id for t in traces] == [trace_id_3]
 
@@ -2711,6 +2802,7 @@ def test_delete_traces(mlflow_client):
     # Case 1: Delete all traces under experiment ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     assert _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
 
@@ -2723,6 +2815,7 @@ def test_delete_traces(mlflow_client):
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     time.sleep(0.1)  # Add some time gap to avoid timestamp collision
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(
         experiment_id, max_traces=1, max_timestamp_millis=int(1e15)
@@ -2737,6 +2830,7 @@ def test_delete_traces(mlflow_client):
     # Case 3: Delete with explicit request ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(experiment_id, trace_ids=[request_id_1])
     assert deleted_count == 1
@@ -2763,6 +2857,8 @@ def test_calculate_trace_filter_correlation(mlflow_client, store_type):
         _create_trace(f"trace-dev-{i}", {"env": "dev", "span_type": "LLM" if i >= 1 else "TOOL"})
 
     client = TracingClient(tracking_uri=mlflow_client.tracking_uri)
+
+    mlflow.flush_trace_async_logging()
 
     result = client.calculate_trace_filter_correlation(
         experiment_ids=[experiment_id],
@@ -2840,12 +2936,81 @@ def test_set_and_delete_trace_tag(mlflow_client):
     assert "tag2" not in trace_info.tags
 
 
+def test_query_trace_metrics(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support query trace metrics")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("query trace metrics")
+
+    # Create test traces
+    def _create_trace(name, status):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        mlflow_client.end_trace(request_id=span.request_id, status=status)
+        return span.request_id
+
+    _create_trace(name="trace1", status=TraceStatus.OK)
+    _create_trace(name="trace2", status=TraceStatus.OK)
+    _create_trace(name="trace3", status=TraceStatus.ERROR)
+
+    mlflow.flush_trace_async_logging()
+
+    metrics = mlflow_client._tracing_client.store.query_trace_metrics(
+        experiment_ids=[experiment_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_STATUS],
+    )
+    assert len(metrics) == 2
+    assert asdict(metrics[0]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "ERROR"},
+        "values": {"COUNT": 1},
+    }
+
+    assert asdict(metrics[1]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "OK"},
+        "values": {"COUNT": 2},
+    }
+
+
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support get trace handler")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
+
+    mlflow.flush_trace_async_logging()
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/3.0/mlflow/traces/get",
+        params={"trace_id": span.trace_id, "allow_partial": allow_partial},
+    )
+
+    assert response.status_code == 200
+
+    trace = response.json()["trace"]
+    assert trace["trace_info"]["trace_id"] == span.trace_id
+    assert len(trace["spans"]) == 1
+    assert trace["spans"][0]["name"] == "test"
+    attributes = trace["spans"][0]["attributes"]
+    assert {"key": "fruit", "value": {"string_value": "apple"}} in attributes
+
+
 def test_get_trace_artifact_handler(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
         span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
+
+    mlflow.flush_trace_async_logging()
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
@@ -2860,7 +3025,6 @@ def test_get_trace_artifact_handler(mlflow_client):
 
 
 def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
-    """Test linking traces to runs and searching traces with run_id filter."""
     # Skip file store because it doesn't support linking traces to runs
     if store_type == "file":
         pytest.skip("File store doesn't support linking traces to runs")
@@ -2889,12 +3053,12 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     trace_id_3 = span3.trace_id
 
     # Search traces without run_id filter - should return all traces in experiment
-    all_traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    all_traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
 
     # Search traces with run_id filter - should return only linked traces
     linked_traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
+        locations=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
     )
     linked_trace_ids = [t.info.trace_id for t in linked_traces]
     assert len(linked_trace_ids) == 2
@@ -3090,22 +3254,20 @@ def test_search_datasets_graphql(mlflow_client):
     def sort_dataset_summaries(l1):
         return sorted(l1, key=lambda x: x["digest"])
 
-    expected = sort_dataset_summaries(
-        [
-            {
-                "experimentId": experiment_id,
-                "name": "test-dataset-2",
-                "digest": "12346",
-                "context": "training",
-            },
-            {
-                "experimentId": experiment_id,
-                "name": "test-dataset-1",
-                "digest": "12345",
-                "context": "",
-            },
-        ]
-    )
+    expected = sort_dataset_summaries([
+        {
+            "experimentId": experiment_id,
+            "name": "test-dataset-2",
+            "digest": "12346",
+            "context": "training",
+        },
+        {
+            "experimentId": experiment_id,
+            "name": "test-dataset-1",
+            "digest": "12345",
+            "context": "",
+        },
+    ])
     assert (
         sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
     )
@@ -3293,14 +3455,33 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
     assert captured_output.getvalue() == ""
 
 
+def test_log_url_includes_workspace_when_set(mlflow_client: MlflowClient, monkeypatch):
+    exp_id = mlflow_client.create_experiment("test_log_url_workspace")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.client.get_workspace_url", lambda: "http://localhost"
+    )
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.client.get_request_workspace", lambda: "team-space"
+    )
+
+    mlflow_client._tracking_client._log_url(run.info.run_id)
+
+    out = captured_output.getvalue()
+    expected_fragment = f"/#/experiments/{exp_id}/runs/{run.info.run_id}?workspace=team-space"
+    assert expected_fragment in out
+
+
 def test_assessments_end_to_end(mlflow_client):
-    """Test complete assessment CRUD workflow using REST API."""
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     # Set up experiment and trace
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
     trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=trace_info.request_id)
+    mlflow.flush_trace_async_logging()
 
     # CREATE initial feedback assessment
     feedback_payload = {
@@ -3445,7 +3626,6 @@ def test_assessments_end_to_end(mlflow_client):
 
 
 def test_graphql_nan_metric_handling(mlflow_client):
-    """Test that NaN metric values are correctly handled by returning null in GraphQL responses."""
     experiment_id = mlflow_client.create_experiment("test_graphql_nan_metrics")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
@@ -3682,6 +3862,195 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     assert response.status_code != 200
 
 
+def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_exp_3")
+
+    dataset = create_dataset(
+        name="test_multi_exp_dataset",
+        experiment_id=[exp1],
+        tags={"test": "multi_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+    assert exp1 in dataset.experiment_ids
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 3
+    assert exp1 in retrieved.experiment_ids
+    assert exp2 in retrieved.experiment_ids
+    assert exp3 in retrieved.experiment_ids
+
+
+def test_remove_dataset_from_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_remove_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_remove_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_remove_exp_3")
+
+    dataset = create_dataset(
+        name="test_remove_exp_dataset",
+        experiment_id=[exp1, exp2, exp3],
+        tags={"test": "remove_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 3
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 2
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 0
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 0
+
+
+def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exps = [mlflow_client.create_experiment(f"bulk_add_exp_{i}") for i in range(5)]
+
+    dataset = create_dataset(
+        name="test_bulk_add_dataset",
+        experiment_id=[exps[0]],
+        tags={"test": "bulk_add"},
+    )
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=exps[1:],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 5
+    for exp in exps:
+        assert exp in updated_dataset.experiment_ids
+
+
+def test_dataset_experiment_association_error_cases_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("error_test_exp")
+
+    with pytest.raises(MlflowException, match="not found"):
+        add_dataset_to_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+    with pytest.raises(MlflowException, match="not found"):
+        remove_dataset_from_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+
+def test_idempotent_add_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_idempotent_dataset",
+        experiment_id=[exp1, exp2],
+        tags={"test": "idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 2
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+
+
+def test_idempotent_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("remove_idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("remove_idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_remove_idempotent_dataset",
+        experiment_id=[exp1],
+        tags={"test": "remove_idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 1
+    assert exp1 in updated_dataset.experiment_ids
+
+
+def test_client_api_add_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("client_api_exp_1")
+    exp2 = mlflow_client.create_experiment("client_api_exp_2")
+    exp3 = mlflow_client.create_experiment("client_api_exp_3")
+
+    dataset = mlflow_client.create_dataset(
+        name="test_client_api_dataset",
+        experiment_id=[exp1],
+        tags={"test": "client_api"},
+    )
+
+    updated_dataset = mlflow_client.add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+
+    updated_dataset = mlflow_client.remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+
 def test_scorer_CRUD(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")
@@ -3691,7 +4060,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     store = mlflow_client._tracking_client.store
 
     # Test register scorer
-    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
+    scorer_data = {"name": "test_scorer", "original_func_name": "test_func"}
     serialized_scorer = json.dumps(scorer_data)
 
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
@@ -3722,7 +4091,6 @@ def test_scorer_CRUD(mlflow_client, store_type):
     # Test register second version
     scorer_data_v2 = {
         "name": "test_scorer_v2",
-        "call_source": "test",
         "original_func_name": "test_func_v2",
     }
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
@@ -3756,6 +4124,78 @@ def test_scorer_CRUD(mlflow_client, store_type):
 
     # Clean up
     mlflow_client.delete_experiment(experiment_id)
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "status = 'OK'",
+        None,
+    ],
+)
+def test_online_scoring_config(mlflow_client_with_secrets, filter_string):
+    """
+    Smoke test for online scoring configuration REST APIs.
+    Tests upsert_online_scoring_config and get_online_scoring_configs with both
+    string and None filter values (None is sent by UI when filter field is blank).
+    """
+    experiment_id = mlflow_client_with_secrets.create_experiment("test_online_scoring")
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret", secret_value={"api_key": "sk-test"}, provider="openai"
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
+    )
+
+    scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
+    serialized_scorer = json.dumps(scorer_data)
+    scorer_version = store.register_scorer(experiment_id, "my_scorer", serialized_scorer)
+    scorer_id = scorer_version.scorer_id
+
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.5,
+        filter_string=filter_string,
+    )
+    assert config.scorer_id == scorer_id
+    assert config.sample_rate == 0.5
+    assert config.filter_string == filter_string
+    assert config.experiment_id == experiment_id
+
+    configs = store.get_online_scoring_configs([scorer_id])
+    assert len(configs) == 1
+    assert configs[0].scorer_id == scorer_id
+    assert configs[0].sample_rate == 0.5
+    assert configs[0].filter_string == filter_string
+
+    # Update with different filter string to test update functionality
+    updated_filter = "status = 'COMPLETED'"
+    updated_config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.8,
+        filter_string=updated_filter,
+    )
+    assert updated_config.scorer_id == scorer_id
+    assert updated_config.sample_rate == 0.8
+    assert updated_config.filter_string == updated_filter
+
+    configs_after_update = store.get_online_scoring_configs([scorer_id])
+    assert len(configs_after_update) == 1
+    assert configs_after_update[0].sample_rate == 0.8
+    assert configs_after_update[0].filter_string == updated_filter
 
 
 @pytest.mark.parametrize("use_async", [False, True])
@@ -3806,3 +4246,1284 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
     assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+
+
+# =============================================================================
+# Secrets and Endpoints E2E Tests
+# =============================================================================
+
+
+def test_create_and_get_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-api-key",
+        secret_value={"api_key": "sk-test-12345"},
+        provider="openai",
+    )
+
+    assert secret.secret_name == "test-api-key"
+    assert secret.provider == "openai"
+    assert secret.secret_id is not None
+
+    fetched = store.get_secret_info(secret.secret_id)
+    assert fetched.secret_name == "test-api-key"
+    assert fetched.provider == "openai"
+    assert fetched.secret_id == secret.secret_id
+
+
+def test_update_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-key",
+        secret_value={"api_key": "initial-value"},
+        provider="anthropic",
+    )
+
+    updated = store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={"api_key": "updated-value"},
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.secret_name == "test-key"
+
+
+def test_list_secret_infos(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store.create_gateway_secret(
+        secret_name="openai-key",
+        secret_value={"api_key": "sk-openai"},
+        provider="openai",
+    )
+    store.create_gateway_secret(
+        secret_name="anthropic-key",
+        secret_value={"api_key": "sk-ant"},
+        provider="anthropic",
+    )
+
+    all_secrets = store.list_secret_infos()
+    assert len(all_secrets) >= 2
+
+    openai_secrets = store.list_secret_infos(provider="openai")
+    assert len(openai_secrets) >= 1
+    assert any(s.secret_id == secret1.secret_id for s in openai_secrets)
+
+
+def test_delete_secret(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="temp-key",
+        secret_value={"api_key": "temp-value"},
+    )
+
+    store.delete_gateway_secret(secret.secret_id)
+
+    all_secrets = store.list_secret_infos()
+    assert not any(s.secret_id == secret.secret_id for s in all_secrets)
+
+
+def test_create_secret_with_dict_value(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="aws-creds",
+        secret_value={"aws_access_key_id": "AKIATEST1234", "aws_secret_access_key": "secret123abc"},
+        provider="bedrock",
+    )
+
+    assert secret.secret_name == "aws-creds"
+    assert secret.provider == "bedrock"
+    assert secret.secret_id is not None
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "sec...3abc",
+    }
+
+
+def test_update_secret_with_dict_value(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="aws-creds-update",
+        secret_value={"api_key": "initial-value-1234"},
+        provider="bedrock",
+    )
+
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {"api_key": "ini...1234"}
+
+    updated = store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={
+            "aws_access_key_id": "NEWKEY123456",
+            "aws_secret_access_key": "newsecret1234",
+        },
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.secret_name == "aws-creds-update"
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "NEW...3456",
+        "aws_secret_access_key": "new...1234",
+    }
+
+
+def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="bedrock-aws-creds",
+        secret_value={
+            "aws_access_key_id": "AKIAORIGINAL1234",
+            "aws_secret_access_key": "original-secret-key-1234",
+        },
+        provider="bedrock",
+        auth_config={"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
+    )
+
+    assert secret.secret_name == "bedrock-aws-creds"
+    assert secret.provider == "bedrock"
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "ori...1234",
+    }
+
+    fetched = store.get_secret_info(secret_id=secret.secret_id)
+    assert fetched.secret_id == secret.secret_id
+    assert isinstance(fetched.masked_values, dict)
+    assert fetched.masked_values == secret.masked_values
+
+    updated = store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={
+            "aws_access_key_id": "AKIAROTATED5678",
+            "aws_secret_access_key": "rotated-secret-key-5678",
+        },
+    )
+
+    assert updated.secret_id == secret.secret_id
+    assert updated.last_updated_at > secret.created_at
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "AKI...5678",
+        "aws_secret_access_key": "rot...5678",
+    }
+
+
+def test_create_and_get_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-api-key",
+        secret_value={"api_key": "sk-test-12345"},
+        provider="openai",
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback",
+        secret_value={"api_key": "sk-test-67890"},
+        provider="anthropic",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="test-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-fallback",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+    )
+
+    assert endpoint.name == "test-endpoint"
+    assert endpoint.endpoint_id is not None
+    assert len(endpoint.model_mappings) == 2
+    assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+    assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert endpoint.fallback_config is not None
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
+
+    fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert fetched.name == "test-endpoint"
+    assert fetched.endpoint_id == endpoint.endpoint_id
+    assert len(fetched.model_mappings) == 2
+    assert fetched.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert fetched.fallback_config is not None
+    assert fetched.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert fetched.fallback_config.max_attempts == 2
+
+
+def test_create_endpoint_with_usage_tracking(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="usage-tracking-test-key",
+        secret_value={"api_key": "sk-usage-tracking-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="usage-tracking-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="usage-tracking-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=True,
+    )
+
+    assert endpoint.usage_tracking is True
+    experiment_id = endpoint.experiment_id
+
+    # Experiment is automatically created with usage tracking enabled
+    experiment = mlflow_client_with_secrets.get_experiment(experiment_id)
+    assert experiment.name == "gateway/usage-tracking-endpoint"
+
+
+def test_update_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-api-key-2",
+        secret_value={"api_key": "sk-test-67890"},
+        provider="anthropic",
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-2-fallback",
+        secret_value={"api_key": "sk-test-99999"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="test-model-def-2",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-2-fallback",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="initial-name",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    updated = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        name="updated-name",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
+    )
+
+    assert updated.endpoint_id == endpoint.endpoint_id
+    assert updated.name == "updated-name"
+    assert updated.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert updated.fallback_config is not None
+    assert updated.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert updated.fallback_config.max_attempts == 3
+    assert len(updated.model_mappings) == 2
+
+
+def test_list_endpoints(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store.create_gateway_secret(
+        secret_name="test-api-key-3",
+        secret_value={"api_key": "sk-test-11111"},
+        provider="openai",
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-4",
+        secret_value={"api_key": "sk-test-22222"},
+        provider="openai",
+    )
+    secret3 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback-3",
+        secret_value={"api_key": "sk-test-44444"},
+        provider="anthropic",
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="test-model-def-3",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="test-model-def-4",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+    model_def3 = store.create_gateway_model_definition(
+        name="test-model-def-fallback-3",
+        secret_id=secret3.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
+
+    # Create endpoint without fallback
+    endpoint1 = store.create_gateway_endpoint(
+        name="endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+    # Create endpoint with fallback
+    endpoint2 = store.create_gateway_endpoint(
+        name="endpoint-2",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+    )
+
+    all_endpoints = store.list_gateway_endpoints()
+    assert len(all_endpoints) >= 2
+    endpoint_ids = {e.endpoint_id for e in all_endpoints}
+    assert endpoint1.endpoint_id in endpoint_ids
+    assert endpoint2.endpoint_id in endpoint_ids
+
+    # Find and verify endpoints
+    found_ep1 = next(e for e in all_endpoints if e.endpoint_id == endpoint1.endpoint_id)
+    found_ep2 = next(e for e in all_endpoints if e.endpoint_id == endpoint2.endpoint_id)
+
+    assert found_ep1.routing_strategy is None
+    assert found_ep1.fallback_config is None
+
+    assert found_ep2.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert found_ep2.fallback_config is not None
+    assert found_ep2.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert found_ep2.fallback_config.max_attempts == 2
+
+
+def test_delete_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-api-key-5",
+        secret_value={"api_key": "sk-test-33333"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="test-model-def-5",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="temp-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    all_endpoints = store.list_gateway_endpoints()
+    assert not any(e.endpoint_id == endpoint.endpoint_id for e in all_endpoints)
+
+
+def test_model_definitions(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="model-secret",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="test-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.name == "test-model-def"
+    assert model_def.secret_id == secret.secret_id
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+    assert model_def.model_definition_id is not None
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.model_definition_id == model_def.model_definition_id
+    assert fetched.name == "test-model-def"
+
+    updated = store.update_gateway_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        model_name="gpt-4-turbo",
+    )
+    assert updated.model_definition_id == model_def.model_definition_id
+    assert updated.model_name == "gpt-4-turbo"
+
+    all_defs = store.list_gateway_model_definitions()
+    assert any(d.model_definition_id == model_def.model_definition_id for d in all_defs)
+
+    store.delete_gateway_model_definition(model_def.model_definition_id)
+
+    all_defs_after = store.list_gateway_model_definitions()
+    assert not any(d.model_definition_id == model_def.model_definition_id for d in all_defs_after)
+
+
+def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="attach-detach-secret",
+        secret_value={"api_key": "sk-test-attach"},
+        provider="openai",
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="attach-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    model_def2 = store.create_gateway_model_definition(
+        name="attach-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="attach-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+
+    mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
+    )
+
+    assert mapping.endpoint_id == endpoint.endpoint_id
+    assert mapping.model_definition_id == model_def2.model_definition_id
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 2
+
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+
+    fetched_endpoint_after = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint_after.model_mappings) == 1
+
+
+def test_endpoint_bindings(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="binding-secret",
+        secret_value={"api_key": "sk-test-44444"},
+        provider="openai",
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="binding-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    model_def2 = store.create_gateway_model_definition(
+        name="binding-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint1 = store.create_gateway_endpoint(
+        name="binding-test-endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    endpoint2 = store.create_gateway_endpoint(
+        name="binding-test-endpoint-2",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    binding1 = store.create_endpoint_binding(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER,
+        resource_id="job-123",
+    )
+
+    binding2 = store.create_endpoint_binding(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER,
+        resource_id="job-456",
+    )
+
+    binding3 = store.create_endpoint_binding(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=GatewayResourceType.SCORER,
+        resource_id="job-789",
+    )
+
+    assert binding1.endpoint_id == endpoint1.endpoint_id
+    assert binding1.resource_type == GatewayResourceType.SCORER
+    assert binding1.resource_id == "job-123"
+
+    bindings_endpoint1 = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    assert len(bindings_endpoint1) == 2
+    resource_ids = {b.resource_id for b in bindings_endpoint1}
+    assert binding1.resource_id in resource_ids
+    assert binding2.resource_id in resource_ids
+    assert binding3.resource_id not in resource_ids
+
+    bindings_by_type = store.list_endpoint_bindings(resource_type=GatewayResourceType.SCORER)
+    assert len(bindings_by_type) >= 3
+
+    bindings_by_resource = store.list_endpoint_bindings(resource_id="job-123")
+    assert len(bindings_by_resource) == 1
+    assert bindings_by_resource[0].resource_id == binding1.resource_id
+
+    bindings_multi = store.list_endpoint_bindings(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=GatewayResourceType.SCORER,
+    )
+    assert len(bindings_multi) == 2
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding1.endpoint_id,
+        resource_type=binding1.resource_type.value,
+        resource_id=binding1.resource_id,
+    )
+
+    bindings_after = store.list_endpoint_bindings(endpoint_id=endpoint1.endpoint_id)
+    assert len(bindings_after) == 1
+    assert not any(b.resource_id == binding1.resource_id for b in bindings_after)
+
+
+def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="integration-test-key",
+        secret_value={"api_key": "sk-integration-test"},
+        provider="openai",
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="integration-model-def-1",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    model_def2 = store.create_gateway_model_definition(
+        name="integration-model-def-2",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="integration-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    mapping = store.attach_model_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
+    )
+
+    binding = store.create_endpoint_binding(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=GatewayResourceType.SCORER,
+        resource_id="integration-job",
+    )
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 2
+    mapping_ids = {m.mapping_id for m in fetched_endpoint.model_mappings}
+    assert mapping.mapping_id in mapping_ids
+
+    bindings = store.list_endpoint_bindings(resource_id="integration-job")
+    assert len(bindings) == 1
+    assert bindings[0].resource_id == binding.resource_id
+
+    store.delete_endpoint_binding(
+        endpoint_id=binding.endpoint_id,
+        resource_type=binding.resource_type.value,
+        resource_id=binding.resource_id,
+    )
+    store.detach_model_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        model_definition_id=model_def2.model_definition_id,
+    )
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+    store.delete_gateway_model_definition(model_def1.model_definition_id)
+    store.delete_gateway_model_definition(model_def2.model_definition_id)
+    store.delete_gateway_secret(secret.secret_id)
+
+
+def test_list_providers(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-providers")
+    assert response.status_code == 200
+    data = response.json()
+    assert "providers" in data
+    assert isinstance(data["providers"], list)
+    assert len(data["providers"]) > 0
+    assert "openai" in data["providers"]
+
+
+def test_list_models(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+
+    model = data["models"][0]
+    assert "model" in model
+    assert "provider" in model
+    assert "mode" in model
+    assert all(not m["model"].startswith("ft:") for m in data["models"])
+
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
+    )
+    assert response.status_code == 200
+    filtered_data = response.json()
+    assert all(m["provider"] == "openai" for m in filtered_data["models"])
+
+
+def test_get_provider_config(mlflow_client_with_secrets):
+    import requests
+
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    # Test simple provider (openai) - should have single api_key auth mode
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
+        params={"provider": "openai"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "auth_modes" in data
+    assert "default_mode" in data
+    assert data["default_mode"] == "api_key"
+    assert len(data["auth_modes"]) >= 1
+    api_key_mode = data["auth_modes"][0]
+    assert api_key_mode["mode"] == "api_key"
+
+    # Test multi-mode provider (bedrock) - should have multiple auth modes
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
+        params={"provider": "bedrock"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "auth_modes" in data
+    assert data["default_mode"] == "api_key"
+    assert len(data["auth_modes"]) >= 2  # api_key, access_keys, iam_role
+
+    # Check access_keys mode structure
+    access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
+    assert len(access_keys_mode["secret_fields"]) == 2  # access_key_id, secret_access_key
+    assert any(f["name"] == "aws_secret_access_key" for f in access_keys_mode["secret_fields"])
+    assert any(f["name"] == "aws_region_name" for f in access_keys_mode["config_fields"])
+
+    # Check iam_role mode exists
+    iam_role_mode = next(m for m in data["auth_modes"] if m["mode"] == "iam_role")
+    assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
+
+    # Unknown providers get a generic fallback
+    response = requests.get(
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
+        params={"provider": "unknown_provider"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["default_mode"] == "api_key"
+    assert data["auth_modes"][0]["mode"] == "api_key"
+    assert data["auth_modes"][0]["config_fields"][0]["name"] == "api_base"
+
+    # Missing provider parameter returns 400
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
+    assert response.status_code == 400
+
+
+def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["secrets_available"] is True
+    assert data["using_default_passphrase"] is False
+
+
+def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch):
+    from tests.tracking.integration_test_utils import ServerThread, get_safe_port
+
+    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
+
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
+        response = requests.get(f"{url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["secrets_available"] is True
+        assert data["using_default_passphrase"] is True
+
+
+def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="orphan-test-key",
+        secret_value={"api_key": "sk-orphan-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="orphan-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="orphan-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.secret_id == secret.secret_id
+    assert endpoint.model_mappings[0].model_definition.secret_name == "orphan-test-key"
+
+    store.delete_gateway_secret(secret.secret_id)
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 1
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_id is None
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_name is None
+
+
+def test_update_model_definition_provider(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="provider-update-secret",
+        secret_value={"api_key": "sk-provider-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="provider-update-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+
+    updated = store.update_gateway_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        provider="anthropic",
+        model_name="claude-3-5-haiku-latest",
+    )
+
+    assert updated.provider == "anthropic"
+    assert updated.model_name == "claude-3-5-haiku-latest"
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.provider == "anthropic"
+    assert fetched.model_name == "claude-3-5-haiku-latest"
+
+    store.delete_gateway_model_definition(model_def.model_definition_id)
+    store.delete_gateway_secret(secret.secret_id)
+
+
+def test_create_issue_with_all_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("Issue Test")
+    run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "High latency issue",
+            "description": "API calls are taking too long",
+            "status": IssueStatus.PENDING.value,
+            "source_run_id": run.info.run_id,
+            "root_causes": ["Database query inefficiency", "Network latency"],
+            "severity": IssueSeverity.HIGH.value,
+            "created_by": "test-user",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "issue" in data
+    issue = data["issue"]
+    assert issue["experiment_id"] == experiment_id
+    assert issue["name"] == "High latency issue"
+    assert issue["description"] == "API calls are taking too long"
+    assert issue["status"] == IssueStatus.PENDING.value
+    assert issue["source_run_id"] == run.info.run_id
+    assert issue["root_causes"] == ["Database query inefficiency", "Network latency"]
+    assert issue["severity"] == IssueSeverity.HIGH.value
+    assert issue["created_by"] == "test-user"
+    assert "issue_id" in issue
+    assert "created_timestamp" in issue
+    assert "last_updated_timestamp" in issue
+
+
+def test_create_issue_minimal_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Minimal")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Test issue",
+            "description": "Test description",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    issue = data["issue"]
+    assert issue["experiment_id"] == experiment_id
+    assert issue["name"] == "Test issue"
+    assert issue["description"] == "Test description"
+    assert issue["status"] == IssueStatus.PENDING.value
+    assert "issue_id" in issue
+
+
+def test_create_issue_with_required_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Required Fields")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Issue with required fields only",
+            "description": "Testing issue creation with required fields",
+            "status": IssueStatus.RESOLVED.value,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    issue = data["issue"]
+    assert issue["status"] == IssueStatus.RESOLVED.value
+    assert "issue_id" in issue
+    assert "created_timestamp" in issue
+    assert "last_updated_timestamp" in issue
+
+
+def test_create_issue_invalid_experiment(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": "999999",
+            "name": "Test issue",
+            "description": "Test description",
+        },
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_issue(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Get")
+
+    create_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Test issue",
+            "description": "Test description",
+            "severity": IssueSeverity.MEDIUM.value,
+        },
+    )
+    issue_id = create_response.json()["issue"]["issue_id"]
+
+    get_response = requests.get(f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/{issue_id}")
+    assert get_response.status_code == 200
+    data = get_response.json()
+    issue = data["issue"]
+    assert issue["issue_id"] == issue_id
+    assert issue["name"] == "Test issue"
+    assert issue["severity"] == IssueSeverity.MEDIUM.value
+
+
+def test_get_issue_not_found(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    response = requests.get(f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/nonexistent-issue")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_update_issue(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Update")
+
+    create_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Original name",
+            "description": "Original description",
+            "status": IssueStatus.PENDING.value,
+        },
+    )
+    issue_id = create_response.json()["issue"]["issue_id"]
+
+    update_response = requests.patch(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/{issue_id}",
+        json={
+            "issue_id": issue_id,
+            "name": "Updated name",
+            "description": "Updated description",
+            "status": IssueStatus.RESOLVED.value,
+            "severity": IssueSeverity.HIGH.value,
+        },
+    )
+    assert update_response.status_code == 200
+    data = update_response.json()
+    issue = data["issue"]
+    assert issue["issue_id"] == issue_id
+    assert issue["name"] == "Updated name"
+    assert issue["description"] == "Updated description"
+    assert issue["status"] == IssueStatus.RESOLVED.value
+    assert issue["severity"] == IssueSeverity.HIGH.value
+
+
+def test_search_issues_no_filters(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Search")
+
+    for i in range(3):
+        requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search", json={}
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    assert "issues" in data
+    assert len(data["issues"]) == 3
+    assert {issue["name"] for issue in data["issues"]} == {"Issue 0", "Issue 1", "Issue 2"}
+    assert {issue["status"] for issue in data["issues"]} == {IssueStatus.PENDING.value}
+
+
+def test_search_issues_by_experiment(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    exp1 = mlflow_client.create_experiment("Issue Test Search Exp1")
+    exp2 = mlflow_client.create_experiment("Issue Test Search Exp2")
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": exp1,
+            "name": "Issue in exp1",
+            "description": "Description",
+        },
+    )
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": exp2,
+            "name": "Issue in exp2",
+            "description": "Description",
+        },
+    )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": exp1},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert len(issues) == 1
+    assert issues[0]["experiment_id"] == exp1
+    assert issues[0]["name"] == "Issue in exp1"
+
+
+def test_search_issues_by_status(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Search Status")
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Draft issue",
+            "description": "Description",
+            "status": IssueStatus.PENDING.value,
+        },
+    )
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Confirmed issue",
+            "description": "Description",
+            "status": IssueStatus.RESOLVED.value,
+        },
+    )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id, "filter_string": "status = 'resolved'"},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert all(issue["status"] == IssueStatus.RESOLVED.value for issue in issues)
+    assert any(issue["name"] == "Confirmed issue" for issue in issues)
+
+
+def test_search_issues_with_pagination(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Pagination")
+
+    for i in range(15):
+        requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+
+    first_page = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id, "max_results": 10},
+    )
+    assert first_page.status_code == 200
+    first_data = first_page.json()
+    assert len(first_data["issues"]) == 10
+    assert "next_page_token" in first_data
+    assert first_data["next_page_token"] != ""
+
+    second_page = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={
+            "experiment_id": experiment_id,
+            "max_results": 10,
+            "page_token": first_data["next_page_token"],
+        },
+    )
+    assert second_page.status_code == 200
+    second_data = second_page.json()
+    assert len(second_data["issues"]) == 5
+    assert second_data["next_page_token"] == ""
+
+
+def test_search_issues_sorted_by_timestamp(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Sort")
+
+    # Create issues with slight delays to ensure different timestamps
+    issue_ids = []
+    for i in range(3):
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+        issue_ids.append(response.json()["issue"]["issue_id"])
+        time.sleep(0.01)  # Small delay to ensure different timestamps
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert len(issues) == 3
+    # Issues should be returned (default order is by created_timestamp descending)
+    assert {issue["issue_id"] for issue in issues} == set(issue_ids)

@@ -125,6 +125,22 @@ def mock_file_client(mock_directory_client):
             "dfs.core.usgovcloudapi.net",
             "a/b",
         ),
+        (
+            "abfss://filesystem@acct.dfs.core.windows.net/Pharma/Marketing%20Navigator",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "Pharma/Marketing Navigator",
+        ),
+        (
+            # %2F decodes to "/", which lstrip("/") removes so downstream ADLS
+            # calls receive a relative path.
+            "abfss://filesystem@acct.dfs.core.windows.net/%2Ffoo/bar",
+            "filesystem",
+            "acct",
+            "dfs.core.windows.net",
+            "foo/bar",
+        ),
     ],
 )
 def test_parse_valid_abfss_uri(uri, filesystem, account, region_suffix, path):
@@ -285,9 +301,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, credential=TEST_CREDENTIAL)
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{ADLS_ARTIFACT_REPOSITORY}.list_artifacts",
@@ -319,6 +333,54 @@ def test_download_file_artifact(mock_directory_client, mock_file_client, tmp_pat
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmp_path, "test.txt"))
     mock_directory_client.get_file_client.assert_called_once_with("test.txt")
+
+
+TEST_ENCODED_ROOT_PATH = "Pharma/Commercial/Global/Marketing%20Navigator"
+TEST_DECODED_ROOT_PATH = "Pharma/Commercial/Global/Marketing Navigator"
+TEST_DATA_LAKE_URI_ENCODED = posixpath.join(TEST_DATA_LAKE_URI_BASE, TEST_ENCODED_ROOT_PATH)
+
+
+def test_log_artifact_decodes_percent_encoded_path(
+    mock_filesystem_client, mock_directory_client, tmp_path
+):
+    # Paths with %20 must be decoded before being handed to the Azure SDK,
+    # otherwise the SDK re-quotes them (%2520) and a SAS signature minted over
+    # the decoded path fails validation.
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI_ENCODED, credential=TEST_CREDENTIAL)
+
+    f = tmp_path.joinpath("b.txt")
+    f.write_text("B")
+    repo.log_artifact(f)
+
+    mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_DECODED_ROOT_PATH)
+    assert "%20" not in mock_filesystem_client.get_directory_client.call_args[0][0]
+
+
+def test_list_artifacts_decodes_percent_encoded_path(mock_filesystem_client):
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI_ENCODED, credential=TEST_CREDENTIAL)
+    mock_filesystem_client.get_paths.return_value = MockPathList([])
+
+    repo.list_artifacts()
+
+    mock_filesystem_client.get_paths.assert_called_once_with(
+        path=TEST_DECODED_ROOT_PATH, recursive=False
+    )
+
+
+def test_download_decodes_percent_encoded_path(
+    mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
+):
+    repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI_ENCODED, credential=TEST_CREDENTIAL)
+
+    def create_file(file):
+        tmp_path.joinpath(os.path.basename(file.name)).write_text("hello")
+
+    mock_file_client.download_file().readinto.side_effect = create_file
+    repo.download_artifacts("test.txt")
+
+    base_dir = mock_filesystem_client.get_directory_client.call_args[0][0]
+    assert base_dir == TEST_DECODED_ROOT_PATH
+    assert "%20" not in base_dir
 
 
 def test_download_directory_artifact(mock_filesystem_client, mock_file_client, tmp_path):
@@ -402,10 +464,8 @@ def test_refresh_credentials():
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=first_credential)
 
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("test.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=second_credential)
 

@@ -94,7 +94,12 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
             value={runInfo?.experimentId ?? ''}
             element={
               runInfo?.experimentId ? (
-                <Link to={Routes.getExperimentPageRoute(runInfo.experimentId)}>{runInfo?.experimentId}</Link>
+                <Link
+                  componentId="mlflow.run_page.overview.experiment_id_link"
+                  to={Routes.getExperimentPageRoute(runInfo.experimentId)}
+                >
+                  {runInfo?.experimentId}
+                </Link>
               ) : undefined
             }
           />
@@ -105,7 +110,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           defaultMessage: 'Status',
           description: 'Run page > Overview > Run status section label',
         })}
-        value={<RunViewStatusBox status={runInfo.status} />}
+        value={<RunViewStatusBox status={runInfo.status} useSpinner />}
       />
 
       <KeyValueProperty
@@ -133,7 +138,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
         />
       )}
-      <RunViewChildRunsBox runUuid={runUuid} experimentId={runInfo.experimentId!} />
+      <RunViewChildRunsBox runUuid={runUuid} experimentId={runInfo.experimentId ?? ''} />
       <KeyValueProperty
         keyValue={intl.formatMessage({
           defaultMessage: 'Source',

@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -19,7 +20,7 @@ import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import type { ColumnDef, Table as TableDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
@@ -88,6 +89,7 @@ const RunViewMetricsTableSection = ({
               }}
             >
               <Link
+                componentId="mlflow.run_page.overview.metric_chart_link"
                 to={Routes.getRunPageTabRoute(
                   runInfo.experimentId ?? '',
                   runInfo.runUuid ?? '',
@@ -114,6 +116,7 @@ const RunViewMetricsTableSection = ({
                   <Overflow>
                     {loggedModels?.map((model) => (
                       <Link
+                        componentId="mlflow.run_page.overview.metric_model_link"
                         key={model.info?.model_id}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -145,10 +148,12 @@ export const RunViewMetricsTable = ({
   latestMetrics,
   runInfo,
   loggedModels,
+  expandToParentContainer,
 }: {
   latestMetrics: MetricEntitiesByName;
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   loggedModels?: LoggedModelProto[];
+  expandToParentContainer?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
@@ -207,6 +212,7 @@ export const RunViewMetricsTable = ({
       {
         id: 'key',
         accessorKey: 'key',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Metric"
@@ -218,6 +224,7 @@ export const RunViewMetricsTable = ({
       },
       {
         id: 'value',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Value"
@@ -257,14 +264,17 @@ export const RunViewMetricsTable = ({
     ];
   }, [filter, metricValues, intl]);
 
-  const table = useReactTable<MetricEntity>({
-    data: metricValues,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.key,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable<MetricEntity>(
+    'mlflow/server/js/src/experiment-tracking/components/run-page/overview/RunViewMetricsTable.tsx',
+    {
+      data: metricValues,
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.key,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (!metricValues.length) {
@@ -351,7 +361,7 @@ export const RunViewMetricsTable = ({
   return (
     <div
       css={{
-        flex: '0 0 auto',
+        flex: expandToParentContainer ? 1 : '0 0 auto',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -371,7 +381,7 @@ export const RunViewMetricsTable = ({
           borderRadius: theme.general.borderRadiusBase,
           display: 'flex',
           flexDirection: 'column',
-          flex: 1,
+          flex: expandToParentContainer ? 1 : '0 0 auto',
           overflow: 'hidden',
         }}
       >

@@ -38,10 +38,12 @@ export const withNextModelsUIContext =
   ) =>
   (props: P) => {
     const [usingNextModelsUI, setUsingNextModelsUI] = useState(
+      // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
       localStorage.getItem(useOldModelsUIStorageKey) !== 'true',
     );
 
     useEffect(() => {
+      // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
       localStorage.setItem(useOldModelsUIStorageKey, (!usingNextModelsUI).toString());
     }, [usingNextModelsUI]);
 

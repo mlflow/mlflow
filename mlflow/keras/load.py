@@ -102,13 +102,11 @@ def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=
         import mlflow
         import numpy as np
 
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
         with mlflow.start_run() as run:
             mlflow.keras.log_model(model)
 

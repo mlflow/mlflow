@@ -15,6 +15,7 @@ export const createLoadMoreRow = () => ({
  * button displayed at the bottom of the grid
  */
 export const LoadMoreRowRenderer = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({ loadMoreRunsFunc }: ICellRendererParams & { loadMoreRunsFunc: () => void }) => (
     <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 32 }}>
       <Button

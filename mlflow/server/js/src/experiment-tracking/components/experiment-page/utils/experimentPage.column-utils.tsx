@@ -6,8 +6,10 @@ import type {
   IsFullWidthRowParams,
   SuppressKeyboardEventParams,
 } from '@ag-grid-community/core';
-import { Spinner, SpinnerProps, useDesignSystemTheme } from '@databricks/design-system';
-import React, { useEffect, useMemo, useRef } from 'react';
+import type { SpinnerProps } from '@databricks/design-system';
+import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import type React from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../constants';
@@ -26,7 +28,7 @@ import {
   getQualifiedEntityName,
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
-import { RunRowType } from './experimentPage.row-types';
+import type { RunRowType } from './experimentPage.row-types';
 import {
   RowActionsCellRenderer,
   RowActionsCellRendererSuppressKeyboardEvents,
@@ -38,7 +40,7 @@ import {
   DatasetsCellRenderer,
   DatasetsCellRendererSuppressKeyboardEvents,
 } from '../components/runs/cells/DatasetsCellRenderer';
-import { RunDatasetWithTags } from '../../../types';
+import type { RunDatasetWithTags } from '../../../types';
 import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetricValueCell';
 import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
@@ -74,7 +76,7 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
-const UntrackedSpinner: React.FC<SpinnerProps> = ({ loading, ...props }) => {
+const UntrackedSpinner: React.FC<React.PropsWithChildren<SpinnerProps>> = ({ loading, ...props }) => {
   return Spinner({ loading: false, ...props });
 };
 
@@ -278,6 +280,12 @@ export const useRunsColumnDefinitions = ({
       width: getActionsColumnWidth(isComparingRuns),
       maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
+      // Structural selection column: must stay pinned far-left and never reorder.
+      // `lockPosition` anchors it to the first (leftmost) slot so neither applyColumnState nor
+      // resetColumnState can shuffle it (it has no colId and would otherwise get
+      // pushed after the listed pinned columns). suppressMovable blocks user drag.
+      lockPosition: true,
+      suppressMovable: true,
       suppressKeyboardEvent: RowActionsCellRendererSuppressKeyboardEvents,
     });
 
@@ -303,6 +311,8 @@ export const useRunsColumnDefinitions = ({
       initialWidth: isRunColumnDynamicSized ? undefined : RUN_NAME_COLUMN_WIDTH,
       flex: isRunColumnDynamicSized ? 1 : undefined,
       resizable: !isComparingRuns,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
       suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
@@ -329,6 +339,8 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialWidth: 150,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
     });
 
     // Datasets column - guarded by a feature flag
@@ -575,5 +587,5 @@ export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {
   resizable: true,
   filter: true,
   suppressMenu: true,
-  suppressMovable: true,
+  suppressMovable: false,
 };

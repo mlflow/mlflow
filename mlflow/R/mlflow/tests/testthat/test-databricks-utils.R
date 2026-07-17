@@ -3,13 +3,13 @@ context("databricks-utils")
 library(withr)
 
 test_that("mlflow creates databricks client when scheme is databricks", {
-  with_mock(.env = "mlflow", get_databricks_config = function(profile) {
+  with_mocked_bindings(.package = "mlflow", get_databricks_config = function(profile) {
       config_vars <- list(host = "databricks-host", token = "databricks")
       config <- new_databricks_config( config_source = "env", config_vars = config_vars)
       config$profile <- profile
       config
   }, {
-    with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
+    with_mocked_bindings(.package = "mlflow", mlflow_rest = function(..., client) {
       args <- list(...)
       expect_true(paste(args, collapse = "/") == "experiments/list")
       list(experiments = c(1, 2, 3))
@@ -32,7 +32,7 @@ test_that("mlflow creates databricks client when scheme is databricks", {
 })
 
 test_that("mlflow reads databricks config from correct sources", {
-  with_mock(.env = "mlflow", get_databricks_config_for_profile = function(profile) list(
+  with_mocked_bindings(.package = "mlflow", get_databricks_config_for_profile = function(profile) list(
     host = "databricks-host", token = "databricks", profile = profile), {
       config <- get_databricks_config("profile")
       expect_true(config$profile == "profile")
@@ -45,7 +45,7 @@ test_that("mlflow reads databricks config from correct sources", {
       expect_true(config$host == "databricks-host")
       expect_true(config$token == "databricks")
 
-      with_mock(.env = "mlflow",
+      with_mocked_bindings(.package = "mlflow",
         get_databricks_config_from_env = function() {
             new_databricks_config("env", list(host = "host"))
         }, {
@@ -55,7 +55,7 @@ test_that("mlflow reads databricks config from correct sources", {
         expect_true(config$host == "databricks-host")
         expect_true(config$token == "databricks")
       })
-      with_mock(.env = "mlflow",
+      with_mocked_bindings(.package = "mlflow",
         get_databricks_config_from_env = function() {
             new_databricks_config("env", list(host = "env", token = "env"))
         }, {
@@ -265,17 +265,11 @@ test_that("databricks get run context fetches expected info for job environment"
 #' the databricks run context delegates to the next context provider
 test_that("databricks get run context succeeds when job info function is unavailable", {
   run_with_mock_notebook_and_job_info(function() {
-    test_env = new.env()
-    test_env$next_method_calls <- 0
-    mock_next_method = function() {
-      test_env$next_method_calls <- test_env$next_method_calls + 1
-    }
-    testthat::with_mock(NextMethod = mock_next_method, {
-      context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
-        mlflow:::mlflow_client("databricks"),
-        experiment_id = 0
-      )
-    })
-    expect_true(test_env$next_method_calls == 1)
+    context <- mlflow:::mlflow_get_run_context(
+      mlflow:::mlflow_client("databricks"),
+      experiment_id = 0
+    )
+    expect_equal(context$tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]], MLFLOW_SOURCE_TYPE$LOCAL)
+    expect_false(any(startsWith(names(context$tags), "mlflow.databricks.")))
   }, notebook_info = NULL, job_info = NULL)
 })

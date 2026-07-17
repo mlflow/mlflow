@@ -9,7 +9,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _enforce_schema
+from mlflow.models.utils import PyFuncOutput, _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
@@ -51,77 +51,59 @@ class CustomModel2(pydantic.BaseModel):
     [
         (
             list[CustomModel],
-            Schema(
-                [
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property(name="long_field", dtype=DataType.long),
-                                Property(name="str_field", dtype=DataType.string),
-                                Property(name="bool_field", dtype=DataType.boolean),
-                                Property(name="double_field", dtype=DataType.double),
-                                Property(name="binary_field", dtype=DataType.binary),
-                                Property(name="datetime_field", dtype=DataType.datetime),
-                                Property(name="any_field", dtype=AnyType()),
-                                Property(
-                                    name="optional_str", dtype=DataType.string, required=False
-                                ),
-                            ]
-                        )
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    type=Object([
+                        Property(name="long_field", dtype=DataType.long),
+                        Property(name="str_field", dtype=DataType.string),
+                        Property(name="bool_field", dtype=DataType.boolean),
+                        Property(name="double_field", dtype=DataType.double),
+                        Property(name="binary_field", dtype=DataType.binary),
+                        Property(name="datetime_field", dtype=DataType.datetime),
+                        Property(name="any_field", dtype=AnyType()),
+                        Property(name="optional_str", dtype=DataType.string, required=False),
+                    ])
+                )
+            ]),
         ),
         (
             list[list[CustomModel]],
-            Schema(
-                [
-                    ColSpec(
-                        type=Array(
-                            Object(
-                                [
-                                    Property(name="long_field", dtype=DataType.long),
-                                    Property(name="str_field", dtype=DataType.string),
-                                    Property(name="bool_field", dtype=DataType.boolean),
-                                    Property(name="double_field", dtype=DataType.double),
-                                    Property(name="binary_field", dtype=DataType.binary),
-                                    Property(name="datetime_field", dtype=DataType.datetime),
-                                    Property(name="any_field", dtype=AnyType()),
-                                    Property(
-                                        name="optional_str", dtype=DataType.string, required=False
-                                    ),
-                                ]
-                            )
-                        )
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property(name="long_field", dtype=DataType.long),
+                            Property(name="str_field", dtype=DataType.string),
+                            Property(name="bool_field", dtype=DataType.boolean),
+                            Property(name="double_field", dtype=DataType.double),
+                            Property(name="binary_field", dtype=DataType.binary),
+                            Property(name="datetime_field", dtype=DataType.datetime),
+                            Property(name="any_field", dtype=AnyType()),
+                            Property(name="optional_str", dtype=DataType.string, required=False),
+                        ])
                     )
-                ]
-            ),
+                )
+            ]),
         ),
         (
             list[CustomModel2],
-            Schema(
-                [
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property(name="custom_field", dtype=Map(AnyType())),
-                                Property(
-                                    name="messages",
-                                    dtype=Array(
-                                        Object(
-                                            [
-                                                Property(name="role", dtype=DataType.string),
-                                                Property(name="content", dtype=DataType.string),
-                                            ]
-                                        )
-                                    ),
-                                ),
-                                Property(name="optional_int", dtype=DataType.long, required=False),
-                            ]
-                        )
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    type=Object([
+                        Property(name="custom_field", dtype=Map(AnyType())),
+                        Property(
+                            name="messages",
+                            dtype=Array(
+                                Object([
+                                    Property(name="role", dtype=DataType.string),
+                                    Property(name="content", dtype=DataType.string),
+                                ])
+                            ),
+                        ),
+                        Property(name="optional_int", dtype=DataType.long, required=False),
+                    ])
+                )
+            ]),
         ),
     ],
 )
@@ -506,3 +488,22 @@ def test_convert_dataframe_to_example_format(data):
         pd.testing.assert_frame_equal(converted_data, data)
     else:
         assert converted_data == data
+
+
+def test_dict_in_pyfunc_output():
+    """
+    Ensure dict is in PyFuncOutput union.
+
+    ResponsesAgent, ChatAgent, and ChatModel all return dict[str, Any]
+    at runtime via their pyfunc wrappers. PyFuncOutput must include dict
+    to accurately reflect this behavior.
+    """
+    output_types = get_args(PyFuncOutput)
+    # Check if dict is in the union (it could be dict or dict[str, Any])
+    has_dict = any(
+        t is dict or (hasattr(t, "__origin__") and t.__origin__ is dict) for t in output_types
+    )
+    assert has_dict, (
+        f"dict must be in PyFuncOutput for ResponsesAgent/ChatAgent/ChatModel. "
+        f"Current types: {output_types}"
+    )

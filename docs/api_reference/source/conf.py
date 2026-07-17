@@ -26,10 +26,28 @@ sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
 import languagesections
+import sphinx.ext.napoleon as _napoleon
 from docutils.nodes import Text
+from docutils.parsers.rst import directives
 from sphinx.addnodes import pending_xref
+from sphinx.directives.code import CodeBlock
 
 import mlflow
+
+# Pydantic's BaseModel always has MockValSer placeholders for __pydantic_validator__ and
+# __pydantic_serializer__. Accessing __qualname__ on them raises PydanticUserError instead
+# of AttributeError, crashing Napoleon's _skip_member. Wrap it before Napoleon's setup()
+# registers it so MockValSer objects are silently skipped.
+_original_napoleon_skip_member = _napoleon._skip_member
+
+
+def _napoleon_skip_member_safe(app, what, name, obj, skip, options):
+    if "MockValSer" in type(obj).__name__:
+        return True
+    return _original_napoleon_skip_member(app, what, name, obj, skip, options)
+
+
+_napoleon._skip_member = _napoleon_skip_member_safe
 
 # -- General configuration ------------------------------------------------
 
@@ -45,8 +63,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
     "sphinx_tabs.tabs",
-    "testcode_block",
-    "nbsphinx",
     "sphinx_reredirects",
 ]
 
@@ -277,7 +293,16 @@ latex_documents = [
 
 # Mock torch imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "langchain_core", "langgraph"]
+autodoc_mock_imports = [
+    "torch",
+    "pytorch_lightning",
+    "langchain_core",
+    "langgraph",
+    "langchain_community",
+    "langchain_community.chat_models",
+    "langchain_community.llms",
+    "ragas",
+]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -419,8 +444,18 @@ def env_updated(app: Sphinx, env: BuildEnvironment) -> None:
     path.write_text("\n".join(sorted(items)) + "\n")
 
 
+class TestCodeBlockDirective(CodeBlock):
+    """
+    Overrides the `code-block` directive to accept the `:test:` option.
+    The actual test extraction is done by the standalone testcode_block.py script.
+    """
+
+    option_spec = {**CodeBlock.option_spec, "test": directives.flag}
+
+
 def setup(app):
     languagesections.setup(app)
+    app.add_directive("code-block", TestCodeBlockDirective, override=True)
     app.connect("doctree-read", resolve_missing_references)
     app.connect("env-updated", env_updated)
 

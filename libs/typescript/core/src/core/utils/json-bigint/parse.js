@@ -102,7 +102,7 @@ var json_parse = function (options) {
     alwaysParseAsBig: false, // toggles whether all numbers should be Big
     useNativeBigInt: false, // toggles whether to use native BigInt instead of bignumber.js
     protoAction: 'error',
-    constructorAction: 'error'
+    constructorAction: 'error',
   };
 
   // If there are options, then use them to override the default _options
@@ -126,7 +126,7 @@ var json_parse = function (options) {
         _options.constructorAction = options.constructorAction;
       } else {
         throw new Error(
-          `Incorrect value for constructorAction option, must be "error", "ignore" or undefined but passed ${options.constructorAction}`
+          `Incorrect value for constructorAction option, must be "error", "ignore" or undefined but passed ${options.constructorAction}`,
         );
       }
     }
@@ -140,7 +140,7 @@ var json_parse = function (options) {
         _options.protoAction = options.protoAction;
       } else {
         throw new Error(
-          `Incorrect value for protoAction option, must be "error", "ignore" or undefined but passed ${options.protoAction}`
+          `Incorrect value for protoAction option, must be "error", "ignore" or undefined but passed ${options.protoAction}`,
         );
       }
     }
@@ -156,7 +156,7 @@ var json_parse = function (options) {
       f: '\f',
       n: '\n',
       r: '\r',
-      t: '\t'
+      t: '\t',
     },
     text,
     error = function (m) {
@@ -166,7 +166,7 @@ var json_parse = function (options) {
         name: 'SyntaxError',
         message: m,
         at: at,
-        text: text
+        text: text,
       };
     },
     next = function (c) {

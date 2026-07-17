@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';
@@ -116,9 +117,24 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('SyntaxHighlighter treats jsonl files as json', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('{"key1": "val1"}\n{"key2": "val2"}');
+    });
+    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('json');
+      done();
+    });
+  });
+
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
-    instance.fetchArtifacts = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchArtifacts').mockImplementation();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();
@@ -144,5 +160,60 @@ describe('ShowArtifactTextView', () => {
   test('should leave invalid json untouched', () => {
     const outputText = prettifyArtifactText('json', '{"hello');
     expect(outputText).toBe('{"hello');
+  });
+
+  test('should leave jsonl content unformatted', () => {
+    const outputText = prettifyArtifactText('json', '{"key1":"val1"}\n{"key2":"val2"}', 'events.jsonl');
+    expect(outputText).toBe('{"key1":"val1"}\n{"key2":"val2"}');
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should use virtualized renderer for very large files', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('large file content');
+    });
+    const props = { ...minimalProps, getArtifact, size: 10 * 1024 * 1024 }; // 10MB
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeDefined();
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should not use virtualized renderer for small files', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('small file content');
+    });
+    const props = { ...minimalProps, getArtifact, size: 1024 }; // 1KB
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeUndefined();
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should use virtualized renderer for line-heavy files below the size threshold', (done) => {
+    // Small in bytes but many lines: the [].concat(...lines) spill crashes on line count, not size.
+    const lineHeavyContent = Array.from({ length: 60 * 1000 }, (_, i) => `line ${i}`).join('\n');
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(lineHeavyContent);
+    });
+    const props = { ...minimalProps, getArtifact, size: 1024 }; // 1KB reported size
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeDefined();
+      done();
+    });
   });
 });

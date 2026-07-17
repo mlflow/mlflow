@@ -49,7 +49,7 @@ mlflow run . -P n_trials=5 -P max_epochs=3
 After running, view the results in MLflow UI:
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 Navigate to http://localhost:5000 to see:

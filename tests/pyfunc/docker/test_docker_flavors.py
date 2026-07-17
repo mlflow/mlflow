@@ -1,21 +1,9 @@
-"""
-This test class is used for comprehensive testing of serving docker images for all MLflow flavors.
-As such, it is not intended to be run on a regular basis and is skipped by default. Rather, it
-should be run manually when making changes to the core docker logic.
-
-To run this test, run the following command manually
-
-    $ pytest tests/pyfunc/test_docker_flavors.py
-
-"""
-
 import contextlib
 import os
 import shutil
 import sys
 import threading
 import time
-from operator import itemgetter
 
 import pandas as pd
 import pytest
@@ -29,16 +17,11 @@ from mlflow.models.utils import load_serving_example
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
-    from tests.diviner.test_diviner_model_export import (  # noqa: F401
-        diviner_data,
-        grouped_prophet,
-    )
     from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
     from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
     from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
-    from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
     from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
         auto_arima_object_model,
         test_data,
@@ -78,7 +61,7 @@ def model_path(tmp_path):
     # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
     # by default. This is useful for debugging during local testing, but in CI it just wastes the
     # disk space.
-    if os.getenv("GITHUB_ACTIONS") == "true":
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
 
@@ -95,7 +78,7 @@ def start_container(port: int):
             sys.stdout.write(line.decode("utf-8"))
 
     # Start a thread to stream logs from the container
-    t = threading.Thread(target=stream_logs, daemon=True)
+    t = threading.Thread(name="docker-log-stream", target=stream_logs, daemon=True)
     t.start()
 
     try:
@@ -129,7 +112,6 @@ def start_container(port: int):
     ("flavor"),
     [
         "catboost",
-        "diviner",
         "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
@@ -137,7 +119,7 @@ def start_container(port: int):
         "lightgbm",
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
-        "paddle",
+        # "paddle",  # Disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
         "pmdarima",
         "prophet",
         "pyfunc",
@@ -194,17 +176,6 @@ def catboost_model(model_path, reg_model):
 
 
 @pytest.fixture
-def diviner_model(model_path, grouped_prophet):
-    save_model_with_latest_mlflow_version(
-        flavor="diviner",
-        diviner_model=grouped_prophet,
-        path=model_path,
-        input_example={"horizon": 10, "frequency": "D"},
-    )
-    return model_path
-
-
-@pytest.fixture
 def h2o_model(model_path, h2o_iris_model):
     save_model_with_latest_mlflow_version(
         flavor="h2o",
@@ -236,13 +207,21 @@ def keras_model(model_path, iris_data):
 
 
 @pytest.fixture
-def langchain_model(model_path):
-    from langchain.schema.runnable import RunnablePassthrough
+def langchain_model(model_path, tmp_path):
+    # LangChain v1+ requires models-from-code
+    model_code = """
+from operator import itemgetter
+from langchain_core.runnables import RunnablePassthrough
+import mlflow
 
-    chain = RunnablePassthrough() | itemgetter("messages")
+mlflow.models.set_model(RunnablePassthrough() | itemgetter("messages"))
+"""
+    code_path = tmp_path / "langchain_model.py"
+    code_path.write_text(model_code)
+
     save_model_with_latest_mlflow_version(
         flavor="langchain",
-        lc_model=chain,
+        lc_model=str(code_path),
         path=model_path,
         input_example={"messages": "Hi"},
     )
@@ -288,15 +267,16 @@ def onnx_model(tmp_path, model_path):
     return model_path
 
 
-@pytest.fixture
-def paddle_model(model_path, pd_model):
-    save_model_with_latest_mlflow_version(
-        flavor="paddle",
-        pd_model=pd_model.model,
-        path=model_path,
-        input_example=pd_model.inference_dataframe[:1],
-    )
-    return model_path
+# Paddle fixture disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
+# @pytest.fixture
+# def paddle_model(model_path, pd_model):
+#     save_model_with_latest_mlflow_version(
+#         flavor="paddle",
+#         pd_model=pd_model.model,
+#         path=model_path,
+#         input_example=pd_model.inference_dataframe[:1],
+#     )
+#     return model_path
 
 
 @pytest.fixture

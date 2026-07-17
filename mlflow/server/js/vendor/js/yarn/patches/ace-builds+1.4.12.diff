@@ -1,0 +1,70 @@
+diff --git a/src-noconflict/ace.js b/src-noconflict/ace.js
+index 94519df8312f670152f450de706def92c028c12c..46bab5258351401ecf6505a63259d94428503ec4 100644
+--- a/src-noconflict/ace.js
++++ b/src-noconflict/ace.js
+@@ -1699,7 +1699,7 @@ var TextInput = function(parentNode, host) {
+                 return "";
+             sendingText = true;
+             var shouldReset = false;
+-            if (useragent.isAndroid && inserted == ". ") {
++            if ((useragent.isAndroid || useragent.isMac) && inserted == ". ") {
+                 inserted = "  ";
+                 shouldReset = true;
+             }
+diff --git a/src-noconflict/ext-language_tools.js b/src-noconflict/ext-language_tools.js
+index 28f52ac0e363824243eddc72c06d4a98c6b66f38..33c50da04ff0c6d133de655a7c78a49468e542ae 100644
+--- a/src-noconflict/ext-language_tools.js
++++ b/src-noconflict/ext-language_tools.js
+@@ -1440,7 +1440,14 @@ var Autocomplete = function() {
+ (function() {
+ 
+     this.$init = function() {
+-        this.popup = new AcePopup(document.body || document.documentElement);
++        // Make AcePopup render inside the ShadowRoot of the editor
++        // this.popup = new AcePopup(document.body || document.documentElement);
++        let parent = this.editor.container.getRootNode();
++        if (parent === document) {
++          // can't append to document. use body instead.
++          parent = document.body || document.documentElement;
++        }
++        this.popup = new AcePopup(parent);
+         this.popup.on("click", function(e) {
+             this.insertMatch();
+             e.stop();
+@@ -1740,8 +1747,14 @@ var Autocomplete = function() {
+             tooltipNode.textContent = item.docText;
+         }
+ 
+-        if (!tooltipNode.parentNode)
+-            document.body.appendChild(tooltipNode);
++        if (!tooltipNode.parentNode) {
++          let parent = this.editor.container.getRootNode();
++          if (parent === document) {
++            // can't append to document. use body instead.
++            parent = document.body;
++          }
++          parent.appendChild(tooltipNode);
++        }
+         var popup = this.popup;
+         var rect = popup.container.getBoundingClientRect();
+         tooltipNode.style.top = popup.container.style.top;
+diff --git a/src-noconflict/ext-prompt.js b/src-noconflict/ext-prompt.js
+index d5896983764c9aa232ef6435342759887c71eabf..d3f1fbdb2dcd98b3bc740430a625241bf7683d9d 100644
+--- a/src-noconflict/ext-prompt.js
++++ b/src-noconflict/ext-prompt.js
+@@ -1471,7 +1471,14 @@ var Autocomplete = function() {
+ (function() {
+ 
+     this.$init = function() {
+-        this.popup = new AcePopup(document.body || document.documentElement);
++        // Make AcePopup render inside the ShadowRoot of the editor
++        // this.popup = new AcePopup(document.body || document.documentElement);
++        let parent = this.editor.container.getRootNode();
++        if (parent === document) {
++          // can't append to document. use body instead.
++          parent = document.body || document.documentElement;
++        }
++        this.popup = new AcePopup(parent);
+         this.popup.on("click", function(e) {
+             this.insertMatch();
+             e.stop();

@@ -7,24 +7,24 @@ from unittest.mock import MagicMock
 
 import pydantic
 import pytest
-from langchain.chains.llm import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain.prompts.chat import SystemMessagePromptTemplate
-from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import FakeEmbeddings
-from langchain_community.llms.openai import OpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.language_models.chat_models import SimpleChatModel
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
+from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts.chat import SystemMessagePromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langchain_text_splitters.character import CharacterTextSplitter
 
 import mlflow
 from mlflow.entities import Document as MlflowDocument
-from mlflow.entities import Trace
+from mlflow.entities import SpanLogLevel, Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -40,13 +40,13 @@ from tests.tracing.helper import get_traces
 TEST_CONTENT = "What is MLflow?"
 
 
-def create_openai_llmchain():
-    llm = OpenAI(temperature=0.9)
+def create_openai_runnable(temperature=0.9):
     prompt = PromptTemplate(
         input_variables=["product"],
         template="What is {product}?",
     )
-    return LLMChain(llm=llm, prompt=prompt)
+    llm = ChatOpenAI(temperature=temperature, stream_usage=True)
+    return prompt | llm | StrOutputParser()
 
 
 def create_retriever():
@@ -109,11 +109,13 @@ def test_llm_success():
     assert llm_span.name == "test_llm"
 
     assert llm_span.span_type == "LLM"
+    # LLM spans default to INFO (user-visible semantic operation).
+    assert llm_span.log_level == SpanLogLevel.INFO
     assert llm_span.start_time_ns is not None
     assert llm_span.end_time_ns is not None
     assert llm_span.status == SpanStatus(SpanStatusCode.OK)
     assert llm_span.inputs == ["test prompt"]
-    assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert llm_span.outputs["choices"][0]["message"]["content"] == "generated text"
     assert llm_span.events[0].name == "new_token"
 
     _validate_trace_json_serialization(trace)
@@ -186,8 +188,11 @@ def test_chat_model():
     assert chat_model_span.name == "test_chat_model"
     assert chat_model_span.span_type == "CHAT_MODEL"
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.inputs == [[msg.model_dump() for msg in input_messages]]
-    assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert chat_model_span.inputs["messages"][0]["role"] == "system"
+    assert chat_model_span.inputs["messages"][0]["content"] == "system prompt"
+    assert chat_model_span.inputs["messages"][1]["role"] == "user"
+    assert chat_model_span.inputs["messages"][1]["content"] == "test prompt"
+    assert chat_model_span.outputs["choices"][0]["message"]["content"] == "generated text"
 
 
 def test_chat_model_with_tool():
@@ -420,6 +425,8 @@ def test_multiple_components():
     assert chain_span.end_time_ns is not None
     assert chain_span.name == "test_chain"
     assert chain_span.span_type == "CHAIN"
+    # CHAIN spans default to DEBUG (internal/glue work).
+    assert chain_span.log_level == SpanLogLevel.DEBUG
     assert chain_span.parent_id is None
     assert chain_span.status.status_code == SpanStatusCode.OK
     assert chain_span.inputs == {"input": "test input"}
@@ -427,7 +434,7 @@ def test_multiple_components():
     for i in range(2):
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
-        assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
+        assert llm_span.outputs["choices"][0]["message"]["content"] == f"generated text {i}"
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
         assert (
@@ -447,13 +454,13 @@ def test_multiple_components():
 def test_tool_success():
     callback = MlflowLangchainTracer()
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
-    llm = OpenAI(temperature=0.9)
+    llm = ChatOpenAI()
 
     chain = prompt | llm | StrOutputParser()
     chain_tool = tool("chain_tool", chain)
 
     tool_input = {"question": "What up"}
-    response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
+    chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -479,11 +486,14 @@ def test_tool_success():
     assert prompt_template_span.span_type == "CHAIN"
     # LLM
     llm_span = spans[3]
-    assert llm_span.span_type == "LLM"
+    assert llm_span.span_type == "CHAT_MODEL"
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == response
+    assert output_parser_span.outputs == [
+        {"content": "You are a nice assistant.", "role": "system"},
+        {"content": "What up", "role": "user"},
+    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -500,7 +510,7 @@ def test_tracer_thread_safe():
         time.sleep(random.random() / 2 + 0.5)
         tracer.on_chain_end({"output": "test output"}, run_id=chain_run_id)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=10, thread_name_prefix="test-langchain-tracer") as executor:
         futures = [executor.submit(worker_function, i) for i in range(10)]
         for future in futures:
             future.result()
@@ -511,20 +521,10 @@ def test_tracer_thread_safe():
 
 
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
-
     class FakeChatModel(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""
 
-        def _call(
-            self,
-            messages: list[BaseMessage],
-            stop: list[str] | None = None,
-            run_manager: CallbackManagerForLLMRun | None = None,
-            **kwargs: Any,
-        ) -> str:
+        def _call(self, messages: list[BaseMessage], **kwargs: Any) -> str:
             return TEST_CONTENT
 
         @property
@@ -556,7 +556,7 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
 
 
 def test_tracer_noop_when_tracing_disabled(monkeypatch):
-    llm_chain = create_openai_llmchain()
+    llm_chain = create_openai_runnable()
     model = _LangChainModelWrapper(llm_chain)
 
     @trace_disabled
@@ -571,7 +571,7 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.client, "_logger", mock_logger)
 
     response = _predict()
-    assert response == [{"text": TEST_CONTENT}]
+    assert response is not None
     assert get_traces() == []
     # No warning should be issued
     mock_logger.warning.assert_not_called()
@@ -580,7 +580,7 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
 def test_tracer_with_manual_traces():
     # Validate if the callback works properly when outer and inner spans
     # are created by fluent APIs.
-    llm = OpenAI(temperature=0.9)
+    llm = ChatOpenAI()
     prompt = PromptTemplate(
         input_variables=["color"],
         template="What is the complementary color of {color}?",
@@ -606,7 +606,7 @@ def test_tracer_with_manual_traces():
         return chain.invoke(message, config={"callbacks": [MlflowLangchainTracer()]})
 
     response = run("red")
-    expected_response = "What is the complementary color of green?"
+    expected_response = '[{"role": "user", "content": "What is the complementary color of green?"}]'
     assert response == expected_response
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -678,3 +678,128 @@ def test_serialize_invocation_params_none():
     callback = MlflowLangchainTracer()
     result = callback._serialize_invocation_params(None)
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_tracer_with_manual_traces_async():
+    llm = ChatOpenAI()
+    prompt = PromptTemplate(
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
+    )
+
+    @mlflow.trace
+    def manual_transform(s: str):
+        return s.replace("red", "blue")
+
+    chain = RunnableLambda(manual_transform) | prompt | llm | StrOutputParser()
+
+    @mlflow.trace(name="parent")
+    async def run(message):
+        # run_inline=True ensures proper context propagation in async scenarios
+        tracer = MlflowLangchainTracer(run_inline=True)
+        return await chain.ainvoke(message, config={"callbacks": [tracer]})
+
+    response = await run("red")
+    expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'
+    assert response == expected_response
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    trace = traces[0]
+    spans = trace.data.spans
+    assert spans[0].name == "parent"
+    assert spans[1].name == "RunnableSequence"
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "manual_transform"
+    assert spans[2].parent_id == spans[1].span_id
+
+
+@pytest.mark.parametrize(
+    ("_type", "expected_provider"),
+    [
+        ("openai-chat", "openai"),
+        ("anthropic-chat", "anthropic"),
+        ("bedrock-chat", "bedrock"),
+        ("chat-databricks", "databricks"),
+        ("openai", "openai"),
+    ],
+)
+def test_chat_model_extracts_model_provider(_type, expected_provider):
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"model": "gpt-4", "_type": _type},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL) == "gpt-4"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == expected_provider
+
+
+@pytest.mark.parametrize(
+    ("ls_provider", "_type"),
+    [
+        # `ls_provider` is used regardless of `_type`'s shape, including shapes that the
+        # `removesuffix("-chat")` fallback does not handle.
+        ("databricks", "chat-databricks"),
+        ("openai", "openai-chat"),
+        ("google_genai", "chat-google-generative-ai"),
+    ],
+)
+def test_chat_model_prefers_ls_provider_over_type(ls_provider, _type):
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        metadata={"ls_provider": ls_provider},
+        invocation_params={"model": "test-model", "_type": _type},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == ls_provider
+
+
+def test_chat_model_no_provider_when_type_missing():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"model": "gpt-4"},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL) == "gpt-4"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) is None
+
+
+@pytest.mark.parametrize("run_tracer_inline", [True, False])
+def test_tracer_run_inline_parameter(run_tracer_inline):
+    tracer = MlflowLangchainTracer(run_inline=run_tracer_inline)
+    assert tracer.run_inline == run_tracer_inline

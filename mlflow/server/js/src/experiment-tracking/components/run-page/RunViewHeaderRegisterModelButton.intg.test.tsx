@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
@@ -116,10 +117,13 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
     await userEvent.paste('a-new-model');
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
+    // eslint-disable-next-line prefer-const
+    let expectedArtifactPath = 'runs:/testRunUuid/another_artifact_path';
+
     expect(createRegisteredModelApi).toHaveBeenCalledWith('a-new-model', expect.anything());
     expect(createModelVersionApi).toHaveBeenCalledWith(
       'a-new-model',
-      'runs:/testRunUuid/another_artifact_path',
+      expectedArtifactPath,
       'testRunUuid',
       [],
       expect.anything(),

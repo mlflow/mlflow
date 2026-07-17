@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+/* eslint-disable @databricks/no-singleton-query-client -- OSS MLflow (oss_MLFlowRoot) uses singleton, file copied to OSS */
+import React, { useCallback, useMemo } from 'react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
 
 import 'font-awesome/css/font-awesome.css';
 import './index.css';
 
-import { ApplyGlobalStyles } from '@databricks/design-system';
+import { ApplyGlobalStyles, DesignSystemEventProvider } from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
 import { Provider } from 'react-redux';
@@ -18,10 +19,14 @@ import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
+import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
+import { telemetryClient } from './telemetry';
+import { ServerInfoProvider } from './experiment-tracking/hooks/useServerInfo';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const intl = useI18nInit();
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const apolloClient = useMemo(() => createApolloClient(), []);
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -29,6 +34,11 @@ export function MLFlowRoot() {
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const logObservabilityEvent = useCallback((event: any) => {
+    telemetryClient.logEvent(event);
+  }, []);
 
   if (!intl) {
     return (
@@ -42,13 +52,19 @@ export function MLFlowRoot() {
     <ApolloProvider client={apolloClient}>
       <RawIntlProvider value={intl} key={intl.locale}>
         <Provider store={store}>
-          <DesignSystemContainer isDarkTheme={isDarkTheme}>
-            <ApplyGlobalStyles />
-            <MlflowThemeGlobalStyles />
-            <QueryClientProvider client={queryClient}>
-              <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-            </QueryClientProvider>
-          </DesignSystemContainer>
+          <DesignSystemEventProvider callback={logObservabilityEvent}>
+            <DesignSystemContainer isDarkTheme={isDarkTheme}>
+              <ApplyGlobalStyles />
+              <MlflowThemeGlobalStyles />
+              <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
+                <QueryClientProvider client={queryClient}>
+                  <ServerInfoProvider>
+                    <MlflowRouter />
+                  </ServerInfoProvider>
+                </QueryClientProvider>
+              </DarkThemeProvider>
+            </DesignSystemContainer>
+          </DesignSystemEventProvider>
         </Provider>
       </RawIntlProvider>
     </ApolloProvider>

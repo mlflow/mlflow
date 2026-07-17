@@ -1,10 +1,25 @@
-from typing import Any, Literal, get_args, get_origin
+import types
+from typing import Any, Literal, Union, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.utils.annotations import experimental
+
+
+def _is_optional_pb_value_type(t: Any, pb_value_types: tuple[type, ...]) -> bool:
+    """Return True if ``t`` is ``Optional[T]`` or ``T | None`` where ``T`` is a single
+    primitive PbValueType (int, float, str, or bool).
+
+    Works for both ``typing.Optional[T]`` and the Python 3.10+ ``T | None`` syntax because
+    ``get_args`` returns ``(T, NoneType)`` for both forms uniformly.
+    """
+    origin = get_origin(t)
+    if origin is not Union and origin is not types.UnionType:
+        return False
+    args = get_args(t)
+    non_none_args = [a for a in args if a is not type(None)]
+    return len(args) == 2 and len(non_none_args) == 1 and non_none_args[0] in pb_value_types
 
 
 def _validate_feedback_value_type(feedback_value_type: Any) -> None:
@@ -13,6 +28,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
 
     Supported types match FeedbackValueType:
     - PbValueType: int, float, str, bool
+    - T | None / Optional[T] where T is a single PbValueType
     - Literal types with PbValueType values
     - dict[str, PbValueType]
     - list[PbValueType]
@@ -23,6 +39,10 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     # Check for basic PbValueType (float, int, str, bool)
     pb_value_types = get_args(PbValueType)
     if feedback_value_type in pb_value_types:
+        return
+
+    # Check for Optional[T] / T | None where T is a single primitive PbValueType
+    if _is_optional_pb_value_type(feedback_value_type, pb_value_types):
         return
 
     # Check for Literal type
@@ -89,7 +109,6 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     )
 
 
-@experimental(version="3.4.0")
 @record_usage_event(MakeJudgeEvent)
 def make_judge(
     name: str,
@@ -97,21 +116,22 @@ def make_judge(
     model: str | None = None,
     description: str | None = None,
     feedback_value_type: Any = None,
+    inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+    include_timing_in_conversation: bool = False,
 ) -> Judge:
     """
-
-    .. note::
-        As of MLflow 3.4.0, this function is deprecated in favor of `mlflow.genai.make_judge`
-        and may be removed in a future version.
-
     Create a custom MLflow judge instance.
 
     Args:
         name: The name of the judge
         instructions: Natural language instructions for evaluation. Must contain at least one
                       template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
-                      or {{ trace }} to reference evaluation data. Custom variables are not
-                      supported.
+                      {{ conversation }}, or {{ trace }} to reference evaluation data. Custom
+                      variables are not supported.
+                      Note: {{ conversation }} can only coexist with {{ expectations }}.
+                      It cannot be used together with {{ inputs }}, {{ outputs }}, or {{ trace }}.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         description: A description of what the judge evaluates
         feedback_value_type: Type specification for the 'value' field in the Feedback
@@ -125,12 +145,36 @@ def make_judge(
                         - float: Floating point scores (e.g., 0.0-1.0)
                         - str: Text responses
                         - bool: Yes/no evaluations
+                        - T | None / Optional[T]: Nullable primitive (e.g., ``float | None``
+                          for a score that may be absent)
                         - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
                         - dict[str, int | float | str | bool]: Dictionary with string keys and
                           int, float, str, or bool values.
                         - list[int | float | str | bool]: List of int, float, str, or bool values
 
                         Note: Pydantic BaseModel types are not supported.
+        inference_params: Optional dictionary of inference parameters to pass to the model
+                        (e.g., temperature, top_p, max_tokens). These parameters allow
+                        fine-grained control over the model's behavior during evaluation.
+                        For example, setting a lower temperature can produce more
+                        deterministic and reproducible evaluation results.
+        base_url: Optional base URL to route requests through. When specified, all
+                        requests to the LLM provider will be routed through this URL.
+                        This is useful when LLM access must go through an internal gateway,
+                        security proxy, or custom API endpoint.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+                        requests to the LLM provider. Can be used for authentication,
+                        tracking, or other custom requirements.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
+        include_timing_in_conversation: If True, append timing information (duration and
+                        slowest spans) to assistant responses when evaluating conversations.
+                        Useful for latency-aware evaluation. Default is False for backward
+                        compatibility. Only applies when using {{ conversation }} template variable.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -187,17 +231,37 @@ def make_judge(
             )
 
             # Use with search_traces() - evaluate each trace
-            traces = mlflow.search_traces(experiment_ids=["1"], return_type="list")
+            traces = mlflow.search_traces(locations=["1"], return_type="list")
             for trace in traces:
                 feedback = trace_judge(trace=trace)
                 print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
+
+            # Create a multi-turn judge that detects user frustration
+            frustration_judge = make_judge(
+                name="user_frustration",
+                instructions=(
+                    "Analyze the {{ conversation }} to detect signs of user frustration. "
+                    "Look for indicators such as repeated questions, negative language, "
+                    "or expressions of dissatisfaction."
+                ),
+                model="openai:/gpt-4",
+                feedback_value_type=Literal["frustrated", "not frustrated"],
+            )
+
+            # Evaluate a multi-turn conversation using session traces
+            session = mlflow.search_traces(
+                locations=["1"],
+                filter_string="metadata.`mlflow.trace.session` = 'session_123'",
+                return_type="list",
+            )
+            result = frustration_judge(session=session)
 
             # Align a judge with human feedback
             aligned_judge = quality_judge.align(traces)
 
             # To see detailed optimization output during alignment, enable DEBUG logging:
             # import logging
-            # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+            # logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
     """
     # Default feedback_value_type to str if not specified (consistent with MLflow <= 3.5.x)
     # TODO: Implement logic to allow the LLM to choose the appropriate value type if not specified
@@ -206,10 +270,18 @@ def make_judge(
 
     _validate_feedback_value_type(feedback_value_type)
 
+    # numeric/bool types support meaningful mean aggregation, categorical/string types do not.
+    default_aggregations = ["mean"] if feedback_value_type in (bool, int, float) else []
+
     return InstructionsJudge(
         name=name,
         instructions=instructions,
         model=model,
         description=description,
         feedback_value_type=feedback_value_type,
+        aggregations=default_aggregations,
+        include_timing_in_conversation=include_timing_in_conversation,
+        inference_params=inference_params,
+        base_url=base_url,
+        extra_headers=extra_headers,
     )

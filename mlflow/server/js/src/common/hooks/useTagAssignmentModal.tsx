@@ -5,6 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import type { FieldValues } from 'react-hook-form';
 import type { KeyValueEntity } from '../types';
 import { UnifiedTaggingForm } from '../components/UnifiedTaggingForm';
+import { useMemoDeep } from './useMemoDeep';
 
 interface Params {
   componentIdPrefix: string;
@@ -37,6 +38,8 @@ export const useTagAssignmentModal = ({
 }: Params) => {
   const baseComponentId = `${componentIdPrefix}.tag-assignment-modal`;
 
+  const memoizedInitialTags = useMemoDeep(() => initialTags, [initialTags]);
+
   const [isVisible, setIsVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
   const form = useForm<{ tags: KeyValueEntity[] }>({ mode: 'onChange' });
@@ -53,15 +56,16 @@ export const useTagAssignmentModal = ({
 
   const handleSubmit = (data: FieldValues) => {
     const tags: KeyValueEntity[] = data[formName].filter((tag: FieldValues) => Boolean(tag[keyProperty]));
+
+    // Find tags that are new (not in initialTags at all based on key) or updated (key exists but value changed)
     const newTags =
       tags.filter(
         (tag) =>
           !initialTags?.some((t) => t[keyProperty] === tag[keyProperty] && t[valueProperty] === tag[valueProperty]),
       ) ?? [];
-    const deletedTags =
-      initialTags?.filter(
-        (tag) => !tags.some((t) => t[keyProperty] === tag[keyProperty] && t[valueProperty] === tag[valueProperty]),
-      ) ?? [];
+
+    // Find tags that were deleted (in initialTags but not in current tags based on key)
+    const deletedTags = initialTags?.filter((tag) => !tags.some((t) => t[keyProperty] === tag[keyProperty])) ?? [];
 
     onSubmit(newTags, deletedTags).then(() => {
       hideTagAssignmentModal();
@@ -75,7 +79,7 @@ export const useTagAssignmentModal = ({
 
   const TagAssignmentModal = (
     <Modal
-      componentId={`${baseComponentId}`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_82"
       title={title ?? defaultTitleNode}
       visible={visible ?? isVisible}
       destroyOnClose
@@ -83,14 +87,14 @@ export const useTagAssignmentModal = ({
       footer={
         <>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_91"
             onClick={hideTagAssignmentModal}
             disabled={isLoading}
           >
             <FormattedMessage defaultMessage="Cancel" description="Tag assignment modal > Cancel button" />
           </Button>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_99"
             type="primary"
             onClick={form.handleSubmit(handleSubmit)}
             loading={isLoading}
@@ -105,12 +109,12 @@ export const useTagAssignmentModal = ({
         <Alert
           type="error"
           message={error}
-          componentId={`${baseComponentId}.error`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_common_hooks_usetagassignmentmodal_115"
           closable={false}
           css={{ marginBottom: theme.spacing.sm }}
         />
       )}
-      <UnifiedTaggingForm name={formName} form={form} initialTags={initialTags} />
+      <UnifiedTaggingForm name={formName} form={form} initialTags={memoizedInitialTags} />
     </Modal>
   );
 

@@ -1,11 +1,12 @@
 import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
-import { DEFAULT_SPAN_NAME, SpanType } from './constants';
+import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
 import { SpanStatusCode } from './entities/span_status';
+import { isTracingEnabledInContext } from './context';
 
 /*
  * Options for starting a span
@@ -40,6 +41,13 @@ export interface SpanOptions {
    * The parent span object. If not provided, the span is considered a root span.
    */
   parent?: LiveSpan;
+
+  /**
+   * Optional severity level to attach to the span. Accepts a SpanLogLevel
+   * enum value or its name (e.g. "INFO", "DEBUG"). If not provided, the span
+   * level is resolved from the span type at end time.
+   */
+  logLevel?: SpanLogLevel | string;
 }
 
 /**
@@ -86,6 +94,10 @@ export interface TraceOptions
  *
  */
 export function startSpan(options: SpanOptions): LiveSpan {
+  if (isTracingEnabledInContext() === false) {
+    return new NoOpSpan();
+  }
+
   try {
     const tracer = getTracer('default');
 
@@ -102,7 +114,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
     const otelSpan = tracer.startSpan(
       options.name,
       { startTime: startTime },
-      parentContext
+      parentContext,
     ) as OTelSpan;
 
     // SpanProcessor should have already registered the mlflow span
@@ -130,8 +142,12 @@ export function startSpan(options: SpanOptions): LiveSpan {
  */
 export function withSpan<T>(
   callback: (span: LiveSpan) => T | Promise<T>,
-  options?: Omit<SpanOptions, 'parent'>
+  options?: Omit<SpanOptions, 'parent'>,
 ): T | Promise<T> {
+  if (isTracingEnabledInContext() === false) {
+    return callback(new NoOpSpan());
+  }
+
   const spanOptions: Omit<SpanOptions, 'parent'> = options ?? { name: DEFAULT_SPAN_NAME };
 
   // Generate a default span name if not provided
@@ -216,6 +232,9 @@ function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoO
   if (options.spanType) {
     mlflowSpan.setSpanType(options.spanType);
   }
+  if (options.logLevel !== undefined) {
+    mlflowSpan.setLogLevel(options.logLevel);
+  }
   return mlflowSpan;
 }
 
@@ -231,7 +250,7 @@ export function createAndRegisterMlflowSpan(
   otelSpan: OTelSpan | ApiSpan,
   spanType?: SpanType,
   inputs?: any,
-  attributes?: Record<string, any>
+  attributes?: Record<string, any>,
 ): LiveSpan {
   // Get the MLflow trace ID from the OpenTelemetry trace ID
   const otelTraceId = otelSpan.spanContext().traceId;
@@ -305,7 +324,7 @@ export function trace(options?: TraceOptions): any;
 export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T;
 export function trace<T extends (...args: any[]) => any>(
   funcOrOptions?: T | TraceOptions,
-  options?: TraceOptions
+  options?: TraceOptions,
 ): any {
   // Check if this is being used as a decorator (no function provided, or options provided)
   if (typeof funcOrOptions !== 'function') {
@@ -346,7 +365,8 @@ export function trace<T extends (...args: any[]) => any>(
           name: decoratorOptions?.name || originalMethod.name || methodName,
           spanType: decoratorOptions?.spanType,
           attributes: decoratorOptions?.attributes,
-          inputs
+          inputs,
+          logLevel: decoratorOptions?.logLevel,
         };
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -394,7 +414,8 @@ function traceFunction<T extends (...args: any[]) => any>(func: T, options?: Tra
       name: options?.name || func.name || DEFAULT_SPAN_NAME,
       spanType: options?.spanType,
       attributes: options?.attributes,
-      inputs: inputs
+      inputs: inputs,
+      logLevel: options?.logLevel,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -486,6 +507,18 @@ export interface UpdateCurrentTraceOptions {
   metadata?: Record<string, string>;
 
   /**
+   * Session ID to associate with the trace. Stored as metadata under the
+   * `mlflow.trace.session` key.
+   */
+  sessionId?: string;
+
+  /**
+   * User identifier to associate with the trace. Stored as metadata under the
+   * `mlflow.trace.user` key.
+   */
+  user?: string;
+
+  /**
    * Client supplied request ID to associate with the trace. This is useful for linking
    * the trace back to a specific request in your application or external system.
    */
@@ -533,12 +566,12 @@ export interface UpdateCurrentTraceOptions {
  * ```
  *
  * @example
- * Updating source information of the trace:
+ * Updating user, session, and source information of the trace:
  * ```typescript
  * updateCurrentTrace({
+ *   sessionId: "session-4f855da00427",
+ *   user: "user-id-cc156f29bcfb",
  *   metadata: {
- *     "mlflow.trace.session": "session-4f855da00427",
- *     "mlflow.trace.user": "user-id-cc156f29bcfb",
  *     "mlflow.source.name": "inference.ts",
  *     "mlflow.source.git.commit": "1234567890",
  *     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow"
@@ -549,16 +582,18 @@ export interface UpdateCurrentTraceOptions {
 export function updateCurrentTrace({
   tags,
   metadata,
+  sessionId,
+  user,
   clientRequestId,
   requestPreview,
-  responsePreview
+  responsePreview,
 }: UpdateCurrentTraceOptions): void {
   const activeSpan = getCurrentActiveSpan();
 
   if (!activeSpan) {
     console.warn(
       'No active trace found. Please create a span using `withSpan` or ' +
-        '`@trace` before calling `updateCurrentTrace`.'
+        '`@trace` before calling `updateCurrentTrace`.',
     );
     return;
   }
@@ -580,6 +615,15 @@ export function updateCurrentTrace({
     return;
   }
 
+  // Inject sessionId and user into metadata
+  const mergedMetadata = { ...metadata };
+  if (sessionId !== undefined) {
+    mergedMetadata[TraceMetadataKey.TRACE_SESSION] = sessionId;
+  }
+  if (user !== undefined) {
+    mergedMetadata[TraceMetadataKey.TRACE_USER] = user;
+  }
+
   // Update trace info properties
   if (requestPreview !== undefined) {
     trace.info.requestPreview = requestPreview;
@@ -590,8 +634,8 @@ export function updateCurrentTrace({
   if (tags !== undefined) {
     Object.assign(trace.info.tags, tags);
   }
-  if (metadata !== undefined) {
-    Object.assign(trace.info.traceMetadata, metadata);
+  if (Object.keys(mergedMetadata).length > 0) {
+    Object.assign(trace.info.traceMetadata, mergedMetadata);
   }
   if (clientRequestId !== undefined) {
     trace.info.clientRequestId = String(clientRequestId);

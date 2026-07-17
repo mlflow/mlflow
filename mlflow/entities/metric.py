@@ -112,18 +112,16 @@ class Metric(_MlflowObject):
         return False
 
     def __hash__(self):
-        return hash(
-            (
-                self._key,
-                self._value,
-                self._timestamp,
-                self._step,
-                self._model_id,
-                self._dataset_name,
-                self._dataset_digest,
-                self._run_id,
-            )
-        )
+        return hash((
+            self._key,
+            self._value,
+            self._timestamp,
+            self._step,
+            self._model_id,
+            self._dataset_name,
+            self._dataset_digest,
+            self._run_id,
+        ))
 
     def to_dictionary(self):
         """
@@ -155,8 +153,7 @@ class Metric(_MlflowObject):
             Metric: The Metric object created from the dictionary.
         """
         required_keys = ["key", "value", "timestamp", "step"]
-        missing_keys = [key for key in required_keys if key not in metric_dict]
-        if missing_keys:
+        if missing_keys := [key for key in required_keys if key not in metric_dict]:
             raise MlflowException(
                 f"Missing required keys {missing_keys} in metric dictionary",
                 INVALID_PARAMETER_VALUE,

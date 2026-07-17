@@ -1,3 +1,4 @@
+import { describe, jest, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -7,6 +8,9 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-utils';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 import { useState } from 'react';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 

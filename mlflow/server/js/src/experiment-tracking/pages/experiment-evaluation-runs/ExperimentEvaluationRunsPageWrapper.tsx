@@ -2,7 +2,6 @@ import { UserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { ErrorBoundary } from 'react-error-boundary';
 import { DangerIcon, Empty, PageWrapper } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { QueryClientProvider, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 const PageFallback = ({ error }: { error?: Error }) => {
   return (

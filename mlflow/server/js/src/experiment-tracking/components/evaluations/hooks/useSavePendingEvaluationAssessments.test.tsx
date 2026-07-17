@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { uploadArtifactApi } from '../../../actions';
@@ -95,7 +96,7 @@ describe('useSavePendingEvaluationAssessments', () => {
     });
     jest
       .mocked(uploadArtifactApi)
-      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: deferredPromise } as any));
+      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: deferredPromise }) as any);
 
     return result;
   };
@@ -103,7 +104,7 @@ describe('useSavePendingEvaluationAssessments', () => {
   beforeEach(() => {
     jest
       .mocked(uploadArtifactApi)
-      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: Promise.resolve() } as any));
+      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: Promise.resolve() }) as any);
     jest.mocked(getArtifactChunkedText).mockImplementation(() => {
       return Promise.resolve(JSON.stringify(sampleExistingAssessmentData));
     });

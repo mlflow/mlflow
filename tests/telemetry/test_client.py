@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -13,7 +14,10 @@ from mlflow.telemetry.client import (
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    RETRYABLE_ERRORS,
+    UNRECOVERABLE_ERRORS,
     TelemetryClient,
+    _is_localhost_uri,
     get_telemetry_client,
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
@@ -57,7 +61,9 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     # Add record and wait for processing
     mock_telemetry_client.add_record(record)
     mock_telemetry_client.flush()
-    received_record = [req for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    received_record = next(
+        req for req in mock_requests if req["data"]["event_name"] == "test_event"
+    )
 
     assert "data" in received_record
     assert "partition-key" in received_record
@@ -65,6 +71,81 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     data = received_record["data"]
     assert data["event_name"] == "test_event"
     assert data["status"] == "success"
+
+
+def test_add_records_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
+    # Pre-populate pending_records with 200 records
+    initial_records = [
+        Record(
+            event_name=f"initial_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(200)
+    ]
+    mock_telemetry_client.add_records(initial_records)
+
+    # We haven't hit the batch size limit yet, so expect no records to be sent
+    assert len(mock_telemetry_client._pending_records) == 200
+    assert len(mock_requests) == 0
+
+    # Add 1000 more records
+    # Expected behavior:
+    # - First 300 records fill to 500 -> send batch (200 + 300) to queue
+    # - Next 500 records -> send batch to queue
+    # - Last 200 records remain in pending (200 < 500)
+    additional_records = [
+        Record(
+            event_name=f"additional_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(1000)
+    ]
+    mock_telemetry_client.add_records(additional_records)
+
+    # Verify batching logic:
+    # - 2 batches should be in the queue
+    # - 200 records should remain in pending
+    assert mock_telemetry_client._queue.qsize() == 2
+    assert len(mock_telemetry_client._pending_records) == 200
+
+    # Flush to process queue and send the remaining partial batch
+    mock_telemetry_client.flush()
+
+    # Verify all 1200 records were sent
+    assert len(mock_requests) == 1200
+    event_names = {req["data"]["event_name"] for req in mock_requests}
+    assert all(f"initial_{i}" in event_names for i in range(200))
+    assert all(f"additional_{i}" in event_names for i in range(1000))
+
+
+def test_record_with_session_and_installation_id(
+    mock_telemetry_client: TelemetryClient, mock_requests
+):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        session_id="session_id_override",
+        installation_id="installation_id_override",
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[0]["data"]["session_id"] == "session_id_override"
+    assert mock_requests[0]["data"]["installation_id"] == "installation_id_override"
+
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[1]["data"]["session_id"] == mock_telemetry_client.info["session_id"]
+    assert (
+        mock_requests[1]["data"]["installation_id"] == mock_telemetry_client.info["installation_id"]
+    )
 
 
 def test_batch_processing(mock_telemetry_client: TelemetryClient, mock_requests):
@@ -97,17 +178,43 @@ def test_flush_functionality(mock_telemetry_client: TelemetryClient, mock_reques
     assert record.event_name in events
 
 
-def test_first_record_sent(mock_telemetry_client: TelemetryClient, mock_requests):
-    record = Record(
-        event_name="test_event",
+def test_record_sent(mock_telemetry_client: TelemetryClient, mock_requests):
+    record_1 = Record(
+        event_name="test_event_1",
         timestamp_ns=time.time_ns(),
         status=Status.SUCCESS,
-        duration_ms=0,
     )
-    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.add_record(record_1)
     mock_telemetry_client.flush()
-    events = {req["data"]["event_name"] for req in mock_requests}
-    assert record.event_name in events
+
+    assert len(mock_requests) == 1
+    data = mock_requests[0]["data"]
+    assert data["event_name"] == record_1.event_name
+    assert data["status"] == "success"
+
+    session_id = data.get("session_id")
+    installation_id = data.get("installation_id")
+    assert session_id is not None
+    assert installation_id is not None
+
+    record_2 = Record(
+        event_name="test_event_2",
+        timestamp_ns=time.time_ns(),
+        status=Status.FAILURE,
+    )
+    record_3 = Record(
+        event_name="test_event_3",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record_2)
+    mock_telemetry_client.add_record(record_3)
+    mock_telemetry_client.flush()
+    assert len(mock_requests) == 3
+
+    # all record should have the same session id and installation id
+    assert {req["data"].get("session_id") for req in mock_requests} == {session_id}
+    assert {req["data"].get("installation_id") for req in mock_requests} == {installation_id}
 
 
 def test_client_shutdown(mock_telemetry_client: TelemetryClient, mock_requests):
@@ -280,7 +387,7 @@ def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock
     # Start multiple threads
     threads = []
     for i in range(3):
-        thread = threading.Thread(target=add_records, args=(i,))
+        thread = threading.Thread(name=f"telemetry-client-{i}", target=add_records, args=(i,))
         threads.append(thread)
         thread.start()
 
@@ -311,7 +418,7 @@ def test_telemetry_info_inclusion(mock_telemetry_client: TelemetryClient, mock_r
     mock_telemetry_client.flush()
 
     # Verify telemetry info is included
-    data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
 
     # Check that telemetry info fields are present
     assert mock_telemetry_client.info.items() <= data.items()
@@ -784,9 +891,9 @@ def test_warning_suppression_in_shutdown(recwarn, mock_telemetry_client: Telemet
         assert len(recwarn) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
-@pytest.mark.parametrize("terminate", [True, False])
-def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, terminate):
+def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tracking_uri_scheme):
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -795,12 +902,231 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
 
     with (
         _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ),
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
-        telemetry_client.flush(terminate=terminate)
+        telemetry_client.flush(terminate=True)
+        # OSS ingestion path should not receive records
         assert len(mock_requests) == 0
-        assert get_telemetry_client() is None
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
+@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
+def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        duration_ms=42,
+        params={"key": "value"},
+    )
+
+    with (
+        _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ) as mock_http,
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        TelemetryClient() as telemetry_client,
+    ):
+        telemetry_client.add_record(record)
+        telemetry_client.flush()
+
+        mock_http.assert_called_once()
+        payload = mock_http.call_args.kwargs["json"]
+        assert len(payload["events"]) == 1
+        event = payload["events"][0]
+        assert event["event_name"] == "test_event"
+        assert event["tracking_uri_scheme"] == tracking_uri_scheme
+        assert "params_json" in event
+        assert "params" not in event
+
+
+def test_oss_ingestion_skipped_when_running_inside_databricks(mock_requests):
+    # When in DBR with a non-Databricks tracking URI, the OSS ingestion
+    # endpoint must not be hit. The Databricks-forwarding path is the only
+    # allowed outbound from inside DBR.
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "http"
+
+        with mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True):
+            client._process_records([record])
+
+        assert len(mock_requests) == 0
+
+
+def test_databricks_forwarding_disabled_for_dev_versions():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        ):
+            client._process_records([record])
+
+        mock_http.assert_not_called()
+
+
+def test_forward_to_databricks_params_json_serialization():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="genai_evaluate",
+            timestamp_ns=1700000000000000000,
+            status=Status.SUCCESS,
+            params={"predict_fn_provided": True},
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" in event
+        assert json.loads(event["params_json"]) == {"predict_fn_provided": True}
+
+
+def test_forward_to_databricks_no_params_json_when_params_none():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" not in event
+
+
+@pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
+def test_forward_to_databricks_stops_on_unrecoverable_error(status_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=status_code),
+            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert client._is_stopped
+        assert not client.is_active
+
+
+def test_forward_to_databricks_credential_failure_non_fatal():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.utils.databricks_utils.get_databricks_host_creds",
+                side_effect=Exception("no creds"),
+            ),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert not client._is_stopped
+
+
+@pytest.mark.parametrize("error_code", RETRYABLE_ERRORS)
+def test_forward_to_databricks_retries_on_retryable_error(error_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                side_effect=[
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=200),
+                ],
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+            mock.patch("mlflow.telemetry.client.time.sleep"),
+        ):
+            client._forward_to_databricks([record])
+
+        assert mock_http.call_count == 3
 
 
 @pytest.mark.no_mock_requests_get
@@ -867,3 +1193,74 @@ def test_fetch_config_after_first_record():
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
         mock_requests_get.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://localhost",
+        "http://localhost:5000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5000/api/2.0/mlflow",
+        "http://[::1]",
+    ],
+)
+def test_is_localhost_uri_returns_true_for_localhost(uri):
+    assert _is_localhost_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://example.com",
+        "http://example.com:5000",
+        "https://mlflow.example.com",
+        "http://192.168.1.1",
+        "http://192.168.1.1:5000",
+        "http://10.0.0.1:5000",
+        "https://my-tracking-server.com/api/2.0/mlflow",
+    ],
+)
+def test_is_localhost_uri_returns_false_for_remote(uri):
+    assert _is_localhost_uri(uri) is False
+
+
+def test_is_localhost_uri_returns_none_for_empty_hostname():
+    assert _is_localhost_uri("file:///tmp/mlruns") is None
+
+
+def test_is_localhost_uri_returns_none_on_parse_error():
+    # urlparse doesn't raise on most inputs, but we test the fallback behavior
+    # by mocking urlparse to raise
+    with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
+        assert _is_localhost_uri("http://localhost") is None
+
+
+def test_is_workspace_enabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
+    assert data["ws_enabled"] is True
+
+
+def test_is_workspace_disabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
+    assert data["ws_enabled"] is False

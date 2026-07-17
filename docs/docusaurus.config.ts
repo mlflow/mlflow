@@ -5,15 +5,17 @@ import { postProcessSidebar, apiReferencePrefix } from './docusaurusConfigUtils'
 import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 
 // ensure baseUrl always ends in `/`
-const baseUrl = (process.env.DOCS_BASE_URL ?? '/').replace(/\/?$/, '/');
+const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
-  title: 'MLflow',
+  title: 'MLflow AI Platform',
   tagline: 'MLflow Documentation',
   favicon: 'images/favicon.ico',
 
   // Docusaurus sets the canonical URL to the preferred one, so the pages are consolidated and double search results are prevented.
   trailingSlash: true,
+  // Versioned builds (e.g. /docs/2.x.x/) are noindexed so only /docs/latest/ appears in search results.
+  noIndex: process.env.DOCS_NO_INDEX === 'true',
 
   // Set the production url of your site here
   url: 'https://mlflow.org',
@@ -31,9 +33,13 @@ const config: Config = {
 
   // change to throw when migration is done
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
+
+  future: {
+    v4: true, // opt-in for Docusaurus v4 planned changes
+    faster: true, // turns Docusaurus Faster on globally
+  },
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -57,6 +63,9 @@ const config: Config = {
   themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+    },
   },
 
   presets: [
@@ -80,7 +89,77 @@ const config: Config = {
 
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
+  headTags: [
+    // Open Graph
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:type', content: 'website' },
+    },
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:site_name', content: 'MLflow' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    // Twitter Card
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:site', content: '@mlflow' },
+    },
+  ],
+
   themeConfig: {
+    docs: {
+      sidebar: {
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: { light: 'neutral', dark: 'dark' },
       options: {
@@ -99,21 +178,21 @@ const config: Config = {
           type: 'custom-docsDropdown',
           label: 'Documentation',
           items: [
-            // Classic ML docs
-            {
-              type: 'docSidebar',
-              sidebarId: 'classicMLSidebar',
-              label: 'ML Docs',
-              docsPluginId: 'classic-ml',
-              className: 'ml-docs-link',
-            },
             // GenAI docs
             {
               type: 'docSidebar',
               sidebarId: 'genAISidebar',
-              label: 'GenAI Docs',
+              label: 'LLMs & Agents',
               docsPluginId: 'genai',
               className: 'genai-docs-link',
+            },
+            // Classic ML docs
+            {
+              type: 'docSidebar',
+              sidebarId: 'classicMLSidebar',
+              label: 'Machine Learning',
+              docsPluginId: 'classic-ml',
+              className: 'ml-docs-link',
             },
           ],
         },
@@ -288,6 +367,11 @@ const config: Config = {
             to: '/',
             from: ['/new-features'],
           },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',
@@ -305,18 +389,30 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
-          // Redirect mlflow 3 pages
           {
-            to: '/genai/mlflow-3',
-            from: ['/mlflow-3', '/ml/mlflow-3'],
+            to: '/self-hosting#kubernetes',
+            from: [
+              '/ml/deployment/deploy-model-to-kubernetes',
+              '/ml/deployment/deploy-model-to-kubernetes/tutorial',
+              '/deployment/deploy-model-to-kubernetes',
+              '/deployment/deploy-model-to-kubernetes/tutorial',
+            ],
           },
+          // Redirect mlflow 3 pages to migration guide
           {
-            to: '/genai/mlflow-3/deep-learning',
-            from: ['/mlflow-3/deep-learning'],
-          },
-          {
-            to: '/genai/mlflow-3/genai-agent',
-            from: ['/mlflow-3/genai-agent'],
+            to: '/ml/mlflow-3',
+            from: [
+              '/mlflow-3',
+              '/genai/mlflow-3',
+              '/genai/mlflow-3/deep-learning',
+              '/mlflow-3/deep-learning',
+              '/genai/mlflow-3/genai-agent',
+              '/mlflow-3/genai-agent',
+              '/genai/mlflow-3/breaking-changes',
+              '/mlflow-3/breaking-changes',
+              '/genai/mlflow-3/faqs',
+              '/mlflow-3/faqs',
+            ],
           },
           {
             to: '/genai/getting-started/databricks-trial',
@@ -325,6 +421,10 @@ const config: Config = {
               '/getting-started/community-edition',
               '/ml/getting-started/databricks-trial',
             ],
+          },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/getting-started'],
           },
           // Redirect deleted data-model pages to GenAI main page
           {
@@ -364,6 +464,16 @@ const config: Config = {
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
           },
           {
+            to: '/genai/tracing/quickstart',
+            from: [
+              '/genai/tracing/quickstart/typescript-openai',
+              '/genai/tracing/quickstart/python-openai',
+              '/genai/tracing/app-instrumentation/typescript-sdk',
+              '/genai/tracing/app-instrumentation',
+              '/tracing/api',
+            ],
+          },
+          {
             to: '/genai/tracing/faq',
             from: ['/tracing/faq'],
           },
@@ -386,10 +496,6 @@ const config: Config = {
           {
             to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/manual-instrumentation'],
-          },
-          {
-            to: '/genai/tracing/app-instrumentation',
-            from: ['/tracing/api'],
           },
           {
             to: '/genai/tracing/search-traces',
@@ -491,6 +597,13 @@ const config: Config = {
             to: '/genai',
             from: ['/tracing/tutorials'],
           },
+          {
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges/',
+            from: [
+              '/genai/eval-monitor/scorers/llm-judge/make-judge/',
+              '/genai/eval-monitor/scorers/llm-judge/agentic-overview/',
+            ],
+          },
 
           // Tracing Redirects
           {
@@ -576,43 +689,42 @@ const config: Config = {
             to: '/genai/flavors/llama-index/notebooks/llama_index_workflow_tutorial',
             from: ['/llms/llama-index/notebooks/llama_index_workflow_tutorial'],
           },
+          // Redirect deprecated OpenAI model logging pages to prompt registry
           {
-            to: '/genai/flavors/openai',
-            from: ['/llms/openai'],
-          },
-          {
-            to: '/genai/flavors/openai/autologging',
-            from: ['/llms/openai/autologging'],
-          },
-          {
-            to: '/genai/flavors/openai/guide',
-            from: ['/llms/openai/guide'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks',
-            from: ['/llms/openai/notebooks'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-chat-completions',
-            from: ['/llms/openai/notebooks/openai-chat-completions'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-code-helper',
-            from: ['/llms/openai/notebooks/openai-code-helper'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-embeddings-generation',
-            from: ['/llms/openai/notebooks/openai-embeddings-generation'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-quickstart',
-            from: ['/llms/openai/notebooks/openai-quickstart'],
+            to: '/genai/prompt-registry',
+            from: [
+              '/llms/openai',
+              '/llms/openai/guide',
+              '/llms/openai/guide/index',
+              '/llms/openai/autologging',
+              '/llms/openai/autologging/index',
+              '/llms/openai/notebooks',
+              '/llms/openai/notebooks/index',
+              '/llms/openai/notebooks/openai-quickstart-ipynb',
+              '/llms/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai',
+              '/genai/flavors/openai/index',
+              '/genai/flavors/openai/guide',
+              '/genai/flavors/openai/guide/index',
+              '/genai/flavors/openai/autologging',
+              '/genai/flavors/openai/autologging/index',
+              '/genai/flavors/openai/notebooks',
+              '/genai/flavors/openai/notebooks/index',
+              '/genai/flavors/openai/notebooks/openai-quickstart-ipynb',
+              '/genai/flavors/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai/notebooks/openai-code-helper-ipynb',
+              '/genai/flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+            ],
           },
 
           // Evaluation and Monitoring Redirects
           {
             to: '/genai/eval-monitor',
-            from: ['/llms/llm-evaluate'],
+            from: ['/llms/llm-evaluate', '/genai/llm-evaluate'],
+          },
+          {
+            to: '/genai/eval-monitor/scorers',
+            from: ['/genai/llm-evaluate/llm-as-judge', '/llms/llm-evaluate/llm-as-judge'],
           },
           {
             to: '/genai/eval-monitor',
@@ -625,7 +737,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/eval-monitor/scorers/llm-judge/agentic-overview',
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges',
             from: [
               '/genai/eval-monitor/scorers/llm-judge/trace-analysis',
               '/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns',
@@ -634,6 +746,18 @@ const config: Config = {
           {
             to: '/genai/datasets',
             from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
+          },
+          // Classic ML Evaluation Redirects - consolidated to single page
+          {
+            to: '/ml/evaluation',
+            from: [
+              '/ml/evaluation/model-eval',
+              '/ml/evaluation/dataset-eval',
+              '/ml/evaluation/function-eval',
+              '/ml/evaluation/metrics-visualizations',
+              '/ml/evaluation/shap',
+              '/ml/evaluation/plugin-evaluators',
+            ],
           },
           // Prompt Management Redirects
           {
@@ -701,23 +825,54 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: '/genai/governance/ai-gateway',
-            from: ['/llms/deployments/', '/llms/gateway/index', '/llms/gateway'],
+            from: [
+              '/llms/deployments/',
+              '/llms/gateway/index',
+              '/llms/gateway',
+              '/llms/deployments/guides',
+              '/llms/gateway/guides/index',
+              '/llms/gateway/guide',
+              '/genai/governance/ai-gateway/guides',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides',
-            from: ['/llms/deployments/guides', '/llms/gateway/guides/index', '/llms/gateway/guide'],
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/guides/step1-create-deployments',
+              '/llms/gateway/guides/step1-create-gateway',
+              '/genai/governance/ai-gateway/guides/step1-create-deployments',
+            ],
           },
           {
-            to: '/genai/governance/ai-gateway/guides/step1-create-deployments',
-            from: ['/llms/deployments/guides/step1-create-deployments', '/llms/gateway/guides/step1-create-gateway'],
+            to: '/genai/governance/ai-gateway/quickstart',
+            from: ['/genai/governance/ai-gateway/setup'],
           },
           {
-            to: '/genai/governance/ai-gateway/guides/step2-query-deployments',
-            from: ['/llms/deployments/guides/step2-query-deployments', '/llms/gateway/guides/step2-query-gateway'],
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/guides/step2-query-deployments',
+              '/llms/gateway/guides/step2-query-gateway',
+              '/genai/governance/ai-gateway/guides/step2-query-deployments',
+              '/genai/governance/ai-gateway/usage',
+            ],
           },
           {
-            to: '/genai/governance/unity-catalog',
-            from: ['/llms/deployments/uc_integration'],
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/genai/governance/ai-gateway/legacy',
+              '/genai/governance/ai-gateway/legacy/index',
+              '/genai/governance/ai-gateway/legacy/setup',
+              '/genai/governance/ai-gateway/legacy/configuration',
+              '/genai/governance/ai-gateway/legacy/usage',
+            ],
+          },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/uc_integration',
+              '/genai/governance/unity-catalog',
+              '/genai/governance/ai-gateway/integration',
+            ],
           },
 
           // Traditional ML and Core MLflow Redirects
@@ -746,28 +901,43 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
+          },
+          {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
           },
           {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
-            to: '/ml/deep-learning/pytorch/guide',
-            from: ['/deep-learning/pytorch/guide'],
+            to: '/ml/deep-learning/pytorch',
+            from: [
+              '/deep-learning/pytorch/guide',
+              '/ml/deep-learning/pytorch/guide',
+              '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+              '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
           },
+          // Redirect consolidated spaCy guide to index
           {
-            to: '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
-            from: ['/deep-learning/pytorch/quickstart/pytorch_quickstart'],
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
+            ],
           },
           {
             to: '/ml/deep-learning/sentence-transformers',
             from: ['/llms/sentence-transformers'],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/tutorials/',
-            from: ['/llms/sentence-transformers/tutorials'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/tutorials', '/ml/deep-learning/sentence-transformers/tutorials'],
           },
           {
             to: '/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers',
@@ -788,20 +958,22 @@ const config: Config = {
             ],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/guide',
-            from: ['/llms/sentence-transformers/guide'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/guide', '/ml/deep-learning/sentence-transformers/guide'],
           },
           {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
-            to: '/ml/deep-learning/tensorflow/guide',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            to: '/ml/deep-learning/tensorflow',
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',
@@ -864,14 +1036,6 @@ const config: Config = {
             from: ['/deployment/deploy-model-locally'],
           },
           {
-            to: '/ml/deployment/deploy-model-to-kubernetes',
-            from: ['/deployment/deploy-model-to-kubernetes'],
-          },
-          {
-            to: '/ml/deployment/deploy-model-to-kubernetes/tutorial',
-            from: ['/deployment/deploy-model-to-kubernetes/tutorial'],
-          },
-          {
             to: '/ml/deployment/deploy-model-to-sagemaker',
             from: ['/deployment/deploy-model-to-sagemaker'],
           },
@@ -912,6 +1076,21 @@ const config: Config = {
               '/getting-started/tracking-server-overview/notebooks',
               '/getting-started/tracking-server-overview/notebooks/tracking-server-overview',
               '/getting-started/tracking-server-overview/step1-tracking-server',
+              // /ml redirects
+              '/ml/getting-started/logging-first-model',
+              '/ml/getting-started/logging-first-model/notebooks',
+              '/ml/getting-started/logging-first-model/notebooks/logging-first-model',
+              '/ml/getting-started/logging-first-model/step1-tracking-server',
+              '/ml/getting-started/logging-first-model/step2-mlflow-client',
+              '/ml/getting-started/logging-first-model/step3-create-experiment',
+              '/ml/getting-started/logging-first-model/step4-experiment-search',
+              '/ml/getting-started/logging-first-model/step5-synthetic-data',
+              '/ml/getting-started/logging-first-model/step6-logging-a-run',
+              '/ml/getting-started/registering-first-model',
+              '/ml/getting-started/registering-first-model/step1-register-model',
+              '/ml/getting-started/registering-first-model/step2-explore-registered-model',
+              '/ml/getting-started/registering-first-model/step3-load-model',
+              '/ml/getting-started/tracking-server-overview',
             ],
           },
           {
@@ -973,6 +1152,7 @@ const config: Config = {
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
               '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
+              '/ml/tracking/quickstart/notebooks/tracking_quickstart',
             ],
           },
           {
@@ -994,6 +1174,16 @@ const config: Config = {
           {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
+          },
+          // Redirect consolidated prophet guide to index
+          {
+            to: '/ml/traditional-ml/prophet',
+            from: ['/ml/traditional-ml/prophet/guide'],
+          },
+          // Redirect consolidated sparkml guide to index
+          {
+            to: '/ml/traditional-ml/sparkml',
+            from: ['/ml/traditional-ml/sparkml/guide'],
           },
           {
             to: '/ml/traditional-ml/tutorials/creating-custom-pyfunc',
@@ -1064,6 +1254,16 @@ const config: Config = {
           {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
+          },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },

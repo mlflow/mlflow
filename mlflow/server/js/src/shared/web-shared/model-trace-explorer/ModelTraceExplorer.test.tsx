@@ -1,10 +1,13 @@
-import { render, screen, within, waitForElementToBeRemoved } from '@testing-library/react';
+import { jest, beforeAll, afterAll, describe, it, expect } from '@jest/globals';
+import { render, screen, within, waitForElementToBeRemoved, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { cloneDeep } from 'lodash';
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import type { ModelTrace, ModelTraceInfo, ModelTraceSpanV2 } from './ModelTrace.types';
 import { ModelTraceExplorer } from './ModelTraceExplorer';
@@ -16,8 +19,11 @@ import {
   MOCK_SPAN_ASSESSMENT,
   MOCK_TRACE,
   MOCK_V3_TRACE,
+  MOCK_TRACE_INFO_V3,
+  MOCK_V3_SPANS,
 } from './ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
+import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
 
 // increase timeout and it's a heavy test
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -26,8 +32,12 @@ jest.setTimeout(30000);
 // mock the scrollIntoView function to prevent errors
 window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
-jest.mock('./hooks/useGetModelTraceInfoV3', () => ({
-  useGetModelTraceInfoV3: jest.fn().mockReturnValue({
+jest.mock('./FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('./FeatureUtils')>('./FeatureUtils'),
+  shouldEnableTracesTabLabelingSchemas: jest.fn().mockReturnValue(false),
+}));
+jest.mock('./hooks/useGetModelTraceInfo', () => ({
+  useGetModelTraceInfo: jest.fn().mockReturnValue({
     refetch: jest.fn(),
   }),
 }));
@@ -91,7 +101,9 @@ const TestComponent = ({ modelTrace }: { modelTrace: ModelTrace }) => {
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={queryClient}>
-          <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="detail" />
+          <ModelTraceExplorerPreferencesProvider initialRenderMode="default">
+            <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="detail" />
+          </ModelTraceExplorerPreferencesProvider>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>
@@ -184,8 +196,8 @@ describe('ModelTraceExplorer', () => {
     spans[1].parent_id = 'new-span';
     rerender(<TestComponent modelTrace={newTrace} />);
 
-    // expect that the new span is rendered
-    expect(await screen.findByText('new-span')).toBeInTheDocument();
+    // expect that the new span is rendered (appears in both tree and graph node)
+    expect((await screen.findAllByText('new-span')).length).toBeGreaterThanOrEqual(1);
 
     // expect that the span selection doesn't change if the previous node is still in the tree
     expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
@@ -276,8 +288,8 @@ describe('ModelTraceExplorer', () => {
     // expect that the chat tab is open by default
     expect(await screen.findByTestId('model-trace-explorer-chat-tab')).toBeInTheDocument();
 
-    // click the non-chat span
-    const eventSpan = screen.getByText('events_span');
+    // click the non-chat span (also appears as a graph node)
+    const eventSpan = screen.getAllByText('events_span')[0];
     await userEvent.click(eventSpan);
 
     // expect that the content tab is open
@@ -348,7 +360,7 @@ describe('ModelTraceExplorer', () => {
 
     expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
 
-    const createButton = screen.getByText('Add new assessment');
+    const createButton = screen.getByText('Add feedback');
     await userEvent.click(createButton);
 
     // expect that the default assessment input type is boolean
@@ -368,6 +380,77 @@ describe('ModelTraceExplorer', () => {
     const factsItem = screen.getByTestId(`assessment-name-typeahead-item-expected_facts`);
     await userEvent.click(factsItem);
     expect(typeahead).toHaveValue('expected_facts');
-    expect(screen.getByTestId('assessment-value-json-input')).toBeInTheDocument();
+    // JSON data type is clamped to string for feedback assessments
+    expect(screen.getByTestId('assessment-value-string-input')).toBeInTheDocument();
+  });
+
+  it('should render in-progress traces with multiple top-level spans', async () => {
+    // Create an in-progress trace where the root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      info: {
+        ...MOCK_TRACE_INFO_V3,
+        state: 'IN_PROGRESS',
+      },
+      data: {
+        spans: [
+          // Two spans with parent span ID pointing to the root span not being emitted yet
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'non-existing-parent-span-id',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: 'non-existing-parent-span-id',
+          },
+        ],
+      },
+    };
+
+    render(<TestComponent modelTrace={inProgressTrace} />);
+
+    // Both top-level spans should be visible in the tree
+    const spanElements = await screen.findAllByText('document-qa-chain');
+    expect(spanElements.length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getByText('rephrase_chat_to_queue')).toBeInTheDocument();
+
+    // Should be able to select and view each span independently
+    await userEvent.click(screen.getByText('rephrase_chat_to_queue'));
+    expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
+
+    // Switch to the other top-level span
+    await userEvent.click(spanElements[0]);
+    expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
+  });
+
+  it('should render V4 error feedback assessments that have no value field', async () => {
+    // V4 API omits feedback.value for error assessments — only error is present.
+    // Previously these were silently dropped by the grouping logic.
+    const traceWithV4ErrorFeedback: ModelTrace = {
+      data: { spans: MOCK_V3_SPANS },
+      info: {
+        ...MOCK_TRACE_INFO_V3,
+        assessments: [
+          {
+            ...MOCK_ASSESSMENT,
+            assessment_id: 'a-error-1',
+            assessment_name: 'error_judge',
+            feedback: {
+              error: { error_code: 'EVALUATION_FAILED', error_message: 'Something went wrong' },
+            },
+          },
+        ],
+      },
+    };
+
+    render(<TestComponent modelTrace={traceWithV4ErrorFeedback} />);
+
+    // The assessments pane should open since the trace has assessments
+    expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
+
+    // The error feedback group should be rendered with its assessment name,
+    // proving the V4 error feedback was not dropped by groupFeedbacks
+    expect(await screen.findByText('error_judge')).toBeInTheDocument();
   });
 });

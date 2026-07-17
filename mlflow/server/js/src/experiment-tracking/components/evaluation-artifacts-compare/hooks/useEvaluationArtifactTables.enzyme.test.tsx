@@ -1,3 +1,4 @@
+import { describe, it, expect, jest } from '@jest/globals';
 import { mount } from 'enzyme';
 import { useEvaluationArtifactTables } from './useEvaluationArtifactTables';
 import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
@@ -40,7 +41,7 @@ describe('useEvaluationArtifactTables', () => {
           value: artifactsDeclaration,
         },
       },
-    } as any);
+    }) as any;
 
   it('properly extracts all table names for a set of runs with all tables', () => {
     const { getHookResult } = mountTestComponent([

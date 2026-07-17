@@ -1,11 +1,17 @@
+import { describe, jest, test, expect } from '@jest/globals';
 import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { KeyValueEntity } from '../types';
 import { KeyValueTag, getKeyAndValueComplexTruncation } from './KeyValueTag';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('KeyValueTag', () => {
   const handleTagClose = jest.fn();
   function renderTestComponent(tag: KeyValueEntity, isClosable = true) {
-    renderWithIntl(<KeyValueTag tag={tag} isClosable={isClosable} onClose={isClosable ? handleTagClose : undefined} />);
+    renderWithIntl(
+      <DesignSystemProvider>
+        <KeyValueTag tag={tag} isClosable={isClosable} onClose={isClosable ? handleTagClose : undefined} />
+      </DesignSystemProvider>,
+    );
   }
 
   function createTestTag(key: string, value: string): KeyValueEntity {

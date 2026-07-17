@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from itertools import tee
 from typing import Any, Generator, Iterator
 from uuid import uuid4
@@ -200,9 +201,8 @@ def create_text_output_item(
     content_item = {
         "text": text,
         "type": "output_text",
+        "annotations": annotations or [],
     }
-    if annotations is not None:
-        content_item["annotations"] = annotations
     return {
         "id": id,
         "content": [content_item],
@@ -265,6 +265,53 @@ def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any
     }
 
 
+def create_mcp_approval_request_item(
+    id: str, arguments: str, name: str, server_label: str
+) -> dict[str, Any]:
+    """Helper method to create a dictionary conforming to the MCP approval request item schema.
+
+    Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+    Args:
+        id (str): The unique id of the approval request.
+        arguments (str): A JSON string of arguments for the tool.
+        name (str): The name of the tool to run.
+        server_label (str): The label of the MCP server making the request.
+    """
+    return {
+        "type": "mcp_approval_request",
+        "id": id,
+        "arguments": arguments,
+        "name": name,
+        "server_label": server_label,
+    }
+
+
+def create_mcp_approval_response_item(
+    id: str,
+    approval_request_id: str,
+    approve: bool,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """Helper method to create a dictionary conforming to the MCP approval response item schema.
+
+    Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+    Args:
+        id (str): The unique id of the approval response.
+        approval_request_id (str): The id of the approval request being answered.
+        approve (bool): Whether the request was approved.
+        reason (Optional[str]): The reason for the approval.
+    """
+    return {
+        "type": "mcp_approval_response",
+        "id": id,
+        "approval_request_id": approval_request_id,
+        "approve": approve,
+        "reason": reason,
+    }
+
+
 def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert from a Responses API output item to a list of ChatCompletion messages."""
     msg_type = message.get("type")
@@ -292,11 +339,43 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     elif msg_type == "reasoning":
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":
+        output = message["output"]
+        # Convert non-string output to string for ChatCompletion compatibility
+        if not isinstance(output, str):
+            try:
+                output = json.dumps(output)
+            except (TypeError, ValueError):
+                output = str(output)
         return [
             {
                 "role": "tool",
-                "content": message["output"],
+                "content": output,
                 "tool_call_id": message["call_id"],
+            }
+        ]
+    elif msg_type == "mcp_approval_request":
+        return [
+            {
+                "role": "assistant",
+                "content": "mcp approval request",
+                "tool_calls": [
+                    {
+                        "id": message["id"],
+                        "type": "function",
+                        "function": {
+                            "arguments": message.get("arguments") or "{}",
+                            "name": message["name"],
+                        },
+                    }
+                ],
+            }
+        ]
+    elif msg_type == "mcp_approval_response":
+        return [
+            {
+                "role": "tool",
+                "content": str(message["approve"]),
+                "tool_call_id": message["approval_request_id"],
             }
         ]
     compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
@@ -305,7 +384,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def to_chat_completions_input(
-    responses_input: list[dict[str, Any] | Message | OutputItem],
+    responses_input: Sequence[dict[str, Any] | Message | OutputItem],
 ) -> list[dict[str, Any]]:
     """Convert from Responses input items to ChatCompletion dictionaries."""
     cc_msgs = []
@@ -339,6 +418,15 @@ def output_to_responses_items_stream(
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
 
+    def _stringify_content(content: Any) -> str:
+        """Ensure content is a string, JSON-serializing if necessary."""
+        if isinstance(content, str):
+            return content
+        try:
+            return json.dumps(content)
+        except (TypeError, ValueError):
+            return str(content)
+
     def _langchain_message_stream_to_responses_stream(
         chunks: Iterator[BaseMessage],
         aggregator: list[dict[str, Any]] | None = None,
@@ -363,7 +451,7 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
                 if tool_calls := message.get("tool_calls"):
                     for tool_call in tool_calls:
                         function_call_item = create_function_call_item(
-                            id=message.get("id") or str(uuid4()),
+                            id=tool_call.get("id") or message.get("id") or str(uuid4()),
                             call_id=tool_call["id"],
                             name=tool_call["name"],
                             arguments=json.dumps(tool_call["args"]),
@@ -377,7 +465,7 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
             elif role == "tool":
                 function_call_output_item = create_function_call_output_item(
                     call_id=message["tool_call_id"],
-                    output=message["content"],
+                    output=_stringify_content(message["content"]),
                 )
                 if aggregator is not None:
                     aggregator.append(function_call_output_item)
@@ -398,7 +486,7 @@ def _cc_stream_to_responses_stream(
     """
     llm_content = ""
     reasoning_content = ""
-    tool_calls = []
+    tool_calls: dict[int, dict[str, Any]] = {}  # index -> tool_call dict
     msg_id = None
     for chunk in chunks:
         if chunk.get("choices") is None or len(chunk["choices"]) == 0:
@@ -407,10 +495,22 @@ def _cc_stream_to_responses_stream(
         msg_id = chunk.get("id", None)
         content = delta.get("content", None)
         if tc := delta.get("tool_calls"):
-            if not tool_calls:  # only accommodate for single tool call right now
-                tool_calls = tc
-            else:
-                tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]
+            for tool_call_delta in tc:
+                idx = tool_call_delta.get("index", 0)
+                if idx not in tool_calls:
+                    # First chunk for this tool call contains id and name
+                    tool_calls[idx] = {
+                        "id": tool_call_delta.get("id"),
+                        "function": {
+                            "name": tool_call_delta.get("function", {}).get("name", ""),
+                            "arguments": tool_call_delta.get("function", {}).get("arguments", ""),
+                        },
+                    }
+                else:
+                    # Subsequent chunks only contain argument fragments
+                    tool_calls[idx]["function"]["arguments"] += tool_call_delta.get(
+                        "function", {}
+                    ).get("arguments", "")
         elif content is not None:
             # logic for content item format
             # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem
@@ -450,7 +550,8 @@ def _cc_stream_to_responses_stream(
             item=text_output_item,
         )
 
-    for tool_call in tool_calls:
+    for idx in sorted(tool_calls.keys()):
+        tool_call = tool_calls[idx]
         function_call_output_item = create_function_call_item(
             msg_id,
             tool_call["id"],

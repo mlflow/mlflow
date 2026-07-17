@@ -1,4 +1,4 @@
-import functools
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,8 @@ from mlflow.deployments.server.constants import (
 from mlflow.environment_variables import (
     MLFLOW_GATEWAY_CONFIG,
     MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
@@ -45,10 +47,13 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
+from mlflow.gateway.utils import (
+    SearchRoutesToken,
+    make_streaming_response,
+    translate_http_exception,
+)
 from mlflow.version import VERSION
 
 
@@ -112,24 +117,9 @@ class GatewayAPI(FastAPI):
         return r._to_legacy_route() if (r := self.dynamic_endpoints.get(route_name)) else None
 
 
-def _translate_http_exception(func):
-    """
-    Decorator for translating MLflow exceptions to HTTP exceptions
-    """
-
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except AIGatewayException as e:
-            raise HTTPException(status_code=e.status_code, detail=e.detail)
-
-    return wrapper
-
-
 def _create_chat_endpoint(prov: Provider):
     # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
-    @_translate_http_exception
+    @translate_http_exception
     async def _chat(
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload | chat.StreamResponsePayload:
@@ -142,7 +132,7 @@ def _create_chat_endpoint(prov: Provider):
 
 
 def _create_completions_endpoint(prov: Provider):
-    @_translate_http_exception
+    @translate_http_exception
     async def _completions(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload | completions.StreamResponsePayload:
@@ -155,7 +145,7 @@ def _create_completions_endpoint(prov: Provider):
 
 
 def _create_embeddings_endpoint(prov: Provider):
-    @_translate_http_exception
+    @translate_http_exception
     async def _embeddings(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
@@ -476,6 +466,9 @@ def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     """
     Load the path and generate the GatewayAPI app instance.
     """
+    # Enable env-var and file-based API key resolution for the legacy YAML-config gateway
+    os.environ[MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.name] = "true"
+    os.environ[MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.name] = "true"
     config = _load_gateway_config(config_path)
     return create_app_from_config(config)
 

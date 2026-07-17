@@ -1,0 +1,18 @@
+diff --git a/index.js b/index.js
+index 13b7394b622396e6357eb318c1a71fc8d7db27f7..a80595e98b40d4edf62b4ae6b51c268e1bdcc9fe 100644
+--- a/index.js
++++ b/index.js
+@@ -34,8 +34,12 @@ const processor = (report, reporterOptions = {}, jestRootDir = null) => {
+   // Ensure output path exists
+   mkdirp.sync(path.dirname(outputPath));
+ 
++  // Clean ESC character, which is invalid XML and some libraries include in error messages
++  const xmlString = xml(jsonResults, { indent: '  ', declaration: true });
++  const cleanedXmlString = xmlString.replace(/\u001b/g, '');
++
+   // Write data to file
+-  fs.writeFileSync(outputPath, xml(jsonResults, { indent: '  ', declaration: true }));
++  fs.writeFileSync(outputPath, cleanedXmlString);
+ 
+   // Jest 18 compatibility
+   return report;

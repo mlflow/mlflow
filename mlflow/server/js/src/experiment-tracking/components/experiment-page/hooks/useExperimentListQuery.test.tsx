@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useExperimentListQuery } from './useExperimentListQuery';
@@ -34,9 +35,7 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-const mockSearchExperiments = MlflowService.searchExperiments as jest.MockedFunction<
-  typeof MlflowService.searchExperiments
->;
+const mockSearchExperiments = jest.mocked(MlflowService.searchExperiments);
 
 describe('useExperimentListQuery', () => {
   let queryClient: QueryClient;
@@ -59,7 +58,6 @@ describe('useExperimentListQuery', () => {
   });
 
   const createWrapper = () => {
-    // eslint-disable-next-line react/display-name
     return ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
@@ -147,7 +145,7 @@ describe('useExperimentListQuery', () => {
         const filterParam = params.find((p: any) => p?.[0] === 'filter')?.[1];
         const pageToken = params.find((p: any) => p?.[0] === 'page_token')?.[1];
 
-        if (filterParam?.includes('tags')) {
+        if (filterParam?.includes('env')) {
           // After tags filter change
           return createMockResponse(['7'], undefined);
         } else if (pageToken === 'page_2_token') {
@@ -387,6 +385,24 @@ describe('useExperimentListQuery', () => {
       pageTokenParam = apiCallData.find((param: [string, string]) => param?.[0] === 'page_token');
       expect(pageTokenParam).toBeDefined();
       expect(pageTokenParam?.[1]).toBe('page_2_token');
+    });
+  });
+
+  describe('gateway experiment filtering', () => {
+    it('includes gateway exclusion filter in API call', async () => {
+      mockSearchExperiments.mockResolvedValueOnce(createMockResponse(['1', '2'], undefined));
+
+      renderHook(() => useExperimentListQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(mockSearchExperiments).toHaveBeenCalled());
+
+      const apiCallData = mockSearchExperiments.mock.calls[0][0];
+      const filterParam = apiCallData.find((param: [string, string]) => param?.[0] === 'filter');
+
+      expect(filterParam).toBeDefined();
+      expect(filterParam?.[1]).toContain('tags.`mlflow.experiment.isGateway` IS NULL');
     });
   });
 });

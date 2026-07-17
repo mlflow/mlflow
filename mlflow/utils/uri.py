@@ -94,7 +94,7 @@ def is_fuse_or_uc_volumes_uri(uri):
     Multiple directory paths are collapsed into a single designator for root path validation.
     For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
-    resolved_uri = re.sub("/+", "/", uri).lower()
+    resolved_uri = re.sub(r"/+", "/", uri).lower()
     return any(
         resolved_uri.startswith(x.lower())
         for x in [
@@ -364,9 +364,7 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
-    ...     "/absolutepath1", "/absolutepath2"
-    ... )
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
@@ -449,26 +447,22 @@ def resolve_uri_if_local(local_uri):
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
                 if is_windows():
-                    return urllib.parse.urlunsplit(
-                        (
-                            "file",
-                            None,
-                            cwd.joinpath(local_path).as_posix(),
-                            None,
-                            None,
-                        )
-                    )
+                    return urllib.parse.urlunsplit((
+                        "file",
+                        None,
+                        cwd.joinpath(local_path).as_posix(),
+                        None,
+                        None,
+                    ))
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            return urllib.parse.urlunsplit(
-                (
-                    local_uri_split.scheme,
-                    None,
-                    cwd.joinpath(local_path).as_posix(),
-                    local_uri_split.query,
-                    local_uri_split.fragment,
-                )
-            )
+            return urllib.parse.urlunsplit((
+                local_uri_split.scheme,
+                None,
+                cwd.joinpath(local_path).as_posix(),
+                local_uri_split.query,
+                local_uri_split.fragment,
+            ))
     return local_uri
 
 
@@ -516,6 +510,30 @@ def validate_path_is_safe(path):
         raise exc
 
     return path
+
+
+def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
+    """
+    Validates that the constructed path (after resolving symlinks) is within the base directory.
+    This is a security measure to prevent symlink-based path traversal attacks.
+
+    Args:
+        base_dir: The trusted base directory path.
+        constructed_path: The full path that was constructed by joining base_dir with user input.
+
+    Returns:
+        The constructed_path if validation passes.
+    """
+    real_base_dir = pathlib.Path(base_dir).resolve()
+    real_constructed_path = pathlib.Path(constructed_path).resolve()
+
+    if not real_constructed_path.is_relative_to(real_base_dir):
+        raise MlflowException(
+            "Invalid path: resolved path is outside the artifact directory",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return constructed_path
 
 
 def _escape_control_characters(text: str) -> str:

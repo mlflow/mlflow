@@ -34,26 +34,24 @@ def spark_session():
 
 @pytest.fixture
 def data_format(format_to_file_path):
-    res, _ = sorted(format_to_file_path.items())[0]
+    res, _ = min(format_to_file_path.items())
     return res
 
 
 @pytest.fixture
 def file_path(format_to_file_path):
-    _, file_path = sorted(format_to_file_path.items())[0]
+    _, file_path = min(format_to_file_path.items())
     return file_path
 
 
 @pytest.fixture
 def format_to_file_path(spark_session):
     rows = [Row(8, 32, "bat"), Row(64, 40, "mouse"), Row(-27, 55, "horse")]
-    schema = StructType(
-        [
-            StructField("number2", IntegerType()),
-            StructField("number1", IntegerType()),
-            StructField("word", StringType()),
-        ]
-    )
+    schema = StructType([
+        StructField("number2", IntegerType()),
+        StructField("number1", IntegerType()),
+        StructField("word", StringType()),
+    ])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     res = {}

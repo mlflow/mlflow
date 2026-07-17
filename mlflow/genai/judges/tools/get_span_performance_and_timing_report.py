@@ -14,7 +14,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
 @dataclass
@@ -44,7 +43,6 @@ class ConcurrentPair:
     overlap_s: float
 
 
-@experimental(version="3.5.0")
 class GetSpanPerformanceAndTimingReportTool(JudgeTool):
     """
     A tool that generates a span timing report for a trace.
@@ -358,14 +356,12 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             trace_info: Trace metadata for header information.
             span_count: Total number of spans in the trace.
         """
-        lines.extend(
-            [
-                f"SPAN TIMING REPORT FOR TRACE: {trace_info.trace_id}",
-                f"Total Duration: {trace_info.execution_duration / 1000:.2f}s",
-                f"Total Spans: {span_count}",
-                "",
-            ]
-        )
+        lines.extend([
+            f"SPAN TIMING REPORT FOR TRACE: {trace_info.trace_id}",
+            f"Total Duration: {trace_info.execution_duration / 1000:.2f}s",
+            f"Total Spans: {span_count}",
+            "",
+        ])
 
     def _add_column_definitions(self, lines: list[str]) -> None:
         """Add column definitions section.
@@ -373,17 +369,15 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
         Args:
             lines: List to append column definition lines to.
         """
-        lines.extend(
-            [
-                "COLUMN DEFINITIONS:",
-                "  self_dur:  Time spent in this span excluding its children (actual work)",
-                "  total_dur: Total time from span start to end (includes waiting for children)",
-                "  child_dur: Time spent waiting for child spans to complete",
-                "  parent:    The immediate parent span number",
-                "  ancestors: Complete chain from root to parent",
-                "",
-            ]
-        )
+        lines.extend([
+            "COLUMN DEFINITIONS:",
+            "  self_dur:  Time spent in this span excluding its children (actual work)",
+            "  total_dur: Total time from span start to end (includes waiting for children)",
+            "  child_dur: Time spent waiting for child spans to complete",
+            "  parent:    The immediate parent span number",
+            "  ancestors: Complete chain from root to parent",
+            "",
+        ])
 
     def _add_span_table(self, lines: list[str], timing_data: dict[str, SpanTimingData]) -> None:
         """Add the main span timing table.
@@ -392,16 +386,14 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             lines: List to append table lines to.
             timing_data: Timing data for all spans to display.
         """
-        lines.extend(
-            [
-                "SPAN TABLE:",
-                "-" * 200,
-                f"{'span_num':<8} {'span_id':<20} {'name':<30} "
-                f"{'type':<12} {'self_dur':>9} {'total_dur':>10} {'child_dur':>10} "
-                f"{'parent':<8} {'ancestors':<60}",
-                "-" * 200,
-            ]
-        )
+        lines.extend([
+            "SPAN TABLE:",
+            "-" * 200,
+            f"{'span_num':<8} {'span_id':<20} {'name':<30} "
+            f"{'type':<12} {'self_dur':>9} {'total_dur':>10} {'child_dur':>10} "
+            f"{'parent':<8} {'ancestors':<60}",
+            "-" * 200,
+        ])
 
         sorted_data = sorted(
             timing_data.values(), key=lambda x: int(x.span_number[1:]) if x.span_number else 0
@@ -431,15 +423,13 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             lines: List to append summary lines to.
             type_summary: Summary statistics organized by span type.
         """
-        lines.extend(
-            [
-                "",
-                "SUMMARY BY TYPE:",
-                "-" * 80,
-                f"{'type':<20} {'count':>8} {'total_dur':>12} {'avg_dur':>12}",
-                "-" * 80,
-            ]
-        )
+        lines.extend([
+            "",
+            "SUMMARY BY TYPE:",
+            "-" * 80,
+            f"{'type':<20} {'count':>8} {'total_dur':>12} {'avg_dur':>12}",
+            "-" * 80,
+        ])
 
         for span_type in sorted(type_summary.keys()):
             count, total_dur = type_summary[span_type]
@@ -453,16 +443,14 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             lines: List to append top spans section to.
             timing_data: Timing data for all spans to rank.
         """
-        lines.extend(
-            [
-                "",
-                "TOP 10 SPANS BY SELF DURATION (actual work, not including children):",
-                "-" * 110,
-                f"{'rank':<6} {'span_num':<10} {'span_id':<20} {'name':<30} "
-                f"{'type':<12} {'self_dur':>12}",
-                "-" * 110,
-            ]
-        )
+        lines.extend([
+            "",
+            "TOP 10 SPANS BY SELF DURATION (actual work, not including children):",
+            "-" * 110,
+            f"{'rank':<6} {'span_num':<10} {'span_id':<20} {'name':<30} "
+            f"{'type':<12} {'self_dur':>12}",
+            "-" * 110,
+        ])
 
         sorted_spans = sorted(timing_data.values(), key=lambda x: x.self_duration_s, reverse=True)[
             : self.TOP_SPANS_COUNT
@@ -488,28 +476,24 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
             concurrent_pairs: List of detected concurrent span pairs.
             timing_data: Timing data (currently unused but kept for consistency).
         """
-        lines.extend(
-            [
-                "",
-                "CONCURRENT OPERATIONS:",
-                "-" * 100,
-            ]
-        )
+        lines.extend([
+            "",
+            "CONCURRENT OPERATIONS:",
+            "-" * 100,
+        ])
 
         if not concurrent_pairs:
             lines.append("No significant concurrent operations detected.")
             return
 
-        lines.extend(
-            [
-                f"{'span1':<10} {'span2':<10} {'name1':<30} {'name2':<30} {'overlap':>10}",
-                "-" * 100,
-            ]
-        )
+        lines.extend([
+            f"{'span1':<10} {'span2':<10} {'name1':<30} {'name2':<30} {'overlap':>10}",
+            "-" * 100,
+        ])
 
-        for pair in concurrent_pairs:
-            lines.append(
-                f"{pair.span1_num:<10} {pair.span2_num:<10} "
-                f"{pair.span1_name:<30} {pair.span2_name:<30} "
-                f"{pair.overlap_s:>10.3f}s"
-            )
+        lines.extend(
+            f"{pair.span1_num:<10} {pair.span2_num:<10} "
+            f"{pair.span1_name:<30} {pair.span2_name:<30} "
+            f"{pair.overlap_s:>10.3f}s"
+            for pair in concurrent_pairs
+        )

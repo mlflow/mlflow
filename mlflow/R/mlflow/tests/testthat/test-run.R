@@ -16,9 +16,9 @@ test_that("mlflow can run and save model", {
 
 
 test_that("mlflow run uses active experiment if not specified", {
-  with_mock(.env = "mlflow", mlflow_get_active_experiment_id = function() {
+  with_mocked_bindings(.package = "mlflow", mlflow_get_active_experiment_id = function() {
     123}, {
-      with_mock(.env = "mlflow", mlflow_cli = function(...){
+      with_mocked_bindings(.package = "mlflow", mlflow_cli = function(...){
         args <- list(...)
         expect_true("--experiment-id" %in% args)
         expect_false("--experiment-name" %in% args)
@@ -28,7 +28,7 @@ test_that("mlflow run uses active experiment if not specified", {
       }, {
         mlflow_run("project")
       })
-      with_mock(.env = "mlflow", mlflow_cli = function(...){
+      with_mocked_bindings(.package = "mlflow", mlflow_cli = function(...){
         args <- list(...)
         expect_true("--experiment-id" %in% args)
         expect_false("--experiment-name" %in% args)
@@ -38,7 +38,7 @@ test_that("mlflow run uses active experiment if not specified", {
       }, {
         mlflow_run("project", experiment_id = 321)
       })
-      with_mock(.env = "mlflow", mlflow_cli = function(...){
+      with_mocked_bindings(.package = "mlflow", mlflow_cli = function(...){
         args <- list(...)
         expect_false("--experiment-id" %in% args)
         expect_true("--experiment-name" %in% args)
@@ -56,7 +56,7 @@ test_that("mlflow_run passes all numbers as non-scientific", {
   # we can only be sure conversion is actively avoided
   # if default formatting turns into scientific.
   expect_equal(as.character(10e4), "1e+05")
-  with_mock(.env = "mlflow", mlflow_cli = function(...){
+  with_mocked_bindings(.package = "mlflow", mlflow_cli = function(...){
     args <- c(...)
     expect_equal(sum("scientific=100000" == args), 1)
     expect_equal(sum("non_scientific=30000" == args), 1)

@@ -1,0 +1,62 @@
+diff --git a/es/generate.js b/es/generate.js
+index 34034b3052f57103c15b2d62f9fbc9b79c6edc6d..4802bd7aae62e9a7decbfdf4301063f4de722486 100644
+--- a/es/generate.js
++++ b/es/generate.js
+@@ -665,8 +665,12 @@ export default function generateSelector(config) {
+ 
+           cancelSetMockFocused();
+ 
+-          if (!popupElement.contains(document.activeElement)) {
+-            selectorRef.current.focus();
++          if (!popupElement.contains(target.getRootNode().activeElement)) {
++            // this is already fixed in a later version of rc-select, so we can remove the patch
++            // when upgrading
++            var _selectorRef$current3;
++
++            (_selectorRef$current3 = selectorRef.current) === null || _selectorRef$current3 === void 0 ? void 0 : _selectorRef$current3.focus();
+           }
+         });
+         activeTimeoutIds.push(timeoutId);
+diff --git a/es/hooks/useSelectTriggerControl.js b/es/hooks/useSelectTriggerControl.js
+index d2870d44a26dc1e4eeb48a60a71d7c2ee3c98e64..c1074b8211bc9223038502d031afef3705f9820c 100644
+--- a/es/hooks/useSelectTriggerControl.js
++++ b/es/hooks/useSelectTriggerControl.js
+@@ -12,9 +12,16 @@ export default function useSelectTriggerControl(elements, open, triggerOpen) {
+     function onGlobalMouseDown(event) {
+       var target = event.target;
+ 
+-      if (propsRef.current.open && propsRef.current.elements.every(function (element) {
+-        return !element.contains(target) && element !== target;
+-      })) {
++      // this is already fixed in a later version of rc-select, so we can remove the patch
++      // when upgrading
++      // https://github.com/react-component/select/pull/575/files
++      if (target.shadowRoot && event.composed) {
++        target = (event.composedPath()[0] || target);
++      }
++
++      if (
++        propsRef.current.elements.every(element => !element.contains(target) && element !== target)
++      ) {
+         // Should trigger close
+         propsRef.current.triggerOpen(false);
+       }
+diff --git a/lib/generate.js b/lib/generate.js
+index 41acdc2a3deda4c17046ddfb9d8b1d2e3f7c5256..c199fe0d2b8d7c4aec2e9baaafd3858e08d8bbd8 100644
+--- a/lib/generate.js
++++ b/lib/generate.js
+@@ -693,8 +693,12 @@ function generateSelector(config) {
+ 
+           cancelSetMockFocused();
+ 
+-          if (!popupElement.contains(document.activeElement)) {
+-            selectorRef.current.focus();
++          if (!popupElement.contains(target.getRootNode().activeElement)) {
++            // this is already fixed in a later version of rc-select, so we can remove the patch
++            // when upgrading
++            var _selectorRef$current3;
++
++            (_selectorRef$current3 = selectorRef.current) === null || _selectorRef$current3 === void 0 ? void 0 : _selectorRef$current3.focus();
+           }
+         });
+         activeTimeoutIds.push(timeoutId);

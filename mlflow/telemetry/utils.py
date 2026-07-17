@@ -1,6 +1,9 @@
 import logging
 import os
+from pathlib import Path
+from typing import Any
 
+import requests
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -8,7 +11,14 @@ from mlflow.environment_variables import (
     _MLFLOW_TESTING_TELEMETRY,
     MLFLOW_DISABLE_TELEMETRY,
 )
-from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
+from mlflow.telemetry.constant import (
+    CONFIG_STAGING_URL,
+    CONFIG_URL,
+    FALLBACK_UI_CONFIG,
+    UI_CONFIG_STAGING_URL,
+    UI_CONFIG_URL,
+)
+from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -54,10 +64,28 @@ def _is_in_databricks() -> bool:
         return True
 
     # check if in databricks model serving environment
-    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() == "true":
+    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() in ("true", "1"):
         return True
 
     return False
+
+
+def _detect_environment() -> str | None:
+    # Check for MLflow demo deployment (e.g. demo.mlflow.org) before generic docker detection
+    if os.environ.get("MLFLOW_DEPLOYMENT_ENV") == "demo":
+        return Environment.DEMO.value
+
+    for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
+        if env_var in os.environ:
+            return environment.value
+
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-metadata.html
+    if Path("/opt/ml/metadata/resource-metadata.json").exists():
+        return Environment.SAGEMAKER_NOTEBOOK.value
+    # unofficial heuristic to detect docker environment
+    if Path("/.dockerenv").exists():
+        return Environment.DOCKER.value
+    return None
 
 
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
@@ -70,11 +98,15 @@ def is_telemetry_disabled() -> bool:
     try:
         if _IS_MLFLOW_TESTING_TELEMETRY:
             return False
+        # NB: _IS_IN_DATABRICKS is intentionally NOT a disable signal here. When the
+        # tracking URI is databricks:// or databricks-uc://, telemetry is forwarded
+        # to the workspace's own ingestion endpoint (see TelemetryClient._forward_to_databricks).
+        # The non-Databricks (OSS) ingestion path is separately guarded in
+        # TelemetryClient._process_records so it is never hit from inside DBR.
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
             or _IS_IN_CI_ENV_OR_TESTING
-            or _IS_IN_DATABRICKS
             or _IS_MLFLOW_DEV_VERSION
         )
     except Exception as e:
@@ -82,19 +114,21 @@ def is_telemetry_disabled() -> bool:
         return True
 
 
-def _get_config_url(version: str) -> str | None:
+def _get_config_url(version: str, is_ui: bool = False) -> str | None:
     """
     Get the config URL for the given MLflow version.
     """
     version_obj = Version(version)
 
     if version_obj.is_devrelease or _IS_MLFLOW_TESTING_TELEMETRY:
-        return f"{CONFIG_STAGING_URL}/{version}.json"
+        base_url = UI_CONFIG_STAGING_URL if is_ui else CONFIG_STAGING_URL
+        return f"{base_url}/{version}.json"
 
     if version_obj.base_version == version or (
         version_obj.is_prerelease and version_obj.pre[0] == "rc"
     ):
-        return f"{CONFIG_URL}/{version}.json"
+        base_url = UI_CONFIG_URL if is_ui else CONFIG_URL
+        return f"{base_url}/{version}.json"
 
     return None
 
@@ -102,3 +136,25 @@ def _get_config_url(version: str) -> str | None:
 def _log_error(message: str) -> None:
     if _MLFLOW_TELEMETRY_LOGGING.get():
         _logger.error(message, exc_info=True)
+
+
+def fetch_ui_telemetry_config() -> dict[str, Any]:
+    # Check if telemetry is disabled
+    if is_telemetry_disabled():
+        return FALLBACK_UI_CONFIG
+
+    # Get config URL
+    config_url = _get_config_url(VERSION, is_ui=True)
+    if not config_url:
+        return FALLBACK_UI_CONFIG
+
+    # Fetch config from remote URL
+    try:
+        response = requests.get(config_url, timeout=1)
+        if response.status_code != 200:
+            return FALLBACK_UI_CONFIG
+
+        return response.json()
+    except Exception as e:
+        _log_error(f"Failed to fetch UI telemetry config: {e}")
+        return FALLBACK_UI_CONFIG

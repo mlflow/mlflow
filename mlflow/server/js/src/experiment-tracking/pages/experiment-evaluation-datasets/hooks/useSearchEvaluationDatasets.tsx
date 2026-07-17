@@ -1,5 +1,5 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { EvaluationDataset } from '../types';
+import { useInfiniteQuery } from '@databricks/web-shared/query-client';
+import type { EvaluationDataset } from '../types';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
@@ -35,11 +35,10 @@ export const useSearchEvaluationDatasets = ({
         page_token: pageParam,
       };
 
-      return (await fetchAPI(
-        getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'),
-        'POST',
-        requestBody,
-      )) as SearchEvaluationDatasetsResponse;
+      return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
+        method: 'POST',
+        body: requestBody,
+      })) as SearchEvaluationDatasetsResponse;
     },
     cacheTime: 0,
     refetchOnWindowFocus: false,

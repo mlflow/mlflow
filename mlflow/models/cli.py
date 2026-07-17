@@ -2,6 +2,7 @@ import logging
 
 import click
 
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import update_model_requirements
@@ -22,6 +23,7 @@ def commands():
 
 
 @commands.command("serve")
+@mlflow_mcp(tool_name="serve_model")
 @cli_args.MODEL_URI
 @cli_args.PORT
 @cli_args.HOST
@@ -30,7 +32,6 @@ def commands():
 @cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def serve(
     model_uri,
     port,
@@ -40,7 +41,6 @@ def serve(
     env_manager=None,
     no_conda=False,
     install_mlflow=False,
-    enable_mlserver=False,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -101,9 +101,7 @@ def serve(
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
-    ).serve(
-        model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
-    )
+    ).serve(model_uri=model_uri, port=port, host=host, timeout=timeout)
 
 
 class KeyValueType(click.ParamType):
@@ -116,6 +114,7 @@ class KeyValueType(click.ParamType):
 
 
 @commands.command("predict")
+@mlflow_mcp(tool_name="predict_with_model")
 @cli_args.MODEL_URI
 @click.option(
     "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against."
@@ -179,6 +178,7 @@ def predict(
 
 
 @commands.command("prepare-env")
+@mlflow_mcp(tool_name="prepare_model_env")
 @cli_args.MODEL_URI
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
@@ -198,6 +198,7 @@ def prepare_env(
 
 
 @commands.command("generate-dockerfile")
+@mlflow_mcp(tool_name="generate_model_dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option(
     "--output-directory",
@@ -209,7 +210,6 @@ def prepare_env(
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def generate_dockerfile(
     model_uri,
     output_directory,
@@ -217,7 +217,6 @@ def generate_dockerfile(
     mlflow_home,
     install_java,
     install_mlflow,
-    enable_mlserver,
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
@@ -237,7 +236,6 @@ def generate_dockerfile(
             mlflow_home=mlflow_home,
             install_java=install_java,
             install_mlflow=install_mlflow,
-            enable_mlserver=enable_mlserver,
         )
         _logger.info("Generated Dockerfile in directory %s", output_directory)
     else:
@@ -249,13 +247,13 @@ def generate_dockerfile(
 
 
 @commands.command("build-docker")
+@mlflow_mcp(tool_name="build_model_docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def build_docker(**kwargs):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
@@ -312,6 +310,7 @@ def build_docker(**kwargs):
 
 
 @commands.command("update-pip-requirements")
+@mlflow_mcp(tool_name="update_model_pip_requirements")
 @cli_args.MODEL_URI
 @click.argument("operation", type=click.Choice(["add", "remove"]))
 @click.argument("requirement_strings", type=str, nargs=-1)

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { RenameRunModalWithIntl } from './RenameRunModal';
@@ -56,6 +57,7 @@ describe('RenameRunModal', () => {
     const failPromise = failWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failPromise.finally(() => {
       expect(mockFailUpdateRunApi).toHaveBeenCalledTimes(1);
+      // @ts-expect-error Expected 0 arguments, but got 3
       expect(mockFailUpdateRunApi).toHaveBeenCalledWith('testUuid', 'renamed', expect.any(String));
       done();
     });

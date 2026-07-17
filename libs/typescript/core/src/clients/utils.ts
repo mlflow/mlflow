@@ -1,28 +1,58 @@
 import { JSONBig } from '../core/utils/json';
+import { HeadersProvider } from '../auth';
+
+const MAX_ERROR_BODY_LENGTH = 1000;
 
 /**
- * Get the request headers for the given token or basic auth credentials.
- * Token will be used if provided, otherwise basic auth credentials will be used.
- *
- * @param token - The token to use to authenticate the request.
- * @param username - The username to use to authenticate the request with basic auth.
- * @param password - The password to use to authenticate the request with basic auth.
- * @returns The request headers.
+ * Error thrown when an HTTP request to the MLflow backend returns a non-2xx response.
+ * Carries the parsed status code and (when present) the `error_code` field from the
+ * response body so callers can branch on status without matching error messages.
  */
-export function getRequestHeaders(
-  token?: string,
-  username?: string,
-  password?: string
-): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+export class MlflowHttpError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly body: string;
+  readonly errorCode?: string;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  } else if (username && password) {
-    headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+  constructor(status: number, statusText: string, body: string) {
+    super(MlflowHttpError.formatMessage(status, statusText, body));
+    this.name = 'MlflowHttpError';
+    this.status = status;
+    this.statusText = statusText;
+    this.body = body;
+    this.errorCode = MlflowHttpError.extractErrorCode(body);
   }
 
-  return headers;
+  private static formatMessage(status: number, statusText: string, body: string): string {
+    let message = `HTTP ${status}: ${statusText}`;
+    if (body) {
+      message +=
+        body.length > MAX_ERROR_BODY_LENGTH
+          ? ` - ${body.substring(0, MAX_ERROR_BODY_LENGTH)}... (truncated)`
+          : ` - ${body}`;
+    }
+    return message;
+  }
+
+  private static extractErrorCode(body: string): string | undefined {
+    if (!body) {
+      return undefined;
+    }
+    try {
+      const parsed: unknown = JSON.parse(body);
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'error_code' in parsed &&
+        typeof (parsed as { error_code: unknown }).error_code === 'string'
+      ) {
+        return (parsed as { error_code: string }).error_code;
+      }
+    } catch {
+      // body is not JSON
+    }
+    return undefined;
+  }
 }
 
 /**
@@ -33,25 +63,32 @@ export function getRequestHeaders(
 export async function makeRequest<T>(
   method: string,
   url: string,
-  headers: Record<string, string>,
+  headerProvider: HeadersProvider,
   body?: any,
-  timeout?: number
+  timeout?: number,
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
+  const headers = await headerProvider();
 
   try {
     const response = await fetch(url, {
       method,
       headers: headers,
       body: body ? JSONBig.stringify(body) : undefined,
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch {
+        // If we can't read the body, leave it empty
+      }
+      throw new MlflowHttpError(response.status, response.statusText, responseBody);
     }
 
     // Handle empty responses (like DELETE operations)
@@ -64,9 +101,76 @@ export async function makeRequest<T>(
   } catch (error) {
     clearTimeout(timeoutId);
 
+    if (error instanceof MlflowHttpError) {
+      throw error;
+    }
+
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error(`Request timeout after ${timeout}ms`);
+      }
+      throw new Error(`API request failed: ${error.message}`);
+    }
+    throw new Error(`API request failed: ${String(error)}`);
+  }
+}
+
+/**
+ * Send a raw (already-serialized) body — e.g. OTLP protobuf bytes — to `url`.
+ * `extraHeaders` merge over the auth headers (to override `Content-Type` etc).
+ * The response body is ignored; non-2xx throws {@link MlflowHttpError} so
+ * callers can branch on `status` (e.g. 501 capability gating).
+ */
+export async function makeRawRequest(
+  method: string,
+  url: string,
+  headerProvider: HeadersProvider,
+  body: BodyInit,
+  extraHeaders: Record<string, string> = {},
+  timeout?: number,
+): Promise<void> {
+  const controller = new AbortController();
+  const effectiveTimeout = timeout ?? getDefaultTimeout();
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+
+  const headers: Record<string, string> = { ...(await headerProvider()) };
+  for (const [key, value] of Object.entries(extraHeaders)) {
+    const existingKey = Object.keys(headers).find((h) => h.toLowerCase() === key.toLowerCase());
+    if (existingKey) {
+      delete headers[existingKey];
+    }
+    headers[key] = value;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch {
+        // If we can't read the body, leave it empty
+      }
+      throw new MlflowHttpError(response.status, response.statusText, responseBody);
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof MlflowHttpError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${effectiveTimeout}ms`);
       }
       throw new Error(`API request failed: ${error.message}`);
     }

@@ -1,8 +1,11 @@
 import logging
 import os
+import subprocess
 from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
+
+from packaging.version import Version
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
@@ -15,7 +18,7 @@ UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
-SETUP_PYENV_AND_VIRTUALENV = r"""# Setup pyenv
+SETUP_PYENV = r"""# Setup pyenv
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
     libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
@@ -35,7 +38,6 @@ RUN apt install -y software-properties-common \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
-RUN pip install virtualenv
 """  # noqa: E501
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
@@ -52,7 +54,6 @@ WORKDIR /opt/mlflow
 {install_model_and_deps}
 
 ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
-ENV ENABLE_MLSERVER={enable_mlserver}
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
@@ -83,7 +84,6 @@ def generate_dockerfile(
     entrypoint: str,
     env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
     mlflow_home: str | None = None,
-    enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
     install_java: bool | None = None,
 ):
@@ -112,9 +112,7 @@ def generate_dockerfile(
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
             "git-core\n\n"
         )
-        setup_python_venv_steps += (
-            SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
-        )
+        setup_python_venv_steps += SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV
         if install_java is not False:
             jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
             setup_java_steps = (
@@ -132,15 +130,14 @@ def generate_dockerfile(
                 install_mlflow=install_mlflow_steps,
                 install_model_and_deps=model_install_steps,
                 entrypoint=entrypoint,
-                enable_mlserver=enable_mlserver,
                 disable_env_creation=disable_env_creation_at_runtime,
             )
         )
 
 
 def _get_maven_proxy():
-    http_proxy = os.getenv("http_proxy")
-    https_proxy = os.getenv("https_proxy")
+    http_proxy = os.environ.get("http_proxy")
+    https_proxy = os.environ.get("https_proxy")
     if not http_proxy or not https_proxy:
         return ""
 
@@ -166,13 +163,11 @@ def _get_maven_proxy():
     if parsed_http_proxy.username is None or parsed_http_proxy.password is None:
         return " ".join(maven_proxy_options)
 
-    return " ".join(
-        (
-            *maven_proxy_options,
-            f"-Dhttp.proxyUser={parsed_http_proxy.username}",
-            f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
-        )
-    )
+    return " ".join((
+        *maven_proxy_options,
+        f"-Dhttp.proxyUser={parsed_http_proxy.username}",
+        f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
+    ))
 
 
 def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
@@ -190,17 +185,33 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN pip install /opt/mlflow"
         )
     else:
+        # Dev version is not available on PyPI, install from GitHub instead
+        if Version(VERSION).is_devrelease:
+            return "# Install MLflow\nRUN pip install https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 
-def build_image_from_context(context_dir: str, image_name: str):
-    import docker
+def build_image_from_context(context_dir: str, image_name: str, network: str | None = None):
+    try:
+        import docker
 
-    client = docker.from_env()
+        client = docker.from_env()
+        docker_version = int(client.version()["Version"].split(".")[0])
+    except Exception:
+        try:
+            result = subprocess.run(
+                ["docker", "version", "--format", "{{.Server.Version}}"],
+                capture_output=True,
+                text=True,
+            )
+            docker_version = int(result.stdout.strip().split(".")[0])
+        except Exception:
+            docker_version = 0
     # In Docker < 19, `docker build` doesn't support the `--platform` option
-    is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
+    is_platform_supported = docker_version >= 19
     # Enforcing the AMD64 architecture build for Apple M1 users
     platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
+    network_option = ["--network", network] if network else []
     commands = [
         "docker",
         "build",
@@ -209,6 +220,7 @@ def build_image_from_context(context_dir: str, image_name: str):
         "-f",
         "Dockerfile",
         *platform_option,
+        *network_option,
         ".",
     ]
     proc = Popen(commands, cwd=context_dir)

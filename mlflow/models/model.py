@@ -60,11 +60,18 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
-    get_uri_scheme,
     is_databricks_uri,
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _is_uv_auto_detected() -> bool:
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+    from mlflow.utils.uv_utils import detect_uv_project
+
+    return MLFLOW_UV_AUTO_DETECT.get() and detect_uv_project() is not None
+
 
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
@@ -76,15 +83,13 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 )
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
     "Model logged without a signature. Signatures are required for Databricks UC model registry "
-    "as they validate model inputs and denote the expected schema of model outputs. "
-    f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
-    "model/signatures.html#how-to-set-signatures-on-models for instructions on setting "
-    "signature on models."
+    "as they validate model inputs and denote the expected schema of model outputs. Please set "
+    "`input_example` parameter when logging the model to auto infer the model signature. To "
+    "manually set the signature, please visit https://www.mlflow.org/docs/"
+    f"{mlflow.__version__.replace('.dev0', '')}/ml/model/signatures.html for "
+    "instructions on setting signature on models."
 )
-_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING = (
-    "Model logged without a signature and input example. Please set `input_example` parameter "
-    "when logging the model to auto infer the model signature."
-)
+
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
 METADATA_FILES = [
@@ -724,8 +729,7 @@ class Model:
     def to_dict(self) -> dict[str, Any]:
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        databricks_runtime = get_databricks_runtime_version()
-        if databricks_runtime:
+        if databricks_runtime := get_databricks_runtime_version():
             res["databricks_runtime"] = databricks_runtime
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
@@ -923,17 +927,17 @@ class Model:
             # We check signature presence here as some flavors have a default signature as a
             # fallback when not provided by user, which is set during flavor's save_model() call.
             if mlflow_model.signature is None and is_databricks_uri(tracking_uri):
-                _logger.warning(_LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"})
+                _logger.info(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
             env_vars = None
             # validate input example works for serving when logging the model
             if serving_input and kwargs.get("validate_serving_input", True):
-                from mlflow.models import validate_serving_input
+                from mlflow.models.utils import _validate_serving_input
                 from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                 with env_var_tracker() as tracked_env_names:
                     try:
-                        validate_serving_input(
+                        _validate_serving_input(
                             model_uri=local_path,
                             serving_input=serving_input,
                         )
@@ -946,10 +950,11 @@ class Model:
                             "Alternatively, you can avoid passing input example and pass model "
                             "signature instead when logging the model. To ensure the input example "
                             "is valid prior to serving, please try calling "
-                            "`mlflow.models.validate_serving_input` on the model uri and serving "
-                            "input example. A serving input example can be generated from model "
-                            "input example using "
-                            "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                            "`mlflow.models.predict(model_uri=..., input_data=serving_input, "
+                            'env_manager="uv")` on the model uri and serving input example. '
+                            "A serving input example can be generated from model input example "
+                            "using `mlflow.models.convert_input_example_to_serving_input` "
+                            "function.\n"
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
@@ -1120,22 +1125,20 @@ class Model:
             metrics_for_step = []
             for metric_name in metric_names:
                 history = client.get_metric_history(run_id, metric_name)
-                metrics_for_step.extend(
-                    [
-                        Metric(
-                            key=metric.key,
-                            value=metric.value,
-                            timestamp=metric.timestamp,
-                            step=metric.step,
-                            dataset_name=metric.dataset_name,
-                            dataset_digest=metric.dataset_digest,
-                            run_id=metric.run_id,
-                            model_id=model_id,
-                        )
-                        for metric in history
-                        if metric.step == step and metric.model_id is None
-                    ]
-                )
+                metrics_for_step.extend([
+                    Metric(
+                        key=metric.key,
+                        value=metric.value,
+                        timestamp=metric.timestamp,
+                        step=metric.step,
+                        dataset_name=metric.dataset_name,
+                        dataset_digest=metric.dataset_digest,
+                        run_id=metric.run_id,
+                        model_id=model_id,
+                    )
+                    for metric in history
+                    if metric.step == step and metric.model_id is None
+                ])
             client.log_batch(run_id=run_id, metrics=metrics_for_step)
 
         # Only one of Auth policy and resources should be defined
@@ -1172,6 +1175,8 @@ class Model:
                     if tags is not None
                     else None,
                     flavor=flavor_name,
+                    serialization_format=kwargs.get("serialization_format"),
+                    uses_uv=kwargs.get("uv_project_path") is not None or _is_uv_auto_detected(),
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
@@ -1223,27 +1228,22 @@ class Model:
                 # We check signature presence here as some flavors have a default signature as a
                 # fallback when not provided by user, which is set during flavor's save_model()
                 # call.
-                if mlflow_model.signature is None:
-                    if serving_input is None:
-                        _logger.warning(
-                            _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
-                        )
-                    elif (
-                        tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-                    ):
-                        _logger.warning(
-                            _LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"}
-                        )
+                if (
+                    mlflow_model.signature is None
+                    and serving_input is None
+                    and is_databricks_uri(tracking_uri)
+                ):
+                    _logger.info(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
 
                 env_vars = None
                 # validate input example works for serving when logging the model
                 if serving_input and kwargs.get("validate_serving_input", True):
-                    from mlflow.models import validate_serving_input
+                    from mlflow.models.utils import _validate_serving_input
                     from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                     with env_var_tracker() as tracked_env_names:
                         try:
-                            validate_serving_input(
+                            _validate_serving_input(
                                 model_uri=local_path,
                                 serving_input=serving_input,
                             )
@@ -1258,9 +1258,10 @@ class Model:
                                 "Alternatively, you can avoid passing input example and pass model "
                                 "signature instead when logging the model. To ensure the input "
                                 "example is valid prior to serving, please try calling "
-                                "`mlflow.models.validate_serving_input` on the model uri and "
-                                "serving input example. A serving input example can be generated "
-                                "from model input example using "
+                                "`mlflow.models.predict(model_uri=..., input_data=serving_input, "
+                                'env_manager="uv")` on the model uri and serving input example. '
+                                "A serving input example can be generated from model input "
+                                "example using "
                                 "`mlflow.models.convert_input_example_to_serving_input` function.\n"
                                 f"Got error: {e}",
                                 exc_info=_logger.isEnabledFor(logging.DEBUG),
@@ -1368,6 +1369,7 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
+                    tags=tags,
                 )
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:

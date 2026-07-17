@@ -97,7 +97,8 @@ export const RunsChartsConfigureModal = ({
   const isChartTypeSupported = (type: RunsChartType) => !supportedChartTypes || supportedChartTypes.includes(type);
   const { theme } = useDesignSystemTheme();
   const borderStyle = `1px solid ${theme.colors.actionDefaultBorderDefault}`;
-  const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>(config);
+  // if a user is editing a generated chart, we should set isGenerated to false
+  const [currentFormState, setCurrentFormState] = useState<RunsChartsCardConfig>({ ...config, isGenerated: false });
 
   const isEditing = Boolean(currentFormState.uuid);
 
@@ -105,7 +106,7 @@ export const RunsChartsConfigureModal = ({
     if (!type) {
       return;
     }
-    const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(type, true);
+    const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(type, false);
     if (emptyChartCard) {
       setCurrentFormState(emptyChartCard);
     }
@@ -400,6 +401,7 @@ export const RunsChartsConfigureModal = ({
                 height: '100%',
                 width: 500,
                 padding: '32px 0px',
+                display: 'flex',
               }}
             >
               {renderPreviewChartType(currentFormState.type)}
@@ -418,7 +420,7 @@ const styles = {
       gridTemplateColumns: `${theme.general.iconSize + theme.spacing.xs}px 1fr`,
       gap: theme.spacing.xs,
       alignItems: 'center',
-    } as Interpolation<Theme>),
+    }) as Interpolation<Theme>,
   field: {
     // TODO: wait for modal dimensions decision
     display: 'grid',

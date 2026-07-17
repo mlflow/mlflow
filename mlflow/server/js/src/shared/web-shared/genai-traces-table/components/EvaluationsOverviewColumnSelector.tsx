@@ -12,7 +12,6 @@ import {
 import { useIntl } from '@databricks/i18n';
 
 import type { TracesTableColumn } from '../types';
-import { COLUMN_SELECTOR_DROPDOWN_COMPONENT_ID } from '../utils/EvaluationLogging';
 
 /**
  * Component for column selector in MLflow monitoring traces view. Allows user to control which assessments show up in table to prevent too much clutter.
@@ -46,7 +45,7 @@ export const EvaluationsOverviewColumnSelector = ({
   };
 
   return (
-    <DialogCombobox componentId={COLUMN_SELECTOR_DROPDOWN_COMPONENT_ID} label="Columns" multiSelect>
+    <DialogCombobox componentId="mlflow.evaluations_overview.column_selector_dropdown" label="Columns" multiSelect>
       <DialogComboboxCustomButtonTriggerWrapper>
         <Button endIcon={<ChevronDownIcon />} componentId="mlflow.evaluations_review.table_ui.filter_button">
           <div

@@ -2,10 +2,17 @@ import {
   HrTime,
   INVALID_SPANID,
   INVALID_TRACEID,
-  SpanStatusCode as OTelSpanStatusCode
+  SpanStatusCode as OTelSpanStatusCode,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
-import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
+import {
+  SpanAttributeKey,
+  SpanLogLevel,
+  SpanType,
+  toSpanLogLevel,
+  NO_OP_SPAN_TRACE_ID,
+} from '../constants';
+import { defaultLogLevelForSpanType } from '../log_level';
 import { SpanEvent } from './span_event';
 import { SpanStatus, SpanStatusCode } from './span_status';
 import {
@@ -13,7 +20,7 @@ import {
   convertNanoSecondsToHrTime,
   encodeSpanIdToBase64,
   encodeTraceIdToBase64,
-  decodeIdFromBase64
+  decodeIdFromBase64,
 } from '../utils';
 import { safeJsonStringify } from '../utils/json';
 /**
@@ -39,6 +46,10 @@ export interface ISpan {
   get spanId(): string;
   get name(): string;
   get spanType(): SpanType;
+  /**
+   * The severity level of the span, or null if it was not classified.
+   */
+  get logLevel(): SpanLogLevel | null;
   get startTime(): HrTime;
   get endTime(): HrTime | null;
   get parentId(): string | null;
@@ -104,6 +115,14 @@ export class Span implements ISpan {
     return this.getAttribute(SpanAttributeKey.SPAN_TYPE) as SpanType;
   }
 
+  get logLevel(): SpanLogLevel | null {
+    const raw = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | undefined | null;
+    if (raw == null) {
+      return null;
+    }
+    return raw as SpanLogLevel;
+  }
+
   /**
    * Get the parent span ID
    */
@@ -151,7 +170,7 @@ export class Span implements ISpan {
       return new SpanEvent({
         name: event.name,
         attributes: event.attributes as Record<string, any>,
-        timestamp: BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds)
+        timestamp: BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds),
       });
     });
   }
@@ -171,14 +190,14 @@ export class Span implements ISpan {
       end_time_unix_nano: this.endTime ? convertHrTimeToNanoSeconds(this.endTime) : null,
       status: {
         code: this.status?.statusCode || SpanStatusCode.UNSET,
-        message: this.status?.description
+        message: this.status?.description,
       },
       attributes: this.attributes || {},
       events: this.events.map((event) => ({
         name: event.name,
         time_unix_nano: event.timestamp,
-        attributes: event.attributes || {}
-      }))
+        attributes: event.attributes || {},
+      })),
     };
   }
 
@@ -196,7 +215,7 @@ export class Span implements ISpan {
       endTime: json.end_time_unix_nano ? convertNanoSecondsToHrTime(json.end_time_unix_nano) : null,
       status: {
         code: convertStatusCodeToOTel(json.status.code),
-        message: json.status.message
+        message: json.status.message,
       },
       // For fromJson, attributes are already in their final form (not JSON serialized)
       // so we store them directly
@@ -204,7 +223,7 @@ export class Span implements ISpan {
       events: (json.events || []).map((event) => ({
         name: event.name,
         time: convertNanoSecondsToHrTime(event.time_unix_nano),
-        attributes: event.attributes || {}
+        attributes: event.attributes || {},
       })),
       ended: true,
       // Add spanContext() method that returns proper SpanContext
@@ -212,7 +231,7 @@ export class Span implements ISpan {
         traceId: decodeIdFromBase64(json.trace_id),
         spanId: decodeIdFromBase64(json.span_id),
         traceFlags: 1, // Sampled
-        isRemote: false
+        isRemote: false,
       }),
       // Add parentSpanContext for parent span ID
       parentSpanContext: json.parent_span_id
@@ -220,9 +239,9 @@ export class Span implements ISpan {
             traceId: decodeIdFromBase64(json.trace_id),
             spanId: decodeIdFromBase64(json.parent_span_id),
             traceFlags: 1,
-            isRemote: false
+            isRemote: false,
           }
-        : undefined
+        : undefined,
     };
 
     // Create a span that behaves like our Span class but from downloaded data
@@ -279,6 +298,15 @@ export class LiveSpan extends Span {
   }
 
   /**
+   * Set the severity level of the span. Accepts a SpanLogLevel enum value or
+   * its name (e.g. "INFO").
+   */
+  setLogLevel(level: SpanLogLevel | string): void {
+    const normalized = toSpanLogLevel(level);
+    this.setAttribute(SpanAttributeKey.LOG_LEVEL, normalized as number);
+  }
+
+  /**
    * Set inputs for the span
    * @param inputs Input data for the span
    */
@@ -325,6 +353,16 @@ export class LiveSpan extends Span {
     // Convert BigInt timestamp to HrTime for OpenTelemetry
     const timeInput = convertNanoSecondsToHrTime(event.timestamp);
     this._span.addEvent(event.name, event.attributes, timeInput);
+    // Promote the span to ERROR for exception events. Preserves user-set
+    // CRITICAL. (Inlined rather than extracted to a private method because
+    // TypeScript's structural typing makes adding privates a breaking API
+    // change for NoOpSpan, which sits behind the same union return type.)
+    if (event.name === 'exception') {
+      const current = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | null | undefined;
+      if (current == null || current < (SpanLogLevel.ERROR as number)) {
+        this.setAttribute(SpanAttributeKey.LOG_LEVEL, SpanLogLevel.ERROR as number);
+      }
+    }
   }
 
   /**
@@ -333,6 +371,10 @@ export class LiveSpan extends Span {
    */
   recordException(error: Error): void {
     this._span.recordException(error);
+    const current = this.getAttribute(SpanAttributeKey.LOG_LEVEL) as number | null | undefined;
+    if (current == null || current < (SpanLogLevel.ERROR as number)) {
+      this.setAttribute(SpanAttributeKey.LOG_LEVEL, SpanLogLevel.ERROR as number);
+    }
   }
 
   /**
@@ -384,6 +426,16 @@ export class LiveSpan extends Span {
         this.setStatus(SpanStatusCode.OK);
       }
 
+      // Resolve the log level from the final span_type if neither
+      // `setLogLevel` nor an exception bump set it during the span's lifetime.
+      // Mirrors the Python LiveSpan.end() behavior.
+      if (this.getAttribute(SpanAttributeKey.LOG_LEVEL) == null) {
+        this.setAttribute(
+          SpanAttributeKey.LOG_LEVEL,
+          defaultLogLevelForSpanType(this.spanType) as number,
+        );
+      }
+
       // OTel SDK default end time to current time if not provided
       const endTime = options?.endTimeNs
         ? convertNanoSecondsToHrTime(options.endTimeNs)
@@ -409,10 +461,10 @@ export class NoOpSpan implements ISpan {
     this._span = span || {
       spanContext: () => ({
         spanId: INVALID_SPANID,
-        traceId: INVALID_TRACEID
+        traceId: INVALID_TRACEID,
       }),
       attributes: {},
-      events: []
+      events: [],
     };
     this._attributesRegistry = new SpanAttributesRegistry(this._span as OTelSpan);
   }
@@ -431,6 +483,9 @@ export class NoOpSpan implements ISpan {
   }
   get spanType(): SpanType {
     return SpanType.UNKNOWN;
+  }
+  get logLevel(): SpanLogLevel | null {
+    return null;
   }
   get startTime(): HrTime {
     return [0, 0];
@@ -457,6 +512,7 @@ export class NoOpSpan implements ISpan {
 
   // Implement all methods to do nothing
   setSpanType(_spanType: SpanType): void {}
+  setLogLevel(_level: SpanLogLevel | string): void {}
   setInputs(_inputs: any): void {}
   setOutputs(_outputs: any): void {}
   setAttribute(_key: string, _value: any): void {}
@@ -468,7 +524,7 @@ export class NoOpSpan implements ISpan {
     _outputs?: any,
     _attributes?: Record<string, any>,
     _status?: SpanStatus | SpanStatusCode,
-    _endTimeNs?: number
+    _endTimeNs?: number,
   ): void {}
 
   get events(): SpanEvent[] {
@@ -485,7 +541,7 @@ export class NoOpSpan implements ISpan {
       end_time_unix_nano: null,
       status: { code: 'UNSET', message: '' },
       attributes: {},
-      events: []
+      events: [],
     };
   }
 }
@@ -628,7 +684,7 @@ class CachedSpanAttributesRegistry extends SpanAttributesRegistry {
 export function createMlflowSpan(
   otelSpan: any,
   traceId: string,
-  spanType?: string
+  spanType?: string,
 ): NoOpSpan | Span | LiveSpan {
   // NonRecordingSpan always has a spanId of '0000000000000000'
   // https://github.com/open-telemetry/opentelemetry-js/blob/f2cfd1327a5b131ea795301b10877291aac4e6f5/api/src/trace/invalid-span-constants.ts#L23C32-L23C48

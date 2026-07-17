@@ -68,8 +68,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             registry_uri,
         )
 
-        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
-        if databricks_profile_uri:
+        if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artifact_uri):
             hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
             self.get_host_creds = lambda: hostcreds_from_uri
         else:

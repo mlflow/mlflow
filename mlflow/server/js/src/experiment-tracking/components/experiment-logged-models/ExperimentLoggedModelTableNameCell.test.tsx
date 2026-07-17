@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ExperimentLoggedModelTableNameCell } from './ExperimentLoggedModelTableNameCell';
 import type { LoggedModelProto } from '../../types';

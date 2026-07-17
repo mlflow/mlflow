@@ -3,8 +3,8 @@ import { useState } from 'react';
 
 import { Button, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import type { UseQueryResult } from '@databricks/web-shared/query-client';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import type { UseQueryResult } from '../../query-client/queryClient';
 
 import { EvaluationTraceDataDrawer } from './EvaluationTraceDataDrawer';
 import { VerticalBar } from './VerticalBar';
@@ -45,10 +45,9 @@ const EvaluationsReviewSingleRunHeaderSection = ({
   }
 
   return (
-    <div css={{ width: '100%' }}>
+    <div css={{ flex: 1 }}>
       <div
         css={{
-          width: '100%',
           paddingLeft: theme.spacing.md,
           paddingRight: theme.spacing.md,
           display: 'flex',

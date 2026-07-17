@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import ShowArtifactPage from './ShowArtifactPage';
@@ -17,6 +18,7 @@ import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
+  MARKDOWN_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   DATA_EXTENSIONS,
@@ -24,6 +26,7 @@ import {
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
+import { LazyShowArtifactMarkdownView } from './LazyShowArtifactMarkdownView';
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
@@ -134,6 +137,12 @@ describe('ShowArtifactPage', () => {
     TEXT_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    });
+  });
+  test('should render markdown view for common markdown extensions', () => {
+    MARKDOWN_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactMarkdownView).length).toBe(1);
     });
   });
   test('should render data table view for common tabular data extensions', () => {

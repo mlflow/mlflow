@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import type { LoggedModelProto, RunEntity } from '../../types';
@@ -13,7 +14,7 @@ describe('ExperimentLoggedModelDetailsRunsTable', () => {
           runName: `test-run-name-${i}`,
           runUuid: `test-run-id-${i}`,
         },
-      } as any),
+      }) as any,
   );
   const testLoggedModelMetrics: LoggedModelProto = {
     info: {

@@ -8,7 +8,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli.scorers import commands
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import list_scorers, scorer
+from mlflow.genai.scorers import get_all_scorers, list_scorers, scorer
 from mlflow.utils.string_utils import _create_table
 
 
@@ -16,7 +16,6 @@ from mlflow.utils.string_utils import _create_table
 def mock_databricks_environment():
     with (
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
     ):
         yield
 
@@ -89,7 +88,7 @@ def test_list_command_params():
     list_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "list"), None)
     assert list_cmd is not None
     param_names = {p.name for p in list_cmd.params}
-    assert param_names == {"experiment_id", "output"}
+    assert param_names == {"experiment_id", "builtin", "output"}
 
 
 def test_list_scorers_table_output(
@@ -563,3 +562,211 @@ def test_create_judge_with_description_short_flag(runner: CliRunner, experiment:
     scorers = list_scorers(experiment_id=experiment)
     judge = next(s for s in scorers if s.name == "pii_judge")
     assert judge.description == description
+
+
+@pytest.mark.parametrize("output_format", ["table", "json"])
+def test_list_builtin_scorers_output_formats(runner, output_format):
+    args = ["list", "--builtin"]
+    if output_format == "json":
+        args.extend(["--output", "json"])
+
+    result = runner.invoke(commands, args)
+    assert result.exit_code == 0
+
+    if output_format == "json":
+        data = json.loads(result.output)
+        assert "scorers" in data
+        assert isinstance(data["scorers"], list)
+        assert len(data["scorers"]) > 0
+
+        # Verify each scorer has required fields
+        for scorer_item in data["scorers"]:
+            assert "name" in scorer_item
+            assert "description" in scorer_item
+
+        # Verify some builtin scorer names appear
+        scorer_names = [s["name"] for s in data["scorers"]]
+        assert "correctness" in scorer_names
+        assert "relevance_to_query" in scorer_names
+        assert "completeness" in scorer_names
+    else:
+        # Verify table headers
+        assert "Scorer Name" in result.output
+        assert "Description" in result.output
+
+        # Verify some builtin scorer names appear
+        assert "correctness" in result.output
+        assert "relevance_to_query" in result.output
+        assert "completeness" in result.output
+
+
+def test_list_builtin_scorers_short_flag(runner):
+    result = runner.invoke(commands, ["list", "-b"])
+    assert result.exit_code == 0
+    assert "Scorer Name" in result.output
+
+
+def test_list_builtin_scorers_shows_all_available_scorers(runner):
+    result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
+    assert result.exit_code == 0
+
+    expected_scorers = get_all_scorers()
+    expected_names = {scorer.name for scorer in expected_scorers}
+
+    data = json.loads(result.output)
+    actual_names = {s["name"] for s in data["scorers"]}
+
+    assert actual_names == expected_names
+
+
+def test_list_scorers_mutually_exclusive_flags(runner, experiment):
+    result = runner.invoke(commands, ["list", "--builtin", "--experiment-id", experiment])
+    assert result.exit_code != 0
+    assert "Cannot specify both --builtin and --experiment-id" in result.output
+
+
+def test_list_scorers_requires_one_flag(runner):
+    result = runner.invoke(commands, ["list"])
+    assert result.exit_code != 0
+    assert "Must specify either --builtin or --experiment-id" in result.output
+
+
+def test_list_scorers_env_var_still_works(runner, experiment, monkeypatch):
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
+    result = runner.invoke(commands, ["list"])
+    assert result.exit_code == 0
+
+
+def test_create_judge_with_base_url(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "proxy_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://my-proxy:8080/v1",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # base_url is not persisted, so the registered judge won't have it
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "proxy_judge" for s in scorers)
+
+
+def test_create_judge_with_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--extra-headers",
+            '{"X-Api-Key": "secret", "X-Org": "my-org"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "headers_judge" for s in scorers)
+
+
+def test_create_judge_with_base_url_and_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "full_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://proxy:9090",
+            "--extra-headers",
+            '{"Authorization": "Bearer token"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+def test_create_judge_invalid_extra_headers_json(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "bad_json_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            "not valid json",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid JSON" in result.output
+
+
+def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "array_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '["not", "a", "dict"]',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Expected a JSON object" in result.output
+
+
+def test_create_judge_extra_headers_non_string_values(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "non_string_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '{"Authorization": 123}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must all be strings" in result.output

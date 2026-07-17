@@ -5,13 +5,20 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import hashlib
+import http.client
 import platform
+import re
+import shutil
 import subprocess
 import tarfile
+import tempfile
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.error import HTTPError, URLError
 
 # Type definitions
 PlatformKey = tuple[
@@ -21,18 +28,37 @@ PlatformKey = tuple[
 ExtractType = Literal["gzip", "tar", "binary"]
 
 
+VERSION_REGEX = re.compile(r"(\d+\.\d+\.\d+)")
+
+
 @dataclass
 class Tool:
     name: str
-    urls: dict[PlatformKey, str]  # platform -> URL mapping
+    version: str
+    assets: dict[PlatformKey, tuple[str, str]]  # platform -> (url, sha256)
     version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
-    def get_url(self, platform_key: PlatformKey) -> str | None:
-        return self.urls.get(platform_key)
+    def get_asset(self, platform_key: PlatformKey) -> tuple[str, str] | None:
+        return self.assets.get(platform_key)
 
     def get_version_args(self) -> list[str]:
         """Get version check arguments, defaulting to --version."""
         return self.version_args or ["--version"]
+
+    def get_installed_version(self, binary_path: Path) -> str | None:
+        """Run the binary's version command and extract the first X.Y.Z in its output."""
+        try:
+            output = subprocess.check_output(
+                [binary_path, *self.get_version_args()],
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if match := VERSION_REGEX.search(output):
+            return match.group(1)
+        return None
 
     def get_extract_type(self, url: str) -> ExtractType:
         """Infer extract type from URL file extension."""
@@ -52,56 +78,88 @@ class Tool:
 TOOLS = [
     Tool(
         name="taplo",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-linux-x86_64.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-darwin-aarch64.gz",
+        version="0.9.3",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-linux-x86_64.gz",
+                "889efcfa067b179fda488427d3b13ce2d679537da8b9ed8138ba415db7da2a5e",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-darwin-aarch64.gz",
+                "39b84d62d6a47855b2c64148cde9c9ca5721bf422b8c9fe9c92776860badde5f",
+            ),
         },
     ),
     Tool(
         name="typos",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-x86_64-unknown-linux-musl.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/crate-ci/typos/releases/download/v1.28.0/typos-v1.28.0-aarch64-apple-darwin.tar.gz",
+        version="1.39.2",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-x86_64-unknown-linux-musl.tar.gz",
+                "4acfb2123a9a295d34a411ad90af23717d06914c58023ab1a12b6605f0ce3e3c",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/crate-ci/typos/releases/download/v1.39.2/typos-v1.39.2-aarch64-apple-darwin.tar.gz",
+                "1dac53624939bf7b638df8cd168af46532f4fbad2b512c8b092cdf1487b94612",
+            ),
         },
     ),
     Tool(
         name="conftest",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Darwin_arm64.tar.gz",
+        version="0.63.0",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz",
+                "59b354bedf0d761fb562404a8af3015a48415636382f975a2037ca81c0c6202f",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Darwin_arm64.tar.gz",
+                "026378585ed42609f23996663c2feea9535bc19dc3909a99dabe776b7708b85c",
+            ),
         },
     ),
     Tool(
         name="regal",
-        urls={
-            (
-                "linux",
-                "x86_64",
-            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Linux_x86_64",
-            (
-                "darwin",
-                "arm64",
-            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Darwin_arm64",
+        version="0.36.1",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Linux_x86_64",
+                "75509b89de9d2fa12ac30157cc7269e7abc61e8c4c407a29ce897b681a78f8a4",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Darwin_arm64",
+                "66d1578885bf8fb7a4bd7b435a74acf8205af7fc49d6db84b6df0cddba9d7591",
+            ),
         },
         version_args=["version"],
+    ),
+    Tool(
+        name="buf",
+        version="1.59.0",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Linux-x86_64",
+                "d7462609e3814629c642ac10f0e7e27ec7e8e21d1dd75742f4434c31619e986b",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
+                "71f060640b9f1a3fce43db31eb8e8faf714a3bfbbcb70617946bdeba3aadf56b",
+            ),
+        },
+    ),
+    Tool(
+        name="rg",
+        version="14.1.1",
+        assets={
+            ("linux", "x86_64"): (
+                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
+                "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e",
+            ),
+            ("darwin", "arm64"): (
+                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
+                "24ad76777745fbff131c8fbc466742b011f925bfa4fffa2ded6def23b5b937be",
+            ),
+        },
     ),
 ]
 
@@ -125,81 +183,103 @@ def get_platform_key() -> PlatformKey | None:
     return None
 
 
-def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
-    print(f"Downloading from {url}")
-    output_path = dest_dir / binary_name
+def urlopen_with_retry(
+    url: str, max_retries: int = 7, base_delay: float = 1.0
+) -> http.client.HTTPResponse:
+    """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
+    for attempt in range(max_retries):
+        try:
+            return urllib.request.urlopen(url)
+        except HTTPError as e:
+            if e.code in (502, 503, 504) and attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                print(f"  HTTP {e.code}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise
+        except (http.client.RemoteDisconnected, ConnectionResetError, URLError) as e:
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                print(f"  {e}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise
 
-    with urllib.request.urlopen(url) as response:
-        with gzip.open(response, "rb") as gz:
-            output_path.write_bytes(gz.read())
 
-    return output_path
-
-
-def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
+def download_and_verify(url: str, dest: Path, expected_sha256: str) -> None:
     print(f"Downloading from {url}...")
-    with (
-        urllib.request.urlopen(url) as response,
-        tarfile.open(fileobj=response, mode="r|*") as tar,
-    ):
-        # Find and extract only the binary file we need
+    sha256 = hashlib.sha256()
+    with urlopen_with_retry(url) as response, dest.open("wb") as f:
+        while chunk := response.read(1024 * 1024):
+            sha256.update(chunk)
+            f.write(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected_sha256:
+        raise RuntimeError(
+            f"SHA256 mismatch for {url}\n  expected: {expected_sha256}\n  actual:   {actual}"
+        )
+
+
+def extract_gzip(download_path: Path, dest: Path) -> None:
+    with gzip.open(download_path, "rb") as gz:
+        dest.write_bytes(gz.read())
+
+
+def extract_tar(download_path: Path, dest: Path, binary_name: str) -> None:
+    with tarfile.open(download_path, mode="r:*") as tar:
         for member in tar:
             if member.isfile() and member.name.endswith(binary_name):
-                # Extract the file content and write directly to destination
-                tar.extract(member, dest_dir)
-                return dest_dir / binary_name
-
+                f = tar.extractfile(member)
+                if f is not None:
+                    dest.write_bytes(f.read())
+                    return
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
 
 
-def download_binary_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
-    print(f"Downloading from {url}...")
-    output_path = dest_dir / binary_name
-
-    with urllib.request.urlopen(url) as response:
-        output_path.write_bytes(response.read())
-
-    return output_path
-
-
 def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
-    # Check if tool already exists
     binary_path = dest_dir / tool.name
     if binary_path.exists():
-        if not force:
-            print(f"  ✓ {tool.name} already installed")
+        installed_version = tool.get_installed_version(binary_path)
+        if not force and installed_version == tool.version:
+            print(f"  ✓ {tool.name} {tool.version} already installed")
             return
+        if installed_version and installed_version != tool.version:
+            print(f"  Replacing {tool.name} {installed_version} with {tool.version}...")
         else:
             print(f"  Removing existing {tool.name}...")
-            binary_path.unlink()
+        binary_path.unlink()
 
     platform_key = get_platform_key()
 
     if platform_key is None:
-        supported = [f"{os}-{arch}" for os, arch in tool.urls.keys()]
+        supported = [f"{os}-{arch}" for os, arch in tool.assets.keys()]
         raise RuntimeError(
             f"Current platform is not supported. Supported platforms: {', '.join(supported)}"
         )
 
-    url = tool.get_url(platform_key)
-    if url is None:
+    asset = tool.get_asset(platform_key)
+    if asset is None:
         os, arch = platform_key
-        supported = [f"{os}-{arch}" for os, arch in tool.urls.keys()]
+        supported = [f"{os}-{arch}" for os, arch in tool.assets.keys()]
         raise RuntimeError(
             f"Platform {os}-{arch} not supported for {tool.name}. "
             f"Supported platforms: {', '.join(supported)}"
         )
+    url, expected_sha256 = asset
 
-    # Extract based on inferred type from URL
-    extract_type = tool.get_extract_type(url)
-    if extract_type == "gzip":
-        binary_path = extract_gzip_from_url(url, dest_dir, tool.name)
-    elif extract_type == "tar":
-        binary_path = extract_tar_from_url(url, dest_dir, tool.name)
-    elif extract_type == "binary":
-        binary_path = download_binary_from_url(url, dest_dir, tool.name)
-    else:
-        raise ValueError(f"Unknown extract type: {extract_type}")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        download_path = Path(tmp_dir) / "download"
+        download_and_verify(url, download_path, expected_sha256)
+
+        extract_type = tool.get_extract_type(url)
+        if extract_type == "gzip":
+            extract_gzip(download_path, binary_path)
+        elif extract_type == "tar":
+            extract_tar(download_path, binary_path, tool.name)
+        elif extract_type == "binary":
+            shutil.move(download_path, binary_path)
+        else:
+            raise ValueError(f"Unknown extract type: {extract_type}")
 
     # Make executable
     binary_path.chmod(0o755)
@@ -211,6 +291,7 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
 
 
 def main() -> None:
+    all_tool_names = [t.name for t in TOOLS]
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
         "-f",
@@ -218,21 +299,38 @@ def main() -> None:
         action="store_true",
         help="Force reinstall by removing existing tools",
     )
+    parser.add_argument(
+        "tools",
+        nargs="*",
+        metavar="TOOL",
+        help=f"Tools to install (default: all). Available: {', '.join(all_tool_names)}",
+    )
     args = parser.parse_args()
 
-    if args.force_reinstall:
-        print("Force reinstall: removing existing tools and reinstalling...")
+    # Filter tools if specific ones requested
+    if args.tools:
+        if invalid_tools := set(args.tools) - set(all_tool_names):
+            parser.error(
+                f"Unknown tools: {', '.join(sorted(invalid_tools))}. "
+                f"Available: {', '.join(all_tool_names)}"
+            )
+        tools_to_install = [t for t in TOOLS if t.name in args.tools]
     else:
-        print("Installing all tools to bin/ directory...")
+        tools_to_install = TOOLS
 
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    for tool in TOOLS:
+    if args.force_reinstall:
+        print("Force reinstall: removing existing tools and reinstalling...")
+    else:
+        print("Installing tools to bin/ directory...")
+
+    for tool in tools_to_install:
         print(f"\nInstalling {tool.name}...")
         install_tool(tool, dest_dir, force=args.force_reinstall)
 
-    print("\nAll tools installed successfully!")
+    print("\nDone!")
 
 
 if __name__ == "__main__":

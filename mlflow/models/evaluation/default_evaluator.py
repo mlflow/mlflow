@@ -77,9 +77,9 @@ def _extract_output_and_other_columns(
             y_pred = pd.Series(
                 [p.get(output_column_name) for p in model_predictions], name=output_column_name
             )
-            other_output_columns = pd.DataFrame(
-                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
-            )
+            other_output_columns = pd.DataFrame([
+                {k: v for k, v in p.items() if k != output_column_name} for p in model_predictions
+            ])
         elif len(model_predictions[0]) == 1:
             # Set the only key as self.predictions and its value as self.y_pred
             key, value = list(model_predictions[0].items())[0]
@@ -119,9 +119,9 @@ def _extract_output_and_other_columns(
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
             y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
-            other_output_columns = pd.DataFrame(
-                {k: v for k, v in model_predictions.items() if k != output_column_name}
-            )
+            other_output_columns = pd.DataFrame({
+                k: v for k, v in model_predictions.items() if k != output_column_name
+            })
         elif len(model_predictions) == 1:
             key, value = list(model_predictions.items())[0]
             y_pred = pd.Series(value, name=key)
@@ -578,13 +578,13 @@ class BuiltInEvaluator(ModelEvaluator):
         error_message_parts = [f"Metric '{metric_name}' requires the following:"]
 
         special_params = ["targets", "predictions"]
-        for param in special_params:
-            if param in param_names:
-                error_message_parts.append(f"  - the '{param}' parameter needs to be specified")
+        error_message_parts.extend(
+            f"  - the '{param}' parameter needs to be specified"
+            for param in special_params
+            if param in param_names
+        )
 
-        remaining_params = [param for param in param_names if param not in special_params]
-
-        if remaining_params:
+        if remaining_params := [param for param in param_names if param not in special_params]:
             error_message_parts.append(
                 f"  - missing columns {remaining_params} need to be defined or mapped"
             )
@@ -706,8 +706,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 _, eval_fn_args = self._get_args_for_metrics(
                     metric, first_row_df, first_row_input_df, other_output_df
                 )
-                metric_value = metric.evaluate(eval_fn_args)
-                if metric_value:
+                if metric_value := metric.evaluate(eval_fn_args):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
@@ -754,9 +753,7 @@ class BuiltInEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         for metric in metrics:
             _, eval_fn_args = self._get_args_for_metrics(metric, eval_df, input_df, other_output_df)
-            metric_value = metric.evaluate(eval_fn_args)
-
-            if metric_value:
+            if metric_value := metric.evaluate(eval_fn_args):
                 name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
 
@@ -774,24 +771,20 @@ class BuiltInEvaluator(ModelEvaluator):
         if isinstance(self.dataset.features_data, pd.DataFrame):
             # Handle DataFrame case
             if self.dataset.has_targets:
-                data = self.dataset.features_data.assign(
-                    **{
-                        self.dataset.targets_name or "target": self.dataset.labels_data,
-                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
-                    }
-                )
+                data = self.dataset.features_data.assign(**{
+                    self.dataset.targets_name or "target": self.dataset.labels_data,
+                    self.dataset.predictions_name or self.predictions or "outputs": y_pred,
+                })
             else:
                 data = self.dataset.features_data.assign(outputs=y_pred)
         else:
             # Handle NumPy array case, converting it to a DataFrame
             data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
             if self.dataset.has_targets:
-                data = data.assign(
-                    **{
-                        self.dataset.targets_name or "target": self.dataset.labels_data,
-                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
-                    }
-                )
+                data = data.assign(**{
+                    self.dataset.targets_name or "target": self.dataset.labels_data,
+                    self.dataset.predictions_name or self.predictions or "outputs": y_pred,
+                })
             else:
                 data = data.assign(outputs=y_pred)
 
@@ -921,14 +914,13 @@ class BuiltInEvaluator(ModelEvaluator):
         if extra_metrics is None:
             extra_metrics = []
 
-        bad_metrics = []
-        for metric in extra_metrics:
-            if not isinstance(metric, EvaluationMetric):
-                bad_metrics.append(metric)
+        bad_metrics = [
+            metric for metric in extra_metrics if not isinstance(metric, EvaluationMetric)
+        ]
         if len(bad_metrics) > 0:
-            message = "\n".join(
-                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
-            )
+            message = "\n".join([
+                f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics
+            ])
             raise MlflowException(
                 f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
                 f"{message}\n"

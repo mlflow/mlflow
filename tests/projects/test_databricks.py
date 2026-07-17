@@ -226,7 +226,7 @@ def test_run_databricks_validations(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
-        mlflow.set_tracking_uri(tmp_path.as_uri())
+        mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'mlflow.db'}")
         with pytest.raises(ExecutionException, match="MLflow tracking URI must be of"):
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
@@ -272,7 +272,6 @@ def test_run_databricks(
     databricks_cluster_mlflow_run_cmd_mock,
     monkeypatch,
 ):
-    """Test running on Databricks with mocks."""
     monkeypatch.setenv("DATABRICKS_HOST", "https://test-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
     mlflow.set_tracking_uri("databricks")
@@ -439,8 +438,6 @@ class MockProfileConfigProvider:
 
 
 def test_databricks_http_request_integration():
-    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-
     def confirm_request_params(*args, **kwargs):
         headers = DefaultRequestHeaderProvider().request_headers()
         headers["Authorization"] = "Basic dXNlcjpwYXNz"

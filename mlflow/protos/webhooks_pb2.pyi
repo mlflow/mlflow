@@ -1,5 +1,5 @@
-from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
+from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -26,6 +26,7 @@ class WebhookEntity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PROMPT_TAG: _ClassVar[WebhookEntity]
     PROMPT_VERSION_TAG: _ClassVar[WebhookEntity]
     PROMPT_ALIAS: _ClassVar[WebhookEntity]
+    BUDGET_POLICY: _ClassVar[WebhookEntity]
 
 class WebhookAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -34,6 +35,7 @@ class WebhookAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     UPDATED: _ClassVar[WebhookAction]
     DELETED: _ClassVar[WebhookAction]
     SET: _ClassVar[WebhookAction]
+    EXCEEDED: _ClassVar[WebhookAction]
 ACTIVE: WebhookStatus
 DISABLED: WebhookStatus
 ENTITY_UNSPECIFIED: WebhookEntity
@@ -46,11 +48,13 @@ PROMPT_VERSION: WebhookEntity
 PROMPT_TAG: WebhookEntity
 PROMPT_VERSION_TAG: WebhookEntity
 PROMPT_ALIAS: WebhookEntity
+BUDGET_POLICY: WebhookEntity
 ACTION_UNSPECIFIED: WebhookAction
 CREATED: WebhookAction
 UPDATED: WebhookAction
 DELETED: WebhookAction
 SET: WebhookAction
+EXCEEDED: WebhookAction
 
 class WebhookEvent(_message.Message):
     __slots__ = ("entity", "action")

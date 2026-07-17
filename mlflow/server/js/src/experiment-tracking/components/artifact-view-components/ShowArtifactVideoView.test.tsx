@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, it, expect } from '@jest/globals';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -14,7 +15,7 @@ describe('ShowArtifactVideoView', () => {
   const getArtifactMock = jest.fn(() => Promise.resolve(DUMMY_BLOB));
 
   beforeAll(() => {
-    global.URL.createObjectURL = jest.fn(() => 'blob://dummy-url');
+    jest.spyOn(global.URL, 'createObjectURL').mockImplementation(() => 'blob://dummy-url');
     global.URL.revokeObjectURL = jest.fn();
   });
 

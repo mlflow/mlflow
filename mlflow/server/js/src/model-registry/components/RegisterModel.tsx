@@ -8,7 +8,7 @@
 import React from 'react';
 import { identity, isUndefined, debounce } from 'lodash';
 import type { ButtonProps } from '@databricks/design-system';
-import { Button, Modal, Spacer, LegacyTooltip, Typography, ModalProps } from '@databricks/design-system';
+import { Button, Modal, Spacer, Typography } from '@databricks/design-system';
 import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -45,10 +45,6 @@ type RegisterModelImplProps = {
    * Type of button to display ("primary", "link", etc.)
    */
   buttonType?: ButtonProps['type'];
-  /**
-   * Tooltip to display on hover
-   */
-  tooltip?: React.ReactNode;
   /**
    * Whether to show the button. If set to true, only modal will be used and button will not be shown.
    */
@@ -132,16 +128,21 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     return this.form.current.validateFields().then((values: any) => {
       this.setState({ confirmLoading: true });
       const { runUuid, modelPath, modelRelativePath, loggedModelId } = this.props;
-      // Construct source URI to maintain connection to source run:
-      // 1. For logged models (MLflow 3.0+), use models:/{model_id} format
-      // 2. For regular artifacts with run context, use runs:/<run_id>/<model_path> format
-      // 3. Otherwise, fall back to the absolute artifact URI for backward compatibility
-      let sourceUri = modelPath;
-      if (loggedModelId) {
-        sourceUri = `models:/${loggedModelId}`;
-      } else if (modelRelativePath && runUuid) {
-        sourceUri = `runs:/${runUuid}/${modelRelativePath}`;
-      }
+
+      const getModelSourceUri = () => {
+        // Construct source URI to maintain connection to source run:
+        // 1. For logged models (MLflow 3.0+), use models:/{model_id} format
+        // 2. For regular artifacts with run context, use runs:/<run_id>/<model_path> format
+        // 3. Otherwise, fall back to the absolute artifact URI for backward compatibility
+        let sourceUri = modelPath;
+        if (loggedModelId) {
+          sourceUri = `models:/${loggedModelId}`;
+        } else if (modelRelativePath && runUuid) {
+          sourceUri = `runs:/${runUuid}/${modelRelativePath}`;
+        }
+        return sourceUri;
+      };
+
       const selectedModelName = values[SELECTED_MODEL_FIELD];
       if (selectedModelName === CREATE_NEW_MODEL_OPTION_VALUE) {
         // When user choose to create a new registered model during the registration, we need to
@@ -152,7 +153,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
           .then(() =>
             this.props.createModelVersionApi(
               values[MODEL_NAME_FIELD],
-              sourceUri,
+              getModelSourceUri(),
               runUuid,
               [],
               this.createModelVersionRequestId,
@@ -168,7 +169,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
         return this.props
           .createModelVersionApi(
             selectedModelName,
-            sourceUri,
+            getModelSourceUri(),
             runUuid,
             [],
             this.createModelVersionRequestId,
@@ -240,21 +241,19 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     return (
       <div className="register-model-btn-wrapper">
         {showButton && (
-          <LegacyTooltip title={this.props.tooltip || null} placement="left">
-            <Button
-              componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
-              className="register-model-btn"
-              type={buttonType}
-              onClick={this.showRegisterModal}
-              disabled={disableButton}
-              htmlType="button"
-            >
-              <FormattedMessage
-                defaultMessage="Register model"
-                description="Button text to register the model for deployment"
-              />
-            </Button>
-          </LegacyTooltip>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
+            className="register-model-btn"
+            type={buttonType}
+            onClick={this.showRegisterModal}
+            disabled={disableButton}
+            htmlType="button"
+          >
+            <FormattedMessage
+              defaultMessage="Register model"
+              description="Button text to register the model for deployment"
+            />
+          </Button>
         )}
         <Modal
           title={this.props.intl.formatMessage({

@@ -87,8 +87,8 @@ const EvaluationsReviewSingleRunAssessmentsSection = ({
   );
 
   return (
-    <div css={{ width: '100%' }}>
-      <div css={{ width: '100%', paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
+    <div css={{ flex: 1 }}>
+      <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
         <div
           css={{
             backgroundColor: theme.colors.backgroundSecondary,

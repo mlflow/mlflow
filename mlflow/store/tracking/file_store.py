@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -6,10 +8,9 @@ import shutil
 import sys
 import time
 import uuid
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from mlflow.entities import (
     Assessment,
@@ -44,7 +45,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -113,6 +114,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_experiment_tag,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -123,6 +125,9 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
+
+if TYPE_CHECKING:
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 _logger = logging.getLogger(__name__)
 
@@ -216,13 +221,18 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
-        warnings.warn(
-            "Filesystem tracking backend (e.g., './mlruns') is deprecated. "
-            "Please switch to a database backend (e.g., 'sqlite:///mlflow.db'). "
-            "For feedback, see: https://github.com/mlflow/mlflow/issues/18534",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem tracking backend (e.g., './mlruns') is in maintenance mode "
+                "and will not receive further updates. Please migrate to a "
+                "database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow "
+                "features. The `mlflow migrate-filestore` tool migrates your existing data "
+                "losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
@@ -454,6 +464,9 @@ class FileStore(AbstractStore):
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)
+        if tags:
+            for tag in tags:
+                _validate_experiment_tag(tag.key, tag.value)
 
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
@@ -622,7 +635,10 @@ class FileStore(AbstractStore):
         Permanently delete a run (metadata and metrics, tags, parameters).
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
-        _, run_dir = self._find_run_root(run_id)
+        # NB: Skip validation here since artifacts may have already been deleted
+        # by gc before calling this method. The run_id was already validated
+        # by search_runs/get_run before reaching this point.
+        _, run_dir = self._find_run_root(run_id, validate_structure=False)
         shutil.rmtree(run_dir)
 
     def _get_deleted_runs(self, older_than=0):
@@ -668,7 +684,20 @@ class FileStore(AbstractStore):
             return get_parent_dir(parent)
         return parent
 
-    def _find_run_root(self, run_uuid):
+    def _is_valid_run_directory(self, run_dir):
+        # Defense in depth: ensure we're not inside an artifacts folder
+        path_parts = os.path.normpath(run_dir).split(os.sep)
+        if FileStore.ARTIFACTS_FOLDER_NAME in path_parts[:-1]:
+            return False
+
+        required_subdirs = [
+            FileStore.METRICS_FOLDER_NAME,
+            FileStore.PARAMS_FOLDER_NAME,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        ]
+        return all(is_directory(os.path.join(run_dir, subdir)) for subdir in required_subdirs)
+
+    def _find_run_root(self, run_uuid, validate_structure=True):
         _validate_run_id(run_uuid)
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
@@ -676,7 +705,12 @@ class FileStore(AbstractStore):
             runs = find(experiment_dir, run_uuid, full_path=True)
             if len(runs) == 0:
                 continue
-            return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
+            run_dir = runs[0]
+            # NB: Validate run directory structure to prevent path traversal via malicious
+            # meta.yaml in artifact folders (ZDI-CAN-26649)
+            if validate_structure and not self._is_valid_run_directory(run_dir):
+                continue
+            return os.path.basename(os.path.abspath(experiment_dir)), run_dir
         return None, None
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
@@ -763,8 +797,7 @@ class FileStore(AbstractStore):
         inputs: RunInputs = self._get_all_inputs(run_info)
         outputs: RunOutputs = self._get_all_outputs(run_info)
         if not run_info.run_name:
-            run_name = _get_run_name_from_tags(tags)
-            if run_name:
+            if run_name := _get_run_name_from_tags(tags):
                 run_info._set_run_name(run_name)
         return Run(run_info, RunData(metrics, params, tags), inputs, outputs)
 
@@ -779,6 +812,12 @@ class FileStore(AbstractStore):
             )
         run_info = self._get_run_info_from_dir(run_dir)
         if run_info.experiment_id != exp_id:
+            raise MlflowException(
+                f"Run '{run_uuid}' metadata is in invalid state.",
+                databricks_pb2.INVALID_STATE,
+            )
+        # Defense in depth: verify run_id in meta.yaml matches the directory name
+        if run_info.run_id != os.path.basename(run_dir):
             raise MlflowException(
                 f"Run '{run_uuid}' metadata is in invalid state.",
                 databricks_pb2.INVALID_STATE,
@@ -850,14 +889,12 @@ class FileStore(AbstractStore):
 
     def _get_all_metrics(self, run_info):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
-        metrics = []
-        for metric_file in metric_files:
-            metrics.append(
-                self._get_metric_from_file(
-                    parent_path, metric_file, run_info.run_id, run_info.experiment_id
-                )
+        return [
+            self._get_metric_from_file(
+                parent_path, metric_file, run_info.run_id, run_info.experiment_id
             )
-        return metrics
+            for metric_file in metric_files
+        ]
 
     @staticmethod
     def _get_metric_from_line(
@@ -940,10 +977,7 @@ class FileStore(AbstractStore):
 
     def _get_all_params(self, run_info):
         parent_path, param_files = self._get_run_files(run_info, "param")
-        params = []
-        for param_file in param_files:
-            params.append(self._get_param_from_file(parent_path, param_file))
-        return params
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
 
     @staticmethod
     def _get_experiment_tag_from_file(parent_path, tag_name):
@@ -953,10 +987,7 @@ class FileStore(AbstractStore):
 
     def get_all_experiment_tags(self, exp_id):
         parent_path, tag_files = self._get_experiment_files(exp_id)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_experiment_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_experiment_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     @staticmethod
     def _get_tag_from_file(parent_path, tag_name):
@@ -971,10 +1002,7 @@ class FileStore(AbstractStore):
 
     def _get_all_tags(self, run_info):
         parent_path, tag_files = self._get_run_files(run_info, "tag")
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     def _list_run_infos(self, experiment_id, view_type):
         self._check_root_dir()
@@ -983,11 +1011,13 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_dirs = list_all(
             experiment_dir,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         run_infos = []
@@ -1138,7 +1168,7 @@ class FileStore(AbstractStore):
             experiment_id: String ID of the experiment
             tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
+        _validate_experiment_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
@@ -1568,11 +1598,13 @@ class FileStore(AbstractStore):
             experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
             run_dirs = list_all(
                 experiment_dir,
-                filter_func=lambda x: all(
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                )
-                and os.path.isdir(x),
+                filter_func=lambda x: (
+                    all(
+                        os.path.basename(os.path.normpath(x)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(x)
+                ),
                 full_path=True,
             )
             for run_dir in run_dirs:
@@ -2121,7 +2153,7 @@ class FileStore(AbstractStore):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
-        if max_timestamp_millis:
+        if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
             trace_info_and_paths = []
             for trace_path in trace_paths:
@@ -2385,20 +2417,37 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
         """
-        return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+        if not allow_deleted:
+            return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+
+        exp_id, model_dir = self._find_model_root(model_id)
+        if model_dir is None:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
+        model = self._get_model_from_dir(model_dir)
+        if model.experiment_id != exp_id:
+            raise MlflowException(
+                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+            )
+        return model
 
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
+        model.last_updated_timestamp = get_current_time_millis()
         model_dict = self._make_persisted_model_dict(model)
         model_dict["lifecycle_stage"] = LifecycleStage.DELETED
         model_dir = self._get_model_dir(model.experiment_id, model.model_id)
@@ -2408,6 +2457,43 @@ class FileStore(AbstractStore):
             model_dict,
             overwrite=True,
         )
+
+    def _hard_delete_logged_model(self, model_id: str) -> None:
+        model = self.get_logged_model(model_id, allow_deleted=True)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        shutil.rmtree(model_dir)
+
+    def _get_deleted_logged_models(self, older_than=0) -> list[str]:
+        current_time = get_current_time_millis()
+        experiment_ids = self._get_active_experiments(False) + self._get_deleted_experiments(False)
+        deleted_models = []
+        for exp_id in experiment_ids:
+            experiment_dir = self._get_experiment_path(exp_id, assert_exists=True)
+            models_folder = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
+            if not exists(models_folder):
+                continue
+            model_dirs = list_all(
+                models_folder,
+                filter_func=lambda path: (
+                    all(
+                        os.path.basename(os.path.normpath(path)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(path)
+                ),
+                full_path=True,
+            )
+            for m_dir in model_dirs:
+                try:
+                    m_dict = self._get_model_info_from_dir(m_dir)
+                except MissingConfigException:
+                    continue
+                if (
+                    m_dict.get("lifecycle_stage") == LifecycleStage.DELETED
+                    and m_dict.get("last_updated_timestamp", 0) <= current_time - older_than
+                ):
+                    deleted_models.append(m_dict["model_id"])
+        return deleted_models
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
@@ -2479,10 +2565,7 @@ class FileStore(AbstractStore):
 
     def _get_all_model_tags(self, model_dir: str) -> list[LoggedModelTag]:
         parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_tag_from_file(parent_path, tag_file))
-        return tags
+        return [self._get_tag_from_file(parent_path, tag_file) for tag_file in tag_files]
 
     def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
         parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)
@@ -2619,11 +2702,13 @@ class FileStore(AbstractStore):
             return []
         model_dirs = list_all(
             models_folder,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         models = []
@@ -2808,3 +2893,24 @@ class FileStore(AbstractStore):
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        raise MlflowException(
+            "Linking prompts to traces is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )
+
+    # Trace metrics API is not supported in FileStore, override the
+    # abstract method to raise an explicit error.
+
+    @filestore_not_supported
+    def query_trace_metrics(self, *args, **kwargs):
+        pass

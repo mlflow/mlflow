@@ -1,7 +1,7 @@
 import warnings
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 """
 Classes are inspired by classes for Response and ResponseStreamEvent in openai-python
@@ -74,7 +74,7 @@ class Annotation(BaseModel):
 
 
 class ResponseOutputText(BaseModel):
-    annotations: list[Annotation] | None = None
+    annotations: list[Annotation] = Field(default_factory=list)
     text: str
     type: str = "output_text"
 
@@ -139,6 +139,22 @@ class ResponseReasoningItem(Status):
     type: str = "reasoning"
 
 
+class McpApprovalRequest(Status):
+    id: str
+    arguments: str
+    name: str
+    server_label: str
+    type: str = "mcp_approval_request"
+
+
+class McpApprovalResponse(Status):
+    approval_request_id: str
+    approve: bool
+    type: str = "mcp_approval_response"
+    id: str | None = None
+    reason: str | None = None
+
+
 class OutputItem(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: str
@@ -153,6 +169,10 @@ class OutputItem(BaseModel):
             ResponseReasoningItem(**self.model_dump())
         elif self.type == "function_call_output":
             FunctionCallOutput(**self.model_dump())
+        elif self.type == "mcp_approval_request":
+            McpApprovalRequest(**self.model_dump())
+        elif self.type == "mcp_approval_response":
+            McpApprovalResponse(**self.model_dump())
         elif self.type not in {
             "file_search_call",
             "computer_call",
@@ -287,9 +307,9 @@ class Response(Truncation, ToolChoice):
         texts: list[str] = []
         for output in self.output:
             if output.type == "message":
-                for content in output.content:
-                    if content.type == "output_text":
-                        texts.append(content.text)
+                texts.extend(
+                    content.text for content in output.content if content.type == "output_text"
+                )
 
         return "".join(texts)
 
@@ -350,7 +370,7 @@ class Message(Status):
 
 class FunctionCallOutput(Status):
     call_id: str
-    output: str
+    output: str | list[dict[str, Any]]
     type: str = "function_call_output"
 
 
@@ -366,6 +386,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     text: Any | None = None
     top_p: float | None = None
     user: str | None = None
+    background: bool | None = None
 
 
 #####################################

@@ -1,22 +1,26 @@
+import os
 from typing import Any
 
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.output_parser import StrOutputParser
-from langchain.schema.runnable import RunnablePassthrough
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.chat_models import ChatDatabricks, ChatMlflow
+# See `tests/langchain/sample_code/chain.py` for why fake creds are set.
+os.environ.setdefault("DATABRICKS_HOST", "https://fake-host")
+os.environ.setdefault("DATABRICKS_TOKEN", "fake-token")
+
+from databricks_langchain import ChatDatabricks
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_text_splitters.character import CharacterTextSplitter
 
 from mlflow.models import set_model
 
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.schema.messages import BaseMessage
-    from langchain_core.outputs import ChatResult
-
     class FakeChatModel(ChatDatabricks):
         """Fake Chat Model wrapper for testing purposes."""
 
@@ -29,19 +33,7 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
             run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> ChatResult:
-            response = {
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": "Databricks",
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-            }
-            return ChatMlflow._create_chat_result(response)
+            return ChatResult(generations=[ChatGeneration(message=AIMessage(content="Databricks"))])
 
         @property
         def _llm_type(self) -> str:

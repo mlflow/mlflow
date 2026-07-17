@@ -1,7 +1,13 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
 import { fetchEndpoint } from '../../../common/utils/FetchUtils';
 import type { RegisteredPrompt, RegisteredPromptsListResponse, RegisteredPromptVersion } from './types';
-import { IS_PROMPT_TAG_NAME, IS_PROMPT_TAG_VALUE, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
+import {
+  IS_PROMPT_TAG_NAME,
+  IS_PROMPT_TAG_VALUE,
+  REGISTERED_PROMPT_SOURCE_RUN_IDS,
+  PROMPT_EXPERIMENT_IDS_TAG_KEY,
+  buildSearchFilterClause,
+} from './utils';
 
 const defaultErrorHandler = async ({
   reject,
@@ -31,12 +37,20 @@ const defaultErrorHandler = async ({
 };
 
 export const RegisteredPromptsApi = {
-  listRegisteredPrompts: (searchFilter?: string, pageToken?: string) => {
+  listRegisteredPrompts: (searchFilter?: string, pageToken?: string, experimentId?: string) => {
     const params = new URLSearchParams();
+    const searchClause = buildSearchFilterClause(searchFilter);
+
+    // Build filter for prompts, optionally filtered by experiment ID
     let filter = `tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}'`;
 
-    if (searchFilter) {
-      filter = `${filter} AND name ILIKE '%${searchFilter}%'`;
+    if (experimentId) {
+      // Filter by experiment ID using ILIKE to match comma-separated list
+      filter += ` AND tags.\`${PROMPT_EXPERIMENT_IDS_TAG_KEY}\` ILIKE '%,${experimentId},%'`;
+    }
+
+    if (searchClause) {
+      filter += ` AND ${searchClause}`;
     }
 
     if (pageToken) {
@@ -67,7 +81,7 @@ export const RegisteredPromptsApi = {
       error: defaultErrorHandler,
     });
   },
-  createRegisteredPrompt: (promptName: string) => {
+  createRegisteredPrompt: (promptName: string, additionalTags: { key: string; value: string }[] = []) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/registered-models/create',
       method: 'POST',
@@ -78,6 +92,7 @@ export const RegisteredPromptsApi = {
             key: IS_PROMPT_TAG_NAME,
             value: IS_PROMPT_TAG_VALUE,
           },
+          ...additionalTags,
         ],
       }),
       error: defaultErrorHandler,

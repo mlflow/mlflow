@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, Typography, CopyIcon, useDesignSystemTheme } from '@databricks/design-system';
-const { Paragraph } = Typography;
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
+
+const { Paragraph } = Typography;
 
 export interface KeyValueTagFullViewModalProps {
   tagKey: string;
@@ -10,6 +11,7 @@ export interface KeyValueTagFullViewModalProps {
   isKeyValueTagFullViewModalVisible: boolean;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const KeyValueTagFullViewModal = React.memo((props: KeyValueTagFullViewModalProps) => {
   const { theme } = useDesignSystemTheme();
 

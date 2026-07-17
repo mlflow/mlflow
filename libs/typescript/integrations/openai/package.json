@@ -1,6 +1,6 @@
 {
-  "name": "mlflow-openai",
-  "version": "0.1.1",
+  "name": "@mlflow/openai",
+  "version": "0.3.0",
   "description": "OpenAI integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -29,14 +29,15 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "jest",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "mlflow-tracing": "^0.1.1",
+    "@mlflow/core": "^0.3.0",
     "openai": ">=4.0.0"
   },
   "devDependencies": {

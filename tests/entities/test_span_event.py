@@ -1,7 +1,19 @@
+import time
+
 import pytest
 
 from mlflow.entities import SpanEvent
 from mlflow.exceptions import MlflowException
+
+
+def test_default_timestamp_is_in_nanoseconds():
+    # Record the time before and after creating the event
+    before_ns = int(time.time() * 1e9)
+    event = SpanEvent(name="test_event")
+    after_ns = int(time.time() * 1e9)
+
+    # The event's timestamp should be between before and after in nanoseconds
+    assert before_ns <= event.timestamp <= after_ns
 
 
 def test_from_exception():

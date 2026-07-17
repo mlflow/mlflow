@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
 
 def test_sqlalchemy_store_import_does_not_cause_circular_import():
     """
@@ -44,7 +46,7 @@ class CustomTrackingStore(SqlAlchemyStore):
     subprocess.check_call([sys.executable, "-c", code], timeout=20)
 
 
-def test_plugin_can_create_dataset_without_name_error():
+def test_plugin_can_create_dataset_without_name_error(tmp_path):
     """
     Regression test for plugin runtime usage (https://github.com/mlflow/mlflow/issues/18386).
 
@@ -55,21 +57,30 @@ def test_plugin_can_create_dataset_without_name_error():
     EvaluationDataset. This catches the actual runtime failure that users experienced, where the
     plugin would load successfully but fail when trying to perform dataset operations.
     """
-    code = """
-import tempfile
+    # Pre-initialize the database to avoid expensive migrations in subprocess
+    db_path = tmp_path / "test.db"
+    artifact_path = tmp_path / "artifacts"
+    artifact_path.mkdir()
+
+    # Initialize database with SqlAlchemyStore (runs migrations)
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_path))
+    store.engine.dispose()  # Close connection to allow subprocess to use the database
+
+    # Now run the test code in subprocess with the pre-initialized database
+    code = f"""
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 class PluginStore(SqlAlchemyStore):
     pass
 
-with tempfile.TemporaryDirectory() as tmpdir:
-    db_path = f"{tmpdir}/test.db"
-    store = PluginStore(f"sqlite:///{db_path}", tmpdir)
+db_path = r"{db_path}"
+artifact_path = r"{artifact_path}"
+store = PluginStore(f"sqlite:///{{db_path}}", artifact_path)
 
-    dataset = store.create_dataset("test_dataset", tags={"key": "value"}, experiment_ids=[])
+dataset = store.create_dataset("test_dataset", tags={{"key": "value"}}, experiment_ids=[])
 
-    assert dataset is not None
-    assert dataset.name == "test_dataset"
+assert dataset is not None
+assert dataset.name == "test_dataset"
 """
 
     subprocess.check_call([sys.executable, "-c", code], timeout=20)

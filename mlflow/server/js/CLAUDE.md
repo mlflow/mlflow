@@ -2,13 +2,12 @@
 
 This file provides guidance to Claude Code when working with the MLflow frontend code in this directory.
 
-**For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](../../../CONTRIBUTING.md).**
-
 ## Consistency is Critical
 
 **IMPORTANT**: Always be consistent with the rest of the repository. This is extremely important!
 
 Before implementing any feature:
+
 1. Read through similar files to understand their structure and patterns
 2. Do NOT invent new components if they already exist
 3. Use existing patterns and conventions found in the codebase
@@ -20,14 +19,10 @@ Before implementing any feature:
 
 ```bash
 # MUST be run from the repository root
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
-# Monitor the logs
+# Monitor the logs (server URLs are printed there)
 tail -f /tmp/mlflow-dev-server.log
-
-# Servers will be available at:
-# - MLflow backend: http://localhost:5000
-# - React frontend: http://localhost:3000 (with hot reload)
 ```
 
 This provides fast edit-refresh for UI development - changes to React components will automatically reload in the browser.
@@ -60,9 +55,6 @@ yarn prettier:check     # Check Prettier formatting
 yarn prettier:fix       # Fix Prettier formatting
 yarn type-check         # Run TypeScript type checking
 
-# Combined Checks
-yarn check-all          # Run all checks (lint, prettier, i18n, type-check)
-
 # Other Commands
 yarn storybook          # Start Storybook for component development
 yarn build-storybook    # Build static Storybook
@@ -75,7 +67,12 @@ yarn i18n:check         # Check i18n translations
 
 ```bash
 # From repository root
-pushd mlflow/server/js && yarn check-all; popd
+pushd mlflow/server/js
+yarn lint
+yarn prettier:check
+yarn i18n:check
+yarn type-check
+popd
 
 # Fix any issues that are reported
 ```
@@ -89,7 +86,7 @@ pushd mlflow/server/js && yarn check-all; popd
 Common components include:
 
 - `Button`, `IconButton` - for actions
-- `Input`, `Textarea`, `Select` - for form inputs  
+- `Input`, `Textarea`, `Select` - for form inputs
 - `Modal`, `Drawer` - for overlays
 - `Table`, `TableRow`, `TableCell` - for data tables
 - `Tabs`, `TabPane` - for tabbed interfaces
@@ -105,6 +102,21 @@ Example import:
 import { Button, Modal, Input } from '@databricks/design-system';
 ```
 
+### Avoid HTML Elements When Design System Alternatives Exist
+
+**Prefer `Button` from `@databricks/design-system` over raw HTML `<button>` elements** for most interactive actions:
+
+```typescript
+// ✅ GOOD - Use DuBois Button for actions
+<Button componentId="my-feature.action" type="tertiary" onClick={handleClick}>
+  Click me
+</Button>
+
+// ❌ BAD - Avoid raw HTML button for typical actions
+<button type="button" onClick={handleClick}>
+  Click me
+</button>
+```
 ### Theme Usage
 
 Use the design system theme for consistent styling:
@@ -114,18 +126,68 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 
 const Component = () => {
   const { theme } = useDesignSystemTheme();
-  
+
   return (
-    <div style={{ 
-      color: theme.colors.textPrimary,
-      padding: theme.spacing.md,
-      fontSize: theme.typography.fontSizeBase
-    }}>
+    <div
+      style={{
+        color: theme.colors.textPrimary,
+        padding: theme.spacing.md,
+        fontSize: theme.typography.fontSizeBase,
+      }}
+    >
       Content
     </div>
   );
 };
 ```
+
+### Empty States
+
+**IMPORTANT**: Empty states must always be centered both vertically and horizontally within their container.
+
+When implementing empty states using the `Empty` component from `@databricks/design-system`, always wrap it in a centered container with styles to override the Design System's internal layout:
+
+```typescript
+import { Empty, SearchIcon } from '@databricks/design-system';
+
+// ✅ GOOD - Empty state centered in container with Design System style overrides
+const emptyComponent = (
+  <div
+    css={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',       // Take full height of parent
+      minHeight: 400,       // Ensure minimum height for visibility
+      width: '100%',
+      // Override Design System's Empty component internal styles
+      '& > div': {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+    }}
+  >
+    <Empty
+      description="No items found. Try clearing your filters."
+      image={<SearchIcon />}
+    />
+  </div>
+);
+
+// ❌ BAD - Empty state not centered
+const emptyComponent = <Empty description="No items found" image={<SearchIcon />} />;
+```
+
+Key points for empty states:
+- Use `display: 'flex'` with `alignItems: 'center'` and `justifyContent: 'center'`
+- Set `height: '100%'` to fill the parent container's height
+- Set `minHeight` (typically 400px or more) to ensure vertical centering is visible
+- Always set `width: '100%'` to ensure proper horizontal centering
+- **CRITICAL**: Override the Design System's `Empty` component internal wrapper styles using `'& > div'` selector to ensure it takes full height and centers content
+- Use meaningful icons and descriptions to guide users
 
 ### Spacing Guidelines
 
@@ -133,14 +195,14 @@ const Component = () => {
 
 ```typescript
 // ✅ GOOD - Use theme spacing
-<div style={{ 
+<div style={{
   padding: theme.spacing.md,
   marginBottom: theme.spacing.lg,
-  gap: theme.spacing.sm 
+  gap: theme.spacing.sm
 }} />
 
 // ❌ BAD - Avoid hard-coded pixels
-<div style={{ 
+<div style={{
   padding: '16px',
   marginBottom: '24px',
   gap: '8px'
@@ -148,6 +210,7 @@ const Component = () => {
 ```
 
 Common spacing values:
+
 - `theme.spacing.xs` - Extra small spacing (4px)
 - `theme.spacing.sm` - Small spacing (8px)
 - `theme.spacing.md` - Medium spacing (16px)
@@ -155,9 +218,10 @@ Common spacing values:
 - `theme.spacing.xl` - Extra large spacing (32px)
 
 For custom spacing needs, use the spacing function:
+
 ```typescript
 // When you need a specific multiple of the base unit
-padding: theme.spacing(2.5) // 20px (2.5 * 8px base unit)
+padding: theme.spacing(2.5); // 20px (2.5 * 8px base unit)
 ```
 
 ### Finding the Right Component
@@ -192,6 +256,7 @@ https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?pat
 ```
 
 For example:
+
 - Alert: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-alert--docs`
 - Button: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-button--docs`
 - Modal: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-modal--docs`
@@ -242,7 +307,7 @@ Example workflow:
 mlflow/server/js/
 ├── src/
 │   ├── experiment-tracking/    # Experiment tracking UI
-│   ├── model-registry/         # Model registry UI  
+│   ├── model-registry/         # Model registry UI
 │   ├── common/                 # Shared components
 │   ├── shared/                 # Shared utilities
 │   └── app.tsx                # Main app entry point
@@ -334,7 +399,7 @@ const { data, isLoading, error } = useQuery({
 ```typescript
 // Good: Derive state with useMemo
 const filteredRuns = useMemo(() => {
-  return runs.filter(run => run.status === 'active');
+  return runs.filter((run) => run.status === 'active');
 }, [runs]);
 
 // Avoid: useEffect to update state

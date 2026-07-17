@@ -128,11 +128,14 @@
   "editor.rulers": [100], // Show ruler at 100 chars for Python
 
   // Python specific settings
-  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvironment": false,
 
   // File associations
   "files.associations": {
     "*.mdx": "markdown",
     "*.ipynb": "jupyter"
-  }
+  },
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

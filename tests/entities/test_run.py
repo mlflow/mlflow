@@ -6,11 +6,13 @@ from mlflow.entities import (
     Dataset,
     DatasetInput,
     LifecycleStage,
+    LoggedModelOutput,
     Metric,
     Run,
     RunData,
     RunInfo,
     RunInputs,
+    RunOutputs,
     RunStatus,
 )
 from mlflow.exceptions import MlflowException
@@ -51,8 +53,9 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
         artifact_uri,
     ) = run_info
     run_inputs, datasets = run_inputs
+    run_outputs = RunOutputs(model_outputs=[LoggedModelOutput(model_id="model-id-1", step=3)])
 
-    run1 = Run(run_info, run_data, run_inputs)
+    run1 = Run(run_info, run_data, run_inputs, run_outputs)
 
     _check_run(run1, run_info, metrics, params, tags, datasets)
 
@@ -90,6 +93,9 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
             ],
             "model_inputs": [],
         },
+        "outputs": {
+            "model_outputs": [{"model_id": "model-id-1", "step": 3}],
+        },
     }
     # Run must be json serializable
     json.dumps(run1.to_dictionary())
@@ -97,6 +103,10 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
     proto = run1.to_proto()
     run2 = Run.from_proto(proto)
     _check_run(run2, run_info, metrics, params, tags, datasets)
+    assert run2.outputs.model_outputs == [LoggedModelOutput(model_id="model-id-1", step=3)]
+    assert run2.outputs.to_dictionary() == {
+        "model_outputs": [{"model_id": "model-id-1", "step": 3}],
+    }
 
     run3 = Run(run_info, None, None)
     assert run3.to_dictionary() == {"info": expected_info_dict}

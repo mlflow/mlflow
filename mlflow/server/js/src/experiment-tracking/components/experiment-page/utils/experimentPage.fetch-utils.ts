@@ -196,14 +196,11 @@ export const fetchModelVersionsForRuns = (
   );
 
   const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
-    // eslint-disable-next-line prefer-const
-    let maxResults = undefined;
     const action = actionCreator(
       {
         run_id: runsChunk.map((run) => run.info.run_id),
       },
       getUUID(),
-      maxResults,
     );
     return dispatch(action);
   });
@@ -220,9 +217,9 @@ export const isSearchFacetsFilterUsed = (currentSearchFacetsState: ExperimentPag
   const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
-      modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
-      datasetsFilter.length !== 0 ||
-      searchFilter ||
-      startTime !== DEFAULT_START_TIME,
+    modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+    datasetsFilter.length !== 0 ||
+    searchFilter ||
+    startTime !== DEFAULT_START_TIME,
   );
 };

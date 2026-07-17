@@ -1,3 +1,4 @@
+import { describe, test, expect, it } from '@jest/globals';
 import React from 'react';
 import { ErrorView } from './ErrorView';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
@@ -70,6 +71,23 @@ describe('ErrorView', () => {
     const subtitle = screen.getByRole('heading', { level: 2 });
     expect(subtitle).toBeInTheDocument();
     expect(subtitle).toHaveTextContent('sub message, go back to ');
+
+    const link = screen.getByRole('link');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/path/to');
+  });
+
+  it('can disable workspace prefixing on the fallback link', () => {
+    renderWithIntl(
+      <MemoryRouter>
+        <ErrorView
+          statusCode={404}
+          fallbackHomePageReactRoute="/path/to"
+          subMessage="sub message"
+          disableWorkspacePrefixOnFallback
+        />
+      </MemoryRouter>,
+    );
 
     const link = screen.getByRole('link');
     expect(link).toBeInTheDocument();

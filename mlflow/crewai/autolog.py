@@ -17,34 +17,72 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
+def patched_standalone_call(original, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(*args, **kwargs)
+
+    fullname, span_type = _resolve_standalone_span(original, kwargs)
+    if fullname is None or span_type is None:
+        _logger.debug(f"Could not resolve span name or type for {original}")
+        return original(*args, **kwargs)
+
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, *args, **kwargs)
+        span.set_inputs(inputs)
+
+        result = original(*args, **kwargs)
+
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        span.set_outputs(outputs)
+
+        return result
+
+
+def _is_internal_flow(instance) -> bool:
+    # crewai >= 1.14.5 runs an experimental AgentExecutor (a Flow subclass) inside
+    # Agent.execute_task. Skip span creation for it since the Agent span already
+    # bounds the same work and crewai marks it with suppress_flow_events=True.
+    try:
+        from crewai.experimental.agent_executor import AgentExecutor
+    except ImportError:
+        return False
+    return isinstance(instance, AgentExecutor)
+
+
 def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
-    if config.log_traces:
-        fullname = f"{self.__class__.__name__}.{original.__name__}"
-        span_type = _get_span_type(self)
-        with mlflow.start_span(name=fullname, span_type=span_type) as span:
-            inputs = _construct_full_inputs(original, self, *args, **kwargs)
-            span.set_inputs(inputs)
-            _set_span_attributes(span=span, instance=self)
+    if not config.log_traces or _is_internal_flow(self):
+        return original(self, *args, **kwargs)
 
-            # CrewAI reports only crew-level usage totals.
-            # This patch hooks LiteLLM's `completion` to capture each response
-            # so per-call LLM usage can be logged.
-            capture_context = (
-                _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
-            )
-            with capture_context:
-                result = original(self, *args, **kwargs)
+    default_name = f"{self.__class__.__name__}.{original.__name__}"
+    fullname = _get_span_name(self) or default_name
+    span_type = _get_span_type(self)
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, self, *args, **kwargs)
+        span.set_inputs(inputs)
+        _set_span_attributes(span=span, instance=self)
 
-            # Need to convert the response of generate_content for better visualization
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        # CrewAI reports only crew-level usage totals.
+        # This patch hooks LiteLLM's `completion` to capture each response
+        # so per-call LLM usage can be logged.
+        capture_context = (
+            _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
+        )
+        with capture_context:
+            result = original(self, *args, **kwargs)
 
-            if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
-            span.set_outputs(outputs)
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
 
-            return result
+        if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        span.set_outputs(outputs)
+
+        return result
 
 
 def _capture_llm_response(instance):
@@ -80,6 +118,86 @@ def _parse_usage(instance: Any) -> dict[str, int] | None:
     }
 
 
+def patched_native_tool_call(original, self, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(self, *args, **kwargs)
+
+    tool_calls = args[0] if args else kwargs.get("tool_calls", [])
+    tool_name = _extract_native_tool_name(tool_calls)
+    if not tool_name:
+        return original(self, *args, **kwargs)
+
+    tool_args = _extract_native_tool_args(tool_calls)
+
+    with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as span:
+        span.set_inputs({"tool_name": tool_name, "tool_args": tool_args})
+
+        msgs_before = len(self.messages)
+        result = original(self, *args, **kwargs)
+
+        # Extract tool result from the "tool" message appended by the original method
+        for msg in self.messages[msgs_before:]:
+            if isinstance(msg, dict) and msg.get("role") == "tool":
+                span.set_outputs({"result": msg.get("content")})
+                break
+
+        return result
+
+
+def _extract_native_tool_name(tool_calls):
+    if not tool_calls:
+        return None
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        return tool_call.function.name
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        return tool_call.function_call.name
+    elif hasattr(tool_call, "name") and hasattr(tool_call, "input"):
+        return tool_call.name
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        return func_info.get("name", "") or tool_call.get("name", "")
+    return None
+
+
+def _extract_native_tool_args(tool_calls):
+    if not tool_calls:
+        return {}
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        args = tool_call.function.arguments
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        args = dict(tool_call.function_call.args) if tool_call.function_call.args else {}
+    elif hasattr(tool_call, "input"):
+        args = tool_call.input
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        args = func_info.get("arguments", "{}") or tool_call.get("input", {})
+    else:
+        return {}
+
+    if isinstance(args, str):
+        try:
+            return json.loads(args)
+        except json.JSONDecodeError:
+            return {}
+    return args
+
+
+def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
+    name = original.__name__
+    if name == "execute_tool_and_check_finality":
+        # default_tool_name should not be hit in normal runs; may append if crewai bugs
+        default_tool_name = "ToolExecution"
+        fullname = kwargs["agent_action"].tool if "agent_action" in kwargs else None
+        fullname = fullname or default_tool_name
+        return fullname, SpanType.TOOL
+
+    return None, None
+
+
 def _get_span_type(instance) -> str:
     import crewai
     from crewai import LLM, Agent, Crew, Task
@@ -94,12 +212,18 @@ def _get_span_type(instance) -> str:
             return SpanType.LLM
         elif isinstance(instance, Flow):
             return SpanType.CHAIN
-        elif isinstance(
-            instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
-        ):
+        CREWAI_VERSION = Version(crewai.__version__)
+        # crewai 1.14.5 renamed base_agent_executor_mixin.CrewAgentExecutorMixin to
+        # base_agent_executor.BaseAgentExecutor
+        if CREWAI_VERSION >= Version("1.14.5"):
+            executor_cls = crewai.agents.agent_builder.base_agent_executor.BaseAgentExecutor
+        else:
+            executor_cls = (
+                crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
+            )
+        if isinstance(instance, executor_cls):
             return SpanType.MEMORY
 
-        CREWAI_VERSION = Version(crewai.__version__)
         # Knowledge and Memory are not available before 0.83.0
         if CREWAI_VERSION >= Version("0.83.0"):
             memory_classes = (
@@ -121,6 +245,26 @@ def _get_span_type(instance) -> str:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
     return SpanType.UNKNOWN
+
+
+def _get_span_name(instance) -> str | None:
+    try:
+        from crewai import LLM, Agent, Crew, Task
+
+        if isinstance(instance, Crew):
+            default_name = Crew.model_fields["name"].default
+            return instance.name if instance.name != default_name else None
+        elif isinstance(instance, Task):
+            return instance.name
+        elif isinstance(instance, Agent):
+            return instance.role
+        elif isinstance(instance, LLM):
+            return instance.model
+
+    except AttributeError as e:
+        _logger.debug("An exception happens when resolving the span name. Exception: %s", e)
+
+    return None
 
 
 def _is_serializable(value):
@@ -186,6 +330,13 @@ def _set_span_attributes(span: LiveSpan, instance):
             for key, value in llm.items():
                 if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
+            # Set model name explicitly using the MODEL attribute key
+            if model := getattr(instance, "model", None):
+                span.set_attribute(SpanAttributeKey.MODEL, model)
+                if isinstance(model, str):
+                    match model.split("/", 1):
+                        case [provider, _]:
+                            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
@@ -253,21 +404,19 @@ def _parse_agents(agents):
                 model = agent.llm.model
             elif hasattr(agent.llm, "model_name"):
                 model = agent.llm.model_name
-        attributes.append(
-            {
-                "id": str(agent.id),
-                "role": agent.role,
-                "goal": agent.goal,
-                "backstory": agent.backstory,
-                "cache": agent.cache,
-                "config": agent.config,
-                "verbose": agent.verbose,
-                "allow_delegation": agent.allow_delegation,
-                "tools": agent.tools,
-                "max_iter": agent.max_iter,
-                "llm": str(model if model is not None else ""),
-            }
-        )
+        attributes.append({
+            "id": str(agent.id),
+            "role": agent.role,
+            "goal": agent.goal,
+            "backstory": agent.backstory,
+            "cache": agent.cache,
+            "config": agent.config,
+            "verbose": agent.verbose,
+            "allow_delegation": agent.allow_delegation,
+            "tools": agent.tools,
+            "max_iter": agent.max_iter,
+            "llm": str(model if model is not None else ""),
+        })
     return attributes
 
 
@@ -295,12 +444,10 @@ def _parse_tools(tools):
         if hasattr(tool, "description") and tool.description is not None:
             res["description"] = tool.description
         if res:
-            result.append(
-                {
-                    "type": "function",
-                    "function": res,
-                }
-            )
+            result.append({
+                "type": "function",
+                "function": res,
+            })
     return result
 
 

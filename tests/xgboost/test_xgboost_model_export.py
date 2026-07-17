@@ -65,12 +65,10 @@ def xgb_model():
 @pytest.fixture(scope="module")
 def xgb_model_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 3))]),
     )
 
@@ -471,7 +469,12 @@ def test_pyfunc_serve_and_score_sklearn(model):
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, name="model", input_example=X.head(3))
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name="model",
+            input_example=X.head(3),
+            skops_trusted_types=["xgboost.core.Booster", "xgboost.sklearn.XGBClassifier"],
+        )
 
     inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(

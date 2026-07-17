@@ -9,13 +9,11 @@ from mlflow.types import Schema, TensorSpec
 
 
 def _get_keras_model():
-    return keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    return keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
 
 def test_keras_save_model_export():

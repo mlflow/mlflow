@@ -6,6 +6,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import set_span_model_attribute
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +32,9 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     except MlflowException:
         _logger.debug("Failed to set chat tools on span", exc_info=True)
 
+    # Set model name if available
+    set_span_model_attribute(span, inputs)
+
     # Extract and set usage information if available
     if usage := _parse_usage(output):
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
@@ -44,15 +48,16 @@ def _extract_tool_call_ids(output: Any) -> list[str]:
         if isinstance(output, ChatCompletion):
             message = output.choices[0].message
             if tool_calls := getattr(message, "tool_calls", None):
-                for tool_call in tool_calls:
-                    tool_call_ids.append(tool_call.id)
+                tool_call_ids.extend(tool_call.id for tool_call in tool_calls)
     except ImportError:
         pass
 
     if _is_responses_output(output):
-        for output_item in output.output:
-            if call_id := getattr(output_item, "call_id", None):
-                tool_call_ids.append(call_id)
+        tool_call_ids.extend(
+            call_id
+            for output_item in output.output
+            if (call_id := getattr(output_item, "call_id", None))
+        )
 
     return tool_call_ids
 
@@ -136,11 +141,15 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.chat import ChatCompletion
 
         if isinstance(output, ChatCompletion) and (usage := output.usage):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
             }
+            if details := getattr(usage, "prompt_tokens_details", None):
+                if (cached := getattr(details, "cached_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            return usage_dict
     except ImportError:
         pass
 
@@ -149,11 +158,15 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.responses import Response
 
         if isinstance(output, Response) and (usage := output.usage):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
             }
+            if details := getattr(usage, "input_tokens_details", None):
+                if (cached := getattr(details, "cached_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            return usage_dict
     except ImportError:
         pass
 

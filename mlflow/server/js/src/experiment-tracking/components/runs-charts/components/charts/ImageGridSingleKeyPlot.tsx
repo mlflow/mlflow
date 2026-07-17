@@ -1,8 +1,7 @@
-import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import type { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
 import type { RunsChartsRunData } from '../RunsCharts.common';
-import { EmptyImageGridPlot, ImagePlotWithHistory } from './ImageGridPlot.common';
+import { EmptyImageGridPlot, ImagePlotWithHistory, ImageGridRunHeader } from './ImageGridPlot.common';
 import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export const ImageGridSingleKeyPlot = ({
@@ -50,21 +49,7 @@ export const ImageGridSingleKeyPlot = ({
               },
             }}
           >
-            <Tooltip content={run.displayName} componentId="mlflow.charts.image-plot.run-name-tooltip">
-              <div
-                css={{
-                  height: theme.typography.lineHeightMd,
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                }}
-              >
-                <RunColorPill color={run.color} />
-                {run.displayName}
-              </div>
-            </Tooltip>
+            <ImageGridRunHeader displayName={run.displayName} color={run.color} params={run.params} />
             <ImagePlotWithHistory
               key={run.uuid}
               step={cardConfig.step}

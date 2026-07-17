@@ -11,7 +11,6 @@ The notebook renderer is configured as a separate webpack entry point that gener
 The webpack configuration in `craco.config.js` handles the dual-entry setup:
 
 1. **Entry Points**:
-
    - `main`: The main MLflow application (`src/index.tsx`)
    - `ml-model-trace-renderer`: The notebook renderer (`src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/index.ts`)
 

@@ -1,4 +1,5 @@
 import {
+  Alert,
   Empty,
   Input,
   Modal,
@@ -11,18 +12,22 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { FormattedMessage } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
-import { EvaluationDataset } from '../types';
+import type { EvaluationDataset } from '../types';
 import { useCallback, useState } from 'react';
-import { getModelTraceId, ModelTrace } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
+import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 import { useFetchTraces } from '../hooks/useFetchTraces';
+import { useCheckMultiturnDatasets } from '../hooks/useCheckMultiturnDatasets';
 
 const columns: ColumnDef<EvaluationDataset, string>[] = [
   {
@@ -71,15 +76,22 @@ export const ExportTracesToDatasetModal = ({
     fetchNextPage,
   });
 
-  const table = useReactTable({
-    columns,
-    getRowId: (row) => row.dataset_id,
-    data: datasets ?? [],
-    getCoreRowModel: getCoreRowModel(),
-    enableColumnResizing: false,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal.tsx',
+    {
+      columns,
+      getRowId: (row) => row.dataset_id,
+      data: datasets ?? [],
+      getCoreRowModel: getCoreRowModel(),
+      enableColumnResizing: false,
+    },
+  );
 
   const selectedDatasets = table.getSelectedRowModel().rows.map((row) => row.original);
+  const selectedDatasetIds = selectedDatasets.map((dataset) => dataset.dataset_id);
+  const { data: hasMultiturnDataset = false, isLoading: isCheckingMultiturn } = useCheckMultiturnDatasets({
+    datasetIds: selectedDatasetIds,
+  });
 
   const { upsertDatasetRecordsMutation, isLoading: isUpsertingDatasetRecords } = useUpsertDatasetRecordsMutation({
     onSuccess: () => {
@@ -105,7 +117,7 @@ export const ExportTracesToDatasetModal = ({
       onCancel={() => setVisible(false)}
       okText={<FormattedMessage defaultMessage="Export" description="Export traces to dataset modal action button" />}
       okButtonProps={{
-        disabled: isLoadingTraces || selectedDatasets.length === 0,
+        disabled: isLoadingTraces || selectedDatasets.length === 0 || hasMultiturnDataset || isCheckingMultiturn,
         loading: isUpsertingDatasetRecords,
       }}
       onOk={handleExport}
@@ -115,8 +127,23 @@ export const ExportTracesToDatasetModal = ({
           description="Export traces to dataset modal title"
         />
       }
+      zIndex={theme.options.zIndexBase + 10}
     >
       <div css={{ height: '500px', overflow: 'hidden' }}>
+        {hasMultiturnDataset && (
+          <Alert
+            componentId="mlflow.export-traces-to-dataset-modal.multiturn-error"
+            type="error"
+            css={{ marginBottom: theme.spacing.sm }}
+            message={
+              <FormattedMessage
+                defaultMessage="Exporting to multi-turn datasets is not yet supported."
+                description="Error message when trying to export traces to a multiturn dataset"
+              />
+            }
+            closable={false}
+          />
+        )}
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.sm }}>
           <Input
             allowClear
@@ -168,7 +195,7 @@ export const ExportTracesToDatasetModal = ({
             {table.getLeafHeaders().map((header) => (
               <TableHeader
                 key={header.id}
-                componentId={`mlflow.eval-datasets.${header.column.id}-header`}
+                componentId="mlflow.eval-datasets.column-header"
                 header={header}
                 column={header.column}
                 css={{ width: header.column.columnDef.size, maxWidth: header.column.columnDef.maxSize }}

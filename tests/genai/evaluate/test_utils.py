@@ -12,10 +12,11 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    _deserialize_trace_column_if_needed,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -44,6 +45,9 @@ def count_rows(data: Any) -> int:
             return data.count()
     except Exception:
         pass
+
+    if isinstance(data, EvaluationDataset):
+        data = data.to_df()
 
     return len(data)
 
@@ -136,6 +140,13 @@ def sample_spark_data_with_string_columns(sample_pd_data, spark):
     return spark.createDataFrame(df)
 
 
+@pytest.fixture
+def sample_evaluation_dataset(sample_dict_data_single):
+    dataset = create_dataset("test")
+    dataset.merge_records(sample_dict_data_single)
+    return dataset
+
+
 _ALL_DATA_FIXTURES = [
     "sample_dict_data_single",
     "sample_dict_data_multiple",
@@ -143,6 +154,7 @@ _ALL_DATA_FIXTURES = [
     "sample_pd_data",
     "sample_spark_data",
     "sample_spark_data_with_string_columns",
+    "sample_evaluation_dataset",
 ]
 
 
@@ -212,9 +224,9 @@ def test_convert_to_legacy_eval_traces(input_type):
 
     assert "trace" in data.columns
 
-    # "request" column should be derived from the trace
-    assert "request" in data.columns
-    assert list(data["request"]) == [{"question": "What is MLflow?"}]
+    # "inputs" column should be derived from the trace
+    assert "inputs" in data.columns
+    assert list(data["inputs"]) == [{"question": "What is MLflow?"}]
     assert data["expectations"][0] == {
         "expected_response": "expected response for first question",
         "expected_facts": ["fact1", "fact2"],
@@ -231,8 +243,8 @@ def test_convert_to_eval_set_has_no_errors(data_fixture, request):
 
     transformed_data = _convert_to_eval_set(sample_data)
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
     assert "expectations" in transformed_data.columns
 
 
@@ -245,60 +257,104 @@ def test_convert_to_eval_set_without_request_and_response():
     trace_df = trace_df[["trace"]]
     transformed_data = _convert_to_eval_set(trace_df)
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
-    assert transformed_data["request"].isna().all()
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+    assert transformed_data["inputs"].isna().all()
+
+
+def test_convert_to_eval_set_with_missing_root_span():
+    # Create traces
+    for _ in range(2):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    # Deserialize the trace from JSON string to Trace object
+    trace_df["trace"] = trace_df["trace"].apply(
+        lambda t: Trace.from_json(t) if isinstance(t, str) else t
+    )
+
+    # Mock _get_root_span to return None for the first trace to simulate missing root span
+    with patch.object(trace_df["trace"].iloc[0].data, "_get_root_span", return_value=None):
+        transformed_data = _convert_to_eval_set(trace_df)
+
+    # Verify inputs and outputs columns exist
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+
+    # Verify first trace has None for inputs/outputs (missing root span)
+    assert transformed_data["inputs"].iloc[0] is None
+    assert transformed_data["outputs"].iloc[0] is None
+
+    # Verify second trace has None for inputs/outputs (normal empty span behavior)
+    assert transformed_data["inputs"].iloc[1] is None
+    assert transformed_data["outputs"].iloc[1] is None
 
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
-    df = spark.createDataFrame(
-        [
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-        ]
-    )
+    df = spark.createDataFrame([
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
         _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
-    df = spark.createDataFrame(
-        [
-            {
-                "inputs": '{"question": "What is the capital of France?"}',
-                "expectations": "invalid expectations",
-            },
-            {
-                "inputs": '{"question": "What is the capital of Germany?"}',
-                "expectations": "invalid expectations",
-            },
-        ]
-    )
+    df = spark.createDataFrame([
+        {
+            "inputs": '{"question": "What is the capital of France?"}',
+            "expectations": "invalid expectations",
+        },
+        {
+            "inputs": '{"question": "What is the capital of Germany?"}',
+            "expectations": "invalid expectations",
+        },
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
 
 
-def test_convert_to_eval_set_evaluation_dataset():
-    dataset = create_dataset("test")
-    dataset.merge_records(
-        [
-            {
-                "inputs": {"question": "What is Spark?"},
-                "outputs": "actual response for first question",
-                "expectations": {"expected_response": "expected response for first question"},
+def _trace_test_cases():
+    data = {
+        "info": {
+            "trace_id": "test-trace-id",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
             },
-            {
-                "inputs": {"question": "How can you minimize data shuffling in Spark?"},
-                "outputs": "actual response for second question",
-                "expectations": {"expected_response": "expected response for second question"},
-            },
-        ]
-    )
-    transformed_data = _convert_to_eval_set(dataset)
+            "request_time": "2024-01-21T12:00:00Z",
+            "state": "OK",
+            "trace_metadata": {},
+            "tags": {},
+            "assessments": [],
+        },
+        "data": {"spans": []},
+    }
+    return [
+        pytest.param(data, dict, id="dict"),
+        pytest.param(json.dumps(data), str, id="string"),
+        pytest.param(Trace.from_dict(data), Trace, id="trace_object"),
+    ]
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
-    assert "expectations" in transformed_data.columns
+
+@pytest.mark.parametrize(("trace_value", "expected_input_type"), _trace_test_cases())
+def test_deserialize_trace_column(trace_value, expected_input_type):
+    df = pd.DataFrame([{"trace": trace_value, "inputs": {"question": "test"}}])
+    assert isinstance(df["trace"].iloc[0], expected_input_type)
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert isinstance(result["trace"].iloc[0], Trace)
+    assert result["trace"].iloc[0].info.trace_id == "test-trace-id"
+
+
+def test_deserialize_trace_column_with_none():
+    df = pd.DataFrame([{"trace": None, "inputs": {"question": "test"}}])
+
+    result = _deserialize_trace_column_if_needed(df)
+    assert result["trace"].iloc[0] is None
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
@@ -309,14 +365,12 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations):
-        received_args.append(
-            (
-                inputs["question"],
-                outputs,
-                expectations.get("expected_response"),
-                expectations.get("my_custom_expectation"),
-            )
-        )
+        received_args.append((
+            inputs["question"],
+            outputs,
+            expectations.get("expected_response"),
+            expectations.get("my_custom_expectation"),
+        ))
         return 0
 
     mlflow.genai.evaluate(
@@ -366,9 +420,10 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_not_called()
 
         mlflow.genai.evaluate(
-            data=pd.DataFrame(
-                {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
-            ),
+            data=pd.DataFrame({
+                "inputs": [{"question": "What is the capital of France?"}],
+                "outputs": ["Paris"],
+            }),
             scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()
@@ -480,7 +535,6 @@ def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
 
 @databricks_only
 def test_convert_scorer_to_legacy_metric():
-    """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
     # Test with a built-in scorer
     builtin_scorer = RelevanceToQuery()
     legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)

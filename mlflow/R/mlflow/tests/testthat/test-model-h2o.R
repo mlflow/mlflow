@@ -85,7 +85,7 @@ test_that("Can predict with cli backend", {
   write.csv(test[, predictors], temp_in_csv, row.names = FALSE)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_csv,
-    "-o", temp_out, "-t", "csv", "--install-mlflow"
+    "-o", temp_out, "-t", "csv", "--env-manager", "uv", "--install-mlflow"
   )
   check_output()
 
@@ -93,7 +93,7 @@ test_that("Can predict with cli backend", {
   jsonlite::write_json(list(dataframe_records = test[, predictors]), temp_in_json)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
-    "-t", "json", "--install-mlflow"
+    "-t", "json", "--env-manager", "uv", "--install-mlflow"
   )
   check_output()
 
@@ -105,7 +105,7 @@ test_that("Can predict with cli backend", {
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json_split,
     "-o", temp_out, "-t",
-    "json", "--install-mlflow"
+    "json", "--env-manager", "uv", "--install-mlflow"
   )
   check_output()
 })

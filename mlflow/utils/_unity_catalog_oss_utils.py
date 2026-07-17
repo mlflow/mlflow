@@ -7,7 +7,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelSearch,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     ModelVersionInfo,
     ModelVersionStatus,
     RegisteredModelInfo,
@@ -74,8 +74,7 @@ filter_pattern = re.compile(r"^name\s*=\s*'([^']+)'")
 
 def parse_model_name(filter):
     trimmed_filter = filter.strip()
-    match = filter_pattern.match(trimmed_filter)
-    if match:
+    if match := filter_pattern.match(trimmed_filter):
         model_name_str = match.group(1)
     elif trimmed_filter == "":
         raise MlflowException(

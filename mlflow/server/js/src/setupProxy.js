@@ -16,6 +16,16 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
+  // Forward any REST (``/api``) traffic to the backend. The admin UI uses
+  // ``/ajax-api`` everywhere; this proxy is here for any future direct REST
+  // callers and to keep the dev server from returning its SPA fallback
+  // (200 + index.html) on accidental ``/api`` POSTs.
+  app.use(
+    createProxyMiddleware('/api', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
   app.use(
     createProxyMiddleware('/graphql', {
       target: proxyTarget,
@@ -33,6 +43,12 @@ module.exports = function (app) {
     createProxyMiddleware('/model-versions/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/gateway', {
+      target: proxyTarget,
       changeOrigin: true,
     }),
   );

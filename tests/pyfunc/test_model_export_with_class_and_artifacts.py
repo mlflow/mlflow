@@ -20,7 +20,6 @@ import pytest
 import sklearn
 import sklearn.datasets
 import sklearn.linear_model
-import sklearn.neighbors
 import yaml
 
 import mlflow
@@ -30,6 +29,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
 )
@@ -127,9 +127,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 @pytest.fixture(scope="module")
@@ -225,7 +225,10 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.pyfunc._logger.warning") as mock_warning,
+    ):
         pyfunc_model_info = mlflow.pyfunc.log_model(
             name=pyfunc_artifact_path,
             artifacts={"sk_model": sklearn_model_info.model_uri},
@@ -233,6 +236,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         )
         pyfunc_model_path = _download_artifact_from_uri(pyfunc_model_info.model_uri)
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+        assert "Consider using a file path (str or Path) instead" in mock_warning.call_args[0][0]
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
@@ -281,7 +285,9 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+def test_signature_and_examples_are_saved_correctly(
+    sklearn_knn_model, iris_data, main_scoped_model_class, tmp_path
+):
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -303,7 +309,10 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                     input_example=example,
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None:
+                    assert mlflow_model.signature == signature
+                elif example is None:
+                    assert mlflow_model.signature is None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -1097,6 +1106,20 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     )
 
 
+def test_load_cloudpickle_model_raises_when_pickle_deserialization_disallowed(
+    model_path, monkeypatch
+):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    mlflow.pyfunc.save_model(path=model_path, python_model=TestModel())
+    monkeypatch.setenv(MLFLOW_ALLOW_PICKLE_DESERIALIZATION.name, "false")
+
+    with pytest.raises(MlflowException, match="Deserializing model using pickle is disallowed"):
+        mlflow.pyfunc.load_model(model_uri=model_path)
+
+
 def test_save_and_load_model_with_special_chars(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
@@ -1124,7 +1147,6 @@ def test_save_and_load_model_with_special_chars(
 
 
 def test_model_with_code_path_containing_main(tmp_path):
-    """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
     directory.mkdir()
     main = directory.joinpath("__main__.py")
@@ -1422,7 +1444,6 @@ def test_python_model_with_type_hint_errors_with_different_signature():
                 python_model=AnnotatedPythonModel(),
                 signature=signature,
             )
-        warn_mock.assert_called_once()
         assert (
             "Provided signature does not match the signature inferred from"
             in warn_mock.call_args[0][0]
@@ -2300,7 +2321,7 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
             # existing env var is tracked
             os.environ["TEST_API_KEY"]
             # existing env var fetched by getenv is tracked
-            os.getenv("ANOTHER_API_KEY")
+            os.environ.get("ANOTHER_API_KEY")
             # existing env var not in allowlist is not tracked
             os.environ.get("INVALID_ENV_VAR")
             # non-existing env var is not tracked
@@ -2557,15 +2578,14 @@ def test_pyfunc_model_traces_link_to_model_id():
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
 
-    model_infos = []
-    for i in range(3):
-        model_infos.append(
-            mlflow.pyfunc.log_model(
-                name="test_model",
-                python_model=TestModel(),
-                input_example=["a", "b", "c"],
-            )
+    model_infos = [
+        mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=TestModel(),
+            input_example=["a", "b", "c"],
         )
+        for i in range(3)
+    ]
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)

@@ -23,15 +23,15 @@ class RunOutputs(_MlflowObject):
 
     def to_proto(self):
         run_outputs = ProtoRunOutputs()
-        run_outputs.model_outputs.extend(
-            [model_output.to_proto() for model_output in self.model_outputs]
-        )
+        run_outputs.model_outputs.extend([
+            model_output.to_proto() for model_output in self.model_outputs
+        ])
 
         return run_outputs
 
     def to_dictionary(self) -> dict[Any, Any]:
         return {
-            "model_outputs": self.model_outputs,
+            "model_outputs": [model_output.to_dictionary() for model_output in self.model_outputs],
         }
 
     @classmethod

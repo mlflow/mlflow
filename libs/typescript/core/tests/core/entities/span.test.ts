@@ -5,7 +5,7 @@ import {
   Span,
   NoOpSpan,
   type LiveSpan,
-  type SerializedSpan
+  type SerializedSpan,
 } from '../../../src/core/entities/span';
 import { SpanEvent } from '../../../src/core/entities/span_event';
 import { SpanStatus, SpanStatusCode } from '../../../src/core/entities/span_status';
@@ -103,7 +103,7 @@ describe('Span', () => {
           const event = new SpanEvent({
             name: 'test_event',
             timestamp: 99999n,
-            attributes: { foo: 'bar' }
+            attributes: { foo: 'bar' },
           });
 
           mlflowSpan.addEvent(event);
@@ -247,7 +247,7 @@ describe('Span', () => {
           date: new Date('2024-01-01'),
           regex: /test/g,
           map: new Map([['key', 'value']]),
-          set: new Set([1, 2, 3])
+          set: new Set([1, 2, 3]),
         };
 
         // This should not throw
@@ -285,7 +285,7 @@ describe('Span', () => {
         const event = new SpanEvent({
           name: 'test_event',
           timestamp: 1500000000000n,
-          attributes: { eventAttr: 'value' }
+          attributes: { eventAttr: 'value' },
         });
         mlflowSpan.addEvent(event);
       } finally {
@@ -344,13 +344,13 @@ describe('Span', () => {
           'mlflow.spanType': '"LLM"',
           'mlflow.spanInputs': '{"x": 1}',
           'mlflow.traceRequestId': '"tr-ad9a3d0c8c2cfba776b5e8c80970f883"',
-          'mlflow.spanFunctionName': '"f"'
+          'mlflow.spanFunctionName': '"f"',
         },
         status: {
           message: '',
-          code: 'STATUS_CODE_OK'
+          code: 'STATUS_CODE_OK',
         },
-        events: []
+        events: [],
       };
 
       // Convert to JSON string and parse with json-bigint to get proper bigints

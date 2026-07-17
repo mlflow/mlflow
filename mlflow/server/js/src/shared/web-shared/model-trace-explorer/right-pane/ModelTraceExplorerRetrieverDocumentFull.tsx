@@ -1,21 +1,73 @@
-import { Button, ChevronUpIcon, FileDocumentIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useCallback, useMemo } from 'react';
+
+import {
+  Button,
+  ChevronUpIcon,
+  FileDocumentIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import type { FeedbackAssessment } from '../ModelTrace.types';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { AssessmentDisplayValue } from '../assessments-pane/AssessmentDisplayValue';
+import { getAssessmentDisplayName } from '../assessments-pane/AssessmentsPane.utils';
 import { KeyValueTag } from '../key-value-tag/KeyValueTag';
 
 export function ModelTraceExplorerRetrieverDocumentFull({
   text,
   metadataTags,
   setExpanded,
+  relevanceAssessment,
   logDocumentClick,
 }: {
   text: string;
   metadataTags: { key: string; value: string }[];
   setExpanded: (expanded: boolean) => void;
+  relevanceAssessment?: FeedbackAssessment;
   logDocumentClick?: (action: string) => void;
 }) {
   const { theme } = useDesignSystemTheme();
+  const { highlightAssessment, setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+
+  const handleAssessmentBadgeClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (relevanceAssessment) {
+        setAssessmentsPaneExpanded(true);
+        highlightAssessment(relevanceAssessment.assessment_id);
+      }
+    },
+    [relevanceAssessment, highlightAssessment, setAssessmentsPaneExpanded],
+  );
+
+  const assessmentJsonValue = useMemo(
+    () => JSON.stringify(relevanceAssessment?.feedback.value) ?? '',
+    [relevanceAssessment?.feedback.value],
+  );
+
+  const assessmentBadge = relevanceAssessment ? (
+    <div
+      role="button"
+      onClick={handleAssessmentBadgeClick}
+      css={{
+        cursor: 'pointer',
+        '&:hover': { opacity: 0.8 },
+      }}
+    >
+      <AssessmentDisplayValue
+        jsonValue={assessmentJsonValue}
+        prefix={
+          <Typography.Text size="sm" css={{ marginRight: theme.spacing.xs }}>
+            {getAssessmentDisplayName(relevanceAssessment.assessment_name)}:
+          </Typography.Text>
+        }
+      />
+    </div>
+  ) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -29,9 +81,10 @@ export function ModelTraceExplorerRetrieverDocumentFull({
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
           cursor: 'pointer',
           padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          height: theme.typography.lineHeightBase,
+          minHeight: theme.typography.lineHeightBase,
           boxSizing: 'content-box',
           '&:hover': {
             backgroundColor: theme.colors.backgroundSecondary,
@@ -39,6 +92,16 @@ export function ModelTraceExplorerRetrieverDocumentFull({
         }}
       >
         <FileDocumentIcon />
+        {relevanceAssessment?.rationale ? (
+          <Tooltip
+            componentId="shared.model-trace-explorer.relevance-assessment-tooltip"
+            content={relevanceAssessment.rationale}
+          >
+            {assessmentBadge}
+          </Tooltip>
+        ) : (
+          assessmentBadge
+        )}
       </div>
       <div css={{ padding: theme.spacing.md, paddingBottom: 0 }}>
         <GenAIMarkdownRenderer>{text}</GenAIMarkdownRenderer>

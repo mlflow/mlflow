@@ -1,5 +1,7 @@
 import inspect
 
+from pydantic import BaseModel
+
 
 def convert_to_serializable(response):
     """
@@ -9,8 +11,6 @@ def convert_to_serializable(response):
     error when the model is served behind REST endpoint.
     """
     # LangChain >= 0.3.0 uses Pydantic 2.x
-    from pydantic import BaseModel
-
     if isinstance(response, BaseModel):
         return response.model_dump()
 

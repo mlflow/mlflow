@@ -111,7 +111,6 @@ select = ["do-not-disable"]
 
 
 def test_config_loads_from_repo_root(tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that config is loaded from repository root regardless of current working directory."""
     subdir = tmp_git_repo / "subdir"
     subdir.mkdir()
     pyproject = tmp_git_repo / "pyproject.toml"

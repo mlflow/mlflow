@@ -7,6 +7,7 @@ meaning of these tags.
 
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
+MLFLOW_EXPERIMENT_IS_GATEWAY = "mlflow.experiment.isGateway"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -33,8 +34,17 @@ MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
-# Indicates that an MLflow run was created by an evaluation
-MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
+# Enum tag for classifying run types (e.g. "genai_evaluate", "issue_detection")
+MLFLOW_RUN_TYPE = "mlflow.runType"
+MLFLOW_RUN_TYPE_GENAI_EVALUATE = "genai_evaluate"
+MLFLOW_RUN_TYPE_ISSUE_DETECTION = "issue_detection"
+MLFLOW_RUN_TYPE_TEST = "test"
+
+# The ID of the job that is running issue detection
+MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
+
+# The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
+MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -69,6 +79,11 @@ MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 # Databricks model serving endpoint information
 MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME = "mlflow.databricks.modelServingEndpointName"
 
+# For Serverless GPU Compute (SGC) run resumption
+# Experiment tag prefix that maps SGC job run IDs to MLflow run IDs for automatic resumption
+# Format: mlflow.databricks.sgc.resumeRun.jobRunId.{job_run_id} -> {mlflow_run_id}
+MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX = "mlflow.databricks.sgc.resumeRun.jobRunId"
+
 # For MLflow Dataset tracking
 MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
@@ -78,13 +93,42 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
 )
+MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID = (
+    "mlflow.experiment.databricksTelemetryDestinationId"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH = (
+    "mlflow.experiment.databricksTraceDestinationPath"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceSpanStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceLogStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
+    "mlflow.experiment.databricksTraceAnnotationsTable"
+)
+MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
+MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
+MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
+# For online scoring checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT = "mlflow.latestOnlineScoring.trace.checkpoint"
+
+# For online scoring session checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT = "mlflow.latestOnlineScoring.session.checkpoint"
 
 # A set of tags that cannot be updated by the user
-IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
+IMMUTABLE_TAGS = {
+    MLFLOW_USER,
+    MLFLOW_ARTIFACT_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+}
 
 # The list of tags generated from resolve_tags() that are required for tracing UI
 TRACE_RESOLVE_TAGS_ALLOWLIST = (

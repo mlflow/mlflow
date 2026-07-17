@@ -6,131 +6,263 @@ package mlflow.databricks;
 
 import "assessments.proto";
 import "databricks.proto";
-import "scalapb/scalapb.proto";
+import "databricks_exception_with_details.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
+import "scalapb/scalapb.proto";
 
 option py_generic_services = true;
 
 service DatabricksTrackingService {
-  rpc createTraceInfo (CreateTraceInfo) returns (TraceInfo) {
+  rpc createTraceInfo(CreateTraceInfo) returns (TraceInfo) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{location_id}/{trace_info.trace_id}/info"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Trace Info v4",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{location_id}/{trace_info.trace_id}/info"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Trace Info v4"
     };
   }
 
   // Get complete traces with spans for given trace identifiers.
-  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
+  rpc batchGetTraces(BatchGetTraces) returns (BatchGetTraces.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{location_id}/batchGet",
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Traces V4",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{location_id}/batchGet"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Traces V4"
     };
   }
 
   // Get Trace Info
-  rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
+  rpc getTraceInfo(GetTraceInfo) returns (GetTraceInfo.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{location}/{trace_id}/info",
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get TraceInfo",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{location}/{trace_id}/info"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get TraceInfo"
     };
   }
 
   // Set a tag on a trace. Tags are mutable and can be updated as desired.
   rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{location_id}/{trace_id}/tags"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Trace Tag",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{location_id}/{trace_id}/tags"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set Trace Tag"
     };
   }
 
   // Delete a tag from a trace.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{location_id}/{trace_id}/tags/{key}"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Trace Tag",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{location_id}/{trace_id}/tags/{key}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Trace Tag"
     };
   }
 
   // Search traces
-  rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
+  rpc searchTraces(SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
       endpoints: [
         {
-          method: "POST",
+          method: "POST"
           path: "/mlflow/traces/search"
-          since { major: 4, minor: 0 },
+          since: {
+            major: 4
+            minor: 0
+          }
         }
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Traces",
-      };
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Traces"
+    };
+  }
+
+  // Long-running equivalent of searchTraces. Returns a SearchTracesOperation
+  // immediately; callers poll getSearchTracesOperation until done is true.
+  rpc searchTracesLongRunning(SearchTracesLongRunning) returns (SearchTracesOperation) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/search-long-running"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Traces Long Running"
+    };
+  }
+
+  // Poll a long-running search-traces Operation.
+  rpc getSearchTracesOperation(GetOperationRequest) returns (SearchTracesOperation) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/search/operations/{name}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Operation"
+    };
   }
 
   // =============================================================================
   // Enablement RPCs
   // =============================================================================
 
-  rpc createTraceUCStorageLocation (CreateTraceUCStorageLocation) returns (CreateTraceUCStorageLocation.Response) {
+  rpc createTraceUCStorageLocation(CreateTraceUCStorageLocation) returns (CreateTraceUCStorageLocation.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/location"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Trace UC Storage Location",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/location"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Trace UC Storage Location"
     };
   }
 
-  rpc linkExperimentToUCTraceLocation (LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
+  rpc linkExperimentToUCTraceLocation(LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{experiment_id}/link-location"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Link Experiment to UC Trace Location",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{experiment_id}/link-location"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Experiment to UC Trace Location"
     };
   }
 
-  rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
+  rpc unlinkExperimentToUCTraceLocation(UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{experiment_id}/unlink-location"
-        since { major: 4, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Unlink Experiment to UC Trace Location",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{experiment_id}/unlink-location"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Unlink Experiment to UC Trace Location"
+    };
+  }
+
+  rpc getLocation(GetLocation) returns (GetLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/tracing/locations/{location_id}"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Location"
+    };
+  }
+
+  rpc createLocation(CreateLocation) returns (CreateLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/tracing/locations"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Location"
+    };
+  }
+
+  rpc linkTraceLocation(LinkTraceLocation) returns (LinkTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/{experiment_id}/trace-location:link"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Trace Location"
     };
   }
 
@@ -139,54 +271,74 @@ service DatabricksTrackingService {
   // =============================================================================
 
   // Create an assessment associated with a trace.
-  rpc createAssessment (CreateAssessment) returns (CreateAssessment.Response) {
+  rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Assessment",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Assessment"
     };
   }
 
   // Get an assessment.
-  rpc getAssessment (GetAssessment) returns (GetAssessment.Response) {
+  rpc getAssessment(GetAssessment) returns (GetAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Assessment",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Assessment"
     };
   }
 
   // Update an assessment.
-  rpc updateAssessment (UpdateAssessment) returns (UpdateAssessment.Response) {
+  rpc updateAssessment(UpdateAssessment) returns (UpdateAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments/{assessment.assessment_id}"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Update Assessment",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments/{assessment.assessment_id}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update Assessment"
     };
   }
 
   // Delete an assessment.
-  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+  rpc deleteAssessment(DeleteAssessment) returns (DeleteAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Assessment",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Assessment"
     };
   }
 
@@ -196,29 +348,39 @@ service DatabricksTrackingService {
 
   // Link traces to a run by creating internal trace-to-run relationships.
   // This API allows associating multiple traces with a single run for evaluation and labeling workflows.
-  rpc batchLinkTraceToRun (BatchLinkTraceToRun) returns (BatchLinkTraceToRun.Response) {
+  rpc batchLinkTraceToRun(BatchLinkTraceToRun) returns (BatchLinkTraceToRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{location_id}/link-to-run/batchCreate"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Link Traces to Run",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{location_id}/link-to-run/batchCreate"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Traces to Run"
     };
   }
 
   // Unlink traces from a run by removing the internal trace-to-run relationships.
   // This API allows batch edit of relationship across multiple traces with a single run.
-  rpc batchUnlinkTraceFromRun (BatchUnlinkTraceFromRun) returns (BatchUnlinkTraceFromRun.Response) {
+  rpc batchUnlinkTraceFromRun(BatchUnlinkTraceFromRun) returns (BatchUnlinkTraceFromRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{location_id}/unlink-from-run/batchDelete"
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Unlink Traces from Run",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{location_id}/unlink-from-run/batchDelete"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Unlink Traces from Run"
     };
   }
 }
@@ -230,6 +392,17 @@ message UCSchemaLocation {
   optional string otel_spans_table_name = 3;
   // logs table name, only for output
   optional string otel_logs_table_name = 4;
+}
+
+message UcTablePrefixLocation {
+  optional string catalog_name = 1;
+  optional string schema_name = 2;
+  optional string table_prefix = 3;
+  optional string spans_table_name = 4;
+  optional string logs_table_name = 5;
+  optional string metrics_table_name = 6;
+  optional string location_id = 7;
+  optional string annotations_table_name = 8;
 }
 
 message MlflowExperimentLocation {
@@ -244,12 +417,12 @@ message InferenceTableLocation {
 
 // The location where the traces was stored and produced
 message TraceLocation {
-
   enum TraceLocationType {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
     UC_SCHEMA = 3;
+    UC_TABLE_PREFIX = 4;
   }
   optional TraceLocationType type = 1;
 
@@ -257,9 +430,9 @@ message TraceLocation {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
     UCSchemaLocation uc_schema = 4;
+    UcTablePrefixLocation uc_table_prefix = 5;
   }
 }
-
 
 message TraceInfo {
   // The primary key associated with the trace
@@ -349,7 +522,7 @@ message BatchGetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The location ID to search on (e.g. "main.catalog" for UC schema).
-  optional string location_id  = 1 [(validate_required) = true];
+  optional string location_id = 1 [(validate_required) = true];
 
   // The trace IDs to fetch. They must all be located in the same location specified by location_id.
   repeated string trace_ids = 2;
@@ -378,7 +551,6 @@ message GetTraceInfo {
   message Response {
     optional Trace trace = 1;
   }
-
 }
 
 message SetTraceTag {
@@ -398,8 +570,7 @@ message SetTraceTag {
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string value = 4;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteTraceTag {
@@ -417,8 +588,7 @@ message DeleteTraceTag {
   // Optional SQL warehouse ID for setting trace tag.
   optional string sql_warehouse_id = 4;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message SearchTraces {
@@ -451,6 +621,61 @@ message SearchTraces {
   }
 }
 
+// Must be kept in sync with SearchTraces — same fields, different RPC contract
+// (returns an Operation instead of SearchTraces.Response).
+message SearchTracesLongRunning {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[Operation]";
+
+  repeated TraceLocation locations = 1;
+  optional string filter = 2;
+  optional int32 max_results = 3 [default = 100];
+  repeated string order_by = 4;
+  optional string sql_warehouse_id = 5;
+  optional string page_token = 6;
+}
+
+message GetOperationRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[Operation]";
+
+  // Operation name returned by SearchTracesLongRunning.
+  optional string name = 1;
+}
+
+// Metadata for the SearchTracesLongRunning operation.
+message SearchTracesOperationMetadata {
+  optional google.protobuf.Timestamp start_time = 1;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    RUNNING = 1;
+    SUCCEEDED = 2;
+    FAILED = 3;
+  }
+  optional State state = 2;
+}
+
+// Long-running operation resource, mirroring google.longrunning.Operation but
+// specialized for SearchTracesLongRunning — `metadata` and `response` carry the
+// concrete types directly (instead of google.protobuf.Any) so JSON bodies
+// from the REST layer deserialize without needing @type URLs. `error` uses the
+// verbatim `databricks.api.DatabricksServiceExceptionWithDetailsProto` so the
+// wire shape matches universe's `databricks.longrunning.Operation`.
+message SearchTracesOperation {
+  // Server-assigned name of the form "operations/{unique_id}".
+  optional string name = 1;
+
+  // Progress metadata.
+  optional SearchTracesOperationMetadata metadata = 2;
+
+  // If false, the operation is still in progress. If true, exactly one of
+  // `error` or `response` is set.
+  optional bool done = 3;
+
+  oneof result {
+    .databricks.api.DatabricksServiceExceptionWithDetailsProto error = 4;
+    SearchTraces.Response response = 5;
+  }
+}
 
 // =============================================================================
 // Enablement API Messages
@@ -476,7 +701,7 @@ message LinkExperimentToUCTraceLocation {
 
   // The experiment ID to link the location
   optional string experiment_id = 1 [(validate_required) = true];
-  
+
   // Location to link.
   oneof location {
     UCSchemaLocation uc_schema = 2;
@@ -494,6 +719,47 @@ message UnLinkExperimentToUCTraceLocation {
   // Location to unlink.
   oneof location {
     UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+message GetLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string location_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional UcTablePrefixLocation uc_table_prefix = 1;
+  }
+}
+
+message CreateLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+    UcTablePrefixLocation uc_table_prefix = 2;
+  }
+
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    oneof location {
+      UCSchemaLocation uc_schema = 1;
+      UcTablePrefixLocation uc_table_prefix = 2;
+    }
+  }
+}
+
+message LinkTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+    UcTablePrefixLocation uc_table_prefix = 3;
   }
 
   message Response {}
@@ -555,9 +821,7 @@ message Assessment {
   // Whether this assessment is valid (i.e. has not been superseded)
   // defaults to true, and is set to false if a new superseding assessment
   // is created.
-  optional bool valid = 14 [
-    default = true
-  ];
+  optional bool valid = 14 [default = true];
 }
 
 // Create an assessment.
@@ -628,7 +892,7 @@ message UpdateAssessment {
 }
 
 // Delete an assessment.
-message DeleteAssessment{
+message DeleteAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Location ID (experiment_id or catalog.schema)

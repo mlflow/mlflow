@@ -20,25 +20,26 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
                 "What is MLflow?",
             ],
             "ground_truth": [
-                "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+                "MLflow is the largest open source AI engineering platform for agents, LLM applications, and ML models. It was developed by Databricks, a company that specializes in data and AI solutions. MLflow is designed to address the challenges that data scientists and AI engineers face when developing, evaluating, and deploying AI applications.",
             ],
         }
     )
 
     example = EvaluationExample(
         input="What is MLflow?",
-        output="MLflow is an open-source platform for managing machine "
-        "learning workflows, including experiment tracking, model packaging, "
-        "versioning, and deployment, simplifying the ML lifecycle.",
+        output="MLflow is the largest open source AI engineering platform "
+        "for agents, LLM applications, and ML models, including tracing, "
+        "evaluation, prompt management, experiment tracking, and deployment.",
         score=4,
         justification="The definition effectively explains what MLflow is "
         "its purpose, and its developer. It could be more concise for a 5-score.",
         grading_context={
-            "ground_truth": "MLflow is an open-source platform for managing "
-            "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
-            "a company that specializes in big data and machine learning solutions. MLflow is "
-            "designed to address the challenges that data scientists and machine learning "
-            "engineers face when developing, training, and deploying machine learning models."
+            "ground_truth": "MLflow is the largest open source AI engineering "
+            "platform for agents, LLM applications, and ML models. It was "
+            "developed by Databricks, a company that specializes in data and "
+            "AI solutions. MLflow is designed to address the challenges that "
+            "data scientists and AI engineers face when developing, evaluating, "
+            "and deploying AI applications."
         },
     )
     answer_similarity_metric = answer_similarity(examples=[example])

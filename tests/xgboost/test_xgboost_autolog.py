@@ -20,6 +20,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 
 mpl.use("Agg")
@@ -243,15 +244,13 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
 
         mlflow.xgboost.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
-        X = pd.DataFrame(
-            {
-                "Total Volume": [64236.62, 54876.98, 118220.22],
-                "Total Bags": [8696.87, 9505.56, 8145.35],
-                "Small Bags": [8603.62, 9408.07, 8042.21],
-                "Large Bags": [93.25, 97.49, 103.14],
-                "XLarge Bags": [0.0, 0.0, 0.0],
-            }
-        )
+        X = pd.DataFrame({
+            "Total Volume": [64236.62, 54876.98, 118220.22],
+            "Total Bags": [8696.87, 9505.56, 8145.35],
+            "Small Bags": [8603.62, 9408.07, 8042.21],
+            "Large Bags": [93.25, 97.49, 103.14],
+            "XLarge Bags": [0.0, 0.0, 0.0],
+        })
         y = pd.Series([1.33, 1.35, 0.93])
 
         params = {"n_estimators": 10, "reg_lambda": 1}
@@ -260,8 +259,9 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
 
         logged_model = mlflow.last_logged_model()
         model_conf = Model.load(logged_model.model_uri)
+        artifact_path = local_file_uri_to_path(logged_model.artifact_location)
         input_example = pd.read_json(
-            os.path.join(logged_model.artifact_location, "input_example.json"), orient="split"
+            os.path.join(artifact_path, "input_example.json"), orient="split"
         )
         model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
         assert "XLarge Bags" in model_signature_input_names
@@ -387,7 +387,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
@@ -411,7 +411,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
@@ -444,7 +444,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
 
     run = get_latest_run()
     run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
@@ -537,7 +537,8 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     xgb.train(bst_params, dataset)
     logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
+    ml_model_path = os.path.join(artifact_path, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:
@@ -594,7 +595,8 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     xgb.train(bst_params, dataset)
     logged_model = mlflow.last_logged_model()
 
-    ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
+    artifact_path = local_file_uri_to_path(logged_model.artifact_location)
+    ml_model_path = os.path.join(artifact_path, "MLmodel")
 
     data = None
     with open(ml_model_path) as f:
@@ -739,14 +741,12 @@ def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     if log_datasets:
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(dtrain.get_data().toarray())
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": None,
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -770,21 +770,17 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
     dtrain_feature_schema = _infer_schema(dtrain.get_data().toarray())
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": dtrain_feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": dtrain_feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
     deval_feature_schema = _infer_schema(deval.get_data().toarray())
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": deval_feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": deval_feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })

@@ -1,11 +1,14 @@
-"""LiteLLM adapter for judge model invocation."""
-
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
+import re
 import threading
 from contextlib import ContextDecorator
-from typing import TYPE_CHECKING, Any
+from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Iterator
 
 import pydantic
 
@@ -15,16 +18,61 @@ if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.genai.judges.adapters.base_adapter import (
+    AdapterInvocationInput,
+    AdapterInvocationOutput,
+    BaseJudgeAdapter,
+)
+from mlflow.genai.judges.utils.parsing_utils import (
+    _sanitize_justification,
+    _strip_markdown_code_blocks,
+)
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
+    _remove_oldest_tool_call_pair,
+)
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
+
+# ContextVar that upstream modules (e.g. the evaluate harness) can set to disable
+# litellm's own rate-limit retries, so 429 errors propagate to the caller's retry logic.
+_DISABLE_RATE_LIMIT_RETRIES = ContextVar("_DISABLE_RATE_LIMIT_RETRIES", default=False)
+
+
+@contextlib.contextmanager
+def disable_litellm_rate_limit_retries() -> Iterator[None]:
+    token = _DISABLE_RATE_LIMIT_RETRIES.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_RATE_LIMIT_RETRIES.reset(token)
+
+
+def is_litellm_rate_limit_retries_disabled() -> bool:
+    return _DISABLE_RATE_LIMIT_RETRIES.get()
+
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
+
+
+@dataclass
+class InvokeLiteLLMOutput:
+    response: str
+    request_id: str | None
+    num_prompt_tokens: int | None
+    num_completion_tokens: int | None
+    cost: float | None
 
 
 class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
@@ -94,23 +142,34 @@ _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
 def _invoke_litellm(
-    litellm_model_uri: str,
+    litellm_model: str,
     messages: list["litellm.Message"],
     tools: list[dict[str, Any]],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
+    inference_params: dict[str, Any] | None = None,
+    api_base: str | None = None,
+    api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
 
     Args:
-        litellm_model_uri: Full model URI for litellm (e.g., "openai/gpt-4").
+        litellm_model: The LiteLLM model identifier
+            (e.g., "openai/gpt-4" or endpoint name for gateway).
         messages: List of litellm Message objects.
         tools: List of tool definitions (empty list if no tools).
         num_retries: Number of retries with exponential backoff.
         response_format: Optional Pydantic model class for structured output.
         include_response_format: Whether to include response_format in the request.
+        inference_params: Optional dictionary of additional inference parameters to pass
+            to the model (e.g., temperature, top_p, max_tokens).
+        api_base: Optional API base URL (used for gateway routing or proxy).
+        api_key: Optional API key (used for gateway routing or proxy).
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The litellm ModelResponse object.
@@ -121,9 +180,9 @@ def _invoke_litellm(
     import litellm
 
     kwargs = {
-        "model": litellm_model_uri,
+        "model": litellm_model,
         "messages": messages,
-        "tools": tools if tools else None,
+        "tools": tools or None,
         "tool_choice": "auto" if tools else None,
         "retry_policy": _get_litellm_retry_policy(num_retries),
         "retry_strategy": "exponential_backoff_retry",
@@ -135,9 +194,22 @@ def _invoke_litellm(
         # certain call parameters (e.g. GPT-4 doesn't support 'response_format')
         "drop_params": True,
     }
+
+    if api_base is not None:
+        kwargs["api_base"] = api_base
+    if api_key is not None:
+        kwargs["api_key"] = api_key
+    if extra_headers is not None:
+        kwargs["extra_headers"] = extra_headers
+
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
         kwargs["response_format"] = response_format or _get_default_judge_response_schema()
+
+    # Apply any additional inference parameters (e.g., temperature, top_p, max_tokens)
+    if inference_params:
+        kwargs.update(inference_params)
+
     return litellm.completion(**kwargs)
 
 
@@ -149,22 +221,32 @@ def _invoke_litellm_and_handle_tools(
     trace: Trace | None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
-) -> tuple[str, float | None]:
+    inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
 
     Args:
-        provider: The provider name (e.g., 'openai', 'anthropic').
-        model_name: The model name.
+        provider: The provider name (e.g., 'openai', 'anthropic', 'gateway').
+        model_name: The model name (or endpoint name for gateway provider).
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
         response_format: Optional Pydantic model class for structured output format.
                        Used by get_chat_completions_with_structured_output for
                        schema-based extraction.
+        inference_params: Optional dictionary of additional inference parameters to pass
+                       to the model (e.g., temperature, top_p, max_tokens).
 
     Returns:
-        Tuple of the model's response content and the total cost.
+        InvokeLiteLLMOutput containing:
+        - response: The model's response content
+        - request_id: The request ID for telemetry (if available)
+        - num_prompt_tokens: Number of prompt tokens used (if available)
+        - num_completion_tokens: Number of completion tokens used (if available)
+        - cost: The total cost of the request (if available)
 
     Raises:
         MlflowException: If the request fails after all retries.
@@ -175,26 +257,50 @@ def _invoke_litellm_and_handle_tools(
 
     messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
-    litellm_model_uri = f"{provider}/{model_name}"
-    tools = []
+    # Construct model URI and gateway params
+    if provider == "gateway":
+        config = get_gateway_litellm_config(model_name)
+        api_base = config.api_base
+        api_key = config.api_key
+        extra_headers = {
+            **(config.extra_headers or {}),
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
+        }
+        model = config.model
+    else:
+        model = f"{provider}/{model_name}"
+        if base_url is not None:
+            api_base = base_url
+            # Let litellm resolve the API key from environment variables (e.g., OPENAI_API_KEY).
+            # If extra_headers contains an Authorization header, it takes precedence over
+            # any key resolved from environment variables.
+            api_key = None
+        else:
+            api_base = None
+            api_key = None
 
+    tools = []
     if trace is not None:
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _prune_messages_for_context_window():
+    def _prune_messages_for_context_window() -> list[litellm.Message] | None:
+        if provider == "gateway":
+            # For gateway provider, we don't know the underlying model,
+            # so simply remove the oldest tool call pair.
+            return _prune_messages_exceeding_context_window_length(messages)
+
+        # For direct providers, use token-counting based pruning.
         try:
-            max_context_length = litellm.get_max_tokens(litellm_model_uri)
+            max_context_length = litellm.get_model_info(model)["max_input_tokens"]
         except Exception:
             max_context_length = None
 
         return _prune_messages_exceeding_context_window_length(
-            messages=messages,
-            model=litellm_model_uri,
-            max_tokens=max_context_length or 100000,
+            messages, model=model, max_tokens=max_context_length or 100000
         )
 
-    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
+    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(model, True)
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
@@ -203,28 +309,36 @@ def _invoke_litellm_and_handle_tools(
     while True:
         iteration_count += 1
         if iteration_count > max_iterations:
-            raise MlflowException(
-                f"Completion iteration limit of {max_iterations} exceeded. "
-                f"This usually indicates the model is not powerful enough to effectively "
-                f"analyze the trace. Consider using a more intelligent/powerful model. "
-                f"In rare cases, for very complex traces where a large number of completion "
-                f"iterations might be required, you can increase the number of iterations by "
-                f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
-                error_code=REQUEST_LIMIT_EXCEEDED,
-            )
+            _raise_iteration_limit_exceeded(max_iterations)
         try:
             try:
                 response = _invoke_litellm(
-                    litellm_model_uri=litellm_model_uri,
+                    litellm_model=model,
                     messages=messages,
                     tools=tools,
                     num_retries=num_retries,
                     response_format=response_format,
                     include_response_format=include_response_format,
+                    inference_params=inference_params,
+                    api_base=api_base,
+                    api_key=api_key,
+                    extra_headers=extra_headers,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
-                if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
-                    messages = _prune_messages_for_context_window()
+                error_str = str(e).lower()
+                is_context_window_error = (
+                    isinstance(e, litellm.ContextWindowExceededError)
+                    or "context length" in error_str
+                    or "too many tokens" in error_str
+                )
+                if is_context_window_error:
+                    pruned = _prune_messages_for_context_window()
+                    if pruned is None:
+                        raise MlflowException(
+                            "Context window exceeded and there are no tool calls to truncate. "
+                            "The initial prompt may be too long for the model's context window."
+                        ) from e
+                    messages = pruned
                     continue
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
@@ -235,12 +349,12 @@ def _invoke_litellm_and_handle_tools(
                     # Some models don't support structured outputs (response_format) at all,
                     # and some models don't support both tool calling and structured outputs.
                     _logger.debug(
-                        f"Model {litellm_model_uri} may not support structured outputs or combined "
-                        f"tool calling + structured outputs. Error: {e}. "
+                        f"Model {model} may not support structured outputs "
+                        f"or combined tool calling + structured outputs. Error: {e}. "
                         f"Falling back to unstructured response.",
                         exc_info=True,
                     )
-                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
+                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[model] = False
                     include_response_format = False
                     continue
                 else:
@@ -253,16 +367,75 @@ def _invoke_litellm_and_handle_tools(
 
             message = response.choices[0].message
             if not message.tool_calls:
-                return message.content, total_cost
+                request_id = getattr(response, "id", None)
+                usage = getattr(response, "usage", None)
+                prompt_tokens = getattr(usage, "prompt_tokens", None) if usage else None
+                completion_tokens = getattr(usage, "completion_tokens", None) if usage else None
+                return InvokeLiteLLMOutput(
+                    response=message.content,
+                    request_id=request_id,
+                    num_prompt_tokens=prompt_tokens,
+                    num_completion_tokens=completion_tokens,
+                    cost=total_cost,
+                )
 
             messages.append(message)
-            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
-            messages.extend(tool_response_messages)
+            from mlflow.types.llm import ToolCall as MlflowToolCall
+
+            mlflow_tool_calls = [
+                MlflowToolCall(
+                    id=tc.id,
+                    function={
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                )
+                for tc in message.tool_calls
+            ]
+            tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
+            # Convert ChatMessage responses back to litellm Messages for the conversation
+            litellm_tool_messages = [
+                litellm.Message(
+                    role=msg.role,
+                    content=msg.content,
+                    tool_call_id=msg.tool_call_id,
+                    name=msg.name,
+                )
+                for msg in tool_response_messages
+            ]
+            messages.extend(litellm_tool_messages)
 
         except MlflowException:
             raise
         except Exception as e:
-            raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+            error_message, error_code = _extract_litellm_error(e)
+            raise MlflowException(
+                f"Failed to invoke the judge via litellm: {error_message}",
+                error_code=error_code,
+            ) from e
+
+
+def _extract_litellm_error(e: Exception) -> tuple[str, str]:
+    """
+    Extract the detail message and error code from an exception.
+
+    Tries to parse structured error info from the exception message if it contains
+    a gateway error in the format: {'detail': {'error_code': '...', 'message': '...'}}.
+    Falls back to str(e) if parsing fails.
+
+    Returns (message, error_code).
+    """
+    error_str = str(e)
+    if match := re.search(r"\{'detail':\s*\{[^}]+\}\}", error_str):
+        try:
+            parsed = json.loads(match.group(0).replace("'", '"'))
+            detail = parsed.get("detail", {})
+            if isinstance(detail, dict):
+                return detail.get("message", error_str), detail.get("error_code", INTERNAL_ERROR)
+        except json.JSONDecodeError:
+            pass
+
+    return error_str, INTERNAL_ERROR
 
 
 def _extract_response_cost(response: "litellm.Completion") -> float | None:
@@ -291,21 +464,28 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
 
 def _prune_messages_exceeding_context_window_length(
     messages: list["litellm.Message"],
-    model: str,
-    max_tokens: int,
-) -> list["litellm.Message"]:
+    model: str | None = None,
+    max_tokens: int | None = None,
+) -> list["litellm.Message"] | None:
     """
     Prune messages from history to stay under token limit.
 
+    When max_tokens is provided and model supports token counting, uses proactive
+    token-counting based pruning. Otherwise, uses reactive truncation by removing
+    a single tool call pair (useful when the underlying model is unknown).
+
     Args:
         messages: List of LiteLLM message objects.
-        model: Model name for token counting.
-        max_tokens: Maximum token limit.
+        model: Model name for token counting. Required for token-based pruning.
+        max_tokens: Maximum token limit. If None, removes the oldest tool call pair.
 
     Returns:
-        Pruned list of LiteLLM message objects under the token limit
+        Pruned list of LiteLLM message objects, or None if no tool calls to remove.
     """
     import litellm
+
+    if max_tokens is None or model is None:
+        return _remove_oldest_tool_call_pair(messages)
 
     initial_tokens = litellm.token_counter(model=model, messages=messages)
     if initial_tokens <= max_tokens:
@@ -314,28 +494,10 @@ def _prune_messages_exceeding_context_window_length(
     pruned_messages = messages[:]
     # Remove tool call pairs until we're under limit
     while litellm.token_counter(model=model, messages=pruned_messages) > max_tokens:
-        # Find first assistant message with tool calls
-        result = next(
-            (
-                (i, msg)
-                for i, msg in enumerate(pruned_messages)
-                if msg.role == "assistant" and msg.tool_calls
-            ),
-            None,
-        )
+        result = _remove_oldest_tool_call_pair(pruned_messages)
         if result is None:
-            break  # No more tool calls to remove
-        assistant_idx, assistant_msg = result
-        pruned_messages.pop(assistant_idx)
-        # Remove corresponding tool response messages
-        tool_call_ids = {
-            tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls
-        }
-        pruned_messages = [
-            msg
-            for msg in pruned_messages
-            if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
-        ]
+            break
+        pruned_messages = result
 
     final_tokens = litellm.token_counter(model=model, messages=pruned_messages)
     _logger.info(f"Pruned message history from {initial_tokens} to {final_tokens} tokens")
@@ -356,9 +518,14 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
     """
     from litellm import RetryPolicy
 
+    # When an upstream module (e.g. the evaluate harness) has set the flag,
+    # disable litellm's rate-limit retries so 429 errors propagate to the
+    # caller's own retry logic for adaptive rate control.
+    rate_limit_retries = 0 if _DISABLE_RATE_LIMIT_RETRIES.get() else num_retries
+
     return RetryPolicy(
         TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
+        RateLimitErrorRetries=rate_limit_retries,
         InternalServerErrorRetries=num_retries,
         ContentPolicyViolationErrorRetries=num_retries,
         # We don't retry on errors that are unlikely to be transient
@@ -366,3 +533,96 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
         BadRequestErrorRetries=0,
         AuthenticationErrorRetries=0,
     )
+
+
+def _is_litellm_available() -> bool:
+    try:
+        import litellm  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+class LiteLLMAdapter(BaseJudgeAdapter):
+    """Adapter for LiteLLM-supported providers."""
+
+    @classmethod
+    def is_applicable(
+        cls,
+        model_uri: str,
+        prompt: str | list["ChatMessage"],
+    ) -> bool:
+        return _is_litellm_available()
+
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+        from mlflow.types.llm import ChatMessage
+
+        messages = (
+            [ChatMessage(role="user", content=input_params.prompt)]
+            if isinstance(input_params.prompt, str)
+            else input_params.prompt
+        )
+
+        # Reject base_url / extra_headers for Databricks providers
+        if input_params.model_provider in ("databricks", "endpoints") and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for Databricks endpoints. "
+                "The endpoint URL is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        output = _invoke_litellm_and_handle_tools(
+            provider=input_params.model_provider,
+            model_name=input_params.model_name,
+            messages=messages,
+            trace=input_params.trace,
+            num_retries=input_params.num_retries,
+            response_format=input_params.response_format,
+            inference_params=input_params.inference_params,
+            base_url=input_params.base_url,
+            extra_headers=input_params.extra_headers,
+        )
+
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+
+        try:
+            response_dict = json.loads(cleaned_response, strict=False)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}"
+            ) from e
+
+        metadata = {}
+        if output.cost is not None:
+            metadata[AssessmentMetadataKey.JUDGE_COST] = output.cost
+        if output.num_prompt_tokens is not None:
+            metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
+        if output.num_completion_tokens is not None:
+            metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
+        metadata = metadata or None
+
+        if "error" in response_dict:
+            raise MlflowException(f"Judge evaluation failed with error: {response_dict['error']}")
+
+        feedback = Feedback(
+            name=input_params.assessment_name,
+            value=response_dict["result"],
+            rationale=_sanitize_justification(response_dict.get("rationale", "")),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
+            ),
+            trace_id=input_params.trace.info.trace_id if input_params.trace is not None else None,
+            metadata=metadata,
+        )
+
+        return AdapterInvocationOutput(
+            feedback=feedback,
+            request_id=output.request_id,
+            num_prompt_tokens=output.num_prompt_tokens,
+            num_completion_tokens=output.num_completion_tokens,
+            cost=output.cost,
+        )

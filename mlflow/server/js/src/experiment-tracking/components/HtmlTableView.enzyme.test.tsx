@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import { shallow, mount } from 'enzyme';
 import React from 'react';
 import { LegacyTable } from '@databricks/design-system';

@@ -23,7 +23,7 @@ export class TraceData {
    */
   toJson(): SerializedTraceData {
     return {
-      spans: this.spans.map((span) => span.toJson())
+      spans: this.spans.map((span) => span.toJson()),
     };
   }
 

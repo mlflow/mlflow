@@ -78,15 +78,13 @@ def test_toxicity():
 
 
 def test_flesch_kincaid_grade_level():
-    predictions = pd.Series(
-        [
-            "This is a sentence.",
-            (
-                "This is a much longer and more complicated sentence than the previous one, "
-                "so this sentence should have a higher grade level score."
-            ),
-        ]
-    )
+    predictions = pd.Series([
+        "This is a sentence.",
+        (
+            "This is a much longer and more complicated sentence than the previous one, "
+            "so this sentence should have a higher grade level score."
+        ),
+    ])
     result = flesch_kincaid_grade_level().eval_fn(predictions, None, {})
     assert result.scores[0] < result.scores[1]
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
@@ -96,15 +94,13 @@ def test_flesch_kincaid_grade_level():
 
 
 def test_ari_grade_level():
-    predictions = pd.Series(
-        [
-            "This is a sentence.",
-            (
-                "This is a much longer and more complicated sentence than the previous one, "
-                "so this sentence should have a higher grade level score."
-            ),
-        ]
-    )
+    predictions = pd.Series([
+        "This is a sentence.",
+        (
+            "This is a much longer and more complicated sentence than the previous one, "
+            "so this sentence should have a higher grade level score."
+        ),
+    ])
     result = ari_grade_level().eval_fn(predictions, None, {})
     assert result.scores[0] < result.scores[1]
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
@@ -297,15 +293,13 @@ def test_recall_at_k():
 
 def test_ndcg_at_k():
     # normal cases
-    data = pd.DataFrame(
-        [
-            {"target": [], "prediction": [], "k": [3], "ndcg": 1},  # no error is made
-            {"target": [], "prediction": ["1", "2"], "k": [3], "ndcg": 0},
-            {"target": ["1"], "prediction": [], "k": [3], "ndcg": 0},
-            {"target": ["1"], "prediction": ["1"], "k": [3], "ndcg": 1},
-            {"target": ["1"], "prediction": ["2"], "k": [3], "ndcg": 0},
-        ]
-    )
+    data = pd.DataFrame([
+        {"target": [], "prediction": [], "k": [3], "ndcg": 1},  # no error is made
+        {"target": [], "prediction": ["1", "2"], "k": [3], "ndcg": 0},
+        {"target": ["1"], "prediction": [], "k": [3], "ndcg": 0},
+        {"target": ["1"], "prediction": ["1"], "k": [3], "ndcg": 1},
+        {"target": ["1"], "prediction": ["2"], "k": [3], "ndcg": 0},
+    ])
     predictions = data["prediction"]
     targets = data["target"]
     result = ndcg_at_k(3).eval_fn(predictions, targets)

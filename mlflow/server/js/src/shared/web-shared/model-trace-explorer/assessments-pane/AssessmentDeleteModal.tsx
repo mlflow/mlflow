@@ -1,12 +1,10 @@
 import { useCallback } from 'react';
 
 import { Modal } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
+import { FormattedMessage } from '@databricks/i18n';
 
 import type { Assessment } from '../ModelTrace.types';
-import { displayErrorNotification, FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
-import { deleteAssessment } from '../api';
+import { useDeleteAssessment } from '../hooks/useDeleteAssessment';
 
 export const AssessmentDeleteModal = ({
   assessment,
@@ -17,27 +15,8 @@ export const AssessmentDeleteModal = ({
   isModalVisible: boolean;
   setIsModalVisible: (isModalVisible: boolean) => void;
 }) => {
-  const intl = useIntl();
-  const queryClient = useQueryClient();
-
-  const { mutate: deleteAssessmentMutation, isLoading } = useMutation({
-    mutationFn: () => deleteAssessment({ traceId: assessment.trace_id, assessmentId: assessment.assessment_id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, assessment.trace_id] });
-    },
-    onError: (error) => {
-      displayErrorNotification(
-        intl.formatMessage(
-          {
-            defaultMessage: 'Failed to delete assessment. Error: {error}',
-            description: 'Error message when deleting an assessment fails.',
-          },
-          {
-            error: error instanceof Error ? error.message : String(error),
-          },
-        ),
-      );
-    },
+  const { deleteAssessmentMutation, isLoading } = useDeleteAssessment({
+    assessment,
     onSettled: () => {
       setIsModalVisible(false);
     },
