@@ -1497,3 +1497,18 @@ def test_exported_model_with_small_batch_size_input_example(tmp_path, batch_size
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
     predictions = loaded_pyfunc.predict(input_example)
     assert predictions.shape == (batch_size, 1)
+
+    if batch_size == 1:
+        # A batch-size-1 example is exported STATIC by design (torch.export specializes size-1
+        # dims), so we assert only that the round-trip succeeds, not batch-dim dynamism.
+        return
+
+    # A batch>1 example yields a dynamic batch dim, so the exported model must accept a
+    # different batch size. This proves the dim is genuinely dynamic rather than a fully-static
+    # export that only happens to match the saved batch size.
+    other_batch = 2 * batch_size
+    other_input = torch.randn(other_batch, 4).numpy()
+    with torch.no_grad():
+        other_actual = loaded_model(torch.from_numpy(other_input))
+    assert tuple(other_actual.shape) == (other_batch, 1)
+    assert loaded_pyfunc.predict(other_input).shape == (other_batch, 1)

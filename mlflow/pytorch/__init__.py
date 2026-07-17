@@ -548,8 +548,17 @@ def save_model(
         # lets the exporter decide dynamic-vs-static per dimension and tolerates specialization,
         # so a size-1 dimension is exported as static instead of failing. On older torch we fall
         # back to only marking dimensions whose example size is > 1 as dynamic.
+        #
+        # Note: a size-1 dimension is exported as STATIC on every supported torch version
+        # (`Dim.AUTO` specializes it on torch>=2.6; the fallback skips it on torch 2.4-2.5), so a
+        # dynamic batch dimension requires an `input_example` with a batch size > 1. This is
+        # expected behavior, not a limitation of this code.
         dynamic_shapes = []
-        for tensor_spec, example_tensor in zip(tensor_spec_list, input_example_tensors):
+        # `strict=True` so a signature/`input_example` arity mismatch fails loudly instead of
+        # silently truncating and misaligning `dynamic_shapes` with the exported inputs.
+        for input_idx, (tensor_spec, example_tensor) in enumerate(
+            zip(tensor_spec_list, input_example_tensors, strict=True)
+        ):
             dynamic_shape = {}
             for dim_idx, dim_size in enumerate(tensor_spec.shape):
                 if dim_size != -1:
@@ -557,7 +566,10 @@ def save_model(
                 if hasattr(ExportDim, "AUTO"):
                     dynamic_shape[dim_idx] = ExportDim.AUTO
                 elif example_tensor.shape[dim_idx] > 1:
-                    dynamic_shape[dim_idx] = ExportDim(f"dim_{dim_idx}")
+                    # Names must be unique per (input, dim): `torch.export` treats identically
+                    # named `Dim`s as the same symbolic dimension and forces them equal, which
+                    # would wrongly couple independent inputs.
+                    dynamic_shape[dim_idx] = ExportDim(f"input_{input_idx}_dim_{dim_idx}")
             dynamic_shapes.append(dynamic_shape or None)
 
         exported_prog = torch.export.export(
