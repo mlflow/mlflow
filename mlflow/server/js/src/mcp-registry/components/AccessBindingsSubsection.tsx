@@ -11,12 +11,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { ConnectionSource } from '../types';
 import type { MCPAccessBinding, MCPServer } from '../types';
-import {
-  formatTransportType,
-  formatBindingTarget,
-  resolveBindingDisplayName,
-  STATUS_TAG_COLOR,
-} from '../utils';
+import { formatTransportType, formatBindingTarget, resolveBindingDisplayName, STATUS_TAG_COLOR } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 import { ellipsisStyles, noShrinkStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
@@ -103,9 +98,7 @@ export const AccessBindingsSubsection = ({
               onDelete={onDeleteBinding && canDelete ? () => onDeleteBinding(binding) : undefined}
             />
           )}
-          renderExpanded={(binding) => (
-            <AccessBindingExpandedContent binding={binding} derivedName={derivedName} />
-          )}
+          renderExpanded={(binding) => <AccessBindingExpandedContent binding={binding} derivedName={derivedName} />}
         />
       )}
     </div>
@@ -172,13 +165,7 @@ const AccessBindingRowContent = ({
   );
 };
 
-const AccessBindingExpandedContent = ({
-  binding,
-  derivedName,
-}: {
-  binding: MCPAccessBinding;
-  derivedName: string;
-}) => {
+const AccessBindingExpandedContent = ({ binding, derivedName }: { binding: MCPAccessBinding; derivedName: string }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const target = formatBindingTarget(binding);
@@ -221,8 +208,7 @@ const BindingDetailsDrawer = ({ binding }: { binding: MCPAccessBinding }) => {
   const versionStatus = binding.resolved_version?.status;
 
   const hasBeenUpdated =
-    binding.last_updated_timestamp !== binding.creation_timestamp ||
-    binding.last_updated_by !== binding.created_by;
+    binding.last_updated_timestamp !== binding.creation_timestamp || binding.last_updated_by !== binding.created_by;
 
   return (
     <ViewDetailsDrawer title={displayName}>
@@ -263,9 +249,7 @@ const BindingDetailsDrawer = ({ binding }: { binding: MCPAccessBinding }) => {
               defaultMessage: 'Last updated',
               description: 'Binding drawer last updated label',
             })}
-            value={
-              binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'
-            }
+            value={binding.last_updated_timestamp ? Utils.formatTimestamp(binding.last_updated_timestamp, intl) : '—'}
           />
           <DetailField
             label={intl.formatMessage({

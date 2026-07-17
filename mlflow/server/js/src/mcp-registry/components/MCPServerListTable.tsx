@@ -294,69 +294,72 @@ export const MCPServerListTable = ({
 
   const isEmptyList = !isLoading && (!servers || servers.length === 0);
   const emptyState = isEmptyList ? (
-    <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.table.empty_state.create_server" onCreateServer={onCreateServer} />
+    <MCPServersEmptyState
+      isFiltered={isFiltered}
+      componentId="mlflow.mcp_registry.table.empty_state.create_server"
+      onCreateServer={onCreateServer}
+    />
   ) : null;
 
-  return (<>
-    <Table
-      scrollable
-      pagination={
-        <CursorPagination
-          hasNextPage={hasNextPage}
-          hasPreviousPage={hasPreviousPage}
-          onNextPage={onNextPage}
-          onPreviousPage={onPreviousPage}
-          pageSizeSelect={pageSizeSelect}
-          componentId="mlflow.mcp_registry.table.pagination"
-        />
-      }
-      empty={emptyState}
-    >
-      <TableRow isHeader>
-        {table.getLeafHeaders().map((header) => (
-          <TableHeader
-            componentId="mlflow.mcp_registry.table.header"
-            key={header.id}
-            style={
-              header.id === 'endpoints' ? { flex: 1.5 } : header.id === 'latestVersion' ? { flex: 0.5 } : undefined
-            }
-          >
-            {flexRender(header.column.columnDef.header, header.getContext())}
-          </TableHeader>
-        ))}
-      </TableRow>
-      {isLoading ? (
-        <TableSkeletonRows table={table} />
-      ) : (
-        table.getRowModel().rows.map((row) => {
-          const isDimmed = isAuthAvailable && isServerDimmed(row.original);
-          return (
-            <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
-              {row.getAllCells().map((cell) => (
-                <TableCell
-                  key={cell.id}
-                  css={{ alignItems: 'center' }}
-                  style={{
-                    opacity: isDimmed ? 0.5 : 1,
-                    ...(cell.column.id === 'endpoints'
-                      ? { flex: 1.5 }
-                      : cell.column.id === 'latestVersion'
-                        ? { flex: 0.5 }
-                        : undefined),
-                  }}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          );
-        })
-      )}
-    </Table>
-    {EditTagsModal}
-    {connectServer && (
-      <QuickConnectModal visible server={connectServer} onClose={() => setConnectServer(null)} />
-    )}
-  </>
+  return (
+    <>
+      <Table
+        scrollable
+        pagination={
+          <CursorPagination
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            onNextPage={onNextPage}
+            onPreviousPage={onPreviousPage}
+            pageSizeSelect={pageSizeSelect}
+            componentId="mlflow.mcp_registry.table.pagination"
+          />
+        }
+        empty={emptyState}
+      >
+        <TableRow isHeader>
+          {table.getLeafHeaders().map((header) => (
+            <TableHeader
+              componentId="mlflow.mcp_registry.table.header"
+              key={header.id}
+              style={
+                header.id === 'endpoints' ? { flex: 1.5 } : header.id === 'latestVersion' ? { flex: 0.5 } : undefined
+              }
+            >
+              {flexRender(header.column.columnDef.header, header.getContext())}
+            </TableHeader>
+          ))}
+        </TableRow>
+        {isLoading ? (
+          <TableSkeletonRows table={table} />
+        ) : (
+          table.getRowModel().rows.map((row) => {
+            const isDimmed = isAuthAvailable && isServerDimmed(row.original);
+            return (
+              <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
+                {row.getAllCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    css={{ alignItems: 'center' }}
+                    style={{
+                      opacity: isDimmed ? 0.5 : 1,
+                      ...(cell.column.id === 'endpoints'
+                        ? { flex: 1.5 }
+                        : cell.column.id === 'latestVersion'
+                          ? { flex: 0.5 }
+                          : undefined),
+                    }}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })
+        )}
+      </Table>
+      {EditTagsModal}
+      {connectServer && <QuickConnectModal visible server={connectServer} onClose={() => setConnectServer(null)} />}
+    </>
   );
 };

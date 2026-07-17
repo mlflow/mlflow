@@ -185,7 +185,16 @@ describe('MCPRegistryPage', () => {
 
     it('shows toggle when user has MANAGE permission on at least one server', async () => {
       server.use(
-        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE] })]),
+        getMockedSearchMCPServersResponse([
+          activeServer({
+            allowed_actions: [
+              MCPServerAction.USE,
+              MCPServerAction.UPDATE,
+              MCPServerAction.DELETE,
+              MCPServerAction.MANAGE,
+            ],
+          }),
+        ]),
         getMockedCurrentUserResponse({ isAdmin: false }),
       );
       renderPage();

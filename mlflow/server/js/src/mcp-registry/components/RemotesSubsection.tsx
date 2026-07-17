@@ -81,9 +81,7 @@ export const RemotesSubsection = ({
             onToggleVisibility={(visible) => onToggleConnectOption?.(buildRemoteConnectOptionKey(remote), visible)}
           />
         )}
-        renderExpanded={(remote) => (
-          <RemoteExpandedContent remote={remote} derivedName={derivedName} />
-        )}
+        renderExpanded={(remote) => <RemoteExpandedContent remote={remote} derivedName={derivedName} />}
       />
     </div>
   );

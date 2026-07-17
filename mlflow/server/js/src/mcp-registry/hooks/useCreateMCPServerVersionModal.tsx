@@ -113,9 +113,8 @@ export const useCreateMCPServerVersionModal = ({
 
     const tagsToSet = Object.keys(formState.tags).length > 0 ? formState.tags : undefined;
 
-    const finalServerJson = isVersionMode
-      ? { ...serverJsonResult.parsed, name: serverName! }
-      : serverJsonResult.parsed;
+    const finalServerJson =
+      isVersionMode && serverName ? { ...serverJsonResult.parsed, name: serverName } : serverJsonResult.parsed;
 
     mutate(
       {

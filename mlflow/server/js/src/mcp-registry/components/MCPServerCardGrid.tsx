@@ -50,7 +50,13 @@ export const MCPServerCardGrid = ({
   }
 
   if (!servers?.length) {
-    return <MCPServersEmptyState isFiltered={isFiltered} componentId="mlflow.mcp_registry.empty_state.create_server" onCreateServer={onCreateServer} />;
+    return (
+      <MCPServersEmptyState
+        isFiltered={isFiltered}
+        componentId="mlflow.mcp_registry.empty_state.create_server"
+        onCreateServer={onCreateServer}
+      />
+    );
   }
 
   return (

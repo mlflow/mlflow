@@ -84,9 +84,7 @@ const VersionMetadataGrid = ({
 
       {version.created_by && (
         <MetadataRow
-          label={
-            <FormattedMessage defaultMessage="Created by:" description="MCP compare metadata created by label" />
-          }
+          label={<FormattedMessage defaultMessage="Created by:" description="MCP compare metadata created by label" />}
         >
           <Typography.Text>{version.created_by}</Typography.Text>
         </MetadataRow>
@@ -102,18 +100,14 @@ const VersionMetadataGrid = ({
 
       {version.last_updated_by && (
         <MetadataRow
-          label={
-            <FormattedMessage defaultMessage="Updated by:" description="MCP compare metadata updated by label" />
-          }
+          label={<FormattedMessage defaultMessage="Updated by:" description="MCP compare metadata updated by label" />}
         >
           <Typography.Text>{version.last_updated_by}</Typography.Text>
         </MetadataRow>
       )}
 
       {version.server_json?.['icons'] && (version.server_json['icons'] as MCPIcon[]).length > 0 && (
-        <MetadataRow
-          label={<FormattedMessage defaultMessage="Icon:" description="MCP compare metadata icon label" />}
-        >
+        <MetadataRow label={<FormattedMessage defaultMessage="Icon:" description="MCP compare metadata icon label" />}>
           <MCPServerIcon icons={version.server_json['icons'] as MCPIcon[]} name={version.server_json.name} />
         </MetadataRow>
       )}
@@ -135,10 +129,7 @@ const VersionMetadataGrid = ({
   );
 };
 
-const EXTRACTED_FIELDS = [
-  'description', 'packages', 'remotes', 'repository',
-  'icons', 'title', 'websiteUrl',
-] as const;
+const EXTRACTED_FIELDS = ['description', 'packages', 'remotes', 'repository', 'icons', 'title', 'websiteUrl'] as const;
 
 const SKIPPED_FIELDS = ['name', '$schema', '_meta', 'version'] as const;
 
@@ -165,7 +156,10 @@ const stringify = (value: unknown): string => {
 const stringifyBindings = (bindings?: MCPAccessBinding[]): string => {
   if (!bindings?.length) return '';
   return bindings
-    .map((b) => `${b.transport_type} ${b.endpoint_url}${b.server_alias ? ` (alias: ${b.server_alias})` : ''}${b.server_version ? ` (version: ${b.server_version})` : ''}`)
+    .map(
+      (b) =>
+        `${b.transport_type} ${b.endpoint_url}${b.server_alias ? ` (alias: ${b.server_alias})` : ''}${b.server_version ? ` (version: ${b.server_version})` : ''}`,
+    )
     .join('\n');
 };
 
@@ -197,7 +191,6 @@ const computeTextDiff = (baseline: string, compared: string, mode: DiffMode) => 
   }
 };
 
-
 const TextDiffPanel = ({
   baselineText,
   comparedText,
@@ -214,7 +207,10 @@ const TextDiffPanel = ({
   diffMode?: DiffMode;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const diff = useMemo(() => computeTextDiff(baselineText, comparedText, diffMode) ?? [], [baselineText, comparedText, diffMode]);
+  const diff = useMemo(
+    () => computeTextDiff(baselineText, comparedText, diffMode) ?? [],
+    [baselineText, comparedText, diffMode],
+  );
 
   const preStyles = {
     flex: 1,
@@ -233,9 +229,7 @@ const TextDiffPanel = ({
       <pre css={preStyles}>
         <code>{baselineText || emptyFallback}</code>
       </pre>
-      <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
-        {switchButton}
-      </div>
+      <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>{switchButton}</div>
       <pre css={preStyles}>
         <code>
           {diff.map((part, index) => (
@@ -261,17 +255,61 @@ const TextDiffPanel = ({
 };
 
 const DIFF_CONFIGS: { key: string; label: React.ReactNode; diffMode?: DiffMode }[] = [
-  { key: '_displayName', diffMode: 'words', label: <FormattedMessage defaultMessage="Display name" description="MCP compare display name heading" /> },
-  { key: '_source', diffMode: 'chars', label: <FormattedMessage defaultMessage="Source" description="MCP compare source heading" /> },
-  { key: '_endpoints', diffMode: 'lines', label: <FormattedMessage defaultMessage="Access endpoints" description="MCP compare endpoints heading" /> },
-  { key: 'title', diffMode: 'words', label: <FormattedMessage defaultMessage="Title" description="MCP compare title heading" /> },
-  { key: 'description', diffMode: 'words', label: <FormattedMessage defaultMessage="Description" description="MCP compare description heading" /> },
-  { key: 'websiteUrl', diffMode: 'chars', label: <FormattedMessage defaultMessage="Website URL" description="MCP compare websiteUrl heading" /> },
-  { key: 'repository', diffMode: 'json', label: <FormattedMessage defaultMessage="Repository" description="MCP compare repository heading" /> },
-  { key: 'remotes', diffMode: 'json', label: <FormattedMessage defaultMessage="Official endpoints" description="MCP compare remotes heading" /> },
-  { key: 'packages', diffMode: 'json', label: <FormattedMessage defaultMessage="Local packages" description="MCP compare packages heading" /> },
-  { key: '_extra', diffMode: 'json', label: <FormattedMessage defaultMessage="Configuration" description="MCP compare extra config heading" /> },
-  { key: '_tools', diffMode: 'json', label: <FormattedMessage defaultMessage="Tools" description="MCP compare tools heading" /> },
+  {
+    key: '_displayName',
+    diffMode: 'words',
+    label: <FormattedMessage defaultMessage="Display name" description="MCP compare display name heading" />,
+  },
+  {
+    key: '_source',
+    diffMode: 'chars',
+    label: <FormattedMessage defaultMessage="Source" description="MCP compare source heading" />,
+  },
+  {
+    key: '_endpoints',
+    diffMode: 'lines',
+    label: <FormattedMessage defaultMessage="Access endpoints" description="MCP compare endpoints heading" />,
+  },
+  {
+    key: 'title',
+    diffMode: 'words',
+    label: <FormattedMessage defaultMessage="Title" description="MCP compare title heading" />,
+  },
+  {
+    key: 'description',
+    diffMode: 'words',
+    label: <FormattedMessage defaultMessage="Description" description="MCP compare description heading" />,
+  },
+  {
+    key: 'websiteUrl',
+    diffMode: 'chars',
+    label: <FormattedMessage defaultMessage="Website URL" description="MCP compare websiteUrl heading" />,
+  },
+  {
+    key: 'repository',
+    diffMode: 'json',
+    label: <FormattedMessage defaultMessage="Repository" description="MCP compare repository heading" />,
+  },
+  {
+    key: 'remotes',
+    diffMode: 'json',
+    label: <FormattedMessage defaultMessage="Official endpoints" description="MCP compare remotes heading" />,
+  },
+  {
+    key: 'packages',
+    diffMode: 'json',
+    label: <FormattedMessage defaultMessage="Local packages" description="MCP compare packages heading" />,
+  },
+  {
+    key: '_extra',
+    diffMode: 'json',
+    label: <FormattedMessage defaultMessage="Configuration" description="MCP compare extra config heading" />,
+  },
+  {
+    key: '_tools',
+    diffMode: 'json',
+    label: <FormattedMessage defaultMessage="Tools" description="MCP compare tools heading" />,
+  },
 ];
 
 export const MCPServerVersionCompare = ({
@@ -292,8 +330,14 @@ export const MCPServerVersionCompare = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const baselineSplit = useMemo(() => extractServerJsonSections(baselineVersion?.server_json), [baselineVersion?.server_json]);
-  const comparedSplit = useMemo(() => extractServerJsonSections(comparedVersion?.server_json), [comparedVersion?.server_json]);
+  const baselineSplit = useMemo(
+    () => extractServerJsonSections(baselineVersion?.server_json),
+    [baselineVersion?.server_json],
+  );
+  const comparedSplit = useMemo(
+    () => extractServerJsonSections(comparedVersion?.server_json),
+    [comparedVersion?.server_json],
+  );
 
   const allDiffs = useMemo<DiffEntry[]>(() => {
     const getText = (key: string, side: 'baseline' | 'compared'): string => {
@@ -301,12 +345,18 @@ export const MCPServerVersionCompare = ({
       const version = side === 'baseline' ? baselineVersion : comparedVersion;
       const bindings = side === 'baseline' ? baselineBindings : comparedBindings;
       switch (key) {
-        case '_displayName': return version?.display_name ?? '';
-        case '_source': return version?.source ?? '';
-        case '_endpoints': return stringifyBindings(bindings);
-        case '_tools': return version?.tools?.length ? stringify(version.tools) : '';
-        case '_extra': return stringify(split.extra);
-        default: return stringify(split.fields[key]);
+        case '_displayName':
+          return version?.display_name ?? '';
+        case '_source':
+          return version?.source ?? '';
+        case '_endpoints':
+          return stringifyBindings(bindings);
+        case '_tools':
+          return version?.tools?.length ? stringify(version.tools) : '';
+        case '_extra':
+          return stringify(split.extra);
+        default:
+          return stringify(split.fields[key]);
       }
     };
 
@@ -401,9 +451,7 @@ export const MCPServerVersionCompare = ({
         <div css={{ flex: 1 }}>
           <VersionMetadataGrid version={baselineVersion} aliasesByVersion={aliasesByVersion} />
         </div>
-        <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>
-          {switchButton}
-        </div>
+        <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>{switchButton}</div>
         <div css={{ flex: 1 }}>
           <VersionMetadataGrid version={comparedVersion} aliasesByVersion={aliasesByVersion} />
         </div>

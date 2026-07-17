@@ -276,7 +276,10 @@ export const MCPServerVersionDetail = ({
           )}
         </Tabs.List>
 
-        <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md, ...flexColumnGapStyles(theme, theme.spacing.md) }}>
+        <Tabs.Content
+          value="connect"
+          css={{ paddingTop: theme.spacing.md, ...flexColumnGapStyles(theme, theme.spacing.md) }}
+        >
           <AccessBindingsSubsection
             bindings={bindings ?? []}
             derivedName={derivedName}

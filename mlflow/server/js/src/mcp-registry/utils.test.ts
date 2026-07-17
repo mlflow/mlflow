@@ -261,14 +261,20 @@ describe('getServerPermissions', () => {
   });
 
   it('grants only matching actions', () => {
-    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE] }));
+    const perms = getServerPermissions(
+      createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE] }),
+    );
     expect(perms.canUpdate).toBe(true);
     expect(perms.canDelete).toBe(false);
     expect(perms.canManage).toBe(false);
   });
 
   it('grants all actions for MANAGE permission', () => {
-    const perms = getServerPermissions(createMockMCPServer({ allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE] }));
+    const perms = getServerPermissions(
+      createMockMCPServer({
+        allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
+      }),
+    );
     expect(perms.canUpdate).toBe(true);
     expect(perms.canDelete).toBe(true);
     expect(perms.canManage).toBe(true);
@@ -276,7 +282,12 @@ describe('getServerPermissions', () => {
 });
 
 describe('isServerDimmed', () => {
-  const binding = { binding_id: 1, server_name: 'test', endpoint_url: 'https://example.com', transport_type: TransportType.STREAMABLE_HTTP as TransportType.STREAMABLE_HTTP };
+  const binding = {
+    binding_id: 1,
+    server_name: 'test',
+    endpoint_url: 'https://example.com',
+    transport_type: TransportType.STREAMABLE_HTTP as TransportType.STREAMABLE_HTTP,
+  };
 
   it('returns false for active server with bindings', () => {
     expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_bindings: [binding] }))).toBe(false);
@@ -295,11 +306,12 @@ describe('isServerDimmed', () => {
   });
 
   it('returns true for deprecated server with bindings', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_bindings: [binding] }))).toBe(true);
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_bindings: [binding] }))).toBe(
+      true,
+    );
   });
 
   it('returns true when status is undefined (no version resolved)', () => {
     expect(isServerDimmed(createMockMCPServer({ access_bindings: [binding] }))).toBe(true);
   });
 });
-

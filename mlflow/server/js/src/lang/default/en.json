@@ -307,6 +307,10 @@
     "defaultMessage": "JSON schema",
     "description": "Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
   },
+  "/JgjeO": {
+    "defaultMessage": "Empty",
+    "description": "Fallback for empty content in compare view"
+  },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
@@ -2051,6 +2055,10 @@
     "defaultMessage": "Edit webhook",
     "description": "Edit webhook modal title"
   },
+  "7ZHG+d": {
+    "defaultMessage": "Identical:",
+    "description": "MCP compare identical sections heading"
+  },
   "7ZcrHA": {
     "defaultMessage": "Source",
     "description": "Metadata label for the dataset record source (origin: trace, document, or human)"
@@ -2114,6 +2122,10 @@
   "7rO5IT": {
     "defaultMessage": "Select reviewers",
     "description": "Review queue: reviewers dropdown placeholder"
+  },
+  "7rcrX6": {
+    "defaultMessage": "Description",
+    "description": "MCP compare description heading"
   },
   "7ritzC": {
     "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
@@ -2270,6 +2282,10 @@
   "8biXJJ": {
     "defaultMessage": "Select output type",
     "description": "Placeholder for output type selection"
+  },
+  "8c3ulP": {
+    "defaultMessage": "Created by:",
+    "description": "MCP compare metadata created by label"
   },
   "8dkWr2": {
     "defaultMessage": "MCP server",
@@ -3159,6 +3175,10 @@
     "defaultMessage": "Allow",
     "description": "Button to allow a tool-call permission request"
   },
+  "CIv6H7": {
+    "defaultMessage": "Local packages",
+    "description": "MCP compare packages heading"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -3323,6 +3343,10 @@
     "defaultMessage": "Enter workspace description",
     "description": "Placeholder for workspace description input"
   },
+  "D6jxyH": {
+    "defaultMessage": "Access endpoints",
+    "description": "MCP compare endpoints heading"
+  },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
@@ -3478,6 +3502,10 @@
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
+  },
+  "E/HEEL": {
+    "defaultMessage": "Title",
+    "description": "MCP compare title heading"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -4067,6 +4095,10 @@
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
   },
+  "HCAsed": {
+    "defaultMessage": "Aliases:",
+    "description": "MCP compare metadata aliases label"
+  },
   "HF6L/f": {
     "defaultMessage": "Monitor quality metrics from scorers",
     "description": "Empty state title for the quality tab in overview page"
@@ -4262,6 +4294,10 @@
   "HzGYm5": {
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
+  },
+  "I0VCTr": {
+    "defaultMessage": "Created:",
+    "description": "MCP compare metadata created label"
   },
   "I1mNex": {
     "defaultMessage": "Select the events that will trigger this webhook.",
@@ -4591,6 +4627,10 @@
     "defaultMessage": "Sample rate:",
     "description": "Sample rate label for scorer"
   },
+  "JfLrpE": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the MCP servers table"
+  },
   "Jfryx4": {
     "defaultMessage": "Top K",
     "description": "Label for the top-k input on the playground parameters panel"
@@ -4735,6 +4775,10 @@
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
   },
+  "KM8a8Y": {
+    "defaultMessage": "Source",
+    "description": "MCP compare source heading"
+  },
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
@@ -4742,6 +4786,10 @@
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
+  },
+  "KQMhjY": {
+    "defaultMessage": "Status:",
+    "description": "MCP compare metadata status label"
   },
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
@@ -4962,6 +5010,10 @@
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
+  },
+  "LYaZPq": {
+    "defaultMessage": "Switch sides",
+    "description": "Label for button to switch MCP server versions in comparison view"
   },
   "La+f9S": {
     "defaultMessage": "Budgets",
@@ -5407,6 +5459,14 @@
     "defaultMessage": "Override saved view",
     "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
   },
+  "NYkOOk": {
+    "defaultMessage": "Official endpoints",
+    "description": "MCP compare remotes heading"
+  },
+  "NbxAJs": {
+    "defaultMessage": "Metadata:",
+    "description": "MCP compare metadata tags label"
+  },
   "NdiP5T": {
     "defaultMessage": "Target:",
     "description": "Binding expanded target label"
@@ -5815,6 +5875,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PQy6iN": {
+    "defaultMessage": "Comparing version {baseline} with version {compared}",
+    "description": "MCP server version compare heading"
+  },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select traces modal showing number of selected traces"
@@ -6211,10 +6275,6 @@
     "defaultMessage": "Users",
     "description": "Add to review queue: per-user personal-queue section header"
   },
-  "RI8tSn": {
-    "defaultMessage": "Add",
-    "description": "Add tags link in MCP servers table"
-  },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
@@ -6522,6 +6582,10 @@
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
+  },
+  "SiXVvS": {
+    "defaultMessage": "Updated:",
+    "description": "MCP compare metadata updated label"
   },
   "SihD1a": {
     "defaultMessage": "LLM judge feedback",
@@ -6970,6 +7034,10 @@
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
+  },
+  "Uu1RtY": {
+    "defaultMessage": "Version:",
+    "description": "MCP compare metadata version label"
   },
   "Uue10g": {
     "defaultMessage": "Models",
@@ -7706,6 +7774,10 @@
   "XxfvgS": {
     "defaultMessage": "Min value",
     "description": "Numeric min value input"
+  },
+  "XyDNP/": {
+    "defaultMessage": "Repository",
+    "description": "MCP compare repository heading"
   },
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
@@ -8543,6 +8615,10 @@
     "defaultMessage": "The context sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
   },
+  "bl6Nu0": {
+    "defaultMessage": "Website URL",
+    "description": "MCP compare websiteUrl heading"
+  },
   "blG8zm": {
     "defaultMessage": "You have not been assigned to any roles.",
     "description": "Empty-state description for the roles table on the account page"
@@ -8550,6 +8626,10 @@
   "bmBV9A": {
     "defaultMessage": "Average Value",
     "description": "Column header for average value"
+  },
+  "bmFw/h": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the MCP servers table"
   },
   "bmH/Ju": {
     "defaultMessage": "Source:",
@@ -8774,6 +8854,10 @@
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
+  },
+  "chIROf": {
+    "defaultMessage": "Tools",
+    "description": "MCP compare tools heading"
   },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
@@ -9310,6 +9394,10 @@
   "f5cp11": {
     "defaultMessage": "Provide one or more function definitions the model can call. Choose how the model invokes them:",
     "description": "Intro line of the info popover next to the Tools section header"
+  },
+  "f6/IBm": {
+    "defaultMessage": "Preview",
+    "description": "MCP server detail preview tab"
   },
   "f6/YpY": {
     "defaultMessage": "Cancel",
@@ -10151,6 +10239,10 @@
     "defaultMessage": "Saved {name} v{version} to the registry",
     "description": "Success toast shown on the playground after saving the current messages as a new prompt version"
   },
+  "iXDBi4": {
+    "defaultMessage": "Configuration",
+    "description": "MCP compare extra config heading"
+  },
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
@@ -10170,6 +10262,10 @@
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
+  },
+  "iaICjw": {
+    "defaultMessage": "Display name",
+    "description": "MCP compare display name heading"
   },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
@@ -10519,6 +10615,10 @@
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
   },
+  "k4Pj5X": {
+    "defaultMessage": "Select as compared version",
+    "description": "Label for selecting compared MCP server version in the comparison view"
+  },
   "k4ulqN": {
     "defaultMessage": "Drag to reorder {option}",
     "description": "Categorical option chip: drag-handle accessibility label"
@@ -10822,6 +10922,10 @@
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
+  },
+  "ld2Xn9": {
+    "defaultMessage": "Compare",
+    "description": "MCP server detail compare tab"
   },
   "leXUJw": {
     "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
@@ -11858,6 +11962,10 @@
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
+  },
+  "qHqhov": {
+    "defaultMessage": "Select as baseline version",
+    "description": "Label for selecting baseline MCP server version in the comparison view"
   },
   "qIHqi7": {
     "defaultMessage": "Evaluation runs",
@@ -12939,6 +13047,10 @@
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
   },
+  "vbYxpI": {
+    "defaultMessage": "Updated by:",
+    "description": "MCP compare metadata updated by label"
+  },
   "vcK5wo": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip to explain how to search MCP servers in the registry"
@@ -13319,6 +13431,10 @@
     "defaultMessage": "Chat",
     "description": "Label for chat prompt type in the prompt creation modal"
   },
+  "xLBSJC": {
+    "defaultMessage": "Icon:",
+    "description": "MCP compare metadata icon label"
+  },
   "xMNoOG": {
     "defaultMessage": "{version}",
     "description": "MCP server version item label"
@@ -13662,6 +13778,10 @@
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
+  },
+  "z4Cxm8": {
+    "defaultMessage": "Select version for comparison",
+    "description": "Aria label for the version comparison radio group"
   },
   "z4aclU": {
     "defaultMessage": "Discard",

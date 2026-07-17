@@ -459,7 +459,12 @@ describe('MCPServerDetailPage', () => {
     });
 
     it('shows all buttons for MANAGE user', async () => {
-      setupWithPermissions([MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE]);
+      setupWithPermissions([
+        MCPServerAction.USE,
+        MCPServerAction.UPDATE,
+        MCPServerAction.DELETE,
+        MCPServerAction.MANAGE,
+      ]);
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('Create MCP server version')).toBeInTheDocument();

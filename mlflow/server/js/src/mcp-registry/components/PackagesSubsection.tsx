@@ -51,9 +51,7 @@ export const PackagesSubsection = ({
   return (
     <div>
       <SubsectionHelpHeading
-        title={
-          <FormattedMessage defaultMessage="Run locally" description="MCP server packages subsection heading" />
-        }
+        title={<FormattedMessage defaultMessage="Run locally" description="MCP server packages subsection heading" />}
         componentId="mlflow.mcp_registry.detail.packages_help"
         helpAriaLabel={intl.formatMessage({
           defaultMessage: 'About run locally',
@@ -176,93 +174,93 @@ const PackageExpandedContent = ({ pkg, derivedName }: { pkg: Package; derivedNam
       pkg={pkg}
       derivedName={derivedName}
       detailLink={
-              <ViewDetailsDrawer title={pkg.identifier}>
-                <DetailField
-                  label={intl.formatMessage({ defaultMessage: 'Identifier', description: 'Package identifier label' })}
-                  value={pkg.identifier}
-                  mono
-                />
-                <DetailField
-                  label={intl.formatMessage({
-                    defaultMessage: 'Registry type',
-                    description: 'Package registry type label',
-                  })}
-                  value={pkg.registryType}
-                  tagColor="turquoise"
-                />
-                {pkg.version && (
-                  <DetailField
-                    label={intl.formatMessage({ defaultMessage: 'Version', description: 'Package version label' })}
-                    value={pkg.version}
-                    mono
-                  />
-                )}
-                <DetailField
-                  label={intl.formatMessage({ defaultMessage: 'Transport', description: 'Package transport label' })}
-                  value={transportLabel}
-                  tagColor="default"
-                />
-                {pkg.runtimeHint && (
-                  <DetailField
-                    label={intl.formatMessage({
-                      defaultMessage: 'Runtime hint',
-                      description: 'Package runtime hint label',
-                    })}
-                    value={pkg.runtimeHint}
-                    mono
-                  />
-                )}
-                {pkg.registryBaseUrl && (
-                  <DetailField
-                    label={intl.formatMessage({
-                      defaultMessage: 'Registry URL',
-                      description: 'Package registry URL label',
-                    })}
-                    value={pkg.registryBaseUrl}
-                    mono
-                    link
-                  />
-                )}
-                {pkg.fileSha256 && (
-                  <DetailField
-                    label={intl.formatMessage({ defaultMessage: 'SHA-256', description: 'Package file hash label' })}
-                    value={pkg.fileSha256}
-                    mono
-                  />
-                )}
-                {pkg.transport?.url && (
-                  <DetailField
-                    label={intl.formatMessage({
-                      defaultMessage: 'Transport URL',
-                      description: 'Package transport URL label',
-                    })}
-                    value={pkg.transport.url}
-                    mono
-                    link
-                  />
-                )}
-                {allEnvVars.length > 0 && <EnvVarList envVars={allEnvVars} />}
-                {pkg.runtimeArguments && pkg.runtimeArguments.length > 0 && (
-                  <ArgumentList
-                    label={intl.formatMessage({
-                      defaultMessage: 'Runtime arguments',
-                      description: 'Package runtime arguments label',
-                    })}
-                    args={pkg.runtimeArguments}
-                  />
-                )}
-                {pkg.packageArguments && pkg.packageArguments.length > 0 && (
-                  <ArgumentList
-                    label={intl.formatMessage({
-                      defaultMessage: 'Package arguments',
-                      description: 'Package arguments label',
-                    })}
-                    args={pkg.packageArguments}
-                  />
-                )}
-              </ViewDetailsDrawer>
-            }
+        <ViewDetailsDrawer title={pkg.identifier}>
+          <DetailField
+            label={intl.formatMessage({ defaultMessage: 'Identifier', description: 'Package identifier label' })}
+            value={pkg.identifier}
+            mono
           />
+          <DetailField
+            label={intl.formatMessage({
+              defaultMessage: 'Registry type',
+              description: 'Package registry type label',
+            })}
+            value={pkg.registryType}
+            tagColor="turquoise"
+          />
+          {pkg.version && (
+            <DetailField
+              label={intl.formatMessage({ defaultMessage: 'Version', description: 'Package version label' })}
+              value={pkg.version}
+              mono
+            />
+          )}
+          <DetailField
+            label={intl.formatMessage({ defaultMessage: 'Transport', description: 'Package transport label' })}
+            value={transportLabel}
+            tagColor="default"
+          />
+          {pkg.runtimeHint && (
+            <DetailField
+              label={intl.formatMessage({
+                defaultMessage: 'Runtime hint',
+                description: 'Package runtime hint label',
+              })}
+              value={pkg.runtimeHint}
+              mono
+            />
+          )}
+          {pkg.registryBaseUrl && (
+            <DetailField
+              label={intl.formatMessage({
+                defaultMessage: 'Registry URL',
+                description: 'Package registry URL label',
+              })}
+              value={pkg.registryBaseUrl}
+              mono
+              link
+            />
+          )}
+          {pkg.fileSha256 && (
+            <DetailField
+              label={intl.formatMessage({ defaultMessage: 'SHA-256', description: 'Package file hash label' })}
+              value={pkg.fileSha256}
+              mono
+            />
+          )}
+          {pkg.transport?.url && (
+            <DetailField
+              label={intl.formatMessage({
+                defaultMessage: 'Transport URL',
+                description: 'Package transport URL label',
+              })}
+              value={pkg.transport.url}
+              mono
+              link
+            />
+          )}
+          {allEnvVars.length > 0 && <EnvVarList envVars={allEnvVars} />}
+          {pkg.runtimeArguments && pkg.runtimeArguments.length > 0 && (
+            <ArgumentList
+              label={intl.formatMessage({
+                defaultMessage: 'Runtime arguments',
+                description: 'Package runtime arguments label',
+              })}
+              args={pkg.runtimeArguments}
+            />
+          )}
+          {pkg.packageArguments && pkg.packageArguments.length > 0 && (
+            <ArgumentList
+              label={intl.formatMessage({
+                defaultMessage: 'Package arguments',
+                description: 'Package arguments label',
+              })}
+              args={pkg.packageArguments}
+            />
+          )}
+        </ViewDetailsDrawer>
+      }
+    />
   );
 };
 

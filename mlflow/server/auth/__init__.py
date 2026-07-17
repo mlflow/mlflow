@@ -337,7 +337,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
-    MCPAccessBindingResponse,
+    MCPAccessEndpointResponse,
     MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
@@ -4671,7 +4671,7 @@ def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRe
             server_alias=server_alias,
         ),
         get_name=lambda b: b.server_name,
-        to_dict=lambda b: MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"),
+        to_dict=lambda b: MCPAccessEndpointResponse.from_entity(b).model_dump(mode="json"),
     )
     data["mcp_access_bindings"] = readable[:max_results]
     return json.dumps(data).encode()
@@ -4797,9 +4797,7 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
 FASTAPI_PREFIX_RESPONSE_FILTERS: dict[
     tuple[str, str],
     Callable[[str, bytes, StarletteRequest], bytes],
-] = {
-    (prefix, "GET"): _filter_get_mcp_server for prefix in get_mcp_server_api_route_prefixes()
-}
+] = {(prefix, "GET"): _filter_get_mcp_server for prefix in get_mcp_server_api_route_prefixes()}
 
 
 def _find_fastapi_response_filter(
@@ -4893,6 +4891,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         from mlflow.server.workspace_helpers import resolve_workspace_for_request_if_enabled
         from mlflow.utils.workspace_context import set_server_request_workspace
         from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
         try:
             _ws = resolve_workspace_for_request_if_enabled(
                 path, request.headers.get(WORKSPACE_HEADER_NAME)

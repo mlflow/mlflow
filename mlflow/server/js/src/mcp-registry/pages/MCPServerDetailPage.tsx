@@ -105,9 +105,7 @@ const MCPServerDetailPage = () => {
       setPreviewMode();
     } else if (viewState.comparedVersion && !versions.some((v) => v.version === viewState.comparedVersion)) {
       setComparedVersion(
-        versions[0]?.version === hookSelectedVersion
-          ? (versions[1]?.version ?? '')
-          : (versions[0]?.version ?? ''),
+        versions[0]?.version === hookSelectedVersion ? (versions[1]?.version ?? '') : (versions[0]?.version ?? ''),
       );
     }
   }, [

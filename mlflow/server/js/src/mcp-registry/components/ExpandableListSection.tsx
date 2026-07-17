@@ -40,9 +40,7 @@ export function ExpandableListSection<T>({
               aria-label={getAriaLabel(item, expanded)}
               css={expandableRowButtonStyles(theme)}
             >
-              <div css={chevronContainerStyles(theme)}>
-                {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-              </div>
+              <div css={chevronContainerStyles(theme)}>{expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}</div>
               {renderRow({ item, expanded })}
             </button>
             {expanded && <div css={expandedContentPanelStyles(theme)}>{renderExpanded(item)}</div>}

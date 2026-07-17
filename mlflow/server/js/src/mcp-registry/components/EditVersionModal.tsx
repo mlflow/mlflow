@@ -142,7 +142,7 @@ export const EditVersionModal = ({
             value={status}
             onChange={({ target }) => setStatus(target.value as MCPStatus)}
           >
-            {([MCPStatus.DRAFT, MCPStatus.ACTIVE, MCPStatus.DEPRECATED]).map((s) => (
+            {[MCPStatus.DRAFT, MCPStatus.ACTIVE, MCPStatus.DEPRECATED].map((s) => (
               <SimpleSelectOption
                 key={s}
                 value={s}
