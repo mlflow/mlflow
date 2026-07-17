@@ -1,17 +1,26 @@
 /* eslint-disable jest/no-standalone-expect */
 import { describe, jest, test, expect, beforeEach } from '@jest/globals';
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from '../utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../utils/reactQueryHooks';
 import { renderWithDesignSystem } from '../utils/TestUtils.react18';
-import { WorkflowType, WorkflowTypeProvider, useWorkflowType } from './WorkflowTypeContext';
+import {
+  WorkflowType,
+  WorkflowTypeProvider,
+  useWorkflowType,
+  WORKFLOW_TYPE_STORAGE_KEY,
+  WORKFLOW_TYPE_STORAGE_VERSION,
+} from './WorkflowTypeContext';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
 import { EXPERIMENT_KIND_TAG_KEY } from '../../experiment-tracking/utils/ExperimentKindUtils';
+import { setLocalStorageItem } from '../../shared/web-shared/hooks';
 
-const WORKFLOW_TYPE_STORAGE_KEY_V1 = 'mlflow.workflowType_v1';
+// Seed through the same helper (and key construction) the provider's
+// ``useLocalStorage`` uses, so the seed can't silently drift from the real key
+// if the storage key/version constants change.
 const seedWorkflowType = (value: WorkflowType) =>
-  window.localStorage.setItem(WORKFLOW_TYPE_STORAGE_KEY_V1, JSON.stringify(value));
+  setLocalStorageItem(WORKFLOW_TYPE_STORAGE_KEY, WORKFLOW_TYPE_STORAGE_VERSION, false, value);
 
 const mockNavigate = jest.fn();
 
@@ -84,7 +93,9 @@ describe('WorkflowTypeProvider experiment-kind sync', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset the persisted workflow type between tests.
+    // Guarantee a clean slate: clear anything a provider wrote during a prior
+    // test body before seeding this test's starting value.
+    window.localStorage.clear();
     seedWorkflowType(WorkflowType.GENAI);
     mockUseGetExperimentQuery.mockReturnValue({ data: undefined, loading: false } as any);
   });
@@ -173,6 +184,13 @@ describe('WorkflowTypeProvider experiment-kind sync', () => {
       await userEvent.click(screen.getByText('pick-ml'));
     });
     expect(screen.getByTestId('workflow-type')).toHaveTextContent(WorkflowType.MACHINE_LEARNING);
+
+    // Let any subsequent effect cycle run and confirm the auto-sync does NOT
+    // re-fire and revert the manual choice back to the experiment's genai kind.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(screen.getByTestId('workflow-type')).toHaveTextContent(WorkflowType.MACHINE_LEARNING));
   });
 
   test('manual toggle still navigates to the experiment page (existing behavior preserved)', async () => {

@@ -8,7 +8,7 @@ import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureU
 
 export const EXPERIMENT_KIND_TAG_KEY = 'mlflow.experimentKind';
 
-const getExperimentKindFromTags = (
+export const getExperimentKindFromTags = (
   experimentTags?:
     | ({ __typename: 'MlflowExperimentTag'; key: string | null; value: string | null }[] | null)
     | KeyValueEntity[],
@@ -194,14 +194,3 @@ export const getWorkflowTypeForExperimentKind = (
       return undefined;
   }
 };
-
-/**
- * Reads the ``mlflow.experimentKind`` tag from an experiment's tags. Exported so
- * consumers (e.g. the workflow-type sync) can reconcile UI state with the
- * experiment the user actually opened.
- */
-export const getExperimentKindFromTagsList = (
-  experimentTags?:
-    | ({ __typename: 'MlflowExperimentTag'; key: string | null; value: string | null }[] | null)
-    | KeyValueEntity[],
-): ExperimentKind | undefined => getExperimentKindFromTags(experimentTags);

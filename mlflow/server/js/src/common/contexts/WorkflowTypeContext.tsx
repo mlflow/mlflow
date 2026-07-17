@@ -4,7 +4,7 @@ import { useNavigate, useParams } from '../utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
 import {
-  getExperimentKindFromTagsList,
+  getExperimentKindFromTags,
   getWorkflowTypeForExperimentKind,
 } from '../../experiment-tracking/utils/ExperimentKindUtils';
 
@@ -13,8 +13,8 @@ export enum WorkflowType {
   MACHINE_LEARNING = 'machine_learning',
 }
 
-const WORKFLOW_TYPE_STORAGE_KEY = 'mlflow.workflowType';
-const WORKFLOW_TYPE_STORAGE_VERSION = 1;
+export const WORKFLOW_TYPE_STORAGE_KEY = 'mlflow.workflowType';
+export const WORKFLOW_TYPE_STORAGE_VERSION = 1;
 const DEFAULT_WORKFLOW_TYPE = WorkflowType.GENAI;
 
 interface WorkflowTypeContextType {
@@ -91,7 +91,7 @@ export const WorkflowTypeProvider = ({ children }: { children: React.ReactNode }
     if (!experiment || experiment.experimentId !== experimentId) {
       return;
     }
-    const experimentKind = getExperimentKindFromTagsList(experiment.tags);
+    const experimentKind = getExperimentKindFromTags(experiment.tags);
     const targetWorkflowType = getWorkflowTypeForExperimentKind(experimentKind);
     // Only lock (and sync) once we have a definite mapping. An absent/ambiguous
     // kind leaves the current selection untouched and stays eligible to

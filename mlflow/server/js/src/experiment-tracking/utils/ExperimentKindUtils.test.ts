@@ -3,7 +3,7 @@ import { ExperimentKind } from '../constants';
 import { WorkflowType } from '../../common/contexts/WorkflowTypeContext';
 import {
   getWorkflowTypeForExperimentKind,
-  getExperimentKindFromTagsList,
+  getExperimentKindFromTags,
   EXPERIMENT_KIND_TAG_KEY,
 } from './ExperimentKindUtils';
 
@@ -34,16 +34,16 @@ describe('getWorkflowTypeForExperimentKind', () => {
   });
 });
 
-describe('getExperimentKindFromTagsList', () => {
+describe('getExperimentKindFromTags', () => {
   test('reads the experiment kind tag', () => {
-    expect(getExperimentKindFromTagsList([{ key: EXPERIMENT_KIND_TAG_KEY, value: 'custom_model_development' }])).toBe(
+    expect(getExperimentKindFromTags([{ key: EXPERIMENT_KIND_TAG_KEY, value: 'custom_model_development' }])).toBe(
       ExperimentKind.CUSTOM_MODEL_DEVELOPMENT,
     );
   });
 
   test('returns undefined when the tag is missing', () => {
-    expect(getExperimentKindFromTagsList([{ key: 'other', value: 'x' }])).toBeUndefined();
-    expect(getExperimentKindFromTagsList([])).toBeUndefined();
-    expect(getExperimentKindFromTagsList(undefined)).toBeUndefined();
+    expect(getExperimentKindFromTags([{ key: 'other', value: 'x' }])).toBeUndefined();
+    expect(getExperimentKindFromTags([])).toBeUndefined();
+    expect(getExperimentKindFromTags(undefined)).toBeUndefined();
   });
 });
