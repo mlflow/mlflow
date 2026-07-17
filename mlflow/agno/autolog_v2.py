@@ -42,24 +42,20 @@ def _is_agno_v2() -> bool:
 
 def _bridge_parent_context(context):
     """Resolve the parent context for an Agno span."""
-    if context is not None:
+    # Honor an explicitly-passed parent only when it actually carries a valid span. OpenInference
+    # sometimes hands us a context wrapping INVALID_SPAN (e.g. a top-level Agno Team, which it
+    # forces to a root span because its own get_current_span() check cannot see MLflow's active
+    # span in isolated mode). Treat such a context as "no parent" so we can still bridge below.
+    if context is not None and trace.get_current_span(context).get_span_context().is_valid:
         return context
 
-    # get_current_context() returns MLflow's context in isolated mode
-    # (MLFLOW_USE_DEFAULT_TRACER_PROVIDER=true), or None in unified mode. None => nothing to bridge,
-    # so return None and let OTel resolve the parent from the native context.
-    mlflow_context = get_current_context()
-    if mlflow_context is None:
+    # A valid span is already active in the native OTel context, meaning we are inside the Agno
+    # subtree. Return None so OTel nests this span under it natively.
+    if trace.get_current_span().get_span_context().is_valid:
         return None
 
-    # Already inside the Agno subtree (a parent Agno span is current in the native context): return
-    # None so this span nests under that span natively, not under the outer MLflow span.
-    span = trace.get_current_span()
-    span_context = span.get_span_context() if span is not None else None
-    if span_context is not None and span_context.is_valid:
-        return None
-
-    return mlflow_context
+    # bridge to MLflow context management between isolated and non-isolated mode.
+    return get_current_context()
 
 
 class _MlflowContextBridgingTracer(Tracer):

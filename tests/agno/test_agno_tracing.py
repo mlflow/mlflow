@@ -8,12 +8,14 @@ from agno.exceptions import ModelProviderError
 from agno.models.anthropic import Claude
 from agno.tools.function import Function, FunctionCall
 from anthropic.types import Message, TextBlock, Usage
+from opentelemetry import trace
 from packaging.version import Version
 
 import mlflow
 import mlflow.agno
 from mlflow.entities import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.constant import TokenUsageKey
 
 from tests.tracing.helper import get_traces, purge_traces
@@ -51,6 +53,12 @@ def simple_agent():
         instructions="Be concise.",
         markdown=True,
     )
+
+
+@pytest.fixture(params=["true", "false"], ids=["isolated", "unified"])
+def tracer_provider_mode(request, monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, request.param)
+    return request.param
 
 
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
@@ -283,7 +291,7 @@ def test_v2_autolog_setup_teardown():
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-async def test_v2_creates_otel_spans(simple_agent, is_async):
+async def test_v2_creates_otel_spans(simple_agent, is_async, tracer_provider_mode):
     try:
         mlflow.agno.autolog(log_traces=True)
 
@@ -316,7 +324,7 @@ async def test_v2_creates_otel_spans(simple_agent, is_async):
 
 
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
-def test_v2_failure_creates_spans(simple_agent):
+def test_v2_failure_creates_spans(simple_agent, tracer_provider_mode):
     try:
         mlflow.agno.autolog(log_traces=True)
 
@@ -348,7 +356,7 @@ def test_v2_failure_creates_spans(simple_agent):
 
 
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
-def test_v2_spans_nest_under_manual_mlflow_span(simple_agent):
+def test_v2_spans_nest_under_manual_mlflow_span(simple_agent, tracer_provider_mode):
     # Agno's OpenInference spans must nest under a manually-created mlflow.start_span() span
     # (one combined trace) rather than starting their own disconnected trace.
     try:
@@ -379,5 +387,35 @@ def test_v2_spans_nest_under_manual_mlflow_span(simple_agent):
             while current.parent_id is not None:
                 current = by_id[current.parent_id]
             assert current.name == "outer"
+    finally:
+        mlflow.agno.autolog(disable=True)
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+def test_v2_invalid_span_context_still_nests_under_manual_mlflow_span(tracer_provider_mode):
+    # For a top-level Agno Team, OpenInference hands the tracer a context wrapping INVALID_SPAN to
+    # force a root span
+    from mlflow.agno.autolog_v2 import _MlflowTracerProvider
+
+    try:
+        mlflow.agno.autolog(log_traces=True)
+
+        tracer = _MlflowTracerProvider().get_tracer("openinference.instrumentation.agno")
+        with mlflow.start_span(name="outer"):
+            with tracer.start_as_current_span(
+                "team", context=trace.set_span_in_context(trace.INVALID_SPAN)
+            ):
+                pass
+
+        traces = get_traces()
+        assert len(traces) == 1
+        spans = traces[0].data.spans
+
+        roots = [s for s in spans if s.parent_id is None]
+        assert len(roots) == 1
+        assert roots[0].name == "outer"
+
+        team_span = next(s for s in spans if s.name == "team")
+        assert team_span.parent_id == roots[0].span_id
     finally:
         mlflow.agno.autolog(disable=True)
