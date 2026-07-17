@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784188565514,
+  "lastUpdate": 1784254193077,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14201,6 +14201,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 26.21395919999827,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "95551900+AknA13@users.noreply.github.com",
+            "name": "Akshay Anand",
+            "username": "AknA13"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "abb91a264d381d7650affc7ebb032a986ce54e2f",
+          "message": "[Model Registry] Restore oneof on TemporaryCredentials.credentials (#24489)\n\nSigned-off-by: Akshay Anand <akshay.anand@databricks.com>\nCo-authored-by: Akshay Anand <akshay.anand@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-07-16T19:08:33-07:00",
+          "tree_id": "1c54d0af357d55385076f7274b3ff8c0bd07fbd9",
+          "url": "https://github.com/mlflow/mlflow/commit/abb91a264d381d7650affc7ebb032a986ce54e2f"
+        },
+        "date": 1784254191127,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.869914499999396,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 16.094744428569033,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.089963796874777,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.189776631578976,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.78711017241509,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 40.219566999999756,
             "unit": "ms"
           }
         ]
