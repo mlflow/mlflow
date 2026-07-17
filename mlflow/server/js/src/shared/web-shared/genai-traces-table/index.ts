@@ -53,8 +53,6 @@ export { useColumnsURL } from './hooks/useColumnsURL';
 
 export { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 
-export { AnalyzeWithAssistantButton } from './components/AnalyzeWithAssistantButton';
-
 export * from './types';
 
 export {

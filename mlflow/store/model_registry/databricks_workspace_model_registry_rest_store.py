@@ -9,7 +9,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.logging_utils import eprint
@@ -131,7 +130,11 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"exist and that you can download them via "
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
-            uc_store = UcModelRegistryStore(
+            from mlflow.store._unity_catalog.registry.utils import (
+                get_uc_model_registry_store_class,
+            )
+
+            uc_store = get_uc_model_registry_store_class()(
                 store_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
                 tracking_uri=self.tracking_uri,
             )

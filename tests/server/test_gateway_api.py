@@ -29,6 +29,7 @@ from mlflow.gateway.config import (
     MistralConfig,
     OpenAIAPIType,
     OpenAIConfig,
+    PortkeyConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
@@ -42,6 +43,7 @@ from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.portkey import PortkeyProvider
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
@@ -346,6 +348,56 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
     assert isinstance(provider, MistralProvider)
     assert isinstance(provider.config.model.config, MistralConfig)
     assert provider.config.model.config.mistral_api_key == "mistral-test-key"
+
+
+def test_create_provider_from_endpoint_name_portkey(store: SqlAlchemyStore):
+    # Portkey routing fields flow from auth_config/secret_value into PortkeyConfig.
+    # portkey_config is a secret (it may embed credentials), so it lives in
+    # secret_value; portkey_provider is non-sensitive and lives in auth_config.
+    secret = store.create_gateway_secret(
+        secret_name="portkey-key",
+        secret_value={
+            "api_key": "pk-test-123",
+            "provider_api_key": "sk-upstream-456",
+            "portkey_config": "pc-test-789",
+        },
+        provider="portkey",
+        auth_config={"portkey_provider": "openai"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="portkey-model",
+        secret_id=secret.secret_id,
+        provider="portkey",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-portkey-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, PortkeyProvider)
+    provider_config = provider.config.model.config
+    assert isinstance(provider_config, PortkeyConfig)
+    assert provider_config.api_key == "pk-test-123"
+    assert provider_config.portkey_provider == "openai"
+    assert provider_config.portkey_config == "pc-test-789"
+    assert provider_config.provider_api_key == "sk-upstream-456"
+    assert provider.headers == {
+        "x-portkey-api-key": "pk-test-123",
+        "x-portkey-provider": "openai",
+        "x-portkey-config": "pc-test-789",
+        "Authorization": "Bearer sk-upstream-456",
+    }
 
 
 def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
