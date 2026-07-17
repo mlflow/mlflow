@@ -2,8 +2,8 @@ import {
   Button,
   ChevronDownIcon,
   ColumnsIcon,
-  Dropdown,
   Input,
+  Popover,
   SearchIcon,
   Tree,
   useDesignSystemTheme,
@@ -278,25 +278,14 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       }
     }, []);
 
-    // A JSX block containing the dropdown
-    const dropdownContent = (
+    // A JSX block containing the panel body rendered inside the popover.
+    const columnListPanel = (
       <div
         css={{
-          backgroundColor: theme.colors.backgroundPrimary,
           width: 400,
-          border: `1px solid`,
-          borderColor: theme.colors.border,
           [theme.responsive.mediaQueries.xs]: {
             width: '100vw',
           },
-        }}
-        onKeyDown={(e) => {
-          // Since we're controlling the visibility of the dropdown,
-          // we need to handle the escape key to close it.
-          if (e.key === 'Escape') {
-            onChangeColumnSelectorVisible(false);
-            buttonRef.current?.focus();
-          }
         }}
       >
         <div css={(theme) => ({ padding: theme.spacing.md })}>
@@ -370,27 +359,39 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     );
 
     return (
-      <Dropdown
-        overlay={dropdownContent}
-        placement="bottomLeft"
-        trigger={['click']}
-        visible={columnSelectorVisible}
-        onVisibleChange={onChangeColumnSelectorVisible}
+      <Popover.Root
+        componentId="mlflow.experiment_page.runs_table.column_selector"
+        open={columnSelectorVisible}
+        onOpenChange={onChangeColumnSelectorVisible}
       >
-        <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_315"
-          ref={buttonRef}
-          style={{ display: 'flex', alignItems: 'center' }}
-          data-testid="column-selection-dropdown"
-          icon={<ColumnsIcon />}
+        <Popover.Trigger asChild>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_315"
+            ref={buttonRef}
+            style={{ display: 'flex', alignItems: 'center' }}
+            data-testid="column-selection-dropdown"
+            icon={<ColumnsIcon />}
+          >
+            <FormattedMessage
+              defaultMessage="Columns"
+              description="Dropdown text to display columns names that could to be rendered for the experiment runs table"
+            />{' '}
+            <ChevronDownIcon />
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content
+          align="start"
+          // The panel manages its own inner padding, so reset the popover's
+          // default padding via inline style (using `css` here would replace the
+          // design-system Content styles wholesale, dropping the surface/border).
+          style={{ padding: 0 }}
+          // Keep focus inside the search input rather than auto-focusing the
+          // popover container, matching the previous open behavior.
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <FormattedMessage
-            defaultMessage="Columns"
-            description="Dropdown text to display columns names that could to be rendered for the experiment runs table"
-          />{' '}
-          <ChevronDownIcon />
-        </Button>
-      </Dropdown>
+          {columnListPanel}
+        </Popover.Content>
+      </Popover.Root>
     );
   },
 );
