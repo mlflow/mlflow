@@ -250,7 +250,7 @@ Request Structure
 | permission    | ``STRING`` | Permission to grant       |
 |               |            | (``READ``, ``EDIT``,      |
 |               |            | ``MANAGE``,               |
-|               |            | ``NO_PERMISSIONS``).      |
+|               |            | ``USE``).                 |
 +---------------+------------+---------------------------+
 
 ===========================
