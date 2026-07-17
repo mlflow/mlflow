@@ -15,6 +15,13 @@ import { FormattedMessage } from 'react-intl';
  * `.override` / `.discard` from it. It is threaded from the consumer (rather than hardcoded) so each
  * tab keeps its own registered componentId namespace.
  */
+// Override is all-or-nothing: a consumer that wires up `onOverride` must also supply the button's
+// `overrideLabel`, otherwise the override button would render empty. Consumers with no override
+// (e.g. traces) omit both. The union enforces this at the type level.
+type OverrideProps =
+  | { onOverride: () => void; overrideLabel: ReactNode }
+  | { onOverride?: never; overrideLabel?: never };
+
 export const SharedViewBanner = ({
   componentId,
   message,
@@ -24,10 +31,8 @@ export const SharedViewBanner = ({
 }: {
   componentId: string;
   message: ReactNode;
-  overrideLabel?: ReactNode;
-  onOverride?: () => void;
   onDiscard: () => void;
-}) => {
+} & OverrideProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (

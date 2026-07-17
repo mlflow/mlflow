@@ -18,7 +18,13 @@ describe('SharedViewBanner', () => {
     const onOverride = jest.fn();
     const onDiscard = jest.fn();
     renderWithDesignSystem(
-      <SharedViewBanner componentId="test.shared_view" message="msg" onOverride={onOverride} onDiscard={onDiscard} />,
+      <SharedViewBanner
+        componentId="test.shared_view"
+        message="msg"
+        overrideLabel="Override saved view"
+        onOverride={onOverride}
+        onDiscard={onDiscard}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
