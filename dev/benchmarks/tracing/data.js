@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784322480310,
+  "lastUpdate": 1784325695433,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14741,6 +14741,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.407931999995299,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "james.fletcher@databricks.com",
+            "name": "james-fletcher-db",
+            "username": "james-fletcher-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f42cb5de14c2f405751f818120542b49b22da2e",
+          "message": "Fix LLM cost on autologged `ChatDatabricks` traces by preferring `ls_provider` (#24185)\n\nSigned-off-by: James Fletcher <james.fletcher@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-07-17T21:57:49Z",
+          "tree_id": "5193b0a0e2553e0dfa058bf62ffea0a9143a74da",
+          "url": "https://github.com/mlflow/mlflow/commit/3f42cb5de14c2f405751f818120542b49b22da2e"
+        },
+        "date": 1784325693441,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.30303644999964,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 19.789250564102918,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 17.25476946575314,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 13.967966375000529,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 18.387940397057346,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.310393800002089,
             "unit": "ms"
           }
         ]
