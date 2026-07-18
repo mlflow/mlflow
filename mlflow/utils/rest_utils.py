@@ -278,9 +278,11 @@ def http_request(
         headers["Authorization"] = auth_str
 
     if host_creds.client_cert_path is not None:
-        kwargs["cert"] = host_creds.client_cert_path
-        if host_creds.client_key_path is not None:
-            kwargs["cert"] = (host_creds.client_cert_path,host_creds.client_key_path)
+        kwargs["cert"] = (
+             (host_creds.client_cert_path, host_creds.client_key_path)
+             if host_creds.client_key_path is not None
+             else host_creds.client_cert_path
+         )
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
@@ -728,7 +730,10 @@ class MlflowHostCreds:
             If this is set to true ``server_cert_path`` must not be set.
         client_cert_path: Path to ssl client cert file (.pem).
             Sets the cert param of the ``requests.request``
-            function (see https://requests.readthedocs.io/en/master/api/).
+            function for mtls (see https://requests.readthedocs.io/en/master/api/).
+        client_key_path: Path to ssl client cert file (.pem).
+            Sets the key param of the ``requests.request``
+            function for mtls (see https://requests.readthedocs.io/en/master/api/).
         server_cert_path: Path to a CA bundle to use.
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
@@ -751,7 +756,6 @@ class MlflowHostCreds:
         auth=None,
         ignore_tls_verification=False,
         client_cert_path=None,
-        client_key_path=None,
         server_cert_path=None,
         use_databricks_sdk=False,
         databricks_auth_profile=None,
@@ -759,6 +763,7 @@ class MlflowHostCreds:
         client_secret=None,
         use_secret_scope_token=False,
         workspace_id=None,
+        client_key_path=None,
     ):
         if not host:
             raise MlflowException(
@@ -773,6 +778,16 @@ class MlflowHostCreds:
                     "'MLFLOW_TRACKING_INSECURE_TLS' and 'MLFLOW_TRACKING_SERVER_CERT_PATH' "
                     "environment variables are both set - only one of these environment "
                     "variables may be set."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if client_cert_path is not None and (client_key_path is None):
+            raise MlflowException(
+                message=(
+                    "When 'client_cert_path' is set to a path to a mtls certificate true"
+                    "'client_key_path' must be set! This error may have occurred because the "
+                    "'MLFLOW_TRACKING_CLIENT_CERT_PATH' environment variable is both set "
+                    "and the 'MLFLOW_TRACKING_CLIENT_KEY_PATH' environment variable is not set"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
