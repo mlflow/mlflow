@@ -533,6 +533,14 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     # valid destination look like it escapes the base dir. Resolve the leaf only when a
     # real file/dir or a (possibly dangling) symlink exists there; otherwise resolve the
     # existing parent and append the caller-sanitized leaf verbatim.
+    #
+    # The is_symlink()/exists() check followed by resolve() is not atomic: a racing thread
+    # could plant a symlink at the leaf in that window. This TOCTOU gap is an accepted
+    # limitation. Writing into the artifact directory already requires local write access
+    # to it, and an attacker with that access needs no symlink trick to read or write
+    # files there. The original guard had an equivalent TOCTOU between its two resolve()
+    # calls, and always calling target.resolve() here would reintroduce the Windows
+    # spurious-rejection race this branch exists to avoid.
     if target.is_symlink() or target.exists():
         real_constructed_path = target.resolve()
     else:

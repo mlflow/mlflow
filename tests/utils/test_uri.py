@@ -1013,3 +1013,21 @@ def test_validate_path_within_directory_allows_dangling_symlink_inside(tmp_path)
     assert not symlink_path.exists()
     result = validate_path_within_directory(str(base_dir), str(symlink_path))
     assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_allows_multi_level_nonexistent_path(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / "b" / "c.txt"
+    assert not (base_dir / "a").exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_multi_level_dotdot_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / ".." / ".." / "evil.txt"
+    assert not (base_dir / "a").exists()
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
