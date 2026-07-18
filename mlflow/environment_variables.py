@@ -448,15 +448,19 @@ MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_SERVER_CERT_PATH", str, None
 )
 
-#: Sets the ``cert`` param in ``requests.request`` function,
-#: see https://requests.readthedocs.io/en/master/api/
+#: Path to the SSL client public cert file (e.g. ``.pem``).
+#: When set together with ``MLFLOW_TRACKING_CLIENT_KEY_PATH``, MLflow passes a
+#: ``(cert, key)`` tuple via the ``cert`` param of ``requests.request`` (see
+#: https://requests.readthedocs.io/en/master/api/).
 #: (default: ``None``)
 MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
 )
 
-#: Sets the ``key`` param in ``requests.request`` function,
-#: see https://requests.readthedocs.io/en/master/api/
+#: Path to the SSL client private key file (e.g. ``.pem``).
+#: When set together with ``MLFLOW_TRACKING_CLIENT_CERT_PATH``, MLflow passes a
+#: ``(cert, key)`` tuple via the ``cert`` param of ``requests.request`` (see
+#: https://requests.readthedocs.io/en/master/api/).
 #: (default: ``None``)
 MLFLOW_TRACKING_CLIENT_KEY_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_CLIENT_KEY_PATH", str, None
