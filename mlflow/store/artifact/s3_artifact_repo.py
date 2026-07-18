@@ -5,6 +5,7 @@ import posixpath
 import urllib.parse
 from datetime import datetime, timezone
 from functools import lru_cache
+from io import BytesIO
 from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
@@ -348,6 +349,23 @@ class S3ArtifactRepository(
                     bucket=bucket,
                     key=posixpath.join(upload_path, f),
                 )
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        key = posixpath.join(dest_path, TRACE_ARCHIVAL_FILENAME)
+        extra_args = {"ContentType": "application/octet-stream"}
+        extra_args.update(self._bucket_owner_params)
+        environ_extra_args = self.get_s3_file_upload_extra_args()
+        if environ_extra_args is not None:
+            extra_args.update(environ_extra_args)
+        self._get_s3_client().upload_fileobj(
+            Fileobj=BytesIO(data),
+            Bucket=bucket,
+            Key=key,
+            ExtraArgs=extra_args,
+        )
 
     def _iterate_s3_paginated_results(self, bucket, prefix):
         """

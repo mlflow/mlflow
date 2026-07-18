@@ -3,11 +3,11 @@ import base64
 import inspect
 import random
 from dataclasses import asdict
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
-import importlib_metadata
 import llama_index.core
 import openai
 import pytest
@@ -23,6 +23,7 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
@@ -38,13 +39,13 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
-llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+llama_core_version = Version(metadata.version("llama-index-core"))
+llama_oai_version = Version(metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
 try:
-    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
-except importlib_metadata.PackageNotFoundError:
+    llama_workflows_version = Version(metadata.version("llama-index-workflows"))
+except metadata.PackageNotFoundError:
     llama_workflows_version = None
 
 
@@ -75,6 +76,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
     assert spans[0].span_type == SpanType.LLM
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].inputs == {"args": ["Hello"]}
     assert spans[0].outputs["text"] == "Hello"
 
@@ -97,7 +99,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
 
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
@@ -159,7 +167,13 @@ def test_trace_llm_complete_stream():
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -242,7 +256,13 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     if not IS_TRACING_SDK_ONLY:
         assert spans[0].llm_cost == {
@@ -391,7 +411,13 @@ def test_trace_llm_chat_stream():
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,

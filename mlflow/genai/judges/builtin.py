@@ -19,9 +19,11 @@ _MODEL_API_DOC = {
 `"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
 `["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
 through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
-Default model depends on the tracking URI setup:
+Default model depends on the ``MLFLOW_GENAI_JUDGE_DEFAULT_MODEL`` environment
+variable and the tracking URI setup:
 
-* Databricks: `databricks`
+* If ``MLFLOW_GENAI_JUDGE_DEFAULT_MODEL`` is set, that value is used.
+* Databricks tracking URI: `databricks`
 * Otherwise: `openai:/gpt-4.1-mini`.
 """,
 }

@@ -321,7 +321,9 @@ class AmazonBedrockProvider(BaseProvider):
             content = msg.get("content", "")
 
             # Normalize content: extract text from list of content parts
-            if isinstance(content, list):
+            if content is None:
+                content = ""
+            elif isinstance(content, list):
                 content = "\n".join(
                     p.get("text", "")
                     for p in content
@@ -331,9 +333,52 @@ class AmazonBedrockProvider(BaseProvider):
             if role == "system":
                 system_prompts.append({"text": content})
             elif role == "assistant":
+                assistant_content = []
+                if tool_calls := msg.get("tool_calls"):
+                    if content:
+                        assistant_content.append({"text": content})
+                    for tool_call in tool_calls:
+                        tool_function = tool_call.get("function") or {}
+                        tool_call_id = tool_call.get("id", "")
+                        tool_call_name = tool_function.get("name")
+                        if not isinstance(tool_call_name, str) or not tool_call_name.strip():
+                            raise AIGatewayException(
+                                status_code=422,
+                                detail=(
+                                    "Invalid assistant tool call: missing function name for "
+                                    f"tool_call_id={tool_call_id}."
+                                ),
+                            )
+
+                        arguments = tool_function.get("arguments")
+                        if arguments is not None:
+                            try:
+                                if not isinstance(arguments, str) or not arguments.strip():
+                                    raise ValueError
+                                tool_input = json.loads(arguments)
+                            except (TypeError, ValueError, json.JSONDecodeError) as e:
+                                raise AIGatewayException(
+                                    status_code=422,
+                                    detail=(
+                                        "Invalid assistant tool call arguments: not valid JSON for "
+                                        f"tool_call_id={tool_call_id}, "
+                                        f"tool_name={tool_call_name}."
+                                    ),
+                                ) from e
+                        else:
+                            tool_input = {}
+                        assistant_content.append({
+                            "toolUse": {
+                                "toolUseId": tool_call_id,
+                                "name": tool_call_name,
+                                "input": tool_input,
+                            }
+                        })
+                else:
+                    assistant_content.append({"text": content})
                 converse_messages.append({
                     "role": "assistant",
-                    "content": [{"text": content}],
+                    "content": assistant_content,
                 })
             elif role == "tool":
                 converse_messages.append({

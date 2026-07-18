@@ -358,7 +358,7 @@ If you plan on doing development and testing, you will also need to
 install the following into the conda environment:
 
 ```bash
-pip install -r requirements/dev-requirements.txt
+pip install -r requirements/test-requirements.txt
 pip install -e '.[extras]'  # installs mlflow from current checkout
 pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 ```
@@ -460,12 +460,6 @@ $ yarn start
 ...
 
 (UI should now be visible at localhost:3000)
-```
-
-#### Launching MLflow UI with MLflow AI Gateway for PromptLab
-
-```sh
-python dev/server.py
 ```
 
 #### Testing a React Component

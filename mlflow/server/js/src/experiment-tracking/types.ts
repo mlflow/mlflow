@@ -132,6 +132,7 @@ export interface ExperimentEntity {
   allowedActions?: string[];
   artifactLocation: string;
   creationTime: number;
+  effectiveTraceArchivalRetention?: string;
   experimentId: string;
   lastUpdateTime: number;
   lifecycleStage: string;

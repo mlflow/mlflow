@@ -1,5 +1,7 @@
 import logging
+import threading
 from collections import defaultdict
+from contextlib import nullcontext
 from typing import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -26,6 +28,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +51,13 @@ class MlflowV3SpanExporter(SpanExporter):
         # Tracks whether the store supports span-level logging. Set to False at runtime
         # if log_spans() raises NotImplementedError or returns a 501.
         self._store_supports_log_spans = True
+
+        # Root spans deferred when background thread spans are still running at export time.
+        # Keyed by OTel trace ID; popped and exported once all spans in the trace have ended.
+        # Protected by _deferred_lock because SimpleSpanProcessor calls export() from the
+        # span's own thread, so concurrent calls from multiple threads are possible.
+        self._deferred_root_spans: dict[int, ReadableSpan] = {}
+        self._deferred_lock = threading.Lock()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -78,37 +88,40 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
-        for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
+        mlflow_spans_by_experiment_and_workspace = self._collect_mlflow_spans_for_export(spans)
+        for (
+            (experiment_id, workspace),
+            spans_to_log,
+        ) in mlflow_spans_by_experiment_and_workspace.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
-                        args=(experiment_id, spans_to_log),
+                        args=(experiment_id, spans_to_log, workspace),
                         error_msg="Failed to log spans to the trace server.",
                     )
                 )
             else:
-                self._log_spans(experiment_id, spans_to_log)
+                self._log_spans(experiment_id, spans_to_log, workspace=workspace)
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[str, list[Span]]:
+    ) -> dict[tuple[str, str | None], list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
+        Collect MLflow spans from ReadableSpans for export, grouped by (experiment_id, workspace).
 
-        The experiment_id is resolved from the trace info (set during on_start in the
-        originating thread) rather than from get_experiment_id_for_trace(), which reads
-        thread-local ContextVars that are unavailable in the batch processor's worker thread.
+        The experiment_id and workspace are resolved from the trace (set during on_start in the
+        originating thread) rather than from thread-local ContextVars that are unavailable in the
+        batch processor's worker thread.
 
         Args:
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping experiment_id to list of MLflow Span objects.
+            Dictionary mapping (experiment_id, workspace) to list of MLflow Span objects.
         """
         manager = InMemoryTraceManager.get_instance()
-        spans_by_experiment = defaultdict(list)
+        spans_by_experiment_and_workspace = defaultdict(list)
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -118,19 +131,22 @@ class MlflowV3SpanExporter(SpanExporter):
             mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
             if mlflow_span is None:
                 continue
-            # Get experiment_id from trace info (resolved at on_start time in the
+            # Get experiment_id and workspace from trace info (resolved at on_start time in the
             # originating thread) to survive BatchSpanProcessor thread hops.
+            workspace = None
             with manager.get_trace(mlflow_trace_id) as trace:
                 try:
                     experiment_id = trace.info.experiment_id if trace else None
                 except AttributeError:
                     # Remote/distributed traces may have trace_location=None
                     experiment_id = None
+                if trace is not None:
+                    workspace = trace.workspace
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
-            spans_by_experiment[experiment_id].append(mlflow_span)
+            spans_by_experiment_and_workspace[(experiment_id, workspace)].append(mlflow_span)
 
-        return spans_by_experiment
+        return spans_by_experiment_and_workspace
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -140,123 +156,168 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
         """
         manager = InMemoryTraceManager.get_instance()
+
+        # Flush any previously deferred root spans whose background spans have now ended.
+        # Copy the keys under the lock, then check has_open_spans() outside the lock to
+        # avoid holding _deferred_lock while acquiring InMemoryTraceManager._lock (deadlock risk).
+        with self._deferred_lock:
+            deferred_ids = list(self._deferred_root_spans.keys())
+        for otel_trace_id in deferred_ids:
+            if not manager.has_open_spans(otel_trace_id):
+                with self._deferred_lock:
+                    deferred_span = self._deferred_root_spans.pop(otel_trace_id, None)
+                if deferred_span is not None:
+                    self._do_export_trace(manager, deferred_span)
+
         for span in spans:
             if span._parent is not None:
                 continue
 
-            manager_trace = manager.pop_trace(span.context.trace_id)
-            if manager_trace is None:
-                _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+            # If background-thread child spans are still running, defer the full trace export
+            # so that pop_trace is not called until after those spans land in a later batch.
+            # This prevents _collect_mlflow_spans_for_export from losing the OTel→MLflow trace
+            # ID mapping before those late spans can be logged.
+            if manager.has_open_spans(span.context.trace_id):
+                with self._deferred_lock:
+                    self._deferred_root_spans[span.context.trace_id] = span
                 continue
 
-            if manager_trace.is_remote_trace and not self._store_supports_log_spans:
-                _logger.warning(
-                    f"Current MLflow server does not support ingesting the span {span.name} "
-                    "that is created in a remote process. Please upgrade the server version and "
-                    "use SQL backend to do distributed tracing."
+            self._do_export_trace(manager, span)
+
+    def _do_export_trace(self, manager: InMemoryTraceManager, span: ReadableSpan) -> None:
+        manager_trace = manager.pop_trace(span.context.trace_id)
+        if manager_trace is None:
+            _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+            return
+
+        if manager_trace.is_remote_trace and not self._store_supports_log_spans:
+            _logger.warning(
+                f"Current MLflow server does not support ingesting the span {span.name} "
+                "that is created in a remote process. Please upgrade the server version and "
+                "use SQL backend to do distributed tracing."
+            )
+            return
+
+        trace = manager_trace.trace
+
+        # Store mapping from eval request ID to trace ID so that the evaluation
+        # harness can access to the trace using mlflow.get_trace(eval_request_id)
+        if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
+            _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
+
+        if not maybe_get_request_id(is_evaluate=True):
+            self._display_handler.display_traces([trace])
+
+        workspace = manager_trace.workspace
+        if self._should_log_async():
+            self._async_queue.put(
+                task=Task(
+                    handler=self._log_trace,
+                    args=(trace, manager_trace.prompts, workspace),
+                    error_msg="Failed to log trace to the trace server.",
                 )
-                continue
+            )
+        else:
+            self._log_trace(trace, prompts=manager_trace.prompts, workspace=workspace)
 
-            trace = manager_trace.trace
-
-            # Store mapping from eval request ID to trace ID so that the evaluation
-            # harness can access to the trace using mlflow.get_trace(eval_request_id)
-            if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
-
-            if not maybe_get_request_id(is_evaluate=True):
-                self._display_handler.display_traces([trace])
-
-            if self._should_log_async():
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_trace,
-                        args=(trace, manager_trace.prompts),
-                        error_msg="Failed to log trace to the trace server.",
-                    )
-                )
-            else:
-                self._log_trace(trace, prompts=manager_trace.prompts)
-
-    def _log_spans(self, experiment_id: str, spans: list[Span]) -> None:
+    def _log_spans(
+        self, experiment_id: str, spans: list[Span], workspace: str | None = None
+    ) -> None:
         """
         Helper method to log spans with error handling.
 
         Args:
             experiment_id: The experiment ID to log spans to.
             spans: List of spans to log.
+            workspace: Optional workspace name captured on the originating thread.
+                When provided, a ServerWorkspaceContext is applied so that HTTP calls
+                on the async worker thread include the correct X-MLFLOW-WORKSPACE header
+                without mutating process-wide environment variables.
         """
-        try:
-            self._client.log_spans(experiment_id, spans)
-        except NotImplementedError:
-            # Silently skip if the store doesn't support log_spans. This is expected for stores that
-            # don't implement span-level logging, and we don't want to spam warnings for every span.
-            self._store_supports_log_spans = False
-        except RestException as e:
-            # When the FileStore is behind the tracking server, it returns 501 exception.
-            # However, the OTLP endpoint returns general HTTP error, not MlflowException, which does
-            # not include error_code in the body and handled as a general server side error. Hence,
-            # we need to check the message to handle this case.
-            if "REST OTLP span logging is not supported" in e.message:
+        with ServerWorkspaceContext(workspace) if workspace else nullcontext():
+            try:
+                self._client.log_spans(experiment_id, spans)
+            except NotImplementedError:
+                # Silently skip if the store doesn't support log_spans. This is expected for stores
+                # that don't implement span-level logging, and we don't want to spam warnings for
+                # every span.
                 self._store_supports_log_spans = False
-            else:
+            except RestException as e:
+                # When the FileStore is behind the tracking server, it returns 501 exception.
+                # However, the OTLP endpoint returns general HTTP error, not MlflowException, which
+                # does not include error_code in the body and handled as a general server side
+                # error. Hence, we need to check the message to handle this case.
+                if "REST OTLP span logging is not supported" in e.message:
+                    self._store_supports_log_spans = False
+                else:
+                    _logger.debug(f"Failed to log span to MLflow backend: {e}")
+            except Exception as e:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
-        except Exception as e:
-            _logger.debug(f"Failed to log span to MLflow backend: {e}")
 
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
+    def _log_trace(
+        self, trace: Trace, prompts: Sequence[PromptVersion], workspace: str | None = None
+    ) -> None:
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
+
+        Args:
+            trace: The trace to export.
+            prompts: Prompt versions to link to the trace.
+            workspace: Optional workspace name captured on the originating thread.
+                When provided, a ServerWorkspaceContext is applied so that HTTP calls
+                on the async worker thread include the correct X-MLFLOW-WORKSPACE header
+                without mutating process-wide environment variables.
         """
-        returned_trace_info = None
-        try:
-            if trace:
-                add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
+        with ServerWorkspaceContext(workspace) if workspace else nullcontext():
+            returned_trace_info = None
+            try:
+                if trace:
+                    add_size_stats_to_trace_metadata(trace)
+                    returned_trace_info = self._client.start_trace(trace.info)
 
-                if self._should_log_spans_to_artifacts(returned_trace_info):
-                    self._client._upload_trace_data(returned_trace_info, trace.data)
-            else:
-                _logger.warning("No trace or trace info provided, unable to export")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to send trace to MLflow backend: {e}",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
+                    if self._should_log_spans_to_artifacts(returned_trace_info):
+                        self._client._upload_trace_data(returned_trace_info, trace.data)
+                else:
+                    _logger.warning("No trace or trace info provided, unable to export")
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to send trace to MLflow backend: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
-        # Upload attachments in a separate try-except so trace data still lands
-        # even if attachment upload fails. Runs regardless of span storage mode —
-        # in TRACKING_STORE mode, spans are in the DB but attachments still go
-        # to the artifact repo via the mlflow.artifactLocation tag.
-        try:
-            if trace and returned_trace_info:
-                attachments = {}
-                for span in trace.data.spans:
-                    attachments.update(span._attachments)
-                if attachments:
-                    self._client._upload_attachments(returned_trace_info, attachments)
-        except Exception as e:
-            _logger.warning(
-                f"Failed to upload trace attachments: {e}",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
+            # Upload attachments in a separate try-except so trace data still lands
+            # even if attachment upload fails. Runs regardless of span storage mode —
+            # in TRACKING_STORE mode, spans are in the DB but attachments still go
+            # to the artifact repo via the mlflow.artifactLocation tag.
+            try:
+                if trace and returned_trace_info:
+                    attachments = {}
+                    for span in trace.data.spans:
+                        attachments.update(span._attachments)
+                    if attachments:
+                        self._client._upload_attachments(returned_trace_info, attachments)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to upload trace attachments: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
-        try:
-            # Always run prompt linking asynchronously since (1) prompt linking API calls
-            # would otherwise add latency to the export procedure and (2) prompt linking is not
-            # critical for trace export (if the prompt fails to link, the user's workflow is
-            # minorly affected), so we don't have to await successful linking
-            try_link_prompts_to_trace(
-                client=self._client,
-                trace_id=trace.info.trace_id,
-                prompts=prompts,
-                synchronous=False,
-            )
-        except Exception as e:
-            _logger.warning(f"Failed to link prompts to trace: {e}")
+            try:
+                # Always run prompt linking asynchronously since (1) prompt linking API calls
+                # would otherwise add latency to the export procedure and (2) prompt linking is
+                # not critical for trace export (if the prompt fails to link, the user's workflow
+                # is minorly affected), so we don't have to await successful linking
+                try_link_prompts_to_trace(
+                    client=self._client,
+                    trace_id=trace.info.trace_id,
+                    prompts=prompts,
+                    synchronous=False,
+                )
+            except Exception as e:
+                _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self) -> bool:
         if is_in_databricks_notebook():
@@ -274,12 +335,22 @@ class MlflowV3SpanExporter(SpanExporter):
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self) -> bool:
-        # During evaluate, the eval harness relies on the generated trace objects,
-        # so we should not log traces asynchronously.
+        # During evaluate or assertion tests, the harness relies on the generated
+        # trace objects being immediately available, so log synchronously.
         if maybe_get_request_id(is_evaluate=True):
             return False
 
         return self._is_async_enabled
+
+    def shutdown(self) -> None:
+        # Flush any deferred root spans that are still pending (e.g. if a background
+        # span never ended). This prevents them from leaking across exporter lifetimes.
+        with self._deferred_lock:
+            pending = list(self._deferred_root_spans.items())
+            self._deferred_root_spans.clear()
+        manager = InMemoryTraceManager.get_instance()
+        for _, span in pending:
+            self._do_export_trace(manager, span)
 
     def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
         """

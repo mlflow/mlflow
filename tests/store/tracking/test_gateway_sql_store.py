@@ -80,7 +80,7 @@ def set_kek_passphrase(monkeypatch):
 
 def _cleanup_database(store: SqlAlchemyStore):
     """Clean up gateway-specific tables after each test."""
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
             SqlGatewayGuardrailConfig,
@@ -348,7 +348,7 @@ def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemySto
         )
         session.flush()
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
             attempt_mutation(session)
 
@@ -2476,6 +2476,31 @@ def _create_scorer(store: SqlAlchemyStore, endpoint_name: str | None = None):
     return store.register_scorer(experiment_id, f"safety-judge-{name_suffix}", serialized_scorer)
 
 
+def _create_scorer_versions(store: SqlAlchemyStore):
+    """Helper to create multiple versions of a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    endpoint = _create_gateway_endpoint(store, f"guardrail-ep-{name_suffix}")
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+    scorer_name = f"safety-judge-{name_suffix}"
+
+    serialized_scorer_v1 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+    serialized_scorer_v2 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input still safe?",
+        }
+    })
+
+    scorer_v1 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v1)
+    scorer_v2 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v2)
+    return scorer_v1, scorer_v2
+
+
 def test_create_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
@@ -2514,6 +2539,33 @@ def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
 
     assert guardrail.stage == GuardrailStage.AFTER
     assert guardrail.action == GuardrailAction.SANITIZATION
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Scorer with ID 'missing-scorer' not found"):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id="missing-scorer",
+            scorer_version=1,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer with ID '{scorer.scorer_id}' and version 999 not found",
+    ):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=999,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
 
 
 def test_get_gateway_guardrail(store: SqlAlchemyStore):
@@ -2818,6 +2870,43 @@ def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
         assert config.guardrail.stage == GuardrailStage.BEFORE
 
 
+def test_list_endpoint_guardrail_configs_null_order_sorts_last(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-last-{uuid.uuid4().hex[:8]}")
+
+    guardrail_with_order = store.create_gateway_guardrail(
+        name="test-guardrail-with-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+    guardrail_null_order = store.create_gateway_guardrail(
+        name="test-guardrail-null-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_null_order.guardrail_id,
+    )
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_with_order.guardrail_id,
+        execution_order=5,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 2
+    assert configs[0].execution_order == 5
+    assert configs[0].guardrail_id == guardrail_with_order.guardrail_id
+    assert configs[1].execution_order is None
+    assert configs[1].guardrail_id == guardrail_null_order.guardrail_id
+
+
 def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-empty-{uuid.uuid4().hex[:8]}")
     configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
@@ -2936,7 +3025,7 @@ def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-basic")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
         _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
 
@@ -2948,7 +3037,7 @@ def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-non-gw")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
         _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
 
@@ -2960,7 +3049,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-window")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
         _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
         _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
@@ -2971,7 +3060,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
 
 
 def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Create two experiments in different workspaces
         exp_ws_a = SqlExperiment(
             name=f"cost-ws-a-{uuid.uuid4().hex}",

@@ -46,6 +46,30 @@ def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
     except ImportError:
         pass
 
+    try:
+        from mlflow.genai.scorers.guardrails import GuardrailsScorer
+
+        if isinstance(scorer, GuardrailsScorer):
+            return f"Guardrails:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.phoenix import PhoenixScorer
+
+        if isinstance(scorer, PhoenixScorer):
+            return f"Phoenix:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.trulens import TruLensScorer
+
+        if isinstance(scorer, TruLensScorer):
+            return f"TruLens:{scorer.name}"
+    except ImportError:
+        pass
+
     return "UserDefinedScorer"
 
 
@@ -601,6 +625,7 @@ class GatewayInvocationType(str, Enum):
     ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
     GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
     GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+    RAW_PROXY = "raw_proxy"
 
 
 class GatewayInvocationEvent(Event):
@@ -609,6 +634,14 @@ class GatewayInvocationEvent(Event):
 
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
+
+
+class MlflowTestEvent(Event):
+    name: str = "mlflow_test"
 
 
 class TracingContextPropagation(Event):

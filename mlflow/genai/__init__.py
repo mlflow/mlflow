@@ -3,6 +3,7 @@ from mlflow.genai import (
     judges,
     scorers,
 )
+from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
@@ -23,6 +24,31 @@ from mlflow.genai.labeling import (
     get_labeling_session,
     get_labeling_sessions,
     get_review_app,
+)
+from mlflow.genai.mcp_servers import (
+    create_mcp_access_endpoint,
+    delete_mcp_access_endpoint,
+    delete_mcp_server,
+    delete_mcp_server_alias,
+    delete_mcp_server_tag,
+    delete_mcp_server_version,
+    delete_mcp_server_version_tag,
+    get_latest_mcp_server_version,
+    get_mcp_access_endpoint,
+    get_mcp_server,
+    get_mcp_server_version,
+    get_mcp_server_version_by_alias,
+    register_mcp_server,
+    register_mcp_server_from_url,
+    search_mcp_access_endpoints,
+    search_mcp_server_versions,
+    search_mcp_servers,
+    set_mcp_server_alias,
+    set_mcp_server_tag,
+    set_mcp_server_version_tag,
+    update_mcp_access_endpoint,
+    update_mcp_server,
+    update_mcp_server_version,
 )
 from mlflow.genai.optimize import optimize_prompt, optimize_prompts
 from mlflow.genai.prompts import (
@@ -47,6 +73,7 @@ from mlflow.genai.simulators import ConversationSimulator
 
 __all__ = [
     "datasets",
+    "test_agent",
     "evaluate",
     "to_predict_fn",
     "Scorer",
@@ -91,4 +118,28 @@ __all__ = [
     "enable_git_model_versioning",
     # conversation simulation
     "ConversationSimulator",
+    # MCP server registry
+    "register_mcp_server",
+    "register_mcp_server_from_url",
+    "get_mcp_server",
+    "search_mcp_servers",
+    "update_mcp_server",
+    "delete_mcp_server",
+    "get_mcp_server_version",
+    "get_mcp_server_version_by_alias",
+    "get_latest_mcp_server_version",
+    "search_mcp_server_versions",
+    "update_mcp_server_version",
+    "delete_mcp_server_version",
+    "create_mcp_access_endpoint",
+    "get_mcp_access_endpoint",
+    "search_mcp_access_endpoints",
+    "update_mcp_access_endpoint",
+    "delete_mcp_access_endpoint",
+    "set_mcp_server_tag",
+    "delete_mcp_server_tag",
+    "set_mcp_server_version_tag",
+    "delete_mcp_server_version_tag",
+    "set_mcp_server_alias",
+    "delete_mcp_server_alias",
 ]

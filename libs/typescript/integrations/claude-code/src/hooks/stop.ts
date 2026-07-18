@@ -9,7 +9,7 @@ async function main(): Promise<void> {
     if (!isTracingEnabled()) {
       return;
     }
-    if (!ensureInitialized()) {
+    if (!(await ensureInitialized())) {
       return;
     }
     await processTranscript(input.transcript_path, input.session_id);

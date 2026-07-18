@@ -10,6 +10,9 @@ They are set by the server and read by workers, and should not be set by end use
 # URI for the backend store (e.g., sqlite:///mlflow.db, postgresql://..., mysql://...)
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 
+# URI for a read-only backend store (e.g., a database read replica) used for read operations
+READ_REPLICA_BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_READ_REPLICA_BACKEND_STORE"
+
 # URI for the model registry store (defaults to same as backend store if not specified)
 REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_REGISTRY_STORE"
 

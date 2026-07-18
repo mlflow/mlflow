@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
@@ -17,13 +18,18 @@ from opentelemetry.sdk.trace.export import SpanExporter
 import mlflow
 from mlflow.entities import (
     SpanEvent,
+    SpanLogLevel,
     SpanStatusCode,
     SpanType,
     Trace,
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    UCSchemaLocation,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -33,6 +39,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -238,6 +245,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 2, "y": 5},
         "mlflow.spanOutputs": 64,
     }
@@ -249,6 +257,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": {"z": 7},
         "mlflow.spanOutputs": 8,
     }
@@ -260,8 +269,54 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "square",
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 8},
         "mlflow.spanOutputs": 64,
+    }
+
+
+def test_deep_trace_is_not_corrupted_by_aggregation(async_logging_enabled):
+    # Regression test for #24344: a trace nested deeper than the recursion limit used to
+    # raise RecursionError while aggregating token usage during root-span finalization,
+    # aborting export and leaving the trace permanently stuck IN_PROGRESS with corrupted
+    # span data. The trace must (a) finalize to a terminal state and be loadable, and
+    # (b) still aggregate token usage correctly across multiple LLM spans.
+    depth = 1100  # > sys.getrecursionlimit() default of 1000
+
+    # A deep backbone (no usage) that exceeds the recursion limit...
+    spans = [start_span_no_context("root", span_type=SpanType.AGENT)]
+    for i in range(depth):
+        spans.append(start_span_no_context(f"level_{i}", parent_span=spans[-1]))
+
+    # ...ending in a fan of sibling LLM leaves that each carry usage. None is an ancestor
+    # of another, so aggregation must SUM all of them (3 * {10, 5, 15}).
+    backbone_leaf = spans[-1]
+    for j in range(3):
+        leaf = start_span_no_context(f"llm_{j}", span_type=SpanType.LLM, parent_span=backbone_leaf)
+        leaf.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: 10,
+                TokenUsageKey.OUTPUT_TOKENS: 5,
+                TokenUsageKey.TOTAL_TOKENS: 15,
+            },
+        )
+        leaf.end()
+
+    for s in reversed(spans):
+        s.end()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    trace_id = spans[0].trace_id
+    trace = mlflow.get_trace(trace_id)
+    assert trace is not None
+    assert trace.info.state == TraceState.OK
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 30,
+        TokenUsageKey.OUTPUT_TOKENS: 15,
+        TokenUsageKey.TOTAL_TOKENS: 45,
     }
 
 
@@ -432,6 +487,7 @@ def test_trace_in_databricks_model_serving(
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
         "mlflow.spanOutputs": 64,
@@ -444,6 +500,7 @@ def test_trace_in_databricks_model_serving(
         "delta": 1,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.LLM,
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanInputs": {"z": 7},
         "mlflow.spanOutputs": 8,
@@ -455,6 +512,7 @@ def test_trace_in_databricks_model_serving(
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
     }
     assert asdict(child_span_2.events[0]) == {
         "name": "event",
@@ -733,6 +791,7 @@ def test_start_span_context_manager(async_logging_enabled):
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": 25,
     }
@@ -745,6 +804,7 @@ def test_start_span_context_manager(async_logging_enabled):
         "time": str(datetime_now),
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
@@ -755,10 +815,112 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": 25,
     }
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run = client.create_run(experiment_id=experiment_id)
+
+    with mlflow.start_span(
+        name="root_span",
+        trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+        run_id=run.info.run_id,
+    ):
+        pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    active_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    explicit_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    active_run = client.create_run(experiment_id=active_experiment_id)
+    explicit_run = client.create_run(experiment_id=explicit_experiment_id)
+
+    with mlflow.start_run(run_id=active_run.info.run_id):
+        with mlflow.start_span(
+            name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=active_experiment_id),
+            run_id=explicit_run.info.run_id,
+        ):
+            pass
+
+    traces = mlflow.search_traces(
+        locations=[active_experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == active_experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == explicit_run.info.run_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run_1 = client.create_run(experiment_id=experiment_id)
+    run_2 = client.create_run(experiment_id=experiment_id)
+
+    with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
+        with mlflow.start_span(
+            name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+            run_id=run_1.info.run_id,
+        ):
+            with mlflow.start_span(name="child_span", run_id=run_2.info.run_id):
+                pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
+    mock_logger.warning.assert_called_once_with(
+        "The `run_id` parameter can only be used for root spans, but the span "
+        f"`child_span` is not a root span. The specified value `{run_2.info.run_id}` "
+        "will be ignored."
+    )
 
 
 def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
@@ -815,6 +977,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": 5,
     }
@@ -825,6 +988,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
         "delta": 2,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
@@ -1025,7 +1189,33 @@ def test_search_traces_with_default_experiment_id(mock_client):
     )
 
 
+@pytest.mark.parametrize(
+    ("locations", "filter_string", "expect_warning"),
+    [
+        (["catalog.schema.prefix"], None, True),
+        (["catalog.schema.prefix"], "trace.timestamp_ms > '2024-01-01'", False),
+        (["123"], None, False),
+    ],
+)
+def test_search_traces_warns_on_uc_location_without_time_range(
+    locations, filter_string, expect_warning, mock_client
+):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        mlflow.search_traces(locations=locations, filter_string=filter_string)
+
+    uc_warnings = [
+        w
+        for w in caught
+        if issubclass(w.category, UserWarning) and "trace.timestamp_ms" in str(w.message)
+    ]
+    assert bool(uc_warnings) == expect_warning
+
+
 @skip_when_testing_trace_sdk
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     model = DefaultTestModel()
     expected_traces = []

@@ -24,7 +24,7 @@ from langchain_text_splitters.character import CharacterTextSplitter
 
 import mlflow
 from mlflow.entities import Document as MlflowDocument
-from mlflow.entities import Trace
+from mlflow.entities import SpanLogLevel, Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -109,6 +109,8 @@ def test_llm_success():
     assert llm_span.name == "test_llm"
 
     assert llm_span.span_type == "LLM"
+    # LLM spans default to INFO (user-visible semantic operation).
+    assert llm_span.log_level == SpanLogLevel.INFO
     assert llm_span.start_time_ns is not None
     assert llm_span.end_time_ns is not None
     assert llm_span.status == SpanStatus(SpanStatusCode.OK)
@@ -423,6 +425,8 @@ def test_multiple_components():
     assert chain_span.end_time_ns is not None
     assert chain_span.name == "test_chain"
     assert chain_span.span_type == "CHAIN"
+    # CHAIN spans default to DEBUG (internal/glue work).
+    assert chain_span.log_level == SpanLogLevel.DEBUG
     assert chain_span.parent_id is None
     assert chain_span.status.status_code == SpanStatusCode.OK
     assert chain_span.inputs == {"input": "test input"}
@@ -718,6 +722,7 @@ async def test_tracer_with_manual_traces_async():
         ("openai-chat", "openai"),
         ("anthropic-chat", "anthropic"),
         ("bedrock-chat", "bedrock"),
+        ("chat-databricks", "databricks"),
         ("openai", "openai"),
     ],
 )
@@ -740,6 +745,37 @@ def test_chat_model_extracts_model_provider(_type, expected_provider):
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.MODEL) == "gpt-4"
     assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == expected_provider
+
+
+@pytest.mark.parametrize(
+    ("ls_provider", "_type"),
+    [
+        # `ls_provider` is used regardless of `_type`'s shape, including shapes that the
+        # `removesuffix("-chat")` fallback does not handle.
+        ("databricks", "chat-databricks"),
+        ("openai", "openai-chat"),
+        ("google_genai", "chat-google-generative-ai"),
+    ],
+)
+def test_chat_model_prefers_ls_provider_over_type(ls_provider, _type):
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        metadata={"ls_provider": ls_provider},
+        invocation_params={"model": "test-model", "_type": _type},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == ls_provider
 
 
 def test_chat_model_no_provider_when_type_missing():

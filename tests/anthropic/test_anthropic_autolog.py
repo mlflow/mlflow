@@ -8,6 +8,7 @@ import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -185,6 +186,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span = traces[0].data.spans[0]
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
     # Only keep input_tokens / output_tokens fields in usage dict.
     span.outputs["usage"] = {
@@ -202,6 +204,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:
@@ -267,6 +270,7 @@ def test_messages_autolog_multi_modal(is_async):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -393,6 +397,7 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:

@@ -72,9 +72,18 @@ def test_transform_entry_chat_model():
     }
 
 
-def test_transform_entry_skips_image_generation():
+def test_transform_entry_includes_image_generation():
     info = {"mode": "image_generation", "input_cost_per_token": 1e-6}
-    assert _transform_entry(info) is None
+    result = _transform_entry(info)
+    assert result is not None
+    assert result["mode"] == "image_generation"
+
+
+def test_transform_entry_includes_video_generation():
+    info = {"mode": "video_generation", "input_cost_per_token": 1e-6}
+    result = _transform_entry(info)
+    assert result is not None
+    assert result["mode"] == "video_generation"
 
 
 def test_transform_entry_includes_future_deprecation_date():
@@ -205,6 +214,18 @@ def test_extract_modality_pricing_skips_reasoning():
     assert _extract_modality_pricing(info) == {"audio": {"input_per_million_tokens": 0.7}}
 
 
+def test_extract_modality_pricing_mixed():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "input_cost_per_video_per_second": 0.0007,
+        "output_cost_per_video_per_second": 0.0014,
+    }
+    assert _extract_modality_pricing(info) == {
+        "audio": {"input_per_million_tokens": 0.7},
+        "video": {"input_per_second": 0.0007, "output_per_second": 0.0014},
+    }
+
+
 def test_extract_tool_pricing():
     info = {
         "computer_use_input_cost_per_1k_tokens": 0.00225,
@@ -278,6 +299,10 @@ def test_convert_end_to_end(tmp_path):
             "litellm_provider": "openai",
             "mode": "image_generation",
         },
+        "sora": {
+            "litellm_provider": "openai",
+            "mode": "video_generation",
+        },
         "ft:gpt-4o:org::id": {
             "litellm_provider": "openai",
             "mode": "chat",
@@ -292,7 +317,7 @@ def test_convert_end_to_end(tmp_path):
 
     stats = convert(input_data, output_dir)
 
-    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 2}
+    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 4}
     assert (output_dir / "openai.json").exists()
     assert (output_dir / "anthropic.json").exists()
     assert (output_dir / "bedrock.json").exists()
@@ -302,9 +327,10 @@ def test_convert_end_to_end(tmp_path):
     assert openai_catalog["schema_version"] == "1.0"
     assert "gpt-4o" in openai_catalog["models"]
     assert "gpt-4o-mini" in openai_catalog["models"]
-    # Fine-tuned and image_generation should be excluded
+    # Fine-tuned models should be excluded
     assert "ft:gpt-4o:org::id" not in openai_catalog["models"]
-    assert "dall-e-3" not in openai_catalog["models"]
+    assert "dall-e-3" in openai_catalog["models"]
+    assert "sora" in openai_catalog["models"]
 
 
 def test_convert_preserves_existing_models(tmp_path):

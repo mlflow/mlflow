@@ -283,6 +283,13 @@ class MlflowTraceDataCorrupted(MlflowTraceDataException):
         super().__init__(INVALID_STATE, request_id, artifact_path)
 
 
+class MlflowTraceArchivalMalformedTrace(MlflowTracingException):
+    """Exception thrown when archived trace serialization detects malformed trace content."""
+
+    def __init__(self, message):
+        super().__init__(message, error_code=INVALID_PARAMETER_VALUE)
+
+
 class MlflowNotImplementedException(MlflowException):
     """Exception thrown when a feature is not implemented"""
 

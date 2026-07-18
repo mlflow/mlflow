@@ -14,7 +14,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import Routes from '../../../experiment-tracking/routes';
 import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
@@ -23,7 +23,9 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
-import { StarterCodeCard } from './StarterCodeCard';
+import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
+import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
+import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
@@ -32,6 +34,15 @@ import { TracesV3Logs } from '../../../experiment-tracking/components/experiment
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { ExperimentViewTracesStatusLabels } from '@databricks/web-shared/genai-traces-table';
+import { MetricsFilter } from '../../../common/components/MetricsFilter';
+import {
+  translateToMetricsFilters,
+  translateToTracesPageFilters,
+  TRACE_STATE_VALUES,
+  type MetricFilter,
+  type MetricFilterColumnOption,
+} from '../../../common/components/MetricsFilter.utils';
 
 /**
  * Returns the provider string to pass to StarterCodeCard.
@@ -137,6 +148,31 @@ export const EditEndpointFormRenderer = ({
   const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
   const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
 
+  // Kept as local component state (not URL-backed) to mirror the GatewayUsagePage
+  // pattern: filters affect charts immediately and propagate to the Logs tab only
+  // when the user clicks a chart-tooltip "View logs" link.
+  const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
+
+  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+
+  const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
+    () => [
+      {
+        value: 'state',
+        label: intl.formatMessage({
+          defaultMessage: 'State',
+          description: 'Gateway endpoint usage > metrics filter > state column option label',
+        }),
+        valueOptions: TRACE_STATE_VALUES.map((value) => ({
+          value,
+          label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
+        })),
+      },
+    ],
+    [intl],
+  );
+
   const tooltipLinkUrlBuilder = useMemo(() => {
     if (!endpoint) return undefined;
     return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
@@ -144,8 +180,9 @@ export const EditEndpointFormRenderer = ({
         tab: 'traces',
         startTime: new Date(timestampMs).toISOString(),
         endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+        filters: tracesNavigationFilters,
       });
-  }, [endpoint]);
+  }, [endpoint, tracesNavigationFilters]);
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -317,73 +354,88 @@ export const EditEndpointFormRenderer = ({
           <div css={{ flex: 1 }}>
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-                {/* Unified Model card */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3} css={{ margin: 0 }}>
-                    <FormattedMessage
-                      defaultMessage="Model"
-                      description="Gateway > Endpoint details > Section title for model configuration card"
-                    />
-                  </Typography.Title>
+                {(() => {
+                  const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
+                  const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
+                    ? (rawAgent as CodingAgentType)
+                    : undefined;
+                  return (
+                    <>
+                      {/* Unified Model card — hidden for coding-agent endpoints */}
+                      {!codingAgent && (
+                        <div
+                          css={{
+                            padding: theme.spacing.md,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: theme.borders.borderRadiusMd,
+                            backgroundColor: theme.colors.backgroundSecondary,
+                          }}
+                        >
+                          <Typography.Title level={3} css={{ margin: 0 }}>
+                            <FormattedMessage
+                              defaultMessage="Model"
+                              description="Gateway > Endpoint details > Section title for model configuration card"
+                            />
+                          </Typography.Title>
 
-                  {/* Primary sub-section */}
-                  <div
-                    css={{
-                      marginTop: theme.spacing.md,
-                      padding: theme.spacing.md,
-                      border: `1px solid ${theme.colors.border}`,
-                      borderRadius: theme.borders.borderRadiusMd,
-                      backgroundColor: theme.colors.backgroundPrimary,
-                    }}
-                  >
-                    <Typography.Title level={4} css={{ margin: 0 }}>
-                      <FormattedMessage
-                        defaultMessage="Primary Model"
-                        description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
-                      />
-                    </Typography.Title>
+                          {/* Primary sub-section */}
+                          <div
+                            css={{
+                              marginTop: theme.spacing.md,
+                              padding: theme.spacing.md,
+                              border: `1px solid ${theme.colors.border}`,
+                              borderRadius: theme.borders.borderRadiusMd,
+                              backgroundColor: theme.colors.backgroundPrimary,
+                            }}
+                          >
+                            <Typography.Title level={4} css={{ margin: 0 }}>
+                              <FormattedMessage
+                                defaultMessage="Primary Model"
+                                description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
+                              />
+                            </Typography.Title>
 
-                    <div css={{ marginTop: theme.spacing.md }}>
-                      <Controller
-                        control={form.control}
-                        name="trafficSplitModels"
-                        render={({ field }) => (
-                          <TrafficSplitConfigurator
-                            value={field.value}
-                            onChange={field.onChange}
-                            componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                            <div css={{ marginTop: theme.spacing.md }}>
+                              <Controller
+                                control={form.control}
+                                name="trafficSplitModels"
+                                render={({ field }) => (
+                                  <TrafficSplitConfigurator
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                                  />
+                                )}
+                              />
+                            </div>
+                          </div>
+
+                          <Controller
+                            control={form.control}
+                            name="fallbackModels"
+                            render={({ field }) => (
+                              <FallbackModelsConfigurator
+                                value={field.value}
+                                onChange={field.onChange}
+                                componentId="mlflow.gateway.edit-endpoint.fallback"
+                              />
+                            )}
                           />
-                        )}
-                      />
-                    </div>
-                  </div>
+                        </div>
+                      )}
 
-                  <Controller
-                    control={form.control}
-                    name="fallbackModels"
-                    render={({ field }) => (
-                      <FallbackModelsConfigurator
-                        value={field.value}
-                        onChange={field.onChange}
-                        componentId="mlflow.gateway.edit-endpoint.fallback"
-                      />
-                    )}
-                  />
-                </div>
-
-                {endpoint && (
-                  <StarterCodeCard
-                    endpointName={endpoint.name}
-                    provider={getStarterCodeProvider(endpoint.model_mappings)}
-                  />
-                )}
+                      {endpoint &&
+                        (codingAgent ? (
+                          <CodingAgentStarterCard endpointName={endpoint.name} codingAgent={codingAgent} />
+                        ) : (
+                          <StarterCodeCard
+                            endpointName={endpoint.name}
+                            provider={getStarterCodeProvider(endpoint.model_mappings)}
+                          />
+                        ))}
+                    </>
+                  );
+                })()}
               </div>
             </Tabs.Content>
 
@@ -399,7 +451,18 @@ export const EditEndpointFormRenderer = ({
 
             <Tabs.Content value="usage">
               {experimentId && (
-                <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
+                <GatewayUsageSection
+                  experimentId={experimentId}
+                  tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+                  additionalControls={
+                    <MetricsFilter
+                      filters={metricFilters}
+                      setFilters={setMetricFilters}
+                      columnOptions={metricsFilterColumnOptions}
+                    />
+                  }
+                  filters={chartFilters}
+                />
               )}
             </Tabs.Content>
 

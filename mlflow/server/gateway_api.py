@@ -10,7 +10,7 @@ import functools
 import logging
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -316,8 +316,13 @@ def _build_endpoint_config(
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
-        if model_config.auth_config and "version" in model_config.auth_config:
-            anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+        if model_config.auth_config:
+            if "version" in model_config.auth_config:
+                anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+            if _AuthConfigKey.API_BASE in model_config.auth_config:
+                anthropic_config["anthropic_api_base"] = model_config.auth_config[
+                    _AuthConfigKey.API_BASE
+                ]
         provider_config = AnthropicConfig(**anthropic_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
@@ -983,6 +988,67 @@ async def openai_passthrough_embeddings(request: Request):
     )
 
 
+async def _openai_responses_passthrough_unary(
+    request: Request,
+    body: dict[str, Any],
+    action: PassthroughAction,
+    request_type: GatewayRequestType,
+) -> dict[str, Any]:
+    """Shared body for the unary (non-streaming) OpenAI Responses-shaped
+    passthrough routes — the non-streaming branch of ``/responses`` and the
+    unary-only ``/responses/compact``.
+
+    Resolves the configured endpoint from ``body["model"]``, runs the usual
+    telemetry / budget / guardrail setup, wraps the upstream call in pre/post
+    guardrails, and returns the raw upstream response.
+    ``GuardrailViolation`` is translated to HTTP 400. Each call site is
+    responsible for reading the request body (so callers can also reject
+    ``stream=true`` when their endpoint doesn't support streaming, as
+    ``/responses/compact`` does).
+    """
+    user_metadata = _get_user_metadata(request)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(action=action, payload=body, headers=headers)
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=request_type,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
@@ -1006,23 +1072,25 @@ async def openai_passthrough_responses(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_metadata = _get_user_metadata(request)
-
-    endpoint_name = _extract_endpoint_name_from_model(body)
-    body.pop("model")
-    store = _get_store()
-    workspace = get_request_workspace()
-    _validate_store(store)
-    headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
-    _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
-    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
-        # Post-LLM guardrails are not applied to streaming responses.
+        # Post-LLM guardrails are not applied to streaming responses. Streaming
+        # keeps its own inline setup because the closure below captures these
+        # variables directly; the unary path delegates to the shared helper.
+        user_metadata = _get_user_metadata(request)
+        endpoint_name = _extract_endpoint_name_from_model(body)
+        body.pop("model")
+        store = _get_store()
+        workspace = get_request_workspace()
+        _validate_store(store)
+        headers = dict(request.headers)
+        provider, endpoint_config = _create_provider_from_endpoint_name(
+            store, endpoint_name, EndpointType.LLM_V1_CHAT
+        )
+        _set_gateway_telemetry_state(request, endpoint_config)
+        check_budget_limit(store, endpoint_config, workspace=workspace)
+        guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
         async def _guarded_stream(body: dict[str, Any]):
             request_dict = await run_pre_llm_guardrails(
                 guardrails,
@@ -1049,35 +1117,56 @@ async def openai_passthrough_responses(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
-        body = await run_pre_llm_guardrails(
-            guardrails,
-            body,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-        response = await provider.passthrough(
-            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
-        )
-        return await run_post_llm_guardrails_passthrough(
-            guardrails,
-            body,
-            response,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
+    return await _openai_responses_passthrough_unary(
+        request,
+        body,
+        action=PassthroughAction.OPENAI_RESPONSES,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+    )
+
+
+@gateway_router.post(
+    PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES_COMPACT], response_model=None
+)
+@translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
+async def openai_passthrough_responses_compact(request: Request):
+    """
+    OpenAI passthrough endpoint for the Responses API ``/compact`` route.
+
+    Mirrors :func:`openai_passthrough_responses` for session compaction calls
+    (e.g. those issued by the OpenAI Agents SDK's ``OpenAIResponsesCompactionSession``).
+    Compaction is a unary request — there is no streaming variant. A request
+    that sets ``stream=true`` is rejected with HTTP 400 to avoid the underlying
+    provider passthrough (which treats all non-embeddings actions as
+    stream-capable) attempting an SSE stream against an upstream endpoint that
+    does not support it.
+
+    Example:
+        POST /gateway/openai/v1/responses/compact
+        {
+            "model": "my-openai-endpoint",
+            "previous_response_id": "resp_abc123"
+        }
+    """
+    body = await _get_request_body(request)
+
+    # /responses/compact is unary upstream; explicitly reject `stream=true`
+    # before the provider's passthrough machinery tries to open an SSE stream.
+    if body.get("stream", False):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "stream=true is not supported on /responses/compact; compaction is a unary request."
+            ),
         )
 
-    try:
-        return await maybe_traced_gateway_call(
-            _guarded_passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(body)
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return await _openai_responses_passthrough_unary(
+        request,
+        body,
+        action=PassthroughAction.OPENAI_RESPONSES_COMPACT,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -1316,3 +1405,111 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
     )
+
+
+@gateway_router.post("/proxy/{endpoint_name}/{path:path}", response_model=None)
+@translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.RAW_PROXY)
+async def raw_proxy(endpoint_name: str, path: str, request: Request):
+    """
+    Raw proxy endpoint.
+
+    Routes the request payload as-is to the upstream provider at
+    <provider_base_url>/<path>, using the credentials configured for the named
+    endpoint. Unlike the typed passthrough routes, the ``model`` field in the
+    payload is NOT replaced with the value from the endpoint config.
+
+    Streaming is detected automatically from the response Content-Type
+    (``text/event-stream`` or ``application/x-ndjson``), so this endpoint
+    supports providers like Gemini that signal streaming via Content-Type rather
+    than a ``"stream": true`` request flag.
+
+    Example:
+        POST /gateway/proxy/my-openai-endpoint/chat/completions
+        {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+    """
+    body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    # Preserve upstream query parameters (e.g. Gemini's ?alt=sse for SSE streaming).
+    if qs := request.url.query:
+        path = f"{path}?{qs}"
+    # The proxy route is type-agnostic; EndpointType is only used to satisfy
+    # EndpointConfig construction and has no effect on proxy behavior (the proxy
+    # bypasses typed routing entirely). LLM_V1_CHAT is used as the default since
+    # the DB does not store a per-endpoint type for DB-backed gateway endpoints.
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    # _do_proxy is always an async generator so maybe_traced_gateway_call can wrap it
+    # consistently regardless of whether the upstream responds with a streaming or
+    # non-streaming body.  For streaming responses it yields raw bytes; for
+    # non-streaming responses it yields a single dict.  The route handler peeks at
+    # the first item to decide how to respond to the client.
+    async def _do_proxy(body: dict[str, Any]):
+        try:
+            body = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        result = await provider.proxy(path, body, headers)
+
+        if isinstance(result, AsyncIterable):
+            # Post-LLM guardrails are not applied to streaming responses.
+            async for chunk in result:
+                yield chunk
+        else:
+            try:
+                result = await run_post_llm_guardrails_passthrough(
+                    guardrails,
+                    body,
+                    result,
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
+                )
+            except GuardrailViolation as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            yield result
+
+    traced_proxy = maybe_traced_gateway_call(
+        _do_proxy,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.RAW_PROXY,
+        on_complete=make_budget_on_complete(store, workspace),
+    )
+
+    gen = traced_proxy(body)
+    try:
+        first = await gen.__anext__()
+    except StopAsyncIteration:
+        # _do_proxy raised before yielding (e.g. guardrail violation, provider 501).
+        # The original HTTPException already propagated; re-raise a generic 500 as fallback.
+        raise HTTPException(status_code=500, detail="Proxy handler exited without a response.")
+    if isinstance(first, bytes):
+
+        async def _prepend(first_chunk, rest):
+            yield first_chunk
+            async for chunk in rest:
+                yield chunk
+
+        return StreamingResponse(
+            safe_stream(_prepend(first, gen), as_bytes=True), media_type="text/event-stream"
+        )
+    return first

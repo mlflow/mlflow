@@ -64,9 +64,9 @@
     "DeepSeek-V3.1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 32768,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
@@ -79,7 +79,27 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-29"
+    },
+    "DeepSeek-V3.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 4.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
     },
     "Llama-4-Maverick-17B-128E-Instruct": {
       "mode": "chat",
@@ -241,6 +261,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "MiniMax-M2.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 196608,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
+    },
     "QwQ-32B": {
       "mode": "chat",
       "context_window": {
@@ -301,6 +341,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "gemma-4-31B-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.38,
+        "output_per_million_tokens": 1.15
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
+    },
     "gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
@@ -309,8 +369,8 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 4.5
+        "input_per_million_tokens": 0.22,
+        "output_per_million_tokens": 0.59
       },
       "capabilities": {
         "function_calling": true,
@@ -319,7 +379,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-29"
     }
   }
 }

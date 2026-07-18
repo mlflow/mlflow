@@ -39,7 +39,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import create_test_span
+from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -70,6 +70,91 @@ def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 5},
+    }
+
+
+def test_query_trace_metrics_session_count_no_dimensions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_session_count_no_dimensions")
+
+    traces_data = [
+        ("trace1", "session-a"),
+        ("trace2", "session-a"),
+        ("trace3", "session-b"),
+        ("trace4", "session-c"),
+        ("trace5", None),
+    ]
+
+    for trace_id, session_id in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id}
+            if session_id is not None
+            else {},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.SESSION_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.SESSION_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+
+def test_query_trace_metrics_session_count_with_trace_metadata_filter_on_other_key(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_session_count_with_trace_metadata_filter_on_other_key")
+
+    traces_data = [
+        ("trace1", "session-a", "run-1"),
+        ("trace2", "session-a", "run-1"),
+        ("trace3", "session-b", "run-1"),
+        ("trace4", "session-c", "run-2"),
+        ("trace5", None, "run-1"),
+    ]
+
+    for trace_id, session_id, source_run_id in traces_data:
+        trace_metadata = {TraceMetadataKey.SOURCE_RUN: source_run_id}
+        if session_id is not None:
+            trace_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata=trace_metadata,
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.SESSION_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = 'run-1'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.SESSION_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 2},
     }
 
 
@@ -490,6 +575,64 @@ def test_query_trace_metrics_with_time_interval(store: SqlAlchemyStore):
     }
 
 
+def test_query_trace_metrics_session_count_with_time_interval(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_session_count_with_time_interval")
+
+    base_time = 1577836800000  # 2020-01-01 00:00:00 UTC in milliseconds
+    hour_ms = 60 * 60 * 1000
+
+    traces_data = [
+        ("trace1", base_time, "session-a"),
+        ("trace2", base_time + 10 * 60 * 1000, "session-a"),
+        ("trace3", base_time + 20 * 60 * 1000, "session-b"),
+        ("trace4", base_time + hour_ms, "session-c"),
+        ("trace5", base_time + hour_ms + 30 * 60 * 1000, "session-c"),
+        ("trace6", base_time + 2 * hour_ms, None),
+    ]
+
+    for trace_id, timestamp, session_id in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id}
+            if session_id is not None
+            else {},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.SESSION_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        time_interval_seconds=3600,
+        start_time_ms=base_time,
+        end_time_ms=base_time + 3 * hour_ms,
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.SESSION_COUNT,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(base_time / 1000, tz=timezone.utc).isoformat()
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": TraceMetricKey.SESSION_COUNT,
+        "dimensions": {
+            "time_bucket": datetime.fromtimestamp(
+                (base_time + hour_ms) / 1000, tz=timezone.utc
+            ).isoformat()
+        },
+        "values": {"COUNT": 1},
+    }
+
+
 def test_query_trace_metrics_with_time_interval_and_dimensions(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_with_time_interval_and_dimensions")
 
@@ -669,6 +812,108 @@ def test_query_trace_metrics_with_source_run_filter(store: SqlAlchemyStore):
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
+    }
+
+
+def test_query_trace_metrics_source_run_filter_includes_linked_otlp_traces(
+    store: SqlAlchemyStore,
+):
+    """OTLP traces have no mlflow.sourceRun metadata; they are linked post-hoc via
+    link_traces_to_run(). Q2/Q3 on the Traces tab filter by mlflow.sourceRun — this test
+    verifies that the filter also matches entity-association-linked traces (issue #23530).
+    """
+    exp_id = store.create_experiment("test_linked_otlp_traces")
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="test",
+        start_time=get_current_time_millis(),
+        tags=[],
+        run_name="eval-run",
+    )
+    run_id = run.info.run_id
+
+    # Native trace: has mlflow.sourceRun in metadata (pre-existing path)
+    native_trace = TraceInfo(
+        trace_id="native-trace-1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "native"},
+        trace_metadata={TraceMetadataKey.SOURCE_RUN: run_id},
+    )
+    store.start_trace(native_trace)
+
+    # OTLP traces: no mlflow.sourceRun metadata, linked post-hoc via link_traces_to_run
+    for i in range(2):
+        otlp_trace = TraceInfo(
+            trace_id=f"otlp-trace-{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=50,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "otlp"},
+            trace_metadata={},
+        )
+        store.start_trace(otlp_trace)
+
+    store.link_traces_to_run(trace_ids=["otlp-trace-0", "otlp-trace-1"], run_id=run_id)
+
+    # Add an assessment on the linked OTLP trace to cover Q3 (assessment score distribution)
+    store.create_assessment(
+        Feedback(
+            trace_id="otlp-trace-0",
+            name="correctness",
+            value=True,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+    )
+
+    # Unrelated trace — must not appear in results
+    unrelated = TraceInfo(
+        trace_id="unrelated-trace",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=50,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "other"},
+        trace_metadata={},
+    )
+    store.start_trace(unrelated)
+
+    # Q2: trace count badge — 1 native (metadata path) + 2 OTLP (entity association path)
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = '{run_id}'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    # Q3: assessment score distribution — assessment on the linked OTLP trace must be found
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = '{run_id}'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 1},
     }
 
 
@@ -2991,6 +3236,91 @@ def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore)
         "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
         "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "relevance"},
         "values": {"COUNT": 3},
+    }
+
+
+def test_query_assessment_metrics_excludes_overridden_assessments(store: SqlAlchemyStore):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24132. Assessments in an
+    # override chain (marked valid=False) must not be counted or bucketed, otherwise the
+    # Quality Overview over-counts superseded feedback.
+    exp_id = store.create_experiment("test_assessment_excludes_overridden")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "demo"},
+        )
+    )
+
+    source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer")
+    # yes -> override to no -> override to yes; only the final assessment stays valid.
+    fb1 = store.create_assessment(
+        Feedback(trace_id=trace_id, name="user_satisfaction", value="yes", source=source)
+    )
+    fb2 = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="user_satisfaction",
+            value="no",
+            source=source,
+            overrides=fb1.assessment_id,
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="user_satisfaction",
+            value="yes",
+            source=source,
+            overrides=fb2.assessment_id,
+        )
+    )
+
+    count_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+    )
+    assert len(count_result) == 1
+    assert asdict(count_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 1},
+    }
+
+    histogram_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_VALUE],
+    )
+    assert len(histogram_result) == 1
+    assert asdict(histogram_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps("yes")},
+        "values": {"COUNT": 1},
+    }
+
+    # The overridden "no" (0.0) must not drag down the average of the valid "yes" (1.0).
+    value_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
+    )
+    assert len(value_result) == 1
+    assert asdict(value_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "user_satisfaction"},
+        "values": {"AVG": 1.0},
     }
 
 

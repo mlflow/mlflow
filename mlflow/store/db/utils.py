@@ -77,6 +77,12 @@ def _all_tables_exist(engine):
     return expected_tables.issubset(actual_tables)
 
 
+def _is_empty_database(engine):
+    # Alembic's bookkeeping table is ignored so a previously failed upgrade attempt
+    # doesn't make the DB look populated.
+    return all(t.startswith("alembic_") for t in sqlalchemy.inspect(engine).get_table_names())
+
+
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
@@ -137,8 +143,11 @@ def _get_managed_session_maker(SessionMaker, db_type):
     automatically closed when the session's associated context is exited.
     """
 
+    # Default to read_only=True to avoid accidentally treating read query as write
+    # and send to the main workers. The test time validation detects when the
+    # actual write query is marked read-only.
     @contextmanager
-    def make_managed_session():
+    def make_managed_session(read_only=True):
         """Provide a transactional scope around a series of operations."""
         with SessionMaker() as session:
             try:
@@ -146,6 +155,21 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+
+                # Validation that only triggers while testing to make sure the
+                # read_only flag is properly set.
+                if read_only and os.environ.get("PYTEST_CURRENT_TEST"):
+
+                    def _reject_flush(session, flush_context, instances):
+                        raise MlflowException(
+                            "Write operation detected on a read-only session. "
+                            "ManagedSessionMaker creates read-only sessions "
+                            "by default. Pass read_only=False to the constructor "
+                            "to mark it as a write operation.",
+                            error_code=INTERNAL_ERROR,
+                        )
+
+                    event.listen(session, "before_flush", _reject_flush)
                 yield session
                 session.commit()
             except MlflowException:
@@ -164,6 +188,36 @@ def _get_managed_session_maker(SessionMaker, db_type):
             except Exception as e:
                 session.rollback()
                 raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
+
+    return make_managed_session
+
+
+def _get_routing_session_maker(write_session_maker, read_session_maker, db_type):
+    """
+    Creates a routing-aware managed session factory that directs read operations to a
+    read replica and write operations to the primary database.
+
+    When a read replica URI is configured, read-only operations (marked with
+    ``read_only=True``) use the read replica's session, while all other operations
+    use the primary (write) session. If no read replica is configured, both session
+    makers should be identical and all operations go to the primary database.
+
+    Args:
+        write_session_maker: SQLAlchemy ``sessionmaker`` bound to the primary (write) engine.
+        read_session_maker: SQLAlchemy ``sessionmaker`` bound to the read replica engine.
+        db_type: Database type string (e.g. ``"sqlite"``) forwarded to
+            ``_get_managed_session_maker`` for dialect-specific session configuration.
+
+    Returns:
+        A context-manager factory accepting an optional ``read_only`` keyword argument.
+    """
+    _write = _get_managed_session_maker(write_session_maker, db_type)
+    _read = _get_managed_session_maker(read_session_maker, db_type)
+
+    @contextmanager
+    def make_managed_session(read_only=True):
+        with (_read if read_only else _write)(read_only=read_only) as session:
+            yield session
 
     return make_managed_session
 

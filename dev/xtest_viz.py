@@ -32,11 +32,13 @@ Where:
 
 import argparse
 import asyncio
+import json
 import os
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, cast
 
 import aiohttp
@@ -45,8 +47,13 @@ import aiohttp
 @dataclass
 class JobResult:
     name: str
+    conclusion: str
     date: str
-    status: str
+    started_at: str
+    completed_at: str
+    failed_step: str | None
+    html_url: str
+    logs_url: str
 
 
 class XTestViz:
@@ -183,20 +190,24 @@ class XTestViz:
         data_rows = []
 
         for job in jobs:
-            emoji = self.status_to_emoji(job["conclusion"])
-            if emoji is None:  # Skip this job
+            conclusion = job["conclusion"]
+            if self.status_to_emoji(conclusion) is None:  # Skip this job
                 continue
 
-            job_url = job["html_url"]
-            status_link = f"[{emoji}]({job_url})"
-
-            parsed_name = self.parse_job_name(job["name"])
-
+            failed_step = next(
+                (s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"),
+                None,
+            )
             data_rows.append(
                 JobResult(
-                    name=parsed_name,
+                    name=self.parse_job_name(job["name"]),
+                    conclusion=conclusion,
                     date=run_date,
-                    status=status_link,
+                    started_at=job["started_at"],
+                    completed_at=job["completed_at"],
+                    failed_step=failed_step,
+                    html_url=job["html_url"],
+                    logs_url=f"{job['url']}/logs",
                 )
             )
 
@@ -254,7 +265,8 @@ class XTestViz:
                 pivot_data[row.name] = {}
             # Use first occurrence for each name-date combination
             if row.date not in pivot_data[row.name]:
-                pivot_data[row.name][row.date] = row.status
+                emoji = self.status_to_emoji(row.conclusion)
+                pivot_data[row.name][row.date] = f"[{emoji}]({row.html_url})"
             all_dates.add(row.date)
 
         # Sort dates in reverse order (newest first)
@@ -312,6 +324,16 @@ class XTestViz:
 
         return "\n".join(lines)
 
+    def filter_latest_not_success(self, data_rows: list[JobResult]) -> list[JobResult]:
+        """Keep only jobs whose latest run for each name was not a success."""
+        latest_per_name: dict[str, JobResult] = {}
+        for r in data_rows:
+            cur = latest_per_name.get(r.name)
+            if cur is None or r.started_at > cur.started_at:
+                latest_per_name[r.name] = r
+        keep = {name for name, r in latest_per_name.items() if r.conclusion != "success"}
+        return [r for r in data_rows if r.name in keep]
+
     def render_results_table(self, data_rows: list[JobResult]) -> str:
         """Render job data as a markdown table."""
         if not data_rows:
@@ -320,12 +342,8 @@ class XTestViz:
         pivot_data, sorted_dates, sorted_names = self._pivot_job_results(data_rows)
         return self._build_markdown_table(pivot_data, sorted_dates, sorted_names)
 
-    async def generate_results_table(self, days_back: int = 30) -> str:
-        """Generate markdown table of cross-version test results."""
-        data_rows = await self.fetch_all_jobs(days_back)
-        if not data_rows:
-            return "No workflow runs found in the specified time period."
-        return self.render_results_table(data_rows)
+    def render_json(self, data_rows: list[JobResult]) -> str:
+        return json.dumps([asdict(r) for r in data_rows], indent=2)
 
 
 async def main() -> None:
@@ -339,6 +357,10 @@ async def main() -> None:
         help="GitHub repository in owner/repo format (default: mlflow/dev)",
     )
     parser.add_argument("--token", help="GitHub token (default: use GH_TOKEN env var)")
+    parser.add_argument(
+        "--json-output",
+        help="If set, also write JSON results to this path.",
+    )
 
     args = parser.parse_args()
 
@@ -350,8 +372,17 @@ async def main() -> None:
         print("Set GH_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
-    output = await visualizer.generate_results_table(args.days)
-    print(output)
+    raw_rows = await visualizer.fetch_all_jobs(args.days)
+    data_rows = visualizer.filter_latest_not_success(raw_rows)
+    if args.json_output:
+        Path(args.json_output).write_text(visualizer.render_json(data_rows))
+    if not data_rows:
+        if raw_rows:
+            print("All latest cross-version tests succeeded.")
+        else:
+            print("No workflow runs found in the specified time period.")
+    else:
+        print(visualizer.render_results_table(data_rows))
 
 
 if __name__ == "__main__":

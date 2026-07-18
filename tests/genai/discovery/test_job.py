@@ -14,6 +14,15 @@ from mlflow.genai.discovery.job import (
     ("provider", "secret_value", "auth_config", "expected_credentials"),
     [
         ("openai", {"api_key": "test-key"}, {}, {"OPENAI_API_KEY": "test-key"}),
+        (
+            "openai",
+            {"api_key": "test-key"},
+            {"api_base": "https://custom.example.com/v1"},
+            {
+                "OPENAI_API_KEY": "test-key",
+                "OPENAI_API_BASE": "https://custom.example.com/v1",
+            },
+        ),
         ("anthropic", {"api_key": "test-key"}, {}, {"ANTHROPIC_API_KEY": "test-key"}),
         ("gemini", {"api_key": "test-key"}, {}, {"GEMINI_API_KEY": "test-key"}),
         (

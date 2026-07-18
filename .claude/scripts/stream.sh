@@ -18,6 +18,8 @@ tee "${1:-/dev/null}" \
       .message.content[]?
       | select(.type == "tool_result")
       | "📥 tool_result (\(.content | tostring | length) chars)\(if .is_error then " ❌" else "" end)"
+    elif .type == "system" and .subtype == "init" then
+      "🚀 init: \(.model) (v\(.claude_code_version), session \(.session_id[0:8]))"
     elif .type == "result" then
       "✅ Done (\((.duration_ms / 100 | round) / 10)s, \(.num_turns) turns, \(.usage.input_tokens + .usage.output_tokens) tokens, $\(.total_cost_usd * 100 | round / 100))"
     else

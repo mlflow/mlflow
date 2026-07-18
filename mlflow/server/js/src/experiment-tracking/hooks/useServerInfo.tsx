@@ -9,10 +9,15 @@ const SERVER_INFO_QUERY_KEY = 'serverInfo';
 interface ServerInfoResponse {
   store_type: string | null;
   workspaces_enabled: boolean;
+  trace_archival_enabled: boolean;
 }
 
 // Default response when the API call fails (e.g., older server without this endpoint)
-const DEFAULT_RESPONSE: ServerInfoResponse = { store_type: '', workspaces_enabled: false };
+const DEFAULT_RESPONSE: ServerInfoResponse = {
+  store_type: '',
+  workspaces_enabled: false,
+  trace_archival_enabled: false,
+};
 
 // Module-level reference to the QueryClient for synchronous access
 let queryClientRef: QueryClient | null = null;
@@ -54,6 +59,11 @@ export function useServerInfo() {
 export function useIsFileStore(): boolean | undefined {
   const { data } = useServerInfo();
   return data ? data.store_type === 'FileStore' : undefined;
+}
+
+export function useTraceArchivalEnabled(): boolean {
+  const { data } = useServerInfo();
+  return data?.trace_archival_enabled ?? false;
 }
 
 interface ServerInfoProviderProps {

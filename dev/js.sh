@@ -38,7 +38,7 @@ done
 case "$cmd" in
   fmt)
     # Use npx to avoid slow `yarn install --immutable`
-    [ ${#files[@]} -gt 0 ] && npx --min-release-age=14 "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
+    [ ${#files[@]} -gt 0 ] && npx --min-release-age=7 "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
     ;;
   # TODO: Add eslint, i18n, type-check commands if needed
   *)

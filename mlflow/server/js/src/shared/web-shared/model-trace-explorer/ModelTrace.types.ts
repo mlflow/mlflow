@@ -23,6 +23,16 @@ export enum ModelSpanType {
   UNKNOWN = 'UNKNOWN',
 }
 
+// Numeric values mirror Python's logging module so a value sourced from
+// the `mlflow.spanLogLevel` span attribute can be compared directly.
+export enum SpanLogLevel {
+  DEBUG = 10,
+  INFO = 20,
+  WARNING = 30,
+  ERROR = 40,
+  CRITICAL = 50,
+}
+
 export enum ModelIconType {
   MODELS = 'models',
   DOCUMENT = 'document',
@@ -95,6 +105,22 @@ export type ModelTraceSpanV3 = {
   type?: ModelSpanType;
 };
 
+/**
+ * OTLP AnyValue: the typed attribute value shape returned by OTLP-based
+ * endpoints (V3 traces/get and V4 batchGet). Exactly one field is set;
+ * an empty object represents null.
+ */
+export type ModelTraceOtelAnyValue = {
+  string_value?: string;
+  // int64 values may be serialized as strings in proto3 JSON
+  int_value?: number | string;
+  bool_value?: boolean;
+  double_value?: number;
+  bytes_value?: string;
+  array_value?: { values?: ModelTraceOtelAnyValue[] };
+  kvlist_value?: { values?: Array<{ key: string; value?: ModelTraceOtelAnyValue }> };
+};
+
 export type ModelTraceSpanV4 = {
   trace_id: string;
   span_id: string;
@@ -106,11 +132,7 @@ export type ModelTraceSpanV4 = {
   end_time_unix_nano: string;
   attributes: Array<{
     key: string;
-    value: {
-      string_value?: string;
-      int_value?: number;
-      bool_value?: boolean;
-    };
+    value: ModelTraceOtelAnyValue;
   }>;
   status: { code: ModelSpanStatusCode };
   events?: ModelTraceEvent[];
@@ -315,6 +337,10 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   modelName?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
+  // Severity classification, sourced from `mlflow.spanLogLevel`. Spans without
+  // an explicit level have this undefined; the trace-explorer filter treats
+  // missing as DEBUG so old/unclassified spans stay visible by default.
+  logLevel?: SpanLogLevel;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -334,6 +360,10 @@ export type SpanFilterState = {
   showExceptions: boolean;
   // record of span_type: whether to show it
   spanTypeDisplayState: Record<string, boolean>;
+  // hide spans whose `mlflow.spanLogLevel` is below this threshold.
+  // Spans without an explicit level are treated as DEBUG so old/unclassified
+  // spans remain visible at the default threshold.
+  minLogLevel: SpanLogLevel;
 };
 
 export interface RetrieverDocument {

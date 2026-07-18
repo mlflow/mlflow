@@ -31,7 +31,7 @@ export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceN
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds, tracesNavigationFilters } = useOverviewChartContext();
   const navigate = useNavigate();
 
   // Fetch and process errors chart data
@@ -45,16 +45,18 @@ export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceN
     return [`${value.toFixed(1)}%`, name] as [string, string];
   }, []);
 
-  // Handle click on tooltip link to navigate to traces filtered by error status
+  // Handle click on tooltip link to navigate to traces filtered by error status,
+  // merging in any active MetricsFilter selections supplied by the page via context.
   const handleViewTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
       const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
         createSpanStatusEqualsFilter('ERROR'),
+        ...(tracesNavigationFilters ?? []),
       ]);
       navigate(url);
     },
-    [experimentIds, timeIntervalSeconds, navigate],
+    [experimentIds, timeIntervalSeconds, tracesNavigationFilters, navigate],
   );
 
   if (isLoading) {

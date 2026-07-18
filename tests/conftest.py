@@ -652,7 +652,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "To run tests with additional packages, use:\n"
             "  uv run --with <package> pytest ...\n\n"
             "For multiple packages:\n"
-            "  uv run --with <package1> --with <package2> pytest ...\n\n",
+            "  uv run --with '<package1>,<package2>' pytest ...\n\n",
             yellow=True,
         )
 

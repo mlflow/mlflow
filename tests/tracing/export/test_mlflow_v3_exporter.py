@@ -399,11 +399,14 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         )
 
         # Create a mock OTEL span and trace
+        now_ns = int(time.time() * 1e9)
         otel_span = create_mock_otel_span(
             name="root",
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            start_time=now_ns - 1_000_000,
+            end_time=now_ns,
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -489,11 +492,14 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
         ) as mock_link_prompts,
     ):
         # Create a mock OTEL span and trace (no prompts added)
+        now_ns = int(time.time() * 1e9)
         otel_span = create_mock_otel_span(
             name="root",
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            start_time=now_ns - 1_000_000,
+            end_time=now_ns,
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -549,11 +555,14 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
         mock.patch("mlflow.tracing.export.utils._logger") as mock_logger,
     ):
         # Create a mock OTEL span and trace with a prompt
+        now_ns = int(time.time() * 1e9)
         otel_span = create_mock_otel_span(
             name="root",
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            start_time=now_ns - 1_000_000,
+            end_time=now_ns,
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -598,11 +607,14 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
 def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
     # Create a mock OTEL span and trace
+    now_ns = int(time.time() * 1e9)
     otel_span = create_mock_otel_span(
         name="root",
         trace_id=12345,
         span_id=1,
         parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
     )
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
@@ -633,7 +645,15 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
 
 def test_batch_write_skipped_when_store_unsupported(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
-    otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
+    now_ns = int(time.time() * 1e9)
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=66666,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
+    )
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
 
@@ -661,3 +681,243 @@ def test_batch_write_skipped_when_store_unsupported(monkeypatch):
         mock_log_spans.assert_not_called()
         # Artifact upload should still happen as fallback
         mock_upload_trace_data.assert_called_once()
+
+
+def test_deferred_root_span_export(monkeypatch):
+    """
+    Regression test for background-thread span race with BatchSpanProcessor.
+
+    When BSP flushes a batch containing the root span while a background-thread child span
+    is still open, the root span must be deferred until the child ends (arrives in a later
+    batch). Only then should pop_trace() be called and the full trace exported.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    now_ns = int(time.time() * 1e9)
+    otel_trace_id = 77777
+
+    # Root span: already ended.
+    root_otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=otel_trace_id,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 2_000_000,
+        end_time=now_ns - 1_000_000,
+    )
+    # Child span: still open (end_time=None) simulating an in-flight background thread.
+    child_otel_span_open = create_mock_otel_span(
+        name="child",
+        trace_id=otel_trace_id,
+        span_id=2,
+        parent_id=1,
+        start_time=now_ns - 2_000_000,
+        end_time=None,
+    )
+    # Same child span, now ended — arrives in the second batch.
+    child_otel_span_closed = create_mock_otel_span(
+        name="child",
+        trace_id=otel_trace_id,
+        span_id=2,
+        parent_id=1,
+        start_time=now_ns - 2_000_000,
+        end_time=now_ns,
+    )
+
+    trace_id = generate_trace_id_v3(root_otel_span)
+    root_live_span = LiveSpan(root_otel_span, trace_id)
+    child_live_span = LiveSpan(child_otel_span_open, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_trace_id, trace_info)
+    trace_manager.register_span(root_live_span)
+    trace_manager.register_span(child_live_span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+
+        # Batch 1: root span ends, but child is still open → root must be deferred.
+        exporter.export([root_otel_span, child_otel_span_open])
+        mock_start_trace.assert_not_called()
+
+        # Simulate the child span ending: update end_time on the live span so
+        # has_open_spans() returns False for this trace.
+        child_live_span._span._end_time = now_ns
+
+        # Batch 2: child span (now closed) arrives → deferred root should flush.
+        exporter.export([child_otel_span_closed])
+        mock_start_trace.assert_called_once()
+        mock_upload_trace_data.assert_called_once()
+
+
+def test_async_export_preserves_workspace_context(monkeypatch):
+    """
+    Regression test for #24093: async trace export must carry the workspace
+    set on the originating thread through to the worker thread so that
+    http_request() includes the correct X-MLFLOW-WORKSPACE header.
+    """
+    from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    # Captured workspace values seen inside the client methods on the worker thread.
+    # These methods execute *inside* the WorkspaceContext wrapper applied by _log_spans/_log_trace.
+    captured_log_spans_workspace = []
+    captured_start_trace_workspace = []
+
+    def mock_log_spans(*args, **kwargs):
+        captured_log_spans_workspace.append(get_request_workspace())
+
+    def mock_start_trace(*args, **kwargs):
+        captured_start_trace_workspace.append(get_request_workspace())
+        return trace_info
+
+    now_ns = int(time.time() * 1e9)
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=99999,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+            side_effect=mock_log_spans,
+        ),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=mock_start_trace,
+        ),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+
+        # Capture workspace on the originating thread at trace registration time.
+        with WorkspaceContext("test-workspace"):
+            trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+            trace_manager.register_span(span)
+
+        # Context exited: the originating thread no longer has a workspace.
+        assert get_request_workspace() is None
+
+        # Export the span — the async queue dispatches to a worker thread.
+        exporter.export([otel_span])
+
+        # Flush the async queue to ensure the worker thread has completed.
+        exporter._async_queue.flush(terminate=True)
+
+    # start_trace (called inside _log_trace) should see the workspace on the worker thread
+    assert len(captured_start_trace_workspace) == 1, (
+        f"Expected start_trace to be called once, got {len(captured_start_trace_workspace)}"
+    )
+    assert captured_start_trace_workspace[0] == "test-workspace", (
+        f"Expected workspace 'test-workspace' on worker thread, "
+        f"got '{captured_start_trace_workspace[0]}'"
+    )
+
+    # log_spans (called inside _log_spans) should see the workspace on the worker thread
+    assert len(captured_log_spans_workspace) == 1, (
+        f"Expected log_spans to be called once, got {len(captured_log_spans_workspace)}"
+    )
+    assert captured_log_spans_workspace[0] == "test-workspace", (
+        f"Expected workspace 'test-workspace' on worker thread, "
+        f"got '{captured_log_spans_workspace[0]}'"
+    )
+
+
+def test_bsp_export_preserves_workspace_context(monkeypatch):
+    """
+    Regression test verifying that BatchSpanProcessor (BSP) daemon thread hops preserve
+    the workspace context captured on the originating thread at trace creation time.
+
+    Uses a real BatchSpanProcessor so the export runs on the BSP's own daemon worker
+    thread, not the originating thread.
+    """
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    captured_start_trace_workspace = []
+    captured_log_spans_workspace = []
+
+    def mock_start_trace(*args, **kwargs):
+        captured_start_trace_workspace.append(get_request_workspace())
+        return trace_info
+
+    def mock_log_spans(*args, **kwargs):
+        captured_log_spans_workspace.append(get_request_workspace())
+
+    now_ns = int(time.time() * 1e9)
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=88888,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=mock_start_trace,
+        ),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+            side_effect=mock_log_spans,
+        ),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+        bsp = BatchSpanProcessor(exporter, max_export_batch_size=1)
+
+        # Capture workspace on the originating thread at trace registration time.
+        with WorkspaceContext("bsp-workspace"):
+            trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+            trace_manager.register_span(span)
+
+        # Context exited: the originating thread no longer has a workspace.
+        assert get_request_workspace() is None
+
+        # Enqueue the span — BSP daemon thread picks it up and calls
+        # exporter.export([span]) on its own thread.
+        bsp.on_end(otel_span)
+
+        # Deterministically drain: shutdown() joins the worker thread after it
+        # has exported everything queued.
+        bsp.shutdown()
+
+    # Assert workspace survived the BSP daemon thread hop
+    assert len(captured_start_trace_workspace) == 1
+    assert captured_start_trace_workspace[0] == "bsp-workspace"
+    assert len(captured_log_spans_workspace) == 1
+    assert captured_log_spans_workspace[0] == "bsp-workspace"

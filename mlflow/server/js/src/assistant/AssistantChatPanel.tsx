@@ -24,11 +24,12 @@ import {
   WrenchSparkleIcon,
   Spinner,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
+import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
@@ -264,8 +265,19 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
-    useAssistant();
+  const {
+    messages,
+    isStreaming,
+    error,
+    activeTools,
+    sendMessage,
+    regenerateLastMessage,
+    cancelSession,
+    pendingPrompt,
+    clearPendingPrompt,
+    pendingPermission,
+    respondToPermission,
+  } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
 
@@ -286,6 +298,16 @@ const ChatPanelContent = () => {
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, [inputValue]);
+
+  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
+  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  useEffect(() => {
+    if (pendingPrompt != null) {
+      setInputValue(pendingPrompt);
+      clearPendingPrompt();
+      textareaRef.current?.focus();
+    }
+  }, [pendingPrompt, clearPendingPrompt]);
 
   const handleSend = useCallback(() => {
     if (inputValue.trim() && !isStreaming) {
@@ -368,6 +390,7 @@ const ChatPanelContent = () => {
           flexShrink: 0,
         }}
       >
+        {pendingPermission && <ToolPermissionPrompt request={pendingPermission} onRespond={respondToPermission} />}
         <div
           css={{
             display: 'flex',
@@ -448,8 +471,8 @@ const SetupLoadingState = () => {
 };
 
 /**
- * Message shown when server is not running locally.
- * Assistant only works with local MLflow servers.
+ * Message shown when this client is not allowed to use the Assistant,
+ * e.g. a remote client when the server's remote-access settings don't permit it.
  */
 const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -473,7 +496,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
       <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
         <FormattedMessage
           defaultMessage="Assistant Not Available"
-          description="Title shown when Assistant is not available for remote servers"
+          description="Title shown when Assistant is not available for this client"
         />
       </Typography.Title>
 
@@ -486,8 +509,8 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
         }}
       >
         <FormattedMessage
-          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
-          description="Message explaining that Assistant only works with local servers"
+          defaultMessage="MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely."
+          description="Message explaining that the Assistant is blocked by the server's remote-access settings"
         />
       </Typography.Text>
 
@@ -533,7 +556,9 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
+  const intl = useIntl();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -565,8 +590,9 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const renderContent = () => {
-    // Show message for remote servers - Assistant only works locally
-    if (!isLocalServer) {
+    // Show message when this client isn't allowed to use the Assistant
+    // (e.g. a remote client and the server's remote-access settings don't permit it)
+    if (!canUseAssistant) {
       return <RemoteServerMessage onClose={handleClose} />;
     }
 
@@ -583,7 +609,7 @@ export const AssistantChatPanel = () => {
           <AssistantSetupWizard
             experimentId={experimentId}
             onComplete={handleSetupComplete}
-            initialStep="project"
+            initialStep="provider"
             onBack={handleBackFromSettings}
           />
         );
@@ -645,13 +671,30 @@ export const AssistantChatPanel = () => {
                   aria-label="New Chat"
                 />
               </Tooltip>
-              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+              <Tooltip
+                componentId="mlflow.assistant.chat_panel.settings.tooltip"
+                content={
+                  isLocalServer
+                    ? intl.formatMessage({
+                        defaultMessage: 'Settings',
+                        description: 'Tooltip for the Assistant settings button',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage:
+                          'Updating Assistant settings is not allowed for a remote MLflow server. ' +
+                          'Contact your server admin to update the settings.',
+                        description:
+                          'Tooltip explaining that Assistant settings cannot be changed from a remote client',
+                      })
+                }
+              >
                 <Button
                   componentId="mlflow.assistant.chat_panel.settings"
                   size="small"
                   icon={<GearIcon />}
                   onClick={handleOpenSettings}
                   aria-label="Settings"
+                  disabled={!isLocalServer}
                 />
               </Tooltip>
             </>

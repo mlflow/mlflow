@@ -188,6 +188,7 @@ def test_parse_extra_conf():
         "fs.permissions.umask-mode": "022",
         "some_other.extra.conf": "abcd",
     }
+    assert _parse_extra_conf("fs.azure.account.key=abc==") == {"fs.azure.account.key": "abc=="}
     assert _parse_extra_conf(None) is None
 
     with pytest.raises(ValueError, match="not enough values to unpack "):

@@ -81,12 +81,13 @@ def autolog(
     try:
         from agents.run import AgentRunner
 
-        from mlflow.openai._agent_tracer import _patched_agent_run
+        from mlflow.openai._agent_tracer import _patched_agent_run, _patched_agent_run_streamed
 
         # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
         # root span, which is not inconvenient. Therefore, we add a patch for the
         # runner.run() method instead.
         safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+        safe_patch(FLAVOR_NAME, AgentRunner, "run_streamed", _patched_agent_run_streamed)
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
@@ -172,7 +173,7 @@ def _autolog(
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
 
-def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -218,7 +219,12 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
+    # Walk the MRO so subclasses (e.g. third-party wrappers like
+    # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
+    for base_cls, span_type in span_type_mapping.items():
+        if issubclass(task, base_cls):
+            return span_type
+    return SpanType.UNKNOWN
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -302,7 +308,7 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
-    span_type = _get_span_type_and_message_format(instance.__class__)
+    span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
     if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
@@ -381,11 +387,11 @@ def _process_last_chunk(
             output = None
         elif is_responses_api:
             output = _reconstruct_response_from_stream(output)
-        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
+        elif completion_chunks := _filter_completion_stream_chunks(output):
             # Reconstruct a completion object from streaming chunks
-            output = _reconstruct_completion_from_stream(output)
+            output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
-            if usage := getattr(chunk, "usage", None):
+            if usage := _get_completion_stream_usage(completion_chunks):
                 usage_dict = {
                     TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                     TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
@@ -405,6 +411,21 @@ def _process_last_chunk(
         )
 
 
+def _filter_completion_stream_chunks(chunks: list[Any]) -> list[Any]:
+    return [
+        chunk
+        for chunk in chunks
+        if getattr(chunk, "object", None) in {"text_completion", "chat.completion.chunk"}
+    ]
+
+
+def _get_completion_stream_usage(chunks: list[Any]) -> Any:
+    for chunk in reversed(chunks):
+        if usage := getattr(chunk, "usage", None):
+            return usage
+    return None
+
+
 def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     """
     Reconstruct a completion object from streaming chunks.
@@ -412,6 +433,10 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
+    chunks = _filter_completion_stream_chunks(chunks)
+    if not chunks:
+        return None
+
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:

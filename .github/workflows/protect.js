@@ -19,6 +19,8 @@ module.exports = async ({ github, context }) => {
     failure: "failure",
   };
 
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
+
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -96,7 +98,8 @@ module.exports = async ({ github, context }) => {
         // Exclude this workflow to avoid self-checking
         path !== ".github/workflows/protect.yml" &&
         // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic"
+        event !== "dynamic" &&
+        !IGNORED_WORKFLOWS.has(path)
     );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt

@@ -35,6 +35,8 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   r:
     runs-on: ubuntu-latest
@@ -46,14 +48,14 @@ jobs:
       run:
         working-directory: mlflow/R/mlflow
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies

@@ -24,7 +24,6 @@ def build_docker(
     mlflow_home=None,
     install_java=False,
     install_mlflow=False,
-    enable_mlserver=False,
     base_image=None,
 ):
     """
@@ -75,7 +74,6 @@ def build_docker(
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated.
             The version of installed mlflow will be the same as the one used to invoke this command.
-        enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
         base_image: Base image for the Docker image. If not specified, the default image is either
             UBUNTU_BASE_IMAGE = "ubuntu:22.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You
@@ -88,7 +86,6 @@ def build_docker(
         mlflow_home=mlflow_home,
         install_java=install_java,
         install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
         base_image=base_image,
     )
 

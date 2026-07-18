@@ -1,77 +1,53 @@
-import React, { lazy, useCallback, useMemo, useState } from 'react';
-import { Spinner, Typography } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import React, { useState } from 'react';
+import { Typography } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
 import type { ExperimentEntity } from '../../../../types';
-import {
-  canModifyExperiment,
-  getExperimentType,
-  isExperimentTypeDefault,
-  isRepoNotebookExperiment,
-  isExperimentTypeNotebook,
-} from '../../utils/experimentPage.common-utils';
-import { getShareFeedbackOverflowMenuItem } from './ExperimentViewHeader.utils';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
-import { RenameExperimentModal } from '../../../modals/RenameExperimentModal';
 import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
-
-import { useExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
-import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { canDeleteExperiment, canModifyExperiment, canRenameExperiment } from '../../utils/experimentPage.common-utils';
 
 /**
  * Experiment page header part responsible for displaying menu
- * with rename and delete buttons
+ * with edit and delete buttons
  */
 export const ExperimentViewManagementMenu = ({
   experiment,
   setEditing,
   baseComponentId = 'mlflow.experiment_page.managementMenu',
-  refetchExperiment,
 }: {
   experiment: ExperimentEntity;
   setEditing?: (editing: boolean) => void;
   baseComponentId?: string;
-  refetchExperiment?: () => Promise<unknown>;
 }) => {
-  const [showRenameExperimentModal, setShowRenameExperimentModal] = useState(false);
   const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
-
-  return (
-    <>
-      <OverflowMenu
-        menu={[
-          ...(setEditing
-            ? [
-                {
-                  id: 'edit-description',
-                  itemName: (
-                    <Typography.Text>
-                      <FormattedMessage
-                        defaultMessage="Edit description"
-                        description="Text for edit description button on experiment view page header"
-                      />
-                    </Typography.Text>
-                  ),
-                  onClick: () => setEditing?.(true),
-                },
-              ]
-            : []),
+  const canEditExperiment = Boolean(setEditing) && (canRenameExperiment(experiment) || canModifyExperiment(experiment));
+  const canDelete = canDeleteExperiment(experiment);
+  const menu = [
+    ...(canEditExperiment
+      ? [
           {
-            id: 'rename',
+            id: `${baseComponentId}.edit-experiment`,
             itemName: (
-              <FormattedMessage
-                defaultMessage="Rename"
-                description="Text for rename button on the experiment view page header"
-              />
+              <Typography.Text>
+                <FormattedMessage
+                  defaultMessage="Edit experiment"
+                  description="Text for edit experiment button on experiment view page header"
+                />
+              </Typography.Text>
             ),
-            onClick: () => setShowRenameExperimentModal(true),
+            onClick: () => setEditing?.(true),
           },
+        ]
+      : []),
+    ...(canDelete
+      ? [
           {
-            id: 'delete',
+            id: `${baseComponentId}.delete`,
             itemName: (
               <FormattedMessage
                 defaultMessage="Delete"
@@ -80,18 +56,17 @@ export const ExperimentViewManagementMenu = ({
             ),
             onClick: () => setShowDeleteExperimentModal(true),
           },
-        ]}
-      />
-      <RenameExperimentModal
-        experimentId={experiment.experimentId}
-        experimentName={experiment.name}
-        isOpen={showRenameExperimentModal}
-        onClose={() => setShowRenameExperimentModal(false)}
-        onExperimentRenamed={() => {
-          invalidateExperimentList();
-          refetchExperiment?.();
-        }}
-      />
+        ]
+      : []),
+  ];
+
+  if (menu.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <OverflowMenu menu={menu} />
       <DeleteExperimentModal
         experimentId={experiment.experimentId}
         experimentName={experiment.name}

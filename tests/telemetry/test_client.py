@@ -950,6 +950,25 @@ def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
         assert "params" not in event
 
 
+def test_oss_ingestion_skipped_when_running_inside_databricks(mock_requests):
+    # When in DBR with a non-Databricks tracking URI, the OSS ingestion
+    # endpoint must not be hit. The Databricks-forwarding path is the only
+    # allowed outbound from inside DBR.
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "http"
+
+        with mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True):
+            client._process_records([record])
+
+        assert len(mock_requests) == 0
+
+
 def test_databricks_forwarding_disabled_for_dev_versions():
     record = Record(
         event_name="test_event",

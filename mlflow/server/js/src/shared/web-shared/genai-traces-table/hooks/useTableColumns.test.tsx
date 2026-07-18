@@ -162,14 +162,16 @@ describe('useTableColumns', () => {
     // 8) request_time (TRACE_INFO)
     // 9) state (TRACE_INFO)
     // 10) source (TRACE_INFO)
-    // 11) logged_model (TRACE_INFO)
-    // 12) prompt (TRACE_INFO)
-    // 13) tokens (TRACE_INFO)
-    // 14) run_name (TRACE_INFO)
-    // 15) tags (TRACE_INFO)
-    // 16) issues (TRACE_INFO)
-    // 17) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(17);
+    // 11) git_branch (TRACE_INFO)
+    // 12) git_commit (TRACE_INFO)
+    // 13) logged_model (TRACE_INFO)
+    // 14) prompt (TRACE_INFO)
+    // 15) tokens (TRACE_INFO)
+    // 16) run_name (TRACE_INFO)
+    // 17) tags (TRACE_INFO)
+    // 18) issues (TRACE_INFO)
+    // 19) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(19);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('request');
@@ -182,6 +184,8 @@ describe('useTableColumns', () => {
     expect(colIds).toContain(REQUEST_TIME_COLUMN_ID);
     expect(colIds).toContain('state');
     expect(colIds).toContain('source');
+    expect(colIds).toContain('git_branch');
+    expect(colIds).toContain('git_commit');
     expect(colIds).toContain('run_name');
     expect(colIds).toContain('tags');
     expect(colIds).toContain('issues');
@@ -233,13 +237,15 @@ describe('useTableColumns', () => {
     // 8) request_time (TRACE_INFO)
     // 9) state (TRACE_INFO)
     // 10) source (TRACE_INFO)
-    // 11) logged_model (TRACE_INFO)
-    // 12) prompt (TRACE_INFO)
-    // 13) tokens (TRACE_INFO)
-    // 14) tags (TRACE_INFO)
-    // 15) issues (TRACE_INFO)
-    // 16) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(16);
+    // 11) git_branch (TRACE_INFO)
+    // 12) git_commit (TRACE_INFO)
+    // 13) logged_model (TRACE_INFO)
+    // 14) prompt (TRACE_INFO)
+    // 15) tokens (TRACE_INFO)
+    // 16) tags (TRACE_INFO)
+    // 17) issues (TRACE_INFO)
+    // 18) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(18);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('request');
@@ -252,6 +258,8 @@ describe('useTableColumns', () => {
     expect(colIds).toContain(REQUEST_TIME_COLUMN_ID);
     expect(colIds).toContain('state');
     expect(colIds).toContain('source');
+    expect(colIds).toContain('git_branch');
+    expect(colIds).toContain('git_commit');
     expect(colIds).toContain('tags');
     expect(colIds).toContain('issues');
     expect(colIds).toContain(createAssessmentColumnId('quality'));
@@ -344,11 +352,11 @@ describe('useTableColumns', () => {
 
     // Expected columns:
     // 1) request (INPUT)
-    // 2-15) standard trace info columns (trace_id, trace_name, response, user, session, execution_duration, request_time, state, source, logged_model, prompt, tokens, run_name, tags)
-    // 16-18) custom metadata columns (user_id, environment, deployment_version)
-    // 19) issues (TRACE_INFO)
-    // 20) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(20);
+    // 2-17) standard trace info columns (trace_id, trace_name, response, user, session, execution_duration, request_time, state, source, git_branch, git_commit, logged_model, prompt, tokens, run_name, tags)
+    // 18-20) custom metadata columns (user_id, environment, deployment_version)
+    // 21) issues (TRACE_INFO)
+    // 22) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(22);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('custom_metadata:user_id');

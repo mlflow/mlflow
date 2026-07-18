@@ -33,7 +33,7 @@ def test_get_input_schema_uses_array_schema_for_variadic_arguments():
     assert schema["items"] == {"type": "string"}
 
 
-@pytest_asyncio.fixture()
+@pytest_asyncio.fixture
 async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,
@@ -93,6 +93,7 @@ async def test_list_tools(client: Client):
         "set_trace_tag",
         "update_deployment",
         "update_deployment_endpoint",
+        "update_experiment",
         "update_model_pip_requirements",
         "update_trace_assessment",
     ]

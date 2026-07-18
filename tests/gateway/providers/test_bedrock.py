@@ -11,6 +11,7 @@ from mlflow.gateway.config import (
     AWSRole,
     EndpointConfig,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -609,3 +610,118 @@ async def test_bedrock_converse_chat_with_tool_call():
     result = jsonable_encoder(response)
     tool_calls = result["choices"][0]["message"]["tool_calls"]
     assert tool_calls[0]["function"]["name"] == "add"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_serializes_assistant_tool_call_history():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute 17+25"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_abc123",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "tool_abc123", "content": "42"},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add",
+                        "description": "Add two integers.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                            "required": ["a", "b"],
+                        },
+                    },
+                }
+            ],
+        )
+        await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assistant_blocks = call_kwargs["messages"][1]["content"]
+    tool_uses = [b["toolUse"] for b in assistant_blocks if "toolUse" in b]
+    assert tool_uses == [{"toolUseId": "tool_abc123", "name": "add", "input": {"a": 17, "b": 25}}]
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.parametrize("arguments", ["not-json", "", "   "])
+@pytest.mark.asyncio
+async def test_bedrock_converse_rejects_invalid_assistant_tool_call_arguments(arguments):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute 17+25"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_bad_args",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": arguments},
+                        }
+                    ],
+                },
+            ]
+        )
+        with pytest.raises(
+            AIGatewayException, match="Invalid assistant tool call arguments: not valid JSON"
+        ) as exc_info:
+            await provider.chat(payload)
+
+    assert exc_info.value.status_code == 422
+    assert "tool_call_id=tool_bad_args" in exc_info.value.detail
+    assert "tool_name=add" in exc_info.value.detail
+    mock_client.converse.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute 17+25"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_missing_name",
+                            "type": "function",
+                            "function": {"name": None, "arguments": '{"a": 17, "b": 25}'},
+                        }
+                    ],
+                },
+            ]
+        )
+        with pytest.raises(
+            AIGatewayException, match="Invalid assistant tool call: missing function name"
+        ) as exc_info:
+            await provider.chat(payload)
+
+    assert exc_info.value.status_code == 422
+    assert "tool_call_id=tool_missing_name" in exc_info.value.detail
+    mock_client.converse.assert_not_called()

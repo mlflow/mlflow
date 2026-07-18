@@ -17,7 +17,6 @@ from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
-from llama_index.vector_stores.qdrant import QdrantVectorStore
 from packaging.version import Version
 
 import mlflow
@@ -36,6 +35,14 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import pyfunc_scoring_endpoint
+
+try:
+    from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+    _QDRANT_AVAILABLE = True
+except ImportError:
+    QdrantVectorStore = None
+    _QDRANT_AVAILABLE = False
 
 _EMBEDDING_DIM = 1536
 _TEST_QUERY = "Spell llamaindex"
@@ -121,7 +128,8 @@ def test_format_predict_input_correct(single_index, engine_type):
     wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     assert isinstance(
-        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
+        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})),
+        QueryBundle,
     )
     assert isinstance(wrapped_model._format_predict_input(np.array(["hi"])), QueryBundle)
     assert isinstance(wrapped_model._format_predict_input({"query_str": ["hi"]}), QueryBundle)
@@ -360,7 +368,10 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
 
     index = VectorStoreIndex(nodes=[document])
     mlflow.llama_index.save_model(
-        llama_index_model=index, path=model_path, input_example="hi", engine_type="query"
+        llama_index_model=index,
+        path=model_path,
+        input_example="hi",
+        engine_type="query",
     )
 
     with model_path.joinpath("requirements.txt").open() as file:
@@ -407,9 +418,13 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
             "tests/llama_index/sample_code/basic_vector_store.py",
             SimpleVectorStore,
         ),
-        (
+        pytest.param(
             "tests/llama_index/sample_code/external_vector_store.py",
             QdrantVectorStore,
+            marks=pytest.mark.skipif(
+                not _QDRANT_AVAILABLE,
+                reason="llama-index-vector-stores-qdrant not installed",
+            ),
         ),
     ],
 )

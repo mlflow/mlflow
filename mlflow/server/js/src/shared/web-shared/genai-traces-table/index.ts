@@ -53,6 +53,8 @@ export { useColumnsURL } from './hooks/useColumnsURL';
 
 export { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 
+export { AnalyzeWithAssistantButton } from './components/AnalyzeWithAssistantButton';
+
 export * from './types';
 
 export {
@@ -84,6 +86,7 @@ export {
   formatTraceId,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
+  RESULT_ASSESSMENT_NAME,
 } from './utils/TraceUtils';
 
 export {
@@ -101,9 +104,15 @@ export {
   SIMULATION_PERSONA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
+  USER_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
+  createAssessmentColumnId,
 } from './hooks/useTableColumns';
+
+export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';
 
 export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 

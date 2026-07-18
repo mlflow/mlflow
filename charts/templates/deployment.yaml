@@ -1,0 +1,187 @@
+{{- if and (not .Values.mlflow.backendStoreUri) (not .Values.mlflow.backendStoreUriFrom) }}
+{{- fail "mlflow.backendStoreUri or mlflow.backendStoreUriFrom is required" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- if .Values.deploymentStrategy }}
+    {{- toYaml .Values.deploymentStrategy | nindent 4 }}
+    {{- else if or (and .Values.storage.enabled (eq .Values.storage.accessMode "ReadWriteOnce")) (hasPrefix "sqlite://" .Values.mlflow.backendStoreUri) }}
+    type: Recreate
+    {{- else }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mlflow.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "mlflow.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "mlflow.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.extraInitContainers }}
+      initContainers:
+        {{- toYaml .Values.extraInitContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: mlflow
+          image: {{ include "mlflow.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- $healthPrefix := .Values.server.staticPrefix | trimSuffix "/" }}
+          {{- $portName := ternary "https" "http" .Values.tls.enabled }}
+          command:
+            {{- include "mlflow.serverArgs" . | nindent 12 }}
+            {{- if .Values.server.staticPrefix }}
+            - --static-prefix={{ .Values.server.staticPrefix }}
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - --uvicorn-opts=--ssl-keyfile=/etc/tls/private/tls.key --ssl-certfile=/etc/tls/private/tls.crt --proxy-headers
+            {{- end }}
+            {{- if .Values.metrics.enabled }}
+            - --expose-prometheus=/tmp/metrics
+            {{- end }}
+          ports:
+            - name: {{ $portName }}
+              containerPort: {{ .Values.server.value_options.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ printf "%s/health" $healthPrefix }}
+              port: {{ $portName }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: {{ printf "%s/health" $healthPrefix }}
+              port: {{ $portName }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.mlflow.defaultArtifactRoot .Values.mlflow.artifactsDestination .Values.env }}
+          env:
+            {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
+            - name: MLFLOW_BACKEND_STORE_URI
+              {{- if .Values.mlflow.backendStoreUriFrom }}
+              valueFrom:
+                {{- toYaml .Values.mlflow.backendStoreUriFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .Values.mlflow.backendStoreUri | quote }}
+              {{- end }}
+            {{- end }}
+            {{- if or .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom }}
+            - name: MLFLOW_REGISTRY_STORE_URI
+              {{- if .Values.mlflow.registryStoreUriFrom }}
+              valueFrom:
+                {{- toYaml .Values.mlflow.registryStoreUriFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .Values.mlflow.registryStoreUri | quote }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.mlflow.defaultArtifactRoot }}
+            - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+              value: {{ .Values.mlflow.defaultArtifactRoot | quote }}
+            {{- end }}
+            {{- if .Values.mlflow.artifactsDestination }}
+            - name: MLFLOW_ARTIFACTS_DESTINATION
+              value: {{ .Values.mlflow.artifactsDestination | quote }}
+            {{- end }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem .Values.tls.enabled .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.storage.enabled }}
+            - name: mlflow-storage
+              mountPath: {{ .Values.storage.mountPath }}
+            {{- end }}
+            {{- if .Values.securityContext.readOnlyRootFilesystem }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - name: tls
+              mountPath: /etc/tls/private
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if or .Values.storage.enabled .Values.securityContext.readOnlyRootFilesystem .Values.tls.enabled .Values.extraVolumes }}
+      volumes:
+        {{- if .Values.storage.enabled }}
+        - name: mlflow-storage
+          persistentVolumeClaim:
+            claimName: {{ include "mlflow.fullname" . }}
+        {{- end }}
+        {{- if .Values.securityContext.readOnlyRootFilesystem }}
+        - name: tmp
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

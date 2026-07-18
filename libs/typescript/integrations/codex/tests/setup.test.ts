@@ -60,7 +60,7 @@ describe('runSetup', () => {
   }
 
   it('creates config.toml and mlflow-tracing.json with defaults when absent', async () => {
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const configPath = join(tmpHome, '.codex', 'config.toml');
     const tracingPath = join(tmpHome, '.codex', 'mlflow-tracing.json');
@@ -76,7 +76,7 @@ describe('runSetup', () => {
   it('writes the supplied --tracking-uri and --experiment-id to mlflow-tracing.json', async () => {
     await runSetup(
       ['--non-interactive', '--tracking-uri', 'http://mlflow.example/', '--experiment-id', '42'],
-      { home: tmpHome },
+      { home: tmpHome, cwd: tmpHome },
     );
 
     expect(readJson(join(tmpHome, '.codex', 'mlflow-tracing.json'))).toEqual({
@@ -91,7 +91,7 @@ describe('runSetup', () => {
     const existing = '[some.section]\nkey = "value"\n';
     writeFileSync(configPath, existing, 'utf-8');
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const content = readConfig(configPath);
     expect(content).toContain(HOOK_LINE);
@@ -102,11 +102,11 @@ describe('runSetup', () => {
   });
 
   it('is idempotent when the hook is already registered', async () => {
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
     const configPath = join(tmpHome, '.codex', 'config.toml');
     const first = readConfig(configPath);
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
     const second = readConfig(configPath);
 
     expect(second).toBe(first);
@@ -118,7 +118,7 @@ describe('runSetup', () => {
     mkdirSync(join(tmpHome, '.codex'), { recursive: true });
     writeFileSync(configPath, 'notify = ["some-other-tool"]\n', 'utf-8');
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const content = readConfig(configPath);
     expect(content).toBe('notify = ["some-other-tool"]\n');
@@ -136,7 +136,7 @@ describe('runSetup', () => {
       'utf-8',
     );
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     expect(process.exitCode).toBe(1);
     const content = readConfig(configPath);
@@ -147,7 +147,7 @@ describe('runSetup', () => {
   it('rejects a tracking URI that is missing an http(s) scheme and exits 1', async () => {
     await runSetup(
       ['--non-interactive', '--tracking-uri', 'localhost:5678', '--experiment-id', '48'],
-      { home: tmpHome },
+      { home: tmpHome, cwd: tmpHome },
     );
 
     expect(process.exitCode).toBe(1);
@@ -215,16 +215,56 @@ describe('runSetup', () => {
     }
   });
 
-  it('skips the scope prompt in --non-interactive mode and defaults to user-level', async () => {
+  it('skips the scope prompt in --non-interactive mode and defaults to project-local', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'codex-non-interactive-scope-'));
     try {
       await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd });
 
       expect(selectPromptMock).not.toHaveBeenCalled();
-      expect(existsSync(join(tmpHome, '.codex', 'config.toml'))).toBe(true);
-      expect(existsSync(join(cwd, '.codex', 'config.toml'))).toBe(false);
+      expect(existsSync(join(cwd, '.codex', 'config.toml'))).toBe(true);
+      expect(existsSync(join(tmpHome, '.codex', 'config.toml'))).toBe(false);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  it('accepts a databricks tracking URI and persists the trace location', async () => {
+    await runSetup(
+      [
+        '--non-interactive',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'my_catalog.my_schema.my_prefix',
+      ],
+      { home: tmpHome, cwd: tmpHome },
+    );
+
+    expect(process.exitCode).toBeFalsy();
+    expect(readJson(join(tmpHome, '.codex', 'mlflow-tracing.json'))).toEqual({
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: 'my_catalog.my_schema.my_prefix',
+    });
+  });
+
+  it('rejects an invalid --trace-location and exits 1 without writing config', async () => {
+    await runSetup(
+      [
+        '--non-interactive',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'not-valid',
+      ],
+      { home: tmpHome, cwd: tmpHome },
+    );
+
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(tmpHome, '.codex', 'mlflow-tracing.json'))).toBe(false);
   });
 });

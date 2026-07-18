@@ -52,7 +52,7 @@ describe('runSetup', () => {
   }
 
   it('creates settings.json and mlflow-tracing.json with defaults when absent', async () => {
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const settingsPath = join(tmpHome, '.qwen', 'settings.json');
     const tracingPath = join(tmpHome, '.qwen', 'mlflow-tracing.json');
@@ -72,7 +72,7 @@ describe('runSetup', () => {
   it('writes the supplied --tracking-uri and --experiment-id to mlflow-tracing.json', async () => {
     await runSetup(
       ['--non-interactive', '--tracking-uri', 'http://mlflow.example/', '--experiment-id', '42'],
-      { home: tmpHome },
+      { home: tmpHome, cwd: tmpHome },
     );
 
     expect(read(join(tmpHome, '.qwen', 'mlflow-tracing.json'))).toEqual({
@@ -90,7 +90,7 @@ describe('runSetup', () => {
       'utf-8',
     );
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const settings = read(settingsPath);
     expect(settings.theme).toBe('dark');
@@ -101,11 +101,11 @@ describe('runSetup', () => {
   });
 
   it('is idempotent when the hook is already registered', async () => {
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
     const settingsPath = join(tmpHome, '.qwen', 'settings.json');
     const firstSettings = readFileSync(settingsPath, 'utf-8');
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
     const secondSettings = readFileSync(settingsPath, 'utf-8');
 
     expect(secondSettings).toBe(firstSettings);
@@ -122,7 +122,7 @@ describe('runSetup', () => {
       'utf-8',
     );
 
-    await runSetup(NON_INTERACTIVE, { home: tmpHome });
+    await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
 
     const settings = read(settingsPath) as { hooks: { Stop: unknown[] } };
     expect(settings.hooks.Stop).toHaveLength(2);
@@ -139,7 +139,7 @@ describe('runSetup', () => {
     try {
       await runSetup(
         ['--non-interactive', '--tracking-uri', 'localhost:5678', '--experiment-id', '48'],
-        { home: tmpHome },
+        { home: tmpHome, cwd: tmpHome },
       );
       expect(process.exitCode).toBe(1);
       // The Stop hook is still registered (that step happens before URI
@@ -211,14 +211,14 @@ describe('runSetup', () => {
     }
   });
 
-  it('skips the scope prompt in --non-interactive mode and defaults to user-level', async () => {
+  it('skips the scope prompt in --non-interactive mode and defaults to project-local', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'qwen-non-interactive-scope-'));
     try {
       await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd });
 
       expect(selectPromptMock).not.toHaveBeenCalled();
-      expect(existsSync(join(tmpHome, '.qwen', 'settings.json'))).toBe(true);
-      expect(existsSync(join(cwd, '.qwen', 'settings.json'))).toBe(false);
+      expect(existsSync(join(cwd, '.qwen', 'settings.json'))).toBe(true);
+      expect(existsSync(join(tmpHome, '.qwen', 'settings.json'))).toBe(false);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -232,7 +232,7 @@ describe('runSetup', () => {
     process.exitCode = undefined;
 
     try {
-      await runSetup(NON_INTERACTIVE, { home: tmpHome });
+      await runSetup(NON_INTERACTIVE, { home: tmpHome, cwd: tmpHome });
       expect(process.exitCode).toBe(1);
       expect(readFileSync(settingsPath, 'utf-8')).toBe('{ not valid json');
       // mlflow-tracing.json must not have been written when setup bails early.

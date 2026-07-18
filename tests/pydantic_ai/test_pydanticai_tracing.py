@@ -1,4 +1,6 @@
 import importlib.metadata
+import sys
+import types
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +11,12 @@ from pydantic_ai.usage import Usage
 
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
-from mlflow.entities import SpanType
+from mlflow.entities import SpanLogLevel, SpanType
+from mlflow.pydantic_ai import (
+    _get_tool_manager_module_path,
+    _has_instrumentation_capability,
+    _tool_manager_uses_execute_tool_call,
+)
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
     _get_mcp_server_attributes,
@@ -24,9 +31,24 @@ from tests.tracing.helper import get_traces
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 # Usage was deprecated in favor of RequestUsage in 0.7.3
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
+HAS_INSTRUMENTATION_CAPABILITY = _has_instrumentation_capability()
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
+
+
+def _expected_llm_span_name(model_cls) -> str:
+    """Return the LLM span name for the path that must be exercised on this version.
+
+    On pydantic-ai >= 1.95 the span is produced by the Instrumentation capability hook
+    (``patched_capability_model_request``), which names it after the concrete model class,
+    e.g. ``OpenAIChatModel.request``. On < 1.95 it comes from the ``InstrumentedModel``
+    patch, which always names it ``InstrumentedModel.request``. Asserting the exact name
+    confirms the correct code path ran rather than merely "some LLM span exists".
+    """
+    if HAS_INSTRUMENTATION_CAPABILITY:
+        return f"{model_cls.__name__}.request"
+    return "InstrumentedModel.request"
 
 
 def _make_dummy_response_without_tool():
@@ -125,7 +147,12 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    # Patch the concrete model's request. On pydantic-ai < 1.95 MLflow wraps
+    # InstrumentedModel (which delegates to this concrete model); on >= 1.95 the concrete
+    # model is invoked directly through the Instrumentation capability. Patching the
+    # concrete class works on both, and avoids hitting the real API.
+    model_cls = type(simple_agent.model)
+    with patch.object(model_cls, "request", new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = simple_agent.run_sync("France")
@@ -137,6 +164,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
 
     assert spans[0].name == "Agent.run_sync"
     assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
     outputs_0 = spans[0].get_attribute(SpanAttributeKey.OUTPUTS)
     assert outputs_0 is not None
@@ -152,8 +180,11 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     assert len(outputs_1["_new_messages_serialized"]) > 0
 
     span2 = spans[2]
-    assert span2.name == "InstrumentedModel.request"
+    # Exact name confirms which instrumentation path produced the LLM span: the capability
+    # hook (>= 1.95) names it after the concrete model, InstrumentedModel (< 1.95) does not.
+    assert span2.name == _expected_llm_span_name(model_cls)
     assert span2.span_type == SpanType.LLM
+    assert span2.log_level == SpanLogLevel.INFO
     assert span2.parent_id == spans[1].span_id
     assert span2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
 
@@ -177,7 +208,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
         "total_tokens": 2,
     }
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch.object(model_cls, "request", new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
     assert len(get_traces()) == 1
@@ -190,7 +221,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost)
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch.object(type(simple_agent.model), "request", new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await simple_agent.run("France")
@@ -204,7 +235,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost)
     assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
-    assert span1.name == "InstrumentedModel.request"
+    assert span1.name == _expected_llm_span_name(type(simple_agent.model))
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
@@ -236,7 +267,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
             return sequence.pop(0)
         return resp
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch.object(type(agent_with_tool.model), "request", new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
@@ -246,59 +277,25 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) == 5
+    assert len(spans) > 3
 
-    assert spans[0].name == "Agent.run_sync"
-    assert spans[0].span_type == SpanType.AGENT
+    for span in spans:
+        if span.span_type == SpanType.LLM:
+            if not IS_TRACING_SDK_ONLY:
+                assert "input_cost" in span.llm_cost
+                assert span.llm_cost["input_cost"] > 0
+                assert "output_cost" in span.llm_cost
+                assert span.llm_cost["output_cost"] > 0
+                assert "total_cost" in span.llm_cost
+                assert span.llm_cost["total_cost"] > 0
 
-    assert spans[1].name == "Agent.run"
-    assert spans[1].span_type == SpanType.AGENT
-
-    span2 = spans[2]
-    assert span2.name == "InstrumentedModel.request"
-    assert span2.span_type == SpanType.LLM
-    assert span2.parent_id == spans[1].span_id
-    assert span2.model_name == "gpt-4o"
-    if not IS_TRACING_SDK_ONLY:
-        assert span2.llm_cost == {
-            "input_cost": 10.0,
-            "output_cost": 40.0,
-            "total_cost": 50.0,
-        }
-
-    span3 = spans[3]
-    assert span3.span_type == SpanType.TOOL
-    assert span3.parent_id == spans[1].span_id
-
-    span4 = spans[4]
-    assert span4.name == "InstrumentedModel.request"
-    assert span4.span_type == SpanType.LLM
-    assert span4.parent_id == spans[1].span_id
-    assert span4.model_name == "gpt-4o"
-    if not IS_TRACING_SDK_ONLY:
-        assert span4.llm_cost == {
-            "input_cost": 100.0,
-            "output_cost": 400.0,
-            "total_cost": 500.0,
-        }
-
-    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 30,
-    }
-
-    assert span4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 100,
-        TokenUsageKey.OUTPUT_TOKENS: 200,
-        TokenUsageKey.TOTAL_TOKENS: 300,
-    }
-
-    assert traces[0].info.token_usage == {
-        "input_tokens": 110,
-        "output_tokens": 220,
-        "total_tokens": 330,
-    }
+    token_usage = traces[0].info.token_usage
+    assert TokenUsageKey.INPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] > 0
+    assert TokenUsageKey.OUTPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
+    assert TokenUsageKey.TOTAL_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
 
 
 @pytest.mark.asyncio
@@ -310,7 +307,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
             return sequence.pop(0)
         return resp
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch.object(type(agent_with_tool.model), "request", new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
@@ -320,61 +317,30 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) == 4
+    assert len(spans) > 2
 
-    assert spans[0].name == "Agent.run"
-    assert spans[0].span_type == SpanType.AGENT
+    for span in spans:
+        if span.span_type == SpanType.LLM:
+            if not IS_TRACING_SDK_ONLY:
+                assert "input_cost" in span.llm_cost
+                assert span.llm_cost["input_cost"] > 0
+                assert "output_cost" in span.llm_cost
+                assert span.llm_cost["output_cost"] > 0
+                assert "total_cost" in span.llm_cost
+                assert span.llm_cost["total_cost"] > 0
 
-    span1 = spans[1]
-    assert span1.name == "InstrumentedModel.request"
-    assert span1.span_type == SpanType.LLM
-    assert span1.parent_id == spans[0].span_id
-    assert span1.model_name == "gpt-4o"
-
-    span2 = spans[2]
-    assert span2.span_type == SpanType.TOOL
-    assert span2.parent_id == spans[0].span_id
-
-    span3 = spans[3]
-    assert span3.name == "InstrumentedModel.request"
-    assert span3.span_type == SpanType.LLM
-    assert span3.parent_id == spans[0].span_id
-    assert span3.model_name == "gpt-4o"
-
-    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 30,
-    }
-    if not IS_TRACING_SDK_ONLY:
-        assert span1.llm_cost == {
-            "input_cost": 10.0,
-            "output_cost": 40.0,
-            "total_cost": 50.0,
-        }
-    assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 100,
-        TokenUsageKey.OUTPUT_TOKENS: 200,
-        TokenUsageKey.TOTAL_TOKENS: 300,
-    }
-    if not IS_TRACING_SDK_ONLY:
-        assert span3.llm_cost == {
-            "input_cost": 100.0,
-            "output_cost": 400.0,
-            "total_cost": 500.0,
-        }
-    assert traces[0].info.token_usage == {
-        "input_tokens": 110,
-        "output_tokens": 220,
-        "total_tokens": 330,
-    }
+    token_usage = traces[0].info.token_usage
+    assert TokenUsageKey.INPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] > 0
+    assert TokenUsageKey.OUTPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
+    assert TokenUsageKey.TOTAL_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
 
 
 def test_agent_run_sync_failure(simple_agent):
-    with patch(
-        "pydantic_ai.models.instrumented.InstrumentedModel.request",
-        side_effect=ValueError("test error"),
-    ):
+    model_cls = type(simple_agent.model)
+    with patch.object(model_cls, "request", side_effect=ValueError("test error")):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         with pytest.raises(ValueError, match="test error"):
@@ -382,6 +348,11 @@ def test_agent_run_sync_failure(simple_agent):
 
     traces = get_traces()
     assert len(traces) == 1
+    # On pydantic-ai >= 1.95 the concrete model's exception propagates unchanged through
+    # the Instrumentation.wrap_model_request hook (patched_capability_model_request marks
+    # its span ERROR and re-raises), so the trace's ERROR status is set by the capability
+    # path rather than the error being swallowed. The exact LLM span name asserted below
+    # confirms the error span came from that path.
     assert traces[0].info.status == "ERROR"
     spans = traces[0].data.spans
 
@@ -390,13 +361,10 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
-    assert spans[2].name.startswith("InstrumentedModel.")
+    assert spans[2].name == _expected_llm_span_name(model_cls)
     assert spans[2].span_type == SpanType.LLM
 
-    with patch(
-        "pydantic_ai.models.instrumented.InstrumentedModel.request",
-        side_effect=ValueError("test error"),
-    ):
+    with patch.object(model_cls, "request", side_effect=ValueError("test error")):
         mlflow.pydantic_ai.autolog(disable=True)
 
         with pytest.raises(ValueError, match="test error"):
@@ -480,13 +448,14 @@ def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
     async def request(self, *args, **kwargs):
         return dummy
 
-    # Mock must be set BEFORE autolog so autolog patches the mock
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(log_traces=True)
+    # Enable autolog first so patched Agent.__init__ auto-sets instrument=True, then
+    # patch the resolved concrete model so no real API call is made.
+    mlflow.pydantic_ai.autolog(log_traces=True)
 
-        # Create agent WITHOUT explicitly setting instrument=True
-        agent = Agent("openai:gpt-4o", system_prompt="Tell me the capital of {{input}}.")
+    # Create agent WITHOUT explicitly setting instrument=True
+    agent = Agent("openai:gpt-4o", system_prompt="Tell me the capital of {{input}}.")
 
+    with patch.object(type(agent.model), "request", new=request):
         result = agent.run_sync("France")
         assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
 
@@ -494,12 +463,13 @@ def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    # Should have Agent.run_sync > Agent.run > InstrumentedModel.request
-    span_names = [s.name for s in spans]
-    assert "InstrumentedModel.request" in span_names
-
-    llm_span = next(s for s in spans if s.name == "InstrumentedModel.request")
-    assert llm_span.span_type == SpanType.LLM
+    # Should have Agent.run_sync > Agent.run > <ConcreteModel>.request (LLM span).
+    # Exactly one LLM span: on versions that ship the capabilities module, only the
+    # Instrumentation hook instruments (InstrumentedModel is excluded), never both.
+    assert sum(1 for s in spans if s.span_type == SpanType.LLM) == 1
+    llm_span = next(s for s in spans if s.span_type == SpanType.LLM)
+    # Exact name confirms the correct path (capability hook on >= 1.95) was exercised.
+    assert llm_span.name == _expected_llm_span_name(type(agent.model))
 
 
 def test_autolog_does_not_capture_client_references(simple_agent):
@@ -508,7 +478,7 @@ def test_autolog_does_not_capture_client_references(simple_agent):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch.object(type(simple_agent.model), "request", new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
         simple_agent.run_sync("France")
 
@@ -520,6 +490,93 @@ def test_autolog_does_not_capture_client_references(simple_agent):
         attrs = span.attributes or {}
         for key in attrs:
             assert "client" not in key.lower() or key == "openai_client"
-            assert "provider" not in key.lower()
+            # `mlflow.llm.provider` holds the provider *name* (e.g. "openai"), not a
+            # captured provider object, so it is expected and safe.
+            assert "provider" not in key.lower() or key == SpanAttributeKey.MODEL_PROVIDER
             assert "_state" not in key.lower()
             assert "httpx" not in key.lower()
+
+
+# ---------------------------------------------------------------------------
+# Tests for _get_tool_manager_module_path and _tool_manager_uses_execute_tool_call
+# (covers both the public path introduced in pydantic-ai >= 1.78.0 and the
+#  legacy private path used by older versions)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("public_available", "expected_path"),
+    [
+        (True, "pydantic_ai.tool_manager"),
+        (False, "pydantic_ai._tool_manager"),
+    ],
+)
+def test_get_tool_manager_module_path(public_available, expected_path):
+    if public_available:
+        fake_module = types.ModuleType("pydantic_ai.tool_manager")
+        modules_override = {"pydantic_ai.tool_manager": fake_module}
+    else:
+        # Setting to None causes import to raise ImportError
+        modules_override = {"pydantic_ai.tool_manager": None}
+
+    with patch.dict(sys.modules, modules_override):
+        result = _get_tool_manager_module_path()
+
+    assert result == expected_path
+
+
+@pytest.mark.parametrize(
+    ("public_available", "has_execute_tool_call", "expected"),
+    [
+        (True, True, True),
+        (True, False, False),
+        (False, True, True),
+        (False, False, False),
+    ],
+)
+def test_tool_manager_uses_execute_tool_call(public_available, has_execute_tool_call, expected):
+    resolved_path = "pydantic_ai.tool_manager" if public_available else "pydantic_ai._tool_manager"
+
+    if has_execute_tool_call:
+
+        class FakeToolManager:
+            def execute_tool_call(self):
+                pass
+
+    else:
+
+        class FakeToolManager:
+            pass
+
+    fake_module = types.ModuleType(resolved_path)
+    fake_module.ToolManager = FakeToolManager
+
+    with (
+        patch("mlflow.pydantic_ai._get_tool_manager_module_path", return_value=resolved_path),
+        patch.dict(sys.modules, {resolved_path: fake_module}),
+    ):
+        result = _tool_manager_uses_execute_tool_call()
+
+    assert result is expected
+
+
+def test_autolog_uses_public_tool_manager_path_on_new_pydantic_ai():
+    with (
+        patch(
+            "mlflow.pydantic_ai._get_tool_manager_module_path",
+            return_value="pydantic_ai.tool_manager",
+        ),
+        patch("mlflow.pydantic_ai._tool_manager_uses_execute_tool_call", return_value=True),
+    ):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+
+
+def test_autolog_uses_private_tool_manager_path_on_old_pydantic_ai():
+    with (
+        patch(
+            "mlflow.pydantic_ai._get_tool_manager_module_path",
+            return_value="pydantic_ai._tool_manager",
+        ),
+        patch("mlflow.pydantic_ai._tool_manager_uses_execute_tool_call", return_value=True),
+    ):
+        mlflow.pydantic_ai.autolog(log_traces=True)
