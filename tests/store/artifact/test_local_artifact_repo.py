@@ -62,7 +62,7 @@ def test_list_artifacts_warns_but_does_not_raise_when_listing_fails(local_artifa
     # The directory exists (``os.stat`` succeeds) but becomes unreadable when listed.
     error = OSError(errno.EIO, os.strerror(errno.EIO))
     with (
-        mock.patch("mlflow.store.artifact.local_artifact_repo.list_all", side_effect=error),
+        mock.patch("mlflow.store.artifact.local_artifact_repo.os.listdir", side_effect=error),
         mock.patch("mlflow.store.artifact.local_artifact_repo._logger") as mock_logger,
     ):
         assert local_artifact_repo.list_artifacts() == []

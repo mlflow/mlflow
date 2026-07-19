@@ -19,7 +19,6 @@ from mlflow.store.artifact.artifact_repo import (
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.file_utils import (
     get_file_info,
-    list_all,
     local_file_uri_to_path,
     mkdir,
     relative_path_to_artifact_path,
@@ -219,8 +218,12 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             return []
         if not stat.S_ISDIR(list_dir_stat.st_mode):
             return []
+        # NOTE: ``os.listdir`` is used directly instead of ``list_all`` because the latter
+        # rechecks the directory with ``os.path.isdir``, which swallows ``OSError`` and would
+        # turn a filesystem failure here into a plain ``Exception`` that this ``except OSError``
+        # would not catch.
         try:
-            artifact_files = list_all(list_dir, full_path=True)
+            artifact_files = [os.path.join(list_dir, entry) for entry in os.listdir(list_dir)]
         except OSError as e:
             _logger.warning("Failed to list artifacts in '%s': %s", list_dir, e)
             return []
