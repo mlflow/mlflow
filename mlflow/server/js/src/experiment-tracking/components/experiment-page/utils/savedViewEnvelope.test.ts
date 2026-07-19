@@ -3,10 +3,10 @@ import { textCompressDeflate, isTextCompressedDeflate } from '../../../../common
 import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX } from '../../../constants';
 import {
   decodeSavedViewEnvelope,
+  deserializePersistedState,
   encodeSavedViewEnvelope,
   getSavedViewIdFromTagKey,
   getSavedViewTagKey,
-  inflateSavedViewState,
   listSavedViews,
 } from './savedViewEnvelope';
 
@@ -61,20 +61,20 @@ describe('savedViewEnvelope', () => {
     });
   });
 
-  describe('inflateSavedViewState', () => {
+  describe('deserializePersistedState', () => {
     it('inflates the compressed state field back into the original object', async () => {
       const original = { selectedColumns: ['accuracy'], groupBy: 'foo' };
       const compressedState = await textCompressDeflate(JSON.stringify(original));
       const envelope = decodeSavedViewEnvelope(encodeSavedViewEnvelope('v', compressedState, 1));
 
-      expect(await inflateSavedViewState(envelope)).toEqual(original);
+      expect(await deserializePersistedState(envelope)).toEqual(original);
     });
 
     it('supports an uncompressed (plain JSON) state field for forward-compat', async () => {
       const original = { selectedColumns: ['loss'] };
       const envelope = { name: 'v', createdAt: 1, state: JSON.stringify(original) };
 
-      expect(await inflateSavedViewState(envelope)).toEqual(original);
+      expect(await deserializePersistedState(envelope)).toEqual(original);
     });
   });
 

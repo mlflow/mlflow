@@ -5,9 +5,9 @@ import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX } from '../../../constants'
 /**
  * A saved view is stored as a single experiment tag: the key is the share prefix plus a stable
  * opaque id, and the value is a JSON "envelope". The envelope keeps `name` and `createdAt` as plain
- * JSON so the views list can be rendered without inflating anything; only `state` (the serialized
- * ExperimentPageUIState + search facets, the same payload the share link embeds) is deflate-
- * compressed, and it is inflated lazily at apply-time for the single view the user opens.
+ * JSON so the views list can be rendered without deserializing anything; only `state` (the
+ * serialized ExperimentPageUIState + search facets, the same payload the share link embeds) is
+ * deflate-compressed, and it is deserialized lazily at apply-time for the single view the user opens.
  */
 export interface SavedViewEnvelope {
   name: string;
@@ -17,7 +17,7 @@ export interface SavedViewEnvelope {
 }
 
 /**
- * Lightweight summary used to render the views list without inflating any state.
+ * Lightweight summary used to render the views list without deserializing any state.
  */
 export interface SavedViewSummary {
   id: string;
@@ -54,8 +54,8 @@ const isValidEnvelope = (value: unknown): value is SavedViewEnvelope =>
 
 /**
  * Parse an experiment-tag value into a saved-view envelope. Throws if the value is not valid JSON
- * or is missing required fields; the `state` field is left compressed (inflate lazily via
- * {@link inflateSavedViewState}).
+ * or is missing required fields; the `state` field is left compressed (deserialize lazily via
+ * {@link deserializePersistedState}).
  */
 export const decodeSavedViewEnvelope = (tagValue: string): SavedViewEnvelope => {
   const parsed = JSON.parse(tagValue);
@@ -68,10 +68,10 @@ export const decodeSavedViewEnvelope = (tagValue: string): SavedViewEnvelope => 
 };
 
 /**
- * Inflate an envelope's `state` field back into the serialized view-state object. Supports both a
- * deflate-compressed blob and a plain-JSON string (forward-compat with uncompressed writes).
+ * Deserialize an envelope's `state` field back into the serialized view-state object. Supports both
+ * a deflate-compressed blob and a plain-JSON string (forward-compat with uncompressed writes).
  */
-export const inflateSavedViewState = async (envelope: SavedViewEnvelope): Promise<unknown> => {
+export const deserializePersistedState = async (envelope: SavedViewEnvelope): Promise<unknown> => {
   const raw = isTextCompressedDeflate(envelope.state) ? await textDecompressDeflate(envelope.state) : envelope.state;
   return JSON.parse(raw);
 };
@@ -79,7 +79,7 @@ export const inflateSavedViewState = async (envelope: SavedViewEnvelope): Promis
 /**
  * Filter a set of experiment tags down to saved-view summaries, in tag order. Tags whose value
  * fails to decode are skipped rather than throwing, so one corrupt view can't break the whole list.
- * State is intentionally not inflated here — the list only needs the name and createdAt.
+ * State is intentionally not deserialized here — the list only needs the name and createdAt.
  */
 export const listSavedViews = (tags: KeyValueEntity[]): SavedViewSummary[] =>
   tags.reduce<SavedViewSummary[]>((views, { key, value }) => {
