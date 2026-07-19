@@ -1095,6 +1095,23 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo):
         read_credential_infos_mock.assert_called_with(artifact_path)
 
 
+def test_databricks_download_file_rejects_absolute_artifact_path(
+    databricks_artifact_repo, tmp_path
+):
+    # Artifact paths are POSIX-style. An absolute one resolves outside the download destination
+    # and must be rejected before any download is attempted. This is why the sibling tests use
+    # relative artifact paths.
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", return_value=[]
+    ) as list_artifacts_mock:
+        with pytest.raises(
+            MlflowException,
+            match="Invalid path: resolved path is outside the artifact directory",
+        ):
+            databricks_artifact_repo.download_artifacts("/etc/passwd", dst_path=str(tmp_path))
+        list_artifacts_mock.assert_called()
+
+
 def test_download_artifacts_awaits_download_completion(databricks_artifact_repo, tmp_path):
     """
     Verifies that all asynchronous artifact downloads are joined before `download_artifacts()`

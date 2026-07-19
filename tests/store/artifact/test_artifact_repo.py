@@ -352,7 +352,7 @@ def test_create_download_destination_prevents_path_traversal():
         for malicious_path in malicious_paths:
             with pytest.raises(
                 MlflowException,
-                match="Invalid artifact path.*",
+                match="Invalid path: resolved path is outside the artifact directory",
             ):
                 repo._create_download_destination(malicious_path, tmp.path())
 
@@ -378,6 +378,9 @@ def test_download_artifacts_prevents_empty_dir_path_traversal(malicious_dir):
     ) as list_artifacts_mock:
         repo = ArtifactRepositoryImpl("")
         with TempDir() as tmp:
-            with pytest.raises(MlflowException, match="Invalid artifact path.*"):
+            with pytest.raises(
+                MlflowException,
+                match="Invalid path: resolved path is outside the artifact directory",
+            ):
                 repo.download_artifacts("", dst_path=tmp.path())
         list_artifacts_mock.assert_called()
