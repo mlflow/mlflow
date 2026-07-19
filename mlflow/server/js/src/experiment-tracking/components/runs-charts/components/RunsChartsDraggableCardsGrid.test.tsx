@@ -652,4 +652,3 @@ describe('RunsChartsDraggableCardsGrid', () => {
     });
   });
 });
-
