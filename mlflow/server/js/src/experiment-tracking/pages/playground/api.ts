@@ -1,5 +1,10 @@
 import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
-import type { ChatCompletionRequest, ChatCompletionResponse } from './types';
+import type {
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+  LogPlaygroundTraceRequest,
+  LogPlaygroundTraceResponse,
+} from './types';
 
 // fetchOrFail throws a NetworkRequestError with `.response` attached and the
 // body still unread. Walk the body to surface the upstream provider's actual
@@ -37,6 +42,20 @@ export const PlaygroundApi = {
         body: JSON.stringify(request),
       });
       return (await response.json()) as ChatCompletionResponse;
+    } catch (e) {
+      throw await enrichErrorFromResponseBody(e);
+    }
+  },
+  // Round-trip: persist the current playground run as a new trace in the experiment so it appears
+  // in the traces table for side-by-side comparison with the trace it was opened from.
+  logTrace: async (request: LogPlaygroundTraceRequest): Promise<LogPlaygroundTraceResponse> => {
+    try {
+      const response = await fetchOrFail(getAjaxUrl('gateway/mlflow/v1/playground/log-trace'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      return (await response.json()) as LogPlaygroundTraceResponse;
     } catch (e) {
       throw await enrichErrorFromResponseBody(e);
     }

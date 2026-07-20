@@ -1,4 +1,4 @@
-export type ChatRole = 'system' | 'user' | 'assistant';
+export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
 // Registry prompt type, mirroring PROMPT_TYPE_TEXT / PROMPT_TYPE_CHAT in `../prompts/utils`.
 export type PromptType = 'text' | 'chat';
@@ -7,6 +7,8 @@ export interface ChatMessage {
   role: ChatRole;
   content: string | null;
   tool_calls?: ToolCall[];
+  // Links a `tool` role message (a tool result) to the assistant tool call it answers.
+  tool_call_id?: string;
 }
 
 export interface ToolCall {
@@ -19,9 +21,11 @@ export interface ToolCall {
 }
 
 // In-app message type that may carry per-turn usage data on assistant replies.
-// Stripped to `{role, content}` before being sent to the gateway.
+// Display-only fields are stripped before being sent to the gateway.
 export interface ConversationMessage extends ChatMessage {
   usage?: ChatCompletionUsage;
+  // Display-only label for `tool` role messages: the name of the tool whose result this is.
+  toolName?: string;
   // True when this assistant reply was generated under a JSON / JSON-schema
   // response format, so its content should render as a JSON code block. Captured
   // at generation time so toggling the response-format control afterward does not
@@ -95,4 +99,26 @@ export interface ChatCompletionResponse {
   model?: string;
   choices: ChatCompletionChoice[];
   usage?: ChatCompletionUsage;
+}
+
+export interface LogPlaygroundTraceRequest {
+  experiment_id: string;
+  // The captured input turns (system/user/prior assistant) that produced the response.
+  messages: ChatMessage[];
+  // The assistant reply being saved. The backend wraps it in an OpenAI chat-completion envelope.
+  response?: unknown;
+  // Token usage of the reply, so the saved trace shows token counts and cost.
+  usage?: ChatCompletionUsage;
+  model?: string;
+  params?: PlaygroundParams;
+  // Tools the run had available (OpenAI wire shape), recorded so the saved trace is reloadable.
+  tools?: unknown[];
+  tool_choice?: ToolChoice;
+  response_format?: ResponseFormat;
+  // The trace this playground run was derived from, for comparison attribution.
+  source_trace_id?: string;
+}
+
+export interface LogPlaygroundTraceResponse {
+  trace_id: string;
 }

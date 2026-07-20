@@ -69,6 +69,7 @@ import { normalizeDspyChatInput, normalizeDspyChatOutput } from './chat-utils/ds
 import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-utils/vercelai';
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
+import { normalizeToolDefinitions } from './chat-utils/tools';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
@@ -457,13 +458,11 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
     return toolsAttributeValue;
   }
 
-  // otherwise, attempt to parse tools from inputs
-  // TODO: support langchain format for tool inputs
-  if (Array.isArray(inputs?.tools) && inputs?.tools?.every(isModelTraceChatTool)) {
-    return inputs.tools;
-  }
-
-  return undefined;
+  // otherwise, extract tool definitions from the request inputs. The extraction is shape-based
+  // rather than per-framework, so any integration's request format is supported (OpenAI-style
+  // `tools`, Anthropic `input_schema` tools, Gemini function declarations, Bedrock toolSpecs,
+  // PydanticAI function_tools, ...).
+  return normalizeToolDefinitions(inputs);
 };
 
 const getCostFromSpan = (costAttributeValue: any): SpanCostInfo | undefined => {

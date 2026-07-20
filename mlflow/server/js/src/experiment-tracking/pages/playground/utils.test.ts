@@ -35,6 +35,17 @@ describe('extractTemplateVariables', () => {
     const messages: ChatMessage[] = [{ role: 'user', content: 'Try {{ }} or {{1bad}}' }];
     expect(extractTemplateVariables(messages)).toEqual([]);
   });
+
+  it('ignores placeholders inside model-generated and tool-result turns', () => {
+    // Tool outputs and assistant replies are replayed content — a `{{ token }}` inside them
+    // (code, docs, config) is not a prompt variable and must not demand a value.
+    const messages: ChatMessage[] = [
+      { role: 'user', content: 'Render {{ template }}' },
+      { role: 'assistant', content: 'Use {{ mustache }} syntax like this.' },
+      { role: 'tool', content: '{"snippet": "Hello {{ name }}"}', tool_call_id: 'c1' },
+    ];
+    expect(extractTemplateVariables(messages)).toEqual(['template']);
+  });
 });
 
 describe('substituteVariables', () => {
@@ -62,6 +73,19 @@ describe('substituteVariables', () => {
   it('leaves malformed placeholders literal', () => {
     const messages: ChatMessage[] = [{ role: 'user', content: 'Keep {{ }} as-is' }];
     expect(substituteVariables(messages, {})).toEqual([{ role: 'user', content: 'Keep {{ }} as-is' }]);
+  });
+
+  it('never rewrites model-generated or tool-result turns', () => {
+    const toolTurn: ChatMessage = { role: 'tool', content: 'Result: "Hello {{ name }}"', tool_call_id: 'c1' };
+    const assistantTurn: ChatMessage = { role: 'assistant', content: 'Template is {{ name }}' };
+    const messages: ChatMessage[] = [{ role: 'user', content: 'Hi {{ name }}' }, assistantTurn, toolTurn];
+
+    const substituted = substituteVariables(messages, { name: 'Joel' });
+
+    expect(substituted[0]).toEqual({ role: 'user', content: 'Hi Joel' });
+    // Replayed turns pass through verbatim — same content, same object.
+    expect(substituted[1]).toBe(assistantTurn);
+    expect(substituted[2]).toBe(toolTurn);
   });
 });
 

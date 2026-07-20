@@ -58,6 +58,7 @@ from mlflow.server.gateway_api import (
     openai_passthrough_embeddings,
     openai_passthrough_responses,
     openai_passthrough_responses_compact,
+    playground_log_trace,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -3656,3 +3657,175 @@ async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyS
     assert jspan.span_type == SpanType.EVALUATOR
     assert jspan.outputs["passed"] is True
     assert jspan.parent_id == gspan.span_id
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_creates_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("playground-round-trip")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [
+                {"role": "system", "content": "Be concise."},
+                {"role": "user", "content": "Hi"},
+            ],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "usage": {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8},
+            "model": "my-endpoint",
+            "params": {"temperature": 0.5, "max_tokens": 128},
+            "tools": [{"type": "function", "function": {"name": "get_weather"}}],
+            "tool_choice": "auto",
+            "response_format": {"type": "json_object"},
+            "source_trace_id": "tr-source",
+        }
+    )
+
+    result = await playground_log_trace(mock_request)
+
+    assert result["trace_id"]
+
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+    assert trace.info.tags.get("playground") == "true"
+    assert trace.info.tags.get("playground.source_trace_id") == "tr-source"
+
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.attributes.get(SpanAttributeKey.MODEL) == "my-endpoint"
+    # Token usage is recorded in mlflow.chat.tokenUsage shape so the UI shows token counts/cost.
+    assert span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 3,
+        "output_tokens": 5,
+        "total_tokens": 8,
+    }
+    # Tools are recorded on mlflow.chat.tools so the Chat tab shows them and a reload restores them.
+    assert span.attributes.get(SpanAttributeKey.CHAT_TOOLS) == [
+        {"type": "function", "function": {"name": "get_weather"}}
+    ]
+    # Inputs are an OpenAI-style chat request carrying tools / tool_choice / response_format.
+    assert span.inputs["messages"] == [
+        {"role": "system", "content": "Be concise."},
+        {"role": "user", "content": "Hi"},
+    ]
+    assert span.inputs["temperature"] == 0.5
+    assert span.inputs["tools"] == [{"type": "function", "function": {"name": "get_weather"}}]
+    assert span.inputs["tool_choice"] == "auto"
+    assert span.inputs["response_format"] == {"type": "json_object"}
+    # Outputs are an OpenAI-style chat completion so the Chat tab renders the assistant reply.
+    assert span.outputs["choices"][0]["message"] == {"role": "assistant", "content": "Hello!"}
+    assert span.outputs["usage"] == {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8}
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_without_usage_omits_token_usage(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("playground-no-usage")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "model": "my-endpoint",
+        }
+    )
+
+    await playground_log_trace(mock_request)
+
+    trace = TracingClient().search_traces(locations=[experiment_id])[0]
+    span = trace.data.spans[0]
+    assert span.attributes.get(SpanAttributeKey.CHAT_USAGE) is None
+    assert span.outputs["choices"][0]["message"] == {"role": "assistant", "content": "Hello!"}
+    assert "usage" not in span.outputs
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_fails_for_unknown_experiment(store: SqlAlchemyStore):
+    # A tracing failure degrades start_span to a no-op span; the endpoint must surface that as an
+    # error instead of returning the sentinel trace id as a fake success.
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": "999999999",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+        }
+    )
+    with pytest.raises(HTTPException, match="Failed to log the playground trace") as exc_info:
+        await playground_log_trace(mock_request)
+    assert exc_info.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_requires_experiment_id(store: SqlAlchemyStore):
+    mock_request = create_mock_request(
+        cached_body={"messages": [{"role": "user", "content": "Hi"}]}
+    )
+    with pytest.raises(HTTPException, match="experiment_id is required") as exc_info:
+        await playground_log_trace(mock_request)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_requires_messages(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("playground-no-messages")
+    mock_request = create_mock_request(cached_body={"experiment_id": experiment_id, "messages": []})
+    with pytest.raises(HTTPException, match="messages must be a non-empty list") as exc_info:
+        await playground_log_trace(mock_request)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_requires_response(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("playground-no-response")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+        }
+    )
+    with pytest.raises(HTTPException, match="response must be a non-empty object") as exc_info:
+        await playground_log_trace(mock_request)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_params_do_not_overwrite_reserved_inputs(store: SqlAlchemyStore):
+    # Client-supplied params must not clobber reserved request keys (messages/model/tools/...),
+    # which would silently corrupt the saved trace.
+    experiment_id = store.create_experiment("playground-params-guard")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "model": "my-endpoint",
+            "params": {"temperature": 0.5, "messages": "hacked", "model": "hacked"},
+        }
+    )
+
+    await playground_log_trace(mock_request)
+
+    span = TracingClient().search_traces(locations=[experiment_id])[0].data.spans[0]
+    assert span.inputs["messages"] == [{"role": "user", "content": "Hi"}]
+    assert span.inputs["model"] == "my-endpoint"
+    assert span.inputs["temperature"] == 0.5
+
+
+@pytest.mark.asyncio
+async def test_playground_log_trace_ignores_boolean_token_usage(store: SqlAlchemyStore):
+    # bool is a subclass of int; boolean/negative token counts must not be recorded as usage.
+    experiment_id = store.create_experiment("playground-bool-usage")
+    mock_request = create_mock_request(
+        cached_body={
+            "experiment_id": experiment_id,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "response": {"role": "assistant", "content": "Hello!"},
+            "usage": {"prompt_tokens": True, "completion_tokens": -1, "total_tokens": 8},
+        }
+    )
+
+    await playground_log_trace(mock_request)
+
+    span = TracingClient().search_traces(locations=[experiment_id])[0].data.spans[0]
+    assert span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {"total_tokens": 8}
