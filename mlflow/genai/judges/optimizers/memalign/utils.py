@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
@@ -144,12 +145,20 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     return truncated
 
 
+# ``extra="forbid"`` makes ``model_json_schema()`` emit ``additionalProperties: false`` on
+# every object. Databricks' structured-output endpoint rejects a ``response_format`` schema
+# that omits it (Pydantic does not add it by default), so this keeps distillation working
+# against ``databricks:/`` reflection models.
 class Guideline(BaseModel):
+    model_config = {"extra": "forbid"}
+
     guideline_text: str
     source_trace_ids: list[str | int] | None = None
 
 
 class Guidelines(BaseModel):
+    model_config = {"extra": "forbid"}
+
     guidelines: list[Guideline]
 
 
@@ -246,6 +255,26 @@ def _create_batches(
     return batches
 
 
+def _extract_json_object(response: str) -> str:
+    """Extract the JSON object from an LLM response.
+
+    Structured-output (``response_format``) responses are raw JSON, but the unstructured
+    fallback relies on the prompt to elicit JSON and models often wrap it in a
+    ```` ```json ... ``` ```` fence and/or surround it with prose. Strips a fence when
+    present, then narrows to the outermost ``{...}`` so leading/trailing text does not
+    break parsing. Returns the original (stripped) string when no object is found, so the
+    caller's ``json.loads`` raises a meaningful error.
+    """
+    stripped = response.strip()
+    if match := re.match(r"^```(?:json)?\s*\n?(.*?)\n?```$", stripped, re.DOTALL):
+        stripped = match.group(1).strip()
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        return stripped[start : end + 1]
+    return stripped
+
+
 def _parse_batch_response(
     response: str,
     index_to_trace_id: dict[int, str],
@@ -261,7 +290,7 @@ def _parse_batch_response(
     Returns:
         List of Guideline objects parsed from the response, excluding duplicates
     """
-    response_data = json.loads(response)
+    response_data = json.loads(_extract_json_object(response))
     guidelines = []
     trace_ids_set = set(index_to_trace_id.values())
 
@@ -395,11 +424,22 @@ def distill_guidelines(
             len=len,
         )
 
+        messages = [{"role": "user", "content": prompt}]
         try:
-            response = distillation_lm(
-                messages=[{"role": "user", "content": prompt}],
-                response_format=Guidelines,
-            )[0]
+            try:
+                response = distillation_lm(messages=messages, response_format=Guidelines)[0]
+            except Exception as e:
+                # Some models (e.g. some Databricks-served endpoints) reject or error on
+                # structured-output requests. The prompt already specifies the exact JSON
+                # format, so fall back to an unstructured request rather than dropping the
+                # batch. Mirrors the judge adapter's response_format fallback (see
+                # mlflow/genai/judges/adapters/litellm_adapter.py).
+                _logger.debug(
+                    f"Structured-output distillation failed for batch {batch_indices}; "
+                    f"retrying without response_format. Error: {e}",
+                    exc_info=True,
+                )
+                response = distillation_lm(messages=messages)[0]
 
             return _parse_batch_response(
                 response=response,
