@@ -9,6 +9,7 @@ Usage
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import functools
 import hmac
@@ -4469,7 +4470,11 @@ def _authenticate_custom_for_fastapi(
         - A ``User`` if authentication succeeds.
         - A Starlette ``Response`` if the custom auth function returned a Flask Response
           (converted to preserve status code, headers, and body).
-        - ``None`` if the result could not be interpreted (treated as auth failure).
+        - ``None`` if authentication fails (no username / unknown user).
+
+    Raises:
+        MlflowException: If the custom auth function returns an unsupported type,
+            matching Flask ``_before_request`` failure semantics.
     """
     headers = dict(request.headers)
     with app.test_request_context(
@@ -4482,7 +4487,13 @@ def _authenticate_custom_for_fastapi(
         if isinstance(authorization, Response):
             return _flask_response_to_starlette(authorization)
         if not isinstance(authorization, Authorization):
-            return None
+            # Match Flask `_before_request`: unsupported plugin return types are an
+            # internal misconfiguration, not an authentication failure (401).
+            raise MlflowException(
+                f"Unsupported result type from {auth_config.authorization_function}: "
+                f"'{type(authorization).__name__}'",
+                INTERNAL_ERROR,
+            )
         username = authorization.username
         if not username:
             return None
@@ -4830,23 +4841,39 @@ def _get_otel_validator(
     return validator
 
 
-def _extract_experiment_id_from_artifact_proxy_path(path: str) -> str | None:
+def _extract_experiment_id_from_artifact_proxy_path(
+    path: str, query_path: str | None = None
+) -> str | None:
+    # Mirror Flask view_args extraction for both simple artifact routes and MPU
+    # control-plane routes (create/complete/abort). FastAPI permission middleware
+    # claims all `_is_proxy_artifact_path` URLs, so experiment ids must be parsed
+    # from /mpu/... as well as /artifacts/....
     prefixes = (
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
     )
     prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is None:
-        return None
+    if prefix is not None:
+        artifact_path = path.removeprefix(prefix)
+        if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
+            return m.group(1)
 
-    artifact_path = path.removeprefix(prefix)
-    if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
+    # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
+    if query_path and (m := _EXPERIMENT_ID_PATTERN.match(query_path)):
         return m.group(1)
     return None
 
 
-def _get_proxy_artifact_permission(path: str, username: str) -> Permission:
-    if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path):
+def _get_proxy_artifact_permission(
+    path: str, username: str, query_path: str | None = None
+) -> Permission:
+    if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
         return _get_role_permission_or_default(
             _role_permission_for(
                 username=username,
@@ -4875,8 +4902,11 @@ def _get_proxy_artifact_permission(path: str, username: str) -> Permission:
 def _get_fastapi_proxy_artifact_validator(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    async def validator(username: str, _request: StarletteRequest) -> bool:
-        permission = _get_proxy_artifact_permission(path, username)
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        query_path = request.query_params.get("path")
+        permission = await asyncio.to_thread(
+            _get_proxy_artifact_permission, path, username, query_path
+        )
         return {
             "GET": permission.can_read,
             "PUT": permission.can_update,
@@ -5051,13 +5081,22 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
         # Authenticate using either the custom authorization_function (via Flask
         # request context bridge) or the native FastAPI Basic Auth path.
-        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-            auth_result = _authenticate_custom_for_fastapi(request)
-            if isinstance(auth_result, StarletteResponse):
-                return auth_result
-            user = auth_result
-        else:
-            user = _authenticate_fastapi_request(request)
+        try:
+            if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+                auth_result = _authenticate_custom_for_fastapi(request)
+                if isinstance(auth_result, StarletteResponse):
+                    return auth_result
+                user = auth_result
+            else:
+                user = _authenticate_fastapi_request(request)
+        except MlflowException as e:
+            # Preserve Flask semantics for misconfigured custom auth plugins
+            # (e.g. unsupported return types) instead of collapsing to 401.
+            # Match Flask `catch_mlflow_exception` wire format (JSON body).
+            return JSONResponse(
+                status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
+            )
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "

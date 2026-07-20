@@ -201,24 +201,40 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     Returns:
         FastAPI application instance with the Flask app mounted via WSGIMiddleware.
     """
+    # Create FastAPI app with metadata
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
         description="MLflow Tracking Server API",
         version=VERSION,
+        # Docs/OpenAPI remain disabled intentionally even though several native
+        # FastAPI routers are mounted (otel, jobs, gateway, assistant, artifacts).
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
 
+    # Initialize security middleware BEFORE adding routes
     init_fastapi_security(fastapi_app)
 
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
 
+    # Include OpenTelemetry API router BEFORE mounting Flask app
+    # This ensures FastAPI routes take precedence over the catch-all Flask mount
     fastapi_app.include_router(otel_router)
+
     fastapi_app.include_router(job_api_router)
+
+    # Include Gateway API router for database-backed endpoints
+    # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     fastapi_app.include_router(gateway_router)
+
+    # Include Assistant API router for AI-powered trace analysis
+    # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
+
+    # Include native artifact upload/download router for ASGI streaming
+    # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes
     fastapi_app.include_router(artifact_router)
 
 <<<<<<< HEAD

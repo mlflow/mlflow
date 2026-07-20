@@ -132,6 +132,11 @@ def fastapi_client(request, tmp_path):
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
     # Set _MLFLOW_SGI_NAME to "uvicorn" so auth module returns FastAPI app
     extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+    if extra_env.get("_MLFLOW_SERVER_SERVE_ARTIFACTS") == "true":
+        extra_env.setdefault(
+            "_MLFLOW_SERVER_ARTIFACT_DESTINATION",
+            str(tmp_path / "served_artifacts"),
+        )
 
     with _init_server(
         backend_uri=backend_uri,
@@ -346,6 +351,45 @@ def test_proxy_artifact_mpu_path_detection():
     assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
+def test_extract_experiment_id_from_artifact_proxy_path():
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
+        )
+        == "42"
+    )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
+        )
+        == "7"
+    )
+    for action in ("create", "complete", "abort"):
+        assert (
+            auth_module._extract_experiment_id_from_artifact_proxy_path(
+                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
+            )
+            == "99"
+        )
+        assert (
+            auth_module._extract_experiment_id_from_artifact_proxy_path(
+                f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
+            )
+            == "3"
+        )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts",
+            query_path="55/models/m-abc123/artifacts",
+        )
+        == "55"
+    )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path("/api/2.0/mlflow/experiments/get")
+        is None
+    )
+
+
 def test_proxy_artifact_mpu_validator_returns_update_for_post():
     validator = auth_module._get_proxy_artifact_validator(
         "POST", {"artifact_path": "1/run-id/artifacts/model"}
@@ -528,6 +572,54 @@ def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monk
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    ("list_path", "query_path_template"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts", "{experiment_id}/models/m-abc123/artifacts"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts", "{experiment_id}/models/m-abc123/artifacts"),
+        (
+            "/api/2.0/mlflow-artifacts/artifacts",
+            "workspaces/default/{experiment_id}/models/m-abc123/artifacts",
+        ),
+    ],
+)
+def test_proxy_artifact_list_query_param_uses_experiment_permission_fastapi(
+    fastapi_client, monkeypatch, list_path, query_path_template
+):
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(
+            "proxy-artifact-list-query-param-test-fastapi"
+        )
+
+    query_path = query_path_template.format(experiment_id=experiment_id)
+    response = requests.get(
+        url=fastapi_client.tracking_uri + list_path,
+        params={"path": query_path},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+
+    response = requests.get(
+        url=fastapi_client.tracking_uri + list_path,
+        params={"path": query_path},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
 @pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
 def test_mpu_authorization_required(client, monkeypatch, mpu_action):
     username1, password1 = create_user(client.tracking_uri)
@@ -582,6 +674,46 @@ def test_presigned_download_url_authorization_required(client, monkeypatch):
         auth=(username1, password1),
     )
     assert response.status_code == 501
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
+def test_mpu_authorization_required_via_flask_fallback_on_fastapi_server(
+    fastapi_client, monkeypatch, mpu_action
+):
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"mpu-authz-fastapi-{mpu_action}")
+
+    # MPU routes are still handled by Flask on the FastAPI server, so both
+    # assertions here exercise the Flask fallback auth path.
+    response = requests.post(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # If middleware failed to parse the experiment id, owner would also get 403
+    # from default_permission=NO_PERMISSIONS.
+    response = requests.post(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):

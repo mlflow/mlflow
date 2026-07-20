@@ -1,13 +1,19 @@
 from unittest import mock
 
 import pytest
+from fastapi import FastAPI
 from flask import Response as FlaskResponse
 from starlette.responses import Response as StarletteResponse
+from starlette.testclient import TestClient
 from werkzeug.datastructures import Authorization
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
 from mlflow.server.auth import (
+    DEFAULT_AUTHORIZATION_FUNCTION,
     _authenticate_custom_for_fastapi,
     _flask_response_to_starlette,
+    add_fastapi_permission_middleware,
 )
 
 
@@ -102,14 +108,44 @@ def test_custom_auth_returns_starlette_response_on_flask_response(mock_starlette
     assert result.body == b"Auth failed"
 
 
-def test_custom_auth_returns_none_on_non_authorization_result(mock_starlette_request):
+def test_custom_auth_raises_on_unsupported_authorization_result(mock_starlette_request):
     with mock.patch(
         "mlflow.server.auth.authenticate_request",
         return_value="unexpected_type",
     ):
-        result = _authenticate_custom_for_fastapi(mock_starlette_request)
+        with pytest.raises(MlflowException, match="Unsupported result type") as exc_info:
+            _authenticate_custom_for_fastapi(mock_starlette_request)
 
-    assert result is None
+    assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+
+
+def test_fastapi_middleware_returns_json_for_unsupported_custom_auth():
+    app = FastAPI()
+    add_fastapi_permission_middleware(app)
+
+    @app.get("/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
+    async def _download(artifact_path: str):
+        return {"ok": True}
+
+    mock_config = mock.Mock()
+    mock_config.authorization_function = "tests.server.auth.fake_auth:broken_auth"
+    with (
+        mock.patch("mlflow.server.auth.auth_config", mock_config),
+        mock.patch(
+            "mlflow.server.auth.authenticate_request",
+            return_value="unexpected_type",
+        ),
+    ):
+        assert mock_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION
+        response = TestClient(app, raise_server_exceptions=False).get(
+            "/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model.pkl"
+        )
+
+    assert response.status_code == 500
+    assert response.headers.get("www-authenticate") is None
+    body = response.json()
+    assert body["error_code"] == ErrorCode.Name(INTERNAL_ERROR)
+    assert "Unsupported result type" in body["message"]
 
 
 def test_custom_auth_returns_none_on_missing_username(mock_starlette_request):
