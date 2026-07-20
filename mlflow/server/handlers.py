@@ -6697,9 +6697,7 @@ def _invoke_scorer_handler():
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value(
-            "serialized_scorer must be valid JSON"
-        ) from e
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
     if serialized_data.get("call_source") is not None:
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
