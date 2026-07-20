@@ -75,17 +75,11 @@ _logger = logging.getLogger(__name__)
 #     (Flask forbids `before_request` after the first request).
 #   - tests/server/test_workspace_middleware.py: process-global server config leaks across
 #     workers.
-#   - tests/gateway/providers/test_databricks.py: mocks the global `databricks.sdk` module;
-#     import/mock state leaks across workers ("module 'databricks' has no attribute 'sdk'").
 #   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py,
 #     test_docker_projects.py: spawn real env-building / docker subprocesses that contend for
 #     CPU/disk, time out, race on the shared conda env list or docker daemon, and (for docker)
 #     write root-owned artifacts that can't be cleaned up under concurrency.
 #   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
-#   - tests/db/test_schema.py, tests/db/test_tracking_operations.py,
-#     tests/tracking/_model_registry/test_utils.py: assume a filesystem `./mlruns` store, but
-#     a sibling worker toggling `MLFLOW_ALLOW_FILE_STORE` (file-store "maintenance mode")
-#     leaks across the process and trips these.
 #   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
 #     which are perturbed by concurrent xdist workers.
 #   - tests/data/test_huggingface_dataset_and_source.py, tests/metrics/test_metric_definitions.py:
@@ -101,15 +95,11 @@ _XDIST_SERIAL_PATHS = (
     "tests/server/test_prometheus_exporter.py",
     "tests/server/test_handlers.py",
     "tests/server/test_workspace_middleware.py",
-    "tests/gateway/providers/test_databricks.py",
     "tests/projects/test_virtualenv_projects.py",
     "tests/projects/test_projects_cli.py",
     "tests/projects/test_docker_projects.py",
     "tests/projects/test_projects.py",
     "tests/server/jobs/",
-    "tests/db/test_schema.py",
-    "tests/db/test_tracking_operations.py",
-    "tests/tracking/_model_registry/test_utils.py",
     "tests/tracing/export/test_async_export_queue.py",
 )
 
