@@ -62,7 +62,7 @@ describe('savedViewEnvelope', () => {
   });
 
   describe('deserializePersistedState', () => {
-    it('inflates the compressed state field back into the original object', async () => {
+    it('deserializes the compressed state field back into the original object', async () => {
       const original = { selectedColumns: ['accuracy'], groupBy: 'foo' };
       const compressedState = await textCompressDeflate(JSON.stringify(original));
       const envelope = decodeSavedViewEnvelope(encodeSavedViewEnvelope('v', compressedState, 1));
