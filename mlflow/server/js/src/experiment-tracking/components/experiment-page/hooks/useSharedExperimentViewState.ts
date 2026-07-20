@@ -20,7 +20,10 @@ import {
 } from '../../../constants';
 import Routes from '../../../routes';
 import { isTextCompressedDeflate, textDecompressDeflate } from '../../../../common/utils/StringUtils';
-import { decodeSavedViewEnvelope, inflateSavedViewState } from '../utils/savedViewEnvelope';
+import {
+  decodeSavedViewEnvelope,
+  deserializePersistedState as deserializeEnvelopeState,
+} from '../utils/savedViewEnvelope';
 
 const deserializePersistedState = async (state: string) => {
   if (isTextCompressedDeflate(state)) {
@@ -162,7 +165,7 @@ export const useSharedExperimentViewState = (
       // straggler legacy tag still resolves. Only if both fail do we report an invalid share key.
       try {
         const envelope = decodeSavedViewEnvelope(shareViewTag.value);
-        const parsedSharedViewState = await inflateSavedViewState(envelope);
+        const parsedSharedViewState = await deserializeEnvelopeState(envelope);
         applyParsedState(parsedSharedViewState);
         return;
       } catch {
