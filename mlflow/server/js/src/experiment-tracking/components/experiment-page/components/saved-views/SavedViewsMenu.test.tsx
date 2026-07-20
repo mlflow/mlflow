@@ -86,6 +86,18 @@ describe('SavedViewsMenu', () => {
     expect(onSaveCurrent).toHaveBeenCalledTimes(1);
   });
 
+  test('checkmarks only the active view row', () => {
+    renderMenu({ activeViewId: 'v2' });
+    expect(screen.getByTestId('test-saved-views-active-v2')).toBeInTheDocument();
+    expect(screen.queryByTestId('test-saved-views-active-v1')).not.toBeInTheDocument();
+  });
+
+  test('renders no checkmark when no view is active', () => {
+    renderMenu({ activeViewId: null });
+    expect(screen.queryByTestId('test-saved-views-active-v1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('test-saved-views-active-v2')).not.toBeInTheDocument();
+  });
+
   test('hides delete and save-current affordances when canModify is false', () => {
     renderMenu({ canModify: false });
     expect(screen.getByText('GPU runs')).toBeInTheDocument();
