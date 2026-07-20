@@ -1,5 +1,7 @@
 from skills.github.client import GitHubClient
 from skills.github.types import (
+    AdvisoryPackage,
+    AdvisoryUser,
     GitRef,
     Job,
     JobRun,
@@ -7,10 +9,14 @@ from skills.github.types import (
     PullRequest,
     ReviewComment,
     ReviewThread,
+    SecurityAdvisory,
+    Vulnerability,
 )
 from skills.github.utils import get_github_token, parse_pr_url
 
 __all__ = [
+    "AdvisoryPackage",
+    "AdvisoryUser",
     "GitHubClient",
     "GitRef",
     "Job",
@@ -19,6 +25,8 @@ __all__ = [
     "PullRequest",
     "ReviewComment",
     "ReviewThread",
+    "SecurityAdvisory",
+    "Vulnerability",
     "get_github_token",
     "parse_pr_url",
 ]

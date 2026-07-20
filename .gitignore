@@ -150,3 +150,6 @@ CLAUDE.local.md
 
 .playwright/
 .playwright-cli/
+
+# Local-only security-advisory dedupe report (see dedupe-security-advisories skill)
+dedupe-advisories.md

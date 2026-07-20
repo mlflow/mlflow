@@ -1,10 +1,12 @@
+import re
 from collections.abc import AsyncIterator
 from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 from typing_extensions import Self
 
-from skills.github.types import Job, JobRun, PullRequest
+from skills.github.types import Job, JobRun, PullRequest, SecurityAdvisory
 from skills.github.utils import get_github_token
 
 
@@ -41,6 +43,21 @@ class GitHubClient:
         async with self._session.get(endpoint, params=params) as resp:
             resp.raise_for_status()
             return cast(dict[str, Any], await resp.json())
+
+    async def _get_json_list_with_next(
+        self, endpoint: str, params: dict[str, Any] | None = None
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """GET a JSON array endpoint, returning the payload and the next-page cursor.
+
+        The next cursor is parsed from the ``after`` query parameter of the
+        ``rel="next"`` entry in the ``Link`` header (cursor-based pagination).
+        """
+        if self._session is None:
+            raise RuntimeError("GitHubClient must be used as async context manager")
+        async with self._session.get(endpoint, params=params) as resp:
+            resp.raise_for_status()
+            data = cast(list[dict[str, Any]], await resp.json())
+            return data, _parse_next_after(resp.headers.get("Link"))
 
     async def _get_text(self, endpoint: str, accept: str) -> str:
         if self._session is None:
@@ -147,3 +164,44 @@ class GitHubClient:
         """Get a specific workflow run."""
         data = await self._get_json(f"/repos/{owner}/{repo}/actions/runs/{run_id}")
         return JobRun.model_validate(data)
+
+    async def get_security_advisory(self, owner: str, repo: str, ghsa_id: str) -> SecurityAdvisory:
+        """Get a single repository security advisory by its GHSA id (read-only GET)."""
+        data = await self._get_json(f"/repos/{owner}/{repo}/security-advisories/{ghsa_id}")
+        return SecurityAdvisory.model_validate(data)
+
+    async def get_security_advisories(
+        self, owner: str, repo: str, state: str | None = None
+    ) -> AsyncIterator[SecurityAdvisory]:
+        """List repository security advisories.
+
+        Yields advisories across all states unless ``state`` is given (one of
+        ``triage``, ``draft``, ``published``, ``closed``). Unpublished advisories
+        are only returned if the authenticated token belongs to a security
+        manager/admin of the repo or a collaborator on the advisory.
+        """
+        endpoint = f"/repos/{owner}/{repo}/security-advisories"
+        params: dict[str, Any] = {"per_page": 100}
+        if state:
+            params["state"] = state
+
+        after: str | None = None
+        while True:
+            if after:
+                params["after"] = after
+            advisories, after = await self._get_json_list_with_next(endpoint, params)
+            for advisory in advisories:
+                yield SecurityAdvisory.model_validate(advisory)
+            if not after:
+                break
+
+
+def _parse_next_after(link_header: str | None) -> str | None:
+    """Extract the ``after`` cursor from the ``rel="next"`` entry of a Link header."""
+    if not link_header:
+        return None
+    for part in link_header.split(","):
+        if match := re.search(r'<([^>]+)>\s*;\s*rel="next"', part):
+            after_values = parse_qs(urlparse(match.group(1)).query).get("after")
+            return after_values[0] if after_values else None
+    return None
