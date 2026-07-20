@@ -426,12 +426,13 @@ def _expand_duplicate_retrieved_docs(predictions, targets):
     return expanded_predictions, expanded_targets
 
 
-def _prepare_row_for_ndcg(predictions, targets):
+def _prepare_row_for_ndcg(predictions, targets, k):
     """Prepare data one row from predictions and targets to y_score, y_true for ndcg calculation.
 
     Args:
         predictions: A list of strings of at most k doc IDs retrieved.
         targets: A list of strings of ground-truth doc IDs.
+        k: The original k parameter of ndcg_at_k.
 
     Returns:
         y_true : ndarray of shape (1, n_docs) Representing the ground-truth relevant docs.
@@ -447,12 +448,19 @@ def _prepare_row_for_ndcg(predictions, targets):
     targets = set(targets)
     predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
 
-    all_docs = targets.union(predictions)
+    # pad predictions with dummy values up to k to prevent unretrieved relevant
+    # documents from being placed into the top-k window and getting credit
+    padded_predictions = list(predictions)
+    if len(padded_predictions) < k:
+        for i in range(k - len(padded_predictions)):
+            padded_predictions.append(f"__dummy_irrelevant_doc_{i}__")
+
+    all_docs = targets.union(padded_predictions)
     doc_id_to_index = {doc_id: i for i, doc_id in enumerate(all_docs)}
     n_labels = max(len(doc_id_to_index), 2)  # sklearn.metrics.ndcg_score requires at least 2 labels
     y_true = np.zeros((1, n_labels), dtype=np.float32)
     y_score = np.zeros((1, n_labels), dtype=np.float32)
-    for i, doc_id in enumerate(predictions):
+    for i, doc_id in enumerate(padded_predictions):
         # "1 - i * eps" means we assign higher score to docs that are ranked higher,
         # but all scores are still approximately 1.
         y_score[0, doc_id_to_index[doc_id]] = 1 - i * eps
@@ -493,8 +501,8 @@ def _ndcg_at_k_eval_fn(k):
                 continue
 
             # only include the top k retrieved chunks
-            y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth)
-            score = ndcg_score(y_true, y_score, k=min(k, y_true.shape[1]), ignore_ties=True)
+            y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth, k)
+            score = ndcg_score(y_true, y_score, k=k, ignore_ties=True)
             scores.append(score)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
