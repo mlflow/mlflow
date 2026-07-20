@@ -103,6 +103,15 @@ jobs:
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
+      - name: Install Delta into pyspark classpath
+        run: |
+          # Put delta on pyspark's classpath + spark-defaults so the Spark/Delta dataset
+          # tests can run in the parallel pass. `spark.jars.packages` in a fixture is
+          # unreliable under xdist: SparkSession is a per-JVM singleton, so if a non-delta
+          # pyspark test builds the session first, getOrCreate() hands it back without delta
+          # (ClassNotFoundException: DeltaCatalog). Installing delta before any test runs
+          # makes it available regardless of session ordering. See dev/setup_delta_spark.py.
+          uv run --no-sync python dev/setup_delta_spark.py
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
