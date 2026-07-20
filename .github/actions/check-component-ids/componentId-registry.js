@@ -999,6 +999,9 @@ module.exports = {
   "mlflow.eval-datasets.key-value-tag-modal-save": "",
   "mlflow.eval-datasets.last-updated-cell-tooltip": "",
   "mlflow.eval-datasets.learn-more-link": "",
+  "mlflow.eval-datasets.picker.header-checkbox": "",
+  "mlflow.eval-datasets.picker.multiturn-error": "",
+  "mlflow.eval-datasets.picker.row-checkbox": "",
   "mlflow.eval-datasets.records-toolbar.column-checkbox": "",
   "mlflow.eval-datasets.records-toolbar.columns-toggle": "",
   "mlflow.eval-datasets.records-toolbar.row-size-radio": "",
@@ -1434,9 +1437,6 @@ module.exports = {
 
   // -- mlflow.export-traces-to-dataset-modal --
   "mlflow.export-traces-to-dataset-modal": "",
-  "mlflow.export-traces-to-dataset-modal.header-checkbox": "",
-  "mlflow.export-traces-to-dataset-modal.multiturn-error": "",
-  "mlflow.export-traces-to-dataset-modal.row-checkbox": "",
 
   // -- mlflow.gateway --
   "mlflow.gateway.api-key-details.drawer": "",
@@ -1939,6 +1939,12 @@ module.exports = {
   "mlflow.overview.usage.traces.view_traces_link": "",
 
   // -- mlflow.playground --
+  "mlflow.playground.add_to_dataset": "",
+  "mlflow.playground.add_to_dataset.added": "",
+  "mlflow.playground.add_to_dataset.added.close": "",
+  "mlflow.playground.add_to_dataset.error": "",
+  "mlflow.playground.add_to_dataset.expected_response": "",
+  "mlflow.playground.add_to_dataset.no_input": "",
   "mlflow.playground.clear": "",
   "mlflow.playground.json_code_block.copy": "",
   "mlflow.playground.json_code_block.toggle": "",

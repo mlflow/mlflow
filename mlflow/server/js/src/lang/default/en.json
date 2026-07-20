@@ -87,6 +87,10 @@
     "defaultMessage": "Last updated",
     "description": "Header for the dataset last-updated column"
   },
+  "+QgbkW": {
+    "defaultMessage": "Expected response (optional)",
+    "description": "Label for the expected-response editor on the playground add-to-dataset modal"
+  },
   "+T+iqa": {
     "defaultMessage": "Select baseline run",
     "description": "Placeholder text for the baseline run selector dropdown"
@@ -130,6 +134,10 @@
   "+dbgRR": {
     "defaultMessage": "{numUniqueValues} values",
     "description": "Text for number of unique values for categorical assessment"
+  },
+  "+ee/pP": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Button text for adding a trace to a dataset"
   },
   "+erxn2": {
     "defaultMessage": "Optimize prompts",
@@ -238,6 +246,10 @@
   "/Aup8Q": {
     "defaultMessage": "Request time",
     "description": "Column label for request time"
+  },
+  "/B2QGb": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Label for the playground top-bar button that opens the add-to-evaluation-datasets modal"
   },
   "/C16tY": {
     "defaultMessage": "Tool Usage Over Time",
@@ -630,6 +642,10 @@
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
+  },
+  "0yLpN3": {
+    "defaultMessage": "Add at least one non-empty message before adding this prompt to a dataset.",
+    "description": "Warning shown in the playground add-to-dataset modal when there is no input message to store"
   },
   "0yvVF0": {
     "defaultMessage": "Refresh traces",
@@ -1398,6 +1414,10 @@
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
+  },
+  "4iMYW6": {
+    "defaultMessage": "{count, plural, =0 {Add to dataset} one {Add to dataset} other {Add to # datasets}}",
+    "description": "Confirm-button label on the add-to-evaluation-datasets modal, reflecting how many datasets are selected"
   },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
@@ -2515,6 +2535,10 @@
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
   },
+  "A3A88W": {
+    "defaultMessage": "The reference answer to score responses against",
+    "description": "Placeholder for the expected-response editor on the playground add-to-dataset modal"
+  },
   "A3bM/D": {
     "defaultMessage": "Assistant",
     "description": "Tooltip for assistant button"
@@ -3619,10 +3643,6 @@
     "defaultMessage": "Key:",
     "description": "Label for tag key in modal"
   },
-  "FhnIR9": {
-    "defaultMessage": "Exporting to multi-turn datasets is not yet supported.",
-    "description": "Error message when trying to export traces to a multiturn dataset"
-  },
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
@@ -4567,6 +4587,10 @@
     "defaultMessage": "Current Spend",
     "description": "Budget current spend column header"
   },
+  "KyKszW": {
+    "defaultMessage": "Added to {count, plural, one {{name}} other {# datasets}}",
+    "description": "Success toast shown on the playground after adding the current prompt to one or more evaluation datasets"
+  },
   "Kya8N3": {
     "defaultMessage": "Pass",
     "description": "Passing evaluation status in the evaluations table."
@@ -4810,6 +4834,10 @@
   "MBNIRk": {
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
+  },
+  "MFHrh9": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Button text for adding a trace to an evaluation dataset"
   },
   "MGcWqh": {
     "defaultMessage": "Schema",
@@ -5103,10 +5131,6 @@
     "defaultMessage": "Override saved view",
     "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
   },
-  "NekUba": {
-    "defaultMessage": "Add to dataset",
-    "description": "Button text for adding a trace to an evaluation dataset"
-  },
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
@@ -5266,6 +5290,10 @@
   "OHDirZ": {
     "defaultMessage": "Use the trash icon to remove the tools from the request.",
     "description": "Closing line of the Tools info popover explaining how the trash icon removes tools"
+  },
+  "OHnjaH": {
+    "defaultMessage": "Save the current prompt as a record in an evaluation dataset. The messages become the record's inputs, and the response is stored as the expected answer so you can score it with judges later.",
+    "description": "Intro paragraph at the top of the playground add-to-evaluation-dataset modal"
   },
   "OIJAhv": {
     "defaultMessage": "Function name is required",
@@ -5718,10 +5746,6 @@
   "Qb78hE": {
     "defaultMessage": "Messages",
     "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
-  },
-  "QcEYpD": {
-    "defaultMessage": "Add to evaluation dataset",
-    "description": "Add traces to evaluation dataset action"
   },
   "QevoXx": {
     "defaultMessage": "Error details",
@@ -7379,6 +7403,10 @@
     "defaultMessage": "No matching users",
     "description": "Add to review queue: no users match the search"
   },
+  "YZB/ur": {
+    "defaultMessage": "Adding to multi-turn datasets is not yet supported.",
+    "description": "Error message when a multi-turn evaluation dataset is selected in the dataset picker"
+  },
   "YZDyOo": {
     "defaultMessage": "Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
@@ -7498,10 +7526,6 @@
   "ZAqdq9": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API key details drawer > Edit API key button aria label"
-  },
-  "ZBRK9J": {
-    "defaultMessage": "Export traces to datasets",
-    "description": "Export traces to dataset modal title"
   },
   "ZBZBrn": {
     "defaultMessage": "Input /1M",
@@ -7694,10 +7718,6 @@
   "a0NgR8": {
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
-  },
-  "a1liZ7": {
-    "defaultMessage": "Export",
-    "description": "Export traces to dataset modal action button"
   },
   "a3G5A7": {
     "defaultMessage": "Provider",
@@ -7942,6 +7962,10 @@
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
+  },
+  "bFkH7V": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the playground add-to-evaluation-dataset modal"
   },
   "bGHzui": {
     "defaultMessage": "Custom judge",
@@ -10023,6 +10047,14 @@
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
   },
+  "kNUE3r": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Add traces to evaluation dataset action"
+  },
+  "kPXtWR": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Title of the add-to-evaluation-datasets modal"
+  },
   "kQ9rmr": {
     "defaultMessage": "Operator",
     "description": "Usage overview > filter row > operator column label"
@@ -10819,10 +10851,6 @@
     "defaultMessage": "Manage questions",
     "description": "Review queue sidebar: manage-questions button"
   },
-  "oLHs0C": {
-    "defaultMessage": "Add to dataset",
-    "description": "Button text for adding a trace to a dataset"
-  },
   "oM11pD": {
     "defaultMessage": "Error",
     "description": "The label for an error assessment above a bar-chart in the summary stats."
@@ -11283,6 +11311,10 @@
     "defaultMessage": "Copied to clipboard",
     "description": "Success message after copying trace link"
   },
+  "qgLMU0": {
+    "defaultMessage": "Search by dataset name",
+    "description": "Placeholder for the dataset search input in the evaluation dataset picker"
+  },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
     "description": "Sidebar link for gateway endpoints"
@@ -11554,6 +11586,10 @@
   "rt9clc": {
     "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
     "description": "Block action description"
+  },
+  "rv0xwU": {
+    "defaultMessage": "Stored as expectations.expected_response — the reference answer that judges such as Correctness compare against.",
+    "description": "Hint under the expected-response editor on the playground add-to-dataset modal"
   },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
@@ -12235,6 +12271,10 @@
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
   },
+  "vY4UFz": {
+    "defaultMessage": "Inputs",
+    "description": "Header of the input-messages preview in the playground add-to-dataset modal"
+  },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
@@ -12750,6 +12790,10 @@
   "xyQFjH": {
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
+  },
+  "xzUBOm": {
+    "defaultMessage": "Failed to add the record to the dataset",
+    "description": "Fallback error shown when adding a playground prompt to an evaluation dataset fails"
   },
   "y2oQyU": {
     "defaultMessage": "Model name",

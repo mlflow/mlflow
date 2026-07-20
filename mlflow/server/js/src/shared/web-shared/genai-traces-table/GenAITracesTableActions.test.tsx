@@ -69,7 +69,7 @@ describe('GenAITracesTableActions — Run judges', () => {
     createTestTraceInfoV3('trace-2', 'req-2', 'World', [], EXPERIMENT_ID),
   ];
 
-  it('shows "Run judges" alongside "Add to evaluation dataset" when both actions are provided', async () => {
+  it('shows "Run judges" alongside "Add to evaluation datasets" when both actions are provided', async () => {
     renderActions(
       {
         exportToEvals: true,
@@ -81,7 +81,7 @@ describe('GenAITracesTableActions — Run judges', () => {
     await openActionsDropdown();
 
     expect(screen.getByRole('menuitem', { name: 'Run judges' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Add to evaluation dataset' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Add to evaluation datasets' })).toBeInTheDocument();
   });
 
   it('shows "Run judges" even when exportToEvals is false', async () => {
@@ -96,7 +96,7 @@ describe('GenAITracesTableActions — Run judges', () => {
     await openActionsDropdown();
 
     expect(screen.getByRole('menuitem', { name: 'Run judges' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Add to evaluation dataset' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Add to evaluation datasets' })).not.toBeInTheDocument();
   });
 
   it('does not show "Run judges" when runJudgesAction is not provided', async () => {
