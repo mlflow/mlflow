@@ -126,22 +126,30 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create or update pull request
+      - name: Open pull request
         if: steps.annotate.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
         run: |
+          # If a prior auto-flaky PR is already open, leave it alone. Do NOT
+          # force-push its branch — a reviewer may have pushed edits, and clobbering
+          # them (or reopening a fresh PR each week) would be hostile. A human closes
+          # or merges the existing PR; the next run then opens a new one.
+          existing_pr=$(gh pr list --repo "$REPO" --author '@me' \
+            --search "in:title \"Annotate CI-detected flaky tests\"" \
+            --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            echo "Open auto-flaky PR #$existing_pr already exists — skipping this week."
+            exit 0
+          fi
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="auto/flaky-annotations"
+          # Unique per-run branch so an in-review PR branch is never overwritten.
+          branch="auto/flaky-annotations-${GITHUB_RUN_ID}"
           git checkout -b "$branch"
           git add '*.py'
           git commit -s -m "Annotate CI-detected flaky tests with @pytest.mark.flaky"
-          git push -f -u origin "$branch"
-          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
-          if [ -n "$existing_pr" ]; then
-            echo "Existing open PR #$existing_pr found for branch $branch — updated."
-          else
-            gh pr create --title "Annotate CI-detected flaky tests" \
-              --body-file annotated.md --label "team-review"
-          fi
+          git push -u origin "$branch"
+          gh pr create --title "Annotate CI-detected flaky tests" \
+            --body-file annotated.md --label "team-review"
