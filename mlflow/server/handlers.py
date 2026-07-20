@@ -6690,6 +6690,21 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    # Decorator scorers carry a `call_source` field that is executed via exec() when the
+    # scorer is deserialized. Reject such payloads before deserialization so this endpoint
+    # never reconstructs attacker-supplied source code, regardless of the server's tracking
+    # URI. This mirrors the server-side guard in `_register_scorer`.
+    try:
+        serialized_data = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value(
+            "serialized_scorer must be valid JSON"
+        ) from e
+    if serialized_data.get("call_source") is not None:
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
+
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
