@@ -88,6 +88,30 @@ def _already_flaky(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
+def _imports_pytest(tree: ast.Module) -> bool:
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Import) and any(a.name == "pytest" for a in node.names):
+            return True
+        if isinstance(node, ast.ImportFrom) and node.module == "pytest":
+            return True
+    return False
+
+
+def _import_insert_line(tree: ast.Module) -> int:
+    """1-based line to insert 'import pytest' at: after any module docstring and
+    `from __future__` imports (which must stay first), before everything else.
+    """
+    line = 1
+    for node in tree.body:
+        is_docstring = isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+        is_future = isinstance(node, ast.ImportFrom) and node.module == "__future__"
+        if is_docstring or is_future:
+            line = (node.end_lineno or node.lineno) + 1
+        else:
+            break
+    return line
+
+
 def annotate_file(path: Path, qualifiers: list[str], attempts: int, report_ref: str) -> Annotation:
     func = qualifiers[-1]
     nodeid = f"{path}::{'::'.join(qualifiers)}"
@@ -115,7 +139,13 @@ def annotate_file(path: Path, qualifiers: list[str], attempts: int, report_ref: 
         f"{indent}# flaky: auto-detected from CI re-runs; see {report_ref}\n"
         f"{indent}@pytest.mark.flaky(attempts={attempts})\n"
     )
+    # The decorator references `pytest`; ensure the module imports it, or collection
+    # raises NameError. Apply the two inserts bottom-up so the earlier (import) insert
+    # doesn't shift the decorator's line index.
+    import_at = None if _imports_pytest(tree) else _import_insert_line(tree) - 1
     lines.insert(insert_at, block)
+    if import_at is not None:
+        lines.insert(import_at, "import pytest\n")
     path.write_text("".join(lines))
     return Annotation(nodeid, str(path), func, attempts, True, "annotated")
 
