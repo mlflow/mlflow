@@ -33,6 +33,7 @@ const mockUseSavedViews = (overrides: Partial<ReturnType<typeof useSavedViews>> 
     canModify: true,
     deleteView: deleteView as any,
     openView: openView as any,
+    activeViewId: null,
     ...overrides,
   });
 };
@@ -135,5 +136,27 @@ describe('ExperimentViewSavedViewsButton', () => {
 
     await userEvent.type(screen.getByTestId('saved-views-search'), 'zzzz-no-match');
     await waitFor(() => expect(screen.getByText(/No views match your search/)).toBeInTheDocument());
+  });
+
+  test('labels the trigger with the active view name and checkmarks its row', async () => {
+    mockUseSavedViews({ activeViewId: 'v2' });
+    renderButton();
+
+    // The trigger reflects the applied view rather than the generic "Views" label.
+    const trigger = screen.getByTestId('saved-views-trigger');
+    expect(within(trigger).getByText('Baseline comparison')).toBeInTheDocument();
+    expect(within(trigger).queryByText('Views')).not.toBeInTheDocument();
+
+    await openDropdown();
+    // Only the active view's row carries the checkmark.
+    expect(screen.getByTestId('saved-views-active-v2')).toBeInTheDocument();
+    expect(screen.queryByTestId('saved-views-active-v1')).not.toBeInTheDocument();
+  });
+
+  test('falls back to the generic label when no view is active', async () => {
+    renderButton();
+
+    const trigger = screen.getByTestId('saved-views-trigger');
+    expect(within(trigger).getByText('Views')).toBeInTheDocument();
   });
 });

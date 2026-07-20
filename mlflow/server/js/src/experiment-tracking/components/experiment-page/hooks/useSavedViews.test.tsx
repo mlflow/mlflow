@@ -6,7 +6,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 
 import { useSavedViews } from './useSavedViews';
-import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter, useNavigate } from '../../../../common/utils/RoutingUtils';
 import { encodeSavedViewEnvelope, getSavedViewTagKey } from '../utils/savedViewEnvelope';
 import { ExperimentTag } from '../../../sdk/MlflowMessages';
 import type { ExperimentEntity } from '../../../types';
@@ -52,10 +52,14 @@ const makeState = (views: { id: string; name: string; createdAt: number; state?:
 describe('useSavedViews', () => {
   const navigateMock = jest.fn();
 
-  const renderUseSavedViews = (state: any, experiment: ExperimentEntity) => {
+  const renderUseSavedViews = (state: any, experiment: ExperimentEntity, initialEntries: string[] = ['/']) => {
     const store = configureStore([thunk, promiseMiddleware()])(state);
     const result = renderHook(() => useSavedViews({ experiment }), {
-      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={initialEntries}>
+          <Provider store={store}>{children}</Provider>
+        </MemoryRouter>
+      ),
     });
     return { ...result, store };
   };
@@ -118,5 +122,16 @@ describe('useSavedViews', () => {
   it('reports canModify=false when the experiment lacks MODIFIY_PERMISSION', () => {
     const { result } = renderUseSavedViews(makeState([]), makeExperiment(['READ']));
     expect(result.current.canModify).toBe(false);
+  });
+
+  it('exposes the active view id from the viewStateShareKey URL param', () => {
+    const state = makeState([{ id: 'view-42', name: 'Open me', createdAt: 1000 }]);
+    const { result } = renderUseSavedViews(state, makeExperiment(), ['/?viewStateShareKey=view-42']);
+    expect(result.current.activeViewId).toBe('view-42');
+  });
+
+  it('reports a null active view id when no share key is present', () => {
+    const { result } = renderUseSavedViews(makeState([]), makeExperiment());
+    expect(result.current.activeViewId).toBeNull();
   });
 });

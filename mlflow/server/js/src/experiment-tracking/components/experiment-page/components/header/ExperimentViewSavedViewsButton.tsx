@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
+  CheckIcon,
   DangerModal,
   DropdownMenu,
   Input,
@@ -74,12 +75,14 @@ const SavedViewsListPanel = ({
   experimentId,
   views,
   canModify,
+  activeViewId,
   onOpen,
   onRequestDelete,
 }: {
   experimentId: string;
   views: SavedViewSummary[];
   canModify: boolean;
+  activeViewId: string | null;
   onOpen: (id: string) => void;
   onRequestDelete: (view: SavedViewSummary) => void;
 }) => {
@@ -129,14 +132,20 @@ const SavedViewsListPanel = ({
               componentId="mlflow.experiment_page.saved_views.item"
               onClick={() => onOpen(view.id)}
               css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}
+              data-testid={`saved-views-item-${view.id}`}
             >
-              <div css={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <Typography.Text bold css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {view.name}
-                </Typography.Text>
-                <Typography.Text size="sm" color="secondary">
-                  {Utils.timeSinceStr(new Date(view.createdAt))}
-                </Typography.Text>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
+                <span css={{ width: theme.general.iconFontSize, flexShrink: 0 }}>
+                  {view.id === activeViewId && <CheckIcon data-testid={`saved-views-active-${view.id}`} />}
+                </span>
+                <div css={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <Typography.Text bold css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {view.name}
+                  </Typography.Text>
+                  <Typography.Text size="sm" color="secondary">
+                    {Utils.timeSinceStr(new Date(view.createdAt))}
+                  </Typography.Text>
+                </div>
               </div>
               <div css={{ display: 'flex', gap: theme.spacing.xs, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                 <CopyLinkButton experimentId={experimentId} view={view} />
@@ -181,8 +190,11 @@ export const ExperimentViewSavedViewsButton = ({
   searchFacetsState?: ExperimentPageSearchFacetsState;
   uiState?: ExperimentPageUIState;
 }) => {
-  const { views, canModify, deleteView, openView } = useSavedViews({ experiment });
+  const { views, canModify, deleteView, openView, activeViewId } = useSavedViews({ experiment });
   const [showSaveModal, setShowSaveModal] = useState(false);
+  // Label the trigger with the open view's name so the toolbar reflects which view is applied; falls
+  // back to the generic "Views" when no view is active or the active id no longer resolves (deleted).
+  const activeView = activeViewId ? views.find((view) => view.id === activeViewId) : undefined;
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click:
   // a DangerModal rendered inside DropdownMenu.Content would be torn down when the menu dismisses.
   const [pendingDelete, setPendingDelete] = useState<SavedViewSummary | null>(null);
@@ -196,10 +208,16 @@ export const ExperimentViewSavedViewsButton = ({
             icon={<BookmarkIcon />}
             data-testid="saved-views-trigger"
           >
-            <FormattedMessage
-              defaultMessage="Views"
-              description="Label for the saved views dropdown button in the experiment header"
-            />
+            {activeView ? (
+              <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeView.name}
+              </span>
+            ) : (
+              <FormattedMessage
+                defaultMessage="Views"
+                description="Label for the saved views dropdown button in the experiment header"
+              />
+            )}
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
@@ -207,6 +225,7 @@ export const ExperimentViewSavedViewsButton = ({
             experimentId={experiment.experimentId}
             views={views}
             canModify={canModify}
+            activeViewId={activeViewId}
             onOpen={openView}
             onRequestDelete={setPendingDelete}
           />

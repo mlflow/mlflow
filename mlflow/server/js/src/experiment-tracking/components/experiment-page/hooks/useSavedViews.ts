@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 import type { ThunkDispatch } from '../../../../redux-types';
-import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import { deleteExperimentTagApi, getExperimentApi } from '../../../actions';
 import Routes from '../../../routes';
 import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY, ExperimentPageTabName } from '../../../constants';
@@ -25,7 +25,12 @@ import { canModifyExperiment } from '../utils/experimentPage.common-utils';
 export const useSavedViews = ({ experiment }: { experiment: ExperimentEntity }) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const experimentId = experiment.experimentId;
+
+  // The currently-open view is the one whose id is in the share-key URL param — the same param the
+  // reader (useSharedExperimentViewState) resolves to load the view. Null when browsing unsaved state.
+  const activeViewId = searchParams.get(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY);
 
   // Read the tags slice directly (rather than via getExperimentTags) so a partially-populated
   // store — e.g. one seeded before the experiment's tags have loaded — yields an empty list
@@ -66,5 +71,5 @@ export const useSavedViews = ({ experiment }: { experiment: ExperimentEntity }) 
     [dispatch, navigate, experimentId],
   );
 
-  return { views, canModify, deleteView, openView };
+  return { views, canModify, deleteView, openView, activeViewId };
 };
