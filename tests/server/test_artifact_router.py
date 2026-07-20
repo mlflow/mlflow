@@ -112,8 +112,8 @@ def test_upload_with_stream_upload_mixin(client):
         )
 
     assert resp.status_code == 200
-    mock_repo.log_artifact_from_stream.assert_called_once()
-    args, kwargs = mock_repo.log_artifact_from_stream.call_args
+    mock_repo.log_artifact_from_async_stream.assert_awaited_once()
+    args, kwargs = mock_repo.log_artifact_from_async_stream.call_args
     assert args[1] == "model.pkl"
     assert kwargs["artifact_path"] == "nested"
 
@@ -141,13 +141,16 @@ def test_upload_preserves_content(client, tmp_path):
     test_data = b"x" * (ARTIFACT_STREAM_CHUNK_SIZE * 2 + 500)
     uploaded_content = None
 
-    def capture_stream(stream, filename, artifact_path=None):
+    async def capture_stream(chunks, filename, artifact_path=None):
         nonlocal uploaded_content
-        uploaded_content = stream.read()
+        content = bytearray()
+        async for chunk in chunks:
+            content.extend(chunk)
+        uploaded_content = bytes(content)
 
     with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
         mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
-        mock_repo.log_artifact_from_stream.side_effect = capture_stream
+        mock_repo.log_artifact_from_async_stream.side_effect = capture_stream
         mock_get_repo.return_value = mock_repo
 
         resp = client.put(

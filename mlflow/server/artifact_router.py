@@ -156,21 +156,18 @@ async def upload_artifact(artifact_path: str, request: Request):
 
         artifact_repo = _get_artifact_repo()
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = os.path.join(tmp_dir, tail)
-            with open(tmp_path, "wb") as f:
-                async for chunk in request.stream():
-                    f.write(chunk)
-
-            if isinstance(artifact_repo, StreamUploadMixin):
-                with open(tmp_path, "rb") as stream_file:
-                    await asyncio.to_thread(
-                        artifact_repo.log_artifact_from_stream,
-                        stream_file,
-                        tail,
-                        artifact_path=head or None,
-                    )
-            else:
+        if isinstance(artifact_repo, StreamUploadMixin):
+            await artifact_repo.log_artifact_from_async_stream(
+                request.stream(),
+                tail,
+                artifact_path=head or None,
+            )
+        else:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = os.path.join(tmp_dir, tail)
+                with open(tmp_path, "wb") as f:
+                    async for chunk in request.stream():
+                        f.write(chunk)
                 await asyncio.to_thread(
                     artifact_repo.log_artifact, tmp_path, artifact_path=head or None
                 )
