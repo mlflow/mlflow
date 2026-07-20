@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Modal, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
@@ -22,13 +22,7 @@ export const QuickConnectModal = ({
   const displayName = resolveDisplayName(server);
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
 
-  useEffect(() => {
-    if (visible && !endpoint) {
-      onClose();
-    }
-  }, [visible, endpoint, onClose]);
-
-  if (!endpoint) return null;
+  if (!visible || !endpoint) return null;
 
   return (
     <Modal

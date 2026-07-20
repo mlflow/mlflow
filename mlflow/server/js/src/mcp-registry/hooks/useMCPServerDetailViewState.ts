@@ -9,16 +9,13 @@ export enum MCPServerDetailViewMode {
 
 interface State {
   mode: MCPServerDetailViewMode;
-  selectedVersion?: string;
   comparedVersion?: string;
 }
 
 type ViewAction =
   | { type: 'setPreviewMode' }
-  | { type: 'setCompareMode'; selectedVersion?: string; comparedVersion?: string }
-  | { type: 'setComparedVersion'; comparedVersion?: string }
-  | { type: 'setSelectedVersion'; version?: string }
-  | { type: 'switchSides' };
+  | { type: 'setCompareMode'; comparedVersion?: string }
+  | { type: 'setComparedVersion'; comparedVersion?: string };
 
 const viewStateReducer = (state: State, action: ViewAction): State => {
   switch (action.type) {
@@ -28,36 +25,24 @@ const viewStateReducer = (state: State, action: ViewAction): State => {
       return {
         ...state,
         mode: MCPServerDetailViewMode.COMPARE,
-        selectedVersion: action.selectedVersion,
         comparedVersion: action.comparedVersion,
       };
     case 'setComparedVersion':
-      if (action.comparedVersion === state.selectedVersion) {
-        return { ...state, comparedVersion: action.comparedVersion, selectedVersion: state.comparedVersion };
-      }
       return { ...state, comparedVersion: action.comparedVersion };
-    case 'setSelectedVersion':
-      if (action.version === state.comparedVersion) {
-        return { ...state, selectedVersion: action.version, comparedVersion: state.selectedVersion };
-      }
-      return { ...state, selectedVersion: action.version };
-    case 'switchSides':
-      return { ...state, selectedVersion: state.comparedVersion, comparedVersion: state.selectedVersion };
     default:
       return state;
   }
 };
 
-export const useMCPServerDetailViewState = (versions?: MCPServerVersion[]) => {
+export const useMCPServerDetailViewState = (
+  versions: MCPServerVersion[] | undefined,
+  selectedVersion: string | undefined,
+  setSelectedVersion: (version: string | undefined) => void,
+) => {
   const [state, dispatch] = useReducer(viewStateReducer, {
     mode: MCPServerDetailViewMode.PREVIEW,
-    selectedVersion: undefined,
     comparedVersion: undefined,
   });
-
-  const setSelectedVersion = useCallback((version?: string) => {
-    dispatch({ type: 'setSelectedVersion', version });
-  }, []);
 
   const setPreviewMode = useCallback(() => {
     dispatch({ type: 'setPreviewMode' });
@@ -65,24 +50,40 @@ export const useMCPServerDetailViewState = (versions?: MCPServerVersion[]) => {
 
   const setCompareMode = useCallback(() => {
     const latestVersion = first(versions)?.version;
-    const baselineVersion = state.selectedVersion ?? versions?.[1]?.version;
+    const baselineVersion = selectedVersion ?? versions?.[1]?.version;
     const comparedVersion = baselineVersion === latestVersion ? versions?.[1]?.version : latestVersion;
 
-    dispatch({ type: 'setCompareMode', selectedVersion: baselineVersion, comparedVersion });
-  }, [versions, state.selectedVersion]);
+    setSelectedVersion(baselineVersion);
+    dispatch({ type: 'setCompareMode', comparedVersion });
+  }, [versions, selectedVersion, setSelectedVersion]);
 
   const setComparedVersion = useCallback((comparedVersion: string) => {
     dispatch({ type: 'setComparedVersion', comparedVersion });
   }, []);
 
   const switchSides = useCallback(() => {
-    dispatch({ type: 'switchSides' });
-  }, []);
+    if (!selectedVersion || !state.comparedVersion) {
+      return;
+    }
+    const tempSelected = selectedVersion;
+    setSelectedVersion(state.comparedVersion);
+    setComparedVersion(tempSelected);
+  }, [selectedVersion, state.comparedVersion, setSelectedVersion, setComparedVersion]);
+
+  if (versions?.length && !selectedVersion) {
+    setSelectedVersion(first(versions)?.version);
+  }
+  if (state.mode === MCPServerDetailViewMode.COMPARE && versions && versions.length < 2) {
+    dispatch({ type: 'setPreviewMode' });
+  }
+  if (state.comparedVersion && versions?.length && !versions.some((v) => v.version === state.comparedVersion)) {
+    const fallback =
+      first(versions)?.version === selectedVersion ? (versions[1]?.version ?? '') : (first(versions)?.version ?? '');
+    dispatch({ type: 'setComparedVersion', comparedVersion: fallback });
+  }
 
   return {
     viewState: { mode: state.mode, comparedVersion: state.comparedVersion },
-    selectedVersion: state.selectedVersion,
-    setSelectedVersion,
     setPreviewMode,
     setCompareMode,
     setComparedVersion,

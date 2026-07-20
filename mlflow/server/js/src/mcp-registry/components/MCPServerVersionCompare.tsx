@@ -196,14 +196,12 @@ const TextDiffPanel = ({
   comparedText,
   emptyFallback,
   colors,
-  switchButton,
   diffMode = 'words',
 }: {
   baselineText: string;
   comparedText: string;
   emptyFallback: string;
   colors: { addedBackground: string; removedBackground: string };
-  switchButton: React.ReactNode;
   diffMode?: DiffMode;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -229,7 +227,7 @@ const TextDiffPanel = ({
       <pre css={preStyles}>
         <code>{baselineText || emptyFallback}</code>
       </pre>
-      <div css={{ paddingInline: theme.spacing.sm, display: 'flex', alignItems: 'flex-start' }}>{switchButton}</div>
+      <div css={{ width: theme.spacing.sm }} />
       <pre css={preStyles}>
         <code>
           {diff.map((part, index) => (
@@ -482,7 +480,6 @@ export const MCPServerVersionCompare = ({
             comparedText={comparedText}
             emptyFallback={emptyFallback}
             colors={colors}
-            switchButton={switchButton}
             diffMode={diffMode}
           />
         </div>

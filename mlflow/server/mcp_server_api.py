@@ -206,7 +206,7 @@ class CreateMCPServerVersionRequest(BaseModel):
     tools: list[MCPToolRequestPayload] | None = Field(
         default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
     )
-    connect_options: dict[str, dict[str, bool]] | None = None
+    connect_options: dict[str, ConnectOptionSettings] | None = None
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
@@ -215,7 +215,7 @@ class UpdateMCPServerVersionRequest(BaseModel):
     tools: list[MCPToolRequestPayload] | None = Field(
         default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
     )
-    connect_options: dict[str, dict[str, bool]] | None = None
+    connect_options: dict[str, ConnectOptionSettings] | None = None
 
 
 class CreateMCPAccessEndpointRequest(BaseModel):
@@ -500,11 +500,7 @@ def _update_mcp_server_version_kwargs(
     if "tools" in provided_fields:
         kwargs["tools"] = _tool_payloads_to_entities(body.tools)
     if "connect_options" in provided_fields:
-        kwargs["connect_options"] = (
-            {k: ConnectOptionSettings(**v) for k, v in body.connect_options.items()}
-            if body.connect_options is not None
-            else None
-        )
+        kwargs["connect_options"] = body.connect_options
     return kwargs
 
 
@@ -686,11 +682,7 @@ def create_mcp_server_version(
         status=status,
         tools=tools,
         created_by=username,
-        connect_options=(
-            {k: ConnectOptionSettings(**v) for k, v in body.connect_options.items()}
-            if body.connect_options is not None
-            else None
-        ),
+        connect_options=body.connect_options,
     )
     return MCPServerVersionResponse.from_entity(ver)
 

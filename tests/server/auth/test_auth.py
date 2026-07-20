@@ -4816,6 +4816,57 @@ def test_mcp_server_nested_delete_requires_can_delete(fastapi_client, monkeypatc
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_patch_connect_options_requires_manage(fastapi_client, monkeypatch, prefix):
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/connect-opts"
+
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        editor,
+        "mcp_server",
+        server_name,
+        "EDIT",
+    )
+
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:foo": {"hidden": True}}},
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 403
+
+    with User(owner, owner_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:foo": {"hidden": True}}},
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code == 200
+
+        resp = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code == 200
+        version_data = resp.json()["mcp_server_version"]
+        assert version_data["connect_options"] == {"npm:foo": {"hidden": True}}
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_nested_post_does_not_re_promote_downgraded_creator(fastapi_client, monkeypatch, prefix):
     creator, creator_pw = create_user(fastapi_client.tracking_uri)
     server_name = "com.test/re-promote"

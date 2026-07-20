@@ -158,14 +158,14 @@ export const MCPRegistryApi = {
     endpointId: string,
     request: UpdateMCPAccessEndpointRequest,
   ): Promise<MCPAccessEndpoint> => {
-    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${endpointId}`), {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${encodeURIComponent(endpointId)}`), {
       method: HTTPMethods.PATCH,
       body: request,
     }) as Promise<MCPAccessEndpoint>;
   },
 
   deleteMCPAccessEndpoint: (name: string, endpointId: string): Promise<void> => {
-    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${endpointId}`), {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${encodeURIComponent(endpointId)}`), {
       method: HTTPMethods.DELETE,
     }) as Promise<void>;
   },

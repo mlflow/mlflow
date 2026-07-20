@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -21,7 +21,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
-import { Link, useNavigate, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
+import { Link, useNavigate, useParams } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useEditAliasesModal } from '../../common/hooks/useEditAliasesModal';
@@ -42,6 +42,7 @@ import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
 import { MCPServerVersionCompare } from '../components/MCPServerVersionCompare';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
 import { useMCPServerDetailViewState, MCPServerDetailViewMode } from '../hooks/useMCPServerDetailViewState';
+import { useSelectedMCPServerVersion } from '../hooks/useSelectedMCPServerVersion';
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
 import { lineClampStyles } from '../styles';
 import { useServerState } from '../hooks/useServerState';
@@ -59,9 +60,8 @@ const MCPServerDetailPage = () => {
   const intl = useIntl();
   const navigate = useNavigate();
   const params = useParams<{ serverName: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const versionFromUrl = searchParams.get('version') ?? undefined;
   const serverName = decodeURIComponent(params.serverName ?? '');
+  const [selectedVersion, setSelectedVersion] = useSelectedMCPServerVersion();
   const updateVersionMutation = useUpdateMCPServerVersion(serverName);
   const { DeleteServerModal, openDeleteModal } = useDeleteServerModal({
     serverName,
@@ -80,66 +80,10 @@ const MCPServerDetailPage = () => {
 
   const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
 
-  const {
-    viewState,
-    selectedVersion: hookSelectedVersion,
-    setSelectedVersion: hookSetSelectedVersion,
-    setPreviewMode,
-    setCompareMode,
-    setComparedVersion,
-    switchSides,
-  } = useMCPServerDetailViewState(versions);
-
-  const versionFoundInList = versionFromUrl && versions?.some((v) => v.version === versionFromUrl);
-
-  useEffect(() => {
-    if (!versions?.length) {
-      hookSetSelectedVersion(undefined);
-      return;
-    }
-    const currentStillValid = versions.some((v) => v.version === hookSelectedVersion);
-    if (!currentStillValid) {
-      const urlVersion = versionFoundInList ? versionFromUrl : undefined;
-      hookSetSelectedVersion(urlVersion ?? versions[0].version);
-    }
-    if (viewState.mode === MCPServerDetailViewMode.COMPARE && versions.length < 2) {
-      setPreviewMode();
-    } else if (viewState.comparedVersion && !versions.some((v) => v.version === viewState.comparedVersion)) {
-      setComparedVersion(
-        versions[0]?.version === hookSelectedVersion ? (versions[1]?.version ?? '') : (versions[0]?.version ?? ''),
-      );
-    }
-  }, [
+  const { viewState, setPreviewMode, setCompareMode, setComparedVersion, switchSides } = useMCPServerDetailViewState(
     versions,
-    hookSelectedVersion,
-    versionFromUrl,
-    versionFoundInList,
-    viewState.comparedVersion,
-    viewState.mode,
-    setComparedVersion,
-    hookSetSelectedVersion,
-    setPreviewMode,
-  ]);
-
-  const selectedVersion = hookSelectedVersion;
-
-  const setSelectedVersion = useCallback(
-    (version: string | undefined) => {
-      hookSetSelectedVersion(version);
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (version) {
-            next.set('version', version);
-          } else {
-            next.delete('version');
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [hookSetSelectedVersion, setSearchParams],
+    selectedVersion,
+    setSelectedVersion,
   );
 
   const currentVersion = versions?.find((v) => v.version === selectedVersion);

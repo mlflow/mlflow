@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
+import { useState } from 'react';
 import { useMCPServerDetailViewState, MCPServerDetailViewMode } from './useMCPServerDetailViewState';
 import { createMockMCPServerVersion } from '../test-utils';
 
@@ -7,21 +8,32 @@ const v1 = createMockMCPServerVersion({ version: '1' });
 const v2 = createMockMCPServerVersion({ version: '2' });
 const v3 = createMockMCPServerVersion({ version: '3' });
 
+const renderViewState = (versions: ReturnType<typeof createMockMCPServerVersion>[], initialVersion?: string) =>
+  renderHook(
+    ({ versions: v, initial }) => {
+      const [selectedVersion, setSelectedVersion] = useState<string | undefined>(initial);
+      return {
+        selectedVersion,
+        setSelectedVersion,
+        ...useMCPServerDetailViewState(v, selectedVersion, setSelectedVersion),
+      };
+    },
+    { initialProps: { versions, initial: initialVersion } },
+  );
+
 describe('useMCPServerDetailViewState', () => {
-  it('starts in preview mode with no selection', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
+  it('starts in preview mode', () => {
+    const { result } = renderViewState([v1, v2]);
     expect(result.current.viewState.mode).toBe(MCPServerDetailViewMode.PREVIEW);
-    expect(result.current.selectedVersion).toBeUndefined();
   });
 
-  it('setSelectedVersion updates the selected version', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
-    act(() => result.current.setSelectedVersion('1'));
+  it('auto-selects first version when none is selected', () => {
+    const { result } = renderViewState([v1, v2]);
     expect(result.current.selectedVersion).toBe('1');
   });
 
   it('setPreviewMode clears comparedVersion and sets preview mode', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
+    const { result } = renderViewState([v1, v2], '1');
     act(() => result.current.setCompareMode());
     expect(result.current.viewState.mode).toBe(MCPServerDetailViewMode.COMPARE);
 
@@ -31,8 +43,7 @@ describe('useMCPServerDetailViewState', () => {
   });
 
   it('setCompareMode auto-selects baseline and compared versions', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2, v3]));
-    act(() => result.current.setSelectedVersion('1'));
+    const { result } = renderViewState([v1, v2, v3], '1');
     act(() => result.current.setCompareMode());
 
     expect(result.current.viewState.mode).toBe(MCPServerDetailViewMode.COMPARE);
@@ -42,8 +53,7 @@ describe('useMCPServerDetailViewState', () => {
   });
 
   it('switchSides swaps baseline and compared versions', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
-    act(() => result.current.setSelectedVersion('1'));
+    const { result } = renderViewState([v1, v2], '1');
     act(() => result.current.setCompareMode());
 
     const before = {
@@ -57,29 +67,17 @@ describe('useMCPServerDetailViewState', () => {
     expect(result.current.viewState.comparedVersion).toBe(before.selected);
   });
 
-  it('auto-swaps when selecting the same version as compared', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
-    act(() => result.current.setSelectedVersion('1'));
-    act(() => {
-      result.current.setCompareMode();
-    });
-
-    const comparedBefore = result.current.viewState.comparedVersion;
-    act(() => result.current.setSelectedVersion(comparedBefore!));
-
-    expect(result.current.selectedVersion).toBe(comparedBefore);
-    expect(result.current.viewState.comparedVersion).not.toBe(comparedBefore);
+  it('does not rewrite selectedVersion when it is not in the versions list', () => {
+    const { result } = renderViewState([v1, v2], 'nonexistent');
+    expect(result.current.selectedVersion).toBe('nonexistent');
   });
 
-  it('auto-swaps when setting compared to the same version as selected', () => {
-    const { result } = renderHook(() => useMCPServerDetailViewState([v1, v2]));
-    act(() => result.current.setSelectedVersion('1'));
+  it('exits compare mode when fewer than 2 versions remain', () => {
+    const { result, rerender } = renderViewState([v1, v2], '1');
     act(() => result.current.setCompareMode());
+    expect(result.current.viewState.mode).toBe(MCPServerDetailViewMode.COMPARE);
 
-    const selectedBefore = result.current.selectedVersion!;
-    act(() => result.current.setComparedVersion(selectedBefore));
-
-    expect(result.current.viewState.comparedVersion).toBe(selectedBefore);
-    expect(result.current.selectedVersion).not.toBe(selectedBefore);
+    rerender({ versions: [v1], initial: result.current.selectedVersion });
+    expect(result.current.viewState.mode).toBe(MCPServerDetailViewMode.PREVIEW);
   });
 });
