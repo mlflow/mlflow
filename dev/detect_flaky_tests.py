@@ -73,6 +73,23 @@ def gh_api(path: str, paginate: bool = False) -> str | None:
     return proc.stdout
 
 
+def gh_api_text_bytes(path: str) -> str | None:
+    """Fetch a possibly-binary endpoint (e.g. job logs) and decode leniently.
+
+    The logs endpoint is not guaranteed to be clean UTF-8, so capture raw bytes
+    (no `text=True`) and decode with `errors="replace"` rather than risk a
+    UnicodeDecodeError that would silently drop the whole log.
+    """
+    proc = subprocess.run(["gh", "api", path], capture_output=True)
+    if proc.returncode != 0:
+        print(
+            f"  ! gh api {path} failed: {proc.stderr.decode(errors='replace')[:200]}",
+            file=sys.stderr,
+        )
+        return None
+    return proc.stdout.decode("utf-8", errors="replace")
+
+
 def gh_api_objects(path: str, paginate: bool = False) -> list[dict[str, Any]]:
     """Parse gh output, tolerating --paginate's concatenated JSON objects."""
     raw = gh_api(path, paginate)
@@ -119,7 +136,7 @@ def attempt_jobs(repo: str, run_id: int, attempt: int) -> list[dict[str, Any]]:
 
 def failing_tests_from_log(repo: str, job_id: int) -> dict[str, str]:
     """{nodeid: first-line error} parsed from a job's log. Empty if none recoverable."""
-    log = gh_api(f"repos/{repo}/actions/jobs/{job_id}/logs")
+    log = gh_api_text_bytes(f"repos/{repo}/actions/jobs/{job_id}/logs")
     if not log:
         return {}
     failures: dict[str, str] = {}

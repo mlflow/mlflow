@@ -14,7 +14,9 @@ name: Flaky test detector
 # the bot never merges, and tests classified `investigate`/`fix` are left for a human.
 on:
   schedule:
-    # Mondays at 09:00 UTC — covers the previous week.
+    # Runs Mondays at 09:00 UTC. The detector scans a trailing window (14 days by
+    # default) so flakes near the week boundary aren't missed; the rolling report
+    # issue dedups the overlap.
     - cron: "0 9 * * 1"
   workflow_dispatch:
     inputs:
@@ -93,8 +95,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          if [ ! -s flakes.md ]; then
-            echo "No report produced; skipping issue."
+          # flakes.md always carries a header, so gate on the JSON actually
+          # holding flakes — otherwise we'd file a "0 flakes" issue every week.
+          if [ ! -s flakes.json ] || [ "$(jq 'length' flakes.json)" = "0" ]; then
+            echo "No flakes detected; skipping issue."
             exit 0
           fi
           title="Weekly flaky-test report"
