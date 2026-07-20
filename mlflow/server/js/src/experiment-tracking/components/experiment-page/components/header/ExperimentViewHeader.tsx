@@ -60,11 +60,15 @@ export const ExperimentViewHeader = React.memo(
     inferredExperimentKind,
     setEditing,
     experimentKindSelector,
+    savedViewsSlot,
   }: {
     experiment: ExperimentEntity;
     inferredExperimentKind?: ExperimentKind;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
+    // Tab-aware saved-views controls rendered in the header action cluster. Filled by the tab-aware
+    // caller (ExperimentPageTabs), which knows the active tab; the header stays presentational.
+    savedViewsSlot?: React.ReactNode;
   }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -292,6 +296,7 @@ export const ExperimentViewHeader = React.memo(
           >
             {!headerActionsHidden && (
               <>
+                {savedViewsSlot}
                 {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
                   <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
                 )}

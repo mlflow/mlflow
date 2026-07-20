@@ -71,7 +71,7 @@ describe('ExperimentViewHeader', () => {
     mockNavigate.mockClear();
   });
 
-  const renderComponent = (experiment = defaultExperiment, initialPath = '/') => {
+  const renderComponent = (experiment = defaultExperiment, initialPath = '/', savedViewsSlot?: React.ReactNode) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const queryClient = new QueryClient();
     const Router = initialPath ? MemoryRouter : BrowserRouter;
@@ -88,7 +88,16 @@ describe('ExperimentViewHeader', () => {
             })}
           >
             <TestRouter
-              routes={[testRoute(<ExperimentViewHeader experiment={experiment} setEditing={setEditing} />, '*')]}
+              routes={[
+                testRoute(
+                  <ExperimentViewHeader
+                    experiment={experiment}
+                    setEditing={setEditing}
+                    savedViewsSlot={savedViewsSlot}
+                  />,
+                  '*',
+                ),
+              ]}
               initialEntries={[initialPath]}
               history={history}
             />
@@ -144,11 +153,19 @@ describe('ExperimentViewHeader', () => {
       expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
     });
 
-    it('does not render a share button in the header', () => {
-      // Sharing lives in each tab's toolbar "Views" dropdown, not the header: the header button
-      // only ever serialized runs state and linked to the runs tab, so it was wrong on every
-      // other tab.
+    it('renders no saved-views controls when the slot is empty', () => {
+      // The header is presentational: it shows saved-views controls only when the tab-aware caller
+      // fills the slot (Runs tab), never on its own.
       expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('saved-views slot', () => {
+    it('renders whatever the tab-aware caller passes into the slot', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/', <button data-testid="header-saved-views">Views</button>);
+      });
+      expect(screen.getByTestId('header-saved-views')).toBeInTheDocument();
     });
   });
 
