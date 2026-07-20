@@ -451,6 +451,53 @@ describe('MLflowTracingPlugin', () => {
       });
     });
 
+    it('should create LLM span for reasoning-only assistant message with empty content', async () => {
+      // mockTraceInfo is a plain object (not a jest.fn), so clearAllMocks
+      // doesn't reset it — prior tests can leave stale values.
+      const traceManager = mlflowTracing.InMemoryTraceManager.getInstance();
+      const mockTrace = traceManager.getTrace('mock-trace-id')!;
+      mockTrace.info.responsePreview = '';
+
+      // Assistant message with reasoning but NO text
+      const messages = [
+        createUserMessage('Think about this deeply'),
+        createAssistantReasoningMessage('Deep internal deliberation about the question...'),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      // This runs the real plugin code against our mocked @mlflow/core
+      await hooks.event!(createSessionIdleEvent('reasoning-only-session'));
+
+      // An llm_call span should still be created even without text
+      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'llm_call',
+          spanType: 'LLM',
+        }),
+      );
+      // NOTE : All tests in this file follow the pattern below ## 
+      // The plugin calls startSpan() multiple times internally:
+      //   const parentSpan = startSpan({name: 'opencode_conversation', ...})
+      //   const llmSpan    = startSpan({name: 'llm_call', ...})
+      //   const toolSpan   = startSpan({name: 'tool_X', ...})   (if tools exist)
+      // mockSpan.setOutputs.mock.calls collects calls from ALL spans.
+      // We care about the llmSpan.setOutputs() call specifically. [0] works
+      // because only the LLM span calls setOutputs today.
+      const mockSpan = (mlflowTracing.startSpan as jest.Mock)();
+      const outputCall = mockSpan.setOutputs.mock.calls[0][0];
+
+      expect(outputCall.choices[0].message.content).toBe('');
+      expect(outputCall.choices[0].message.reasoning).toBe(
+        'Deep internal deliberation about the question...',
+      );
+
+      // extractAssistantResponse only looks at text parts, so reasoning-only
+      // messages intentionally leave responsePreview empty on the parent trace.
+      expect(mockTrace.info.responsePreview).toBe('');
+    });
+
     it('should not include reasoning field when no reasoning parts exist', async () => {
       const messages = [createUserMessage('Hello'), createAssistantTextMessage('Hi there!')];
 
