@@ -9,9 +9,14 @@ from mlflow.exceptions import MlflowException
 
 
 @pytest.fixture(scope="module")
-def spark_session():
+def spark_session(tmp_path_factory: pytest.TempPathFactory):
     from pyspark.sql import SparkSession
 
+    # Isolate the warehouse and embedded Derby metastore under a per-module tmp dir. Both
+    # default to the process cwd (./spark-warehouse, ./metastore_db), which every xdist
+    # worker shares, so concurrent workers collide on the Derby lock. Isolating them lets
+    # this run in the parallel pass. See _XDIST_SERIAL_PATHS in tests/conftest.py.
+    tmp_dir = tmp_path_factory.mktemp("spark_tmp")
     with (
         SparkSession.builder
         .master("local[*]")
@@ -19,6 +24,11 @@ def spark_session():
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
+        .config("spark.sql.warehouse.dir", str(tmp_dir))
+        .config(
+            "javax.jdo.option.ConnectionURL",
+            f"jdbc:derby:;databaseName={tmp_dir}/metastore_db;create=true",
         )
         .getOrCreate()
     ) as session:

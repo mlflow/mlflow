@@ -41,6 +41,14 @@ def spark_session(tmp_path_factory: pytest.TempPathFactory):
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
         .config("spark.sql.warehouse.dir", str(tmp_dir))
+        # Pin the embedded Derby metastore inside the per-module tmp dir. By default it
+        # lands at ./metastore_db in the process cwd, which every xdist worker shares, so
+        # concurrent workers collide on the Derby lock. An isolated URL lets this run in
+        # the parallel pass. See _XDIST_SERIAL_PATHS in tests/conftest.py.
+        .config(
+            "javax.jdo.option.ConnectionURL",
+            f"jdbc:derby:;databaseName={tmp_dir}/metastore_db;create=true",
+        )
         .getOrCreate()
     ) as session:
         yield session

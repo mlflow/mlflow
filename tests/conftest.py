@@ -65,10 +65,6 @@ _logger = logging.getLogger(__name__)
 # Each entry is a posix-style path prefix relative to the repo root; a test is treated as
 # serial if its file path starts with any of these. Verified xdist-hostile against a
 # green serial baseline (they pass serially but fail under `-n auto`):
-#   - tests/data/test_spark_dataset.py, test_spark_dataset_source.py,
-#     test_delta_dataset_source.py, test_pandas_dataset.py: all workers share one Spark/Delta
-#     JVM session and clobber the catalog config across processes. (The windows job already
-#     deselects the two spark/delta nodes in test_pandas_dataset.py for the same reason.)
 #   - tests/server/test_prometheus_exporter.py + test_handlers.py: both import the
 #     process-global Flask `app`; the conftest orders prometheus first, but under
 #     `--dist loadscope` they land on different workers and the ordering no longer holds
@@ -92,10 +88,6 @@ _logger = logging.getLogger(__name__)
 #     download models/datasets from huggingface.co; 4 workers hitting HF at once trigger rate
 #     limiting / HTTP 504s. Running them serially keeps concurrent HF load down.
 _XDIST_SERIAL_PATHS = (
-    "tests/data/test_spark_dataset.py",
-    "tests/data/test_spark_dataset_source.py",
-    "tests/data/test_delta_dataset_source.py",
-    "tests/data/test_pandas_dataset.py",
     "tests/data/test_huggingface_dataset_and_source.py",
     "tests/metrics/test_metric_definitions.py",
     "tests/server/test_prometheus_exporter.py",
