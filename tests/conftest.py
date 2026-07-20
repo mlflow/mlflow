@@ -86,8 +86,6 @@ _logger = logging.getLogger(__name__)
 #     tests/tracking/_model_registry/test_utils.py: assume a filesystem `./mlruns` store, but
 #     a sibling worker toggling `MLFLOW_ALLOW_FILE_STORE` (file-store "maintenance mode")
 #     leaks across the process and trips these.
-#   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
-#     which are perturbed by concurrent xdist workers.
 #   - tests/data/test_huggingface_dataset_and_source.py, tests/metrics/test_metric_definitions.py:
 #     download models/datasets from huggingface.co; 4 workers hitting HF at once trigger rate
 #     limiting / HTTP 504s. Running them serially keeps concurrent HF load down.
@@ -110,7 +108,6 @@ _XDIST_SERIAL_PATHS = (
     "tests/db/test_schema.py",
     "tests/db/test_tracking_operations.py",
     "tests/tracking/_model_registry/test_utils.py",
-    "tests/tracing/export/test_async_export_queue.py",
 )
 
 

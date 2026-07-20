@@ -43,9 +43,12 @@ def exporter_process(counter):
 
 @skip_when_testing_trace_sdk
 def test_async_queue_complete_task_process_finished():
-    multiprocessing.set_start_method("spawn", force=True)
-    counter = multiprocessing.Value("i", 0)
-    process = multiprocessing.Process(target=exporter_process, args=(counter,))
+    # Use a local spawn context instead of multiprocessing.set_start_method(..., force=True):
+    # the latter mutates the process-global start method, which corrupts pytest-xdist's own
+    # worker multiprocessing and is why this module was quarantined to the serial pass.
+    ctx = multiprocessing.get_context("spawn")
+    counter = ctx.Value("i", 0)
+    process = ctx.Process(target=exporter_process, args=(counter,))
     process.start()
     process.join(timeout=15)
 
