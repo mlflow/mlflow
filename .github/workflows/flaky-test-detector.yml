@@ -1,11 +1,17 @@
 name: Flaky test detector
 
-# Mines user-triggered CI re-runs for ground-truth flakes (a job that failed on
-# one run attempt and passed on the next attempt of the same commit; the failing
-# test + error are parsed from that attempt's logs) and posts a weekly report.
-# Tagging a test @pytest.mark.flaky stays a human decision; this job only surfaces
-# the evidence so tagged flakes have a visible, tracked home and don't get forgotten.
-
+# Weekly flaky-test pipeline (detect -> classify -> annotate -> PR):
+#   1. Detect: mine user-triggered CI re-runs for ground-truth flakes (a job that
+#      failed on one run attempt and passed on the next attempt of the same commit;
+#      the failing test + error are parsed from that attempt's logs).
+#   2. Classify: an LLM judges each flake's root cause and whether a retry is safe
+#      (a retry masks a real bug, so this is not applied blindly).
+#   3. Annotate: for `annotate` verdicts only, add @pytest.mark.flaky to the test.
+#   4. PR: open a pull request with those edits for human review.
+#
+# The report issue is always published (observability); the PR is opened only when
+# there is at least one annotate-approved test. A human still reviews/merges the PR —
+# the bot never merges, and tests classified `investigate`/`fix` are left for a human.
 on:
   schedule:
     # Mondays at 09:00 UTC — covers the previous week.
@@ -20,8 +26,6 @@ defaults:
   run:
     shell: bash
 
-permissions: {}
-
 jobs:
   detect:
     if: github.repository == 'mlflow/mlflow'
@@ -34,9 +38,18 @@ jobs:
       actions: read
       issues: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        id: app-token
         with:
-          persist-credentials: false
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
       - uses: ./.github/actions/setup-python
 
       - name: Detect flaky tests
@@ -53,6 +66,13 @@ jobs:
           # Mirror the report into the run's step summary for at-a-glance viewing.
           cat flakes.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Classify flaky tests
+        if: hashFiles('flakes.json') != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python dev/classify_flaky_tests.py --in flakes.json --out classified.json
+
       - name: Upload report
         if: "!cancelled()"
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -61,12 +81,12 @@ jobs:
           path: |
             flakes.json
             flakes.md
+            classified.json
           if-no-files-found: ignore
           retention-days: 90
 
       # File/update a single rolling GitHub issue with the week's report so flakes
-      # have a visible home. (A JIRA equivalent can replace this step once a
-      # service token is provisioned; the report body is identical.)
+      # have a visible home, regardless of whether any were auto-annotated.
       - name: Publish weekly issue
         if: github.event_name == 'schedule'
         env:
@@ -87,4 +107,37 @@ jobs:
           else
             gh issue create --repo "$REPO" \
               --title "$title" --body-file flakes.md --label "area/build"
+          fi
+
+      # Apply @pytest.mark.flaky for `annotate`-classified tests, then open a PR.
+      - name: Annotate approved flakes
+        id: annotate
+        if: hashFiles('classified.json') != ''
+        run: |
+          python dev/annotate_flaky_tests.py --in classified.json \
+            --report-ref "the weekly flaky-test report" --report annotated.md
+          if git diff --quiet -- '*.py'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update pull request
+        if: steps.annotate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          branch="auto/flaky-annotations"
+          git checkout -b "$branch"
+          git add '*.py'
+          git commit -s -m "Annotate CI-detected flaky tests with @pytest.mark.flaky"
+          git push -f -u origin "$branch"
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            echo "Existing open PR #$existing_pr found for branch $branch — updated."
+          else
+            gh pr create --title "Annotate CI-detected flaky tests" \
+              --body-file annotated.md --label "team-review"
           fi
