@@ -70,6 +70,7 @@ export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
     const last = groups[groups.length - 1];
     if (last?.kind === 'tools') {
       last.calls = [...last.calls, part];
+      groups[groups.length - 1] = { kind: 'tools', calls: [...last.calls, part] };
     } else {
       groups.push({ kind: 'tools', calls: [part] });
     }
@@ -99,6 +100,7 @@ export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
       {groupParts(parts).map((group, i) =>
         group.kind === 'text' ? (
           group.text ? (
+            // Assumption: Parts are append only, so this ID construction is stable and safe
             <div key={`text-${i}`} css={markdownSpacing}>
               <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
             </div>
@@ -140,7 +142,10 @@ const StreamingIndicator = () => {
           '@keyframes dots': DOTS_ANIMATION,
         }}
       >
-        Processing
+        <FormattedMessage
+          defaultMessage="Processing"
+          description="Processing indicator while Assistant is streaming a response"
+        />
       </span>
     </div>
   );

@@ -76,6 +76,7 @@ const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}
 // stay visible on their own cards.
 export const groupStatus = (parts: ToolCallPart[]): NonNullable<ToolCallPart['status']> => {
   if (parts.some((p) => (p.status ?? ToolCallStatus.Running) === ToolCallStatus.Running)) return ToolCallStatus.Running;
+  // Assumption: Parts is non-empty and groupParts never creates empty tool group
   return parts[parts.length - 1]?.status === ToolCallStatus.Error ? ToolCallStatus.Error : ToolCallStatus.Done;
 };
 
