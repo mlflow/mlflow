@@ -494,7 +494,7 @@ def _ndcg_at_k_eval_fn(k):
 
             # only include the top k retrieved chunks
             y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth)
-            score = ndcg_score(y_true, y_score, k=len(retrieved[:k]), ignore_ties=True)
+            score = ndcg_score(y_true, y_score, k=min(k, y_true.shape[1]), ignore_ties=True)
             scores.append(score)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
