@@ -8,7 +8,13 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.base import Scorer, ScorerKind
-from mlflow.genai.scorers.trulens import Groundedness
+from mlflow.genai.scorers.trulens import (
+    AnswerRelevance,
+    Coherence,
+    ContextRelevance,
+    Groundedness,
+)
+from mlflow.telemetry.events import _get_scorer_class_name_for_tracking
 
 
 @pytest.fixture
@@ -266,3 +272,19 @@ def test_trulens_scorer_register_blocked_on_databricks(mock_provider):
         with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
             with pytest.raises(MlflowException, match="Third-party scorer registration"):
                 scorer.register(name="groundedness")
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expected_class"),
+    [
+        (Groundedness, "TruLens:Groundedness"),
+        (ContextRelevance, "TruLens:ContextRelevance"),
+        (AnswerRelevance, "TruLens:AnswerRelevance"),
+        (Coherence, "TruLens:Coherence"),
+    ],
+)
+def test_trulens_scorer_tracking_class_name(mock_provider, scorer_class, expected_class):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        scorer = scorer_class(model="openai:/gpt-4")
+
+    assert _get_scorer_class_name_for_tracking(scorer) == expected_class

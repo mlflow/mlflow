@@ -24,7 +24,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import backref, relationship, validates
+from sqlalchemy.orm import (
+    backref,
+    query_expression,
+    relationship,
+    validates,
+    with_expression,
+)
 
 from mlflow.entities import (
     Assessment,
@@ -52,6 +58,12 @@ from mlflow.entities import (
     IssueReference,
     IssueSeverity,
     IssueStatus,
+    MCPAccessEndpoint,
+    MCPRemoteTransportType,
+    MCPServer,
+    MCPServerVersion,
+    MCPStatus,
+    MCPTool,
     Metric,
     Param,
     RoutingStrategy,
@@ -3775,3 +3787,460 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
                 f"Unknown label schema input_type {input_type!r}; expected one of "
                 "'pass_fail', 'categorical', 'numeric', 'text'."
             )
+
+
+class SqlMCPServer(Base):
+    __tablename__ = "mcp_servers"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    display_name = Column(String(256), nullable=True)
+    description = Column(Text, nullable=True)
+    icons = Column(JSON, nullable=True)
+    resolved_latest_version = query_expression()
+    resolved_parent_server_json = query_expression()
+    resolved_status = query_expression()
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    __table_args__ = (PrimaryKeyConstraint("workspace", "name", name="mcp_servers_pk"),)
+
+    def __repr__(self):
+        return f"<SqlMCPServer ({self.name}, {self.workspace})>"
+
+    @staticmethod
+    def _version_order_by():
+        """Return DESC clauses for semantic ordering plus deterministic tie-breaks.
+
+        For semver-equal builds, prefer newer-created rows before using the raw
+        version string as a final deterministic fallback.
+        """
+        return (
+            SqlMCPServerVersion.version_major.desc(),
+            SqlMCPServerVersion.version_minor.desc(),
+            SqlMCPServerVersion.version_patch.desc(),
+            SqlMCPServerVersion.version_prerelease_sort_key.desc(),
+            SqlMCPServerVersion.created_at.desc(),
+            SqlMCPServerVersion.version.desc(),
+        )
+
+    @classmethod
+    def _resolved_latest_candidates_query(cls):
+        status_priority = sa.case(
+            (SqlMCPServerVersion.status == MCPStatus.ACTIVE.value, 0),
+            else_=1,
+        )
+        return sa.select(
+            SqlMCPServerVersion.workspace.label("workspace"),
+            SqlMCPServerVersion.name.label("name"),
+            SqlMCPServerVersion.version.label("version"),
+            SqlMCPServerVersion.server_json.label("server_json"),
+            SqlMCPServerVersion.status.label("status"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(SqlMCPServerVersion.workspace, SqlMCPServerVersion.name),
+                order_by=(status_priority.asc(), *cls._version_order_by()),
+            )
+            .label("row_num"),
+        ).where(SqlMCPServerVersion.status != MCPStatus.DELETED.value)
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in .filter()."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_status_latest_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.status)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "mcp_latest_candidates"
+        )
+
+        return query.outerjoin(
+            latest_candidates,
+            sa.and_(
+                latest_candidates.c.workspace == cls.workspace,
+                latest_candidates.c.name == cls.name,
+                latest_candidates.c.row_num == 1,
+            ),
+        ).options(
+            with_expression(
+                cls.resolved_latest_version,
+                latest_candidates.c.version,
+            ),
+            with_expression(
+                cls.resolved_parent_server_json,
+                latest_candidates.c.server_json,
+            ),
+            with_expression(
+                cls.resolved_status,
+                latest_candidates.c.status,
+            ),
+        )
+
+    def to_mlflow_entity(
+        self,
+        resolved_versions_by_endpoint_id=None,
+        *,
+        resolved_latest_version: str | None = None,
+        resolved_status: str | None = None,
+    ):
+        tags = {t.key: t.value for t in self.tags}
+        aliases = {a.alias: a.version for a in self.server_aliases}
+        endpoint_entities = []
+        for ep in self.access_endpoints:
+            if (
+                resolved_versions_by_endpoint_id is not None
+                and ep.id not in resolved_versions_by_endpoint_id
+            ):
+                continue
+            endpoint_entity = ep.to_mlflow_entity()
+            if resolved_versions_by_endpoint_id is not None:
+                endpoint_entity.resolved_version = resolved_versions_by_endpoint_id.get(ep.id)
+            endpoint_entities.append(endpoint_entity)
+
+        resolved_latest_version = (
+            self.resolved_latest_version
+            if resolved_latest_version is None
+            else resolved_latest_version
+        )
+        resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        status = MCPStatus(resolved_status) if resolved_status is not None else None
+        description = self.description
+        if description is None and self.resolved_parent_server_json is not None:
+            parent_server_json = self.resolved_parent_server_json
+            if not isinstance(parent_server_json, dict):
+                parent_server_json = json.loads(parent_server_json)
+            description = parent_server_json.get("description")
+
+        return MCPServer(
+            name=self.name,
+            display_name=self.display_name,
+            description=description,
+            icons=self.icons,
+            workspace=self.workspace,
+            status=status,
+            tags=tags,
+            aliases=aliases,
+            access_endpoints=endpoint_entities,
+            latest_version=resolved_latest_version,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlMCPServerVersion(Base):
+    __tablename__ = "mcp_server_versions"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+    version_major = Column(Integer, nullable=False)
+    version_minor = Column(Integer, nullable=False)
+    version_patch = Column(Integer, nullable=False)
+    version_prerelease_sort_key = Column(String(512), nullable=False)
+    server_json = Column(JSON, nullable=False)
+    display_name = Column(String(256), nullable=True)
+    status = Column(
+        String(20),
+        nullable=False,
+        default=MCPStatus.DRAFT.value,
+        server_default=sa.text(f"'{MCPStatus.DRAFT.value}'"),
+    )
+    tools = Column(JSON, nullable=True)
+    source = Column(String(512), nullable=True)
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref("server_versions", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "version", name="mcp_server_versions_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_versions_server_fkey",
+        ),
+        # Keep this support index narrow enough for MySQL's 3072-byte key
+        # limit. Latest resolution still orders in SQL by semver core,
+        # prerelease sort key, created_at, and finally raw version; only the
+        # coarse prefix is indexed here because that is the most important
+        # pruning portion.
+        Index(
+            "idx_mcp_server_versions_latest",
+            "workspace",
+            "name",
+            "status",
+            sa.text("version_major DESC"),
+            sa.text("version_minor DESC"),
+            sa.text("version_patch DESC"),
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerVersion ({self.name}, {self.version}, {self.status})>"
+
+    def to_mlflow_entity(self, alias_names=None):
+        tags = {t.key: t.value for t in self.version_tags}
+        if alias_names is None:
+            alias_names = [a.alias for a in self.server.server_aliases if a.version == self.version]
+        tools = None
+        if self.tools is not None:
+            raw = self.tools if isinstance(self.tools, list) else json.loads(self.tools)
+            tools = [MCPTool.from_dict(t) for t in raw]
+        server_json = (
+            self.server_json if isinstance(self.server_json, dict) else json.loads(self.server_json)
+        )
+        return MCPServerVersion(
+            name=self.name,
+            version=self.version,
+            server_json=server_json,
+            display_name=self.display_name,
+            status=MCPStatus(self.status),
+            tools=tools,
+            aliases=alias_names,
+            tags=tags,
+            source=self.source,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlMCPServerTag(Base):
+    __tablename__ = "mcp_server_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(String(5000), nullable=True)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref("tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "key", name="mcp_server_tags_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_tags_server_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerTag ({self.name}, {self.key}={self.value})>"
+
+
+class SqlMCPServerVersionTag(Base):
+    __tablename__ = "mcp_server_version_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(String(5000), nullable=True)
+
+    server_version = relationship(
+        "SqlMCPServerVersion",
+        backref=backref("version_tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name, version],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "name", "version", "key", name="mcp_server_version_tags_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "name", "version"],
+            [
+                "mcp_server_versions.workspace",
+                "mcp_server_versions.name",
+                "mcp_server_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_version_tags_version_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
+
+
+class SqlMCPServerAlias(Base):
+    __tablename__ = "mcp_server_aliases"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    alias = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref(
+            "server_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPServerAlias.alias",
+        ),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "alias", name="mcp_server_aliases_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_aliases_server_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerAlias ({self.name}, {self.alias} -> {self.version})>"
+
+
+class SqlMCPAccessEndpoint(Base):
+    __tablename__ = "mcp_access_endpoints"
+
+    id = Column(String(36))
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    server_name = Column(String(256), nullable=False)
+    server_version = Column(String(128), nullable=True)
+    server_alias = Column(String(256), nullable=True)
+    url = Column(String(2048), nullable=False)
+    transport_type = Column(
+        String(32),
+        nullable=False,
+        default=MCPRemoteTransportType.STREAMABLE_HTTP.value,
+        server_default=sa.text(f"'{MCPRemoteTransportType.STREAMABLE_HTTP.value}'"),
+    )
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref(
+            "access_endpoints",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPAccessEndpoint.id",
+        ),
+        foreign_keys=[workspace, server_name],
+    )
+
+    # Populated via contains_eager in _endpoint_query_with_version, which
+    # resolves through both direct server_version and alias paths.
+    # Never auto-loaded (noload) — only filled by explicit JOIN.
+    resolved_version_rel = relationship(
+        "SqlMCPServerVersion",
+        primaryjoin=lambda: sa.and_(
+            SqlMCPAccessEndpoint.workspace == SqlMCPServerVersion.workspace,
+            SqlMCPAccessEndpoint.server_name == SqlMCPServerVersion.name,
+            SqlMCPAccessEndpoint.server_version == SqlMCPServerVersion.version,
+        ),
+        foreign_keys=[workspace, server_name, server_version],
+        viewonly=True,
+        lazy="noload",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mcp_access_endpoints_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "server_name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_access_endpoints_server_fkey",
+        ),
+        Index("ix_mcp_access_endpoints_server_name", "workspace", "server_name"),
+        Index("ix_mcp_access_endpoints_version", "workspace", "server_name", "server_version"),
+        Index("ix_mcp_access_endpoints_alias", "workspace", "server_name", "server_alias"),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPAccessEndpoint ({self.id}, {self.server_name})>"
+
+    def to_mlflow_entity(self):
+        resolved = None
+        if self.resolved_version_rel:
+            resolved = self.resolved_version_rel.to_mlflow_entity()
+        return MCPAccessEndpoint(
+            id=self.id,
+            server_name=self.server_name,
+            url=self.url,
+            transport_type=MCPRemoteTransportType(self.transport_type),
+            server_version=self.server_version,
+            server_alias=self.server_alias,
+            resolved_version=resolved,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )

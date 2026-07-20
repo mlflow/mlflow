@@ -56,7 +56,7 @@ export const AgentActionCard = ({
   onActiveTabChange?: (tab: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, prefillPrompt, isLocalServer } = useAssistant();
+  const { openPanel, prefillPrompt, canUseAssistant } = useAssistant();
   const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'copy-prompt';
   // Typed as string, not TabKey, because extraTabs contribute arbitrary string values to the
   // tab space (Tabs.Root.onValueChange hands back a plain string).
@@ -124,8 +124,8 @@ export const AgentActionCard = ({
             />
           </Tabs.Trigger>
           {codeSnippet && <Tabs.Trigger value="code-snippet">{codeSnippet.label}</Tabs.Trigger>}
-          {/* The in-UI assistant only runs against a local MLflow server, so hide it otherwise. */}
-          {isLocalServer && (
+          {/* Show assistant actions only when the assistant is available (local server or server-enabled remote access). */}
+          {canUseAssistant && (
             <Tabs.Trigger value="assistant">
               <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <AssistantSparkleIcon isHovered={false} iconSize={14} />
@@ -268,7 +268,7 @@ export const AgentActionCard = ({
           </Tabs.Content>
         )}
 
-        {isLocalServer && (
+        {canUseAssistant && (
           <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
             <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
               <FormattedMessage

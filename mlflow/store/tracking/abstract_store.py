@@ -48,6 +48,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
@@ -57,7 +58,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore(GatewayStoreMixin):
+class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
