@@ -87,6 +87,8 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
+_TRACE_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
+_TRACE_DOWNLOAD_MAX_ATTEMPTS = 5
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -252,17 +254,45 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
+    def _download_trace_file_to_path(
+        self, signed_uri: str, dst_path: Path, headers: dict[str, str]
+    ) -> Path:
+        for attempt in range(1, _TRACE_DOWNLOAD_MAX_ATTEMPTS + 1):
+            try:
+                with cloud_storage_http_request(
+                    "get", signed_uri, stream=True, headers=headers
+                ) as response:
+                    augmented_raise_for_status(response)
+                    with dst_path.open("wb") as output_file:
+                        for chunk in response.iter_content(chunk_size=_TRACE_DOWNLOAD_CHUNK_SIZE):
+                            if not chunk:
+                                break
+                            output_file.write(chunk)
+                return dst_path
+            except requests.HTTPError:
+                dst_path.unlink(missing_ok=True)
+                raise
+            except requests.RequestException as e:
+                dst_path.unlink(missing_ok=True)
+                if attempt == _TRACE_DOWNLOAD_MAX_ATTEMPTS:
+                    raise
+                _logger.warning(
+                    "Retrying streamed trace artifact download after attempt %s/%s: %s",
+                    attempt,
+                    _TRACE_DOWNLOAD_MAX_ATTEMPTS,
+                    e,
+                )
+
     def download_trace_data_to_file(self, dst_path: Path) -> Path:
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
         signed_uri = cred.signed_uri
         headers = self._extract_headers_from_credentials(cred.headers)
         try:
-            download_file_using_http_uri(signed_uri, str(dst_path), headers=headers)
-        except Exception as e:
-            if isinstance(e, requests.HTTPError) and e.response.status_code == 404:
+            return self._download_trace_file_to_path(signed_uri, dst_path, headers)
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
                 raise MlflowTraceDataNotFound(request_id=self.resource.id) from e
             raise
-        return dst_path
 
     def download_trace_data(self) -> dict[str, Any]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -336,7 +366,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         headers = self._extract_headers_from_credentials(cred.headers)
         try:
-            download_file_using_http_uri(cred.signed_uri, str(dst_path), headers=headers)
+            return self._download_trace_file_to_path(cred.signed_uri, dst_path, headers)
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise MlflowException(
@@ -344,7 +374,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 ) from e
             raise
-        return dst_path
 
     def download_trace_attachment(self, path: str) -> bytes:
         _validate_attachment_path(path)
