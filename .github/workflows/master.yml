@@ -103,15 +103,6 @@ jobs:
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
-      - name: Pre-warm Spark/Delta jars
-        run: |
-          # The Spark/Delta dataset tests now run in the parallel pass. Each SparkSession
-          # resolves the delta package via `spark.jars.packages` into the shared ~/.ivy2
-          # cache, but Ivy's resolver is not concurrency-safe: several workers cold-resolving
-          # the same uncached package at once corrupt each other and fail with
-          # `ClassNotFoundException: DeltaCatalog`. Resolve it once here, serially, so every
-          # worker later hits a warm cache (concurrent cache *reads* are safe).
-          uv run --no-sync python dev/prewarm_spark_delta.py
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pytest
-from packaging.version import Version
 
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
@@ -16,43 +15,18 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
+from tests.data.spark_test_utils import build_spark_session
+
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
 
 @pytest.fixture(scope="module")
 def spark_session(tmp_path_factory: pytest.TempPathFactory):
-    import pyspark
-    from pyspark.sql import SparkSession
-
-    pyspark_version = Version(pyspark.__version__)
-    if pyspark_version.major >= 4:
-        delta_package = "io.delta:delta-spark_2.13:4.0.0"
-    else:
-        delta_package = "io.delta:delta-spark_2.12:3.0.0"
-
-    tmp_dir = tmp_path_factory.mktemp("spark_tmp")
-    with (
-        SparkSession.builder
-        .master("local[*]")
-        .config("spark.jars.packages", delta_package)
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
-            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-        .config("spark.sql.warehouse.dir", str(tmp_dir))
-        # Pin the embedded Derby metastore inside the per-module tmp dir. By default it
-        # lands at ./metastore_db in the process cwd, which every xdist worker shares, so
-        # concurrent workers collide on the Derby lock. An isolated URL lets this run in
-        # the parallel pass. (The delta jar is pre-warmed into the shared Ivy cache by the
-        # CI job before the parallel pass; concurrent Ivy *resolution* is not thread-safe.)
-        # See _XDIST_SERIAL_PATHS in tests/conftest.py.
-        .config(
-            "javax.jdo.option.ConnectionURL",
-            f"jdbc:derby:;databaseName={tmp_dir}/metastore_db;create=true",
-        )
-        .getOrCreate()
-    ) as session:
+    # See tests/data/spark_test_utils.py: the session build serializes Ivy resolution
+    # (not concurrency-safe) and isolates the Derby metastore, so these tests run in the
+    # parallel xdist pass. See _XDIST_SERIAL_PATHS in tests/conftest.py.
+    with build_spark_session(tmp_path_factory.mktemp("spark_tmp")) as session:
         yield session
 
 

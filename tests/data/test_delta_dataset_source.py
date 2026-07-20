@@ -10,33 +10,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_managed_catalog_messages_pb2 import GetTable, GetTableResponse
 from mlflow.utils.proto_json_utils import message_to_json
 
+from tests.data.spark_test_utils import build_spark_session
+
 
 @pytest.fixture(scope="module")
 def spark_session(tmp_path_factory: pytest.TempPathFactory):
-    from pyspark.sql import SparkSession
-
-    # Isolate the warehouse and embedded Derby metastore under a per-module tmp dir. Both
-    # default to the process cwd (./spark-warehouse, ./metastore_db), which every xdist
-    # worker shares, so concurrent workers collide on the Derby lock. Isolating them lets
-    # this run in the parallel pass. (The delta jar is pre-warmed into the shared Ivy cache
-    # by the CI job before the parallel pass; concurrent Ivy *resolution* is not
-    # thread-safe.) See _XDIST_SERIAL_PATHS in tests/conftest.py.
-    tmp_dir = tmp_path_factory.mktemp("spark_tmp")
-    with (
-        SparkSession.builder
-        .master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
-            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-        .config("spark.sql.warehouse.dir", str(tmp_dir))
-        .config(
-            "javax.jdo.option.ConnectionURL",
-            f"jdbc:derby:;databaseName={tmp_dir}/metastore_db;create=true",
-        )
-        .getOrCreate()
-    ) as session:
+    # See tests/data/spark_test_utils.py: the session build serializes Ivy resolution
+    # (not concurrency-safe) and isolates the Derby metastore, so these tests run in the
+    # parallel xdist pass. See _XDIST_SERIAL_PATHS in tests/conftest.py.
+    with build_spark_session(tmp_path_factory.mktemp("spark_tmp")) as session:
         yield session
 
 
