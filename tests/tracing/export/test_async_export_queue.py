@@ -59,13 +59,19 @@ def test_async_queue_activate_thread_safe():
     with mock.patch("atexit.register") as mock_atexit:
         queue = AsyncTraceExportQueue()
 
+        # Count relative to a baseline: other test modules sharing this xdist worker may
+        # leave their own MLflowTraceLogging threads alive, so an absolute count (== 0)
+        # is polluted by them. We only care about the threads this queue creates.
+        main_thread = threading.main_thread()
+
         def count_threads():
-            main_thread = threading.main_thread()
             return sum(
                 t.is_alive()
                 for t in threading.enumerate()
                 if t is not main_thread and t.name.startswith("MLflowTraceLogging")
             )
+
+        baseline = count_threads()
 
         # 1. Validate activation
         with ThreadPoolExecutor(
@@ -73,14 +79,14 @@ def test_async_queue_activate_thread_safe():
         ) as executor:
             for _ in range(10):
                 executor.submit(queue.activate)
-        assert count_threads() > 0  # Logging thread + max 5 worker threads
+        assert count_threads() > baseline  # Logging thread + max 5 worker threads
         mock_atexit.assert_called_once()
         mock_atexit.reset_mock()
 
         # 2. Validate flush (continue)
         queue.flush(terminate=False)
         assert queue.is_active()
-        assert count_threads() > 0  # New threads should be created
+        assert count_threads() > baseline  # New threads should be created
         mock_atexit.assert_not_called()  # Exit callback should not be registered again
 
         # 3. Validate flush with termination
@@ -89,7 +95,8 @@ def test_async_queue_activate_thread_safe():
         ) as executor:
             for _ in range(10):
                 executor.submit(queue.flush(terminate=True))
-        assert count_threads() == 0
+        # This queue's own threads are gone; only pre-existing baseline threads remain.
+        assert count_threads() <= baseline
 
 
 def test_put_after_terminate_executes_synchronously():
