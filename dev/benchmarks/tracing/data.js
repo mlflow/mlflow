@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784668265505,
+  "lastUpdate": 1784670600182,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15281,6 +15281,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.43179199999804,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84731421+iyashk@users.noreply.github.com",
+            "name": "Yashwanth Kiran",
+            "username": "iyashk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f06c1d94e46cc876dda5244ae3efe4a11394f42f",
+          "message": "Propagate contextvars into trace read thread pool workers (#24456)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-21T21:46:41Z",
+          "tree_id": "a6a707f1e94cef4e1636e77fbc2938555015d849",
+          "url": "https://github.com/mlflow/mlflow/commit/f06c1d94e46cc876dda5244ae3efe4a11394f42f"
+        },
+        "date": 1784670599291,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.44937829999611,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.58764006060038,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 16.314806571423496,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.415800408161747,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.244479909090963,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.207889999993313,
             "unit": "ms"
           }
         ]
