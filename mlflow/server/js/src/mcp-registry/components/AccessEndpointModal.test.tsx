@@ -63,25 +63,27 @@ describe('AccessEndpointModal', () => {
   describe('create mode', () => {
     it('renders create title by default', () => {
       renderModal();
-      expect(screen.getByText('Create access endpoint')).toBeInTheDocument();
+      const modal = screen.getByTestId('mcp-endpoint-modal');
+      expect(modal).toHaveTextContent('Create access endpoint');
     });
 
     it('renders custom create title when provided', () => {
       renderModal({ createTitle: <span>Custom Title</span> });
-      expect(screen.getByText('Custom Title')).toBeInTheDocument();
+      const modal = screen.getByTestId('mcp-endpoint-modal');
+      expect(modal).toHaveTextContent('Custom Title');
     });
 
     it('shows server selector when no lockedServer', async () => {
       renderModal();
       await waitFor(() => {
-        expect(screen.getByText('Select an MCP server')).toBeInTheDocument();
+        expect(screen.getByTestId('mcp-endpoint-modal-server-selector')).toBeInTheDocument();
       });
     });
 
     it('locks server when lockedServer is provided', () => {
       renderModal({ lockedServer: 'com.test/my-server' });
-      expect(screen.getByText('com.test/my-server')).toBeInTheDocument();
-      expect(screen.queryByText('Select an MCP server')).not.toBeInTheDocument();
+      const lockedServer = screen.getByTestId('mcp-endpoint-modal-locked-server');
+      expect(lockedServer).toHaveTextContent('com.test/my-server');
     });
 
     it('disables Create button when form is empty', () => {
@@ -95,7 +97,8 @@ describe('AccessEndpointModal', () => {
       const urlInput = screen.getByPlaceholderText('https://mcp.example.com/server');
       await userEvent.type(urlInput, 'not-a-url');
       await waitFor(() => {
-        expect(screen.getByText(/valid HTTP or HTTPS URL/i)).toBeInTheDocument();
+        const error = screen.getByTestId('mcp-endpoint-modal-url-error');
+        expect(error).toHaveTextContent(/valid HTTP or HTTPS URL/i);
       });
     });
 
@@ -129,7 +132,8 @@ describe('AccessEndpointModal', () => {
 
     it('renders edit title', () => {
       renderModal({ editEndpoint });
-      expect(screen.getByText('Edit access endpoint')).toBeInTheDocument();
+      const modal = screen.getByTestId('mcp-endpoint-modal');
+      expect(modal).toHaveTextContent('Edit access endpoint');
     });
 
     it('pre-populates URL field', () => {
@@ -144,7 +148,7 @@ describe('AccessEndpointModal', () => {
 
     it('locks server name in edit mode', () => {
       renderModal({ editEndpoint });
-      expect(screen.queryByText('Select an MCP server')).not.toBeInTheDocument();
+      expect(screen.getByTestId('mcp-endpoint-modal-locked-server')).toBeInTheDocument();
     });
 
     it('submits update successfully', async () => {
@@ -183,7 +187,7 @@ describe('AccessEndpointModal', () => {
   });
 
   it('returns null when not visible', () => {
-    const { container } = renderModal({ visible: false });
-    expect(container.querySelector('[class*="modal"]')).not.toBeInTheDocument();
+    renderModal({ visible: false });
+    expect(screen.queryByTestId('mcp-endpoint-modal')).not.toBeInTheDocument();
   });
 });

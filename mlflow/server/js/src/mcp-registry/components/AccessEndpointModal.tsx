@@ -143,6 +143,7 @@ export const AccessEndpointModal = ({
   return (
     <Modal
       componentId="mlflow.mcp_registry.endpoint_modal"
+      data-testid="mcp-endpoint-modal"
       title={
         isEditMode ? (
           <FormattedMessage
@@ -190,13 +191,14 @@ export const AccessEndpointModal = ({
             <FormattedMessage defaultMessage="MCP Server:" description="MCP registry endpoint modal server label" />
           </FieldLabel>
           {isServerLocked ? (
-            <Typography.Text>
+            <Typography.Text data-testid="mcp-endpoint-modal-locked-server">
               {editEndpoint ? resolveEndpointDisplayName(editEndpoint) : selectedServer}
             </Typography.Text>
           ) : (
             <SimpleSelect
               id="mcp-registry-endpoint-server"
               componentId="mlflow.mcp_registry.endpoint_modal.server"
+              data-testid="mcp-endpoint-modal-server-selector"
               value={selectedServer}
               onChange={({ target }) => {
                 setSelectedServer(target.value);
@@ -233,7 +235,7 @@ export const AccessEndpointModal = ({
             validationState={endpointUrl.trim() && !isValidUrl ? 'error' : undefined}
           />
           {endpointUrl.trim() && !isValidUrl && (
-            <Typography.Text color="error" size="sm">
+            <Typography.Text color="error" size="sm" data-testid="mcp-endpoint-modal-url-error">
               <FormattedMessage
                 defaultMessage="Enter a valid HTTP or HTTPS URL"
                 description="MCP registry endpoint modal endpoint URL validation error"

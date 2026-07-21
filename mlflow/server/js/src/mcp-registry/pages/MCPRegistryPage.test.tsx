@@ -180,7 +180,7 @@ describe('MCPRegistryPage', () => {
       await waitFor(() => {
         expect(screen.getByText('server-1')).toBeInTheDocument();
       });
-      expect(screen.queryByText('Available')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('mcp-registry-availability-filter')).not.toBeInTheDocument();
     });
 
     it('shows toggle when user has MANAGE permission on at least one server', async () => {
@@ -201,7 +201,9 @@ describe('MCPRegistryPage', () => {
       await waitFor(() => {
         expect(screen.getByText('server-1')).toBeInTheDocument();
       });
-      expect(screen.getByText('Available')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      });
     });
 
     it('shows toggle for admin users (allowed_actions undefined)', async () => {
@@ -210,7 +212,9 @@ describe('MCPRegistryPage', () => {
       await waitFor(() => {
         expect(screen.getByText('server-1')).toBeInTheDocument();
       });
-      expect(screen.getByText('Available')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      });
     });
   });
 });

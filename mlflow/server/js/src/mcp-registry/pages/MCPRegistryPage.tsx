@@ -114,6 +114,7 @@ const MCPRegistryPage = () => {
                 value={filterMode}
                 onChange={(e) => setFilterMode(e.target.value as FilterMode)}
                 componentId="mlflow.mcp_registry.filter_toggle"
+                data-testid="mcp-registry-availability-filter"
               >
                 <SegmentedControlButton value="available">
                   <FormattedMessage defaultMessage="Available" description="Filter to show only available servers" />
