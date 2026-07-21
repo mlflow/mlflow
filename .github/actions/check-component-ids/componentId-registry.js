@@ -2150,9 +2150,6 @@ module.exports = {
 
   // -- mlflow.sidebar --
   "mlflow.sidebar.account": "",
-  "mlflow.sidebar.assistant_beta_tag": "",
-  "mlflow.sidebar.assistant_button": "",
-  "mlflow.sidebar.assistant_tooltip": "",
   "mlflow.sidebar.docs_link": "",
   "mlflow.sidebar.experiments_tab_link": "",
   "mlflow.sidebar.gateway_budgets_tab_link": "",
