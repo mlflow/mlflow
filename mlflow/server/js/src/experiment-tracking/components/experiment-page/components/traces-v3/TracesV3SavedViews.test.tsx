@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-import { TracesV3SavedViewsButton, TracesV3ShareButton, TraceLiveViewStateProvider } from './TracesV3SavedViews';
+import {
+  TracesV3SavedViewsButton,
+  TracesV3ShareButton,
+  TraceLiveViewStateProvider,
+  useTraceSavedViews,
+} from './TracesV3SavedViews';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
@@ -52,12 +57,45 @@ const mockExperiment = (tags: { key: string; value: string }[]) => {
 
 const { history } = setupTestRouter();
 
+// The buttons take the useTraceSavedViews result as a prop (hoisted once in TracesV3View so both
+// buttons share one Apollo subscription); these harnesses call the hook the same way for the tests.
+const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => {
+  const savedViews = useTraceSavedViews({ experimentId });
+  return <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />;
+};
+
+const ShareButtonHarness = ({ experimentId }: { experimentId: string }) => {
+  const savedViews = useTraceSavedViews({ experimentId });
+  return <TracesV3ShareButton experimentId={experimentId} savedViews={savedViews} />;
+};
+
+// Mirrors the PRODUCTION component layering: useTraceSavedViews is hoisted ABOVE the
+// TraceLiveViewStateProvider (which TracesV3Logs mounts), and only the button subtree is inside the
+// provider. The hook therefore cannot read the live column/sort context itself — the modal, which
+// renders inside the provider, must. A harness that wraps the hook in the provider (as the simpler
+// tests below do) hides this because the hook then sees the provider; this one reproduces the tree
+// that shipped a view with no columns/sort.
+const HoistedLiveStateHarness = ({
+  experimentId,
+  live,
+}: {
+  experimentId: string;
+  live: { selectedColumnIds: string[]; tableSort: { key: string; type: string; asc: boolean } };
+}) => {
+  const savedViews = useTraceSavedViews({ experimentId });
+  return (
+    <TraceLiveViewStateProvider value={live as any}>
+      <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />
+    </TraceLiveViewStateProvider>
+  );
+};
+
 const renderButton = () =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <MockedReduxStoreProvider>
-          <TracesV3SavedViewsButton experimentId="exp-1" />
+          <SavedViewsButtonHarness experimentId="exp-1" />
         </MockedReduxStoreProvider>
       </DesignSystemProvider>
     </IntlProvider>,
@@ -133,6 +171,24 @@ describe('TracesV3SavedViewsButton', () => {
     errorSpy.mockRestore();
   });
 
+  test('at the saved-view cap, shows the at-cap message and disables Save without writing', async () => {
+    // Seed 40 views (MAX_SAVED_VIEWS) so the experiment is exactly at the cap.
+    const cappedTags = Array.from({ length: 40 }, (_, i) => ({
+      key: `mlflow.traceViewState.cap${i}`,
+      value: encodeSavedViewEnvelope(`View ${i}`, 'x', i),
+    }));
+    mockExperiment(cappedTags);
+    renderButton();
+    await openDropdown();
+
+    await userEvent.click(screen.getByTestId('trace-saved-views-save-current'));
+    expect(await screen.findByTestId('save-trace-view-at-cap-message')).toBeInTheDocument();
+    // Even with a valid name typed, Save stays disabled and never dispatches a write.
+    await userEvent.type(await screen.findByTestId('save-trace-view-name-input'), 'One too many');
+    expect(screen.getByTestId('save-trace-view-save-button')).toBeDisabled();
+    expect(mockSetExperimentTagApi).not.toHaveBeenCalled();
+  });
+
   test('saving captures the live column/sort selection from context (not the empty URL)', async () => {
     render(
       <IntlProvider locale="en">
@@ -144,7 +200,7 @@ describe('TracesV3SavedViewsButton', () => {
                 tableSort: { key: 'tokens', type: 'trace-info' as any, asc: true },
               }}
             >
-              <TracesV3SavedViewsButton experimentId="exp-1" />
+              <SavedViewsButtonHarness experimentId="exp-1" />
             </TraceLiveViewStateProvider>
           </MockedReduxStoreProvider>
         </DesignSystemProvider>
@@ -170,6 +226,44 @@ describe('TracesV3SavedViewsButton', () => {
     expect(decodedState.single.sort).toEqual('tokens::trace-info::true');
   });
 
+  test('captures live column/sort even when the hook is hoisted above the live-state provider', async () => {
+    // Regression: the hook lives above TraceLiveViewStateProvider in production, so it reads null
+    // from context; the save path must pull the live state at call time from the in-provider modal.
+    // Before the fix this stored a view with no selectedColumns/sort (empty preview → "could not be
+    // applied" on open).
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <HoistedLiveStateHarness
+              experimentId="exp-1"
+              live={{
+                selectedColumnIds: ['request', 'response', 'tokens'],
+                tableSort: { key: 'tokens', type: 'trace-info', asc: true },
+              }}
+            />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={['/']} />
+        ),
+      },
+    );
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('trace-saved-views-save-current'));
+    await userEvent.type(await screen.findByTestId('save-trace-view-name-input'), 'Token view');
+    await userEvent.click(screen.getByTestId('save-trace-view-save-button'));
+
+    await waitFor(() => expect(mockSetExperimentTagApi).toHaveBeenCalled());
+    const [, , tagValue] = mockSetExperimentTagApi.mock.calls[0];
+    const envelope = JSON.parse(tagValue);
+    const decodedState = JSON.parse(await textDecompressDeflate(envelope.state));
+    expect(decodedState.single.selectedColumns).toEqual('request,response,tokens');
+    expect(decodedState.single.sort).toEqual('tokens::trace-info::true');
+  });
+
   test('shows an empty state when the experiment has no saved-view tags', async () => {
     mockExperiment([{ key: 'mlflow.note', value: 'x' }]);
     renderButton();
@@ -190,7 +284,7 @@ describe('TracesV3ShareButton', () => {
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <MockedReduxStoreProvider>
-            <TracesV3ShareButton experimentId="exp-1" />
+            <ShareButtonHarness experimentId="exp-1" />
           </MockedReduxStoreProvider>
         </DesignSystemProvider>
       </IntlProvider>,
