@@ -295,7 +295,7 @@ def _create_batches(
     return batches
 
 
-def _extract_json_object(response: str) -> str:
+def _extract_json_object(response: str | dict[str, Any]) -> str:
     """Extract the JSON object from an LLM response.
 
     Structured-output (``response_format``) responses are raw JSON, but the unstructured
@@ -304,7 +304,13 @@ def _extract_json_object(response: str) -> str:
     present, then narrows to the outermost ``{...}`` so leading/trailing text does not
     break parsing. Returns the original (stripped) string when no object is found, so the
     caller's ``json.loads`` raises a meaningful error.
+
+    Reasoning models (e.g. ``gpt-oss``) make DSPy return the completion as a
+    ``{"text": ..., "reasoning_content": ...}`` dict rather than a plain string, so pull the
+    ``text`` field out first.
     """
+    if isinstance(response, dict):
+        response = response.get("text", "")
     stripped = response.strip()
     if match := re.match(r"^```(?:json)?\s*\n?(.*?)\n?```$", stripped, re.DOTALL):
         stripped = match.group(1).strip()
@@ -316,14 +322,15 @@ def _extract_json_object(response: str) -> str:
 
 
 def _parse_batch_response(
-    response: str,
+    response: str | dict[str, Any],
     index_to_trace_id: dict[int, str],
     existing_guideline_texts: set[str],
 ) -> list[Guideline]:
     """Parse LM response and convert to Guideline objects, filtering duplicates.
 
     Args:
-        response: LM response in JSON format
+        response: LM response as a JSON string, or a DSPy ``{"text": ...}`` dict for
+            reasoning models
         index_to_trace_id: Mapping from example indices to trace IDs
         existing_guideline_texts: Set of already existing guideline texts to avoid duplicates
 

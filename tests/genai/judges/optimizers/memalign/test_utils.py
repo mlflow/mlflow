@@ -301,6 +301,45 @@ def test_distill_guidelines_falls_back_to_unstructured_on_structured_output_erro
         assert mock_lm.call_count == 2
 
 
+def test_distill_guidelines_handles_dict_response_from_reasoning_model():
+    # Reasoning models (e.g. gpt-oss) make DSPy return a {"text": ..., "reasoning_content": ...}
+    # dict rather than a string; distillation must parse it, not choke on .strip().
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
+
+        mock_lm = MagicMock(
+            return_value=[
+                {
+                    "text": '{"guidelines": [{"guideline_text": "Be concise", '
+                    '"source_trace_ids": [0]}]}',
+                    "reasoning_content": "thinking...",
+                }
+            ]
+        )
+        mock_construct_lm.return_value = mock_lm
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm="databricks:/databricks-gpt-oss-120b",
+            existing_guidelines=[],
+        )
+
+        assert len(result) == 1
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_trace_ids == ["trace_1"]
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -311,11 +350,13 @@ def test_distill_guidelines_falls_back_to_unstructured_on_structured_output_erro
         'Here are the guidelines:\n```json\n{"guidelines": []}\n```',
         'Sure! {"guidelines": []}',
         '{"guidelines": []}\nLet me know if you need more.',
+        # Reasoning models (e.g. gpt-oss) return a DSPy dict rather than a string.
+        {"text": '{"guidelines": []}', "reasoning_content": "let me think..."},
     ],
 )
 def test_extract_json_object(response):
     # The unstructured fallback path yields JSON that may be fenced and/or wrapped in
-    # prose; the extracted string must be valid JSON with the expected shape.
+    # prose; reasoning models return a {"text": ...} dict. Either must extract to valid JSON.
     assert json.loads(_extract_json_object(response)) == {"guidelines": []}
 
 
