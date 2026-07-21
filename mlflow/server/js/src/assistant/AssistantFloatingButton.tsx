@@ -121,7 +121,9 @@ export const AssistantFloatingButton = () => {
         height: fabSize,
         minWidth: fabSize,
         maxWidth: fabSize,
-        paddingInline: (fabSize - iconSize) / 2,
+        // No horizontal padding here: the icon lives in a fixed fabSize square (below)
+        // that keeps it centered in the collapsed circle regardless of the hidden label.
+        paddingInline: 0,
         paddingBlock: 0,
         border: '1px solid transparent',
         borderRadius: fabSize / 2,
@@ -129,7 +131,7 @@ export const AssistantFloatingButton = () => {
         appearance: 'none',
         background: bubbleBackground,
         color: theme.colors.textPrimary,
-        boxShadow: theme.general.shadowHigh,
+        boxShadow: theme.general.shadowLow,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         '@media (prefers-reduced-motion: no-preference)': {
@@ -141,7 +143,7 @@ export const AssistantFloatingButton = () => {
         },
         '& .assistant-fab-label': {
           opacity: 0,
-          marginLeft: 0,
+          marginRight: 0,
           fontWeight: theme.typography.typographyBoldFontWeight,
           fontSize: theme.typography.fontSizeMd,
           '@media (prefers-reduced-motion: no-preference)': {
@@ -150,11 +152,28 @@ export const AssistantFloatingButton = () => {
         },
         '&:hover .assistant-fab-label, &:focus-visible .assistant-fab-label': {
           opacity: 1,
-          marginLeft: theme.spacing.sm,
+          // Balance the icon square's centering with matching space on the label's right edge.
+          marginRight: (fabSize - iconSize) / 2,
         },
       }}
     >
-      <SparkleFillIcon color="ai" css={{ fontSize: iconSize, flexShrink: 0 }} />
+      {/* Fixed square keeps the icon dead-center in the collapsed circle; the hidden
+          label sits flush after it and only reveals on hover without shifting the icon. */}
+      <span
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: fabSize,
+          height: fabSize,
+          flexShrink: 0,
+        }}
+      >
+        {/* The sparkle glyph is geometrically centered, but its diagonal AI gradient
+            (cool top-left → warm bottom-right) makes it read as leaning right. A 1px
+            optical nudge left balances it; transform keeps the flex layout untouched. */}
+        <SparkleFillIcon color="ai" css={{ fontSize: iconSize, transform: 'translateX(-0.5px)' }} />
+      </span>
       <span className="assistant-fab-label">
         <FormattedMessage
           defaultMessage="MLflow Assistant"
