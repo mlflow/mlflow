@@ -575,6 +575,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0Z9gG2": {
+    "defaultMessage": "Estimated cost ~{cost}, from public model pricing; actual may vary (provider and cache rates).",
+    "description": "Estimated session cost with a disclaimer that it is approximate"
+  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -3542,10 +3546,6 @@
   "Ey+oLI": {
     "defaultMessage": "Request",
     "description": "Column label for request"
-  },
-  "F+8+Xo": {
-    "defaultMessage": "Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates).",
-    "description": "Estimated session cost with a disclaimer that it is approximate"
   },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
@@ -10246,6 +10246,10 @@
   "lCfyQO": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the logged model details metrics table"
+  },
+  "lCp+DF": {
+    "defaultMessage": "Cached {cached} tokens, reused conversation context billed at a reduced rate",
+    "description": "Portion of input tokens re-read from the provider's prompt cache across turns"
   },
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
