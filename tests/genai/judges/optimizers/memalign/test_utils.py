@@ -23,14 +23,29 @@ def test_get_default_embedding_model():
     assert get_default_embedding_model() == "openai:/text-embedding-3-small"
 
 
+def _iter_object_schemas(schema):
+    """Yield every object schema node (top-level and nested $defs) in a JSON schema."""
+    yield schema
+    yield from schema.get("$defs", {}).values()
+
+
 @pytest.mark.parametrize("model", [Guideline, Guidelines])
-def test_guideline_schemas_forbid_additional_properties(model):
-    # Databricks' structured-output endpoint rejects a response_format schema unless every
-    # object declares additionalProperties=false, which Pydantic only emits under extra=forbid.
+def test_guideline_schemas_satisfy_strict_structured_output(model):
+    # Databricks' structured-output endpoint enforces OpenAI strict-schema rules on every
+    # object: additionalProperties=false (emitted via extra=forbid) AND every property listed
+    # in `required` (so no field may declare a default). Assert both, since either omission
+    # produces a BadRequestError from the endpoint.
     schema = model.model_json_schema()
-    assert schema["additionalProperties"] is False
-    for definition in schema.get("$defs", {}).values():
-        assert definition["additionalProperties"] is False
+    for obj in _iter_object_schemas(schema):
+        if "properties" in obj:
+            assert obj.get("additionalProperties") is False
+            assert set(obj["required"]) == set(obj["properties"])
+
+
+def test_guideline_accepts_none_source_trace_ids():
+    # source_trace_ids is required (no default) but must remain nullable, since guidelines
+    # loaded from persisted memory and filtering logic rely on None being a valid value.
+    assert Guideline(guideline_text="x", source_trace_ids=None).source_trace_ids is None
 
 
 def _assert_objects_forbid_additional_properties(node):

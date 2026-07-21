@@ -145,15 +145,18 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     return truncated
 
 
-# ``extra="forbid"`` makes ``model_json_schema()`` emit ``additionalProperties: false`` on
-# every object. Databricks' structured-output endpoint rejects a ``response_format`` schema
-# that omits it (Pydantic does not add it by default), so this keeps distillation working
-# against ``databricks:/`` reflection models.
+# These models are sent as a structured-output ``response_format``. Databricks' endpoint
+# enforces OpenAI strict-schema rules on every object:
+#   - ``additionalProperties: false`` — supplied via ``extra="forbid"`` (Pydantic omits it
+#     by default).
+#   - every property listed in ``required`` — so ``source_trace_ids`` must NOT have a default
+#     (a default drops it from ``required``). It stays nullable via ``| None`` so ``None``
+#     remains a valid value; callers always pass it explicitly.
 class Guideline(BaseModel):
     model_config = {"extra": "forbid"}
 
     guideline_text: str
-    source_trace_ids: list[str | int] | None = None
+    source_trace_ids: list[str | int] | None
 
 
 class Guidelines(BaseModel):
