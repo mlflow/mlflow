@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
-import { Alert, GenericSkeleton, Input, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { useCallback, useMemo, useState } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { Button, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { omit } from 'lodash';
+import { useDispatch, useSelector } from 'react-redux';
+import type { ThunkDispatch } from '../../../../../redux-types';
 import Routes from '../../../../routes';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
@@ -11,6 +13,15 @@ import { createExperimentPageUIState, NON_SHAREABLE_UI_STATE_FIELDS } from '../.
 import { textCompressDeflate } from '../../../../../common/utils/StringUtils';
 import Utils from '../../../../../common/utils/Utils';
 import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY, ExperimentPageTabName } from '../../../../constants';
+import { getUUID } from '../../../../../common/utils/ActionUtils';
+import { setExperimentTagApi } from '../../../../actions';
+import {
+  encodeSavedViewEnvelope,
+  getSavedViewTagKey,
+  listSavedViews,
+  toKeyValueEntities,
+  type SavedViewSummary,
+} from '../../utils/savedViewEnvelope';
 import { shouldUseCompressedExperimentViewSharedState } from '../../../../../common/utils/FeatureUtils';
 import {
   EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY,
@@ -22,22 +33,35 @@ import { loadExperimentViewState } from '../../utils/persistSearchFacets';
 type GetShareLinkModalProps = {
   onCancel: () => void;
   visible: boolean;
-  experimentIds: string[];
+  experimentId: string;
   searchFacetsState?: ExperimentPageSearchFacetsState;
   uiState?: ExperimentPageUIState;
 };
 
 type ShareableViewState = ExperimentPageSearchFacetsState & ExperimentPageUIState;
 
+// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (5000 chars) server-side
+// (mlflow/utils/validation.py); a write above the ceiling HARD-THROWS in the tracking store rather
+// than truncating, so we preflight the encoded envelope length and surface a clear error instead of
+// the generic "failed to save" that a rejected write would produce.
+const MAX_TAG_VALUE_LENGTH = 5000;
+
+// Client-side cap: each view is a tag and `get-experiment` returns every tag value, so the count
+// is bounded to keep that payload small. Best-effort; tags have no server-side count constraint.
+export const MAX_SAVED_VIEWS = 40;
+
+// Case-insensitive, trimmed — matches the Views search. Best-effort: tags have no server-side
+// uniqueness constraint, so concurrent writers can still both win.
+export const viewNameExists = (views: SavedViewSummary[], name: string): boolean => {
+  const normalized = name.trim().toLowerCase();
+  return views.some((view) => view.name.trim().toLowerCase() === normalized);
+};
+
 // Typescript-based test to ensure that the keys of the two states are disjoint.
 // If they are not disjoint, the state serialization will not work as expected.
 const _arePersistedStatesDisjoint: [
   keyof ExperimentPageSearchFacetsState & keyof ExperimentPageUIState extends never ? true : false,
 ] = [true];
-
-// Guard against pathologically long URLs (charts are the main size driver).
-// Browsers and proxies start truncating well above this, so fall back gracefully.
-const MAX_SHARE_URL_LENGTH = 8000;
 
 const serializePersistedState = async (state: ShareableViewState) => {
   const shareableState = omit(state, NON_SHAREABLE_UI_STATE_FIELDS);
@@ -48,80 +72,61 @@ const serializePersistedState = async (state: ShareableViewState) => {
   return serialized;
 };
 
-const getShareableUrl = (experimentId: string, shareState: string, viewMode?: ExperimentViewRunsCompareMode) => {
+/**
+ * Build a share link that references a saved view by its id. The recipient's reader
+ * (`useSharedExperimentViewState`) resolves the id against the experiment's saved-view tag, so the
+ * URL carries only the opaque id — never the serialized state blob.
+ */
+export const getSavedViewShareUrl = (
+  experimentId: string,
+  viewId: string,
+  viewMode?: ExperimentViewRunsCompareMode,
+) => {
   // The shared view state is consumed by the runs view, so the link must land on
   // the runs tab; the bare experiment route redirects to Overview and drops the param.
   const route = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Runs);
 
-  // Begin building the query params
   const queryParams = new URLSearchParams();
-
-  // Embed the serialized view state directly in the viewStateShareKey param so the link is
-  // url-embedded (carries its own state, no backend lookup needed).
-  queryParams.set(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY, shareState);
-
-  // If the view mode is set, add it to the query params
+  queryParams.set(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY, viewId);
   if (viewMode) {
     queryParams.set(EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY, viewMode);
   }
 
-  // In regular implementation, build the hash part of the URL
   const params = queryParams.toString();
   const hashParam = `${route}${params?.startsWith('?') ? '' : '?'}${params}`;
-  const shareURL = `${window.location.origin}${window.location.pathname}#${hashParam}`;
-  return shareURL;
+  return `${window.location.origin}${window.location.pathname}#${hashParam}`;
 };
 
 /**
- * Remove the url-embedded view-state param from a URL before copying it as a share link.
- * When we fall back to copying the current location (multi-experiment, overflow, or failure),
- * a `viewStateShareKey` left over from the visitor's own shared link would take precedence over
- * the loose search-facet params for the recipient, so the fallback must drop it first. We never
- * strip it from the live address bar — that would re-enable local-storage persistence and clobber
- * the recipient's saved view.
- */
-export const stripShareKeyFromUrl = (fullUrl: string) => {
-  const hashIndex = fullUrl.indexOf('#');
-  if (hashIndex === -1) {
-    return fullUrl;
-  }
-  const base = fullUrl.slice(0, hashIndex);
-  const hash = fullUrl.slice(hashIndex + 1);
-  const queryIndex = hash.indexOf('?');
-  if (queryIndex === -1) {
-    return fullUrl;
-  }
-  const params = new URLSearchParams(hash.slice(queryIndex + 1));
-  if (!params.has(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY)) {
-    return fullUrl;
-  }
-  params.delete(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY);
-  const route = hash.slice(0, queryIndex);
-  const newQuery = params.toString();
-  return `${base}#${route}${newQuery ? `?${newQuery}` : ''}`;
-};
-
-/**
- * Modal that displays a shareable link for the experiment page. The current view
- * (search facets + UI state) is serialized, compressed and embedded directly in the
- * URL, so the link reproduces the view without writing anything to the backend.
+ * "Save & share view" modal. Saving names the current view (columns, sort, filters, charts),
+ * persists it as an experiment tag, and produces a link that references it by id. This supersedes
+ * the earlier self-contained URL-embedded share link: sharing is now something you do to a durable,
+ * named, deletable view rather than a one-off state dump in the URL.
  */
 export const ExperimentGetShareLinkModal = ({
   onCancel,
   visible,
-  experimentIds,
+  experimentId,
   searchFacetsState,
   uiState,
 }: GetShareLinkModalProps) => {
-  const [sharedStateUrl, setSharedStateUrl] = useState<string>('');
-  const [linkInProgress, setLinkInProgress] = useState(true);
-  // True when the encoded view overflowed the URL budget and we fell back to a plain
-  // link that drops the heavier UI state (layout/charts). Surfaced to the user below.
-  const [linkSimplified, setLinkSimplified] = useState(false);
-  const [viewMode] = useExperimentPageViewMode();
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const dispatch = useDispatch<ThunkDispatch>();
+  const [viewMode] = useExperimentPageViewMode();
 
-  const persistKey = useMemo(() => JSON.stringify([...experimentIds].sort()), [experimentIds]);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  // Set once the view is saved: the id-based share link to show in phase 2.
+  const [savedViewUrl, setSavedViewUrl] = useState<string | null>(null);
+
+  const persistKey = useMemo(() => JSON.stringify([experimentId]), [experimentId]);
+
+  // Read from the same live-updating slice as useSavedViews so a view saved this session counts
+  // toward the checks below without a GET_EXPERIMENT refetch.
+  const tagsById = useSelector((state: any) => state.entities?.experimentTagsByExperimentId?.[experimentId]);
+  const existingViews = useMemo<SavedViewSummary[]>(() => listSavedViews(toKeyValueEntities(tagsById)), [tagsById]);
+  const atCap = existingViews.length >= MAX_SAVED_VIEWS;
 
   // When the live search facets / UI state are passed in (classic experiment view),
   // serialize those directly. The modern tabbed page doesn't plumb them into the
@@ -131,9 +136,34 @@ export const ExperimentGetShareLinkModal = ({
     [searchFacetsState, uiState],
   );
 
-  const createShareableUrl = useCallback(async () => {
-    // Read the current view at generation time so changes made after the modal
-    // mounted (e.g. resizing a column, then clicking Share) are reflected.
+  const resetAndCancel = useCallback(() => {
+    setName('');
+    setSaving(false);
+    setSavedViewUrl(null);
+    onCancel();
+  }, [onCancel]);
+
+  const handleSave = useCallback(async () => {
+    const trimmed = name.trim();
+    if (!trimmed || saving || atCap) {
+      return;
+    }
+    // Reject a duplicate name before doing any work; stay on name-entry so the user can rename.
+    if (viewNameExists(existingViews, trimmed)) {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'A view named "{name}" already exists. Choose a different name.',
+            description: 'Error shown when saving an experiment view whose name is already taken',
+          },
+          { name: trimmed },
+        ),
+        3,
+      );
+      return;
+    }
+    // Read the current view at save time so changes made after the modal mounted
+    // (e.g. resizing a column, then saving) are reflected.
     const state =
       liveState ??
       ({
@@ -142,82 +172,111 @@ export const ExperimentGetShareLinkModal = ({
         ...loadExperimentViewState(persistKey),
       } as ShareableViewState);
 
-    // Multiple experiments don't map to a single url-embedded route; copy the
-    // current URL (its search facets already round-trip through query params).
-    if (experimentIds.length !== 1) {
-      setSharedStateUrl(stripShareKeyFromUrl(window.location.href));
-      setLinkSimplified(false);
-      setLinkInProgress(false);
-      return;
-    }
-    setLinkInProgress(true);
-    const [experimentId] = experimentIds;
+    setSaving(true);
     try {
-      const data = await serializePersistedState(state);
-      const url = getShareableUrl(experimentId, data, viewMode);
-
-      // If the encoded view overflows the URL budget, fall back to the plain URL
-      // (search facets still ride along; only the heavier UI state is dropped).
-      const overflowed = url.length > MAX_SHARE_URL_LENGTH;
-      setSharedStateUrl(overflowed ? stripShareKeyFromUrl(window.location.href) : url);
-      setLinkSimplified(overflowed);
-      setLinkInProgress(false);
+      const compressedState = await serializePersistedState(state);
+      const id = getUUID();
+      const envelope = encodeSavedViewEnvelope(trimmed, compressedState, Date.now());
+      // Preflight the tag-value size: the backend rejects values over the 5000-char ceiling with a
+      // hard error, so catch it here and tell the user why rather than showing a generic failure.
+      if (envelope.length > MAX_TAG_VALUE_LENGTH) {
+        Utils.displayGlobalErrorNotification(
+          intl.formatMessage({
+            defaultMessage: 'This view is too large to save. Try hiding some columns or charts, then save again.',
+            description: 'Error shown when a saved experiment view exceeds the experiment-tag size limit',
+          }),
+          3,
+        );
+        return;
+      }
+      await dispatch(setExperimentTagApi(experimentId, getSavedViewTagKey(id), envelope));
+      setSavedViewUrl(getSavedViewShareUrl(experimentId, id, viewMode));
     } catch (e) {
-      // Surface the failure (global notification) instead of rethrowing: leaving linkInProgress
-      // true would hang the modal on the loading skeleton forever. Fall back to the plain URL so
-      // there's still something to copy. (Not linkSimplified — that implies an oversized view.)
-      Utils.logErrorAndNotifyUser('Failed to create shareable link for experiment');
-      setSharedStateUrl(stripShareKeyFromUrl(window.location.href));
-      setLinkInProgress(false);
+      // Keep the name-entry phase visible so the user can retry a failed write.
+      Utils.logErrorAndNotifyUser('Failed to save the view');
+    } finally {
+      setSaving(false);
     }
-  }, [liveState, persistKey, experimentIds, viewMode]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    createShareableUrl();
-  }, [visible, createShareableUrl]);
+  }, [name, saving, atCap, existingViews, liveState, persistKey, experimentId, dispatch, viewMode, intl]);
 
   return (
     <Modal
-      componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_101"
+      componentId="mlflow.experiment_page.save_and_share_view.modal"
       title={
         <FormattedMessage
-          defaultMessage="Get shareable link"
-          description='Title text for the experiment "Get link" modal'
+          defaultMessage="Save & share view"
+          description="Title of the modal that saves the current experiment view and produces a shareable link"
         />
       }
       visible={visible}
-      onCancel={onCancel}
+      onCancel={resetAndCancel}
     >
-      {linkSimplified && !linkInProgress ? (
-        <Alert
-          componentId="mlflow.experiment_page.share_link.simplified_warning"
-          type="warning"
-          closable={false}
-          css={{ marginBottom: theme.spacing.sm }}
-          message={
+      {savedViewUrl ? (
+        // Phase 2: the view was saved — offer the link that references it.
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts."
-              description="Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
+              defaultMessage="Saved to this experiment. Anyone with access can open this view from the link or the Views list."
+              description="Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
             />
-          }
-        />
-      ) : null}
-      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-        {linkInProgress ? (
-          <GenericSkeleton css={{ flex: 1 }} />
-        ) : (
-          <Input
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_115"
-            placeholder="Click button on the right to create shareable state"
-            value={sharedStateUrl}
-            readOnly
-          />
-        )}
-        <CopyButton loading={linkInProgress} copyText={sharedStateUrl} data-testid="share-link-copy-button" />
-      </div>
+          </Typography.Text>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Input
+              componentId="mlflow.experiment_page.save_and_share_view.link"
+              data-testid="share-link-input"
+              value={savedViewUrl}
+              readOnly
+            />
+            <CopyButton copyText={savedViewUrl} data-testid="share-link-copy-button" />
+          </div>
+        </div>
+      ) : (
+        // Phase 1: name the view.
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Save the current column layout, filters, sort and charts as a named view, then share it by link."
+              description="Explanation shown in the save-and-share-view modal describing what a saved view captures"
+            />
+          </Typography.Text>
+          {atCap && (
+            <Typography.Text color="error" data-testid="save-view-at-cap-message">
+              <FormattedMessage
+                defaultMessage="This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one."
+                description="Message shown in the save-view modal when the experiment has reached the saved-view limit"
+                values={{ max: MAX_SAVED_VIEWS }}
+              />
+            </Typography.Text>
+          )}
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Input
+              componentId="mlflow.experiment_page.save_and_share_view.name_input"
+              data-testid="save-view-name-input"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'View name',
+                description: 'Placeholder for the name input when saving an experiment view',
+              })}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onPressEnter={handleSave}
+              autoFocus
+            />
+            <Button
+              componentId="mlflow.experiment_page.save_and_share_view.save_button"
+              data-testid="save-view-save-button"
+              type="primary"
+              loading={saving}
+              disabled={!name.trim() || atCap}
+              onClick={handleSave}
+            >
+              <FormattedMessage
+                defaultMessage="Save"
+                description="Button that saves the current experiment view as a named view"
+              />
+            </Button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };

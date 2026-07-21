@@ -155,10 +155,6 @@ module.exports = {
     "",
   "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewnotes.tsx_57":
     "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_101":
-    "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_115":
-    "",
   "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheadersharebutton.tsx_44":
     "",
   "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_datasetscellrenderer.tsx_172":
@@ -875,10 +871,6 @@ module.exports = {
   "mlflow.assistant.setup.provider.model": "",
   "mlflow.assistant.setup.provider.url": "",
   "mlflow.assistant.trace_header_button": "",
-  "mlflow.assistant.traces_guidance": "",
-  "mlflow.assistant.traces_guidance.dismiss": "",
-  "mlflow.assistant.traces_guidance.got_it": "",
-  "mlflow.assistant.traces_toolbar_button": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",
@@ -1354,12 +1346,24 @@ module.exports = {
   "mlflow.experiment_page.runs.add_tags": "",
   "mlflow.experiment_page.runs_table.column_selector": "",
   "mlflow.experiment_page.runs_table.column_selector.reset_to_defaults": "",
+  "mlflow.experiment_page.save_and_share_view.link": "",
+  "mlflow.experiment_page.save_and_share_view.modal": "",
+  "mlflow.experiment_page.save_and_share_view.name_input": "",
+  "mlflow.experiment_page.save_and_share_view.save_button": "",
+  "mlflow.experiment_page.saved_views.copy_link": "",
+  "mlflow.experiment_page.saved_views.copy_link_tooltip": "",
+  "mlflow.experiment_page.saved_views.delete": "",
+  "mlflow.experiment_page.saved_views.delete_confirm": "",
+  "mlflow.experiment_page.saved_views.item": "",
+  "mlflow.experiment_page.saved_views.save_current": "",
+  "mlflow.experiment_page.saved_views.search": "",
+  "mlflow.experiment_page.saved_views.trigger": "",
   "mlflow.experiment_page.scorers.advanced_settings_toggle": "",
   "mlflow.experiment_page.scorers.auto_evaluate_toggle": "",
   "mlflow.experiment_page.scorers.filter_string_input": "",
   "mlflow.experiment_page.scorers.filter_string_syntax_link": "",
   "mlflow.experiment_page.scorers.search_traces_syntax_link": "",
-  "mlflow.experiment_page.share_link.simplified_warning": "",
+  "mlflow.experiment_page.share_current_view": "",
   "mlflow.experiment_page.shared_view.banner": "",
   "mlflow.experiment_page.shared_view.discard": "",
   "mlflow.experiment_page.shared_view.override": "",
@@ -2150,9 +2154,6 @@ module.exports = {
 
   // -- mlflow.sidebar --
   "mlflow.sidebar.account": "",
-  "mlflow.sidebar.assistant_beta_tag": "",
-  "mlflow.sidebar.assistant_button": "",
-  "mlflow.sidebar.assistant_tooltip": "",
   "mlflow.sidebar.docs_link": "",
   "mlflow.sidebar.experiments_tab_link": "",
   "mlflow.sidebar.gateway_budgets_tab_link": "",

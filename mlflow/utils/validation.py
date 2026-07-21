@@ -931,7 +931,7 @@ def _resolve_hostname_with_timeout(hostname: str, field_name: str):
 def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
     try:
         addr_infos = _resolve_hostname_with_timeout(hostname, field_name)
-    except socket.gaierror as e:
+    except (socket.gaierror, UnicodeError, ValueError) as e:
         raise MlflowException.invalid_parameter_value(
             f"Cannot resolve {field_name} hostname {hostname!r}: {e}"
         ) from e

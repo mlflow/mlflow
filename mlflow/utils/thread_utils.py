@@ -1,6 +1,12 @@
+import contextvars
 import os
 import threading
-from typing import Any
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, TypeVar
+
+T = TypeVar("T")
+R = TypeVar("R")
 
 
 class ThreadLocalVariable:
@@ -61,3 +67,19 @@ class ThreadLocalVariable:
         """
         self.__global_thread_values.clear()
         self.thread_local = threading.local()
+
+
+def map_with_context(
+    executor: ThreadPoolExecutor,
+    fn: Callable[[T], R],
+    iterable: Iterable[T],
+) -> Iterable[R]:
+    """
+    Like ``executor.map``, but each task runs inside a copy of the caller's contextvars.
+
+    A separate context copy is created per item so concurrent workers do not share
+    the same ``Context.run()`` state.
+    """
+    items = iterable if isinstance(iterable, list) else list(iterable)
+    contexts = [contextvars.copy_context() for _ in items]
+    return executor.map(lambda item, ctx: ctx.run(fn, item), items, contexts)
