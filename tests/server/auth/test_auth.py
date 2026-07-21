@@ -3234,6 +3234,11 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         assert isinstance(data["configs"], list)
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_online_scoring_config_endpoints_reject_unauthorized_user(client, monkeypatch):
     owner_user, owner_pw = create_user(client.tracking_uri)
     attacker_user, attacker_pw = create_user(client.tracking_uri)
@@ -3254,16 +3259,9 @@ def test_online_scoring_config_endpoints_reject_unauthorized_user(client, monkey
         )
         scorer_id = register_resp.json()["scorer_id"]
 
-        _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/2.0/mlflow/experiments/permissions/create",
-            json_payload={
-                "experiment_id": experiment_id,
-                "username": attacker_user,
-                "permission": "NO_PERMISSIONS",
-            },
-            auth=(owner_user, owner_pw),
-        )
+        # Under no_permission_auth.ini the default permission is NO_PERMISSIONS, so the
+        # attacker (who is never granted access to this experiment) is unauthorized by
+        # default. The owner auto-receives MANAGE on the experiment they create.
 
         # Seed a config so validate_can_read_online_scoring_configs has a row
         # to resolve ownership against (empty results short circuit to allow).
