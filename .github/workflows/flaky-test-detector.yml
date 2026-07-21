@@ -71,7 +71,7 @@ jobs:
       - name: Classify flaky tests
         if: hashFiles('flakes.json') != ''
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
         run: |
           python dev/classify_flaky_tests.py --in flakes.json --out classified.json
 
