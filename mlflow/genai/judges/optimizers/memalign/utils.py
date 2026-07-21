@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import re
@@ -145,17 +146,15 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     return truncated
 
 
-# These models are sent as a structured-output ``response_format``. Databricks' endpoint
-# enforces OpenAI strict-schema rules on every object:
-#   - ``additionalProperties: false`` — supplied via ``extra="forbid"`` (Pydantic omits it
-#     by default).
-#   - every property listed in ``required`` — so ``source_trace_ids`` must NOT have a default
-#     (a default drops it from ``required``). It stays nullable via ``| None`` so ``None``
-#     remains a valid value; callers always pass it explicitly.
+# These models describe the structured-output ``response_format`` for guideline distillation.
+# ``extra="forbid"`` and the absence of field defaults are load-bearing: see
+# ``_build_strict_response_format`` for the full set of schema constraints Databricks enforces.
 class Guideline(BaseModel):
     model_config = {"extra": "forbid"}
 
     guideline_text: str
+    # No default: a default drops the field from the schema's ``required`` list, which the
+    # strict endpoint rejects. Stays nullable via ``| None`` so ``None`` remains valid.
     source_trace_ids: list[str | int] | None
 
 
@@ -163,6 +162,44 @@ class Guidelines(BaseModel):
     model_config = {"extra": "forbid"}
 
     guidelines: list[Guideline]
+
+
+def _build_strict_response_format(model: type[BaseModel]) -> dict[str, Any]:
+    """Build an OpenAI-strict ``json_schema`` response_format from a pydantic model.
+
+    Databricks' structured-output endpoint enforces the strict-schema rules on every object
+    and, unlike the OpenAI API, does not resolve ``$ref``/``$defs`` indirection ("reference
+    can only point to definitions defined at the top level of the schema"). Pydantic's
+    ``model_json_schema()`` emits nested models as ``$ref`` into ``$defs`` and omits
+    ``additionalProperties``/full ``required``. This inlines every ``$ref`` and enforces
+    ``additionalProperties: false`` plus a complete ``required`` list on each object, so the
+    resulting schema is accepted regardless of whether the litellm version normalizes it.
+    """
+    schema = model.model_json_schema()
+    defs = schema.pop("$defs", {})
+
+    def resolve(node: Any) -> Any:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                name = node["$ref"].split("/")[-1]
+                resolved = resolve(copy.deepcopy(defs[name]))
+                # Merge any sibling keys (e.g. description) over the resolved definition.
+                resolved.update({k: resolve(v) for k, v in node.items() if k != "$ref"})
+                return resolved
+            node = {k: resolve(v) for k, v in node.items()}
+            if node.get("type") == "object" or "properties" in node:
+                node["additionalProperties"] = False
+                if "properties" in node:
+                    node["required"] = list(node["properties"].keys())
+            return node
+        if isinstance(node, list):
+            return [resolve(item) for item in node]
+        return node
+
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": model.__name__, "schema": resolve(schema), "strict": True},
+    }
 
 
 def get_default_embedding_model() -> str:
@@ -430,7 +467,9 @@ def distill_guidelines(
         messages = [{"role": "user", "content": prompt}]
         try:
             try:
-                response = distillation_lm(messages=messages, response_format=Guidelines)[0]
+                response = distillation_lm(
+                    messages=messages, response_format=_build_strict_response_format(Guidelines)
+                )[0]
             except Exception as e:
                 # Some models (e.g. some Databricks-served endpoints) reject or error on
                 # structured-output requests. The prompt already specifies the exact JSON

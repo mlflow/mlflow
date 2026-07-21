@@ -8,6 +8,7 @@ import mlflow
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
     Guidelines,
+    _build_strict_response_format,
     _count_tokens,
     _create_batches,
     _extract_json_object,
@@ -46,6 +47,37 @@ def test_guideline_accepts_none_source_trace_ids():
     # source_trace_ids is required (no default) but must remain nullable, since guidelines
     # loaded from persisted memory and filtering logic rely on None being a valid value.
     assert Guideline(guideline_text="x", source_trace_ids=None).source_trace_ids is None
+
+
+def _walk_schema(node):
+    """Yield every dict node in a JSON schema tree."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_schema(item)
+
+
+def test_build_strict_response_format_satisfies_databricks_rules():
+    # Databricks' structured-output endpoint enforces the full OpenAI strict-schema contract
+    # AND (unlike OpenAI) rejects $ref/$defs indirection. Assert the built response_format:
+    #   - is a strict json_schema envelope
+    #   - contains no $ref / $defs (fully inlined)
+    #   - declares additionalProperties=false and complete `required` on every object
+    rf = _build_strict_response_format(Guidelines)
+
+    assert rf["type"] == "json_schema"
+    assert rf["json_schema"]["strict"] is True
+    schema = rf["json_schema"]["schema"]
+
+    for node in _walk_schema(schema):
+        assert "$ref" not in node
+        assert "$defs" not in node
+        if node.get("type") == "object" or "properties" in node:
+            assert node.get("additionalProperties") is False
+            assert set(node["required"]) == set(node["properties"])
 
 
 def _assert_objects_forbid_additional_properties(node):
