@@ -12267,6 +12267,10 @@
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
   },
+  "vWf6fP": {
+    "defaultMessage": "Processing",
+    "description": "Processing indicator while Assistant is streaming a response"
+  },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
