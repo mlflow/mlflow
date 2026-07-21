@@ -1,15 +1,18 @@
 """Validators for Mem0 memory-operation trace cases.
 
-These decide a case's verdict from ids/hashes/counts alone — they never read a
-raw memory body (the fixtures never contain one). They prove that the trace
-shape locked by ``tests/mem0/fixtures/memory_operations.jsonl`` carries enough
-information to catch the memory failure modes, before any
+These decide a case's verdict from ids/hashes/counts/revisions alone — they never
+read a raw memory body (the fixtures never contain one). They prove that the
+trace shape locked by ``tests/mem0/fixtures/memory_operations.jsonl`` carries
+enough information to catch the memory failure modes, before any
 ``mlflow.mem0.autolog()`` wiring exists.
 
 A "case" is one parsed JSONL row: ``{"case_id", "expected", "events": [...]}``.
-Read events (``search``/``get``) return memories; write events
-(``update``/``delete``) supersede them; ``llm.request`` events join back to a
-memory operation via ``used_memory_operation_ids``.
+Events are ordered. Read events (``search``/``get``) return memories, each
+carrying a ``revision``; write events (``update``/``delete``) supersede them
+(``update`` bumps a memory to a new ``revision``, ``delete`` tombstones it);
+``llm.request`` events join back to a memory operation via
+``used_memory_operation_ids`` and name the memories they relied on via
+``used_memory_ids``.
 """
 
 READ_OPERATIONS = ("search", "get")
@@ -28,6 +31,10 @@ def _reads(case):
     return [e for e in _memory_ops(case) if e["operation"] in READ_OPERATIONS]
 
 
+def _is_read(event):
+    return event["kind"] == "memory.operation" and event["operation"] in READ_OPERATIONS
+
+
 def load_receipt(case):
     """A read op is a valid receipt if it carries scope + consistent result identity."""
     for op in _reads(case):
@@ -40,11 +47,24 @@ def load_receipt(case):
 
 
 def usefulness_claim(case):
-    """`joined` if some memory operation is referenced by a later decision."""
-    joined = {mid for d in _decisions(case) for mid in d.get("used_memory_operation_ids", [])}
-    for op in _reads(case):
-        if op["memory_operation_id"] in joined:
-            return "joined"
+    """`joined` if a decision references an *earlier* read and uses a memory that
+    read actually returned; `load_only` otherwise.
+
+    Event order matters: a decision cannot join to a read that comes after it,
+    and a decision that names a ``used_memory_id`` absent from the read it joins
+    to has not established usefulness.
+    """
+    reads_by_op = {}
+    for event in case["events"]:  # events are ordered
+        if _is_read(event):
+            reads_by_op[event["memory_operation_id"]] = {
+                r["memory_id"] for r in event.get("results", [])
+            }
+        elif event["kind"] == "llm.request":
+            used = set(event.get("used_memory_ids", []))
+            for op_id in event.get("used_memory_operation_ids", []):
+                if op_id in reads_by_op and used & reads_by_op[op_id]:
+                    return "joined"
     return "load_only"
 
 
@@ -58,37 +78,108 @@ def detect_wrong_scope(case):
 
 
 def detect_stale_memory(case):
-    """A decision uses a memory id that an earlier update/delete already superseded."""
-    superseded = set()
+    """A decision relies on a memory version that a later write already superseded.
+
+    ``delete`` tombstones an id permanently. ``update`` bumps a memory to a new
+    ``revision``; a decision is stale only when the read it joined to holds an
+    older revision than the memory's current one. A *fresh* read after an update
+    re-establishes the current revision, so ``update -> fresh read -> use`` is
+    not stale.
+    """
+    current_rev = {}
+    deleted = set()
+    reads_by_op = {}
     for event in case["events"]:  # events are ordered
-        if event["kind"] == "memory.operation" and event["operation"] in WRITE_OPERATIONS:
-            superseded.update(event.get("target_memory_ids", []))
+        if event["kind"] == "memory.operation":
+            operation = event["operation"]
+            if operation in READ_OPERATIONS:
+                revs = {r["memory_id"]: r.get("revision") for r in event.get("results", [])}
+                reads_by_op[event["memory_operation_id"]] = revs
+                current_rev.update(revs)
+            elif operation == "update":
+                for mid in event.get("target_memory_ids", []):
+                    current_rev[mid] = event.get("revision")
+            elif operation == "delete":
+                deleted.update(event.get("target_memory_ids", []))
         elif event["kind"] == "llm.request":
-            if superseded.intersection(event.get("used_memory_ids", [])):
+            used = set(event.get("used_memory_ids", []))
+            if used & deleted:
                 return True
+            for op_id in event.get("used_memory_operation_ids", []):
+                revs = reads_by_op.get(op_id, {})
+                for mid in used & set(revs):
+                    if revs[mid] != current_rev.get(mid):
+                        return True
+    return False
+
+
+def detect_unreturned_memory(case):
+    """A decision names a ``used_memory_id`` absent from the earlier read it joins
+    to — it claims a memory that operation never returned.
+    """
+    reads_by_op = {}
+    for event in case["events"]:  # events are ordered
+        if _is_read(event):
+            reads_by_op[event["memory_operation_id"]] = {
+                r["memory_id"] for r in event.get("results", [])
+            }
+        elif event["kind"] == "llm.request":
+            used = set(event.get("used_memory_ids", []))
+            if not used:
+                continue
+            for op_id in event.get("used_memory_operation_ids", []):
+                if op_id in reads_by_op and not (used & reads_by_op[op_id]):
+                    return True
     return False
 
 
 def detect_unjoinable(case):
-    """A retrieved memory operation that no decision references."""
-    joined = {mid for d in _decisions(case) for mid in d.get("used_memory_operation_ids", [])}
-    return any(op["memory_operation_id"] not in joined for op in _reads(case))
+    """A read that returned results but that no *later* decision references.
+
+    An empty read (zero results) has nothing to join to a decision, so it is not
+    unjoinable.
+    """
+    events = case["events"]
+    for i, event in enumerate(events):
+        if _is_read(event) and event.get("results"):
+            op_id = event["memory_operation_id"]
+            referenced_later = any(
+                later["kind"] == "llm.request"
+                and op_id in later.get("used_memory_operation_ids", [])
+                for later in events[i + 1 :]
+            )
+            if not referenced_later:
+                return True
+    return False
 
 
 def requires_raw_payload(case):
-    """True if a verdict needs raw text: a used result is indistinguishable, by
-    metadata alone, from another result in the same operation (same scope + score).
+    """True when a decision joins a read but metadata cannot identify which memory
+    it used: the read has >=2 results tied on all available metadata (scope +
+    score) and the decision does not single exactly one of them out via
+    ``used_memory_ids``.
+
+    A tie alone is not enough — when ``used_memory_ids`` names exactly one of the
+    tied results, the selection is known from metadata and no raw text is needed.
     """
-    used = {mid for d in _decisions(case) for mid in d.get("used_memory_ids", [])}
-    for op in _reads(case):
-        buckets = {}
-        for result in op.get("results", []):
-            buckets.setdefault((result["scope_hash"], result["score"]), []).append(
-                result["memory_id"]
-            )
-        for members in buckets.values():
-            if len(members) >= 2 and used.intersection(members):
-                return True
+    reads_by_op = {}
+    for event in case["events"]:  # events are ordered
+        if _is_read(event):
+            reads_by_op[event["memory_operation_id"]] = event.get("results", [])
+        elif event["kind"] == "llm.request":
+            used = set(event.get("used_memory_ids", []))
+            for op_id in event.get("used_memory_operation_ids", []):
+                results = reads_by_op.get(op_id)
+                if not results:
+                    continue
+                buckets = {}
+                for result in results:
+                    buckets.setdefault((result["scope_hash"], result["score"]), []).append(
+                        result["memory_id"]
+                    )
+                for members in buckets.values():
+                    if len(members) >= 2 and len(used & set(members)) != 1:
+                        return True
     return False
 
 
@@ -98,6 +189,8 @@ def classify(case):
         return "wrong_scope_retrieval"
     if detect_stale_memory(case):
         return "stale_memory_used"
+    if detect_unreturned_memory(case):
+        return "unreturned_memory_used"
     if detect_unjoinable(case):
         return "unjoinable_memory"
     if requires_raw_payload(case):
