@@ -1,9 +1,12 @@
 import { useCallback, useMemo } from 'react';
+import { Button, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   type EvaluationsOverviewTableSort,
   type TracesTableColumn,
   type TracesTableColumnType,
 } from '@databricks/web-shared/genai-traces-table';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 const COLUMNS_SEPARATOR = ',';
 const SORT_SEPARATOR = '::';
@@ -67,6 +70,8 @@ export const useSavedViewPreview = ({
   rawColumns,
   rawSort,
   allColumns,
+  ownColumns,
+  ownSort,
   setSelectedColumns,
   setTableSort,
   exitPreview,
@@ -75,10 +80,16 @@ export const useSavedViewPreview = ({
   rawColumns: string | undefined;
   rawSort: string | undefined;
   allColumns: TracesTableColumn[];
+  // The user's OWN columns/sort at the moment of override, snapshotted so the Undo toast can
+  // restore them (the runs equivalent reloads from localStorage; traces has them in hand already).
+  ownColumns: TracesTableColumn[];
+  ownSort: EvaluationsOverviewTableSort | undefined;
   setSelectedColumns: (columns: TracesTableColumn[]) => void;
   setTableSort: (sort: EvaluationsOverviewTableSort | undefined) => void;
   exitPreview: () => void;
 }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const columns = useMemo(
     () => (active ? decodePreviewColumns(rawColumns, allColumns) : undefined),
     [active, rawColumns, allColumns],
@@ -86,8 +97,23 @@ export const useSavedViewPreview = ({
   const sort = useMemo(() => (active ? decodePreviewSort(rawSort) : undefined), [active, rawSort]);
 
   // Adopt the preview into the user's own persisted state — the ONLY local-storage write in this
-  // flow — then leave preview mode.
+  // flow — then leave preview mode and offer an Undo that restores the pre-override columns/sort.
   const override = useCallback(() => {
+    const previousColumns = ownColumns;
+    const previousSort = ownSort;
+    // Nothing decoded (e.g. Override clicked before allColumns finished loading, or a view saved
+    // against an incompatible schema): don't silently exit preview claiming success — tell the user
+    // and stay in preview so they can retry once columns resolve.
+    if (!columns && !sort) {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage({
+          defaultMessage: 'This view could not be applied. Try again in a moment.',
+          description: 'Traces page > shared view > error toast when overriding before the view could be decoded',
+        }),
+        3,
+      );
+      return;
+    }
     if (columns) {
       setSelectedColumns(columns);
     }
@@ -95,7 +121,29 @@ export const useSavedViewPreview = ({
       setTableSort(sort);
     }
     exitPreview();
-  }, [columns, sort, setSelectedColumns, setTableSort, exitPreview]);
+    Utils.displayGlobalInfoNotification(
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+        <FormattedMessage
+          defaultMessage="Your view was overridden."
+          description="Traces page > shared view > confirmation toast after overriding the user's view with a shared view"
+        />
+        <Button
+          componentId="mlflow.traces.shared_view.override_undo"
+          size="small"
+          onClick={() => {
+            setSelectedColumns(previousColumns);
+            setTableSort(previousSort);
+          }}
+        >
+          <FormattedMessage
+            defaultMessage="Undo"
+            description="Traces page > shared view > undo button on the override confirmation toast"
+          />
+        </Button>
+      </span>,
+      5,
+    );
+  }, [columns, sort, ownColumns, ownSort, setSelectedColumns, setTableSort, exitPreview, theme.spacing.sm, intl]);
 
   // Drop the preview without writing anything; the user's own state resurfaces untouched.
   const discard = useCallback(() => {

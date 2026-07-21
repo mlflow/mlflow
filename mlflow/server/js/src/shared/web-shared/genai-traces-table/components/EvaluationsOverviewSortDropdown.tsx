@@ -39,6 +39,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
     enableGrouping,
     isLoading,
     isError,
+    disabled,
   }: {
     tableSort: EvaluationsOverviewTableSort | undefined;
     columns: TracesTableColumn[];
@@ -46,6 +47,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
     enableGrouping?: boolean;
     isLoading?: boolean;
     isError?: boolean;
+    disabled?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -178,6 +180,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
             css={{ minWidth: 32 }}
             aria-label={currentSortSelectLabel}
             endIcon={<ChevronDownIcon />}
+            disabled={disabled}
           >
             {currentSortSelectLabel}
           </Button>

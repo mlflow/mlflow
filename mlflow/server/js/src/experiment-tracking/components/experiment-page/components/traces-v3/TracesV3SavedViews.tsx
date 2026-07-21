@@ -27,8 +27,8 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import {
   decodeSavedViewEnvelope,
+  deserializePersistedState,
   encodeSavedViewEnvelope,
-  inflateSavedViewState,
 } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/savedViewEnvelope';
 import { SavedViewsMenu, type SavedViewMenuItem } from '../saved-views/SavedViewsMenu';
 
@@ -49,6 +49,11 @@ export const TRACE_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 // write above the ceiling HARD-THROWS in the tracking store rather than truncating, so we preflight
 // the encoded envelope length before dispatching.
 const MAX_TAG_VALUE_LENGTH = 5000;
+
+// Client-side cap (mirrors the runs MAX_SAVED_VIEWS): each view is a tag and `get-experiment`
+// returns every tag value, so the count is bounded to keep that payload small. Best-effort; tags
+// have no server-side count constraint.
+export const MAX_SAVED_VIEWS = 40;
 
 // The URL params that make up a Traces view. `filter` is multi-valued (one param per active
 // filter); searchQuery / isGroupedBySession are in-memory in TracesV3Logs and not yet captured.
@@ -89,8 +94,15 @@ const encodeLiveViewState = (live: TraceLiveViewState): CapturedTraceViewState['
 };
 
 const getTraceSavedViewTagKey = (id: string) => `${TRACE_SAVED_VIEW_TAG_PREFIX}${id}`;
-const getTraceSavedViewIdFromTagKey = (key: string) =>
-  key.startsWith(TRACE_SAVED_VIEW_TAG_PREFIX) ? key.slice(TRACE_SAVED_VIEW_TAG_PREFIX.length) : null;
+const getTraceSavedViewIdFromTagKey = (key: string) => {
+  if (!key.startsWith(TRACE_SAVED_VIEW_TAG_PREFIX)) {
+    return null;
+  }
+  // A key that is exactly the prefix (no id) yields an empty id, which would collide across tags;
+  // treat it as not a saved-view key (mirrors the runs getSavedViewIdFromTagKey).
+  const id = key.slice(TRACE_SAVED_VIEW_TAG_PREFIX.length);
+  return id === '' ? null : id;
+};
 
 const captureTraceViewState = (params: URLSearchParams, live?: TraceLiveViewState | null): CapturedTraceViewState => {
   const single: CapturedTraceViewState['single'] = {};
@@ -146,16 +158,20 @@ interface TraceSavedViewSummary {
  * (the traces route's source of truth) and written via the redux tag thunks the runs feature already
  * ships; after a write we refetch Apollo so the new view shows up in the list.
  */
-const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
+export const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const navigate = useNavigate();
   const intl = useIntl();
   const [searchParams] = useSearchParams();
-  const liveViewState = useContext(TraceLiveViewStateContext);
   const { data: experiment, refetch } = useGetExperimentQuery({ experimentId });
 
-  // The traces Apollo experiment query does not fetch `allowedActions`, so default to unrestricted —
-  // mirroring `canModifyExperiment`'s behavior when `allowedActions` is undefined.
+  // KNOWN LIMITATION: read-only enforcement is deferred on the Traces tab. The runs variant gates
+  // Save/Delete on `canModifyExperiment(experiment)`, but the traces Apollo experiment query does not
+  // fetch `allowedActions`, so we default to unrestricted (matching `canModifyExperiment` when
+  // `allowedActions` is undefined). A read-only user therefore still sees Save/Delete; the write just
+  // fails server-side. To enforce it, add `allowedActions` to the Apollo GET_EXPERIMENT query and gate
+  // on it here. Left open deliberately — saved views are intended to eventually be allowed for
+  // read-only users, so unrestricted is the desired direction rather than a stricter gate.
   const canModify = true;
 
   const views: TraceSavedViewSummary[] = useMemo(() => {
@@ -180,8 +196,30 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
       .sort((a, b) => b.createdAt - a.createdAt);
   }, [experiment?.tags]);
 
+  const atCap = views.length >= MAX_SAVED_VIEWS;
+
   const saveView = useCallback(
-    async (name: string) => {
+    // `live` is read from TraceLiveViewStateContext by the caller (the Save button/modal, which render
+    // INSIDE the provider that TracesV3Logs mounts) and passed in at call time. This hook itself is
+    // hoisted to TracesV3Content — ABOVE that provider — so it cannot read the context directly; doing
+    // so here would capture null and persist a view with no columns/sort (empty preview on open).
+    async (name: string, live?: TraceLiveViewState | null) => {
+      // Guard the view cap before writing (the button is also disabled at the cap, but block here too
+      // in case a save is triggered another way).
+      if (atCap) {
+        Utils.displayGlobalErrorNotification(
+          intl.formatMessage(
+            {
+              defaultMessage:
+                'This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.',
+              description: 'Error toast shown when saving a traces view once the experiment is at the saved-view cap',
+            },
+            { max: MAX_SAVED_VIEWS },
+          ),
+          3,
+        );
+        return null;
+      }
       // Reject a duplicate name (case-insensitive, trimmed) before writing. Best-effort: tags have
       // no server-side uniqueness constraint, so concurrent writers can still both win.
       const normalized = name.trim().toLowerCase();
@@ -198,10 +236,12 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
         );
         return null;
       }
-      const state = captureTraceViewState(searchParams, liveViewState);
+      const state = captureTraceViewState(searchParams, live);
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const id = getUUID();
-      const envelope = encodeSavedViewEnvelope(name, compressedState, Date.now());
+      // Store the trimmed name so the duplicate check (which normalizes via trim) and the stored
+      // value agree — otherwise "  My View  " would slip past the check yet persist with padding.
+      const envelope = encodeSavedViewEnvelope(name.trim(), compressedState, Date.now());
       if (envelope.length > MAX_TAG_VALUE_LENGTH) {
         Utils.displayGlobalErrorNotification(
           intl.formatMessage({
@@ -216,7 +256,7 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
       await refetch();
       return { id, state };
     },
-    [dispatch, experimentId, refetch, searchParams, liveViewState, views, intl],
+    [dispatch, experimentId, refetch, searchParams, views, atCap, intl],
   );
 
   const deleteView = useCallback(
@@ -244,7 +284,7 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
       try {
         // Decoding a stored envelope can throw on a corrupt/incompatible tag value; keep the user on
         // the current view rather than navigating into a broken state.
-        state = (await inflateSavedViewState(decodeSavedViewEnvelope(tag.value))) as CapturedTraceViewState;
+        state = (await deserializePersistedState(decodeSavedViewEnvelope(tag.value))) as CapturedTraceViewState;
       } catch {
         Utils.displayGlobalErrorNotification(
           intl.formatMessage({
@@ -270,7 +310,7 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
         return null;
       }
       try {
-        const state = (await inflateSavedViewState(decodeSavedViewEnvelope(tag.value))) as CapturedTraceViewState;
+        const state = (await deserializePersistedState(decodeSavedViewEnvelope(tag.value))) as CapturedTraceViewState;
         return getTraceSavedViewShareUrl(experimentId, state, id);
       } catch {
         return null;
@@ -281,26 +321,44 @@ const useTraceSavedViews = ({ experimentId }: { experimentId: string }) => {
 
   const activeShareKey = searchParams.get(TRACE_SHARE_URL_PARAM_KEY);
 
-  return { views, canModify, saveView, deleteView, openView, buildShareUrl, activeShareKey };
+  return { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey };
 };
+
+/**
+ * The value returned by {@link useTraceSavedViews}. Hoist the hook once (in TracesV3View) and thread
+ * this down to the Views + Share buttons so they share a single Apollo subscription and one `atCap`.
+ */
+export type TraceSavedViewsApi = ReturnType<typeof useTraceSavedViews>;
 
 const SaveTraceViewModal = ({
   experimentId,
   visible,
+  saveView,
+  atCap,
   onCancel,
   onSaved,
 }: {
   experimentId: string;
   visible: boolean;
+  // Threaded from the parent (which already holds the useTraceSavedViews instance) so the modal does
+  // not open a second Apollo subscription / trigger a duplicate refetch on save. The modal reads the
+  // live column/sort state from context (it renders inside the provider) and passes it at call time.
+  saveView: (
+    name: string,
+    live?: TraceLiveViewState | null,
+  ) => Promise<{ id: string; state: CapturedTraceViewState } | null>;
+  atCap: boolean;
   onCancel: () => void;
   onSaved: (state: CapturedTraceViewState, id: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { saveView } = useTraceSavedViews({ experimentId });
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
+  // Read the live columns/sort here — the modal renders inside TracesV3Logs's
+  // TraceLiveViewStateProvider, whereas the useTraceSavedViews hook is hoisted above it and cannot.
+  const liveViewState = useContext(TraceLiveViewStateContext);
 
   const reset = useCallback(() => {
     setName('');
@@ -311,12 +369,12 @@ const SaveTraceViewModal = ({
 
   const handleSave = useCallback(async () => {
     const trimmed = name.trim();
-    if (!trimmed || saving) {
+    if (!trimmed || saving || atCap) {
       return;
     }
     setSaving(true);
     try {
-      const result = await saveView(trimmed);
+      const result = await saveView(trimmed, liveViewState);
       // saveView returns null (and shows its own toast) on a duplicate name or an oversized view;
       // stay on the name-entry phase so the user can rename and retry.
       if (!result) {
@@ -336,7 +394,7 @@ const SaveTraceViewModal = ({
     } finally {
       setSaving(false);
     }
-  }, [name, saving, saveView, experimentId, onSaved, intl]);
+  }, [name, saving, atCap, saveView, liveViewState, experimentId, onSaved, intl]);
 
   return (
     <Modal
@@ -371,6 +429,15 @@ const SaveTraceViewModal = ({
               description="Explanation shown in the save-traces-view modal describing what a saved view captures"
             />
           </Typography.Text>
+          {atCap && (
+            <Typography.Text color="error" data-testid="save-trace-view-at-cap-message">
+              <FormattedMessage
+                defaultMessage="This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one."
+                description="Message shown in the save-traces-view modal when the experiment has reached the saved-view cap"
+                values={{ max: MAX_SAVED_VIEWS }}
+              />
+            </Typography.Text>
+          )}
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <Input
               componentId="mlflow.traces.save_view.name_input"
@@ -389,7 +456,7 @@ const SaveTraceViewModal = ({
               data-testid="save-trace-view-save-button"
               type="primary"
               loading={saving}
-              disabled={!name.trim()}
+              disabled={!name.trim() || atCap}
               onClick={handleSave}
             >
               <FormattedMessage defaultMessage="Save" description="Button that saves the current traces view" />
@@ -407,13 +474,22 @@ const SaveTraceViewModal = ({
  * body is the shared {@link SavedViewsMenu}; this component owns the traces data source, the
  * copy-link clipboard + toast, the delete-confirmation dialog, and the save modal.
  */
-export const TracesV3SavedViewsButton = ({ experimentId }: { experimentId: string }) => {
+export const TracesV3SavedViewsButton = ({
+  experimentId,
+  savedViews,
+}: {
+  experimentId: string;
+  savedViews: TraceSavedViewsApi;
+}) => {
   const intl = useIntl();
-  const { views, canModify, deleteView, openView, buildShareUrl } = useTraceSavedViews({ experimentId });
+  const { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey } = savedViews;
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click:
   // a DangerModal rendered inside DropdownMenu.Content would be torn down when the menu dismisses.
   const [pendingDelete, setPendingDelete] = useState<TraceSavedViewSummary | null>(null);
+  // Label the trigger with the previewed view's name so the toolbar reflects which saved view is
+  // applied; falls back to the generic "Views" when none is active or the id no longer resolves.
+  const activeView = activeShareKey ? views.find((view) => view.id === activeShareKey) : undefined;
 
   // Copy the link and fire a page-level toast rather than a tooltip (easily clipped inside a
   // dropdown). The link carries the view's OWN stored state, not whatever the user is viewing now.
@@ -461,10 +537,16 @@ export const TracesV3SavedViewsButton = ({ experimentId }: { experimentId: strin
             icon={<BookmarkIcon />}
             data-testid="trace-saved-views-trigger"
           >
-            <FormattedMessage
-              defaultMessage="Views"
-              description="Label for the saved views dropdown in the traces toolbar"
-            />
+            {activeView ? (
+              <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeView.name}
+              </span>
+            ) : (
+              <FormattedMessage
+                defaultMessage="Views"
+                description="Label for the saved views dropdown in the traces toolbar"
+              />
+            )}
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
@@ -473,6 +555,7 @@ export const TracesV3SavedViewsButton = ({ experimentId }: { experimentId: strin
             testIdPrefix="trace-saved-views"
             views={views}
             canModify={canModify}
+            activeViewId={activeShareKey}
             onOpen={openView}
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
@@ -507,6 +590,8 @@ export const TracesV3SavedViewsButton = ({ experimentId }: { experimentId: strin
       <SaveTraceViewModal
         experimentId={experimentId}
         visible={showSaveModal}
+        saveView={saveView}
+        atCap={atCap}
         onCancel={() => setShowSaveModal(false)}
         onSaved={() => {
           // Keep the modal open so the share-link phase (savedUrl) is shown; the modal resets its
@@ -524,8 +609,15 @@ export const TracesV3SavedViewsButton = ({ experimentId }: { experimentId: strin
  * more discoverable, top-level entry point to the same flow as the Views dropdown's "Save current
  * view…" item.
  */
-export const TracesV3ShareButton = ({ experimentId }: { experimentId: string }) => {
+export const TracesV3ShareButton = ({
+  experimentId,
+  savedViews,
+}: {
+  experimentId: string;
+  savedViews: TraceSavedViewsApi;
+}) => {
   const [showModal, setShowModal] = useState(false);
+  const { saveView, atCap } = savedViews;
 
   return (
     <>
@@ -543,6 +635,8 @@ export const TracesV3ShareButton = ({ experimentId }: { experimentId: string }) 
       <SaveTraceViewModal
         experimentId={experimentId}
         visible={showModal}
+        saveView={saveView}
+        atCap={atCap}
         onCancel={() => setShowModal(false)}
         onSaved={() => {
           // Keep the modal open so the share-link phase (savedUrl) is shown; it resets on close.

@@ -2242,6 +2242,7 @@ module.exports = {
   "mlflow.traces.saved_views.trigger": "",
   "mlflow.traces.share_current_view": "",
   "mlflow.traces.shared_view": "",
+  "mlflow.traces.shared_view.override_undo": "",
 
   // -- mlflow.traces-tab --
   "mlflow.traces-tab.trace-count": "",

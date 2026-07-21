@@ -146,6 +146,7 @@ const TracesV3LogsImpl = React.memo(
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    toolbarCornerAddons,
     drawerWidth,
   }: {
     /**
@@ -173,6 +174,10 @@ const TracesV3LogsImpl = React.memo(
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    // Rendered in the toolbar's top-right corner, above the sampled-count badge, for page-level
+    // controls (saved views) that should sit apart from the filter/sort/column cluster. Wrapped in
+    // the same live-view-state provider as addons so a "Save" placed here captures live columns/sort.
+    toolbarCornerAddons?: React.ReactNode;
     drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
@@ -322,6 +327,9 @@ const TracesV3LogsImpl = React.memo(
       rawColumns: rawPreviewColumns,
       rawSort: rawPreviewSort,
       allColumns,
+      // The user's OWN selection (not the preview) — snapshotted for the override Undo.
+      ownColumns: selectedColumns,
+      ownSort: tableSort,
       setSelectedColumns,
       setTableSort,
       exitPreview,
@@ -329,6 +337,26 @@ const TracesV3LogsImpl = React.memo(
 
     const effectiveColumns = preview.active && preview.columns ? preview.columns : selectedColumns;
     const effectiveSort = preview.active && preview.sort ? preview.sort : tableSort;
+
+    // While previewing a saved view, feed the toolbar the preview's columns/sort (so its counter,
+    // checkboxes and sort indicator match the body) and neutralize its mutating callbacks. This
+    // DIVERGES from the runs shared-view, where the toolbar edits the live state freely during a
+    // preview. Runs can allow that because it loads the shared view INTO the one live uiState, so
+    // an edit is both visible and safely discardable (persistence is paused, not the state frozen).
+    // Traces has two decoupled stores — the body renders preview columns decoded from the URL, while
+    // the toolbar's setters write the user's own selection to local storage — so a mid-preview edit
+    // would be invisible (wrong store shown) and, for select-all-in-group, mis-based (diff built from
+    // the preview count but written against the user's real selection). Editing resumes on Override
+    // (adopt the preview) or Discard (drop it). The controls also render disabled during preview
+    // (columnControlsDisabled below) so the inert state is visible; the no-ops are a safety net in
+    // case any path fires a setter while disabled.
+    const noopColumns = useCallback<typeof setSelectedColumns>(() => {}, []);
+    const noopSort = useCallback<typeof setTableSort>(() => {}, []);
+    const toolbarSelectedColumns = preview.active ? effectiveColumns : selectedColumns;
+    const toolbarTableSort = effectiveSort;
+    const toolbarToggleColumns = preview.active ? noopColumns : toggleColumns;
+    const toolbarSetSelectedColumns = preview.active ? noopColumns : setSelectedColumns;
+    const toolbarSetTableSort = preview.active ? noopSort : setTableSort;
 
     // Expose the user's live column/sort selection to the saved-views "Save" action, which renders
     // inside this tree via toolbarAddons. Capture the user's OWN state (selectedColumns/tableSort),
@@ -649,12 +677,13 @@ const TracesV3LogsImpl = React.memo(
               tableFilterOptions={tableFilterOptions}
               countInfo={countInfo}
               traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
+              tableSort={toolbarTableSort}
+              setTableSort={toolbarSetTableSort}
               allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              toggleColumns={toggleColumns}
-              setSelectedColumns={setSelectedColumns}
+              selectedColumns={toolbarSelectedColumns}
+              toggleColumns={toolbarToggleColumns}
+              setSelectedColumns={toolbarSetSelectedColumns}
+              columnControlsDisabled={preview.active}
               isMetadataLoading={isMetadataLoading}
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
@@ -663,6 +692,15 @@ const TracesV3LogsImpl = React.memo(
                   <TraceLiveViewStateProvider value={liveSavedViewState}>{toolbarAddons}</TraceLiveViewStateProvider>
                 ) : (
                   toolbarAddons
+                )
+              }
+              cornerAddons={
+                toolbarCornerAddons ? (
+                  <TraceLiveViewStateProvider value={liveSavedViewState}>
+                    {toolbarCornerAddons}
+                  </TraceLiveViewStateProvider>
+                ) : (
+                  toolbarCornerAddons
                 )
               }
               isGroupedBySession={forceGroupBySession || isGroupedBySession}

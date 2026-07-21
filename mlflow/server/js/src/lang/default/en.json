@@ -515,6 +515,10 @@
     "defaultMessage": "Outputs of the trace, derived from the root span's outputs",
     "description": "Tooltip description for the Response column in the traces table"
   },
+  "0HUkFk": {
+    "defaultMessage": "Your view was overridden.",
+    "description": "Traces page > shared view > confirmation toast after overriding the user's view with a shared view"
+  },
   "0HbGko": {
     "defaultMessage": "Model",
     "description": "Run page > Overview > Logged models > Unknown model flavor"
@@ -7823,10 +7827,6 @@
     "defaultMessage": "Override my view",
     "description": "Traces shared view banner > button that adopts the shared view into the user's own view"
   },
-  "aAcCh2": {
-    "defaultMessage": "Analyze with Assistant",
-    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
-  },
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
@@ -8454,6 +8454,10 @@
   "d4foU0": {
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
+  },
+  "d5gWbr": {
+    "defaultMessage": "This view could not be applied. Try again in a moment.",
+    "description": "Traces page > shared view > error toast when overriding before the view could be decoded"
   },
   "d6Mx+/": {
     "defaultMessage": "Current password is required",
@@ -9799,6 +9803,10 @@
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
   },
+  "itlAT2": {
+    "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
+    "description": "Error toast shown when saving a traces view once the experiment is at the saved-view cap"
+  },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
     "description": "Text for provide feedback button on experiment view page header"
@@ -10602,6 +10610,10 @@
   "mjNFJt": {
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
+  },
+  "mk/23q": {
+    "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
+    "description": "Message shown in the save-traces-view modal when the experiment has reached the saved-view cap"
   },
   "mltH0e": {
     "defaultMessage": "Show assessments",
@@ -12290,6 +12302,10 @@
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
+  },
+  "uw/A3k": {
+    "defaultMessage": "Undo",
+    "description": "Traces page > shared view > undo button on the override confirmation toast"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
