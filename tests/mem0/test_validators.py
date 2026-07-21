@@ -78,6 +78,24 @@ def test_score_tie_with_named_selection_is_valid():
     assert validators.classify(case) == "valid"
 
 
+def test_backward_revision_read_stays_stale():
+    case = CASES_BY_ID["stale_after_backward_revision_read"]
+    assert validators.detect_stale_memory(case) is True
+    assert validators.classify(case) == "stale_memory_used"
+
+
+def test_mixed_returned_and_foreign_ids_detected():
+    case = CASES_BY_ID["mixed_returned_and_foreign_ids"]
+    assert validators.detect_unreturned_memory(case) is True
+    assert validators.classify(case) == "unreturned_memory_used"
+
+
+def test_all_tied_ids_selected_is_valid():
+    case = CASES_BY_ID["all_tied_ids_selected"]
+    assert validators.requires_raw_payload(case) is False
+    assert validators.classify(case) == "valid"
+
+
 def test_no_case_carries_a_raw_memory_body():
     # The privacy boundary, made executable: the fixture stores ids/hashes/counts
     # only. A raw ``"memory"`` field (the extracted fact Mem0 returns) must never

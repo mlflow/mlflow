@@ -19,6 +19,19 @@ READ_OPERATIONS = ("search", "get")
 WRITE_OPERATIONS = ("update", "delete")
 
 
+def _max_revision(known, observed):
+    """The higher of two revisions, treating a missing revision as no information.
+
+    Revision knowledge is monotonic: a read that reports an older revision than
+    one already learned from a write must not move the known revision backward.
+    """
+    if known is None:
+        return observed
+    if observed is None:
+        return known
+    return max(known, observed)
+
+
 def _memory_ops(case):
     return [e for e in case["events"] if e["kind"] == "memory.operation"]
 
@@ -84,7 +97,9 @@ def detect_stale_memory(case):
     ``revision``; a decision is stale only when the read it joined to holds an
     older revision than the memory's current one. A *fresh* read after an update
     re-establishes the current revision, so ``update -> fresh read -> use`` is
-    not stale.
+    not stale. Revision knowledge is monotonic — a later read reporting an older
+    revision never overwrites a newer one learned from a write, so
+    ``update(rev=2) -> stale read@rev1 -> use`` stays stale.
     """
     current_rev = {}
     deleted = set()
@@ -95,7 +110,8 @@ def detect_stale_memory(case):
             if operation in READ_OPERATIONS:
                 revs = {r["memory_id"]: r.get("revision") for r in event.get("results", [])}
                 reads_by_op[event["memory_operation_id"]] = revs
-                current_rev.update(revs)
+                for mid, rev in revs.items():
+                    current_rev[mid] = _max_revision(current_rev.get(mid), rev)
             elif operation == "update":
                 for mid in event.get("target_memory_ids", []):
                     current_rev[mid] = event.get("revision")
@@ -114,8 +130,12 @@ def detect_stale_memory(case):
 
 
 def detect_unreturned_memory(case):
-    """A decision names a ``used_memory_id`` absent from the earlier read it joins
-    to — it claims a memory that operation never returned.
+    """A decision names a ``used_memory_id`` absent from the earlier reads it
+    joins to — it claims a memory those operations never returned.
+
+    Every claimed id must belong to the union of results across the referenced
+    earlier reads; a partial overlap (some claimed ids returned, others foreign)
+    still fails, since the foreign ids were never returned.
     """
     reads_by_op = {}
     for event in case["events"]:  # events are ordered
@@ -127,9 +147,16 @@ def detect_unreturned_memory(case):
             used = set(event.get("used_memory_ids", []))
             if not used:
                 continue
-            for op_id in event.get("used_memory_operation_ids", []):
-                if op_id in reads_by_op and not (used & reads_by_op[op_id]):
-                    return True
+            referenced = [
+                op_id
+                for op_id in event.get("used_memory_operation_ids", [])
+                if op_id in reads_by_op
+            ]
+            if not referenced:
+                continue
+            returned = set().union(*(reads_by_op[op_id] for op_id in referenced))
+            if used - returned:
+                return True
     return False
 
 
@@ -156,11 +183,13 @@ def detect_unjoinable(case):
 def requires_raw_payload(case):
     """True when a decision joins a read but metadata cannot identify which memory
     it used: the read has >=2 results tied on all available metadata (scope +
-    score) and the decision does not single exactly one of them out via
+    score) and the decision selects none of the tied results via
     ``used_memory_ids``.
 
-    A tie alone is not enough — when ``used_memory_ids`` names exactly one of the
-    tied results, the selection is known from metadata and no raw text is needed.
+    A tie alone is not enough — ``used_memory_ids`` is plural, so naming any of
+    the tied results (one, several, or all of them) is a complete metadata
+    selection and needs no raw text. The join is only genuinely ambiguous when
+    the decision points at none of the tied members.
     """
     reads_by_op = {}
     for event in case["events"]:  # events are ordered
@@ -178,7 +207,7 @@ def requires_raw_payload(case):
                         result["memory_id"]
                     )
                 for members in buckets.values():
-                    if len(members) >= 2 and len(used & set(members)) != 1:
+                    if len(members) >= 2 and not (used & set(members)):
                         return True
     return False
 
