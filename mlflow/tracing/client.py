@@ -70,6 +70,7 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -435,7 +436,7 @@ class TracingClient:
 
         batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
-        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+        for minibatch_traces in map_with_context(executor, _fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
 
@@ -449,7 +450,8 @@ class TracingClient:
             if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
-                    for tr in executor.map(
+                    for tr in map_with_context(
+                        executor,
                         self._download_spans_from_artifact_repo,
                         location_trace_infos,
                     )
