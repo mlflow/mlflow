@@ -11,6 +11,7 @@ import threading
 import time
 import unicodedata
 import urllib
+from zlib import adler32
 from functools import partial, wraps
 from typing import Any, Callable
 
@@ -19,7 +20,9 @@ from cachetools import TTLCache
 from flask import Request, Response, current_app, g, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+from werkzeug.exceptions import RequestedRangeNotSatisfiable
 from werkzeug.http import quote_header_value
+from werkzeug.wsgi import wrap_file
 
 import mlflow
 from mlflow.client import MlflowClient
@@ -1153,6 +1156,68 @@ def _create_artifact_file_response(file_path: str, artifact_name: str) -> Respon
     return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
+def _create_temp_artifact_file_response(
+    file_path: str, artifact_name: str, cleanup: Callable[[], None]
+) -> Response:
+    """Serve a temporary file and clean it up when the WSGI iterator closes."""
+    if os.path.isdir(file_path):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path refers to a directory, not a file: '{artifact_name}'"
+        )
+
+    try:
+        file_handle = open(file_path, "rb")  # noqa: SIM115
+        file_stat = os.fstat(file_handle.fileno())
+        file_size = file_stat.st_size
+    except Exception:
+        cleanup()
+        raise
+
+    class _CleanupFileWrapper:
+        def __init__(self, handle, cleanup_callback: Callable[[], None]) -> None:
+            self._handle = handle
+            self._cleanup_callback = cleanup_callback
+            self._closed = False
+
+        def close(self) -> None:
+            if self._closed:
+                return
+            self._closed = True
+            self._handle.close()
+            self._cleanup_callback()
+
+        def __getattr__(self, name: str):
+            return getattr(self._handle, name)
+
+    wrapped_file = _CleanupFileWrapper(file_handle, cleanup)
+
+    try:
+        response = current_app.response_class(
+            wrap_file(request.environ, wrapped_file),
+            mimetype=_guess_mime_type(file_path),
+            direct_passthrough=True,
+        )
+        response.content_length = file_size
+        response.last_modified = file_stat.st_mtime
+        check = adler32(file_path.encode()) & 0xFFFFFFFF
+        response.set_etag(f"{file_stat.st_mtime}-{file_size}-{check}")
+        response.cache_control.no_cache = True
+        response = response.make_conditional(
+            request.environ, accept_ranges=True, complete_length=file_size
+        )
+    except RequestedRangeNotSatisfiable:
+        wrapped_file.close()
+        raise
+    except Exception:
+        wrapped_file.close()
+        raise
+
+    response.headers["Content-Disposition"] = _content_disposition_attachment(
+        pathlib.Path(artifact_name).name
+    )
+    return _response_with_file_attachment_headers(file_path, response)
+
+
 def _send_artifact(artifact_repository, path):
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
@@ -1164,9 +1229,7 @@ def _send_artifact(artifact_repository, path):
         file_path = os.path.abspath(
             artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
         )
-        response = _create_artifact_file_response(file_path, path)
-        response.call_on_close(tmp_dir.cleanup)
-        return response
+        return _create_temp_artifact_file_response(file_path, path, tmp_dir.cleanup)
     except Exception:
         tmp_dir.cleanup()
         raise
@@ -3566,22 +3629,10 @@ def _download_artifact(artifact_path):
     tmp_dir = tempfile.TemporaryDirectory()
     try:
         dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
-
-        # Ref: https://stackoverflow.com/a/24613980/6943581
-        file_handle = open(dst, "rb")  # noqa: SIM115
+        return _create_temp_artifact_file_response(dst, artifact_path, tmp_dir.cleanup)
     except Exception:
         tmp_dir.cleanup()
         raise
-
-    def stream_and_remove_file():
-        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
-            yield chunk
-        file_handle.close()
-        tmp_dir.cleanup()
-
-    file_sender_response = current_app.response_class(stream_and_remove_file())
-
-    return _response_with_file_attachment_headers(artifact_path, file_sender_response)
 
 
 @catch_mlflow_exception
@@ -4262,9 +4313,7 @@ def get_trace_artifact_handler() -> Response:
         try:
             dst = pathlib.Path(tmp_dir.name, path)
             repo.download_trace_attachment_to_file(path, dst)
-            response = _create_artifact_file_response(str(dst), path)
-            response.call_on_close(tmp_dir.cleanup)
-            return response
+            return _create_temp_artifact_file_response(str(dst), path, tmp_dir.cleanup)
         except MlflowException:
             tmp_dir.cleanup()
             raise
@@ -4305,9 +4354,9 @@ def get_trace_artifact_handler() -> Response:
             try:
                 dst = pathlib.Path(tmp_dir.name, TRACE_DATA_FILE_NAME)
                 repo.download_trace_data_to_file(dst)
-                response = _create_artifact_file_response(str(dst), TRACE_DATA_FILE_NAME)
-                response.call_on_close(tmp_dir.cleanup)
-                return response
+                return _create_temp_artifact_file_response(
+                    str(dst), TRACE_DATA_FILE_NAME, tmp_dir.cleanup
+                )
             except Exception:
                 tmp_dir.cleanup()
                 raise

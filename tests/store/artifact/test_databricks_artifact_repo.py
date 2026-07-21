@@ -4,6 +4,7 @@ import posixpath
 import re
 import shutil
 import time
+from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY
 
@@ -1622,8 +1623,12 @@ def test_multipart_upload_abort(
 
 
 class MockResponse:
-    def __init__(self, content: bytes):
+    def __init__(self, content: bytes, headers: dict[str, str] | None = None):
         self.content = content
+        self.headers = headers or {}
+        self._bytes_read = len(content)
+        self.raw = mock.MagicMock()
+        self.raw.tell.return_value = self._bytes_read
 
     def iter_content(self, chunk_size):
         yield self.content
@@ -1642,13 +1647,21 @@ class MockResponse:
 
 
 class MockStreamingResponse(MockResponse):
-    def __init__(self, chunks: list[bytes], error: Exception | None = None):
-        super().__init__(b"".join(chunks))
+    def __init__(
+        self,
+        chunks: list[bytes],
+        error: Exception | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        super().__init__(b"".join(chunks), headers=headers)
         self._chunks = chunks
         self._error = error
+        self._bytes_read = 0
 
     def iter_content(self, chunk_size):
         for chunk in self._chunks:
+            self._bytes_read += len(chunk)
+            self.raw.tell.return_value = self._bytes_read
             yield chunk
         if self._error is not None:
             raise self._error
@@ -1789,6 +1802,7 @@ def test_download_trace_data_to_file_retries_mid_stream_failure(
     assert result == dst
     assert json.loads(dst.read_text()) == {"spans": [{"name": "complete"}]}
     assert mock_request.call_count == 2
+    assert not Path(f"{dst}.part").exists()
 
 
 def test_download_trace_data_to_file_cleans_partial_file_after_terminal_stream_failure(
@@ -1813,9 +1827,73 @@ def test_download_trace_data_to_file_cleans_partial_file_after_terminal_stream_f
         pytest.raises(requests.ConnectionError),
     ):
         dst = tmp_path / "traces.json"
+        dst.write_text("stale")
         databricks_artifact_repo_trace.download_trace_data_to_file(dst)
 
     assert not dst.exists()
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_retries_short_read(databricks_artifact_repo_trace, tmp_path):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    success_payload = b'{"spans": [{"name": "complete"}]}'
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            "requests.Session.request",
+            side_effect=[
+                MockStreamingResponse(
+                    [b'{"spans": []}'], headers={"Content-Length": "32"}
+                ),
+                MockStreamingResponse(
+                    [success_payload],
+                    headers={"Content-Length": str(len(success_payload))},
+                ),
+            ],
+        ) as mock_request,
+    ):
+        dst = tmp_path / "traces.json"
+        result = databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert result == dst
+    assert json.loads(dst.read_text()) == {"spans": [{"name": "complete"}]}
+    assert mock_request.call_count == 2
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_request_establishment_failure_not_retried(
+    databricks_artifact_repo_trace, tmp_path
+):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.cloud_storage_http_request",
+            side_effect=requests.ConnectionError("connect failed"),
+        ) as mock_cloud_request,
+        pytest.raises(requests.ConnectionError),
+    ):
+        dst = tmp_path / "traces.json"
+        dst.write_text("stale")
+        databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert mock_cloud_request.call_count == 1
+    assert not dst.exists()
+    assert not Path(f"{dst}.part").exists()
 
 
 def test_download_trace_data_to_file_not_found(databricks_artifact_repo_trace, tmp_path):

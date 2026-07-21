@@ -88,7 +88,7 @@ from mlflow.utils.uri import (
 _logger = logging.getLogger(__name__)
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _TRACE_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
-_TRACE_DOWNLOAD_MAX_ATTEMPTS = 5
+_TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS = 2
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -254,34 +254,78 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
+    def _validate_streamed_trace_download(
+        self, response: requests.Response, expected_length: str | None, bytes_written: int
+    ) -> None:
+        if expected_length is None:
+            return
+
+        try:
+            expected_length_int = int(expected_length)
+        except ValueError:
+            return
+
+        actual_length = None
+        raw_tell = getattr(getattr(response, "raw", None), "tell", None)
+        if callable(raw_tell):
+            try:
+                actual_length = raw_tell()
+            except Exception:
+                actual_length = None
+
+        if actual_length is None and not response.headers.get("Content-Encoding"):
+            actual_length = bytes_written
+
+        if actual_length is not None and actual_length < expected_length_int:
+            raise requests.ConnectionError(
+                f"Incomplete download: read {actual_length} of {expected_length_int} bytes"
+            )
+
+    def _stream_trace_response_to_path(
+        self, response: requests.Response, dst_path: Path
+    ) -> Path:
+        partial_path = Path(f"{dst_path}.part")
+        bytes_written = 0
+        try:
+            with partial_path.open("wb") as output_file:
+                for chunk in response.iter_content(chunk_size=_TRACE_DOWNLOAD_CHUNK_SIZE):
+                    if not chunk:
+                        continue
+                    output_file.write(chunk)
+                    bytes_written += len(chunk)
+
+            self._validate_streamed_trace_download(
+                response, response.headers.get("Content-Length"), bytes_written
+            )
+            os.replace(partial_path, dst_path)
+            return dst_path
+        except Exception:
+            partial_path.unlink(missing_ok=True)
+            raise
+
     def _download_trace_file_to_path(
         self, signed_uri: str, dst_path: Path, headers: dict[str, str]
     ) -> Path:
-        for attempt in range(1, _TRACE_DOWNLOAD_MAX_ATTEMPTS + 1):
-            try:
+        try:
+            for attempt in range(1, _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS + 1):
                 with cloud_storage_http_request(
                     "get", signed_uri, stream=True, headers=headers
                 ) as response:
                     augmented_raise_for_status(response)
-                    with dst_path.open("wb") as output_file:
-                        for chunk in response.iter_content(chunk_size=_TRACE_DOWNLOAD_CHUNK_SIZE):
-                            if not chunk:
-                                break
-                            output_file.write(chunk)
-                return dst_path
-            except requests.HTTPError:
-                dst_path.unlink(missing_ok=True)
-                raise
-            except requests.RequestException as e:
-                dst_path.unlink(missing_ok=True)
-                if attempt == _TRACE_DOWNLOAD_MAX_ATTEMPTS:
-                    raise
-                _logger.warning(
-                    "Retrying streamed trace artifact download after attempt %s/%s: %s",
-                    attempt,
-                    _TRACE_DOWNLOAD_MAX_ATTEMPTS,
-                    e,
-                )
+                    try:
+                        return self._stream_trace_response_to_path(response, dst_path)
+                    except requests.RequestException as e:
+                        if attempt == _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS:
+                            raise
+                        _logger.warning(
+                            "Retrying streamed trace artifact download after attempt %s/%s: %s",
+                            attempt,
+                            _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS,
+                            e,
+                        )
+        except requests.RequestException:
+            dst_path.unlink(missing_ok=True)
+            raise
 
     def download_trace_data_to_file(self, dst_path: Path) -> Path:
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)

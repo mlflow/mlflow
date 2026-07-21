@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
-from flask import Response
+from flask import Response, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
 import mlflow
 from mlflow.entities import (
@@ -157,6 +158,7 @@ from mlflow.server.handlers import (
     _cancel_prompt_optimization_job,
     _convert_path_parameter_to_flask_format,
     _create_artifact_file_response,
+    _create_temp_artifact_file_response,
     _create_dataset_handler,
     _create_experiment,
     _create_issue,
@@ -4224,6 +4226,93 @@ def test_create_artifact_file_response_quotes_token_unsafe_ascii_artifact_name(t
         response = _create_artifact_file_response(str(test_file), "artifacts/my model;a.txt")
 
     assert response.headers["Content-Disposition"] == 'attachment; filename="my model;a.txt"'
+
+
+def test_create_temp_artifact_file_response_cleans_up_on_iterator_close(tmp_path, monkeypatch):
+    test_file = tmp_path / "payload.txt"
+    test_file.write_text("hello")
+    cleanup = mock.MagicMock()
+    monkeypatch.setitem(app.config, "USE_X_SENDFILE", True)
+
+    with app.test_request_context(method="GET"):
+        response = _create_temp_artifact_file_response(
+            str(test_file), "artifacts/payload.txt", cleanup
+        )
+        app_iter = response.get_app_iter(request.environ)
+
+    assert "X-Sendfile" not in response.headers
+    assert response.headers["Content-Length"] == "5"
+    assert not cleanup.called
+
+    app_iter.close()
+
+    cleanup.assert_called_once()
+
+
+def test_create_temp_artifact_file_response_supports_range_requests(tmp_path):
+    test_file = tmp_path / "payload.txt"
+    test_file.write_text("0123456789")
+    cleanup = mock.MagicMock()
+
+    with app.test_request_context(method="GET", headers={"Range": "bytes=2-4"}):
+        response = _create_temp_artifact_file_response(
+            str(test_file), "artifacts/payload.txt", cleanup
+        )
+        app_iter = response.get_app_iter(request.environ)
+        body = b"".join(app_iter)
+        if hasattr(app_iter, "close"):
+            app_iter.close()
+
+    assert response.status_code == 206
+    assert response.headers["Content-Length"] == "3"
+    assert response.headers["Content-Range"] == "bytes 2-4/10"
+    assert response.headers["Accept-Ranges"] == "bytes"
+    assert body == b"234"
+    cleanup.assert_called_once()
+
+
+def test_create_temp_artifact_file_response_rejects_unsatisfiable_range(tmp_path):
+    test_file = tmp_path / "payload.txt"
+    test_file.write_text("0123456789")
+    cleanup = mock.MagicMock()
+
+    with (
+        app.test_request_context(method="GET", headers={"Range": "bytes=20-25"}),
+        pytest.raises(RequestedRangeNotSatisfiable),
+    ):
+        _create_temp_artifact_file_response(str(test_file), "artifacts/payload.txt", cleanup)
+
+    cleanup.assert_called_once()
+
+
+def test_create_temp_artifact_file_response_supports_etag_conditionals(tmp_path):
+    test_file = tmp_path / "payload.txt"
+    test_file.write_text("hello")
+
+    with app.test_request_context(method="GET"):
+        response = _create_temp_artifact_file_response(
+            str(test_file), "artifacts/payload.txt", lambda: None
+        )
+        etag = response.headers["ETag"]
+        assert response.headers["Cache-Control"] == "no-cache"
+        assert "Last-Modified" in response.headers
+        app_iter = response.get_app_iter(request.environ)
+        if hasattr(app_iter, "close"):
+            app_iter.close()
+
+    cleanup = mock.MagicMock()
+    with app.test_request_context(method="GET", headers={"If-None-Match": etag}):
+        response = _create_temp_artifact_file_response(
+            str(test_file), "artifacts/payload.txt", cleanup
+        )
+        app_iter = response.get_app_iter(request.environ)
+        body = b"".join(app_iter)
+        if hasattr(app_iter, "close"):
+            app_iter.close()
+
+    assert response.status_code == 304
+    assert body == b""
+    cleanup.assert_called_once()
 
 
 def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp_path):
