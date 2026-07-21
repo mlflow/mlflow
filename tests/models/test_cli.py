@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -44,6 +43,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.string_utils import quote
 
 from tests.helper_functions import (
     RestEndpoint,
@@ -1015,6 +1015,8 @@ def test_serve_stdin_shell_quotes_model_path():
     # being interpolated into the `bash -c` command string, so metacharacters such as
     # $(...) are passed as a literal argument instead of executed by the shell.
     malicious_path = "/tmp/model$(touch /tmp/mlflow_stdin_pwned)"
+    # The env manager is arbitrary here: serve_stdin never branches on it and prepare_env
+    # is mocked below, so this does not exercise the LOCAL code path (which raises in prod).
     backend = PyFuncBackend(config={}, env_manager=_EnvManager.LOCAL)
 
     with (
@@ -1027,6 +1029,8 @@ def test_serve_stdin_shell_quotes_model_path():
 
     mock_download.assert_called_once()
     command = mock_prepare_env.return_value.execute.call_args.kwargs["command"]
-    assert f"--model-uri {shlex.quote(malicious_path)}" in command
+    # `quote` matches the production shell-escaping (shlex.quote on POSIX, mslex on Windows),
+    # so this assertion holds on both platforms.
+    assert f"--model-uri {quote(malicious_path)}" in command
     # The pre-fix code interpolated the path unquoted, letting the shell evaluate $(...).
     assert f"--model-uri {malicious_path}" not in command
