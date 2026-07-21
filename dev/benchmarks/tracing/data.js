@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784601276134,
+  "lastUpdate": 1784604068001,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15011,6 +15011,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.538808599998447,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "veronica.lyu@databricks.com",
+            "name": "veronicalyu320",
+            "username": "veronicalyu320"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c1f89ce06fe75fdb63512868160b7635683c834",
+          "message": "Fix MemAlign guideline distillation against Databricks structured-output models (#24547)\n\nSigned-off-by: Veronica Lyu <veronica.lyu@databricks.com>",
+          "timestamp": "2026-07-21T03:17:13Z",
+          "tree_id": "362c560cd27933027bb501c3ace854563ee8d643",
+          "url": "https://github.com/mlflow/mlflow/commit/4c1f89ce06fe75fdb63512868160b7635683c834"
+        },
+        "date": 1784604066801,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.37058690000086,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.743792285716022,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.63057101639358,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.059612052631554,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.441760966100524,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.5201369999954295,
             "unit": "ms"
           }
         ]
