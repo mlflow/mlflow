@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import ntpath
 import os
 import subprocess
 import sys
@@ -327,13 +328,19 @@ class DummyModel(mlflow.pyfunc.PythonModel):
 def test_artifact_paths_use_posix_separators(tmp_path):
     artifact_path = tmp_path / "payload.txt"
     artifact_path.write_text("payload")
+    os_join = os.path.join
+
+    def windows_artifacts_subpath(path, *paths):
+        join = ntpath.join if path == "artifacts" else os_join
+        return join(path, *paths)
 
     model_path = tmp_path / "pyfunc_model"
-    mlflow.pyfunc.save_model(
-        path=model_path,
-        python_model=DummyModel(),
-        artifacts={"payload": str(artifact_path)},
-    )
+    with mock.patch("os.path.join", windows_artifacts_subpath):
+        mlflow.pyfunc.save_model(
+            path=model_path,
+            python_model=DummyModel(),
+            artifacts={"payload": str(artifact_path)},
+        )
 
     config = Model.load(model_path)
     saved_artifact_subpath = config.flavors["python_function"]["artifacts"]["payload"]["path"]
