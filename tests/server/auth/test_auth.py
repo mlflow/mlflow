@@ -3209,7 +3209,6 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
     with User(username, password, monkeypatch):
         experiment_id = client.create_experiment("test_experiment")
 
-        # Register a scorer
         scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
         response = _send_rest_tracking_post_request(
             client.tracking_uri,
@@ -3223,20 +3222,107 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         )
         scorer_id = response.json()["scorer_id"]
 
-        # Test the online scoring configs endpoint (GET)
-        # This should not raise a TypeError as it did before when the endpoint
-        # was incorrectly included in AFTER_REQUEST_HANDLERS
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/online-configs",
             params={"scorer_ids": scorer_id},
             auth=(username, password),
         )
 
-        # Should return 200 (not 500 with TypeError)
         assert response.status_code == 200
         data = response.json()
         assert "configs" in data
         assert isinstance(data["configs"], list)
+
+
+def test_online_scoring_config_endpoints_reject_unauthorized_user(client, monkeypatch):
+    owner_user, owner_pw = create_user(client.tracking_uri)
+    attacker_user, attacker_pw = create_user(client.tracking_uri)
+
+    with User(owner_user, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("online_scoring_auth_exp")
+
+        scorer_json = '{"name": "target_scorer", "type": "pyfunc"}'
+        register_resp = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        scorer_id = register_resp.json()["scorer_id"]
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": attacker_user,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(owner_user, owner_pw),
+        )
+
+        # Seed a config so validate_can_read_online_scoring_configs has a row
+        # to resolve ownership against (empty results short circuit to allow).
+        # sample_rate=0.0 skips the handler's gateway model check on the scorer.
+        seed_resp = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        assert seed_resp.status_code == 200
+
+    for path in (
+        "/api/3.0/mlflow/scorers/online-configs",
+        "/ajax-api/3.0/mlflow/scorers/online-configs",
+    ):
+        response = requests.get(
+            url=client.tracking_uri + path,
+            params={"scorer_ids": scorer_id},
+            auth=(attacker_user, attacker_pw),
+        )
+        assert response.status_code == 403
+
+    for path in (
+        "/api/3.0/mlflow/scorers/online-config",
+        "/ajax-api/3.0/mlflow/scorers/online-config",
+    ):
+        response = requests.put(
+            url=client.tracking_uri + path,
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(attacker_user, attacker_pw),
+        )
+        assert response.status_code == 403
+
+    with User(owner_user, owner_pw, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-configs",
+            params={"scorer_ids": scorer_id},
+            auth=(owner_user, owner_pw),
+        )
+        assert response.status_code == 200
+
+        response = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        assert response.status_code == 200
 
 
 def test_list_users(client):
