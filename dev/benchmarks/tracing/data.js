@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784554834466,
+  "lastUpdate": 1784598581945,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -14903,6 +14903,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.841003400001,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cindyzyx9@gmail.com",
+            "name": "Cindy Zhang",
+            "username": "zcin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d76242abd3bf122c51a54a0bbea723ff73c7e8a",
+          "message": "Support reasoning content parts in ChatMessage (#24176)\n\nSigned-off-by: zcin <cindyzyx9@gmail.com>\nSigned-off-by: zcin <15851518+zcin@users.noreply.github.com>\nCo-authored-by: zcin <15851518+zcin@users.noreply.github.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>",
+          "timestamp": "2026-07-21T10:48:22+09:00",
+          "tree_id": "8b1cad9e95ec53f85c495bf358bcbd6bf43ae5c7",
+          "url": "https://github.com/mlflow/mlflow/commit/3d76242abd3bf122c51a54a0bbea723ff73c7e8a"
+        },
+        "date": 1784598580761,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.07859339999993,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 19.763716499997987,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.24348793333179,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.481904999999603,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.119995649999424,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.78120779999665,
             "unit": "ms"
           }
         ]
