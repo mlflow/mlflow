@@ -436,6 +436,10 @@ class McpRunEvent(Event):
 
 # MCP Server Registry Events
 class McpRegistryCreateServerVersionEvent(Event):
+    """Tracked on the store (server-side), so this fires for creations via UI,
+    REST API, and SDK — including the inner create from register_mcp_server_from_url.
+    """
+
     name: str = "mcp_registry_create_server_version"
 
     @classmethod
@@ -452,7 +456,9 @@ class McpRegistryCreateServerVersionEvent(Event):
 
 
 class McpRegistryRegisterServerFromUrlEvent(Event):
-    """URL-based registration also triggers McpRegistryCreateServerVersionEvent
+    """SDK-only: fires from register_mcp_server_from_url, not UI/REST creations.
+
+    Successful URL registration also triggers McpRegistryCreateServerVersionEvent
     from the inner store call; analytics consumers should expect both events
     per successful register_mcp_server_from_url invocation.
     """
