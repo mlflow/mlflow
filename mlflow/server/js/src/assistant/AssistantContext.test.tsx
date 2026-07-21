@@ -19,7 +19,7 @@ import type { SendMessageStreamCallbacks } from './AssistantService';
 import { GatewayApi } from '../gateway/api';
 import type { AssistantConfig, ProviderConfig, AssistantPart, ChatMessage } from './types';
 
-const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
 
 const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
 
@@ -574,6 +574,45 @@ describe('AssistantContext — localStorage chat persistence', () => {
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
     expect(stored.messages).toEqual([]);
     expect(stored.tokenUsage).toEqual(EMPTY_TOKEN_USAGE);
+  });
+
+  it('accumulates per-turn usage deltas, tracking cached tokens separately', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('turn one');
+    });
+    // Turn 1: fresh context, nothing cached yet.
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        cache_read_tokens: 0,
+        total_cost_usd: 0.01,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    // Turn 2: the resent history shows up as cache reads folded into prompt_tokens.
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 200,
+        completion_tokens: 30,
+        total_tokens: 230,
+        cache_read_tokens: 120,
+        total_cost_usd: 0.02,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    expect(result.current.tokenUsage).toEqual({
+      promptTokens: 300,
+      completionTokens: 50,
+      totalTokens: 350,
+      cacheReadTokens: 120,
+      costUsd: 0.03,
+    });
   });
 
   it('persists the interrupted turn when a stream is cancelled mid-stream', async () => {

@@ -153,6 +153,7 @@ async def test_astream_emits_usage_event_from_turn_completed():
     assert usage["prompt_tokens"] == 10
     assert usage["completion_tokens"] == 5
     assert usage["total_tokens"] == 15
+    assert usage["cache_read_tokens"] == 4
     assert usage["total_cost_usd"] is None
     mock_cost.assert_called_once()
 

@@ -126,6 +126,12 @@ export interface TokenUsage {
   completionTokens: number;
   totalTokens: number;
   /**
+   * Subset of `promptTokens` re-read from the provider's prompt cache. On multi-turn
+   * sessions the resent conversation history lands here (billed at a fraction of fresh
+   * input), so the UI can separate fresh input from cached context in the breakdown.
+   */
+  cacheReadTokens: number;
+  /**
    * Estimated cumulative cost in USD, or null when no turn could be priced
    * (e.g. local/unknown models absent from the pricing catalog).
    */

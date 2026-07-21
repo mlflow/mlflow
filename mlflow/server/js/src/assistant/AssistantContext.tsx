@@ -43,7 +43,13 @@ const MAX_PERSISTED_CHARS = 1_500_000;
 export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
 export const CHAT_STORAGE_VERSION = 1;
 
-const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+const EMPTY_TOKEN_USAGE: TokenUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: null,
+};
 
 interface PersistedChat {
   messages: ChatMessage[];
@@ -391,6 +397,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       prompt_tokens: number;
       completion_tokens: number;
       total_tokens: number;
+      cache_read_tokens?: number;
       total_cost_usd?: number | null;
     }) => {
       // Contract: each `usage` event is a per-turn / per-request *delta*, never a
@@ -402,6 +409,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
         completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
         totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+        cacheReadTokens: prev.cacheReadTokens + (usage.cache_read_tokens ?? 0),
         // Accumulate cost only from priced turns; stays null until the first
         // numeric estimate arrives so unpriced models render no cost at all.
         costUsd: usage.total_cost_usd == null ? prev.costUsd : (prev.costUsd ?? 0) + usage.total_cost_usd,
@@ -564,7 +572,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     setCurrentStatus(null);
     setActiveTools([]);
-    setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
+    setTokenUsage(EMPTY_TOKEN_USAGE);
     openTextBufferRef.current = '';
     setPendingPermission(null);
   }, []);
@@ -874,7 +882,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   pendingPrompt: null,
   pendingPermission: null,
   canUseAssistant: false,
-  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
+  tokenUsage: EMPTY_TOKEN_USAGE,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

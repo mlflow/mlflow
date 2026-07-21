@@ -229,6 +229,7 @@ def test_build_usage_event_remaps_cache_tokens_and_prices():
         "prompt_tokens": 35257,
         "completion_tokens": 5,
         "total_tokens": 35262,
+        "cache_read_tokens": 100,
         "total_cost_usd": 0.1319,
     }
 

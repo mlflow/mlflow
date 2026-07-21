@@ -561,10 +561,11 @@ class ClaudeCodeProvider(AssistantProvider):
         rather than recomputing. The shape matches the usage event emitted by
         the gateway provider so the UI handles both identically.
         """
+        cache_read_tokens = usage.get("cache_read_input_tokens") or 0
         prompt_tokens = (
             (usage.get("input_tokens") or 0)
             + (usage.get("cache_creation_input_tokens") or 0)
-            + (usage.get("cache_read_input_tokens") or 0)
+            + cache_read_tokens
         )
         completion_tokens = usage.get("output_tokens") or 0
         return Event.from_stream_event({
@@ -573,6 +574,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
+                # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+                # so the UI can distinguish fresh input from resent, cached context.
+                "cache_read_tokens": cache_read_tokens,
                 "total_cost_usd": cost_usd,
             },
         })

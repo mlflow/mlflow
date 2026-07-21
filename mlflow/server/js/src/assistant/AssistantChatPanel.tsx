@@ -572,11 +572,20 @@ const ChatPanelContent = () => {
                           defaultMessage="Input {input} · Output {output} tokens"
                           description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
                           values={{
-                            input: tokenUsage.promptTokens.toLocaleString(),
+                            input: (tokenUsage.promptTokens - tokenUsage.cacheReadTokens).toLocaleString(),
                             output: tokenUsage.completionTokens.toLocaleString(),
                           }}
                         />
                       </span>
+                      {tokenUsage.cacheReadTokens > 0 && (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cached {cached} tokens — reused conversation context, billed at a reduced rate"
+                            description="Portion of input tokens re-read from the provider's prompt cache across turns"
+                            values={{ cached: tokenUsage.cacheReadTokens.toLocaleString() }}
+                          />
+                        </span>
+                      )}
                       {tokenUsage.costUsd != null ? (
                         <span>
                           <FormattedMessage
