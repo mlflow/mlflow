@@ -71,6 +71,10 @@
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
   },
+  "+IMUVk": {
+    "defaultMessage": "{count, plural, one {# tool call} other {# tool calls}}",
+    "description": "Count of tool calls the assistant made in a turn"
+  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -986,6 +990,10 @@
   "2ZB29e": {
     "defaultMessage": "A new prompt will be created in the registry.",
     "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
+  },
+  "2ZCtJj": {
+    "defaultMessage": "Completed",
+    "description": "Status for a finished run of assistant tool calls"
   },
   "2a/rR8": {
     "defaultMessage": "Cancel",
@@ -2611,6 +2619,10 @@
     "defaultMessage": "Filter string (optional)",
     "description": "Section header for filter string"
   },
+  "AMyU4u": {
+    "defaultMessage": "Failed",
+    "description": "Status for a failed run of assistant tool calls"
+  },
   "AOoWxS": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
@@ -2654,6 +2666,10 @@
   "AeSuAy": {
     "defaultMessage": "Resize side panel",
     "description": "Aria label for the drag handle on the V2 dataset record side panel"
+  },
+  "AfYWI/": {
+    "defaultMessage": "Tool call: {name}",
+    "description": "Accessible label for an expandable assistant tool-call card"
   },
   "AgjhWE": {
     "defaultMessage": "See less",
@@ -4038,6 +4054,10 @@
   "Hq/vjk": {
     "defaultMessage": "All",
     "description": "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
+  },
+  "Hr6QZk": {
+    "defaultMessage": "Running",
+    "description": "Status for an in-progress run of assistant tool calls"
   },
   "HrDWRj": {
     "defaultMessage": "Compare",
@@ -7171,6 +7191,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
+  "XGfSst": {
+    "defaultMessage": "Input",
+    "description": "Label for an assistant tool call's input"
+  },
   "XHKE0m": {
     "defaultMessage": "Latency",
     "description": "Label for the total latency metric in chat session metrics"
@@ -9211,6 +9235,10 @@
     "defaultMessage": "View full trace",
     "description": "Review focused view: open the full trace explorer"
   },
+  "gi1Khk": {
+    "defaultMessage": "Output",
+    "description": "Label for an assistant tool call's output"
+  },
   "giZdtW": {
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
@@ -10182,6 +10210,10 @@
   "l119W9": {
     "defaultMessage": "No matching questions",
     "description": "Review queue: no questions match the search"
+  },
+  "l427IF": {
+    "defaultMessage": "Tool calls",
+    "description": "Accessible label for the expandable summary row of a run of assistant tool calls"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -12302,6 +12334,10 @@
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
+  },
+  "vWf6fP": {
+    "defaultMessage": "Processing",
+    "description": "Processing indicator while Assistant is streaming a response"
   },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
