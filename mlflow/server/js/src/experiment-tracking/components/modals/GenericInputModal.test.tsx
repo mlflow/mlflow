@@ -55,6 +55,21 @@ describe('GenericInputModal inline submission errors', () => {
     expect(handleSubmit).toHaveBeenCalled();
   });
 
+  test('surfaces the response body inline when an ErrorWrapper is not JSON', async () => {
+    const handleSubmit = jest
+      .fn<() => Promise<never>>()
+      .mockRejectedValue(new ErrorWrapper('<html><body>502 Bad Gateway: upstream timed out</body></html>', 502));
+    renderModal({ handleSubmit });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      // renderHttpError() strips the HTML tags and surfaces the real message,
+      // instead of the opaque INTERNAL_ERROR code returned by getMessageField()
+      expect(screen.getByText('502 Bad Gateway: upstream timed out')).toBeInTheDocument();
+    });
+  });
+
   test('shows plain Error messages inline', async () => {
     const handleSubmit = jest.fn<() => Promise<never>>().mockRejectedValue(new Error('Network unreachable'));
     renderModal({ handleSubmit });

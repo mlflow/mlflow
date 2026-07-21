@@ -10,6 +10,7 @@ import { Alert, Modal, Spacer } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ErrorCodes } from '../../../common/constants';
 
 type Props = {
   okText?: string;
@@ -67,7 +68,18 @@ export class GenericInputModal extends Component<Props, State> {
     }
     // Keep submission failures in modal context (instead of a transient global
     // toast) so the user can read the error and correct their input
-    const message = typeof e === 'string' ? e : e instanceof ErrorWrapper ? e.getMessageField() : e?.message;
+    let message;
+    if (typeof e === 'string') {
+      message = e;
+    } else if (e instanceof ErrorWrapper) {
+      // getMessageField() returns the parsed JSON `message`, but falls back to the
+      // generic INTERNAL_ERROR code when the response body is plain text or HTML.
+      // In that case renderHttpError() surfaces the actual server/proxy message.
+      const messageField = e.getMessageField();
+      message = messageField && messageField !== ErrorCodes.INTERNAL_ERROR ? messageField : e.renderHttpError();
+    } else {
+      message = e?.message;
+    }
     this.setState({
       isSubmitting: false,
       submissionError: message || (
