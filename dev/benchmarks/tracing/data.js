@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784662389340,
+  "lastUpdate": 1784668265505,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15227,6 +15227,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 40.164358999959404,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "95551900+AknA13@users.noreply.github.com",
+            "name": "Akshay Anand",
+            "username": "AknA13"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e29ca6c54e3d585a41af88def3be1ff95af2f8f",
+          "message": "[Model Registry] Gate UC model-registry client on native `/api/2.1` endpoints (#24517)\n\nSigned-off-by: Akshay Anand <akshay.anand@databricks.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Akshay Anand <akshay.anand@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-07-21T21:07:20Z",
+          "tree_id": "a89508abcb2223c4cdb8e00fbb55844b8c569a4b",
+          "url": "https://github.com/mlflow/mlflow/commit/7e29ca6c54e3d585a41af88def3be1ff95af2f8f"
+        },
+        "date": 1784668264660,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.26233565000186,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.834558114285283,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.294906841269665,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.792032000000535,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.397322413791564,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.43179199999804,
             "unit": "ms"
           }
         ]
