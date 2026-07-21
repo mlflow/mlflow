@@ -4186,13 +4186,11 @@ def _link_prompts_to_trace():
     return _wrap_response(LinkPromptsToTrace.Response())
 
 
-def _fetch_trace_data_from_store(
-    store: AbstractTrackingStore, request_id: str
-) -> dict[str, Any] | None:
+def _fetch_trace_data_from_store(store: AbstractTrackingStore, request_id: str) -> bytes | None:
     try:
         # allow partial so the frontend can render in-progress traces
         trace = store.get_trace(request_id, allow_partial=True)
-        return trace.data.to_dict()
+        return trace.data.to_json_bytes()
     except MlflowTraceDataException:
         raise
     except MlflowTracingException:
@@ -4205,7 +4203,7 @@ def _fetch_trace_data_from_store(
         traces = store.batch_get_traces([request_id], None)
         match traces:
             case [trace]:
-                return trace.data.to_dict()
+                return trace.data.to_json_bytes()
             case _:
                 raise MlflowException(
                     f"Trace with id={request_id} not found.",
@@ -4271,14 +4269,16 @@ def get_trace_artifact_handler() -> Response:
         trace_info = store.get_trace_info(request_id)
         if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO.value:
             trace_data = (
-                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
+                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_json_bytes()
             )
         else:
-            trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+            trace_data = json.dumps(
+                _get_trace_artifact_repo(trace_info).download_trace_data()
+            ).encode()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
-    buf.write(json.dumps(trace_data).encode())
+    buf.write(trace_data)
     buf.seek(0)
 
     file_sender_response = send_file(

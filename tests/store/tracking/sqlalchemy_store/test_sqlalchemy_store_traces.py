@@ -5372,10 +5372,16 @@ def test_get_trace_returns_lazy_spans_that_skip_materialization_on_to_dict(
     trace = store.get_trace(trace_id)
     assert all(isinstance(span, LazySpan) for span in trace.data.spans)
     assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert all(span.__dict__["_raw_json"] is not None for span in trace.data.spans)
 
     dumped = trace.data.to_dict()
     assert dumped["spans"][0]["name"] == "root_span"
     assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    payload = trace.data.to_json_bytes()
+    assert payload.startswith(b'{"spans":[')
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert json.loads(payload)["spans"][0]["name"] == "root_span"
 
     # Property access still works and materializes only when needed.
     assert trace.data.spans[0].name == "root_span"

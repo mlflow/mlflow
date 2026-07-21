@@ -6733,10 +6733,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         # Defer OTel Span reconstruction until a caller needs properties or
         # to_otel_proto(). Callers that only need dicts (e.g. TraceData.to_dict /
-        # get-trace-artifact) skip Span.from_dict entirely.
-        return [
-            LazySpan(translate_loaded_span(json.loads(span.content))) for span in span_snapshots
-        ]
+        # get-trace-artifact) skip Span.from_dict entirely. Unmodified stored
+        # JSON is retained for artifact passthrough via TraceData.to_json_bytes().
+        return [LazySpan.from_stored_content(span.content) for span in span_snapshots]
 
     def _load_tracking_store_span_snapshots(
         self, session: Session, trace_ids: Iterable[str]
