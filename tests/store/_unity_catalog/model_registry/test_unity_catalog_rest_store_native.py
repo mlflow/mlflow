@@ -441,7 +441,6 @@ def test_create_model_version_optional_signature_validation(store, tmp_path, byp
     # decision. A three-level name is used because the native create flow rejects non-UC names
     # before issuing the CreateModelVersion request.
     store.spark = None
-    mock_mv = mock.Mock(version="1", storage_location="s3://blah/loc")
     rest_store = "mlflow.store._unity_catalog.registry.rest_store"
     with (
         mock.patch.object(store, "_validate_model_signature") as mock_validate_signature,
@@ -449,9 +448,7 @@ def test_create_model_version_optional_signature_validation(store, tmp_path, byp
         mock.patch.object(store, "_download_model_weights_if_not_saved"),
         mock.patch(f"{rest_store}.get_feature_dependencies", return_value=""),
         mock.patch(f"{rest_store}.get_model_version_dependencies", return_value=[]),
-        mock.patch.object(store, "_edit_endpoint_and_call", return_value=mock_mv),
-        mock.patch.object(store, "_get_artifact_repo"),
-        mock.patch(f"{rest_store}.model_version_from_uc_proto"),
+        mock.patch.object(store, "_create_and_finalize_model_version"),
     ):
         mock_local_model_dir.return_value.__enter__.return_value = tmp_path
         mock_local_model_dir.return_value.__exit__.return_value = None

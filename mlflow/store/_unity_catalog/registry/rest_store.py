@@ -1115,9 +1115,6 @@ class UcModelRegistryStore(BaseRestStore):
         # legacy proto, which carries it directly.
         version = model_version.version
         credential_name = model_name if model_name is not None else model_version.name
-        resolved_storage_location = (
-            storage_location if storage_location is not None else model_version.storage_location
-        )
 
         def base_credential_refresh_def():
             return self._get_temporary_model_version_write_credentials(
@@ -1126,9 +1123,14 @@ class UcModelRegistryStore(BaseRestStore):
 
         if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
             return DatabricksSDKModelsArtifactRepository(
-                model_name, version, registry_uri=self.store_uri
+                credential_name, version, registry_uri=self.store_uri
             )
 
+        resolved_storage_location = (
+            storage_location
+            if storage_location is not None
+            else getattr(model_version, "storage_location", None)
+        )
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(self.get_host_creds(), credential_name, version)
