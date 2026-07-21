@@ -503,6 +503,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("secrets", ("secret_name",), "secrets with the same name"),
         ("endpoints", ("name",), "endpoints with the same name"),
         ("model_definitions", ("name",), "model definitions with the same name"),
+        ("mcp_servers", ("name",), "MCP servers with the same name"),
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):

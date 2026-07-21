@@ -3785,6 +3785,45 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_submit.assert_called_once()
 
 
+def test_invoke_scorer_rejects_decorator_scorer():
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    serialized_scorer = json.dumps({
+        "name": "pwned",
+        "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "pwned",
+    })
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_invalid_json():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": "not valid json",
+                "trace_ids": ["trace1"],
+            },
+        )
+    assert response.status_code == 400
+    assert "serialized_scorer must be valid JSON" in response.get_json()["message"]
+
+
 def test_get_ui_telemetry_handler(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):

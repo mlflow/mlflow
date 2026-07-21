@@ -4438,6 +4438,57 @@ def test_mcp_server_delete_cascades_grants(fastapi_client, monkeypatch, prefix):
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_admin_delete_cascades_grants(fastapi_client, monkeypatch, prefix):
+    """Admin delete must still run ``_mcp_server_after_delete`` grant cleanup.
+
+    Admins skip FastAPI validators (full access) but must not skip after-request
+    handlers — otherwise recreating the same server name restores stale grants.
+    """
+    creator, creator_pw = create_user(fastapi_client.tracking_uri)
+    other, other_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": "com.test/admin-cascade-server"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": other,
+            "resource_type": "mcp_server",
+            "resource_id": "com.test/admin-cascade-server",
+            "permission": "MANAGE",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    # Admin deletes the server — after-handler must cascade-delete grants.
+    requests.delete(
+        url=fastapi_client.tracking_uri + f"{prefix}/com.test/admin-cascade-server",
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": "com.test/admin-cascade-server"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    with User(other, other_pw, monkeypatch):
+        response = requests.patch(
+            url=fastapi_client.tracking_uri + f"{prefix}/com.test/admin-cascade-server",
+            json={"description": "should fail"},
+            auth=(other, other_pw),
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_tracks_created_by(fastapi_client, monkeypatch, prefix):
     username, password = create_user(fastapi_client.tracking_uri)
 
@@ -5030,6 +5081,53 @@ def test_mcp_server_nested_post_does_not_escalate_existing_grant(
     )
     assert resp.status_code == 200
     assert resp.json()["permission"] == "EDIT"
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_nested_post_body_name_does_not_grant_manage(
+    fastapi_client, monkeypatch, prefix
+):
+    # Nested POSTs must not auto-grant MANAGE from an injected body ``name``.
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    owned = "com.test/owned-for-tags"
+    victim = "com.test/victim-server"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": owned},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": victim},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": editor,
+            "resource_type": "mcp_server",
+            "resource_id": owned,
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(editor, editor_pw, monkeypatch):
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{owned}/tags",
+            json={"key": "k", "value": "v", "name": victim},
+            auth=(editor, editor_pw),
+        ).raise_for_status()
+
+    # No grant on the victim server — DELETE must still be forbidden.
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.delete(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{victim}",
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 403
 
 
 @pytest.mark.parametrize(
