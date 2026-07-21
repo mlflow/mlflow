@@ -276,7 +276,10 @@ async def test_astream_emits_content_deltas(provider):
 
 
 @pytest.mark.asyncio
-async def test_astream_requests_usage_via_stream_options(provider):
+async def test_astream_omits_stream_options(provider):
+    # stream_options is an OpenAI-only field. The assistant must not send it: a
+    # gateway route backed by Anthropic forwards it to /v1/messages, which 400s on
+    # the unknown field. The gateway self-injects it per-provider where accepted.
     lines = [_sse(_delta(content="hi")), b"data: [DONE]\n"]
     session, calls = _make_aiohttp_session([lines])
 
@@ -286,7 +289,7 @@ async def test_astream_requests_usage_via_stream_options(provider):
     ):
         _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
 
-    assert calls[0]["json"]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[0]["json"]
 
 
 @pytest.mark.asyncio
