@@ -61,9 +61,12 @@ def test_dispatch_aws():
         )
     )
     assert token.WhichOneof("credentials") == "aws_temp_credentials"
-    with mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
-    ) as repo, mock.patch.dict("sys.modules", {"boto3": mock.MagicMock()}):
+    with (
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
+        ) as repo,
+        mock.patch.dict("sys.modules", {"boto3": mock.MagicMock()}),
+    ):
         _get_artifact_repo_from_storage_info(STORAGE, token, _refresh_returning(token))
     repo.assert_called_once()
     _, kwargs = repo.call_args
@@ -78,11 +81,18 @@ def test_dispatch_azure():
     )
     assert token.WhichOneof("credentials") == "azure_user_delegation_sas"
     fake_azure = mock.MagicMock()
-    with mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
-    ) as repo, mock.patch.dict(
-        "sys.modules", {"azure": mock.MagicMock(), "azure.core": mock.MagicMock(),
-                        "azure.core.credentials": fake_azure}
+    with (
+        mock.patch(
+            "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+        ) as repo,
+        mock.patch.dict(
+            "sys.modules",
+            {
+                "azure": mock.MagicMock(),
+                "azure.core": mock.MagicMock(),
+                "azure.core.credentials": fake_azure,
+            },
+        ),
     ):
         _get_artifact_repo_from_storage_info(STORAGE, token, _refresh_returning(token))
     repo.assert_called_once()
@@ -93,16 +103,17 @@ def test_dispatch_gcp():
     assert token.WhichOneof("credentials") == "gcp_oauth_token"
     gcs_mod = mock.MagicMock()
     oauth_mod = mock.MagicMock()
-    with mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
-    ) as repo, mock.patch.dict(
-        "sys.modules",
-        {
-            "google.cloud": mock.MagicMock(),
-            "google.cloud.storage": gcs_mod,
-            "google.oauth2": mock.MagicMock(),
-            "google.oauth2.credentials": oauth_mod,
-        },
+    with (
+        mock.patch("mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository") as repo,
+        mock.patch.dict(
+            "sys.modules",
+            {
+                "google.cloud": mock.MagicMock(),
+                "google.cloud.storage": gcs_mod,
+                "google.oauth2": mock.MagicMock(),
+                "google.oauth2.credentials": oauth_mod,
+            },
+        ),
     ):
         _get_artifact_repo_from_storage_info(STORAGE, token, _refresh_returning(token))
     repo.assert_called_once()
@@ -115,9 +126,7 @@ def test_dispatch_r2():
         )
     )
     assert token.WhichOneof("credentials") == "r2_temp_credentials"
-    with mock.patch(
-        "mlflow.store.artifact.r2_artifact_repo.R2ArtifactRepository"
-    ) as repo:
+    with mock.patch("mlflow.store.artifact.r2_artifact_repo.R2ArtifactRepository") as repo:
         _get_artifact_repo_from_storage_info(STORAGE, token, _refresh_returning(token))
     repo.assert_called_once()
     _, kwargs = repo.call_args
@@ -141,9 +150,7 @@ def test_sse_empty_when_no_encryption():
 def test_sse_s3():
     token = TemporaryCredentials(
         encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3
-            )
+            sse_encryption_details=SseEncryptionDetails(algorithm=SseEncryptionAlgorithm.AWS_SSE_S3)
         )
     )
     assert _parse_aws_sse_credential(token) == {"ServerSideEncryption": "AES256"}
@@ -167,14 +174,15 @@ def test_aws_dispatch_threads_sse_into_upload_args():
     token = TemporaryCredentials(
         aws_temp_credentials=AwsCredentials(access_key_id="ak"),
         encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3
-            )
+            sse_encryption_details=SseEncryptionDetails(algorithm=SseEncryptionAlgorithm.AWS_SSE_S3)
         ),
     )
-    with mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
-    ) as repo, mock.patch.dict("sys.modules", {"boto3": mock.MagicMock()}):
+    with (
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository"
+        ) as repo,
+        mock.patch.dict("sys.modules", {"boto3": mock.MagicMock()}),
+    ):
         _get_artifact_repo_from_storage_info(STORAGE, token, _refresh_returning(token))
     _, kwargs = repo.call_args
     assert kwargs["s3_upload_extra_args"] == {"ServerSideEncryption": "AES256"}

@@ -85,7 +85,8 @@ _NATIVE_METHOD_TO_INFO = extract_api_info_for_service(
 
 def registered_model_from_uc_native_proto(uc_proto: RegisteredModelInfo) -> RegisteredModel:
     """Convert a native UC ``RegisteredModelInfo`` (governance + enrichment fields) into a
-    :class:`~mlflow.entities.model_registry.RegisteredModel`."""
+    :class:`~mlflow.entities.model_registry.RegisteredModel`.
+    """
     return RegisteredModel(
         # ``full_name`` is the backend's output-only canonical <catalog>.<schema>.<model> name.
         name=uc_proto.full_name,
@@ -108,7 +109,8 @@ def registered_model_from_uc_native_proto(uc_proto: RegisteredModelInfo) -> Regi
 
 def model_version_from_uc_native_proto(uc_proto: ModelVersionInfo) -> ModelVersion:
     """Convert a native UC ``ModelVersionInfo`` (governance + enrichment fields) into a
-    :class:`~mlflow.entities.model_registry.ModelVersion`."""
+    :class:`~mlflow.entities.model_registry.ModelVersion`.
+    """
     return ModelVersion(
         name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
         # The governance proto types version as int64; the MLflow entity's version is a string
@@ -151,7 +153,8 @@ def registered_model_search_from_uc_native_proto(
 ) -> RegisteredModelSearch:
     """Convert a native UC ``RegisteredModelInfo`` search hit into a
     :class:`~mlflow.entities.model_registry.registered_model_search.RegisteredModelSearch`.
-    Search results intentionally omit tags/aliases (``RegisteredModelSearch`` forces them empty)."""
+    Search results intentionally omit tags/aliases (``RegisteredModelSearch`` forces them empty).
+    """
     return RegisteredModelSearch(
         # ``full_name`` is the backend's output-only canonical <catalog>.<schema>.<model> name.
         name=uc_proto.full_name,
@@ -168,7 +171,8 @@ def model_version_search_from_uc_native_proto(
 ) -> ModelVersionSearch:
     """Convert a native UC ``ModelVersionInfo`` search hit into a
     :class:`~mlflow.entities.model_registry.model_version_search.ModelVersionSearch`.
-    Search results intentionally omit tags/aliases (``ModelVersionSearch`` forces them empty)."""
+    Search results intentionally omit tags/aliases (``ModelVersionSearch`` forces them empty).
+    """
     return ModelVersionSearch(
         name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
         # int64 governance version -> string entity version (see the model-version converter).
@@ -204,7 +208,8 @@ def _split_uc_name(full_name):
 
 class UcNativeModelRegistryStore(UcModelRegistryStore):
     """UC model-registry store that routes operations to the native /api/2.1/unity-catalog/*
-    endpoints. See the module docstring for details."""
+    endpoints. See the module docstring for details.
+    """
 
     def _get_response_from_method(self, method):
         # The server json_inlines the response wrapper, so each native body parses directly into
@@ -443,14 +448,10 @@ class UcNativeModelRegistryStore(UcModelRegistryStore):
         for dep in other_model_deps or []:
             dep_type, dep_name = dep.get("type"), dep.get("name")
             if dep_type in (_DEP_TYPE_VECTOR_INDEX, _DEP_TYPE_TABLE):
-                deps.append(
-                    ModelVersionDependency(table=TableDependency(table_full_name=dep_name))
-                )
+                deps.append(ModelVersionDependency(table=TableDependency(table_full_name=dep_name)))
             elif dep_type == _DEP_TYPE_UC_FUNCTION:
                 deps.append(
-                    ModelVersionDependency(
-                        function=FunctionDependency(function_full_name=dep_name)
-                    )
+                    ModelVersionDependency(function=FunctionDependency(function_full_name=dep_name))
                 )
             elif dep_type == _DEP_TYPE_UC_CONNECTION:
                 deps.append(

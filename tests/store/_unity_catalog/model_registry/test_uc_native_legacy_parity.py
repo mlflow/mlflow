@@ -47,17 +47,25 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.unity_catalog_messages_pb2 import (
     DeploymentJobConnection,
-    ModelVersionDeploymentJobState as NativeMVDeploymentJobState,
     ModelVersionInfo,
     ModelVersionStatus,
     RegisteredModelAliasInfo,
     RegisteredModelInfo,
     TagKeyValue,
 )
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    ModelVersionDeploymentJobState as NativeMVDeploymentJobState,
+)
 from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
     model_version_from_uc_native_proto as model_version_from_uc_proto,
+)
+from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
     model_version_search_from_uc_native_proto as model_version_search_from_uc_proto,
+)
+from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
     registered_model_from_uc_native_proto as registered_model_from_uc_proto,
+)
+from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
     registered_model_search_from_uc_native_proto as registered_model_search_from_uc_proto,
 )
 from mlflow.utils._unity_catalog_utils import (
