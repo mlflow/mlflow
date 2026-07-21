@@ -171,8 +171,7 @@ describe('AccessEndpointModal', () => {
   describe('EndpointTargetSelector (scoped vs unscoped)', () => {
     it('shows scoped version when scopedVersion is provided', () => {
       renderModal({ lockedServer: 'com.test/my-server', scopedVersion: '1.0.0' });
-      const targetSelector = screen.getByRole('combobox', { name: '' });
-      expect(targetSelector).toBeInTheDocument();
+      expect(screen.getByText('1.0.0')).toBeInTheDocument();
     });
 
     it('shows aliases group in unscoped mode', async () => {

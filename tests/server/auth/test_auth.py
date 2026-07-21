@@ -4862,8 +4862,7 @@ def test_mcp_server_patch_connect_options_requires_manage(fastapi_client, monkey
             auth=(owner, owner_pw),
         )
         assert resp.status_code == 200
-        version_data = resp.json()["mcp_server_version"]
-        assert version_data["connect_options"] == {"npm:foo": {"hidden": True}}
+        assert resp.json()["connect_options"] == {"npm:foo": {"hidden": True}}
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
