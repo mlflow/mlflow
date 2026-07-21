@@ -38,9 +38,9 @@ export interface LabelSchemaInputRendererProps {
   /** Optional label displayed on the underlying control (categorical only). */
   label?: string;
   /**
-   * Schema instruction. For the text variant it is rendered as the
-   * textarea placeholder so the prompt lives inside the box the reviewer
-   * types into; other variants surface the instruction elsewhere.
+   * Schema instruction. For the text variant it is used as the textarea
+   * placeholder when the field is editable; hidden when disabled so an
+   * empty read-only field stays blank.
    */
   instruction?: string;
 }
@@ -113,7 +113,7 @@ export const LabelSchemaInputRenderer = ({
         onChange={onChange}
         disabled={disabled}
         componentId={`${componentId}.text`}
-        placeholder={instruction}
+        placeholder={disabled ? undefined : instruction}
       />
     );
   }

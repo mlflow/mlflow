@@ -16,6 +16,12 @@ export interface CreateReviewAssessmentParams {
   sourceId: string;
   /** Optional free-form rationale, when the schema enables a comment. */
   rationale?: string;
+  /**
+   * Assessment id this answer supersedes — the reviewer's own prior answer to
+   * the same question, if any. Passing it marks the prior assessment invalid
+   * instead of accumulating a duplicate on re-submit.
+   */
+  overrides?: string;
 }
 
 /**
@@ -36,12 +42,13 @@ export const useCreateReviewAssessmentMutation = () => {
       // newly-written assessment (scoped by traceId, not all traces).
       queryClient.invalidateQueries([REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY, variables.traceId]);
     },
-    mutationFn: async ({ traceId, name, assessmentKind, value, sourceId, rationale }) => {
+    mutationFn: async ({ traceId, name, assessmentKind, value, sourceId, rationale, overrides }) => {
       const assessment = {
         assessment_name: name,
         trace_id: traceId,
         source: { source_type: 'HUMAN', source_id: sourceId },
         ...(rationale ? { rationale } : {}),
+        ...(overrides ? { overrides } : {}),
         ...(assessmentKind === 'feedback' ? { feedback: { value } } : { expectation: { value } }),
       };
       return fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments`), {

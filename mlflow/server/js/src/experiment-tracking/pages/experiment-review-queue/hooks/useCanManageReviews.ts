@@ -1,37 +1,47 @@
 import { useIsAuthAvailable, useMyPermissionsQuery } from '../../../../account/hooks';
+import { useActiveWorkspace } from '../../../../workspaces/utils/WorkspaceUtils';
+import { useWorkspacesEnabled } from '../../../hooks/useServerInfo';
 
 /**
- * Whether the current user may MANAGE reviews for an experiment — create / edit
- * / delete queues and add / edit / delete questions. Management requires
- * experiment EDIT (or MANAGE); reviewing (answering assigned queues) only needs
- * READ and is not gated by this.
- *
- * This is a UX gate only — it hides controls the user can't use. The real
- * authorization is server-side (see [[project_review_queue_authz_model]],
- * planned as its own stack); until then these endpoints are ungated.
- *
- * On a no-auth server there's no permission model, so everyone is effectively
- * the admin and management is always available.
+ * Whether the current user holds one of `levels` on the experiment. A UX gate
+ * only — the server enforces the real authorization. No-auth: everyone passes;
+ * while permissions load: deny (reveal late rather than expose a control that 403s).
  */
-export const useCanManageReviews = (experimentId: string): boolean => {
+const useExperimentReviewPermission = (experimentId: string, levels: string[]): boolean => {
   const authAvailable = useIsAuthAvailable();
   const { data } = useMyPermissionsQuery();
+  const { workspacesEnabled, loading: workspacesLoading } = useWorkspacesEnabled();
+  const activeWorkspace = useActiveWorkspace();
 
   if (!authAvailable) {
     return true;
   }
   if (!data) {
-    // Auth is on but permissions haven't loaded — hide management until we know
-    // (better to reveal a control late than expose one that 403s server-side).
     return false;
   }
   if (data.is_admin) {
     return true;
   }
+  // The permissions endpoint returns grants across every workspace, and a `*`
+  // grant is workspace-relative, so only count grants in the workspace being
+  // viewed. Skip that filter only when workspaces are *definitively* disabled
+  // (single-workspace deployment, nothing to leak). While the flag is loading or
+  // the workspace hasn't resolved yet, require the match and deny rather than
+  // over-reveal a control that would 403 server-side.
+  const workspacesDefinitelyDisabled = !workspacesEnabled && !workspacesLoading;
   return (data.permissions ?? []).some(
     (p) =>
       p.resource_type === 'experiment' &&
       (p.resource_pattern === experimentId || p.resource_pattern === '*') &&
-      (p.permission === 'EDIT' || p.permission === 'MANAGE'),
+      levels.includes(p.permission) &&
+      (workspacesDefinitelyDisabled || p.workspace === activeWorkspace),
   );
 };
+
+/** MANAGE reviews: create/edit/delete queues and questions. Requires experiment MANAGE. */
+export const useCanManageReviews = (experimentId: string): boolean =>
+  useExperimentReviewPermission(experimentId, ['MANAGE']);
+
+/** EDIT reviews: create/own queues, route traces, review. Requires experiment EDIT or MANAGE. */
+export const useCanEditReviews = (experimentId: string): boolean =>
+  useExperimentReviewPermission(experimentId, ['EDIT', 'MANAGE']);

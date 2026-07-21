@@ -1,17 +1,20 @@
 import pytest
 
-from mlflow.assistant.providers import list_providers
+from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
 
 
 def _gateway_provider():
     for p in list_providers():
-        if p.name == "mlflow_gateway":
+        if p.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
             return p
-    raise AssertionError("mlflow_gateway provider not registered")
+    raise AssertionError(f"{MlflowGatewayProvider.GATEWAY_PROVIDER_NAME} provider not registered")
 
 
 def test_provider_identity():
     p = _gateway_provider()
+    # Literal "mlflow_gateway" pins the wire-format contract: this value is
+    # stored in user config files and mirrored by the frontend constant
+    # GATEWAY_PROVIDER_ID, so changing it would break backwards compatibility.
     assert p.name == "mlflow_gateway"
     assert p.display_name == "MLflow AI Gateway"
     assert p.is_available() is True

@@ -146,7 +146,7 @@ jobs:
               comment_id: comment.id,
               body: updatedBody,
             });
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           token: ${{ steps.app-token-read.outputs.token }}
@@ -209,7 +209,7 @@ jobs:
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           MODEL: ${{ steps.prompt.outputs.model }}
@@ -260,7 +260,7 @@ jobs:
       - name: Redact secrets from transcript
         if: always()
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
         run: |

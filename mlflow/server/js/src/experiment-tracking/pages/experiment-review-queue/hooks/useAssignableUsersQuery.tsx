@@ -5,18 +5,14 @@ import type { ListUsersResponse } from '../../../../admin/types';
 
 export const ASSIGNABLE_USERS_QUERY_KEY = 'REVIEW_QUEUE_ASSIGNABLE_USERS';
 
-// Stable fallback so a disabled/loading query (e.g. a non-admin who can't list
-// users) returns the same array identity every render. A fresh `[]` here would
-// give consumers a new reference each render, looping any `useMemo`/`useEffect`
-// keyed on the list (see QueueSettingsModal's members typeahead).
+// Stable fallback so a disabled/loading query returns the same array identity
+// every render, avoiding render loops in consumers keyed on the list.
 const EMPTY_USERS: ListUsersResponse['users'] = [];
 
 /**
- * Usernames assignable as review-queue targets, for the "Flag for review" user
- * search. Backed by the admin `users/list` endpoint, which is workspace-admin
- * gated server-side — so callers must pass `enabled` only when the current user
- * can list users (the request 403s otherwise). We intend to relax that ACL to
- * any workspace user; until then user search is admin-only.
+ * Usernames assignable as review-queue targets, via the admin `users/list`
+ * endpoint. Any authenticated user may list users; that grants no access on its
+ * own. Callers pass `enabled` to skip the request on a no-auth server.
  */
 export const useAssignableUsersQuery = ({ enabled }: { enabled: boolean }) => {
   const { data, isLoading, error } = useQuery<ListUsersResponse, Error>({

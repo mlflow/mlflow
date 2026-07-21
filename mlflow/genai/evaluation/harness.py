@@ -477,7 +477,8 @@ class _ScoreSubmitter:
                 assessments=eval_result.assessments,
             )
         except Exception as e:
-            trace_id = eval_result.eval_item.trace.info.trace_id
+            trace = eval_result.eval_item.trace
+            trace_id = trace.info.trace_id if trace else "<unknown>"
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
         with self._time_lock:
             self._times.append(time.monotonic() - start)
@@ -486,19 +487,31 @@ class _ScoreSubmitter:
     def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
-        futures = [
-            self._pool.submit(
-                self._timed_multi_turn_score,
-                session_id=session_id,
-                session_items=session_items,
-                multi_turn_scorers=self._multi_turn_scorers,
-                scorer_rate_limiter=self._limiter,
-                max_retries=self._max_retries,
+        futures = []
+        for session_id, session_items in self._session_groups.items():
+            # Session groups are built before prediction; a clone read-back miss can null an
+            # item's trace afterwards. Drop those items here since session scoring dereferences
+            # trace (e.g. get_first_trace_in_session reads trace.info.request_time), and skip
+            # sessions left with no scorable trace.
+            scorable_items = [item for item in session_items if item.trace is not None]
+            if not scorable_items:
+                _logger.warning(f"Skipping multi-turn session {session_id} with no traces.")
+                continue
+            futures.append(
+                self._pool.submit(
+                    self._timed_multi_turn_score,
+                    session_id=session_id,
+                    session_items=scorable_items,
+                    multi_turn_scorers=self._multi_turn_scorers,
+                    scorer_rate_limiter=self._limiter,
+                    max_retries=self._max_retries,
+                )
             )
-            for session_id, session_items in self._session_groups.items()
-        ]
         for future in as_completed(futures):
             eval_result = future.result()
+            if eval_result.eval_item.trace is None:
+                _logger.warning("Skipping multi-turn result with no trace.")
+                continue
             trace_id = eval_result.eval_item.trace.info.trace_id
             multi_turn_eval_results[trace_id] = eval_result
             if progress_bar:
@@ -589,12 +602,11 @@ def _run_pipeline(
                 if predictor.owns(future):
                     idx = predictor.on_complete(future)
                     items_predicted += 1
-                    if single_turn_scorers:
-                        pending.add(scorer_submitter.submit(idx))
-                    else:
-                        predictor.release_slot()
-                        eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
-                        items_done += 1
+                    # Submit even when there are no single-turn scorers: scoring is a
+                    # no-op then, but _run_score also persists dataset expectations
+                    # and tags on the trace, which a short-circuit here would skip
+                    # (#23746).
+                    pending.add(scorer_submitter.submit(idx))
                 else:
                     idx, result = scorer_submitter.on_complete(future)
                     _logger.debug(f"Score completed for item {idx}")
@@ -616,6 +628,33 @@ def _run_pipeline(
     finally:
         predictor.shutdown()
         scorer_submitter.shutdown()
+
+
+def _tag_mlflow_test_traces(eval_results: list[EvalResult]) -> None:
+    """Tag each produced trace with the current ``@mlflow.test`` identity.
+
+    Lets the regression-test UI group and label the traces by test case. No-op
+    when not running inside an ``@mlflow.test``-marked test.
+    """
+    from mlflow.pytest import session as test_session
+
+    test_name, case_id = test_session.current_test()
+    if test_name is None:
+        return
+
+    tags = {test_session.TAG_TEST_NAME: test_name}
+    if case_id:
+        tags[test_session.TAG_CASE_ID] = case_id
+
+    client = MlflowClient()
+    for result in eval_results:
+        if (trace := result.eval_item.trace) is None:
+            continue
+        for key, value in tags.items():
+            try:
+                client.set_trace_tag(trace.info.trace_id, key, value)
+            except Exception as e:
+                _logger.debug("Failed to tag trace %s with %s: %s", trace.info.trace_id, key, e)
 
 
 @context.eval_context
@@ -641,7 +680,10 @@ def run(
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
-    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
+    # Every eval item goes through the score pool (even with no single-turn
+    # scorers, _run_score still logs expectations and tags), so each item
+    # contributes one progress update.
+    total_tasks = len(eval_items) + len(session_groups)
 
     progress_bar = (
         tqdm(
@@ -698,6 +740,10 @@ def run(
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
+    # When running inside an @mlflow.test, stamp each produced trace with the test
+    # identity so the regression-test UI can group/label them. No-op otherwise.
+    _tag_mlflow_test_traces(eval_results)
+
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
     _refresh_eval_result_traces(eval_results)
@@ -741,10 +787,19 @@ def run(
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
+    # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
+    # pass/fail for non-yes/no values. In-process only; not persisted.
+    pass_criteria = {
+        scorer.name: scorer.pass_if
+        for scorer in (scorers or [])
+        if getattr(scorer, "pass_if", None) is not None
+    }
+
     return EvaluationResult(
         run_id=run_id,
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
+        pass_criteria=pass_criteria,
     )
 
 
@@ -784,7 +839,20 @@ def _run_predict(
         if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
-                eval_item.trace = mlflow.get_trace(trace_id)
+                # copy_trace_to_experiment exports asynchronously and returns before the write
+                # is durable; flush=True drains pending async writes on a store miss so this
+                # read-after-write resolves deterministically (no-op on a hit).
+                cloned_trace = mlflow.get_trace(trace_id, flush=True)
+                if cloned_trace is None:
+                    # get_trace returns None (does not raise) on a residual miss, so the except
+                    # below never fires. Record it and null the trace; scoring degrades via the
+                    # guard in _get_new_expectations rather than crashing.
+                    eval_item.error_message = (
+                        f"Cloned trace could not be read back from the tracking store "
+                        f"(trace_id={trace_id}); dataset expectations/tags for this row "
+                        f"were not persisted."
+                    )
+                eval_item.trace = cloned_trace
             except Exception as e:
                 eval_item.error_message = f"Failed to clone trace to the current experiment: {e}"
         else:
@@ -932,6 +1000,8 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    if eval_item.trace is None:
+        return []
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }

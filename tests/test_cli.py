@@ -19,7 +19,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
-from mlflow.entities import Metric, ViewType
+from mlflow.entities import Metric, ViewType, Workspace
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
@@ -37,6 +37,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSqlAlchemyStore
 from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
@@ -270,9 +271,45 @@ def test_server_mlflow_artifacts_options():
                 run_server_mock.assert_called_once()
 
 
-def test_server_artifacts_only_conflicts_with_enable_workspaces():
+def test_server_artifacts_only_with_workspaces_initializes_only_workspace_store(
+    tmp_path, monkeypatch
+):
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.delenv(MLFLOW_WORKSPACE_STORE_URI.name, raising=False)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        mock.patch("mlflow.server.handlers.initialize_workspace_store") as init_workspace,
+    ):
+        result = CliRunner().invoke(
+            server,
+            [
+                "--artifacts-only",
+                "--enable-workspaces",
+                "--workspace-store-uri",
+                workspace_uri,
+            ],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+    assert result.exit_code == 0
+    init_workspace.assert_called_once_with(workspace_uri)
+    init_backend.assert_not_called()
+    run_server_mock.assert_called_once()
+    assert MLFLOW_ENABLE_WORKSPACES.get() is True
+    assert MLFLOW_WORKSPACE_STORE_URI.get() == workspace_uri
+
+
+def test_server_artifacts_only_with_workspaces_requires_workspace_store_uri(monkeypatch):
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.delenv(MLFLOW_WORKSPACE_STORE_URI.name, raising=False)
+
     with pytest.raises(
-        click.UsageError, match="--enable-workspaces cannot be combined with --artifacts-only"
+        click.UsageError,
+        match="--workspace-store-uri is required when combining --enable-workspaces",
     ):
         CliRunner().invoke(
             server,
@@ -280,6 +317,62 @@ def test_server_artifacts_only_conflicts_with_enable_workspaces():
             catch_exceptions=False,
             standalone_mode=False,
         )
+
+
+def test_server_artifacts_only_with_workspaces_uses_environment_configuration(
+    tmp_path, monkeypatch
+):
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(MLFLOW_WORKSPACE_STORE_URI.name, workspace_uri)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        mock.patch("mlflow.server.handlers.initialize_workspace_store") as init_workspace,
+    ):
+        result = CliRunner().invoke(
+            server,
+            ["--artifacts-only"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+    assert result.exit_code == 0
+    init_workspace.assert_called_once_with(workspace_uri)
+    init_backend.assert_not_called()
+    run_server_mock.assert_called_once()
+
+
+def test_server_artifacts_only_with_workspaces_fails_when_workspace_store_init_fails(
+    tmp_path, monkeypatch
+):
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.delenv(MLFLOW_WORKSPACE_STORE_URI.name, raising=False)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        mock.patch(
+            "mlflow.server.handlers.initialize_workspace_store",
+            side_effect=MlflowException("Invalid workspace provider"),
+        ) as init_workspace,
+    ):
+        result = CliRunner().invoke(
+            server,
+            [
+                "--artifacts-only",
+                "--enable-workspaces",
+                "--workspace-store-uri",
+                workspace_uri,
+            ],
+        )
+
+    assert result.exit_code == 1
+    init_workspace.assert_called_once_with(workspace_uri)
+    init_backend.assert_not_called()
+    run_server_mock.assert_not_called()
 
 
 def _write_trace_archival_config(
@@ -1154,6 +1247,83 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             kill_process_tree(process.pid)
 
 
+def test_mlflow_artifacts_only_with_workspaces(tmp_path: Path):
+    port = get_safe_port()
+    workspace_uri = f"sqlite:///{tmp_path / 'workspaces.db'}"
+    WorkspaceSqlAlchemyStore(workspace_uri).create_workspace(Workspace(name="team-a"))
+    artifact_root = tmp_path / "artifacts"
+    env = {**os.environ}
+    for name in [
+        MLFLOW_ENABLE_WORKSPACES.name,
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.name,
+        MLFLOW_WORKSPACE_STORE_URI.name,
+    ]:
+        env.pop(name, None)
+
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--port",
+            str(port),
+            "--artifacts-only",
+            "--enable-workspaces",
+            "--workspace-store-uri",
+            workspace_uri,
+            "--artifacts-destination",
+            artifact_root.as_uri(),
+        ],
+        cwd=tmp_path,
+        env=env,
+    ) as process:
+        try:
+            _await_server_up_or_die(port)
+            artifact_url = (
+                f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts/run/model.txt"
+            )
+            workspace_header = {"X-MLFLOW-WORKSPACE": "team-a"}
+
+            upload_response = requests.put(
+                artifact_url,
+                headers=workspace_header,
+                data=b"workspace artifact",
+            )
+            augmented_raise_for_status(upload_response)
+
+            download_response = requests.get(artifact_url, headers=workspace_header)
+            augmented_raise_for_status(download_response)
+            assert download_response.content == b"workspace artifact"
+            assert (artifact_root / "workspaces" / "team-a" / "run" / "model.txt").exists()
+
+            default_artifact_url = (
+                f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts/default.txt"
+            )
+            default_upload_response = requests.put(
+                default_artifact_url,
+                data=b"default workspace artifact",
+            )
+            augmented_raise_for_status(default_upload_response)
+            assert (artifact_root / "default.txt").read_bytes() == b"default workspace artifact"
+
+            unknown_workspace_response = requests.get(
+                artifact_url,
+                headers={"X-MLFLOW-WORKSPACE": "missing"},
+            )
+            assert unknown_workspace_response.status_code == 404
+
+            tracking_response = requests.get(
+                f"http://localhost:{port}/api/2.0/mlflow/experiments/search",
+                headers=workspace_header,
+            )
+            assert tracking_response.status_code == 503
+            assert "artifacts-only" in tracking_response.text
+            assert not (tmp_path / "mlflow.db").exists()
+        finally:
+            kill_process_tree(process.pid)
+
+
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
     with subprocess.Popen([
@@ -1209,6 +1379,15 @@ def test_mlflow_ui_is_alias_for_mlflow_server():
         mlflow_ui_stdout.replace("Usage: python -m mlflow ui", "Usage: python -m mlflow server")
         == mlflow_server_stdout
     )
+
+
+def test_server_help_has_quickstart():
+    out = subprocess.check_output([sys.executable, "-m", "mlflow", "server", "--help"], text=True)
+    assert "Pick your setup" in out
+    assert "Options by topic:" in out
+    assert "sqlite:///mlflow.db" in out
+    # Curated guidance is rendered before the exhaustive flat option list.
+    assert out.index("Pick your setup") < out.index("\nOptions:")
 
 
 def test_cli_with_python_mod():

@@ -27,6 +27,11 @@ def upgrade():
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("creation_time_ms", sa.BigInteger(), nullable=False),
         sa.Column("last_update_time_ms", sa.BigInteger(), nullable=False),
+        # Case-folded form of `name`, carrying the uniqueness guarantee so names
+        # are unique within an experiment case-insensitively (across both queue
+        # types). `name` keeps the display casing; the store sets this to
+        # `name.lower()`.
+        sa.Column("name_key", sa.String(length=250), nullable=False),
         sa.ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],
@@ -36,8 +41,8 @@ def upgrade():
         sa.PrimaryKeyConstraint("queue_id", name="review_queues_pk"),
         sa.UniqueConstraint(
             "experiment_id",
-            "name",
-            name="uq_review_queues_experiment_name",
+            "name_key",
+            name="uq_review_queues_experiment_name_key",
         ),
     )
     op.create_index(

@@ -35,6 +35,7 @@ export const SegmentedProgressBar = ({ items, className }: { items: ProgressBarI
             flex: 1,
             height: '100%',
             backgroundColor: item.color,
+            transition: 'background-color 0.4s ease',
             borderTopLeftRadius: index === 0 ? radius : 0,
             borderBottomLeftRadius: index === 0 ? radius : 0,
             borderTopRightRadius: index === items.length - 1 ? radius : 0,

@@ -58,6 +58,13 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.genai.review_queues import ReviewQueueType
+from mlflow.genai.review_queues.review_queues import (
+    ReviewItemType,
+    ReviewQueue,
+    ReviewQueueItem,
+    ReviewStatus,
+)
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -99,6 +106,12 @@ from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_METAPROMPT,
     OPTIMIZER_TYPE_UNSPECIFIED,
 )
+from mlflow.protos.review_queues_pb2 import (
+    CreateReviewQueue,
+    GetOrCreateUserQueue,
+    SetReviewQueueItemStatus,
+    UpdateReviewQueue,
+)
 from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
@@ -128,6 +141,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
+    ARTIFACTS_ONLY_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
     SERVE_ARTIFACTS_ENV_VAR,
     app,
@@ -150,6 +164,8 @@ from mlflow.server.handlers import (
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
     _create_registered_model,
+    _create_review_queue,
+    _create_workspace_handler,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
     _delete_dataset_tag_handler,
@@ -161,6 +177,7 @@ from mlflow.server.handlers import (
     _delete_scorer,
     _delete_trace_tag,
     _delete_trace_tag_v3,
+    _delete_workspace_handler,
     _deprecated_search_traces_v2,
     _download_artifact,
     _get_ajax_path,
@@ -173,6 +190,7 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
+    _get_or_create_user_queue,
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
@@ -180,12 +198,14 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _get_workspace_handler,
     _get_workspace_scoped_repo_path_if_enabled,
     _link_prompts_to_trace,
     _list_artifacts_for_proxied_run_artifact_root,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
+    _list_workspaces_handler,
     _log_batch,
     _query_trace_metrics,
     _register_scorer,
@@ -204,12 +224,16 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_review_queue_item_status,
     _set_trace_tag,
     _set_trace_tag_v3,
     _transition_stage,
     _update_issue,
     _update_model_version,
     _update_registered_model,
+    _update_review_queue,
+    _update_workspace_handler,
+    _upload_artifact,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -219,10 +243,12 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
     get_ui_telemetry_handler,
+    initialize_workspace_store,
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -1199,23 +1225,27 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     assert json_response["message"] == "Invalid path"
 
 
-def test_get_presigned_download_url_success(enable_serve_artifacts):
+def test_get_presigned_download_url_success(enable_serve_artifacts, monkeypatch):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 
     class MockMultipartDownloadRepo(MultipartDownloadMixin):
         def get_download_presigned_url(self, artifact_path, expiration=300):
+            self.artifact_path = artifact_path
             return PresignedDownloadUrlResponse(
                 url="https://storage.example.com/presigned?token=abc",
                 headers={"x-custom-header": "value"},
                 file_size=1024,
             )
 
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_repo = MockMultipartDownloadRepo()
     artifact_path = "run_id/artifacts/model.pkl"
     with (
+        WorkspaceContext("team-a"),
         app.test_request_context(method="GET"),
         mock.patch(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
-            return_value=MockMultipartDownloadRepo(),
+            return_value=artifact_repo,
         ),
     ):
         response = _get_presigned_download_url(artifact_path)
@@ -1225,6 +1255,7 @@ def test_get_presigned_download_url_success(enable_serve_artifacts):
     assert data["url"] == "https://storage.example.com/presigned?token=abc"
     assert data["headers"] == {"x-custom-header": "value"}
     assert data["file_size"] == 1024
+    assert artifact_repo.artifact_path == "workspaces/team-a/run_id/artifacts/model.pkl"
 
 
 @pytest.mark.parametrize(
@@ -3766,6 +3797,45 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_submit.assert_called_once()
 
 
+def test_invoke_scorer_rejects_decorator_scorer():
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    serialized_scorer = json.dumps({
+        "name": "pwned",
+        "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "pwned",
+    })
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_invalid_json():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": "not valid json",
+                "trace_ids": ["trace1"],
+            },
+        )
+    assert response.status_code == 400
+    assert "serialized_scorer must be valid JSON" in response.get_json()["message"]
+
+
 def test_get_ui_telemetry_handler(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
@@ -4089,6 +4159,50 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
     mock_artifact_repo.download_artifacts.assert_not_called()
     mock_tmp_dir.assert_not_called()
+
+
+def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_artifacts):
+    artifact_path = "nested/model.pkl"
+    test_data = b"streamed artifact"
+
+    with (
+        app.test_request_context(
+            method="PUT", data=test_data, content_type="application/octet-stream"
+        ),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_artifact_repo = mock.MagicMock(spec=LocalArtifactRepository)
+        mock_repo.return_value = mock_artifact_repo
+
+        response = _upload_artifact(artifact_path)
+
+    mock_artifact_repo.log_artifact_from_stream.assert_called_once()
+    args, kwargs = mock_artifact_repo.log_artifact_from_stream.call_args
+    assert args[1] == "model.pkl"
+    assert kwargs["artifact_path"] == "nested"
+    assert response.status_code == 200
+
+
+def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_artifacts):
+    artifact_path = "nested/model.pkl"
+    test_data = b"streamed artifact"
+
+    with (
+        app.test_request_context(
+            method="PUT", data=test_data, content_type="application/octet-stream"
+        ),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_artifact_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_repo.return_value = mock_artifact_repo
+
+        response = _upload_artifact(artifact_path)
+
+    mock_artifact_repo.log_artifact.assert_called_once()
+    args, kwargs = mock_artifact_repo.log_artifact.call_args
+    assert args[0].endswith("model.pkl")
+    assert kwargs["artifact_path"] == "nested"
+    assert response.status_code == 200
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
@@ -4885,6 +4999,46 @@ def test_get_workspace_scoped_repo_path_if_enabled_allows_legacy_default_artifac
         assert (
             _get_workspace_scoped_repo_path_if_enabled("1/legacy/artifact") == "1/legacy/artifact"
         )
+
+
+def test_initialize_workspace_store_does_not_initialize_backend_stores():
+    workspace_uri = "sqlite:///workspace.db"
+    with (
+        mock.patch("mlflow.server.handlers._get_workspace_store") as get_workspace_store,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store,
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as get_registry_store,
+    ):
+        initialize_workspace_store(workspace_uri)
+
+    get_workspace_store.assert_called_once_with(workspace_uri=workspace_uri)
+    get_tracking_store.assert_not_called()
+    get_registry_store.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("handler", "args"),
+    [
+        (_list_workspaces_handler, ()),
+        (_create_workspace_handler, ()),
+        (_get_workspace_handler, ("team-a",)),
+        (_update_workspace_handler, ("team-a",)),
+        (_delete_workspace_handler, ("team-a",)),
+        (get_artifact_handler, ()),
+        (upload_artifact_handler, ()),
+    ],
+)
+def test_tracking_backed_handlers_disabled_in_artifacts_only_mode(monkeypatch, handler, args):
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+    with (
+        mock.patch("mlflow.server.handlers._get_workspace_store") as get_workspace_store,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store,
+        app.test_request_context(),
+    ):
+        response = handler(*args)
+
+    assert response.status_code == 503
+    get_workspace_store.assert_not_called()
+    get_tracking_store.assert_not_called()
 
 
 def test_get_workspace_scoped_repo_path_if_enabled_still_scopes_non_default(monkeypatch):
@@ -6204,3 +6358,188 @@ def test_get_rest_path_respects_static_prefix(monkeypatch):
         _get_ajax_path("/mlflow/experiments/search")
         == "/myapp/ajax-api/2.0/mlflow/experiments/search"
     )
+
+
+def _review_queue_entity(**overrides):
+    defaults = {
+        "queue_id": "rq-1",
+        "experiment_id": "exp-1",
+        "name": "q",
+        "queue_type": ReviewQueueType.CUSTOM,
+        "created_by": "alice",
+        "creation_time_ms": 1,
+        "last_update_time_ms": 1,
+        "users": [],
+        "schema_ids": [],
+    }
+    defaults.update(overrides)
+    return ReviewQueue(**defaults)
+
+
+def test_create_review_queue_stamps_owner_from_authenticated_user():
+    request_message = CreateReviewQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.name = "q"
+    request_message.queue_type = ReviewQueueType.CUSTOM.to_proto()
+    # The client even tries to set a different owner; it must be ignored.
+    request_message.created_by = "spoofed"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
+        mock_store.return_value.create_review_queue.return_value = _review_queue_entity()
+        _create_review_queue()
+        call_kwargs = mock_store.return_value.create_review_queue.call_args[1]
+        assert call_kwargs["created_by"] == "alice"
+
+
+def test_create_review_queue_no_owner_on_noauth():
+    request_message = CreateReviewQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.name = "q"
+    request_message.queue_type = ReviewQueueType.CUSTOM.to_proto()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        # No auth plugin -> no request user.
+        mock.patch("mlflow.server.handlers._get_request_username", return_value=None),
+    ):
+        mock_store.return_value.create_review_queue.return_value = _review_queue_entity(
+            created_by=None
+        )
+        _create_review_queue()
+        call_kwargs = mock_store.return_value.create_review_queue.call_args[1]
+        assert "created_by" not in call_kwargs
+
+
+def test_update_review_queue_passes_name_and_new_owner():
+    request_message = UpdateReviewQueue()
+    request_message.queue_id = "rq-1"
+    request_message.name = "renamed"
+    request_message.new_owner = "bob"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_review_queue.return_value = _review_queue_entity(
+            name="renamed", created_by="bob"
+        )
+        _update_review_queue()
+        call_kwargs = mock_store.return_value.update_review_queue.call_args[1]
+        assert call_kwargs["name"] == "renamed"
+        assert call_kwargs["new_owner"] == "bob"
+        # Untouched association sets stay None (proto2 presence on the singular
+        # fields; no update_* flag set for users/schemas).
+        assert call_kwargs["users"] is None
+        assert call_kwargs["schema_ids"] is None
+
+
+def test_update_review_queue_unset_name_and_owner_pass_none():
+    # Only users changed; name / new_owner are unset, so HasField is False and
+    # the store must receive None (guards against a truthiness-vs-HasField
+    # regression that could, e.g., wipe the owner with an empty string).
+    request_message = UpdateReviewQueue()
+    request_message.queue_id = "rq-1"
+    request_message.update_users = True
+    request_message.users.append("bob")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_review_queue.return_value = _review_queue_entity(
+            users=["bob"]
+        )
+        _update_review_queue()
+        call_kwargs = mock_store.return_value.update_review_queue.call_args[1]
+        assert call_kwargs["name"] is None
+        assert call_kwargs["new_owner"] is None
+        assert call_kwargs["users"] == ["bob"]
+
+
+def test_get_or_create_user_queue_ignores_client_created_by():
+    request_message = GetOrCreateUserQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.user = "alice"
+    request_message.created_by = "spoofed"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.get_or_create_user_queue.return_value = _review_queue_entity(
+            queue_type=ReviewQueueType.USER, name="alice", created_by="alice", users=["alice"]
+        )
+        _get_or_create_user_queue()
+        call_kwargs = mock_store.return_value.get_or_create_user_queue.call_args[1]
+        assert "created_by" not in call_kwargs
+        assert call_kwargs["user"] == "alice"
+
+
+def _review_queue_item_entity(**overrides):
+    defaults = {
+        "queue_id": "rq-1",
+        "item_type": ReviewItemType.TRACE,
+        "item_id": "tr-1",
+        "status": ReviewStatus.COMPLETE,
+        "creation_time_ms": 1,
+        "last_update_time_ms": 1,
+        "completed_by": "alice",
+        "completed_time_ms": 1,
+    }
+    defaults.update(overrides)
+    return ReviewQueueItem(**defaults)
+
+
+def _set_status_request(status, completed_by=None):
+    request_message = SetReviewQueueItemStatus()
+    request_message.queue_id = "rq-1"
+    request_message.item_id = "tr-1"
+    request_message.status = status.to_proto()
+    if completed_by is not None:
+        request_message.completed_by = completed_by
+    return request_message
+
+
+@pytest.mark.parametrize(
+    ("username", "status", "client_completed_by", "expected_completed_by"),
+    [
+        # Auth server: the caller's identity is stamped and the client value (even
+        # a spoofed one) is ignored, for both terminal states.
+        ("alice", ReviewStatus.COMPLETE, "ghost@nowhere.example", "alice"),
+        ("alice", ReviewStatus.DECLINED, "ghost@nowhere.example", "alice"),
+        # Auth server reopen: attribution is cleared regardless of the client value.
+        ("alice", ReviewStatus.PENDING, "ghost@nowhere.example", None),
+        # No-auth server: no identity to bind to, so the client value passes through
+        # verbatim (a real no-auth client sends the single `default` user).
+        (None, ReviewStatus.COMPLETE, "default", "default"),
+        (None, ReviewStatus.COMPLETE, "ghost@nowhere.example", "ghost@nowhere.example"),
+    ],
+)
+def test_set_review_queue_item_status_stamps_completed_by(
+    username, status, client_completed_by, expected_completed_by
+):
+    request_message = _set_status_request(status, completed_by=client_completed_by)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value=username),
+    ):
+        mock_store.return_value.set_review_queue_item_status.return_value = (
+            _review_queue_item_entity(
+                status=status,
+                completed_by=expected_completed_by,
+                completed_time_ms=None if status == ReviewStatus.PENDING else 1,
+            )
+        )
+        _set_review_queue_item_status()
+        mock_store.return_value.set_review_queue_item_status.assert_called_once()
+        call_kwargs = mock_store.return_value.set_review_queue_item_status.call_args[1]
+        assert call_kwargs["completed_by"] == expected_completed_by
+        # Pin status pass-through too, so a regression that mangles status is caught.
+        assert call_kwargs["status"] == status

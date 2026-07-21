@@ -182,7 +182,7 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         mock_telemetry_client,
         mock_requests,
         event_name,
-        {"flavor": "sklearn", "serialization_format": "cloudpickle"},
+        {"flavor": "sklearn", "serialization_format": "skops"},
     )
 
     mlflow.sklearn.log_model(

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane } from '@databricks/web-shared/model-trace-explorer';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useForm, useWatch } from 'react-hook-form';
+
+import Utils from '../../../common/utils/Utils';
 
 import { LabelSchemaFormRenderer } from './LabelSchemaFormRenderer';
 import { LabelSchemaPreview } from './LabelSchemaPreview';
@@ -64,10 +66,10 @@ export const LabelSchemaFormModal = ({
 
   const [leftPaneWidth, setLeftPaneWidth] = useState(0);
 
+  const intl = useIntl();
   const createMutation = useCreateLabelSchemaMutation();
   const updateMutation = useUpdateLabelSchemaMutation();
   const isSubmitting = createMutation.isCreating || updateMutation.isUpdating;
-  const submitError = createMutation.error ?? updateMutation.error;
 
   // Reset the form whenever the modal opens or the edited schema changes. The
   // modal stays mounted across open/close, so without this react-hook-form's
@@ -107,8 +109,19 @@ export const LabelSchemaFormModal = ({
         });
         onCreated?.(label_schema);
       }
-    } catch {
-      // Errors surface via `submitError`; keep the modal open.
+    } catch (e) {
+      // Surface as a toast rather than inline text, so the error doesn't shift
+      // the modal's layout/buttons. Keep the modal open so the reviewer can
+      // correct and retry.
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to save question: {error}',
+            description: 'Review question modal: error toast shown when saving a question fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      );
       return;
     }
     reset(DEFAULT_FORM_VALUES);
@@ -197,15 +210,6 @@ export const LabelSchemaFormModal = ({
             }
           />
         </div>
-        {submitError && (
-          <Typography.Text color="error">
-            <FormattedMessage
-              defaultMessage="Failed to save: {message}"
-              description="Review question save error"
-              values={{ message: submitError.message }}
-            />
-          </Typography.Text>
-        )}
       </div>
     </Modal>
   );

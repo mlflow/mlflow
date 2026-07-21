@@ -66,6 +66,10 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // so the ``X-MLFLOW-WORKSPACE`` header is omitted (the server rejects any
+  // workspace header, including ``default``, when workspaces are disabled).
+  const grantWorkspaceForRequest = workspacesEnabled ? grantWorkspace : undefined;
   // Reported by ``DirectPermissionsSection`` whenever the in-progress draft
   // is dirty (any field touched away from default). The modal uses this to
   // pop a confirm-discard dialog on submit so the admin can't silently
@@ -168,7 +172,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             resource_id: p.resourceId,
             username: trimmedUsername,
             permission: p.permission,
-            workspace: grantWorkspace,
+            workspace: grantWorkspaceForRequest,
           });
         } catch (e: any) {
           failures.push(
@@ -195,7 +199,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     wantsDirect,
     roleValue.roleIds,
     directPermissions,
-    grantWorkspace,
+    grantWorkspaceForRequest,
     createdUsername,
     createUser,
     queryClient,
@@ -318,7 +322,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           key={String(open)}
           value={directPermissions}
           onChange={setDirectPermissions}
-          workspace={grantWorkspace}
+          workspace={grantWorkspaceForRequest}
           disabled={submitting}
           onUnsavedDraftChange={setHasUnsavedDirectDraft}
         />
