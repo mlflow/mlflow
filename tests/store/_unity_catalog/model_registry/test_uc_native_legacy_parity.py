@@ -1,14 +1,13 @@
-"""Parity tests for the UC-native model-registry client migration.
-
-These assert that when the client reads a model / model version off the native governance
-surface (``/api/2.1/unity-catalog/*``, ``RegisteredModelInfo`` / ``ModelVersionInfo`` with the
-MLflow-enrichment fields as flattened siblings), it produces an MLflow entity that is
-**field-for-field identical** to the one produced from the legacy surface
-(``/api/2.0/mlflow/unity-catalog/*``, the legacy ``RegisteredModel`` / ``ModelVersion`` protos).
-
-The legacy converters are pinned inline (copied from the pre-migration converters) so the parity
-check is a stable oracle that does not depend on the legacy conversion code remaining in the tree.
-"""
+# Parity tests for the UC-native model-registry client migration.
+#
+# These assert that when the client reads a model / model version off the native governance
+# surface (``/api/2.1/unity-catalog/*``, ``RegisteredModelInfo`` / ``ModelVersionInfo`` with the
+# MLflow-enrichment fields as flattened siblings), it produces an MLflow entity that is
+# **field-for-field identical** to the one produced from the legacy surface
+# (``/api/2.0/mlflow/unity-catalog/*``, the legacy ``RegisteredModel`` / ``ModelVersion`` protos).
+#
+# The legacy converters are pinned inline (copied from the pre-migration converters) so the parity
+# check is a stable oracle that does not depend on the legacy conversion code remaining in the tree.
 
 from mlflow.entities import Metric
 from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam

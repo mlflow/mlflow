@@ -451,7 +451,7 @@ def test_create_model_version_optional_signature_validation(store, tmp_path, byp
         mock.patch(f"{rest_store}.get_model_version_dependencies", return_value=[]),
         mock.patch.object(store, "_edit_endpoint_and_call", return_value=mock_mv),
         mock.patch.object(store, "_get_artifact_repo"),
-        mock.patch(f"{rest_store}.model_version_from_uc_proto", return_value=mock.Mock()),
+        mock.patch(f"{rest_store}.model_version_from_uc_proto"),
     ):
         mock_local_model_dir.return_value.__enter__.return_value = tmp_path
         mock_local_model_dir.return_value.__exit__.return_value = None
@@ -1801,7 +1801,7 @@ def test_create_model_version_translates_dependencies_to_governance(store, tmp_p
     rest_store = "mlflow.store._unity_catalog.registry.rest_store"
     with (
         mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
-        mock.patch.object(store, "_get_artifact_repo", return_value=mock.MagicMock()),
+        mock.patch.object(store, "_get_artifact_repo"),
         mock.patch.object(store, "_get_logged_model_from_model_id", return_value=None),
         mock.patch.object(store, "_get_run_and_headers", return_value=(None, None)),
         mock.patch.object(store, "_get_workspace_id", return_value=None),
@@ -1839,7 +1839,7 @@ def test_create_model_version_omits_dependencies_when_none_supported(store, tmp_
     rest_store = "mlflow.store._unity_catalog.registry.rest_store"
     with (
         mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
-        mock.patch.object(store, "_get_artifact_repo", return_value=mock.MagicMock()),
+        mock.patch.object(store, "_get_artifact_repo"),
         mock.patch.object(store, "_get_logged_model_from_model_id", return_value=None),
         mock.patch.object(store, "_get_run_and_headers", return_value=(None, None)),
         mock.patch.object(store, "_get_workspace_id", return_value=None),

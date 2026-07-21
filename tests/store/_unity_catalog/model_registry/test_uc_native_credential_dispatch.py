@@ -1,16 +1,15 @@
-"""Offline coverage for the UC-native artifact credential-dispatch and enrichment-converter arms
-that a single (AWS, external-storage) live workspace does not exercise.
-
-These are the pieces that vary workspace-to-workspace:
-  * cloud-provider credential arms (AWS / Azure / GCP / R2) selected via TemporaryCredentials oneof
-  * SSE/KMS encryption-detail parsing (only populated on encryption-configured workspaces)
-  * storage_mode (default-storage vs customer-hosted)
-  * enrichment fields (params / metrics / deployment-job-state) that need extra logging setup
-
-We build synthetic protos and assert the client parses/dispatches each correctly, mocking the
-concrete ArtifactRepository classes (whose cloud SDKs may be absent) so we validate the dispatch
-logic itself, not the cloud transport.
-"""
+# Offline coverage for the UC-native artifact credential-dispatch and enrichment-converter arms
+# that a single (AWS, external-storage) live workspace does not exercise.
+#
+# These are the pieces that vary workspace-to-workspace:
+#  * cloud-provider credential arms (AWS / Azure / GCP / R2) selected via TemporaryCredentials oneof
+#  * SSE/KMS encryption-detail parsing (only populated on encryption-configured workspaces)
+#  * storage_mode (default-storage vs customer-hosted)
+#  * enrichment fields (params / metrics / deployment-job-state) that need extra logging setup
+#
+# We build synthetic protos and assert the client parses/dispatches each correctly, mocking the
+# concrete ArtifactRepository classes (whose cloud SDKs may be absent) so we validate the dispatch
+# logic itself, not the cloud transport.
 
 from unittest import mock
 

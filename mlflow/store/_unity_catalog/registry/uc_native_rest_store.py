@@ -446,7 +446,8 @@ class UcNativeModelRegistryStore(UcModelRegistryStore):
         # the legacy path).
         deps = []
         for dep in other_model_deps or []:
-            dep_type, dep_name = dep.get("type"), dep.get("name")
+            dep_type = dep.get("type")
+            dep_name = dep.get("name")
             if dep_type in (_DEP_TYPE_VECTOR_INDEX, _DEP_TYPE_TABLE):
                 deps.append(ModelVersionDependency(table=TableDependency(table_full_name=dep_name)))
             elif dep_type == _DEP_TYPE_UC_FUNCTION:
