@@ -328,10 +328,13 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _add_static_prefix,
+    _assert_array,
+    _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
+    _get_validated_flask_request_json,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -1302,9 +1305,14 @@ def validate_can_update_online_scoring_config():
 
 
 def validate_can_read_online_scoring_configs():
-    # The request only carries scorer_ids, so ownership is resolved via the
-    # stored config rows and checked against each referenced experiment.
-    scorer_ids = request.args.getlist("scorer_ids")
+    # Parse scorer_ids the same way the handler does (query params OR JSON body)
+    # so this gate can't be bypassed by moving scorer_ids into a GET request body.
+    # Omit _assert_required: an absent scorer_ids falls through to allow here and
+    # is handled by the handler's own validation, rather than raising in the gate.
+    request_json = _get_validated_flask_request_json(
+        request, schema={"scorer_ids": [_assert_array, _assert_item_type_string]}
+    )
+    scorer_ids = request_json.get("scorer_ids") or []
     if not scorer_ids:
         return True
     username = authenticate_request().username
