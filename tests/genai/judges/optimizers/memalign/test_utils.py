@@ -301,9 +301,33 @@ def test_distill_guidelines_falls_back_to_unstructured_on_structured_output_erro
         assert mock_lm.call_count == 2
 
 
-def test_distill_guidelines_handles_dict_response_from_reasoning_model():
-    # Reasoning models (e.g. gpt-oss) make DSPy return a {"text": ..., "reasoning_content": ...}
-    # dict rather than a string; distillation must parse it, not choke on .strip().
+_GUIDELINE_JSON = '{"guidelines": [{"guideline_text": "Be concise", "source_trace_ids": [0]}]}'
+
+
+# The DSPy response shape varies by Databricks foundation-model family. Verified against a
+# live endpoint (litellm 1.75.9): most families return the completion as a plain string,
+# while reasoning models (gpt-oss-*) return a {"text": ..., "reasoning_content": ...} dict
+# because DSPy only collapses single-key outputs to str. Distillation must parse both,
+# including the fenced/prose variants the unstructured fallback can produce.
+@pytest.mark.parametrize(
+    ("reflection_lm", "lm_response"),
+    [
+        # str responses (gpt-5, gemini, claude, llama, gemma, qwen, ...)
+        ("databricks:/databricks-gpt-5-mini", _GUIDELINE_JSON),
+        ("databricks:/databricks-claude-sonnet-4-5", _GUIDELINE_JSON),
+        ("databricks:/databricks-meta-llama-3-3-70b-instruct", f"```json\n{_GUIDELINE_JSON}\n```"),
+        # dict responses from reasoning models (gpt-oss-*)
+        (
+            "databricks:/databricks-gpt-oss-120b",
+            {"text": _GUIDELINE_JSON, "reasoning_content": "thinking..."},
+        ),
+        (
+            "databricks:/databricks-gpt-oss-20b",
+            {"text": f"```json\n{_GUIDELINE_JSON}\n```", "reasoning_content": "thinking..."},
+        ),
+    ],
+)
+def test_distill_guidelines_handles_family_response_shapes(reflection_lm, lm_response):
     with (
         patch(
             "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
@@ -317,21 +341,13 @@ def test_distill_guidelines_handles_dict_response_from_reasoning_model():
         example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
         example1._trace_id = "trace_1"
 
-        mock_lm = MagicMock(
-            return_value=[
-                {
-                    "text": '{"guidelines": [{"guideline_text": "Be concise", '
-                    '"source_trace_ids": [0]}]}',
-                    "reasoning_content": "thinking...",
-                }
-            ]
-        )
+        mock_lm = MagicMock(return_value=[lm_response])
         mock_construct_lm.return_value = mock_lm
 
         result = distill_guidelines(
             examples=[example1],
             judge_instructions="Evaluate quality",
-            reflection_lm="databricks:/databricks-gpt-oss-120b",
+            reflection_lm=reflection_lm,
             existing_guidelines=[],
         )
 
