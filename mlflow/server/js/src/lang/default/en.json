@@ -743,10 +743,6 @@
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
   },
-  "1TTYjs": {
-    "defaultMessage": "Close guidance",
-    "description": "Aria label for closing the analyze with assistant guidance popover"
-  },
   "1Ujhc3": {
     "defaultMessage": "True",
     "description": "True assessment label"
@@ -898,10 +894,6 @@
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
-  },
-  "2HyEkO": {
-    "defaultMessage": "Analyze traces with the MLflow assistant",
-    "description": "Aria label for the analyze with assistant button"
   },
   "2I27Yy": {
     "defaultMessage": "(empty)",
@@ -1466,10 +1458,6 @@
   "4ylmh/": {
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
-  },
-  "4yuYDg": {
-    "defaultMessage": "Got it",
-    "description": "Analyze with assistant guidance dismiss button"
   },
   "4zJtO4": {
     "defaultMessage": "Copy for coding agent",
@@ -6979,10 +6967,6 @@
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
   },
-  "WLGBoB": {
-    "defaultMessage": "Chat with Traces in Assistant",
-    "description": "Analyze with assistant guidance popover title"
-  },
   "WP1pyQ": {
     "defaultMessage": "Created by",
     "description": "Column title for created by column for a model in the registered model page"
@@ -7786,10 +7770,6 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
-  },
-  "aAcCh2": {
-    "defaultMessage": "Analyze with Assistant",
-    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
@@ -12350,10 +12330,6 @@
   "vbRrqF": {
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
-  },
-  "vcZc8z": {
-    "defaultMessage": "Open the MLflow Assistant to ask questions about your traces, debug failures, and investigate quality issues right alongside your data.",
-    "description": "Analyze with assistant guidance popover message"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",

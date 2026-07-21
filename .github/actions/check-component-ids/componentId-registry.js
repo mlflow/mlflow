@@ -871,10 +871,6 @@ module.exports = {
   "mlflow.assistant.setup.provider.model": "",
   "mlflow.assistant.setup.provider.url": "",
   "mlflow.assistant.trace_header_button": "",
-  "mlflow.assistant.traces_guidance": "",
-  "mlflow.assistant.traces_guidance.dismiss": "",
-  "mlflow.assistant.traces_guidance.got_it": "",
-  "mlflow.assistant.traces_toolbar_button": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",
