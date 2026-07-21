@@ -594,7 +594,11 @@ describe('AssistantContext — localStorage chat persistence', () => {
       capturedCallbacks?.onDone();
     });
 
-    // Turn 2: the resent history shows up as cache reads folded into prompt_tokens.
+    // Turn 2: a genuine second turn — its delta lands during a live stream, and the
+    // resent history shows up as cache reads folded into prompt_tokens.
+    await act(async () => {
+      result.current.sendMessage('turn two');
+    });
     act(() => {
       capturedCallbacks?.onUsage?.({
         prompt_tokens: 200,

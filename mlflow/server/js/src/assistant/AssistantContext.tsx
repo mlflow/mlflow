@@ -107,9 +107,8 @@ const generateMessageId = (): string => {
 
 /**
  * Resolve, from the config, whether setup is complete and which provider/model backs the
- * session. `selectedProvider` is the config's selected entry (null when none); it's returned
- * even when setup is incomplete so callers can surface it, but is only *usable* when
- * `setupComplete` is true.
+ * session. `selectedProvider` is the config's selected entry (null when none), returned
+ * independently of `setupComplete`; the current caller only adopts it once setup is complete.
  */
 async function resolveSetup(
   config: AssistantConfig,
