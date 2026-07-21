@@ -130,6 +130,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
@@ -216,9 +218,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const config = await getConfig();
       const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
+      setRemoteAccessAllowed(config.remote_access_allowed ?? false);
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
+      setRemoteAccessAllowed(false);
     } finally {
       setIsLoadingConfig(false);
     }
@@ -695,6 +699,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLocalServer,
     pendingPrompt,
     pendingPermission,
+    canUseAssistant,
     // Actions
     openPanel,
     closePanel,
@@ -726,6 +731,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLocalServer: false,
   pendingPrompt: null,
   pendingPermission: null,
+  canUseAssistant: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
