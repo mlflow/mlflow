@@ -84,8 +84,11 @@ def _is_empty_database(engine):
 
 
 def _initialize_tables(engine):
-    _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    if _all_tables_exist(engine):
+        _logger.info("MLflow database tables already exist, skipping creation.")
+    else:
+        _logger.info("Creating initial MLflow database tables...")
+        InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
 
 
