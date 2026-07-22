@@ -14,6 +14,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import (
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
     _RATIONALE_FIELD_DESCRIPTION,
     _RESULT_FIELD_DESCRIPTION,
     USE_CASE_AGENTIC_JUDGE,
@@ -104,6 +105,7 @@ class InstructionsJudge(Judge):
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         include_timing_in_conversation: bool = False,
+        _skip_databricks_agents_check: bool = False,
         **kwargs,
     ):
         """
@@ -208,7 +210,8 @@ class InstructionsJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self._validate_model_format()
+        if not (_skip_databricks_agents_check and self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL):
+            self._validate_model_format()
         self._validate_instructions_template()
 
     @property

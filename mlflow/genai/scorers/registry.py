@@ -8,7 +8,10 @@ evaluate traces in MLflow experiments.
 import json
 import warnings
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from base64 import urlsafe_b64encode
+from functools import partial
+from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import quote
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
@@ -20,7 +23,9 @@ from mlflow.genai.scorers.base import (
 )
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 from mlflow.utils.uri import get_uri_scheme
 
 if TYPE_CHECKING:
@@ -334,11 +339,140 @@ class MlflowTrackingStore(AbstractScorerStore):
 class DatabricksStore(AbstractScorerStore):
     """
     Databricks store that provides scorer functionality through the Databricks API.
-    This store delegates all scorer operations to the Databricks agents API.
+    This store delegates current scorer operations to the Databricks agents API and uses the
+    managed-evals API for versioned operations.
     """
 
+    _MANAGED_EVALS_BASE = "/api/2.0/managed-evals"
+    _MANAGED_EVALS_SCORERS_BASE = f"{_MANAGED_EVALS_BASE}/scheduled-scorers"
+
     def __init__(self, tracking_uri=None):
-        pass
+        self.get_host_creds = partial(get_databricks_host_creds, tracking_uri)
+
+    @staticmethod
+    def _encode_path_param(value: str) -> str:
+        return quote(str(value), safe="")
+
+    @staticmethod
+    def _scorer_resource_key(name: str) -> str:
+        return urlsafe_b64encode(name.encode("utf-8")).decode("ascii").rstrip("=")
+
+    def _scheduled_scorers_endpoint(self, experiment_id: str) -> str:
+        return f"{self._MANAGED_EVALS_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
+
+    def _scorer_version_resource_parent(self, experiment_id: str, name: str) -> str:
+        return (
+            f"experiments/{self._encode_path_param(experiment_id)}"
+            f"/scorers/{self._scorer_resource_key(name)}"
+        )
+
+    @staticmethod
+    def _validate_version(version: Any) -> int:
+        if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
+            raise MlflowException.invalid_parameter_value(
+                f"`version` must be a positive integer, got {version!r}."
+            )
+        return version
+
+    def _scorer_version_resource_name(self, experiment_id: str, name: str, version: int) -> str:
+        version = self._validate_version(version)
+        parent = self._scorer_version_resource_parent(experiment_id, name)
+        return f"{parent}/versions/{version}"
+
+    def _scorer_version_endpoint(self, experiment_id: str, name: str, version: int) -> str:
+        resource_name = self._scorer_version_resource_name(experiment_id, name, version)
+        return f"{self._MANAGED_EVALS_BASE}/{resource_name}"
+
+    def _scorer_versions_endpoint(self, experiment_id: str, name: str) -> str:
+        parent = self._scorer_version_resource_parent(experiment_id, name)
+        return f"{self._MANAGED_EVALS_BASE}/{parent}/versions"
+
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method=method,
+            params=params,
+        )
+        verify_rest_response(response, endpoint)
+        if not response.text:
+            return {}
+        return response.json()
+
+    @staticmethod
+    def _extract_current_scorer_configs(response: dict[str, Any]) -> list[dict[str, Any]]:
+        scheduled_scorers = response.get("scheduled_scorers", {})
+        if "scorers" in scheduled_scorers:
+            return scheduled_scorers["scorers"]
+        return scheduled_scorers.get("scorers_config", {}).get("scorers", [])
+
+    @staticmethod
+    def _get_config_version(config: dict[str, Any]) -> int:
+        return config.get("scorer_version", 1)
+
+    def _list_current_scorer_configs(self, experiment_id: str) -> list[dict[str, Any]]:
+        response = self._request("GET", self._scheduled_scorers_endpoint(experiment_id))
+        return self._extract_current_scorer_configs(response)
+
+    def _hydrate_scorer(
+        self,
+        scorer: Scorer,
+        experiment_id: str,
+        *,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+        version: int | None = None,
+    ) -> Scorer:
+        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
+        scorer._experiment_id = experiment_id
+        scorer._sampling_config = ScorerSamplingConfig(
+            sample_rate=sample_rate,
+            filter_string=filter_string,
+        )
+        scorer._registered_scorer_version = version
+        return scorer
+
+    def _config_to_scorer(
+        self,
+        config: dict[str, Any],
+        experiment_id: str,
+        *,
+        current_config: dict[str, Any] | None = None,
+        display_name: str | None = None,
+    ) -> Scorer:
+        serialized_scorer = config.get("serialized_scorer")
+        if serialized_scorer is None:
+            raise MlflowException.invalid_parameter_value(
+                "Scheduled scorer response did not include `serialized_scorer`."
+            )
+        scorer = Scorer.model_validate(json.loads(serialized_scorer))
+        display_name = display_name or config.get("name")
+        if display_name is not None and scorer.name != display_name:
+            scorer.name = display_name
+            if scorer._cached_dump is not None:
+                scorer._cached_dump["name"] = display_name
+        sampling_config = current_config if current_config is not None else config
+        return self._hydrate_scorer(
+            scorer,
+            experiment_id,
+            sample_rate=sampling_config.get("sample_rate"),
+            filter_string=sampling_config.get("filter_string"),
+            version=self._get_config_version(config),
+        )
+
+    def _find_current_scorer_config(self, experiment_id: str, name: str) -> dict[str, Any]:
+        for config in self._list_current_scorer_configs(experiment_id):
+            if config.get("name") == name:
+                return config
+        raise MlflowException(
+            f"Scorer with name '{name}' not found for experiment {experiment_id}."
+        )
 
     @staticmethod
     def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
@@ -459,8 +593,17 @@ class DatabricksStore(AbstractScorerStore):
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
-            raise MlflowException.invalid_parameter_value(
-                "Databricks does not support getting a certain version scorer."
+            experiment_id = experiment_id or _get_experiment_id()
+            response = self._request(
+                "GET",
+                self._scorer_version_endpoint(experiment_id, name, version),
+            )
+            current_config = self._find_current_scorer_config(experiment_id, name)
+            return self._config_to_scorer(
+                response,
+                experiment_id,
+                current_config=current_config,
+                display_name=response["display_name"],
             )
 
         # Get the scheduled scorer from the server
@@ -470,15 +613,41 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
-        raise MlflowException("Scorer DatabricksStore does not support versioning.")
+        experiment_id = experiment_id or _get_experiment_id()
+        endpoint = self._scorer_versions_endpoint(experiment_id, name)
+        configs = []
+        page_token = None
+        while True:
+            params = {"page_token": page_token} if page_token else None
+            response = self._request("GET", endpoint, params=params)
+            configs.extend(response.get("scorer_versions", []))
+            page_token = response.get("next_page_token")
+            if not page_token:
+                break
+
+        current_config = self._find_current_scorer_config(experiment_id, name)
+        return [
+            (
+                self._config_to_scorer(
+                    config,
+                    experiment_id,
+                    current_config=current_config,
+                    display_name=config["display_name"],
+                ),
+                self._get_config_version(config),
+            )
+            for config in configs
+        ]
 
     def delete_scorer(self, experiment_id, name, version):
-        if version is not None:
-            raise MlflowException.invalid_parameter_value(
-                "Databricks does not support deleting a certain version scorer."
-            )
+        if version is None:
+            return DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
-        DatabricksStore.delete_scheduled_scorer(experiment_id, name)
+        experiment_id = experiment_id or _get_experiment_id()
+        self._request(
+            "DELETE",
+            self._scorer_version_endpoint(experiment_id, name, version),
+        )
 
 
 # Create the global scorer store registry instance
@@ -564,7 +733,7 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
 
 def list_scorer_versions(
     *, name: str, experiment_id: str | None = None
-) -> list[tuple[Scorer, int | None]]:
+) -> list[tuple[Scorer, int]]:
     """
     List all versions of a specific scorer for an experiment.
 
@@ -582,10 +751,9 @@ def list_scorer_versions(
             :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
 
     Returns:
-        list[tuple[Scorer, int | None]]: A list of tuples, where each tuple contains:
+        list[tuple[Scorer, int]]: A list of tuples, where each tuple contains:
             - A Scorer object representing the scorer at that specific version
-            - An integer representing the version number (1, 2, 3, etc.), for Databricks backend,
-              the version number is `None`.
+            - An integer representing the version number (1, 2, 3, etc.).
             The list may be empty if no versions of the scorer exist.
 
     Raises:
@@ -641,8 +809,6 @@ def get_scorer(
     Note:
         - When no version is specified, the function automatically returns the latest version
         - This function works with both OSS MLflow tracking backend and Databricks backend.
-        - For Databricks backend, versioning is not supported, so the version parameter
-          should be None.
     """
 
     store = _get_scorer_store()
@@ -667,9 +833,8 @@ def delete_scorer(
           parameter to "all"
 
     **Databricks Backend:**
-        - Does not support versioning
-        - Deletes the entire scorer regardless of version parameter
-        - `version` parameter must be None
+        - Supports deleting a specific version
+        - For backwards compatibility, `version=None` deletes the whole scheduled scorer
 
     Args:
         name (str): The name of the scorer to delete. This must match exactly with the
@@ -681,7 +846,9 @@ def delete_scorer(
             For OSS MLflow tracking backend: if `None`, deletes the latest version only, if version
             is an integer, deletes the specific version, if version is the string 'all', deletes
             all versions of the scorer
-            For Databricks backend, the version must be set to `None` (versioning not supported)
+            For Databricks backend, an integer deletes that specific version. `None` retains its
+            backwards-compatible behavior of deleting the whole scheduled scorer. Deleting all
+            versions with `"all"` is not yet supported.
 
     Raises:
         mlflow.MlflowException: If the scorer with the specified name is not found in
