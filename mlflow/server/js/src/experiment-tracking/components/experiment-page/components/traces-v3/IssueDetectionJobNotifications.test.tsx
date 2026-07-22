@@ -10,7 +10,7 @@ import {
   type SubmittedIssueDetectionJob,
 } from './IssueDetectionJobNotifications';
 import { JobStatus, useFetchJobStatus, type UseFetchJobStatusResult } from '../../../run-page/hooks/useFetchJobStatus';
-import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 
 jest.mock('../../../run-page/hooks/useFetchJobStatus', () => ({
   ...jest.requireActual<typeof import('../../../run-page/hooks/useFetchJobStatus')>(
@@ -23,6 +23,7 @@ jest.mock('../../../../../common/utils/RoutingUtils', () => ({
     '../../../../../common/utils/RoutingUtils',
   ),
   useNavigate: jest.fn(),
+  useSearchParams: jest.fn(),
 }));
 
 const submittedJob: SubmittedIssueDetectionJob = {
@@ -40,22 +41,24 @@ const secondSubmittedJob: SubmittedIssueDetectionJob = {
 };
 
 const createMockJobStatus = (status?: JobStatus, stage?: string, result?: unknown): UseFetchJobStatusResult => ({
-    status,
-    result,
-    status_details: stage ? { stage } : undefined,
-    isLoading: false,
-    isFetching: false,
-    refetch: jest.fn(),
-    error: null,
+  status,
+  result,
+  status_details: stage ? { stage } : undefined,
+  isLoading: false,
+  isFetching: false,
+  refetch: jest.fn(),
+  error: null,
 });
 
 let mockJobStatuses: Record<string, UseFetchJobStatusResult>;
 
 const mockJobStatus = (status?: JobStatus, stage?: string, result?: unknown, jobId = submittedJob.jobId) => {
   mockJobStatuses[jobId] = createMockJobStatus(status, stage, result);
-  jest.mocked(useFetchJobStatus).mockImplementation(({ jobId }) =>
-    jobId ? mockJobStatuses[jobId] ?? createMockJobStatus(undefined) : createMockJobStatus(undefined),
-  );
+  jest
+    .mocked(useFetchJobStatus)
+    .mockImplementation(({ jobId }) =>
+      jobId ? (mockJobStatuses[jobId] ?? createMockJobStatus(undefined)) : createMockJobStatus(undefined),
+    );
 };
 
 describe('IssueDetectionJobNotifications', () => {
@@ -67,6 +70,7 @@ describe('IssueDetectionJobNotifications', () => {
     clearSubmittedIssueDetectionJob();
     mockNavigate = jest.fn();
     jest.mocked(useNavigate).mockReturnValue(mockNavigate);
+    jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()] as any);
     jest.mocked(useFetchJobStatus).mockImplementation(() => createMockJobStatus(undefined));
   });
 
@@ -89,6 +93,28 @@ describe('IssueDetectionJobNotifications', () => {
     expect(await screen.findByText('Issue detection started')).toBeInTheDocument();
     expect(screen.getByText(/Analyzing 48 traces/)).toBeInTheDocument();
     expect(screen.getByText('View progress')).toBeInTheDocument();
+  });
+
+  test('preserves experiment query params in notification links', async () => {
+    jest
+      .mocked(useSearchParams)
+      .mockReturnValue([
+        new URLSearchParams('selectedTraceId=trace-123&startTimeLabel=LAST_24_HOURS&workspace=default'),
+        jest.fn(),
+      ] as any);
+    mockJobStatus(JobStatus.PENDING);
+
+    renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    act(() => {
+      recordSubmittedIssueDetectionJob(submittedJob);
+    });
+
+    await userEvent.click(await screen.findByText('View progress'));
+
+    const [route] = mockNavigate.mock.calls[0];
+    expect(route).toContain('?startTimeLabel=LAST_24_HOURS&workspace=default');
+    expect(route).not.toContain('selectedTraceId');
   });
 
   test('shows completion notification with issues link when job succeeds', async () => {

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Typography, useLegacyNotification } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import LocalStorageUtils from '../../../../../common/utils/LocalStorageUtils';
 import Routes from '../../../../routes';
 import { RunPageTabName } from '../../../../constants';
 import { JobStatus, isJobComplete, useFetchJobStatus } from '../../../run-page/hooks/useFetchJobStatus';
+import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 
 export interface SubmittedIssueDetectionJob {
   experimentId: string;
@@ -56,7 +57,9 @@ const appendSubmittedJob = <T extends { jobId: string }>(jobs: T[], job: T) => [
 
 const getTrackedExperimentIds = () => {
   try {
-    const serializedExperimentIds = getTrackedExperimentsStore().getItem(ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY);
+    const serializedExperimentIds = getTrackedExperimentsStore().getItem(
+      ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY,
+    );
     if (!serializedExperimentIds) {
       return [];
     }
@@ -86,12 +89,10 @@ const getSubmittedIssueDetectionJobsForExperiment = (experimentId: string): Subm
 
     const parsedJobs: unknown = JSON.parse(serializedJobs);
     return Array.isArray(parsedJobs)
-      ? parsedJobs
-          .filter(isStoredSubmittedIssueDetectionJob)
-          .map((job) => ({
-            experimentId,
-            ...job,
-          }))
+      ? parsedJobs.filter(isStoredSubmittedIssueDetectionJob).map((job) => ({
+          experimentId,
+          ...job,
+        }))
       : [];
   } catch {
     return [];
@@ -122,7 +123,10 @@ export const getSubmittedIssueDetectionJobs = () =>
 
 export const getSubmittedIssueDetectionJob = () => getSubmittedIssueDetectionJobs()[0] ?? null;
 
-const removeSubmittedIssueDetectionJob = ({ experimentId, jobId }: Pick<SubmittedIssueDetectionJob, 'experimentId' | 'jobId'>) => {
+const removeSubmittedIssueDetectionJob = ({
+  experimentId,
+  jobId,
+}: Pick<SubmittedIssueDetectionJob, 'experimentId' | 'jobId'>) => {
   setSubmittedIssueDetectionJobsForExperiment(
     experimentId,
     getSubmittedIssueDetectionJobsForExperiment(experimentId).filter((job) => job.jobId !== jobId),
@@ -184,12 +188,18 @@ const TrackedIssueDetectionJobNotification = ({
 
 export const IssueDetectionJobNotifications = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [notification, notificationContextHolder] = useLegacyNotification();
 
   const [trackedJobs, setTrackedJobs] = useState<SubmittedIssueDetectionJob[]>(() => getSubmittedIssueDetectionJobs());
   const [startedNotificationJobs, setStartedNotificationJobs] = useState<SubmittedIssueDetectionJob[]>([]);
   const notifiedStartJobIdsRef = useRef<Set<string>>(new Set());
   const notifiedCompletionJobIdsRef = useRef<Set<string>>(new Set());
+  const preservedQueryString = getPreservedQueryString(searchParams.toString());
+  const withPreservedQueryString = useCallback(
+    (route: string) => (preservedQueryString ? `${route}${preservedQueryString}` : route),
+    [preservedQueryString],
+  );
 
   useEffect(() => {
     const handleSubmittedJob = (event: Event) => {
@@ -238,9 +248,11 @@ export const IssueDetectionJobNotifications = () => {
               onClick={() => {
                 notification.close(startedKey);
                 navigate(
-                  Routes.getIssueDetectionRunDetailsRoute(
-                    startedNotificationJob.experimentId,
-                    startedNotificationJob.runId,
+                  withPreservedQueryString(
+                    Routes.getIssueDetectionRunDetailsRoute(
+                      startedNotificationJob.experimentId,
+                      startedNotificationJob.runId,
+                    ),
                   ),
                 );
               }}
@@ -254,7 +266,7 @@ export const IssueDetectionJobNotifications = () => {
         ),
       });
     });
-  }, [startedNotificationJobs, notification, navigate]);
+  }, [startedNotificationJobs, notification, navigate, withPreservedQueryString]);
 
   const handleTerminalStatus = useCallback(
     (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown) => {
@@ -290,7 +302,7 @@ export const IssueDetectionJobNotifications = () => {
                   componentId="mlflow.traces.issue-detection.completed-toast.view-results"
                   onClick={() => {
                     notification.close(completedKey);
-                    navigate(getIssueDetectionRunRoute(experimentId, runId, issueCount));
+                    navigate(withPreservedQueryString(getIssueDetectionRunRoute(experimentId, runId, issueCount)));
                   }}
                 >
                   {issueCount <= 1 ? (
@@ -324,7 +336,7 @@ export const IssueDetectionJobNotifications = () => {
                 componentId="mlflow.traces.issue-detection.failed-toast.view-details"
                 onClick={() => {
                   notification.close(completedKey);
-                  navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, runId));
+                  navigate(withPreservedQueryString(Routes.getIssueDetectionRunDetailsRoute(experimentId, runId)));
                 }}
               >
                 <FormattedMessage
@@ -339,7 +351,7 @@ export const IssueDetectionJobNotifications = () => {
       removeSubmittedIssueDetectionJob(trackedJob);
       setTrackedJobs((currentJobs) => currentJobs.filter((job) => job.jobId !== jobId));
     },
-    [notification, navigate],
+    [notification, navigate, withPreservedQueryString],
   );
 
   return (
