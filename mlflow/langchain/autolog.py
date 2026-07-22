@@ -74,8 +74,8 @@ def autolog(
             "merge",
             _patched_callback_manager_merge,
         )
-    except Exception:
-        logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
+    except Exception as e:
+        logger.warning(f"Failed to apply RunnableSequence.batch or BaseCallbackManager.merge patch: {e}")
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
