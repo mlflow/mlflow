@@ -1,9 +1,6 @@
-/**
- * Final step: Project configuration for MLflow Assistant setup.
- */
-
 import { useState, useCallback, useEffect } from 'react';
 import {
+  Button,
   Typography,
   useDesignSystemTheme,
   Input,
@@ -17,11 +14,10 @@ import {
 
 import { updateConfig, installSkills } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
-import { WizardFooter } from './WizardFooter';
 
 type SkillsLocation = 'global' | 'project' | 'custom';
 
-interface SetupStepProjectProps {
+interface AssistantSettingsFormProps {
   experimentId?: string;
   provider?: string;
   onBack: () => void;
@@ -63,14 +59,14 @@ const deriveSkillsLocation = (
   return { location: 'custom', customPath: skillsLocation };
 };
 
-export const SetupStepProject = ({
+export const AssistantSettingsForm = ({
   experimentId,
   provider = 'claude_code',
   onBack,
   onComplete,
   nextLabel = 'Finish',
-  backLabel,
-}: SetupStepProjectProps) => {
+  backLabel = 'Back',
+}: AssistantSettingsFormProps) => {
   const { theme } = useDesignSystemTheme();
   const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
 
@@ -397,14 +393,27 @@ export const SetupStepProject = ({
         />
       )}
 
-      <WizardFooter
-        onBack={onBack}
-        onNext={handleSave}
-        nextLabel={nextLabel}
-        backLabel={backLabel}
-        isLoading={isSaving}
-        nextDisabled={Boolean(error)}
-      />
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
+          borderTop: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <Button componentId="mlflow.assistant.setup.footer.back" onClick={onBack} disabled={isSaving}>
+          {backLabel}
+        </Button>
+        <Button
+          componentId="mlflow.assistant.setup.footer.next"
+          type="primary"
+          onClick={handleSave}
+          disabled={Boolean(error) || isSaving}
+        >
+          {isSaving ? <Spinner size="small" /> : nextLabel}
+        </Button>
+      </div>
     </div>
   );
 };

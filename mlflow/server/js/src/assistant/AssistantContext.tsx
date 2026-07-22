@@ -417,11 +417,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const completeSetup = useCallback(() => {
-    setSetupComplete(true);
-    refreshConfig();
-  }, [refreshConfig]);
-
   // Fetch config on mount
   useEffect(() => {
     refreshConfig();
@@ -832,7 +827,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     reset,
     cancelSession: handleCancelSession,
     refreshConfig,
-    completeSetup,
     respondToPermission,
   };
 
@@ -864,7 +858,6 @@ const disabledAssistantContext: AssistantAgentContextType = {
   reset: () => {},
   cancelSession: () => {},
   refreshConfig: () => Promise.resolve(),
-  completeSetup: () => {},
   respondToPermission: () => {},
 };
 

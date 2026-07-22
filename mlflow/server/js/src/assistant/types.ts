@@ -162,7 +162,7 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
-  /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
+  /** Queue a prompt to seed the chat input the next time it's visible */
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */
   clearPendingPrompt: () => void;
@@ -174,8 +174,6 @@ export interface AssistantAgentActions {
   cancelSession: () => void;
   /** Fetch/refresh config from backend */
   refreshConfig: () => Promise<void>;
-  /** Mark setup as complete (after wizard finishes) */
-  completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */
   respondToPermission: (allow: boolean) => void;
 }
@@ -191,12 +189,6 @@ export interface MessageRequest {
   experiment_id?: string;
   context?: KnownAssistantContext & Record<string, unknown>;
 }
-
-/**
- * Result from the /health endpoint.
- * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
- */
-export type HealthCheckResult = { ok: true } | { ok: false; error: string; status: number };
 
 /**
  * Permission settings for the assistant provider.
@@ -246,19 +238,9 @@ export interface AssistantConfigUpdate {
 }
 
 /**
- * Setup wizard step type.
- */
-export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
-
-/**
  * Response from installing skills.
  */
 export interface InstallSkillsResponse {
   installed_skills: string[];
   skills_directory: string;
 }
-
-/**
- * Authentication state for provider connection check.
- */
-export type AuthState = 'checking' | 'cli_not_installed' | 'not_authenticated' | 'authenticated';

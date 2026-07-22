@@ -3,7 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
-import { SetupStepProject } from './SetupStepProject';
+import { AssistantSettingsForm } from './AssistantSettingsForm';
 
 interface AssistantSettingsPageProps {
   experimentId?: string;
@@ -33,7 +33,7 @@ export const AssistantSettingsPage = ({ experimentId, onBack }: AssistantSetting
       </Typography.Title>
 
       <div css={{ flex: 1, overflow: 'auto' }}>
-        <SetupStepProject
+        <AssistantSettingsForm
           experimentId={experimentId}
           provider={selectedProvider}
           onBack={onBack}

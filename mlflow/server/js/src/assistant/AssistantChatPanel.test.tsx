@@ -46,7 +46,6 @@ jest.mock('./AssistantContext', () => ({
     reset: jest.fn(),
     cancelSession: mockCancelSession,
     refreshConfig: jest.fn(),
-    completeSetup: jest.fn(),
   }),
 }));
 
@@ -79,13 +78,12 @@ describe('AssistantChatPanel', () => {
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
   });
 
-  test('when setup is NOT complete, the panel shows the "Get Started" setup prompt and no chat input', () => {
+  test('when setup is NOT complete, the panel shows the welcome prompt and no chat input', () => {
     mockSetupComplete = false;
     renderChatPanel();
 
-    // The user is asked to set up the assistant ...
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
-    // ... and the chat input isn't mounted yet, so a queued prompt waits on the context.
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
   });
 
@@ -98,14 +96,12 @@ describe('AssistantChatPanel', () => {
     expect(mockClearPendingPrompt).toHaveBeenCalledTimes(1);
   });
 
-  // Not set up → complete setup WITHOUT closing → prompt prefilled.
   test('seed waits while setup is incomplete, then prefills the input after setup completes', async () => {
     mockSetupComplete = false;
     mockPendingPrompt = 'SEED';
     const { rerender } = renderChatPanel();
 
-    // Setup prompt is shown; no input yet; the seed has NOT been consumed.
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
     expect(mockClearPendingPrompt).not.toHaveBeenCalled();
 

@@ -267,31 +267,6 @@ describe('AssistantContext — pendingPrompt seed', () => {
     });
     expect(result.current.pendingPrompt).toBeNull();
   });
-
-  // completing setup must NOT drop a queued prompt, so it can be
-  // consumed once the chat input appears post-setup.
-  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
-    const { result } = await renderAssistant();
-
-    act(() => {
-      result.current.prefillPrompt('SEED');
-    });
-    expect(result.current.pendingPrompt).toBe('SEED');
-
-    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
-    // so setupComplete stays true after the refresh lands.
-    mockGetConfig.mockResolvedValue({
-      providers: { anthropic: { model: 'm', selected: true, permissions: {} } },
-      projects: {},
-    } as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>);
-
-    await act(async () => {
-      result.current.completeSetup();
-    });
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(result.current.pendingPrompt).toBe('SEED');
-  });
 });
 
 describe('upsertToolCalls', () => {

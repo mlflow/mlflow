@@ -32,14 +32,14 @@ import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
-import { AssistantSettingsPage, AssistantSetupWizard } from './setup';
+import { AssistantSettingsPage } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
-type CurrentView = 'chat' | 'setup-wizard' | 'settings';
+type CurrentView = 'chat' | 'settings';
 
 // Shared animation keyframes
 const PULSE_ANIMATION = {
@@ -358,8 +358,7 @@ const ChatPanelContent = () => {
     }
   }, [inputValue]);
 
-  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
-  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  // Consume a prompt queued by an onboarding card once the chat input is visible.
   useEffect(() => {
     if (pendingPrompt != null) {
       setInputValue(pendingPrompt);
@@ -580,10 +579,9 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
 };
 
 /**
- * Setup prompt shown when assistant is not set up yet.
- * Shows empty state illustration and setup button.
+ * Empty state shown when no assistant provider can be resolved.
  */
-const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
+const SetupPrompt = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -599,10 +597,6 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
       }}
     >
       <AssistantWelcomeCarousel />
-
-      <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
-        Get Started
-      </Button>
     </div>
   );
 };
@@ -615,8 +609,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
-    useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, isLocalServer } = useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -629,15 +622,6 @@ export const AssistantChatPanel = () => {
   const handleReset = useCallback(() => {
     reset();
   }, [reset]);
-
-  const handleStartSetup = useCallback(() => {
-    setCurrentView('setup-wizard');
-  }, []);
-
-  const handleSetupComplete = useCallback(() => {
-    setCurrentView('chat');
-    completeSetup();
-  }, [completeSetup]);
 
   const handleOpenSettings = useCallback(() => {
     setCurrentView('settings');
@@ -660,14 +644,12 @@ export const AssistantChatPanel = () => {
     }
 
     switch (currentView) {
-      case 'setup-wizard':
-        return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
       case 'settings':
         return <AssistantSettingsPage experimentId={experimentId} onBack={handleBackFromSettings} />;
       case 'chat':
       default:
         if (!setupComplete) {
-          return <SetupPrompt onSetup={handleStartSetup} />;
+          return <SetupPrompt />;
         }
         return <ChatPanelContent />;
     }
