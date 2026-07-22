@@ -1,5 +1,3 @@
-"""Autologging implementation for Pydantic AI 2.x."""
-
 import functools
 import inspect
 import logging
@@ -190,7 +188,6 @@ async def patched_capability_tool_validate_error(
     error,
     **kwargs,
 ):
-    """Trace failed validation while leaving error handling to Pydantic AI."""
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not config.log_traces:
         return await original(
@@ -230,7 +227,6 @@ async def patched_capability_tool_execute(
     handler,
     **kwargs,
 ):
-    """Trace a logical tool execution using only its public name, arguments, and result."""
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not config.log_traces:
         return await original(
@@ -306,8 +302,6 @@ async def patched_mcp_direct_call_tool(
 
 
 class _StreamedRunResultSyncWrapper:
-    """Keep a sync streaming span open until the Pydantic AI result is closed."""
-
     def __init__(self, result, span: LiveSpan):
         self._result = result
         self._span = span
@@ -421,7 +415,6 @@ def _patch_streaming_method(cls, method_name, wrapper_func) -> None:
 
 
 def _patch_async_method(cls, method_name, wrapper_func) -> None:
-    """Patch an async control-flow hook without treating library exceptions as patch failures."""
     original = getattr(cls, method_name)
 
     @functools.wraps(original)
@@ -449,6 +442,8 @@ def _patch_async_method(cls, method_name, wrapper_func) -> None:
         try:
             return await wrapper_func(call_original, self, *args, **kwargs)
         except BaseException as patch_error:
+            # Pydantic AI uses exceptions such as ModelRetry for agent control flow. Preserve any
+            # exception raised by the original hook instead of treating it as an MLflow failure.
             if original_exception is not None:
                 raise original_exception.with_traceback(original_traceback)
             if not isinstance(patch_error, Exception) or is_testing():
@@ -486,7 +481,6 @@ def _patch_agent_init(agent_cls) -> None:
 
 
 def setup_autologging() -> None:
-    """Install the Pydantic AI 2.x agent and model patches."""
     from pydantic_ai import Agent
     from pydantic_ai.capabilities.instrumentation import Instrumentation
     from pydantic_ai.mcp import MCPToolset
