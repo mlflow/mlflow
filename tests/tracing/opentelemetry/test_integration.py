@@ -354,9 +354,7 @@ def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypat
 
     my_function()
 
-    assert captured["is_recording"], (
-        "OTel current span should be recording inside @mlflow.trace"
-    )
+    assert captured["is_recording"], "OTel current span should be recording inside @mlflow.trace"
     assert not captured["is_non_recording"]
 
 
@@ -375,9 +373,7 @@ def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
         is_recording = current.is_recording()
         is_non_recording = isinstance(current, otel_trace.NonRecordingSpan)
 
-    assert is_recording, (
-        "OTel current span should be recording inside mlflow.start_span()"
-    )
+    assert is_recording, "OTel current span should be recording inside mlflow.start_span()"
     assert not is_non_recording
 
 
