@@ -573,6 +573,135 @@ myClass.startSession();
 </Tabs>
 </TabsWrapper>
 
+## Span Links
+
+[Span Links](/genai/concepts/span#span-links) connect spans across different traces without establishing a parent-child relationship. This is useful for tracking causal relationships in multi-agent systems, async workflows, and retry chains.
+
+### Attaching Links at Span Creation
+
+You can pass links when creating a span using either the decorator or context manager:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from mlflow.entities import Link
+
+# Using the decorator
+@mlflow.trace(
+    links=[
+        Link(
+            trace_id="tr-abc123def456",
+            span_id="aabbccddeeff0011",
+            attributes={"relationship": "triggered_by"},
+        )
+    ]
+)
+def handle_request(message: str):
+    return f"Processed: {message}"
+
+
+# Using the context manager
+with mlflow.start_span(
+    name="process-task",
+    links=[
+        Link(trace_id="tr-abc123def456", span_id="aabbccddeeff0011")
+    ],
+) as span:
+    span.set_inputs({"task": "summarize"})
+    result = "summary"
+    span.set_outputs(result)
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "@mlflow/core";
+
+// Using startSpan
+const span = mlflow.startSpan({
+  name: "process-task",
+  links: [
+    {
+      traceId: "tr-abc123def456",
+      spanId: "aabbccddeeff0011",
+      attributes: { relationship: "triggered_by" },
+    },
+  ],
+});
+span.end();
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+### Adding Links After Span Creation
+
+You can also add links to an active span dynamically using `add_link()`:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from mlflow.entities import Link
+
+
+@mlflow.trace
+def agent_b(message: dict):
+    span = mlflow.get_current_active_span()
+
+    # Link back to the span that triggered this agent
+    span.add_link(
+        Link(
+            trace_id=message["source_trace_id"],
+            span_id=message["source_span_id"],
+            attributes={"relationship": "triggered_by"},
+        )
+    )
+
+    return f"Handled: {message['content']}"
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "@mlflow/core";
+
+const result = await mlflow.withSpan(
+  async (span: mlflow.Span) => {
+    span.addLink({
+      traceId: message.sourceTraceId,
+      spanId: message.sourceSpanId,
+      attributes: { relationship: "triggered_by" },
+    });
+
+    return `Handled: ${message.content}`;
+  },
+  { name: "agent-b" }
+);
+```
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+When the link target is known upfront, prefer attaching links at span creation time via the `links` parameter. Use `add_link()` for cases where the target isn't known until runtime — for example, when it arrives in a message payload from another agent.
+
+:::note
+Span links are not currently supported for Unity Catalog traces.
+:::
+
 ## Automatic Exception Handling
 
 If an `Exception` is raised during processing of a trace-instrumented operation, an indication will be shown within the UI that the invocation was not successful and a partial capture of data will be available to aid in debugging. Additionally, details about the Exception that was raised will be included within `Events` of the partially completed span, further aiding the identification of where issues are occurring within your code.
