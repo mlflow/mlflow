@@ -9,7 +9,9 @@ import numbers
 import posixpath
 import re
 import socket
+import threading
 import urllib.parse
+from fnmatch import fnmatch
 from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
@@ -19,6 +21,9 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
+    MLFLOW_ICON_URL_ALLOWED_DOMAINS,
+    MLFLOW_ICON_URL_ALLOWED_SCHEMES,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
@@ -27,6 +32,12 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
+
+_MAX_MCP_ICONS_PER_LIST = 100
+_MAX_MCP_TOOLS_PER_LIST = 1000
+_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
+_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS = 8
+_HOSTNAME_RESOLUTION_SEMAPHORE = threading.BoundedSemaphore(_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS)
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -886,6 +897,209 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+def _resolve_hostname_with_timeout(hostname: str, field_name: str):
+    acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if not acquired:
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out waiting to resolve {field_name} hostname {hostname!r} because "
+            "too many hostname resolutions are already in progress"
+        )
+
+    result: dict[str, Any] = {}
+
+    def _resolve():
+        try:
+            result["addr_infos"] = socket.getaddrinfo(hostname, None)
+        except Exception as e:
+            result["error"] = e
+        finally:
+            _HOSTNAME_RESOLUTION_SEMAPHORE.release()
+
+    thread = threading.Thread(target=_resolve, daemon=True, name="mlflow-hostname-resolution")
+    thread.start()
+    thread.join(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if thread.is_alive():
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out resolving {field_name} hostname {hostname!r} after "
+            f"{_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS:g} seconds"
+        )
+    if "error" in result:
+        raise result["error"]
+    return result["addr_infos"]
+
+
+def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
+    try:
+        addr_infos = _resolve_hostname_with_timeout(hostname, field_name)
+    except (socket.gaierror, UnicodeError, ValueError) as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot resolve {field_name} hostname {hostname!r}: {e}"
+        ) from e
+
+    for addr_info in addr_infos:
+        try:
+            ip = ipaddress.ip_address(addr_info[4][0])
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} hostname {hostname!r} resolved to an invalid IP address: {e}"
+            ) from e
+        if not ip.is_global:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} must not resolve to a non-public IP address. "
+                f"{hostname!r} resolves to {ip}."
+            )
+
+
+def _validate_public_https_url(
+    url: str,
+    field_name: str = "URL",
+    allowed_schemes: list[str] | tuple[str, ...] | set[str] = ("https",),
+    allow_private_ips: bool = False,
+) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name} {url!r}: {e!r}") from e
+
+    normalized_allowed_schemes = {scheme.lower() for scheme in allowed_schemes}
+    if parsed_url.scheme not in normalized_allowed_schemes:
+        scheme_list = ", ".join(f"{scheme!r}" for scheme in sorted(normalized_allowed_schemes))
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name} scheme: {parsed_url.scheme!r}. Allowed schemes are: "
+            f"{scheme_list}."
+        )
+
+    if parsed_url.username or parsed_url.password:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not include embedded credentials: {url!r}"
+        )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must include a hostname: {url!r}"
+        )
+
+    if not allow_private_ips:
+        _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_mcp_icon_url(url: str) -> None:
+    """Validate an MCP icon URL on write/update requests.
+
+    Default behavior accepts only public HTTPS targets. This follows the
+    existing webhook pattern for scheme and private-IP controls, with an
+    optional hostname allowlist layered on top for stricter deployments.
+
+    Operators can further configure:
+    - ``MLFLOW_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+      loopback / private-network targets
+    - ``MLFLOW_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
+    """
+    allowed_schemes = MLFLOW_ICON_URL_ALLOWED_SCHEMES.get()
+    allow_private_ips = MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS.get()
+    _validate_public_https_url(
+        url,
+        field_name="Icon URL",
+        allowed_schemes=allowed_schemes,
+        allow_private_ips=allow_private_ips,
+    )
+
+    allowed_domains = MLFLOW_ICON_URL_ALLOWED_DOMAINS.get()
+    if not allowed_domains:
+        return
+
+    hostname = urllib.parse.urlparse(url).hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(f"Icon URL must include a hostname: {url!r}")
+
+    normalized_hostname = hostname.lower()
+    normalized_allowed_domains = [pattern.lower() for pattern in allowed_domains]
+    if not any(fnmatch(normalized_hostname, pattern) for pattern in normalized_allowed_domains):
+        raise MlflowException.invalid_parameter_value(
+            f"Icon URL host {hostname!r} is not in the allowed domain list: "
+            f"{', '.join(allowed_domains)}."
+        )
+
+
+def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
+    if mime_type is None:
+        return
+
+    if not isinstance(mime_type, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' media "
+            "type."
+        )
+
+    normalized = mime_type.strip().lower()
+    if not normalized.startswith("image/") or normalized == "image/":
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' "
+            "media type."
+        )
+
+
+def _validate_mcp_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
+    if len(items) > max_length:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name}. It must contain at most {max_length} items."
+        )
+
+
+def _validate_mcp_initial_status(status: Any, field_name: str = "status") -> None:
+    normalized_status = getattr(status, "value", status)
+    if normalized_status not in {"draft", "active"}:
+        raise MlflowException.invalid_parameter_value(
+            f"Initial MCP server registration {field_name} must be 'draft' or 'active'."
+        )
+
+
+def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+    if icons is None:
+        return
+
+    if not isinstance(icons, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_mcp_list_max_length(icons, field_name, _MAX_MCP_ICONS_PER_LIST)
+
+    for idx, icon in enumerate(icons):
+        icon_field_name = f"{field_name}[{idx}]"
+        if not isinstance(icon, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Expected an object."
+            )
+        if "src" not in icon:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Missing required key 'src'."
+            )
+
+        _validate_mcp_icon_url(icon["src"])
+        _validate_mcp_icon_mime_type(icon.get("mimeType"))
+
+
+def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
+    if tools is None:
+        return
+
+    if not isinstance(tools, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_mcp_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
+
+
 def _validate_webhook_url(url: str) -> None:
     if not isinstance(url, str):
         raise MlflowException.invalid_parameter_value(
@@ -915,25 +1129,7 @@ def _validate_webhook_url(url: str) -> None:
         )
 
     if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
-        try:
-            addr_infos = socket.getaddrinfo(hostname, None)
-        except socket.gaierror as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
-            ) from e
-
-        for addr_info in addr_infos:
-            try:
-                ip = ipaddress.ip_address(addr_info[4][0])
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
-                ) from e
-            if not ip.is_global:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL must not resolve to a non-public IP address. "
-                    f"{hostname!r} resolves to {ip}."
-                )
+        _validate_hostname_resolves_to_public_ips(hostname, "Webhook URL")
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

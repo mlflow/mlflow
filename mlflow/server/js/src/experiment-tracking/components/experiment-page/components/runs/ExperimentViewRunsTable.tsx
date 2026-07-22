@@ -53,10 +53,17 @@ import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibili
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
 import { debounce, isEmpty, isEqual } from 'lodash';
-import { columnStateToPrefs, prefsToColumnState } from './agGridColumnPrefsAdapter';
+import { columnStateToPrefs, getReorderCorrection, prefsToColumnState } from './agGridColumnPrefsAdapter';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
+
+// Pinned-left anchors that must stay leftmost, in restore order: Run Name, then Created
+// (`runDateAndNestInfo` is the Created column's colId).
+const LEADING_ANCHOR_COLUMN_IDS = [
+  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.RUN_NAME),
+  'runDateAndNestInfo',
+];
 
 export interface ExperimentViewRunsTableProps {
   /**
@@ -293,6 +300,21 @@ export const ExperimentViewRunsTable = React.memo(
           return;
         }
         if (event.source === 'uiColumnMoved' || event.source === 'uiColumnDragged') {
+          // Wait for allColumns to populate (one tick after grid-ready) before reasoning about
+          // order — otherwise a very fast first drag would skip the anchor correction and capture
+          // an unvalidated layout.
+          if (allColumnsRef.current.length === 0) {
+            return;
+          }
+          // Snap a column dropped in front of the pinned anchors back (see getReorderCorrection).
+          // The corrective applyColumnState re-fires with source 'api', which is ignored above, so
+          // there's no recursion and the rejected order is never persisted.
+          const currentOrder = event.columnApi.getColumnState().map((column) => column.colId);
+          const corrected = getReorderCorrection(currentOrder, LEADING_ANCHOR_COLUMN_IDS, allColumnsRef.current);
+          if (corrected) {
+            event.columnApi.applyColumnState({ state: corrected.map((colId) => ({ colId })), applyOrder: true });
+            return;
+          }
           captureColumnState(event.columnApi);
         }
       },

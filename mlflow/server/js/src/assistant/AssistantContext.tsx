@@ -5,7 +5,17 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, AssistantConfig, ChatMessage, PermissionRequest, ToolUseInfo } from './types';
+import {
+  ToolCallStatus,
+  type AssistantAgentContextType,
+  type AssistantConfig,
+  type AssistantPart,
+  type ChatMessage,
+  type PermissionRequest,
+  type ToolUseInfo,
+  type ToolResultInfo,
+  type TokenUsage,
+} from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
@@ -32,8 +42,11 @@ const MAX_PERSISTED_CHARS = 1_500_000;
 export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
 export const CHAT_STORAGE_VERSION = 1;
 
+const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+
 interface PersistedChat {
   messages: ChatMessage[];
+  tokenUsage: TokenUsage;
 }
 
 /** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
@@ -100,6 +113,92 @@ async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
   return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
 }
 
+/**
+ * Set the current (open) text segment of an assistant turn. `text` is the full
+ * segment since the last tool call, so we replace the trailing text part if there
+ * is one, otherwise append a new text part (a tool call always closes the prior
+ * text part, so the next text starts fresh).
+ */
+const setOpenTextPart = (parts: AssistantPart[], text: string): AssistantPart[] => {
+  const last = parts[parts.length - 1];
+  if (last?.type === 'text') {
+    return [...parts.slice(0, -1), { type: 'text', text }];
+  }
+  return [...parts, { type: 'text', text }];
+};
+
+/** Add or update tool-call parts by `toolUseId` (they can re-stream, so upsert). */
+export const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): AssistantPart[] => {
+  const next = [...parts];
+  for (const tool of tools) {
+    const i = next.findIndex((p) => p.type === 'toolCall' && p.toolUseId === tool.id);
+    const part = { type: 'toolCall' as const, toolUseId: tool.id, name: tool.name, input: tool.input };
+    if (i >= 0) {
+      // Merge without clobbering an already-resolved status/result from a tool_result.
+      next[i] = { ...next[i], ...part };
+    } else {
+      next.push({ ...part, status: ToolCallStatus.Running });
+    }
+  }
+  return next;
+};
+
+/** Resolve a tool call's status/result once its tool_result arrives, matched by `toolUseId`. */
+export const applyToolResult = (parts: AssistantPart[], result: ToolResultInfo): AssistantPart[] =>
+  parts.map((p) =>
+    p.type === 'toolCall' && p.toolUseId === result.toolUseId
+      ? { ...p, status: result.isError ? ToolCallStatus.Error : ToolCallStatus.Done, result: result.content }
+      : p,
+  );
+
+/** The kinds of new information the stream delivers, each changing the open message's parts. */
+const PartsUpdateKind = {
+  Text: 'text',
+  ToolCalls: 'toolCalls',
+  ToolResult: 'toolResult',
+} as const;
+
+/** A piece of new information from the stream that changes the open message's parts. */
+type PartsUpdate =
+  | { kind: typeof PartsUpdateKind.Text; text: string }
+  | { kind: typeof PartsUpdateKind.ToolCalls; tools: ToolUseInfo[] }
+  | { kind: typeof PartsUpdateKind.ToolResult; result: ToolResultInfo };
+
+/** Fold one update into the parts list. Streaming an assistant turn is a reduction over these. */
+const reduceParts = (parts: AssistantPart[], update: PartsUpdate): AssistantPart[] => {
+  switch (update.kind) {
+    case PartsUpdateKind.Text:
+      return update.text ? setOpenTextPart(parts, update.text) : parts;
+    case PartsUpdateKind.ToolCalls:
+      return upsertToolCalls(parts, update.tools);
+    case PartsUpdateKind.ToolResult:
+      return applyToolResult(parts, update.result);
+  }
+};
+
+/** Why a streaming turn stopped; the open message is closed differently for each. */
+const TurnEndReason = {
+  Completed: 'completed',
+  Failed: 'failed',
+  Interrupted: 'interrupted',
+} as const;
+
+/** The terminal of a streaming turn: it completed, failed (with an error), or was interrupted. */
+type TurnEnd =
+  | { reason: typeof TurnEndReason.Completed }
+  | { reason: typeof TurnEndReason.Failed; error: string }
+  | { reason: typeof TurnEndReason.Interrupted };
+
+const partsToContent = (parts: AssistantPart[]): string =>
+  parts
+    .filter((p): p is Extract<AssistantPart, { type: 'text' }> => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
+
+/** The last message is the open turn we stream into: an assistant message still streaming. */
+const isOpenAssistantTurn = (message: ChatMessage | undefined): message is ChatMessage =>
+  message?.role === 'assistant' && Boolean(message.isStreaming);
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
@@ -115,10 +214,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
     key: CHAT_STORAGE_KEY_BASE,
     version: CHAT_STORAGE_VERSION,
-    initialValue: { messages: [] },
+    initialValue: { messages: [], tokenUsage: EMPTY_TOKEN_USAGE },
   });
 
-  // Chat state - messages are seeded once from the persisted conversation on first mount.
+  // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
@@ -126,16 +225,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => persistedChat.tokenUsage ?? EMPTY_TOKEN_USAGE);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
-
-  // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // Use ref to track current streaming message
-  const streamingMessageRef = useRef<string>('');
+  const openTextBufferRef = useRef<string>('');
 
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
@@ -143,55 +243,97 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Identity token for the in-flight send. Each send captures its own token; reset()/cancel set
-  // this to null, which invalidates a send still awaiting its POST so its callbacks (fired from
-  // inside the service) and its late-attached EventSource can't leak into the reset state.
+  // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
+  // guarded callbacks no-op and its stream is closed instead of leaking into new state.
   const activeRequestRef = useRef<symbol | null>(null);
 
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
 
-  const flushStreamingMessage = useCallback(() => {
-    rafPendingRef.current = null;
+  // Fold stream updates into the open (streaming) assistant message's parts, keeping
+  // `content` mirrored to the text parts. No-op if the last message isn't an open turn.
+  const applyToOpenParts = useCallback((...updates: PartsUpdate[]) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current }];
+      if (isOpenAssistantTurn(lastMessage)) {
+        const parts = updates.reduce(reduceParts, lastMessage.parts ?? []);
+        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts) }];
       }
       return prev;
     });
   }, []);
 
-  const appendToStreamingMessage = useCallback(
+  // Close the in-flight streaming assistant message: flush any buffered text into an open
+  // text part, mirror `content`, mark it no longer streaming, and reflect how the turn ended
+  // (append the error text on failure, flag an interrupt). Shared by the done / error /
+  // interrupt terminals so the message-finalize logic lives once.
+  const closeStreamingMessage = useCallback((end: TurnEnd) => {
+    // Snapshot the buffer and clear it up front. The setMessages updater runs during a later
+    // render, so reading openTextBufferRef inside it would race with the clear below and drop
+    // any text streamed since the last flush.
+    const buffered = openTextBufferRef.current;
+    openTextBufferRef.current = '';
+    setMessages((prev) => {
+      const lastMessage = prev[prev.length - 1];
+      if (!isOpenAssistantTurn(lastMessage)) {
+        return prev;
+      }
+      // When `buffered` is empty, everything was already flushed — leave the parts as-is.
+      // Do NOT call setOpenTextPart(parts, '') here: it would overwrite the last committed
+      // text part with an empty string and drop the turn's final line.
+      const withBufferedText = buffered
+        ? setOpenTextPart(lastMessage.parts ?? [], buffered)
+        : (lastMessage.parts ?? []);
+      // On failure, append the error as a text part (a styled error callout is a planned follow-up).
+      const parts: AssistantPart[] =
+        end.reason === TurnEndReason.Failed
+          ? [...withBufferedText, { type: 'text', text: `Error: ${end.error}` }]
+          : withBufferedText;
+      return [
+        ...prev.slice(0, -1),
+        {
+          ...lastMessage,
+          parts,
+          content: partsToContent(parts),
+          isStreaming: false,
+          ...(end.reason === TurnEndReason.Interrupted ? { isInterrupted: true } : {}),
+        },
+      ];
+    });
+  }, []);
+
+  const flushTextToMessage = useCallback(() => {
+    rafPendingRef.current = null;
+    const buffered = openTextBufferRef.current;
+    if (!buffered) {
+      return;
+    }
+    applyToOpenParts({ kind: PartsUpdateKind.Text, text: buffered });
+  }, [applyToOpenParts]);
+
+  const writeStreamedText = useCallback(
     (text: string) => {
-      streamingMessageRef.current += text;
+      openTextBufferRef.current += text;
       if (rafPendingRef.current === null) {
-        rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
+        rafPendingRef.current = requestAnimationFrame(flushTextToMessage);
       }
     },
-    [flushStreamingMessage],
+    [flushTextToMessage],
   );
 
-  const finalizeStreamingMessage = useCallback(() => {
+  const endStreamingTurn = useCallback(() => {
     // Cancel any pending RAF and do a final flush with isStreaming: false
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current, isStreaming: false }];
-      }
-      return prev;
-    });
-    streamingMessageRef.current = '';
+    closeStreamingMessage({ reason: TurnEndReason.Completed });
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-  }, []);
+  }, [closeStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
     setCurrentStatus(status);
@@ -201,9 +343,58 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
-  const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
-    setActiveTools(tools);
-  }, []);
+  const addToolCalls = useCallback(
+    (tools: ToolUseInfo[]) => {
+      // `activeTools` drives the transient "working" indicator only.
+      setActiveTools(tools);
+      if (tools.length === 0) {
+        return;
+      }
+      // Persist the calls onto the message, in order. Commit any buffered text
+      // first (so the calls land after the text that preceded them) and reset the
+      // buffer so subsequent text starts a new part after the tool call.
+      if (rafPendingRef.current !== null) {
+        cancelAnimationFrame(rafPendingRef.current);
+        rafPendingRef.current = null;
+      }
+      const buffered = openTextBufferRef.current;
+      openTextBufferRef.current = '';
+      // Commit any buffered text first so the calls land after the text that preceded them.
+      applyToOpenParts({ kind: PartsUpdateKind.Text, text: buffered }, { kind: PartsUpdateKind.ToolCalls, tools });
+    },
+    [applyToOpenParts],
+  );
+
+  const resolveToolCall = useCallback(
+    (result: ToolResultInfo) => {
+      applyToOpenParts({ kind: PartsUpdateKind.ToolResult, result });
+    },
+    [applyToOpenParts],
+  );
+
+  const handleUsage = useCallback(
+    (usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+      total_cost_usd?: number | null;
+    }) => {
+      // Contract: each `usage` event is a per-turn / per-request *delta*, never a
+      // session-running total. Every provider emits it at a turn/request boundary
+      // (Claude Code's `result`, Codex's `turn.completed`, the gateway's per-request
+      // usage chunk), so we accumulate. A provider that emitted cumulative totals would
+      // double-count here — emit deltas, not running totals.
+      setTokenUsage((prev) => ({
+        promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
+        completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
+        totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+        // Accumulate cost only from priced turns; stays null until the first
+        // numeric estimate arrives so unpriced models render no cost at all.
+        costUsd: usage.total_cost_usd == null ? prev.costUsd : (prev.costUsd ?? 0) + usage.total_cost_usd,
+      }));
+    },
+    [],
+  );
 
   const handlePermissionRequest = useCallback((request: PermissionRequest) => {
     setPendingPermission(request);
@@ -216,9 +407,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const config = await getConfig();
       const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
+      setRemoteAccessAllowed(config.remote_access_allowed ?? false);
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
+      setRemoteAccessAllowed(false);
     } finally {
       setIsLoadingConfig(false);
     }
@@ -233,13 +426,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     refreshConfig();
   }, [refreshConfig]);
-
-  // Persist the conversation once it settles. Skipping the streaming hot path avoids a write on
-  // every token; reset() empties messages, so this writes the empty conversation to clear storage.
-  useEffect(() => {
-    if (isStreaming) return;
-    setPersistedChat({ messages: trimForStorage(messages) });
-  }, [isStreaming, messages, setPersistedChat]);
 
   // Cancel pending RAF and close EventSource on unmount
   useEffect(() => {
@@ -257,37 +443,71 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const handleStreamError = useCallback((errorMsg: string) => {
-    setError(errorMsg);
-    setIsStreaming(false);
-    setCurrentStatus(null);
-    eventSourceRef.current = null;
-    setActiveTools([]);
-    setPendingPermission(null);
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: `Error: ${errorMsg}`, isStreaming: false }];
-      }
-      return prev;
-    });
-  }, []);
+  // Persist the conversation only once a turn has settled (never on the streaming
+  // hot path, which would write to storage on every frame). `reset()` flips back to
+  // the empty state here too, which clears the stored conversation.
+  useEffect(() => {
+    if (isStreaming) {
+      return;
+    }
+    setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
+  }, [isStreaming, messages, tokenUsage, setPersistedChat]);
 
-  const handleInterrupted = useCallback(() => {
+  const failStreamingTurn = useCallback(
+    (errorMsg: string) => {
+      setError(errorMsg);
+      setIsStreaming(false);
+      setCurrentStatus(null);
+      eventSourceRef.current = null;
+      setActiveTools([]);
+      setPendingPermission(null);
+      closeStreamingMessage({ reason: TurnEndReason.Failed, error: errorMsg });
+    },
+    [closeStreamingMessage],
+  );
+
+  const interruptStreamingTurn = useCallback(() => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
     eventSourceRef.current = null;
-    streamingMessageRef.current = '';
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
-      }
-      return prev;
-    });
-  }, []);
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
+    closeStreamingMessage({ reason: TurnEndReason.Interrupted });
+  }, [closeStreamingMessage]);
+
+  // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
+  // regenerate. Each call site wraps this in `withGuard(isCurrent, streamCallbacks)` so a
+  // superseded send's callbacks no-op.
+  const streamCallbacks = useMemo(
+    () => ({
+      onMessage: writeStreamedText,
+      onError: failStreamingTurn,
+      onDone: endStreamingTurn,
+      onStatus: handleStatus,
+      onSessionId: handleSessionId,
+      onToolUse: addToolCalls,
+      onToolResult: resolveToolCall,
+      onInterrupted: interruptStreamingTurn,
+      onUsage: handleUsage,
+      onPermissionRequest: handlePermissionRequest,
+    }),
+    [
+      writeStreamedText,
+      failStreamingTurn,
+      endStreamingTurn,
+      handleStatus,
+      handleSessionId,
+      addToolCalls,
+      resolveToolCall,
+      interruptStreamingTurn,
+      handleUsage,
+      handlePermissionRequest,
+    ],
+  );
 
   // Actions
   const openPanel = useCallback(() => {
@@ -326,7 +546,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     setCurrentStatus(null);
     setActiveTools([]);
-    streamingMessageRef.current = '';
+    setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
+    openTextBufferRef.current = '';
     setPendingPermission(null);
   }, []);
 
@@ -375,7 +596,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Add streaming assistant message placeholder
-      streamingMessageRef.current = '';
+      openTextBufferRef.current = '';
       setMessages((prev) => [
         ...prev,
         {
@@ -396,16 +617,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
-          withGuard(isCurrent, {
-            onMessage: appendToStreamingMessage,
-            onError: handleStreamError,
-            onDone: finalizeStreamingMessage,
-            onStatus: handleStatus,
-            onSessionId: handleSessionId,
-            onToolUse: handleToolUse,
-            onInterrupted: handleInterrupted,
-            onPermissionRequest: handlePermissionRequest,
-          }),
+          withGuard(isCurrent, streamCallbacks),
         );
         if (!attachStreamIfCurrent(isCurrent, result)) {
           return;
@@ -414,23 +626,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         if (!isCurrent()) {
           return;
         }
-        handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
+        failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      beginRequest,
-      attachStreamIfCurrent,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [sessionId, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks, failStreamingTurn],
   );
 
   const respondToPermission = useCallback(
@@ -448,43 +647,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // The paused assistant placeholder keeps streaming — no new message; the
       // resume stream continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(
-        requestSessionId,
-        requestId,
-        allow ? 'allow' : 'deny',
-        withGuard(isCurrent, {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onPermissionRequest: handlePermissionRequest,
-        }),
-      )
+      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
         .catch((err) => {
           if (isCurrent()) {
-            handleStreamError(err instanceof Error ? err.message : 'Failed to resume');
+            failStreamingTurn(err instanceof Error ? err.message : 'Failed to resume');
           }
         });
     },
-    [
-      pendingPermission,
-      beginRequest,
-      attachStreamIfCurrent,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
   );
 
   const handleSendMessage = useCallback(
@@ -512,7 +685,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       // Add streaming assistant message placeholder
-      streamingMessageRef.current = '';
+      openTextBufferRef.current = '';
       setMessages((prev) => [
         ...prev,
         {
@@ -533,40 +706,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           experiment_id: pageContext['experimentId'] as string | undefined,
           context: pageContext,
         },
-        withGuard(isCurrent, {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onPermissionRequest: handlePermissionRequest,
-        }),
+        withGuard(isCurrent, streamCallbacks),
       );
       attachStreamIfCurrent(isCurrent, result);
     },
-    [
-      sessionId,
-      startChat,
-      beginRequest,
-      attachStreamIfCurrent,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [sessionId, startChat, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks],
   );
 
   const handleCancelSession = useCallback(() => {
     if (!sessionId || !isStreaming) return;
 
-    // Invalidate any in-flight send so a stream still awaiting its POST can't attach after cancel.
+    // Invalidate any in-flight send so a late POST can't reopen a stream after cancel
     activeRequestRef.current = null;
 
     // Close EventSource immediately to stop receiving data
@@ -582,21 +732,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Mark the current streaming message as interrupted
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
-      }
-      return prev;
-    });
+    // Flush any buffered text and mark the turn interrupted through the shared terminal,
+    // matching the server-driven interrupt path (interruptStreamingTurn) so a user cancel
+    // can't drop text buffered since the last RAF flush.
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
+    closeStreamingMessage({ reason: TurnEndReason.Interrupted });
 
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-    streamingMessageRef.current = '';
-  }, [sessionId, isStreaming]);
+  }, [sessionId, isStreaming, closeStreamingMessage]);
 
   const regenerateLastMessage = useCallback(async () => {
     // Prevent regeneration while already streaming
@@ -617,7 +766,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Set streaming state BEFORE modifying messages
     setError(null);
     setIsStreaming(true);
-    streamingMessageRef.current = '';
+    openTextBufferRef.current = '';
 
     // Remove all messages after the last user message and add streaming placeholder
     setMessages((prev) => {
@@ -652,34 +801,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         experiment_id: pageContext['experimentId'] as string | undefined,
         context: pageContext,
       },
-      withGuard(isCurrent, {
-        onMessage: appendToStreamingMessage,
-        onError: handleStreamError,
-        onDone: finalizeStreamingMessage,
-        onStatus: handleStatus,
-        onSessionId: handleSessionId,
-        onToolUse: handleToolUse,
-        onInterrupted: handleInterrupted,
-        onPermissionRequest: handlePermissionRequest,
-      }),
+      withGuard(isCurrent, streamCallbacks),
     );
     attachStreamIfCurrent(isCurrent, result);
-  }, [
-    messages,
-    sessionId,
-    isStreaming,
-    beginRequest,
-    attachStreamIfCurrent,
-    getPageContext,
-    appendToStreamingMessage,
-    handleStreamError,
-    finalizeStreamingMessage,
-    handleStatus,
-    handleSessionId,
-    handleToolUse,
-    handleInterrupted,
-    handlePermissionRequest,
-  ]);
+  }, [messages, sessionId, isStreaming, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks]);
 
   const value: AssistantAgentContextType = {
     // State
@@ -695,6 +820,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLocalServer,
     pendingPrompt,
     pendingPermission,
+    canUseAssistant,
+    tokenUsage,
     // Actions
     openPanel,
     closePanel,
@@ -726,6 +853,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLocalServer: false,
   pendingPrompt: null,
   pendingPermission: null,
+  canUseAssistant: false,
+  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

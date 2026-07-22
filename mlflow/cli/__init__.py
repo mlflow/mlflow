@@ -526,7 +526,7 @@ def _validate_static_prefix(ctx, param, value):
         "Workspace provider backend URI used for workspace CRUD APIs and request routing. "
         "When unspecified, defaults to the backend store URI. This only needs to be specified "
         "when using a workspace store plugin leveraging externally managed workspaces (e.g. "
-        + "Kubernetes namespaces)."
+        + "Kubernetes namespaces), or when combining --enable-workspaces with --artifacts-only."
     ),
 )
 @click.option(
@@ -592,7 +592,7 @@ def server(
     Full guide: https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server
     """
     from mlflow.server import _run_server
-    from mlflow.server.handlers import initialize_backend_stores
+    from mlflow.server.handlers import initialize_backend_stores, initialize_workspace_store
 
     # Get env_file from parent context
     env_file = ctx.parent.params.get("env_file") if ctx.parent else None
@@ -673,6 +673,7 @@ def server(
         artifacts_only,
         backend_store_uri,
         enable_workspaces,
+        workspace_store_uri=workspace_store_uri,
         trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
     )
     if trace_archival_config is not None:
@@ -695,7 +696,13 @@ def server(
     if trace_archival_config is not None:
         os.environ[MLFLOW_TRACE_ARCHIVAL_CONFIG.name] = str(trace_archival_config)
 
-    if not artifacts_only:
+    if artifacts_only and enable_workspaces:
+        try:
+            initialize_workspace_store(workspace_store_uri)
+        except Exception:
+            _logger.exception("Error initializing workspace store")
+            sys.exit(1)
+    elif not artifacts_only:
         try:
             initialize_backend_stores(
                 backend_store_uri,

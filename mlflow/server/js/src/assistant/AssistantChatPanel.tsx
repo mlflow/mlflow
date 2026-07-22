@@ -24,13 +24,14 @@ import {
   WrenchSparkleIcon,
   Spinner,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
-import type { ChatMessage, ToolUseInfo } from './types';
+import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
+import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
@@ -53,18 +54,112 @@ const DOTS_ANIMATION = {
   '100%': { content: '"..."' },
 };
 
+export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
+
+/**
+ * Coalesces an ordered part list into render groups, collapsing each maximal run of
+ * adjacent tool calls into a single `tools` group while preserving interleaving order.
+ */
+export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ kind: 'text', text: part.text });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'tools') {
+      groups[groups.length - 1] = { kind: 'tools', calls: [...last.calls, part] };
+    } else {
+      groups.push({ kind: 'tools', calls: [part] });
+    }
+  }
+  return groups;
+};
+
+/**
+ * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
+ * `content` for messages that predate the parts model.
+ */
+export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const { theme } = useDesignSystemTheme();
+  const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  // The markdown renderer leaves `---` as a default <hr> and headings with tight margins,
+  // so model-generated section breaks read cramped. Give rules and headings room to breathe.
+  const markdownSpacing = {
+    '& hr': {
+      margin: `${theme.spacing.lg}px 0`,
+      border: 'none',
+      borderTop: `1px solid ${theme.colors.border}`,
+    },
+    '& h1, & h2, & h3, & h4': { marginTop: theme.spacing.md },
+  };
+  return (
+    <>
+      {groupParts(parts).map((group, i) =>
+        group.kind === 'text' ? (
+          group.text ? (
+            // Assumption: Parts are append only, so this ID construction is stable and safe
+            <div key={`text-${i}`} css={markdownSpacing}>
+              <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
+            </div>
+          ) : null
+        ) : (
+          <ToolCallGroup key={group.calls[0].toolUseId} parts={group.calls} />
+        ),
+      )}
+    </>
+  );
+};
+
+/** Animated "working" indicator shown while the assistant streams a turn. */
+const StreamingIndicator = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <SparkleIcon
+        color="ai"
+        css={{ fontSize: 16, animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': PULSE_ANIMATION }}
+      />
+      <span
+        css={{
+          fontSize: theme.typography.fontSizeBase,
+          color: theme.colors.textSecondary,
+          '&::after': {
+            content: '"..."',
+            animation: 'dots 1.5s steps(3, end) infinite',
+            display: 'inline-block',
+            width: '1.2em',
+          },
+          '@keyframes dots': DOTS_ANIMATION,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Processing"
+          description="Processing indicator while Assistant is streaming a response"
+        />
+      </span>
+    </div>
+  );
+};
+
 /**
  * Single chat message bubble.
  */
 const ChatMessageBubble = ({
   message,
   isLastMessage,
-  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
-  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -101,7 +196,7 @@ const ChatMessageBubble = ({
         {isUser ? (
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
-          <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+          <AssistantMessageBody message={message} />
         )}
         {/* Interrupted indicator */}
         {message.isInterrupted && (
@@ -118,42 +213,7 @@ const ChatMessageBubble = ({
           </span>
         )}
         {/* Loading indicator */}
-        {message.isStreaming && (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.sm,
-            }}
-          >
-            <SparkleIcon
-              color="ai"
-              css={{
-                fontSize: 16,
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': PULSE_ANIMATION,
-              }}
-            />
-            <span
-              css={{
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textSecondary,
-                '&::after': {
-                  content: '"..."',
-                  animation: 'dots 1.5s steps(3, end) infinite',
-                  display: 'inline-block',
-                  width: '1.2em',
-                },
-                '@keyframes dots': DOTS_ANIMATION,
-              }}
-            >
-              {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? `Tool: ${activeTools[0].description}`
-                : 'Processing'}
-            </span>
-          </div>
-        )}
+        {message.isStreaming && <StreamingIndicator />}
       </div>
 
       {/* Action buttons for assistant messages */}
@@ -269,7 +329,6 @@ const ChatPanelContent = () => {
     messages,
     isStreaming,
     error,
-    activeTools,
     sendMessage,
     regenerateLastMessage,
     cancelSession,
@@ -374,7 +433,6 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
-              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
@@ -471,8 +529,8 @@ const SetupLoadingState = () => {
 };
 
 /**
- * Message shown when server is not running locally.
- * Assistant only works with local MLflow servers.
+ * Message shown when this client is not allowed to use the Assistant,
+ * e.g. a remote client when the server's remote-access settings don't permit it.
  */
 const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -496,7 +554,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
       <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
         <FormattedMessage
           defaultMessage="Assistant Not Available"
-          description="Title shown when Assistant is not available for remote servers"
+          description="Title shown when Assistant is not available for this client"
         />
       </Typography.Title>
 
@@ -509,8 +567,8 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
         }}
       >
         <FormattedMessage
-          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
-          description="Message explaining that Assistant only works with local servers"
+          defaultMessage="MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely."
+          description="Message explaining that the Assistant is blocked by the server's remote-access settings"
         />
       </Typography.Text>
 
@@ -556,7 +614,9 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
+  const intl = useIntl();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -588,8 +648,9 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const renderContent = () => {
-    // Show message for remote servers - Assistant only works locally
-    if (!isLocalServer) {
+    // Show message when this client isn't allowed to use the Assistant
+    // (e.g. a remote client and the server's remote-access settings don't permit it)
+    if (!canUseAssistant) {
       return <RemoteServerMessage onClose={handleClose} />;
     }
 
@@ -668,13 +729,30 @@ export const AssistantChatPanel = () => {
                   aria-label="New Chat"
                 />
               </Tooltip>
-              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+              <Tooltip
+                componentId="mlflow.assistant.chat_panel.settings.tooltip"
+                content={
+                  isLocalServer
+                    ? intl.formatMessage({
+                        defaultMessage: 'Settings',
+                        description: 'Tooltip for the Assistant settings button',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage:
+                          'Updating Assistant settings is not allowed for a remote MLflow server. ' +
+                          'Contact your server admin to update the settings.',
+                        description:
+                          'Tooltip explaining that Assistant settings cannot be changed from a remote client',
+                      })
+                }
+              >
                 <Button
                   componentId="mlflow.assistant.chat_panel.settings"
                   size="small"
                   icon={<GearIcon />}
                   onClick={handleOpenSettings}
                   aria-label="Settings"
+                  disabled={!isLocalServer}
                 />
               </Tooltip>
             </>

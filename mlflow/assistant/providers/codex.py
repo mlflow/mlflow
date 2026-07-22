@@ -220,7 +220,7 @@ class CodexProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error running Codex CLI")
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)
         finally:
             if mlflow_session_id:
                 clear_process_pid(mlflow_session_id)

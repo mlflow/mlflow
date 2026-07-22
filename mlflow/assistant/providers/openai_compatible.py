@@ -253,6 +253,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        allows_remote_access: bool = False,
     ):
         self._name = name
         self._display_name = display_name
@@ -265,6 +266,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         # OAI-compat providers don't actually load skills at runtime, but the
         # path is preserved so users can opt-in later via skill_installer.
         self._skills_dirname = skills_dirname or ".agent"
+        self._allows_remote_access = allows_remote_access
 
     @property
     def name(self) -> str:
@@ -277,6 +279,10 @@ class OpenAICompatibleProvider(AssistantProvider):
     @property
     def description(self) -> str:
         return self._description
+
+    @property
+    def allows_remote_access(self) -> bool:
+        return self._allows_remote_access
 
     def is_available(self) -> bool:
         return True
@@ -468,12 +474,12 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "messages": messages,
                             "tools": tools,
                             "stream": True,
-                            # Strict OpenAI-compatible servers (vLLM, LM Studio, raw
-                            # OpenAI) only emit the final usage chunk when asked;
-                            # without this they stream no token counts at all. Servers
-                            # that already report usage (the MLflow gateway, Ollama)
-                            # ignore or harmlessly echo the option.
-                            "stream_options": {"include_usage": True},
+                            # NB: intentionally no `stream_options`. It's an OpenAI-only field,
+                            # and the assistant only targets the MLflow AI Gateway (which
+                            # self-injects it per-provider for backends that accept it) or
+                            # Ollama (which reports usage unconditionally). Forwarding it to a
+                            # gateway route backed by Anthropic makes /v1/messages reject the
+                            # request with 400 "stream_options: Extra inputs are not permitted".
                         }
                         async with session.post(
                             chat_url,
@@ -669,4 +675,4 @@ class OpenAICompatibleProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)

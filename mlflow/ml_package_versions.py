@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.19",
-            "maximum": "1.94.0"
+            "maximum": "1.107.0"
         }
     },
     "smolagents": {
@@ -242,11 +242,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.4.0",
-            "maximum": "3.14.1"
+            "maximum": "3.15.0"
         },
         "autologging": {
             "minimum": "3.4.0",
-            "maximum": "3.14.1"
+            "maximum": "3.15.0"
         }
     },
     "tensorflow": {

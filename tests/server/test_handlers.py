@@ -141,6 +141,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
+    ARTIFACTS_ONLY_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
     SERVE_ARTIFACTS_ENV_VAR,
     app,
@@ -164,6 +165,7 @@ from mlflow.server.handlers import (
     _create_prompt_optimization_job,
     _create_registered_model,
     _create_review_queue,
+    _create_workspace_handler,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
     _delete_dataset_tag_handler,
@@ -175,6 +177,7 @@ from mlflow.server.handlers import (
     _delete_scorer,
     _delete_trace_tag,
     _delete_trace_tag_v3,
+    _delete_workspace_handler,
     _deprecated_search_traces_v2,
     _download_artifact,
     _get_ajax_path,
@@ -195,12 +198,14 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _get_workspace_handler,
     _get_workspace_scoped_repo_path_if_enabled,
     _link_prompts_to_trace,
     _list_artifacts_for_proxied_run_artifact_root,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
+    _list_workspaces_handler,
     _log_batch,
     _query_trace_metrics,
     _register_scorer,
@@ -227,6 +232,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_review_queue,
+    _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
     _validate_source_run,
@@ -237,6 +243,7 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
     get_ui_telemetry_handler,
+    initialize_workspace_store,
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
@@ -1218,23 +1225,27 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     assert json_response["message"] == "Invalid path"
 
 
-def test_get_presigned_download_url_success(enable_serve_artifacts):
+def test_get_presigned_download_url_success(enable_serve_artifacts, monkeypatch):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 
     class MockMultipartDownloadRepo(MultipartDownloadMixin):
         def get_download_presigned_url(self, artifact_path, expiration=300):
+            self.artifact_path = artifact_path
             return PresignedDownloadUrlResponse(
                 url="https://storage.example.com/presigned?token=abc",
                 headers={"x-custom-header": "value"},
                 file_size=1024,
             )
 
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_repo = MockMultipartDownloadRepo()
     artifact_path = "run_id/artifacts/model.pkl"
     with (
+        WorkspaceContext("team-a"),
         app.test_request_context(method="GET"),
         mock.patch(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
-            return_value=MockMultipartDownloadRepo(),
+            return_value=artifact_repo,
         ),
     ):
         response = _get_presigned_download_url(artifact_path)
@@ -1244,6 +1255,7 @@ def test_get_presigned_download_url_success(enable_serve_artifacts):
     assert data["url"] == "https://storage.example.com/presigned?token=abc"
     assert data["headers"] == {"x-custom-header": "value"}
     assert data["file_size"] == 1024
+    assert artifact_repo.artifact_path == "workspaces/team-a/run_id/artifacts/model.pkl"
 
 
 @pytest.mark.parametrize(
@@ -3785,6 +3797,45 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_submit.assert_called_once()
 
 
+def test_invoke_scorer_rejects_decorator_scorer():
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    serialized_scorer = json.dumps({
+        "name": "pwned",
+        "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "pwned",
+    })
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_invalid_json():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": "not valid json",
+                "trace_ids": ["trace1"],
+            },
+        )
+    assert response.status_code == 400
+    assert "serialized_scorer must be valid JSON" in response.get_json()["message"]
+
+
 def test_get_ui_telemetry_handler(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
@@ -4948,6 +4999,46 @@ def test_get_workspace_scoped_repo_path_if_enabled_allows_legacy_default_artifac
         assert (
             _get_workspace_scoped_repo_path_if_enabled("1/legacy/artifact") == "1/legacy/artifact"
         )
+
+
+def test_initialize_workspace_store_does_not_initialize_backend_stores():
+    workspace_uri = "sqlite:///workspace.db"
+    with (
+        mock.patch("mlflow.server.handlers._get_workspace_store") as get_workspace_store,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store,
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as get_registry_store,
+    ):
+        initialize_workspace_store(workspace_uri)
+
+    get_workspace_store.assert_called_once_with(workspace_uri=workspace_uri)
+    get_tracking_store.assert_not_called()
+    get_registry_store.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("handler", "args"),
+    [
+        (_list_workspaces_handler, ()),
+        (_create_workspace_handler, ()),
+        (_get_workspace_handler, ("team-a",)),
+        (_update_workspace_handler, ("team-a",)),
+        (_delete_workspace_handler, ("team-a",)),
+        (get_artifact_handler, ()),
+        (upload_artifact_handler, ()),
+    ],
+)
+def test_tracking_backed_handlers_disabled_in_artifacts_only_mode(monkeypatch, handler, args):
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+    with (
+        mock.patch("mlflow.server.handlers._get_workspace_store") as get_workspace_store,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store,
+        app.test_request_context(),
+    ):
+        response = handler(*args)
+
+    assert response.status_code == 503
+    get_workspace_store.assert_not_called()
+    get_tracking_store.assert_not_called()
 
 
 def test_get_workspace_scoped_repo_path_if_enabled_still_scopes_non_default(monkeypatch):

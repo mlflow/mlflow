@@ -46,6 +46,30 @@ def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
     except ImportError:
         pass
 
+    try:
+        from mlflow.genai.scorers.guardrails import GuardrailsScorer
+
+        if isinstance(scorer, GuardrailsScorer):
+            return f"Guardrails:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.phoenix import PhoenixScorer
+
+        if isinstance(scorer, PhoenixScorer):
+            return f"Phoenix:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.trulens import TruLensScorer
+
+        if isinstance(scorer, TruLensScorer):
+            return f"TruLens:{scorer.name}"
+    except ImportError:
+        pass
+
     return "UserDefinedScorer"
 
 
