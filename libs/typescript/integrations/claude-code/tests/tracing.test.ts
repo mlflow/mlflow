@@ -67,7 +67,7 @@ jest.mock('@mlflow/core', () => {
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
         }),
-        getAttribute: jest.fn((key: string): any => span.attributes[key]),
+        getAttribute: jest.fn((key: string): unknown => span.attributes[key] as unknown),
         setOutputs: jest.fn((outputs: any) => {
           span.outputs = outputs;
         }),

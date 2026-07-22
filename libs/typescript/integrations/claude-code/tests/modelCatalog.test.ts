@@ -25,7 +25,9 @@ const EXPECTED_RATES = {
 };
 
 function okFetch(body: unknown = CATALOG): jest.Mock {
-  return jest.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify(body) });
+  return jest
+    .fn()
+    .mockResolvedValue({ ok: true, text: () => Promise.resolve(JSON.stringify(body)) });
 }
 
 function failFetch(): jest.Mock {
@@ -114,7 +116,9 @@ describe('loadCatalogRates', () => {
   });
 
   it('returns null for a non-OK response', async () => {
-    const fetchImpl = jest.fn().mockResolvedValue({ ok: false, text: async () => 'not found' });
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue({ ok: false, text: () => Promise.resolve('not found') });
     const rates = await loadCatalogRates({
       baseUri: 'https://example.com',
       cacheDir: tempCacheDir(),
