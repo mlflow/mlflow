@@ -1,6 +1,8 @@
 import contextvars
+import functools
 import inspect
 import logging
+import typing
 from contextlib import asynccontextmanager
 from dataclasses import is_dataclass
 from typing import Any
@@ -11,7 +13,9 @@ from mlflow.entities.span import LiveSpan
 from mlflow.pydantic_ai.autolog_utils import parse_usage, serialize_output
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.utils.autologging_utils import safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
+from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
 _logger = logging.getLogger(__name__)
 
@@ -434,8 +438,6 @@ def _get_span_type(instance) -> str:
         return SpanType.TOOL
 
     try:
-        from mlflow.pydantic_ai import _get_tool_manager_module_path
-
         _tm_mod = __import__(_get_tool_manager_module_path(), fromlist=["ToolManager"])
         if isinstance(instance, _tm_mod.ToolManager):
             return SpanType.TOOL
@@ -499,3 +501,158 @@ def _parse_tools(tools):
         for tool in tools
         if (data := tool.model_dumps(exclude_none=True))
     ]
+
+
+def _is_async_context_manager_factory(func) -> bool:
+    wrapped = getattr(func, "__wrapped__", None)
+    return wrapped is not None and inspect.isasyncgenfunction(wrapped)
+
+
+def _returns_sync_streamed_result(func) -> bool:
+    if inspect.iscoroutinefunction(func):
+        return False
+
+    try:
+        return_annotation = inspect.signature(func).return_annotation
+    except (ValueError, TypeError):
+        return False
+
+    if return_annotation is inspect.Signature.empty:
+        return False
+
+    # pydantic-ai uses `from __future__ import annotations`, so the return
+    # annotation is a raw string rather than a resolved type. Match by class
+    # name to avoid resolving unrelated forward references.
+    if isinstance(return_annotation, str):
+        return "StreamedRunResultSync" in return_annotation
+
+    origin = typing.get_origin(return_annotation) or return_annotation
+    return hasattr(origin, "stream_text") and hasattr(origin, "stream_output")
+
+
+def _patch_streaming_method(cls, method_name, wrapper_func):
+    original = getattr(cls, method_name)
+
+    @functools.wraps(original)
+    def patched_method(self, *args, **kwargs):
+        return wrapper_func(original, self, *args, **kwargs)
+
+    patch = _wrap_patch(cls, method_name, patched_method)
+    _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
+
+
+def _patch_method(cls, method_name):
+    method = getattr(cls, method_name)
+
+    if _is_async_context_manager_factory(method):
+        _patch_streaming_method(cls, method_name, patched_async_stream_call)
+    elif _returns_sync_streamed_result(method):
+        _patch_streaming_method(cls, method_name, patched_sync_stream_call)
+    elif inspect.iscoroutinefunction(method):
+        safe_patch(
+            mlflow.pydantic_ai.FLAVOR_NAME,
+            cls,
+            method_name,
+            patched_async_class_call,
+        )
+    else:
+        safe_patch(mlflow.pydantic_ai.FLAVOR_NAME, cls, method_name, patched_class_call)
+
+
+def _get_tool_manager_module_path() -> str:
+    """Return the importable module path for ToolManager."""
+    try:
+        import pydantic_ai.tool_manager  # noqa: F401
+
+        return "pydantic_ai.tool_manager"
+    except ImportError:
+        return "pydantic_ai._tool_manager"
+
+
+def _tool_manager_uses_execute_tool_call() -> bool:
+    """Return whether ToolManager exposes the post-1.63 execution method."""
+    module_path = _get_tool_manager_module_path()
+    try:
+        module = __import__(module_path, fromlist=["ToolManager"])
+        return hasattr(module.ToolManager, "execute_tool_call")
+    except ImportError:
+        return False
+
+
+def _has_instrumentation_capability() -> bool:
+    """Return whether model calls use the Instrumentation capability."""
+    try:
+        import pydantic_ai.capabilities.instrumentation  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def setup_autologging() -> None:
+    """Install the Pydantic AI 1.x autologging patches."""
+    from pydantic_ai import Agent
+
+    agent_methods = ["run", "run_sync", "run_stream"]
+    if hasattr(Agent, "run_stream_sync"):
+        agent_methods.append("run_stream_sync")
+
+    has_instrumentation_capability = _has_instrumentation_capability()
+    tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
+    class_map = {
+        "pydantic_ai.Agent": agent_methods,
+        tool_manager_path: ["execute_tool_call"]
+        if _tool_manager_uses_execute_tool_call()
+        else ["handle_call"],
+        "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
+    }
+    if not has_instrumentation_capability:
+        class_map["pydantic_ai.models.instrumented.InstrumentedModel"] = [
+            "request",
+            "request_stream",
+        ]
+
+    try:
+        from pydantic_ai import Tool
+
+        if hasattr(Tool, "run"):
+            class_map["pydantic_ai.Tool"] = ["run"]
+    except ImportError:
+        pass
+
+    original_init = Agent.__init__
+
+    @functools.wraps(original_init)
+    def patched_init(self, *args, **kwargs):
+        return patched_agent_init(original_init, self, *args, **kwargs)
+
+    patch = _wrap_patch(Agent, "__init__", patched_init)
+    _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
+
+    for cls_path, methods in class_map.items():
+        module_name, class_name = cls_path.rsplit(".", 1)
+        try:
+            module = __import__(module_name, fromlist=[class_name])
+            cls = getattr(module, class_name)
+        except (ImportError, AttributeError) as e:
+            _logger.error("Error importing %s: %s", cls_path, e)
+            continue
+
+        for method in methods:
+            try:
+                _patch_method(cls, method)
+            except AttributeError as e:
+                _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    if has_instrumentation_capability:
+        try:
+            from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+            safe_patch(
+                mlflow.pydantic_ai.FLAVOR_NAME,
+                Instrumentation,
+                "wrap_model_request",
+                patched_capability_model_request,
+            )
+        except (ImportError, AttributeError) as e:
+            _logger.error("Error patching Instrumentation.wrap_model_request: %s", e)
