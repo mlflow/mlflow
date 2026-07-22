@@ -1077,10 +1077,11 @@ def test_databricks_download_file_in_parallel_when_necessary(
             download_mock.assert_called()
 
 
-def test_databricks_download_file_get_request_fail(databricks_artifact_repo, test_file):
+def test_databricks_download_file_get_request_fail(databricks_artifact_repo):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
     )
+    artifact_path = "test.txt"
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
@@ -1090,8 +1091,25 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo, tes
         mock.patch("requests.Session.request", side_effect=MlflowException("MOCK ERROR")),
     ):
         with pytest.raises(MlflowException, match=r"MOCK ERROR"):
-            databricks_artifact_repo.download_artifacts(test_file)
-        read_credential_infos_mock.assert_called_with(test_file)
+            databricks_artifact_repo.download_artifacts(artifact_path)
+        read_credential_infos_mock.assert_called_with(artifact_path)
+
+
+def test_databricks_download_file_rejects_absolute_artifact_path(
+    databricks_artifact_repo, tmp_path
+):
+    # Artifact paths are POSIX-style. An absolute one resolves outside the download destination
+    # and must be rejected before any download is attempted. This is why the sibling tests use
+    # relative artifact paths.
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", return_value=[]
+    ) as list_artifacts_mock:
+        with pytest.raises(
+            MlflowException,
+            match="Invalid path: resolved path is outside the artifact directory",
+        ):
+            databricks_artifact_repo.download_artifacts("/etc/passwd", dst_path=str(tmp_path))
+        list_artifacts_mock.assert_called()
 
 
 def test_download_artifacts_awaits_download_completion(databricks_artifact_repo, tmp_path):

@@ -268,7 +268,14 @@ class RestMCPServerRegistryMixin:
             params["server_version"] = server_version
         if server_alias is not None:
             params["server_alias"] = server_alias
-        path = f"{_server_path(server_name)}/endpoints" if server_name else "/endpoints"
+        if server_name is None:
+            path = "/endpoints"
+        elif isinstance(server_name, str) and server_name.strip():
+            path = f"{_server_path(server_name)}/endpoints"
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "server_name must be a non-empty string when provided"
+            )
         data = self._mcp_request("GET", path, params=params)
         try:
             if not isinstance(data, dict):

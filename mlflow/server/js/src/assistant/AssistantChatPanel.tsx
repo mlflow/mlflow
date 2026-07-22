@@ -30,7 +30,8 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
-import type { ChatMessage, ToolUseInfo } from './types';
+import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
+import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
@@ -53,18 +54,112 @@ const DOTS_ANIMATION = {
   '100%': { content: '"..."' },
 };
 
+export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
+
+/**
+ * Coalesces an ordered part list into render groups, collapsing each maximal run of
+ * adjacent tool calls into a single `tools` group while preserving interleaving order.
+ */
+export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ kind: 'text', text: part.text });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'tools') {
+      groups[groups.length - 1] = { kind: 'tools', calls: [...last.calls, part] };
+    } else {
+      groups.push({ kind: 'tools', calls: [part] });
+    }
+  }
+  return groups;
+};
+
+/**
+ * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
+ * `content` for messages that predate the parts model.
+ */
+export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const { theme } = useDesignSystemTheme();
+  const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  // The markdown renderer leaves `---` as a default <hr> and headings with tight margins,
+  // so model-generated section breaks read cramped. Give rules and headings room to breathe.
+  const markdownSpacing = {
+    '& hr': {
+      margin: `${theme.spacing.lg}px 0`,
+      border: 'none',
+      borderTop: `1px solid ${theme.colors.border}`,
+    },
+    '& h1, & h2, & h3, & h4': { marginTop: theme.spacing.md },
+  };
+  return (
+    <>
+      {groupParts(parts).map((group, i) =>
+        group.kind === 'text' ? (
+          group.text ? (
+            // Assumption: Parts are append only, so this ID construction is stable and safe
+            <div key={`text-${i}`} css={markdownSpacing}>
+              <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
+            </div>
+          ) : null
+        ) : (
+          <ToolCallGroup key={group.calls[0].toolUseId} parts={group.calls} />
+        ),
+      )}
+    </>
+  );
+};
+
+/** Animated "working" indicator shown while the assistant streams a turn. */
+const StreamingIndicator = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <SparkleIcon
+        color="ai"
+        css={{ fontSize: 16, animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': PULSE_ANIMATION }}
+      />
+      <span
+        css={{
+          fontSize: theme.typography.fontSizeBase,
+          color: theme.colors.textSecondary,
+          '&::after': {
+            content: '"..."',
+            animation: 'dots 1.5s steps(3, end) infinite',
+            display: 'inline-block',
+            width: '1.2em',
+          },
+          '@keyframes dots': DOTS_ANIMATION,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Processing"
+          description="Processing indicator while Assistant is streaming a response"
+        />
+      </span>
+    </div>
+  );
+};
+
 /**
  * Single chat message bubble.
  */
 const ChatMessageBubble = ({
   message,
   isLastMessage,
-  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
-  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -101,7 +196,7 @@ const ChatMessageBubble = ({
         {isUser ? (
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
-          <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+          <AssistantMessageBody message={message} />
         )}
         {/* Interrupted indicator */}
         {message.isInterrupted && (
@@ -118,42 +213,7 @@ const ChatMessageBubble = ({
           </span>
         )}
         {/* Loading indicator */}
-        {message.isStreaming && (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.sm,
-            }}
-          >
-            <SparkleIcon
-              color="ai"
-              css={{
-                fontSize: 16,
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': PULSE_ANIMATION,
-              }}
-            />
-            <span
-              css={{
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textSecondary,
-                '&::after': {
-                  content: '"..."',
-                  animation: 'dots 1.5s steps(3, end) infinite',
-                  display: 'inline-block',
-                  width: '1.2em',
-                },
-                '@keyframes dots': DOTS_ANIMATION,
-              }}
-            >
-              {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? `Tool: ${activeTools[0].description}`
-                : 'Processing'}
-            </span>
-          </div>
-        )}
+        {message.isStreaming && <StreamingIndicator />}
       </div>
 
       {/* Action buttons for assistant messages */}
@@ -269,7 +329,6 @@ const ChatPanelContent = () => {
     messages,
     isStreaming,
     error,
-    activeTools,
     sendMessage,
     regenerateLastMessage,
     cancelSession,
@@ -374,7 +433,6 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
-              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );

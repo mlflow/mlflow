@@ -270,6 +270,8 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
+    AJAX_ONLINE_SCORING_CONFIG,
+    AJAX_ONLINE_SCORING_CONFIGS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
@@ -309,6 +311,8 @@ from mlflow.server.auth.routes import (
     LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USERS,
+    ONLINE_SCORING_CONFIG,
+    ONLINE_SCORING_CONFIGS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -324,10 +328,13 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _add_static_prefix,
+    _assert_array,
+    _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
+    _get_validated_flask_request_json,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -1286,6 +1293,34 @@ def validate_can_manage_scorer():
 
 def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
+
+
+def validate_can_update_online_scoring_config():
+    body = request.get_json(silent=True) or {}
+    experiment_id = body.get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_read_online_scoring_configs():
+    # Parse scorer_ids the same way the handler does (query params OR JSON body)
+    # so this gate can't be bypassed by moving scorer_ids into a GET request body.
+    # Omit _assert_required: an absent scorer_ids falls through to allow here and
+    # is handled by the handler's own validation, rather than raising in the gate.
+    request_json = _get_validated_flask_request_json(
+        request, schema={"scorer_ids": [_assert_array, _assert_item_type_string]}
+    )
+    scorer_ids = request_json.get("scorer_ids") or []
+    if not scorer_ids:
+        return True
+    username = authenticate_request().username
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    for config in configs:
+        if not _get_experiment_permission(config.experiment_id, username).can_read:
+            return False
+    return True
 
 
 def sender_is_admin():
@@ -2676,6 +2711,9 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
+    # Online scoring config endpoints are registered with view functions in the
+    # handler slot, so they cannot flow through this comprehension. Explicit
+    # validators for them are added in the update block below.
     if "/scorers/online-config" not in http_path
     # ``get_endpoints`` hardcodes the view function as the handler for explicitly
     # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
@@ -2769,6 +2807,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # Online scoring configuration (excluded from the auto generated map above).
+    (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
+    (AJAX_ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
 })
 
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
@@ -4552,6 +4595,13 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
                 raise
         return
 
+    # Only auto-grant MANAGE for create-server (``POST /mcp-servers`` with an
+    # empty suffix). Nested POSTs (``/tags``, ``/aliases``, ``/endpoints``, …)
+    # also reach this after-handler; granting from an arbitrary body ``name``
+    # would let an UPDATE-capable user escalate to MANAGE on another server.
+    if suffix:
+        return
+
     body = getattr(request.state, "raw_body", None)
     if not body:
         return
@@ -4824,9 +4874,11 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     2. Find the appropriate validator for the route
     3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
     4. Authenticate the request
-    5. Allow admins full access
-    6. Run the validator
-    7. Run after-request handlers on successful responses
+    5. Resolve workspace context (needed for validators and workspace-scoped after-handlers)
+    6. Allow admins to skip validators (full access) while still running after-handlers
+    7. Run the validator for non-admins
+    8. Run after-request handlers on successful responses (including for admins)
+    9. Apply response filters for non-admins
 
     Args:
         app: The FastAPI application instance.
@@ -4870,17 +4922,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         request.state.username = user.username
         request.state.user_id = user.id
 
-        # Admins have full access
-        if user.is_admin:
-            return await call_next(request)
-
         # The workspace-context middleware registered in ``create_fastapi_app`` runs
         # *inside* this middleware (Starlette runs the most recently added middleware
         # first), so the request workspace is not resolved yet when validators execute.
         # Workspace-scoped lookups inside validators (e.g. resolving a gateway endpoint
         # by name for the USE check) would fail and deny every non-admin request when
         # workspaces are enabled. Resolve and set the workspace for the validator run,
-        # mirroring ``workspace_context_middleware``.
+        # mirroring ``workspace_context_middleware``. Admins skip validators but still
+        # need this resolution so workspace-scoped after-handlers (e.g. MCP grant
+        # cleanup on delete) see the correct active workspace.
         try:
             workspace = resolve_workspace_for_request_if_enabled(
                 path, request.headers.get(WORKSPACE_HEADER_NAME)
@@ -4898,42 +4948,66 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if after_handler is not None:
             request.state.raw_body = await request.body()
 
-        # Run the validator
-        try:
-            if not await validator(user.username, request):
+        # Admins have full access: skip validators only. Flask's ``_before_request``
+        # similarly returns early for admins while ``_after_request`` still runs;
+        # mirror that here so delete cleanup (``_mcp_server_after_delete``) cannot
+        # be bypassed — otherwise recreating the same server name would restore
+        # previously authorized users' grants (CWE-862).
+        if not user.is_admin:
+            try:
+                if not await validator(user.username, request):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except MlflowException as e:
                 return PlainTextResponse(
-                    "Permission denied",
-                    status_code=HTTPStatus.FORBIDDEN,
+                    e.message,
+                    status_code=e.get_http_status_code(),
                 )
-        except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
-                status_code=e.get_http_status_code(),
-            )
-        finally:
+            finally:
+                workspace_context.clear_server_request_workspace()
+        else:
             workspace_context.clear_server_request_workspace()
 
         response = await call_next(request)
 
         if after_handler is not None and response.status_code < 400:
+            # After-handlers such as ``_mcp_server_after_delete`` use
+            # workspace-scoped grant sweeps; re-bind the workspace that was
+            # cleared before ``call_next`` (inner middleware uses a copied
+            # ContextVar context that does not propagate back).
+            workspace_context.set_server_request_workspace(workspace.name if workspace else None)
             try:
                 after_handler(user.username, request)
             except Exception:
                 _logger.exception("after-request handler failed for %s %s", request.method, path)
+            finally:
+                workspace_context.clear_server_request_workspace()
 
-        response_filter = _find_fastapi_response_filter(path, request.method)
-        if response_filter is not None and response.status_code < 400:
-            body = bytearray()
-            async for chunk in response.body_iterator:
-                body.extend(chunk)
-            return _apply_fastapi_response_filter(
-                response_filter=response_filter,
-                username=user.username,
-                body=bytes(body),
-                request=request,
-                response=response,
-                path=path,
-            )
+        # Response filters are RBAC-based; admins retain unfiltered full access.
+        if not user.is_admin:
+            response_filter = _find_fastapi_response_filter(path, request.method)
+            if response_filter is not None and response.status_code < 400:
+                body = bytearray()
+                async for chunk in response.body_iterator:
+                    body.extend(chunk)
+                # Same ContextVar copy issue as after-handlers: re-bind workspace
+                # so RBAC predicates / backfill use the active workspace.
+                workspace_context.set_server_request_workspace(
+                    workspace.name if workspace else None
+                )
+                try:
+                    return _apply_fastapi_response_filter(
+                        response_filter=response_filter,
+                        username=user.username,
+                        body=bytes(body),
+                        request=request,
+                        response=response,
+                        path=path,
+                    )
+                finally:
+                    workspace_context.clear_server_request_workspace()
 
         return response
 

@@ -588,7 +588,7 @@ def test_create_version_invalid_package_shape_returns_mlflow_error(client):
     assert "server_json.packages.0.registryType" in r.json()["message"]
 
 
-def test_create_version_invalid_server_name_rejected(client):
+def test_create_version_rejects_non_namespaced_server_name(client):
     r = client.post(
         PREFIX + "/my-server/versions",
         json={"server_json": {"name": "my-server", "version": "1.0.0"}},

@@ -3209,7 +3209,6 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
     with User(username, password, monkeypatch):
         experiment_id = client.create_experiment("test_experiment")
 
-        # Register a scorer
         scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
         response = _send_rest_tracking_post_request(
             client.tracking_uri,
@@ -3223,20 +3222,105 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         )
         scorer_id = response.json()["scorer_id"]
 
-        # Test the online scoring configs endpoint (GET)
-        # This should not raise a TypeError as it did before when the endpoint
-        # was incorrectly included in AFTER_REQUEST_HANDLERS
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/online-configs",
             params={"scorer_ids": scorer_id},
             auth=(username, password),
         )
 
-        # Should return 200 (not 500 with TypeError)
         assert response.status_code == 200
         data = response.json()
         assert "configs" in data
         assert isinstance(data["configs"], list)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_online_scoring_config_endpoints_reject_unauthorized_user(client, monkeypatch):
+    owner_user, owner_pw = create_user(client.tracking_uri)
+    attacker_user, attacker_pw = create_user(client.tracking_uri)
+
+    with User(owner_user, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("online_scoring_auth_exp")
+
+        scorer_json = '{"name": "target_scorer", "type": "pyfunc"}'
+        register_resp = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        scorer_id = register_resp.json()["scorer_id"]
+
+        # Under no_permission_auth.ini the default permission is NO_PERMISSIONS, so the
+        # attacker (who is never granted access to this experiment) is unauthorized by
+        # default. The owner auto-receives MANAGE on the experiment they create.
+
+        # Seed a config so validate_can_read_online_scoring_configs has a row
+        # to resolve ownership against (empty results short circuit to allow).
+        # sample_rate=0.0 skips the handler's gateway model check on the scorer.
+        seed_resp = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        assert seed_resp.status_code == 200
+
+    for path in (
+        "/api/3.0/mlflow/scorers/online-configs",
+        "/ajax-api/3.0/mlflow/scorers/online-configs",
+    ):
+        response = requests.get(
+            url=client.tracking_uri + path,
+            params={"scorer_ids": scorer_id},
+            auth=(attacker_user, attacker_pw),
+        )
+        assert response.status_code == 403
+
+    for path in (
+        "/api/3.0/mlflow/scorers/online-config",
+        "/ajax-api/3.0/mlflow/scorers/online-config",
+    ):
+        response = requests.put(
+            url=client.tracking_uri + path,
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(attacker_user, attacker_pw),
+        )
+        assert response.status_code == 403
+
+    with User(owner_user, owner_pw, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-configs",
+            params={"scorer_ids": scorer_id},
+            auth=(owner_user, owner_pw),
+        )
+        assert response.status_code == 200
+
+        response = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": "target_scorer",
+                "sample_rate": 0.0,
+            },
+            auth=(owner_user, owner_pw),
+        )
+        assert response.status_code == 200
 
 
 def test_list_users(client):
@@ -4438,6 +4522,57 @@ def test_mcp_server_delete_cascades_grants(fastapi_client, monkeypatch, prefix):
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_admin_delete_cascades_grants(fastapi_client, monkeypatch, prefix):
+    """Admin delete must still run ``_mcp_server_after_delete`` grant cleanup.
+
+    Admins skip FastAPI validators (full access) but must not skip after-request
+    handlers — otherwise recreating the same server name restores stale grants.
+    """
+    creator, creator_pw = create_user(fastapi_client.tracking_uri)
+    other, other_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": "com.test/admin-cascade-server"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": other,
+            "resource_type": "mcp_server",
+            "resource_id": "com.test/admin-cascade-server",
+            "permission": "MANAGE",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    # Admin deletes the server — after-handler must cascade-delete grants.
+    requests.delete(
+        url=fastapi_client.tracking_uri + f"{prefix}/com.test/admin-cascade-server",
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": "com.test/admin-cascade-server"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    with User(other, other_pw, monkeypatch):
+        response = requests.patch(
+            url=fastapi_client.tracking_uri + f"{prefix}/com.test/admin-cascade-server",
+            json={"description": "should fail"},
+            auth=(other, other_pw),
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_tracks_created_by(fastapi_client, monkeypatch, prefix):
     username, password = create_user(fastapi_client.tracking_uri)
 
@@ -5030,6 +5165,53 @@ def test_mcp_server_nested_post_does_not_escalate_existing_grant(
     )
     assert resp.status_code == 200
     assert resp.json()["permission"] == "EDIT"
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_nested_post_body_name_does_not_grant_manage(
+    fastapi_client, monkeypatch, prefix
+):
+    # Nested POSTs must not auto-grant MANAGE from an injected body ``name``.
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    owned = "com.test/owned-for-tags"
+    victim = "com.test/victim-server"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": owned},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": victim},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": editor,
+            "resource_type": "mcp_server",
+            "resource_id": owned,
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(editor, editor_pw, monkeypatch):
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{owned}/tags",
+            json={"key": "k", "value": "v", "name": victim},
+            auth=(editor, editor_pw),
+        ).raise_for_status()
+
+    # No grant on the victim server — DELETE must still be forbidden.
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.delete(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{victim}",
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 403
 
 
 @pytest.mark.parametrize(

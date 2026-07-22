@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from '../../../common/u
 import { RunPage } from '../../components/run-page/RunPage';
 import { ExperimentPageTabName, RunPageTabName, MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
 import Routes from '../../routes';
-import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
+import { getPreservedQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
 
@@ -18,7 +18,7 @@ export const IssueDetectionRunDetailsPage = () => {
   const [searchParams] = useSearchParams();
 
   const safeExperimentId = experimentId as string;
-  const timeRangeSearch = useMemo(() => getTimeRangeQueryString(searchParams.toString()), [searchParams]);
+  const timeRangeSearch = useMemo(() => getPreservedQueryString(searchParams.toString()), [searchParams]);
 
   // Fetch experiment data for breadcrumb
   const { data: experiment } = useGetExperimentQuery({ experimentId: safeExperimentId });

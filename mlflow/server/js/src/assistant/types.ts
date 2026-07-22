@@ -1,10 +1,57 @@
+/**
+ * Lifecycle of a single tool call: `Running` until the matching tool_result
+ * arrives, then `Done`/`Error` depending on whether the tool failed.
+ */
+export const ToolCallStatus = {
+  Running: 'running',
+  Done: 'done',
+  Error: 'error',
+} as const;
+export type ToolCallStatus = (typeof ToolCallStatus)[keyof typeof ToolCallStatus];
+
+/**
+ * One piece of an assistant turn — a text segment or a tool call — mirroring the
+ * "message parts" model chat SDKs use (e.g. the Vercel AI SDK's `UIMessage.parts`;
+ * the Anthropic API calls the equivalents "content blocks"). A turn is an ordered
+ * list of these, not a single string. They're kept in arrival order so the transcript
+ * can show tool calls interleaved with the narration, and so tool results/status
+ * (filled in later) render where they happened.
+ */
+export type AssistantPart =
+  | { type: 'text'; text: string }
+  | {
+      type: 'toolCall';
+      toolUseId: string;
+      name: string;
+      input?: Record<string, any>;
+      status?: ToolCallStatus;
+      // Normalized tool output (string) once the tool_result arrives.
+      result?: string;
+    };
+
+/**
+ * Result of a tool the assistant called, correlated to its tool call by `toolUseId`.
+ */
+export interface ToolResultInfo {
+  toolUseId: string;
+  content: string;
+  isError: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
+  /**
+   * Plain-text mirror of the message. For assistant messages this is the
+   * concatenation of the text parts (used for copy and as a fallback when
+   * `parts` is absent, e.g. legacy messages).
+   */
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
   isInterrupted?: boolean;
+  /** Ordered parts (text + tool calls) for assistant messages. */
+  parts?: AssistantPart[];
 }
 
 /**
@@ -65,6 +112,18 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** Cumulative token usage reported by the provider for the current session. */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /**
+   * Estimated cumulative cost in USD, or null when no turn could be priced
+   * (e.g. local/unknown models absent from the pricing catalog).
+   */
+  costUsd: number | null;
+}
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -92,6 +151,8 @@ export interface AssistantAgentState {
   pendingPermission: PermissionRequest | null;
   /** Whether the Assistant can be used from this client, considering server-side remote-access settings */
   canUseAssistant: boolean;
+  /** Cumulative token usage for the session (best-effort; only some providers report it) */
+  tokenUsage: TokenUsage;
 }
 
 export interface AssistantAgentActions {
