@@ -308,6 +308,7 @@ class _StreamedRunResultSyncWrapper:
     def __init__(self, result, span: LiveSpan):
         self._result = result
         self._span = span
+        self._has_result_lifecycle = hasattr(result, "__exit__")
         self._closed = False
         self._finalized = False
 
@@ -318,8 +319,51 @@ class _StreamedRunResultSyncWrapper:
         if self._closed:
             return None
         self._closed = True
+        if not self._has_result_lifecycle:
+            return None
         with self._use_span_context():
             return self._result.__exit__(exc_type, exc_value, traceback)
+
+    def _end_unfinished_child_spans(self) -> None:
+        """Finish spans suspended by early Pydantic AI 2.x sync streaming.
+
+        Early 2.x implemented ``run_stream_sync`` by advancing the async
+        ``run_stream`` context manager to its first yield and did not expose a
+        public close method. Consequently, its nested agent and model spans
+        cannot exit naturally. Newer 2.x results implement ``__exit__`` and do
+        not use this compatibility path.
+        """
+        if self._has_result_lifecycle:
+            return
+
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+        manager = InMemoryTraceManager.get_instance()
+        if manager is None:
+            return
+
+        with manager.get_trace(self._span.request_id) as trace:
+            if trace is None:
+                return
+
+            unfinished = [
+                span
+                for span in trace.span_dict.values()
+                if span.span_id != self._span.span_id and span.end_time_ns is None
+            ]
+
+            # End descendants before parents so the completed trace retains the
+            # natural run_stream_sync -> run_stream -> model hierarchy.
+            def depth(span):
+                depth = 0
+                parent_id = span.parent_id
+                while parent_id and (parent := trace.span_dict.get(parent_id)):
+                    depth += 1
+                    parent_id = parent.parent_id
+                return depth
+
+            for child_span in sorted(unfinished, key=depth, reverse=True):
+                child_span.end()
 
     def _end_span(self, exception: BaseException | None = None) -> None:
         try:
@@ -338,6 +382,7 @@ class _StreamedRunResultSyncWrapper:
 
         try:
             suppress = self._close_result(exc_type, exc_value, traceback)
+            self._end_unfinished_child_spans()
         except BaseException as cleanup_error:
             self._end_span(cleanup_error)
             raise
@@ -376,7 +421,8 @@ class _StreamedRunResultSyncWrapper:
                 self._finalize()
 
     def __enter__(self):
-        self._result.__enter__()
+        if self._has_result_lifecycle:
+            self._result.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
