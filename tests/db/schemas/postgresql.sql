@@ -141,6 +141,66 @@ CREATE TABLE secrets (
 )
 
 
+CREATE TABLE sql_assessment_daily_rollups (
+	id BIGINT DEFAULT nextval('sql_assessment_daily_rollups_id_seq'::regclass) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE PRECISION,
+	min_value DOUBLE PRECISION,
+	max_value DOUBLE PRECISION,
+	CONSTRAINT sql_assessment_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_span_cost_daily_rollups (
+	id BIGINT DEFAULT nextval('sql_span_cost_daily_rollups_id_seq'::regclass) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE PRECISION,
+	min_value DOUBLE PRECISION,
+	max_value DOUBLE PRECISION,
+	CONSTRAINT sql_span_cost_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_metric_daily_rollups (
+	id BIGINT DEFAULT nextval('sql_trace_metric_daily_rollups_id_seq'::regclass) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	trace_status VARCHAR(50),
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE PRECISION,
+	min_value DOUBLE PRECISION,
+	max_value DOUBLE PRECISION,
+	p50_value DOUBLE PRECISION,
+	p90_value DOUBLE PRECISION,
+	p99_value DOUBLE PRECISION,
+	CONSTRAINT sql_trace_metric_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_rollup_rebuild_queue (
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	rollup_family VARCHAR(50) NOT NULL,
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+)
+
+
 CREATE TABLE webhooks (
 	webhook_id VARCHAR(256) NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -447,6 +507,16 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT 0 NOT NULL,
+	trace_name VARCHAR(500),
+	session_id VARCHAR(500),
+	input_tokens DOUBLE PRECISION,
+	output_tokens DOUBLE PRECISION,
+	total_tokens DOUBLE PRECISION,
+	cache_read_input_tokens DOUBLE PRECISION,
+	cache_creation_input_tokens DOUBLE PRECISION,
+	input_cost DOUBLE PRECISION,
+	output_cost DOUBLE PRECISION,
+	total_cost DOUBLE PRECISION,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
@@ -478,6 +548,10 @@ CREATE TABLE assessments (
 	overrides VARCHAR(50),
 	valid BOOLEAN NOT NULL,
 	assessment_metadata TEXT,
+	experiment_id INTEGER,
+	trace_timestamp_ms BIGINT,
+	aggregate_value DOUBLE PRECISION,
+	is_numeric_value BOOLEAN DEFAULT false NOT NULL,
 	CONSTRAINT assessments_pk PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
@@ -700,6 +774,11 @@ CREATE TABLE spans (
 	duration_ns BIGINT GENERATED ALWAYS AS ((end_time_unix_nano - start_time_unix_nano)) STORED,
 	content TEXT NOT NULL,
 	dimension_attributes JSON,
+	input_cost DOUBLE PRECISION,
+	output_cost DOUBLE PRECISION,
+	total_cost DOUBLE PRECISION,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE

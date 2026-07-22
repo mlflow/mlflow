@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+from datetime import date
 
 import pytest
 import sqlalchemy
@@ -452,6 +453,36 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "transport_type": "streamable-http",
             "created_at": seed,
             "last_updated_at": seed,
+        },
+        "sql_trace_metric_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_span_cost_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_assessment_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_trace_rollup_rebuild_queue": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "rollup_family": f"family_{seed}",
         },
     }
     if table_name not in base_values:
