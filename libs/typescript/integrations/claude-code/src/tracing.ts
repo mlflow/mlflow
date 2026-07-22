@@ -394,8 +394,12 @@ function createLlmAndToolSpans(
 
       setTokenUsageAttribute(llmSpan, usage);
 
-      // Compute cost from model + usage. Databricks does not compute it server-side
-      // and the TS SDK has none, so the plugin must set it for the cost column to fill.
+      // Compute cost from model + usage on every backend. Databricks does not
+      // compute it server-side, and the OSS server's computation
+      // (sqlalchemy_store.log_spans) never sees these spans because the TS SDK
+      // exports trace data as an artifact blob. If the SDK adopts the span-row
+      // export, scope this to Databricks like Python's
+      // should_compute_cost_client_side().
       const cost = calculateCost(model, usage);
       if (cost) {
         llmSpan.setAttribute(LLM_COST_ATTRIBUTE, cost);
