@@ -234,6 +234,32 @@ def test_tool_retry_does_not_suppress_successful_retry_span():
 
 
 @pytest.mark.asyncio
+async def test_disabled_tracing_bypasses_async_hook_instrumentation():
+    mlflow.pydantic_ai.autolog(log_traces=False)
+    instrumentation = Instrumentation()
+    call = ToolCallPart(tool_name="add", args={"left": 1, "right": 2})
+    tool_def = ToolDefinition(name="add", parameters_json_schema={})
+    handler_call_count = 0
+
+    async def handler(args):
+        nonlocal handler_call_count
+        handler_call_count += 1
+        return args["left"] + args["right"]
+
+    result = await instrumentation.wrap_tool_execute(
+        None,
+        call=call,
+        tool_def=tool_def,
+        args=call.args,
+        handler=handler,
+    )
+
+    assert result == 3
+    assert handler_call_count == 1
+    assert get_traces() == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure_point", ["before", "after"])
 async def test_tool_autologging_failure_does_not_affect_tool_result(
     monkeypatch,

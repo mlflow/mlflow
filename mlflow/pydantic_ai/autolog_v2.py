@@ -188,18 +188,6 @@ async def patched_capability_tool_validate_error(
     error,
     **kwargs,
 ):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
-        return await original(
-            self,
-            ctx,
-            call=call,
-            tool_def=tool_def,
-            args=args,
-            error=error,
-            **kwargs,
-        )
-
     with mlflow.start_span(
         name=f"{call.tool_name}.validation",
         span_type=SpanType.PARSER,
@@ -227,18 +215,6 @@ async def patched_capability_tool_execute(
     handler,
     **kwargs,
 ):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
-        return await original(
-            self,
-            ctx,
-            call=call,
-            tool_def=tool_def,
-            args=args,
-            handler=handler,
-            **kwargs,
-        )
-
     with mlflow.start_span(name=call.tool_name, span_type=SpanType.TOOL) as span:
         span.set_inputs(args)
         result = await original(
@@ -276,17 +252,6 @@ async def patched_mcp_direct_call_tool(
     use_task=False,
     **kwargs,
 ):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
-        return await original(
-            self,
-            name,
-            args,
-            metadata=metadata,
-            use_task=use_task,
-            **kwargs,
-        )
-
     with mlflow.start_span(name="MCPToolset.direct_call_tool", span_type=SpanType.TOOL) as span:
         span.set_inputs({"name": name, "args": args})
         result = await original(
@@ -414,38 +379,39 @@ def _patch_streaming_method(cls, method_name, wrapper_func) -> None:
     _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
 
 
-def _patch_async_method(cls, method_name, wrapper_func) -> None:
-    original = getattr(cls, method_name)
+# Pydantic AI uses exceptions such as ModelRetry for control flow. General safe_patch would
+# mark the shared autologging session as failed and suppress tracing for the successful retry.
+def _safe_patch_async_hook(destination, function_name, patch_function) -> None:
+    original = getattr(destination, function_name)
 
     @functools.wraps(original)
     async def patched_method(self, *args, **kwargs):
+        original_has_been_called = False
         original_result = None
-        original_succeeded = False
-        original_exception = None
-        original_traceback = None
+        failed_during_original = False
 
+        @functools.wraps(original)
         async def call_original(*original_args, **original_kwargs):
-            nonlocal original_exception
+            nonlocal failed_during_original
+            nonlocal original_has_been_called
             nonlocal original_result
-            nonlocal original_succeeded
-            nonlocal original_traceback
 
+            original_has_been_called = True
             try:
                 original_result = await original(*original_args, **original_kwargs)
-                original_succeeded = True
                 return original_result
-            except BaseException as e:
-                original_exception = e
-                original_traceback = e.__traceback__
+            except BaseException:
+                failed_during_original = True
                 raise
 
         try:
-            return await wrapper_func(call_original, self, *args, **kwargs)
+            config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+            if not config.log_traces:
+                return await call_original(self, *args, **kwargs)
+            return await patch_function(call_original, self, *args, **kwargs)
         except BaseException as patch_error:
-            # Pydantic AI uses exceptions such as ModelRetry for agent control flow. Preserve any
-            # exception raised by the original hook instead of treating it as an MLflow failure.
-            if original_exception is not None:
-                raise original_exception.with_traceback(original_traceback)
+            if failed_during_original:
+                raise
             if not isinstance(patch_error, Exception) or is_testing():
                 raise
 
@@ -461,11 +427,11 @@ def _patch_async_method(cls, method_name, wrapper_func) -> None:
 
             # The original call may already have produced a result before an MLflow postamble
             # failed. Return it rather than executing a tool or transport operation twice.
-            if original_succeeded:
+            if original_has_been_called:
                 return original_result
             return await original(self, *args, **kwargs)
 
-    patch = _wrap_patch(cls, method_name, patched_method)
+    patch = _wrap_patch(destination, function_name, patched_method)
     _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
 
 
@@ -496,12 +462,12 @@ def setup_autologging() -> None:
         "wrap_model_request",
         patched_capability_model_request,
     )
-    _patch_async_method(
+    _safe_patch_async_hook(
         Instrumentation,
         "on_tool_validate_error",
         patched_capability_tool_validate_error,
     )
-    _patch_async_method(
+    _safe_patch_async_hook(
         Instrumentation,
         "wrap_tool_execute",
         patched_capability_tool_execute,
@@ -512,7 +478,7 @@ def setup_autologging() -> None:
         "list_tools",
         patched_mcp_list_tools,
     )
-    _patch_async_method(
+    _safe_patch_async_hook(
         MCPToolset,
         "direct_call_tool",
         patched_mcp_direct_call_tool,
