@@ -2,22 +2,19 @@ import { useMemo } from 'react';
 
 import { useQuery } from '../../query-client/queryClient';
 
-import { isV3ModelTraceInfo, parseV4TraceIdToObject } from '../ModelTraceExplorer.utils';
+import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { fetchTraceInfoV3 } from '../api';
 import { getExperimentPageTracesTabRoute } from '../routes';
 
 const SPAN_LINK_TRACE_INFO_QUERY_KEY = 'SPAN_LINK_TRACE_INFO';
 
+// Only supports V3 trace IDs (tr-...). V4/UC traces skip link materialization
+// in the Python layer, so trace:/<location>/<hex> IDs won't appear here.
 export const useSpanLinkHref = (traceId: string | undefined): string | undefined => {
-  const resolvedTraceId = useMemo(() => {
-    if (!traceId) return undefined;
-    return parseV4TraceIdToObject(traceId)?.trace_id ?? traceId;
-  }, [traceId]);
-
   const { data } = useQuery({
-    queryKey: [SPAN_LINK_TRACE_INFO_QUERY_KEY, resolvedTraceId],
-    queryFn: () => fetchTraceInfoV3({ traceId: resolvedTraceId ?? '' }),
-    enabled: Boolean(resolvedTraceId),
+    queryKey: [SPAN_LINK_TRACE_INFO_QUERY_KEY, traceId],
+    queryFn: () => fetchTraceInfoV3({ traceId: traceId ?? '' }),
+    enabled: Boolean(traceId),
     refetchOnWindowFocus: false,
     retry: false,
     staleTime: Infinity,
@@ -42,6 +39,6 @@ export const useSpanLinkHref = (traceId: string | undefined): string | undefined
       return undefined;
     }
 
-    return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${resolvedTraceId}`;
-  }, [traceId, resolvedTraceId, data?.trace]);
+    return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+  }, [traceId, data?.trace]);
 };
