@@ -91,7 +91,7 @@ def _scorer_config(name="test_scorer"):
         "serialized_scorer": json.dumps(scorer.model_dump()),
         "builtin": {"name": name},
         "sample_rate": 0.0,
-        "version": 1,
+        "scorer_version": 1,
     }
 
 
@@ -119,7 +119,7 @@ def _instructions_judge_config(name="instructions_judge_scorer"):
         }),
         "custom": {},
         "sample_rate": 0.0,
-        "version": 1,
+        "scorer_version": 1,
     }
 
 
@@ -135,38 +135,52 @@ def scorer_http():
         yield mock_http
 
 
-def test_list_scorers_does_not_require_agents_sdk(scorer_http):
-    scorer_http.return_value = _scheduled_scorers_response([])
+def test_list_scorers_still_requires_agents_sdk(scorer_http):
+    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+        list_scorers(experiment_id="test_experiment")
 
-    assert list_scorers(experiment_id="test_experiment") == []
+    scorer_http.assert_not_called()
 
 
-def test_list_scorers_with_databricks_instructions_judge_does_not_require_agents_sdk(
+def test_versioned_get_with_databricks_instructions_judge_does_not_require_agents_sdk(
     scorer_http,
 ):
     config = _instructions_judge_config()
-    scorer_http.return_value = _scheduled_scorers_response([config])
+    scorer_key = DatabricksStore._scorer_resource_key("instructions_judge_scorer")
+    version_config = {
+        **config,
+        "name": f"experiments/test_experiment/scorers/{scorer_key}/versions/1",
+        "display_name": "instructions_judge_scorer",
+    }
+    scorer_http.side_effect = [
+        _mock_response(version_config),
+        _scheduled_scorers_response([config]),
+    ]
 
-    scorers = list_scorers(experiment_id="test_experiment")
+    scorer = get_scorer(
+        name="instructions_judge_scorer",
+        experiment_id="test_experiment",
+        version=1,
+    )
 
-    assert [scorer.name for scorer in scorers] == ["instructions_judge_scorer"]
-    assert scorers[0].model == "databricks"
+    assert scorer.name == "instructions_judge_scorer"
+    assert scorer.model == "databricks"
 
 
-def test_get_scorer_does_not_require_agents_sdk(scorer_http):
-    config = _scorer_config()
-    scorer_http.return_value = _scheduled_scorers_response([config])
+def test_get_latest_scorer_still_requires_agents_sdk(scorer_http):
+    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+        get_scorer(name="test_scorer", experiment_id="test_experiment")
 
-    assert get_scorer(name="test_scorer", experiment_id="test_experiment").name == "test_scorer"
+    scorer_http.assert_not_called()
 
 
 def test_versioned_scorer_crud_does_not_require_agents_sdk(scorer_http):
     config = _scorer_config()
     scorer_key = DatabricksStore._scorer_resource_key("test_scorer")
     version_config = {
-        "name": f"experiments/test_experiment/scheduledScorers/{scorer_key}/versions/1",
+        "name": f"experiments/test_experiment/scorers/{scorer_key}/versions/1",
         "display_name": "test_scorer",
-        "version": 1,
+        "scorer_version": 1,
         "serialized_scorer": config["serialized_scorer"],
         "builtin": {"name": "test_scorer"},
     }
@@ -176,7 +190,7 @@ def test_versioned_scorer_crud_does_not_require_agents_sdk(scorer_http):
         _scheduled_scorers_response([config]),
         _mock_response(version_config),
         _scheduled_scorers_response([config]),
-        _mock_response({"scheduled_scorer_versions": [version_config]}),
+        _mock_response({"scorer_versions": [version_config]}),
         _scheduled_scorers_response([config]),
         _mock_response({}),
     ]
@@ -195,13 +209,24 @@ def test_versioned_scorer_crud_does_not_require_agents_sdk(scorer_http):
     assert scorer_http.call_args_list[-1].kwargs["method"] == "DELETE"
 
 
-def test_delete_scorer_does_not_require_agents_sdk(scorer_http):
+def test_delete_scorer_without_version_still_requires_agents_sdk(scorer_http):
+    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+        delete_scorer(experiment_id="test_experiment", name="test_scorer")
+
+    scorer_http.assert_not_called()
+
+
+def test_delete_all_scorer_versions_does_not_require_agents_sdk(scorer_http):
     config = _scorer_config()
     scorer_http.side_effect = [
         _scheduled_scorers_response([config]),
         _scheduled_scorers_response([]),
     ]
 
-    delete_scorer(experiment_id="test_experiment", name="test_scorer")
+    delete_scorer(
+        experiment_id="test_experiment",
+        name="test_scorer",
+        version="all",
+    )
 
     assert scorer_http.call_args_list[1].kwargs["method"] == "PATCH"

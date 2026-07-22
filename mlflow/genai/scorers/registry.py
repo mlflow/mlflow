@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
     SCORER_BACKEND_TRACKING,
@@ -358,10 +359,10 @@ class DatabricksStore(AbstractScorerStore):
     def _scheduled_scorers_endpoint(self, experiment_id: str) -> str:
         return f"{self._MANAGED_EVALS_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
 
-    def _scheduled_scorer_resource_parent(self, experiment_id: str, name: str) -> str:
+    def _scorer_version_resource_parent(self, experiment_id: str, name: str) -> str:
         return (
             f"experiments/{self._encode_path_param(experiment_id)}"
-            f"/scheduledScorers/{self._scorer_resource_key(name)}"
+            f"/scorers/{self._scorer_resource_key(name)}"
         )
 
     @staticmethod
@@ -372,19 +373,17 @@ class DatabricksStore(AbstractScorerStore):
             )
         return version
 
-    def _scheduled_scorer_version_resource_name(
-        self, experiment_id: str, name: str, version: int
-    ) -> str:
+    def _scorer_version_resource_name(self, experiment_id: str, name: str, version: int) -> str:
         version = self._validate_version(version)
-        parent = self._scheduled_scorer_resource_parent(experiment_id, name)
+        parent = self._scorer_version_resource_parent(experiment_id, name)
         return f"{parent}/versions/{version}"
 
     def _scorer_version_endpoint(self, experiment_id: str, name: str, version: int) -> str:
-        resource_name = self._scheduled_scorer_version_resource_name(experiment_id, name, version)
+        resource_name = self._scorer_version_resource_name(experiment_id, name, version)
         return f"{self._MANAGED_EVALS_BASE}/{resource_name}"
 
     def _scorer_versions_endpoint(self, experiment_id: str, name: str) -> str:
-        parent = self._scheduled_scorer_resource_parent(experiment_id, name)
+        parent = self._scorer_version_resource_parent(experiment_id, name)
         return f"{self._MANAGED_EVALS_BASE}/{parent}/versions"
 
     def _request(
@@ -416,7 +415,7 @@ class DatabricksStore(AbstractScorerStore):
 
     @staticmethod
     def _get_config_version(config: dict[str, Any]) -> int:
-        return config.get("version", 1)
+        return config.get("scorer_version", 1)
 
     @staticmethod
     def _scorer_type_fields(serialized: dict[str, Any]) -> dict[str, Any]:
@@ -437,7 +436,7 @@ class DatabricksStore(AbstractScorerStore):
         scorer: Scorer,
         sample_rate: float | None,
         filter_string: str | None,
-        version: int | None = None,
+        scorer_version: int | None = None,
     ) -> dict[str, Any]:
         serialized_scorer = scorer.model_dump()
         config: dict[str, Any] = {
@@ -449,8 +448,8 @@ class DatabricksStore(AbstractScorerStore):
             config["sample_rate"] = sample_rate
         if filter_string is not None:
             config["filter_string"] = filter_string
-        if version is not None:
-            config["version"] = version
+        if scorer_version is not None:
+            config["scorer_version"] = scorer_version
         return config
 
     def _list_current_scorer_configs(self, experiment_id: str) -> list[dict[str, Any]]:
@@ -550,7 +549,7 @@ class DatabricksStore(AbstractScorerStore):
                         updated_config[key] = config[key]
                     else:
                         updated_config.pop(key, None)
-                updated_config["version"] = self._get_config_version(config)
+                updated_config["scorer_version"] = self._get_config_version(config)
                 configs[i] = updated_config
                 replaced = True
                 break
@@ -624,26 +623,51 @@ class DatabricksStore(AbstractScorerStore):
         )
 
     @staticmethod
+    def _scheduled_scorer_to_scorer(
+        scheduled_scorer: ScorerScheduleConfig, experiment_id: str
+    ) -> Scorer:
+        scorer = scheduled_scorer.scorer
+        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
+        scorer._experiment_id = experiment_id
+        scorer._sampling_config = ScorerSamplingConfig(
+            sample_rate=scheduled_scorer.sample_rate,
+            filter_string=scheduled_scorer.filter_string,
+        )
+        scorer._registered_scorer_version = getattr(scheduled_scorer, "scorer_version", None)
+        return scorer
+
+    @staticmethod
     def list_scheduled_scorers(experiment_id):
-        store = _get_scorer_store()
-        experiment_id = experiment_id or _get_experiment_id()
-        return [
-            store._config_to_scorer(config, experiment_id)
-            for config in store._list_current_scorer_configs(experiment_id)
-        ]
+        try:
+            from databricks.agents.scorers import list_scheduled_scorers
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        return list_scheduled_scorers(experiment_id=experiment_id)
 
     @staticmethod
     def get_scheduled_scorer(name, experiment_id):
-        store = _get_scorer_store()
-        experiment_id = experiment_id or _get_experiment_id()
-        return store._config_to_scorer(
-            store._find_current_scorer_config(experiment_id, name),
-            experiment_id,
+        try:
+            from databricks.agents.scorers import get_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        return get_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
         )
 
     @staticmethod
     def delete_scheduled_scorer(experiment_id, name):
-        _get_scorer_store()._delete_current_scorer(experiment_id, name)
+        try:
+            from databricks.agents.scorers import delete_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        delete_scheduled_scorer(
+            experiment_id=experiment_id,
+            scheduled_scorer_name=name,
+        )
 
     def update_registered_scorer(
         self,
@@ -694,8 +718,8 @@ class DatabricksStore(AbstractScorerStore):
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         experiment_id = experiment_id or _get_experiment_id()
         return [
-            self._config_to_scorer(config, experiment_id)
-            for config in self._list_current_scorer_configs(experiment_id)
+            self._scheduled_scorer_to_scorer(scheduled_scorer, experiment_id)
+            for scheduled_scorer in self.list_scheduled_scorers(experiment_id)
         ]
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
@@ -714,9 +738,8 @@ class DatabricksStore(AbstractScorerStore):
             )
 
         experiment_id = experiment_id or _get_experiment_id()
-        return self._config_to_scorer(
-            self._find_current_scorer_config(experiment_id, name),
-            experiment_id,
+        return self._scheduled_scorer_to_scorer(
+            self.get_scheduled_scorer(name, experiment_id), experiment_id
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
@@ -729,7 +752,7 @@ class DatabricksStore(AbstractScorerStore):
             if page_token:
                 params["page_token"] = page_token
             response = self._request("GET", endpoint, params=params or None)
-            configs.extend(response.get("scheduled_scorer_versions", []))
+            configs.extend(response.get("scorer_versions", []))
             page_token = response.get("next_page_token")
             if not page_token:
                 break
@@ -749,7 +772,9 @@ class DatabricksStore(AbstractScorerStore):
         ]
 
     def delete_scorer(self, experiment_id, name, version):
-        if version is None or version == "all":
+        if version is None:
+            return self.delete_scheduled_scorer(experiment_id, name)
+        if version == "all":
             return self._delete_current_scorer(experiment_id, name)
 
         experiment_id = experiment_id or _get_experiment_id()
@@ -785,6 +810,12 @@ _register_scorer_stores()
 def _get_scorer_store(tracking_uri=None):
     """Get a scorer store from the registry"""
     return _scorer_store_registry.get_store(tracking_uri)
+
+
+_ERROR_MSG = (
+    "The `databricks-agents` package is required to register scorers. "
+    "Please install it with `pip install databricks-agents`."
+)
 
 
 def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
