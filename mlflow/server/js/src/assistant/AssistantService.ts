@@ -11,6 +11,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
   PermissionRequest,
+  ProvidersResponse,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
@@ -79,6 +80,15 @@ export const getConfig = async (): Promise<AssistantConfig> => {
 };
 
 /**
+ * Discover assistant providers and the one that would serve a chat from this
+ * client (`resolved`), which may be an auto-picked default when nothing is
+ * explicitly selected in config.
+ */
+export const getProviders = async (): Promise<ProvidersResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/providers`));
+};
+
+/**
  * Update the assistant configuration.
  * Pass null for a project to remove it.
  */
@@ -108,7 +118,8 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
 
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
-  onError: (error: string) => void;
+  /** `code` is the backend's machine-readable error class when it provided one. */
+  onError: (error: string, code?: string) => void;
   onDone: () => void;
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
@@ -217,7 +228,7 @@ const attachStreamListeners = (
     if (event.type === 'error' && (event as MessageEvent).data) {
       try {
         const data = JSON.parse((event as MessageEvent).data);
-        onError(data.error || 'Unknown error');
+        onError(data.error || 'Unknown error', data.error_code);
       } catch {
         onError('Connection error');
       }
@@ -308,12 +319,14 @@ export const resumeStream = async (
   return { eventSource };
 };
 
-export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
   // api_key is sent as an X-API-Key header (not a query param) so the
   // bearer token doesn't end up in access logs, browser history, or
-  // referer headers.
-  const params = new URLSearchParams({ base_url: baseUrl });
-  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
+  // referer headers. base_url is omitted when unset so the provider's
+  // default (e.g. the OpenAI API) applies.
+  const params = new URLSearchParams(baseUrl ? { base_url: baseUrl } : {});
+  const query = params.toString();
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models${query ? `?${query}` : ''}`;
   const headers = {
     ...getDefaultHeaders(document.cookie),
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),

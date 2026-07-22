@@ -112,6 +112,93 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** The provider/model backing the current session, resolved by the `/providers` discovery API. */
+export interface SelectedProvider {
+  /** Provider id as keyed in `/config` (e.g. `claude_code`, `mlflow_gateway`). */
+  id: string;
+  /** Configured model / endpoint name for that provider ('default' = provider decides). */
+  model: string;
+  /** True when the provider was picked by default resolution, not an explicit selection. */
+  autoSelected?: boolean;
+  /**
+   * For the gateway (which routes rather than serves models), the LLM provider behind the
+   * resolved endpoint (e.g. 'openai', 'anthropic') so the composer shows the actual vendor.
+   */
+  modelProvider?: string;
+  /** Concrete vendor model backing an assistant-managed Gateway endpoint. */
+  providerModel?: string;
+  /** Curated vendor model choices for an assistant-managed Gateway endpoint. */
+  modelOptions?: string[];
+  /** Whether this selected provider/endpoint still needs an API key before chat. */
+  requiresApiKey?: boolean;
+  /** Whether this selected provider/endpoint already has the required API key. */
+  hasApiKey?: boolean;
+}
+
+/** One provider as reported by the `/providers` discovery endpoint. */
+export interface ProviderInfo {
+  name: string;
+  display_name: string;
+  description: string;
+  available: boolean;
+  selected: boolean;
+  requires_api_key: boolean;
+  has_api_key: boolean;
+  allows_remote_access: boolean;
+  /** Curated model options for simple assistant controls; empty when provider decides. */
+  model_options: string[];
+}
+
+/** The provider that will serve the next chat, per the `/providers` discovery endpoint. */
+export interface ResolvedProviderInfo {
+  name: string;
+  model: string | null;
+  auto_selected: boolean;
+  requires_api_key: boolean;
+  has_api_key: boolean;
+  /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
+  model_provider?: string | null;
+  /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */
+  model_options?: string[];
+  /** Concrete vendor model backing an assistant-managed Gateway endpoint. */
+  provider_model?: string | null;
+}
+
+/** Response of the `/providers` discovery endpoint. */
+export interface ProvidersResponse {
+  providers: ProviderInfo[];
+  resolved: ResolvedProviderInfo | null;
+  /** Curated model choices for vendor connections the UI can create through the Gateway. */
+  gateway_vendor_options?: Record<string, string[]>;
+}
+
+/**
+ * Machine-readable codes carried by stream error events so the UI can map a
+ * failure to a recovery action. Mirrors `ErrorCode` in `mlflow/assistant/types.py`.
+ */
+export const AssistantErrorCode = {
+  CliNotInstalled: 'cli_not_installed',
+  NotAuthenticated: 'not_authenticated',
+  ApiKeyMissing: 'api_key_missing',
+  NoProvider: 'no_provider',
+} as const;
+export type AssistantErrorCode = (typeof AssistantErrorCode)[keyof typeof AssistantErrorCode];
+
+export interface SelectProviderOptions {
+  /** Gateway vendor to create/select through `mlflow_gateway` (e.g. 'openai'). */
+  gatewayVendor?: string;
+  /** Concrete vendor model to use for an assistant-managed Gateway endpoint. */
+  providerModel?: string;
+  /** Curated vendor model choices for the optimistic selection. */
+  modelOptions?: string[];
+  /** Whether the optimistic selection still needs an API key before chat. */
+  requiresApiKey?: boolean;
+  /** Whether the optimistic selection already has the required API key. */
+  hasApiKey?: boolean;
+  /** Display vendor behind a Gateway endpoint. Defaults to `gatewayVendor`. */
+  modelProvider?: string;
+}
+
 /** Cumulative token usage reported by the provider for the current session. */
 export interface TokenUsage {
   promptTokens: number;
@@ -135,16 +222,26 @@ export interface AssistantAgentState {
   isStreaming: boolean;
   /** Error message if any */
   error: string | null;
+  /** Machine-readable code for `error` when the backend classified it (else null) */
+  errorCode: string | null;
   /** Current tool usage status (e.g., "Reading file...", "Searching...") */
   currentStatus: string | null;
   /** Active tools being used by the assistant */
   activeTools: ToolUseInfo[];
-  /** Whether setup is complete (provider selected in config) */
+  /** Whether a provider resolves for this client (explicitly selected or auto-picked default) */
   setupComplete: boolean;
   /** Whether config is being loaded */
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
+  /** The provider/model backing the session, or null when nothing resolves */
+  selectedProvider: SelectedProvider | null;
+  /** All providers this client could use, per discovery (feeds the composer's provider picker) */
+  availableProviders: ProviderInfo[];
+  /** Curated vendor/model shortcuts that create assistant-managed Gateway LLM Connections. */
+  gatewayVendorOptions: Record<string, string[]>;
+  /** Whether the resolved provider still needs an API key before the first chat */
+  needsApiKey: boolean;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
@@ -162,6 +259,8 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
+  /** Optimistically switch the active provider (persisted on the next send). */
+  selectProvider: (providerId: string, model?: string, options?: SelectProviderOptions) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */
@@ -216,6 +315,7 @@ export interface ProviderConfig {
   permissions: PermissionsConfig;
   base_url?: string;
   api_key?: string;
+  gateway_vendor?: string;
 }
 
 /**
