@@ -260,6 +260,19 @@ def test_get_sampled_steps_from_steps(start_step, end_step, max_results, steps, 
 # Tests for get_metric_history_bulk_interval_from_steps
 
 
+def test_get_metric_history_bulk_interval_many_values_same_step(store):
+    # Metrics logged without an explicit step all land on step 0. Step-based
+    # downsampling collapses to a single step, so the final per-run fetch must
+    # still honor max_results instead of returning every row for that step.
+    max_results = 50
+    store.metrics = [Metric("accuracy", float(i), 1000 + i, 0, run_id="run1") for i in range(1000)]
+
+    result = store.get_metric_history_bulk_interval(["run1"], "accuracy", max_results, None, None)
+
+    assert len(result) == max_results
+    assert all(r.step == 0 for r in result)
+
+
 def test_get_metric_history_bulk_interval_from_steps_empty_steps(store):
     store.metrics = [Metric("accuracy", 0.8, 1000, 5, run_id="run1")]
     result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [], 10)
