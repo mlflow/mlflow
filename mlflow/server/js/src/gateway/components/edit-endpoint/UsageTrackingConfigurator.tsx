@@ -1,41 +1,98 @@
-import { Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Radio, Typography, useDesignSystemTheme, type RadioChangeEvent } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 type ComponentIds = 'mlflow.gateway.edit-endpoint.usage-tracking' | 'mlflow.gateway.create-endpoint.usage-tracking';
 
+/**
+ * The three valid tracing states for an endpoint, combining the `usage_tracking`
+ * and `exclude_content` flags ("exclude content without tracking" is meaningless):
+ * - 'off': no traces are logged
+ * - 'metadata_only': traces are logged without request/response content
+ * - 'full': traces are logged with complete request/response content
+ */
+export type UsageTrackingMode = 'off' | 'metadata_only' | 'full';
+
+export const getUsageTrackingMode = (usageTracking: boolean, excludeContent: boolean): UsageTrackingMode => {
+  if (!usageTracking) {
+    return 'off';
+  }
+  return excludeContent ? 'metadata_only' : 'full';
+};
+
 export interface UsageTrackingConfiguratorProps {
-  value: boolean;
-  onChange: (value: boolean) => void;
+  mode: UsageTrackingMode;
+  onChange: (mode: UsageTrackingMode) => void;
+  disabled?: boolean;
+  /** Hide the per-option descriptions for compact layouts (e.g. the edit sidebar) */
+  compact?: boolean;
   componentId?: ComponentIds;
 }
 
 export const UsageTrackingConfigurator = ({
-  value,
+  mode,
   onChange,
+  disabled,
+  compact,
   componentId = 'mlflow.gateway.edit-endpoint.usage-tracking',
 }: UsageTrackingConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Switch
-          componentId={`${componentId}.toggle`}
-          checked={value}
-          onChange={(checked) => onChange(checked)}
-          aria-label="Enable usage tracking"
-        />
-        <Typography.Text>
-          <FormattedMessage defaultMessage="Enable usage tracking" description="Label for usage tracking toggle" />
-        </Typography.Text>
-      </div>
-
-      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-        <FormattedMessage
-          defaultMessage="When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance."
-          description="Usage tracking description"
-        />
+  const renderDescription = (content: React.ReactNode) =>
+    compact ? null : (
+      <Typography.Text
+        color="secondary"
+        css={{ display: 'block', fontSize: theme.typography.fontSizeSm, marginLeft: theme.spacing.lg }}
+      >
+        {content}
       </Typography.Text>
-    </div>
+    );
+
+  return (
+    <Radio.Group
+      componentId={`${componentId}.mode`}
+      name={`${componentId}.mode`}
+      value={mode}
+      onChange={(e: RadioChangeEvent) => onChange(e.target.value as UsageTrackingMode)}
+      disabled={disabled}
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', gap: compact ? 0 : theme.spacing.sm }}>
+        <div>
+          <Radio value="off" aria-label="Tracing off">
+            <FormattedMessage defaultMessage="Off" description="Usage tracking mode: tracing disabled" />
+          </Radio>
+          {renderDescription(
+            <FormattedMessage
+              defaultMessage="Requests to this endpoint are not logged as traces."
+              description="Description for tracing off mode"
+            />,
+          )}
+        </div>
+        <div>
+          <Radio value="metadata_only" aria-label="Redact message content">
+            <FormattedMessage
+              defaultMessage="Redact message content"
+              description="Usage tracking mode: message content redacted"
+            />
+          </Radio>
+          {renderDescription(
+            <FormattedMessage
+              defaultMessage="Requests are logged as traces with usage metadata such as token consumption, latency, and status. Prompts, messages, and model responses are redacted."
+              description="Description for redacted message content tracing mode"
+            />,
+          )}
+        </div>
+        <div>
+          <Radio value="full" aria-label="Full tracing">
+            <FormattedMessage defaultMessage="Full" description="Usage tracking mode: full tracing" />
+          </Radio>
+          {renderDescription(
+            <FormattedMessage
+              defaultMessage="Requests are logged as traces with complete request and response content. This allows you to monitor usage, debug issues, and analyze performance."
+              description="Description for full tracing mode"
+            />,
+          )}
+        </div>
+      </div>
+    </Radio.Group>
   );
 };

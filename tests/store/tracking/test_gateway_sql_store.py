@@ -623,6 +623,92 @@ def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlche
     assert endpoint.experiment_id is not None
 
 
+def test_create_gateway_endpoint_exclude_content(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(secret_name="excl-key", secret_value={"api_key": "value"})
+    model_def = store.create_gateway_model_definition(
+        name="excl-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        exclude_content=True,
+    )
+
+    assert endpoint.exclude_content is True
+    fetched = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert fetched.exclude_content is True
+
+
+def test_create_gateway_endpoint_exclude_content_defaults_to_false(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="excl-default-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="excl-default-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-default-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert endpoint.exclude_content is False
+
+
+def test_update_gateway_endpoint_exclude_content(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="excl-upd-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="excl-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-upd-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+    assert endpoint.exclude_content is False
+
+    updated = store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, exclude_content=True)
+    assert updated.exclude_content is True
+    assert updated.usage_tracking is True
+
+    # Omitting exclude_content leaves the stored value unchanged
+    renamed = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id, name="excl-upd-endpoint-2"
+    )
+    assert renamed.exclude_content is True
+
+    reverted = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id, exclude_content=False
+    )
+    assert reverted.exclude_content is False
+
+
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
         store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])

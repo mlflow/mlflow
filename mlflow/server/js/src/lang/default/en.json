@@ -51,10 +51,6 @@
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
   },
-  "+CHJSV": {
-    "defaultMessage": "Enable usage tracking",
-    "description": "Label for usage tracking toggle"
-  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -350,6 +346,10 @@
   "/WK1x1": {
     "defaultMessage": "Enum Values",
     "description": "Row heading in a table that contains the potential enum values that a function parameter can have."
+  },
+  "/XHlIw": {
+    "defaultMessage": "Requests are logged as traces with usage metadata such as token consumption, latency, and status. Prompts, messages, and model responses are redacted.",
+    "description": "Description for redacted message content tracing mode"
   },
   "/XlqZA": {
     "defaultMessage": "Service unavailable error",
@@ -1103,10 +1103,6 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
-  "37ReeZ": {
-    "defaultMessage": "On",
-    "description": "Usage tracking enabled state"
-  },
   "3CWJEU": {
     "defaultMessage": "Issues",
     "description": "Column label for issues"
@@ -1511,6 +1507,10 @@
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
   },
+  "5M0u6o": {
+    "defaultMessage": "Off",
+    "description": "Usage tracking mode: tracing disabled"
+  },
   "5Mzdx4": {
     "defaultMessage": "{count, plural, one {# resource} other {# resources}}",
     "description": "Gateway > API keys list > Used by column binding count"
@@ -1730,6 +1730,10 @@
   "6ZhLfu": {
     "defaultMessage": "Visibility",
     "description": "Label for the visibility icon column in the evaluation runs table"
+  },
+  "6ZriUl": {
+    "defaultMessage": "Requests are logged as traces with complete request and response content. This allows you to monitor usage, debug issues, and analyze performance.",
+    "description": "Description for full tracing mode"
   },
   "6arejB": {
     "defaultMessage": "Compare",
@@ -2787,6 +2791,10 @@
     "defaultMessage": "Total cost: {cost}",
     "description": "Issue detection progress > Total cost in USD"
   },
+  "BE49LJ": {
+    "defaultMessage": "Full",
+    "description": "Usage tracking mode: full tracing"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -2950,6 +2958,10 @@
   "Bsuyal": {
     "defaultMessage": "Description",
     "description": "Workspaces table description column header"
+  },
+  "BtQYl7": {
+    "defaultMessage": "Usage tracking",
+    "description": "Label for usage tracking control in sidebar"
   },
   "BuykLs": {
     "defaultMessage": "Delete judge",
@@ -3323,10 +3335,6 @@
     "defaultMessage": "Preview",
     "description": "Title of the preview section in the playground prompt-registry picker modal"
   },
-  "Dz/+6s": {
-    "defaultMessage": "Usage tracking",
-    "description": "Label for usage tracking toggle in sidebar"
-  },
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
@@ -3607,10 +3615,6 @@
     "defaultMessage": "Key",
     "description": "Add new key-value tag modal > Key input label"
   },
-  "FZL3HX": {
-    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
-    "description": "Tooltip explaining what usage tracking does"
-  },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
@@ -3654,6 +3658,10 @@
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
+  },
+  "FimRbi": {
+    "defaultMessage": "Redact message content",
+    "description": "Usage tracking mode: message content redacted"
   },
   "Fk4w6k": {
     "defaultMessage": "Status",
@@ -7131,10 +7139,6 @@
     "defaultMessage": "Couldn't load this dataset",
     "description": "Heading shown when the V2 evaluation dataset detail page fails to fetch its dataset"
   },
-  "X3Uuiw": {
-    "defaultMessage": "Off",
-    "description": "Usage tracking disabled state"
-  },
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
@@ -8186,6 +8190,10 @@
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
+  },
+  "cAfjN3": {
+    "defaultMessage": "Requests to this endpoint are not logged as traces.",
+    "description": "Description for tracing off mode"
   },
   "cAujuc": {
     "defaultMessage": "Endpoints using this key ({count})",
@@ -9587,6 +9595,10 @@
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
   },
+  "iKmACr": {
+    "defaultMessage": "Controls how requests to this endpoint are logged as traces. \"Redact message content\" keeps usage metadata such as token consumption, latency, and status, but redacts prompts, messages, and model responses. \"Full\" also logs complete request and response content.",
+    "description": "Tooltip explaining the usage tracking modes"
+  },
   "iLEEpo": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Queue settings: members field hint"
@@ -10162,10 +10174,6 @@
   "kmtWGf": {
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
-  },
-  "knEhQp": {
-    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
-    "description": "Usage tracking description"
   },
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",

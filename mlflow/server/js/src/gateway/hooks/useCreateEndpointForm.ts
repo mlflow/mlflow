@@ -46,6 +46,7 @@ export interface CreateEndpointFormData {
     configFields: Record<string, string>;
   };
   usageTracking: boolean;
+  excludeContent: boolean;
   experimentId: string;
 }
 
@@ -102,6 +103,7 @@ export function useCreateEndpointForm({
         configFields: {},
       },
       usageTracking: true,
+      excludeContent: false,
       experimentId: '',
     },
   });
@@ -195,6 +197,7 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
+        exclude_content: values.excludeContent,
       });
 
       if (codingAgent) {

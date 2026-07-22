@@ -1675,6 +1675,53 @@ def test_endpoints_are_workspace_scoped(gateway_workspace_store):
         assert endpoints[0].endpoint_id == endpoint_a.endpoint_id
 
 
+def test_endpoint_exclude_content_is_workspace_scoped(gateway_workspace_store):
+    with WorkspaceContext("team-excl-a"):
+        secret_a = gateway_workspace_store.create_gateway_secret(
+            secret_name="excl-secret-a", secret_value={"api_key": "val-a"}
+        )
+        def_a = gateway_workspace_store.create_gateway_model_definition(
+            name="excl-def-a",
+            secret_id=secret_a.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint_a = gateway_workspace_store.create_gateway_endpoint(
+            name="excl-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=def_a.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+            usage_tracking=True,
+            exclude_content=True,
+        )
+        assert endpoint_a.exclude_content is True
+
+        fetched = gateway_workspace_store.get_gateway_endpoint(endpoint_id=endpoint_a.endpoint_id)
+        assert fetched.exclude_content is True
+        assert fetched.workspace == "team-excl-a"
+
+    with WorkspaceContext("team-excl-b"):
+        # The endpoint (and its exclude_content flag) is not visible or
+        # updatable from another workspace
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.get_gateway_endpoint(endpoint_id=endpoint_a.endpoint_id)
+
+        with pytest.raises(MlflowException, match="not found"):
+            gateway_workspace_store.update_gateway_endpoint(
+                endpoint_id=endpoint_a.endpoint_id, exclude_content=False
+            )
+
+    with WorkspaceContext("team-excl-a"):
+        updated = gateway_workspace_store.update_gateway_endpoint(
+            endpoint_id=endpoint_a.endpoint_id, exclude_content=False
+        )
+        assert updated.exclude_content is False
+
+
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(

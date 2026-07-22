@@ -191,6 +191,7 @@ CREATE TABLE endpoints (
 	fallback_config_json TEXT,
 	experiment_id INTEGER,
 	usage_tracking BOOLEAN DEFAULT '0' NOT NULL,
+	exclude_content BOOLEAN DEFAULT '0' NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
 	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL,
