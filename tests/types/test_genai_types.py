@@ -55,3 +55,21 @@ def test_invalid_chat_completion():
 
     with pytest.raises(ValidationError, match="1 validation error for ChatCompletionResponse"):
         ChatCompletionResponse(**invalid_response_structure)
+
+
+def test_chat_message_accepts_multimodal_list_content():
+    from mlflow.genai.judges.adapters.gateway_adapter import _message_to_dict
+    from mlflow.types.llm import ChatMessage
+
+    content = [
+        {"type": "text", "text": "look at this"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+    ]
+
+    # A list content must pass validation (str-only check is relaxed for lists).
+    message = ChatMessage(role="user", content=content)
+    assert message.content == content
+
+    # _message_to_dict must forward the list content unchanged.
+    serialized = _message_to_dict(message)
+    assert serialized == {"role": "user", "content": content}

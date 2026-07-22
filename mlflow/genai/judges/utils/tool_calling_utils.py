@@ -14,6 +14,12 @@ from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 
+# Attribute used to tag an injected multimodal user-turn with the tool_call_id that
+# produced it, so context-window pruning can drop it together with its tool-call pair.
+# The user-turn has no tool_call_id of its own, so without this tag pruning would
+# orphan it and break strict role alternation on overflow.
+IMAGE_TURN_TOOL_CALL_ID_ATTR = "_mlflow_image_turn_tool_call_id"
+
 
 def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
     """Raise an exception when the agentic loop iteration limit is exceeded.
@@ -49,6 +55,7 @@ def _process_tool_calls(
     Returns:
         List of ChatMessage objects containing tool responses.
     """
+    from mlflow.genai.judges.tools.get_span_image import SpanImageResult
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     tool_response_messages = []
@@ -63,21 +70,41 @@ def _process_tool_calls(
                     content=f"Error: {e!s}",
                 )
             )
-        else:
-            if is_dataclass(result):
-                result = asdict(result)
-            result_json = (
-                json.dumps(result, default=str, ensure_ascii=False)
-                if not isinstance(result, str)
-                else result
-            )
+            continue
+
+        # An image result must ride in on a follow-up user turn: OpenAI-format
+        # endpoints reject image blocks inside role="tool" messages. Emit a text
+        # tool ack to satisfy the tool_call_id, then the multimodal user message.
+        if isinstance(result, SpanImageResult):
             tool_response_messages.append(
                 _create_tool_response_message(
                     tool_call_id=tool_call.id,
                     tool_name=tool_call.function.name,
-                    content=result_json,
+                    content=(
+                        f"Image for span {result.span_id} fetched; it is shown in the "
+                        "following user message. Inspect it to answer."
+                    ),
                 )
             )
+            tool_response_messages.append(
+                _create_image_turn_message(tool_call_id=tool_call.id, result=result)
+            )
+            continue
+
+        if is_dataclass(result):
+            result = asdict(result)
+        result_json = (
+            json.dumps(result, default=str, ensure_ascii=False)
+            if not isinstance(result, str)
+            else result
+        )
+        tool_response_messages.append(
+            _create_tool_response_message(
+                tool_call_id=tool_call.id,
+                tool_name=tool_call.function.name,
+                content=result_json,
+            )
+        )
     return tool_response_messages
 
 
@@ -103,16 +130,81 @@ def _create_tool_response_message(tool_call_id: str, tool_name: str, content: st
     )
 
 
+def _create_image_turn_message(tool_call_id: str, result: Any) -> "ChatMessage":
+    """Create the follow-up user message that delivers a fetched image to the model.
+
+    The message carries multimodal content (a text part plus an image_url part) and is
+    tagged with the originating tool_call_id so context-window pruning can drop it
+    together with its tool-call pair.
+
+    Args:
+        tool_call_id: The ID of the tool call that produced the image.
+        result: The SpanImageResult carrying the image data URL.
+
+    Returns:
+        A ChatMessage with role="user" and multimodal content.
+    """
+    from mlflow.types.llm import ChatMessage
+
+    message = ChatMessage(
+        role="user",
+        content=[
+            {"type": "text", "text": f"Fetched image for span {result.span_id}:"},
+            {"type": "image_url", "image_url": {"url": result.data_url}},
+        ],
+    )
+    _tag_image_turn(message, tool_call_id)
+    return message
+
+
+def _tag_image_turn(message: Any, tool_call_id: str) -> None:
+    """Tag a message as an injected image user-turn belonging to ``tool_call_id``.
+
+    Works on both ChatMessage (dataclass) and litellm.Message (pydantic). Best-effort:
+    if the message type rejects the extra attribute, pruning falls back to leaving the
+    turn in place, which is safe.
+    """
+    try:
+        object.__setattr__(message, IMAGE_TURN_TOOL_CALL_ID_ATTR, tool_call_id)
+    except (AttributeError, TypeError):
+        pass
+
+
+def _get_image_turn_tool_call_id(message: Any) -> str | None:
+    """Return the tool_call_id an injected image user-turn belongs to, or None.
+
+    Handles both object messages (ChatMessage / litellm.Message, tagged via attribute)
+    and plain dict messages (the litellm image turn, tagged via a dict key).
+    """
+    if isinstance(message, dict):
+        return message.get(IMAGE_TURN_TOOL_CALL_ID_ATTR)
+    return getattr(message, IMAGE_TURN_TOOL_CALL_ID_ATTR, None)
+
+
+def _get_message_field(message: Any, field: str) -> Any:
+    """Read a message field from either an object message or a plain dict message."""
+    if isinstance(message, dict):
+        return message.get(field)
+    return getattr(message, field, None)
+
+
 def _remove_oldest_tool_call_pair(
     messages: list[Any],
 ) -> list[Any] | None:
     """Remove the oldest assistant message with tool calls and its corresponding tool responses.
 
     Works with any message type that has `role`, `tool_calls`, and `tool_call_id` attributes
-    (e.g. ChatMessage, litellm.Message).
+    (e.g. ChatMessage, litellm.Message) as well as plain dict messages (the litellm image
+    turn). Any injected image user-turn (a role="user" message tagged with a removed
+    tool_call_id) is dropped alongside its pair so it is not orphaned.
     """
     result = next(
-        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
+        (
+            (i, msg)
+            for i, msg in enumerate(messages)
+            if _get_message_field(msg, "role") == "assistant"
+            and _get_message_field(msg, "tool_calls")
+        ),
         None,
     )
     if result is None:
@@ -122,7 +214,16 @@ def _remove_oldest_tool_call_pair(
     modified = messages[:]
     modified.pop(assistant_idx)
 
-    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
+    tool_call_ids = {
+        tc.id if hasattr(tc, "id") else tc["id"]
+        for tc in _get_message_field(assistant_msg, "tool_calls")
+    }
     return [
-        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+        msg
+        for msg in modified
+        if not (
+            _get_message_field(msg, "role") == "tool"
+            and _get_message_field(msg, "tool_call_id") in tool_call_ids
+        )
+        and _get_image_turn_tool_call_id(msg) not in tool_call_ids
     ]

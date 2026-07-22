@@ -8,7 +8,12 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
+from mlflow.genai.judges.tools.get_span_image import SpanImageResult
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _get_image_turn_tool_call_id,
+    _process_tool_calls,
+    _remove_oldest_tool_call_pair,
+)
 from mlflow.types.llm import ChatMessage, ToolCall
 
 
@@ -116,6 +121,85 @@ def test_process_tool_calls_with_string_result(mock_trace):
     assert len(result) == 1
     assert result[0].role == "tool"
     assert result[0].content == "Plain string result"
+
+
+def test_process_tool_calls_image_result_yields_tool_ack_and_user_image(mock_trace):
+    tool_call = _make_tool_call("call_img", "get_span_image")
+    data_url = "data:image/png;base64,QUJD"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = SpanImageResult(
+            span_id="span-1", content_type="image/png", data_url=data_url
+        )
+
+        result = _process_tool_calls(tool_calls=[tool_call], trace=mock_trace)
+
+    # An image result expands into a tool ack + a multimodal user turn.
+    assert len(result) == 2
+
+    ack, image_turn = result
+    assert ack.role == "tool"
+    assert ack.tool_call_id == "call_img"
+    assert isinstance(ack.content, str)
+    assert "span-1" in ack.content
+
+    assert image_turn.role == "user"
+    assert image_turn.tool_call_id is None
+    assert isinstance(image_turn.content, list)
+    text_part, image_part = image_turn.content
+    assert text_part == {"type": "text", "text": "Fetched image for span span-1:"}
+    assert image_part == {"type": "image_url", "image_url": {"url": data_url}}
+    # The injected user turn is tagged with its originating tool_call_id for pruning.
+    assert _get_image_turn_tool_call_id(image_turn) == "call_img"
+
+
+def test_process_tool_calls_normal_result_still_single_tool_message(mock_trace):
+    tool_call = _make_tool_call("call_norm", "get_span")
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = {"result": "plain"}
+
+        result = _process_tool_calls(tool_calls=[tool_call], trace=mock_trace)
+
+    assert len(result) == 1
+    assert result[0].role == "tool"
+    assert json.loads(result[0].content) == {"result": "plain"}
+
+
+def test_remove_oldest_tool_call_pair_drops_injected_image_turn(mock_trace):
+    tool_call = _make_tool_call("call_img", "get_span_image")
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = SpanImageResult(
+            span_id="span-1", content_type="image/png", data_url="data:image/png;base64,QUJD"
+        )
+        tool_responses = _process_tool_calls(tool_calls=[tool_call], trace=mock_trace)
+
+    assistant_msg = ChatMessage(role="assistant", content=None, tool_calls=[tool_call])
+    messages = [
+        ChatMessage(role="user", content="analyze this trace"),
+        assistant_msg,
+        *tool_responses,
+        ChatMessage(role="assistant", content="final answer"),
+    ]
+
+    pruned = _remove_oldest_tool_call_pair(messages)
+
+    assert pruned is not None
+    # The assistant tool-call message, its tool ack, AND the injected image user-turn
+    # are all removed together — no orphaned multimodal turn remains.
+    assert assistant_msg not in pruned
+    assert all(msg.role != "tool" for msg in pruned)
+    assert all(not isinstance(msg.content, list) for msg in pruned)
+    assert all(_get_image_turn_tool_call_id(msg) is None for msg in pruned)
+    # The unrelated user and final assistant messages survive.
+    assert [msg.role for msg in pruned] == ["user", "assistant"]
 
 
 def test_process_tool_calls_mixed_success_and_error(mock_trace):

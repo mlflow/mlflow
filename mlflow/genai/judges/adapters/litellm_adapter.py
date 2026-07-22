@@ -33,6 +33,8 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _strip_markdown_code_blocks,
 )
 from mlflow.genai.judges.utils.tool_calling_utils import (
+    IMAGE_TURN_TOOL_CALL_ID_ATTR,
+    _get_image_turn_tool_call_id,
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
@@ -393,16 +395,29 @@ def _invoke_litellm_and_handle_tools(
                 for tc in message.tool_calls
             ]
             tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
-            # Convert ChatMessage responses back to litellm Messages for the conversation
-            litellm_tool_messages = [
-                litellm.Message(
-                    role=msg.role,
-                    content=msg.content,
-                    tool_call_id=msg.tool_call_id,
-                    name=msg.name,
-                )
-                for msg in tool_response_messages
-            ]
+            # Convert ChatMessage responses back to litellm Messages for the conversation.
+            litellm_tool_messages = []
+            for msg in tool_response_messages:
+                # An injected image user-turn carries multimodal LIST content, which the
+                # strict litellm.Message pydantic model (content: str) rejects. litellm's
+                # completion() accepts plain dict messages with multimodal list content
+                # (the normal OpenAI shape), so append the image turn as a dict and carry
+                # the pruning tag as a dict key. Normal tool responses stay litellm.Message.
+                if (image_turn_id := _get_image_turn_tool_call_id(msg)) is not None:
+                    litellm_tool_messages.append({
+                        "role": msg.role,
+                        "content": msg.content,
+                        IMAGE_TURN_TOOL_CALL_ID_ATTR: image_turn_id,
+                    })
+                else:
+                    litellm_tool_messages.append(
+                        litellm.Message(
+                            role=msg.role,
+                            content=msg.content,
+                            tool_call_id=msg.tool_call_id,
+                            name=msg.name,
+                        )
+                    )
             messages.extend(litellm_tool_messages)
 
         except MlflowException:
