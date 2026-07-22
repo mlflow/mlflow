@@ -1,10 +1,15 @@
-from unittest.mock import ANY, Mock, patch
+import json
+from unittest import mock
+from unittest.mock import patch
+
+import pytest
 
 import mlflow
 import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
-from mlflow.genai.scorers import Guidelines, Scorer, scorer
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers import Guidelines, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
@@ -14,6 +19,43 @@ from mlflow.genai.scorers.registry import (
     list_scorers,
 )
 from mlflow.tracking._tracking_service.utils import _get_store
+
+
+def _mock_response(payload):
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(payload)
+    response.json.return_value = payload
+    return response
+
+
+def _scheduled_scorers_response(configs):
+    return _mock_response({"scheduled_scorers": {"scorers": configs}})
+
+
+def _scorer_config(scorer, *, version=1, sample_rate=0.0, filter_string=None):
+    config = {
+        "name": scorer.name,
+        "serialized_scorer": json.dumps(scorer.model_dump()),
+        "builtin": {"name": scorer.name},
+        "sample_rate": sample_rate,
+        "version": version,
+    }
+    if filter_string is not None:
+        config["filter_string"] = filter_string
+    return config
+
+
+def _scheduled_scorer_version_config(scorer, *, experiment_id="exp_123", version=1):
+    scorer_key = DatabricksStore._scorer_resource_key(scorer.name)
+    return {
+        "name": (f"experiments/{experiment_id}/scheduledScorers/{scorer_key}/versions/{version}"),
+        "display_name": scorer.name,
+        "version": version,
+        "serialized_scorer": json.dumps(scorer.model_dump()),
+        "create_time": "2026-07-20T00:00:00Z",
+        "builtin": {"name": scorer.name},
+    }
 
 
 def test_scorer_registry_functions_accessible_from_mlflow_genai():
@@ -95,74 +137,406 @@ def test_mlflow_backend_scorer_operations():
         mlflow.delete_experiment(experiment_id)
 
 
-def test_databricks_backend_scorer_operations():
-    # Mock the scheduled scorer responses
-    mock_scheduled_scorer = Mock()
-    mock_scheduled_scorer.scorer = Mock(spec=Scorer)
-    mock_scheduled_scorer.scorer.name = "test_databricks_scorer"
-    mock_scheduled_scorer.sample_rate = 0.5
-    mock_scheduled_scorer.filter_string = "test_filter"
+def test_databricks_backend_register_uses_scheduled_scorer_get_and_patch():
+    scorer_v1 = Guidelines(
+        name="test_databricks_scorer",
+        guidelines=["Be concise"],
+        model="databricks:/judge",
+    )
+    scorer_v2 = Guidelines(
+        name="test_databricks_scorer",
+        guidelines=["Be precise"],
+        model="databricks:/judge",
+    )
+    v1_config = _scorer_config(scorer_v1, version=1)
+    scheduled_v1_config = _scorer_config(
+        scorer_v1,
+        version=1,
+        sample_rate=0.4,
+        filter_string="trace.status = 'OK'",
+    )
+    v2_config = _scorer_config(
+        scorer_v2,
+        version=2,
+        sample_rate=0.4,
+        filter_string="trace.status = 'OK'",
+    )
 
     with (
-        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
-        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
-        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add,
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.list_scheduled_scorers",
-            return_value=[mock_scheduled_scorer],
-        ) as mock_list,
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.get_scheduled_scorer",
-            return_value=mock_scheduled_scorer,
-        ) as mock_get,
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer",
-            return_value=None,
-        ) as mock_delete,
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
     ):
-        # Set up the store mock
-        mock_store = DatabricksStore()
-        mock_get_store.return_value = mock_store
+        mock_http.side_effect = [
+            _scheduled_scorers_response([]),
+            _scheduled_scorers_response([v1_config]),
+            _scheduled_scorers_response([scheduled_v1_config]),
+            _scheduled_scorers_response([v2_config]),
+        ]
+        store = DatabricksStore(tracking_uri="databricks")
 
-        # Test register operation
-        @scorer
-        def test_databricks_scorer(outputs) -> bool:
-            return len(outputs) > 0
+        assert store.register_scorer("exp_123", scorer_v1) == 1
+        assert scorer_v1.status == ScorerStatus.STOPPED
+        assert scorer_v1._registered_scorer_version == 1
 
-        assert test_databricks_scorer.status == ScorerStatus.UNREGISTERED
-        registered_scorer = test_databricks_scorer.register(experiment_id="exp_123")
-        assert registered_scorer.name == "test_databricks_scorer"
-        assert registered_scorer.status == ScorerStatus.STOPPED
+        assert store.register_scorer("exp_123", scorer_v2) == 2
+        assert scorer_v2._registered_scorer_version == 2
+        assert scorer_v2._sampling_config == ScorerSamplingConfig(
+            sample_rate=0.4,
+            filter_string="trace.status = 'OK'",
+        )
 
-        # Verify add_registered_scorer was called during registration
-        mock_add.assert_called_once_with(
+    assert mock_http.call_args_list[0].kwargs == {
+        "host_creds": "creds",
+        "endpoint": "/api/2.0/managed-evals/scheduled-scorers/exp_123",
+        "method": "GET",
+        "json": None,
+        "params": None,
+    }
+    assert mock_http.call_args_list[1].kwargs["method"] == "PATCH"
+    assert (
+        mock_http.call_args_list[1].kwargs["json"]["scheduled_scorers"]["scorers"][0]["name"]
+        == "test_databricks_scorer"
+    )
+    assert mock_http.call_args_list[1].kwargs["json"]["scheduled_scorers"]["scorers"][0][
+        "builtin"
+    ] == {"name": "test_databricks_scorer"}
+    registered_v2_config = mock_http.call_args_list[3].kwargs["json"]["scheduled_scorers"][
+        "scorers"
+    ][0]
+    assert registered_v2_config["serialized_scorer"] == v2_config["serialized_scorer"]
+    assert registered_v2_config["sample_rate"] == 0.4
+    assert registered_v2_config["filter_string"] == "trace.status = 'OK'"
+
+
+def test_databricks_backend_scorer_config_uses_managed_scorer_type_oneof():
+    builtin_scorer = Guidelines(
+        name="test_databricks_scorer",
+        guidelines=["Be concise"],
+        model="databricks:/judge",
+    )
+
+    @scorer
+    def custom_scorer(outputs) -> bool:
+        return bool(outputs)
+
+    builtin_config = DatabricksStore._scorer_config(
+        name=builtin_scorer.name,
+        scorer=builtin_scorer,
+        sample_rate=0.0,
+        filter_string=None,
+    )
+    custom_config = DatabricksStore._scorer_config(
+        name=custom_scorer.name,
+        scorer=custom_scorer,
+        sample_rate=0.0,
+        filter_string=None,
+    )
+
+    assert "scorer_type" not in builtin_config
+    assert builtin_config["builtin"] == {"name": "test_databricks_scorer"}
+    assert "scorer_type" not in custom_config
+    assert custom_config["custom"] == {}
+
+
+def test_databricks_backend_update_uses_current_tracking_profile():
+    scorer = Guidelines(
+        name="test_databricks_scorer",
+        guidelines=["Be concise"],
+        model="databricks:/judge",
+    )
+    current_config = _scorer_config(scorer, version=1)
+    updated_config = _scorer_config(scorer, version=1, sample_rate=0.5)
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks://profile"),
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+            return_value="databricks://profile",
+        ),
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds") as mock_get_creds,
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_get_creds.return_value = "creds"
+        mock_http.side_effect = [
+            _scheduled_scorers_response([current_config]),
+            _scheduled_scorers_response([updated_config]),
+        ]
+
+        DatabricksStore(tracking_uri="databricks://profile").update_registered_scorer(
             name="test_databricks_scorer",
-            scorer=ANY,
-            sample_rate=0.0,
-            filter_string=None,
+            scorer=scorer,
+            sample_rate=0.5,
             experiment_id="exp_123",
         )
 
-        # Test list operation
-        scorers = list_scorers(experiment_id="exp_123")
+    assert mock_get_creds.call_args_list == [
+        mock.call("databricks://profile"),
+        mock.call("databricks://profile"),
+    ]
 
-        assert scorers[0].name == "test_databricks_scorer"
+
+def test_databricks_backend_version_resource_names_use_unpadded_base64url():
+    store = DatabricksStore(tracking_uri="databricks")
+
+    assert DatabricksStore._scorer_resource_key("quality/foo") == "cXVhbGl0eS9mb28"
+    assert DatabricksStore._scorer_resource_key("caf\u00e9/\u54c1\u8cea") == ("Y2Fmw6kv5ZOB6LOq")
+    assert store._scorer_versions_endpoint("123", "quality/foo") == (
+        "/api/2.0/managed-evals/experiments/123/scheduledScorers/cXVhbGl0eS9mb28/versions"
+    )
+    assert store._scorer_version_endpoint("123", "quality/foo", 7) == (
+        "/api/2.0/managed-evals/experiments/123/scheduledScorers/cXVhbGl0eS9mb28/versions/7"
+    )
+    assert store._scheduled_scorer_version_resource_name("exp/123", "quality/foo", 7) == (
+        "experiments/exp%2F123/scheduledScorers/cXVhbGl0eS9mb28/versions/7"
+    )
+
+
+@pytest.mark.parametrize("version", [0, -1, 1.5, "1", True])
+def test_databricks_backend_exact_version_operations_require_positive_integer(version):
+    with patch("mlflow.genai.scorers.registry.http_request") as mock_http:
+        store = DatabricksStore(tracking_uri="databricks")
+
+        with pytest.raises(MlflowException, match="must be a positive integer"):
+            store.get_scorer("exp_123", "test_scorer", version=version)
+        with pytest.raises(MlflowException, match="must be a positive integer"):
+            store.delete_scorer("exp_123", "test_scorer", version=version)
+
+    mock_http.assert_not_called()
+
+
+def test_databricks_backend_list_get_versions_and_delete_use_managed_resource_endpoints():
+    scorer_name = "folder/test_databricks_scorer"
+    scorer_v1 = Guidelines(name=scorer_name, guidelines=["v1"], model="databricks:/judge")
+    scorer_v2 = Guidelines(name=scorer_name, guidelines=["v2"], model="databricks:/judge")
+    other_scorer = Guidelines(name="other", guidelines=["other"], model="databricks:/judge")
+    v2_config = _scorer_config(
+        scorer_v2,
+        version=2,
+        sample_rate=0.5,
+        filter_string="trace.status = 'OK'",
+    )
+    other_config = _scorer_config(other_scorer, version=1)
+    v1_version_config = _scheduled_scorer_version_config(scorer_v1, version=1)
+    v2_version_config = _scheduled_scorer_version_config(scorer_v2, version=2)
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.side_effect = [
+            _scheduled_scorers_response([v2_config, other_config]),
+            _scheduled_scorers_response([v2_config, other_config]),
+            _mock_response(v1_version_config),
+            _scheduled_scorers_response([v2_config, other_config]),
+            _mock_response({"scheduled_scorer_versions": [v1_version_config, v2_version_config]}),
+            _scheduled_scorers_response([v2_config, other_config]),
+            _mock_response({}),
+            _scheduled_scorers_response([v2_config, other_config]),
+            _scheduled_scorers_response([other_config]),
+            _scheduled_scorers_response([v2_config, other_config]),
+            _scheduled_scorers_response([other_config]),
+        ]
+        store = DatabricksStore(tracking_uri="databricks://profile")
+
+        scorers = store.list_scorers("exp_123")
+        assert [s.name for s in scorers] == [scorer_name, "other"]
         assert scorers[0]._sampling_config == ScorerSamplingConfig(
-            sample_rate=0.5, filter_string="test_filter"
+            sample_rate=0.5,
+            filter_string="trace.status = 'OK'",
+        )
+        assert scorers[0]._registered_scorer_version == 2
+
+        latest = store.get_scorer("exp_123", scorer_name)
+        assert latest.name == scorer_name
+        assert latest._registered_scorer_version == 2
+
+        exact = store.get_scorer("exp_123", scorer_name, version=1)
+        assert exact.name == scorer_name
+        assert exact._registered_scorer_version == 1
+        assert exact._sampling_config == ScorerSamplingConfig(
+            sample_rate=0.5,
+            filter_string="trace.status = 'OK'",
         )
 
-        assert len(scorers) == 1
-        mock_list.assert_called_once_with("exp_123")
+        versions = store.list_scorer_versions("exp_123", scorer_name)
+        assert [version for _, version in versions] == [1, 2]
+        assert all(scorer._sampling_config == exact._sampling_config for scorer, _ in versions)
 
-        # Test get operation
-        retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-        assert retrieved_scorer.name == "test_databricks_scorer"
-        mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
+        store.delete_scorer("exp_123", scorer_name, version=1)
+        store.delete_scorer("exp_123", scorer_name, version="all")
+        store.delete_scorer("exp_123", scorer_name, version=None)
 
-        # Test delete operation
-        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-        mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
+    exact_get_call = mock_http.call_args_list[2].kwargs
+    assert exact_get_call["endpoint"] == (
+        "/api/2.0/managed-evals/experiments/exp_123/scheduledScorers/"
+        "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI/versions/1"
+    )
+    assert exact_get_call["params"] is None
+
+    list_versions_call = mock_http.call_args_list[4].kwargs
+    assert list_versions_call["endpoint"] == (
+        "/api/2.0/managed-evals/experiments/exp_123/scheduledScorers/"
+        "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI/versions"
+    )
+    assert list_versions_call["params"] is None
+
+    delete_version_call = mock_http.call_args_list[6].kwargs
+    assert delete_version_call["method"] == "DELETE"
+    assert delete_version_call["endpoint"] == (
+        "/api/2.0/managed-evals/experiments/exp_123/scheduledScorers/"
+        "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI/versions/1"
+    )
+    assert delete_version_call["params"] is None
+
+    delete_all_patch_call = mock_http.call_args_list[8].kwargs
+    assert delete_all_patch_call["method"] == "PATCH"
+    assert delete_all_patch_call["json"]["scheduled_scorers"]["scorers"] == [other_config]
+
+    delete_none_patch_call = mock_http.call_args_list[10].kwargs
+    assert delete_none_patch_call["method"] == "PATCH"
+    assert delete_none_patch_call["json"]["scheduled_scorers"]["scorers"] == [other_config]
+
+
+def test_databricks_backend_list_scorer_versions_paginates():
+    scorer_name = "folder/test_databricks_scorer"
+    scorer_v1 = Guidelines(name=scorer_name, guidelines=["v1"], model="databricks:/judge")
+    scorer_v2 = Guidelines(name=scorer_name, guidelines=["v2"], model="databricks:/judge")
+    v1_version_config = _scheduled_scorer_version_config(scorer_v1, version=1)
+    v2_version_config = _scheduled_scorer_version_config(scorer_v2, version=2)
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.side_effect = [
+            _mock_response({
+                "scheduled_scorer_versions": [v1_version_config],
+                "next_page_token": "page-2",
+            }),
+            _mock_response({"scheduled_scorer_versions": [v2_version_config]}),
+            _scheduled_scorers_response([_scorer_config(scorer_v2, version=2)]),
+        ]
+
+        versions = DatabricksStore(tracking_uri="databricks").list_scorer_versions(
+            "exp_123", scorer_name
+        )
+
+    assert [version for _, version in versions] == [1, 2]
+    assert mock_http.call_args_list[0].kwargs["params"] is None
+    assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
+
+
+def test_databricks_backend_historical_scorer_scheduling_preserves_current_definition():
+    scorer_name = "folder/test_databricks_scorer"
+    scorer_v1 = Guidelines(name=scorer_name, guidelines=["v1"], model="databricks:/judge")
+    scorer_v2 = Guidelines(name=scorer_name, guidelines=["v2"], model="databricks:/judge")
+    historical_config = _scheduled_scorer_version_config(scorer_v1, version=1)
+    current_config = _scorer_config(
+        scorer_v2,
+        version=2,
+        sample_rate=0.2,
+        filter_string="trace.status = 'OK'",
+    )
+    started_config = {
+        **current_config,
+        "sample_rate": 0.6,
+        "filter_string": "trace.status = 'IN_PROGRESS'",
+    }
+    updated_config = {**started_config, "filter_string": "trace.status = 'ERROR'"}
+    stopped_config = {**updated_config, "sample_rate": 0.0}
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.side_effect = [
+            _mock_response(historical_config),
+            _scheduled_scorers_response([current_config]),
+            _scheduled_scorers_response([current_config]),
+            _scheduled_scorers_response([started_config]),
+            _scheduled_scorers_response([started_config]),
+            _scheduled_scorers_response([updated_config]),
+            _scheduled_scorers_response([updated_config]),
+            _scheduled_scorers_response([stopped_config]),
+        ]
+        store = DatabricksStore(tracking_uri="databricks://profile")
+
+        with patch("mlflow.genai.scorers.registry._get_scorer_store", return_value=store):
+            historical = store.get_scorer("exp_123", scorer_name, version=1)
+            assert historical._sampling_config == ScorerSamplingConfig(
+                sample_rate=0.2,
+                filter_string="trace.status = 'OK'",
+            )
+
+            started = historical.start(
+                sampling_config=ScorerSamplingConfig(
+                    sample_rate=0.6,
+                    filter_string="trace.status = 'IN_PROGRESS'",
+                )
+            )
+            updated = historical.update(
+                sampling_config=ScorerSamplingConfig(filter_string="trace.status = 'ERROR'")
+            )
+            stopped = historical.stop()
+
+    patch_calls = [call for call in mock_http.call_args_list if call.kwargs["method"] == "PATCH"]
+    assert [call.kwargs["json"]["scheduled_scorers"]["scorers"][0] for call in patch_calls] == [
+        started_config,
+        updated_config,
+        stopped_config,
+    ]
+    assert all(
+        call.kwargs["json"]["scheduled_scorers"]["scorers"][0]["serialized_scorer"]
+        == current_config["serialized_scorer"]
+        for call in patch_calls
+    )
+    assert all(
+        call.kwargs["endpoint"] == "/api/2.0/managed-evals/scheduled-scorers/exp_123"
+        for call in patch_calls
+    )
+    assert [started.guidelines, updated.guidelines, stopped.guidelines] == [["v2"]] * 3
+    assert [
+        started._registered_scorer_version,
+        updated._registered_scorer_version,
+        stopped._registered_scorer_version,
+    ] == [2, 2, 2]
+
+
+def test_databricks_backend_current_scorer_response_accepts_scorers_config_shape():
+    scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
+    config = _scorer_config(scorer, version=1)
+    config["name"] = "registered_scorer_name"
+    config.pop("version")
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch(
+            "mlflow.genai.scorers.registry.http_request",
+            return_value=_mock_response({
+                "scheduled_scorers": {"scorers_config": {"scorers": [config]}}
+            }),
+        ),
+    ):
+        scorers = DatabricksStore(tracking_uri="databricks").list_scorers("exp_123")
+
+    assert [scorer.name for scorer in scorers] == ["registered_scorer_name"]
+    assert scorers[0]._registered_scorer_version == 1
+
+
+def test_databricks_backend_delete_all_raises_when_scorer_does_not_exist():
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch(
+            "mlflow.genai.scorers.registry.http_request",
+            return_value=_scheduled_scorers_response([]),
+        ) as mock_http,
+    ):
+        with pytest.raises(MlflowException, match="Scorer with name 'missing' not found"):
+            DatabricksStore(tracking_uri="databricks").delete_scorer(
+                "exp_123", "missing", version="all"
+            )
+
+    assert mock_http.call_count == 1
 
 
 def _mock_gateway_endpoint():

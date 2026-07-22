@@ -224,6 +224,7 @@ class Scorer(BaseModel):
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
+    _registered_scorer_version: int | None = PrivateAttr(default=None)
     # Predicate deciding whether this scorer's value counts as passing in an
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
@@ -451,6 +452,7 @@ class Scorer(BaseModel):
                     feedback_value_type=feedback_value_type,
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
+                    _skip_databricks_agents_check=True,
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
@@ -902,7 +904,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
@@ -985,7 +987,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
