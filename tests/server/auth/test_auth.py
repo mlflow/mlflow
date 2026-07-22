@@ -318,13 +318,10 @@ def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
     with User(username1, password1, monkeypatch):
         experiment_id = client.create_experiment("proxy-artifact-presigned-authz-test")
 
-    response = requests.get(
-        url=(
-            client.tracking_uri
-            + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
-        ),
-        auth=(username2, password2),
+    presigned_url = (
+        client.tracking_uri + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
     )
+    response = requests.get(url=presigned_url, auth=(username2, password2))
     assert response.status_code == 403
 
 
