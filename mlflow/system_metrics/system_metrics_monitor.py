@@ -92,15 +92,15 @@ class SystemMetricsMonitor:
             run = client.get_run(run_id)
         except MlflowException:
             return 0
-        system_metric_name = None
-        for metric_name in run.data.metrics.keys():
-            if metric_name.startswith(self._metrics_prefix):
-                system_metric_name = metric_name
-                break
-        if system_metric_name is None:
-            return 0
-        metric_history = client.get_metric_history(run_id, system_metric_name)
-        return metric_history[-1].step + 1
+        # `run.data` already includes, for each metric key, the most recently logged value at the
+        # largest step. We can read the step from there directly instead of calling
+        # `get_metric_history`, which would materialize the entire metric history into memory and
+        # is prohibitively expensive for long-running runs (see GH issue #22991).
+        max_step = None
+        for metric in run.data._metric_objs:
+            if metric.key.startswith(self._metrics_prefix):
+                max_step = metric.step if max_step is None else max(max_step, metric.step)
+        return 0 if max_step is None else max_step + 1
 
     def start(self):
         """Start monitoring system metrics."""
