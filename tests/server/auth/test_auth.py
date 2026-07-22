@@ -306,12 +306,19 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
     # Regression test for https://github.com/mlflow/mlflow/issues/24567:
     # GetPresignedDownloadUrl must enforce the same experiment artifact READ permission
     # as the proxied download route. Without authorization, a user with no grant would
     # reach the handler (returning a working presigned URL on cloud backends), leaking
     # artifacts. A denied user must receive 403 before the handler runs.
+    # Runs against ``default_permission=NO_PERMISSIONS`` so a GET (READ) without an
+    # explicit grant is denied — a READ-permission default would otherwise allow it.
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
 
