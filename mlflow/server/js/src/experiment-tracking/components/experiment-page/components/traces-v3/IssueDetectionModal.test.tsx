@@ -5,15 +5,11 @@ import { IssueDetectionModal } from './IssueDetectionModal';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
-import { useLogTelemetryEvent } from '../../../../../telemetry/hooks/useLogTelemetryEvent';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 
 jest.mock('./hooks/useInvokeIssueDetection');
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
-jest.mock('../../../../../telemetry/hooks/useLogTelemetryEvent', () => ({
-  useLogTelemetryEvent: jest.fn(),
-}));
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
 }));
@@ -34,29 +30,6 @@ jest.mock('../../../SelectTracesModal', () => ({
   ),
 }));
 
-jest.mock('./IssueDetectionModelDropdown', () => ({
-  ...jest.requireActual<typeof import('./IssueDetectionModelDropdown')>('./IssueDetectionModelDropdown'),
-  IssueDetectionModelDropdown: ({
-    value,
-    onChange,
-  }: {
-    value: { mode: string; provider: string; model: string; endpointName?: string };
-    onChange: (value: unknown) => void;
-  }) => (
-    <div data-testid="model-dropdown">
-      <span data-testid="model-dropdown-value">
-        {value.mode === 'endpoint' ? value.endpointName : `${value.provider}/${value.model}`}
-      </span>
-      <button
-        data-testid="pick-anthropic"
-        onClick={() => onChange({ mode: 'direct', provider: 'anthropic', model: 'claude-sonnet-4-6' })}
-      >
-        anthropic
-      </button>
-    </div>
-  ),
-}));
-
 describe('IssueDetectionModal', () => {
   const defaultProps = {
     onClose: jest.fn(),
@@ -65,13 +38,19 @@ describe('IssueDetectionModal', () => {
 
   let mockInvokeIssueDetection: jest.Mock;
   let mockCreateSecret: jest.Mock;
-  let mockLogTelemetryEvent: jest.Mock;
+
+  const changeModel = async (optionLabel: string) => {
+    const trigger = document.querySelector<HTMLElement>(
+      '[data-component-id="mlflow.traces.issue-detection-modal.model"]',
+    );
+    if (!trigger) throw new Error('Model select trigger not found');
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     clearSubmittedIssueDetectionJob();
-    mockLogTelemetryEvent = jest.fn();
-    jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent as any);
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useApiKeyConfiguration).mockReturnValue({
       existingSecrets: [{ secret_id: 'secret-123', secret_name: 'my-key' }],
@@ -116,7 +95,7 @@ describe('IssueDetectionModal', () => {
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
     expect(screen.getByText('Find failure patterns hiding in your traces, automatically.')).toBeInTheDocument();
     expect(screen.getByText('Model')).toBeInTheDocument();
-    expect(screen.getByTestId('model-dropdown-value')).toHaveTextContent('openai/gpt-5.5');
+    expect(screen.getByText('gpt-5.6-sol')).toBeInTheDocument();
     expect(screen.getByText('40 traces selected')).toBeInTheDocument();
     expect(screen.getByText(/Estimated cost: ~\$0\.10-\$0\.40/)).toBeInTheDocument();
     expect(screen.getByText('Run Analysis')).toBeInTheDocument();
@@ -158,7 +137,8 @@ describe('IssueDetectionModal', () => {
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
-    expect(screen.getByTestId('model-dropdown-value')).toHaveTextContent('my-endpoint');
+    expect(screen.getByText('my-endpoint')).toBeInTheDocument();
+    expect(screen.getByText('AI Gateway endpoint')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
     await waitFor(() => {
@@ -172,15 +152,15 @@ describe('IssueDetectionModal', () => {
   test('changing the model in the dropdown updates the selection and submission', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
-    expect(screen.getByTestId('model-dropdown-value')).toHaveTextContent('openai/gpt-5.5');
+    expect(screen.getByText('gpt-5.6-sol')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByTestId('pick-anthropic'));
-    expect(screen.getByTestId('model-dropdown-value')).toHaveTextContent('anthropic/claude-sonnet-4-6');
+    await changeModel('Anthropic / claude-opus-4-8');
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
     await waitFor(() => {
       expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({ provider: 'anthropic', model: 'claude-sonnet-4-6' }),
+        expect.objectContaining({ provider: 'anthropic', model: 'claude-opus-4-8' }),
         expect.any(Object),
       );
     });
@@ -245,7 +225,7 @@ describe('IssueDetectionModal', () => {
         expect.objectContaining({
           categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety'],
           provider: 'openai',
-          model: 'gpt-5.5',
+          model: 'gpt-5.6-sol',
           secret_id: 'secret-123',
           endpoint_name: undefined,
         }),
@@ -268,24 +248,6 @@ describe('IssueDetectionModal', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={ids} />);
 
     expect(screen.queryByTestId('low-trace-warning')).not.toBeInTheDocument();
-  });
-
-  test('logs submit context telemetry on submit', async () => {
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockLogTelemetryEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          componentId: 'mlflow.traces.issue-detection-modal.submit-context',
-          value: JSON.stringify({
-            selectedTraceCount: 1,
-            lowTraceWarningShown: true,
-          }),
-        }),
-      );
-    });
   });
 
   test('records submitted background job when form is submitted', async () => {
