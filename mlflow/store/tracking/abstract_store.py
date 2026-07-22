@@ -920,6 +920,20 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             for metric in metrics_for_run
         ]
 
+    @staticmethod
+    def _evenly_spaced_indices(total: int, max_results: int) -> list[int]:
+        """Return at most ``max_results`` evenly spaced indices into a sequence of ``total`` items,
+        always including the first and last index.
+        """
+        if total <= 0:
+            return []
+        if total <= max_results:
+            return list(range(total))
+        if max_results == 1:
+            return [total - 1]
+        step = (total - 1) / (max_results - 1)
+        return sorted({round(i * step) for i in range(max_results)})
+
     def get_metric_history_bulk_interval(
         self,
         run_ids: list[str],
@@ -935,6 +949,9 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         This method collects metric history from multiple runs, samples the steps
         to limit the result size, and returns metrics for the sampled steps. The
         sampling preserves min/max steps to maintain data boundaries.
+
+        Each run is sampled independently, so runs with differing history lengths may return
+        different steps. Consumers should align runs by step value rather than by index.
 
         Args:
             run_ids: List of unique identifiers for runs.
@@ -996,21 +1013,24 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             sampled_steps.add(all_steps[end_idx - 1])
 
         steps = sorted(sampled_steps.union(all_mins_and_maxes))
-        # Bound the rows fetched per run to roughly the requested sample size. ``steps`` already
+        # Bound the rows returned per run to roughly the requested sample size. ``steps`` already
         # holds at most ~``max_results`` distinct steps, so ``len(steps)`` is the expected result
         # size when one value is logged per step. Capping here keeps the response bounded when many
         # values share a single step (e.g. the default ``step=0``), which would otherwise return
         # up to ``MAX_RESULTS_GET_METRIC_HISTORY`` rows for that step and cause large memory spikes.
+        # The rows are sampled evenly across the run's full ordered history rather than truncated,
+        # so steps at the end of the range are not crowded out by steps holding many values.
         per_run_max_results = max(max_results, len(steps))
+        step_set = set(steps)
         metrics_with_run_ids = []
         for run_id in run_ids:
+            run_metrics = sorted(
+                (m for m in self.get_metric_history(run_id, metric_key) if m.step in step_set),
+                key=lambda metric: (metric.step, metric.timestamp),
+            )
             metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=per_run_max_results,
-                )
+                MetricWithRunId(run_id=run_id, metric=run_metrics[i])
+                for i in self._evenly_spaced_indices(len(run_metrics), per_run_max_results)
             )
         return metrics_with_run_ids
 

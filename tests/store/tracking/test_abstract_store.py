@@ -268,6 +268,23 @@ def test_get_metric_history_bulk_interval_same_step_is_bounded(store):
     assert result[0].value == 0.0
 
 
+def test_get_metric_history_bulk_interval_is_not_biased_to_early_steps(store):
+    # A step holding many values must not crowd out later sampled steps. The per-run rows used to
+    # be truncated with [:max_results] after sorting ascending, so the 100 rows at step 0 consumed
+    # the whole budget and the end boundary (step 9) was dropped.
+    store.metrics = [Metric("accuracy", float(i), 1000 + i, 0, run_id="run1") for i in range(100)]
+    store.metrics += [
+        Metric("accuracy", float(s), 2000 + s, s, run_id="run1") for s in range(1, 10)
+    ]
+
+    result = store.get_metric_history_bulk_interval(["run1"], "accuracy", 5, None, None)
+
+    result_steps = {m.step for m in result}
+    assert max(result_steps) == 9
+    assert len(result_steps) > 1
+    assert len(result) <= 6
+
+
 # Tests for get_metric_history_bulk_interval_from_steps
 
 

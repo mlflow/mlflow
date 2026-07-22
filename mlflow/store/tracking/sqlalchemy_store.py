@@ -1764,15 +1764,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         total = session.query(func.count()).select_from(SqlMetric).filter(*filters).scalar()
         if not total:
             return []
-        if total <= max_results:
-            target_indices = set(range(total))
-        elif max_results == 1:
-            target_indices = {total - 1}
-        else:
-            # Evenly spaced indices spanning the full range inclusive, so the first and last
-            # rows are always kept without exceeding ``max_results`` points.
-            step = (total - 1) / (max_results - 1)
-            target_indices = {round(i * step) for i in range(max_results)}
+        target_indices = set(self._evenly_spaced_indices(total, max_results))
 
         rows_iter = (
             session
