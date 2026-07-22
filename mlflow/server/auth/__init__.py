@@ -680,14 +680,21 @@ def _role_permission_for(
 
     def _role_perm() -> Permission | None:
         user = store.get_user(username)
-        workspace_name = _get_resource_workspace(
-            workspace_lookup_id, workspace_fetcher, workspace_label
-        )
-        if workspace_name is None:
-            # Workspace lookup failed — when workspaces are enabled, deny by returning
-            # NO_PERMISSIONS (security: don't let resource_not_found silently become a
-            # default-permission grant). When disabled, fall through to the default.
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            workspace_name = _get_resource_workspace(
+                workspace_lookup_id, workspace_fetcher, workspace_label
+            )
+            if workspace_name is None:
+                # Workspace lookup failed with workspaces enabled — deny by returning
+                # NO_PERMISSIONS (security: don't let resource_not_found silently become a
+                # default-permission grant).
+                return NO_PERMISSIONS
+        else:
+            # Workspaces disabled: every resource lives in the default workspace, which is
+            # where grants are stored. Skip the tracking-store workspace lookup so resolution
+            # honors the grant even when the tracking store has no data for the resource — e.g.
+            # an --artifacts-only server that shares the auth DB but has no experiment data.
+            workspace_name = DEFAULT_WORKSPACE_NAME
         perm = store.get_role_permission_for_resource(
             user.id, resource_type, resource_key, workspace_name
         )

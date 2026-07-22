@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import jwt
@@ -17,22 +18,26 @@ from mlflow import MlflowClient
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
+from mlflow.server.auth.permissions import NO_PERMISSIONS, READ
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     LIST_USERS,
 )
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.utils.os import is_windows
 
@@ -124,6 +129,50 @@ def fastapi_client(request, tmp_path):
         server_type="fastapi",
     ) as url:
         yield MlflowClient(url)
+
+
+def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_path, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24566:
+    # On an --artifacts-only server the tracking store has no experiment data, so the
+    # resource->workspace lookup fails. With workspaces disabled, permission resolution must
+    # still honor an explicit experiment grant in the auth DB instead of falling through to
+    # default_permission (NO_PERMISSIONS => 403).
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    experiment_id = "123"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_experiment_permission(experiment_id, username, READ.name)
+
+    def _raise_not_found(_experiment_id):
+        raise MlflowException("no experiment data", RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_experiment=_raise_not_found),
+    )
+
+    try:
+        perm = auth_module._get_experiment_permission(experiment_id, username)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant still falls through to default_permission (deny).
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_perm = auth_module._get_experiment_permission(experiment_id, "stranger")
+        assert stranger_perm.name == NO_PERMISSIONS.name
+    finally:
+        auth_store.engine.dispose()
 
 
 def test_authenticate(client, monkeypatch):
