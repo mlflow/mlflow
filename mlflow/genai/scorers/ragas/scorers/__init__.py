@@ -36,7 +36,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class AspectCritic(RagasScorer):
     """
@@ -115,7 +114,6 @@ class DiscreteMetric(RagasScorer):
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RubricsScore(RagasScorer):
     """
@@ -147,7 +145,6 @@ class RubricsScore(RagasScorer):
     metric_name: ClassVar[str] = "RubricsScore"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class InstanceSpecificRubrics(RagasScorer):
     """
@@ -197,7 +194,6 @@ class InstanceSpecificRubrics(RagasScorer):
     metric_name: ClassVar[str] = "InstanceSpecificRubrics"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class SummarizationScore(RagasScorer):
     """

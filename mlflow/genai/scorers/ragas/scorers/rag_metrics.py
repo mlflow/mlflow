@@ -15,7 +15,6 @@ _EMBEDDINGS_API_DOC = {
 }
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextPrecision(RagasScorer):
     """
@@ -60,7 +59,6 @@ class ContextUtilization(RagasScorer):
     metric_name: ClassVar[str] = "ContextUtilization"
 
 
-@experimental(version="3.8.0")
 class NonLLMContextPrecisionWithReference(RagasScorer):
     """
     Deterministic metric that evaluates context precision using non-LLM methods using expectations.
@@ -80,7 +78,6 @@ class NonLLMContextPrecisionWithReference(RagasScorer):
     metric_name: ClassVar[str] = "NonLLMContextPrecisionWithReference"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRecall(RagasScorer):
     """
@@ -102,7 +99,6 @@ class ContextRecall(RagasScorer):
     metric_name: ClassVar[str] = "ContextRecall"
 
 
-@experimental(version="3.8.0")
 class NonLLMContextRecall(RagasScorer):
     """
     Deterministic metric that evaluates context recall without using an LLM.
@@ -122,7 +118,6 @@ class NonLLMContextRecall(RagasScorer):
     metric_name: ClassVar[str] = "NonLLMContextRecall"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextEntityRecall(RagasScorer):
     """
@@ -144,7 +139,6 @@ class ContextEntityRecall(RagasScorer):
     metric_name: ClassVar[str] = "ContextEntityRecall"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class NoiseSensitivity(RagasScorer):
     """
@@ -166,7 +160,6 @@ class NoiseSensitivity(RagasScorer):
     metric_name: ClassVar[str] = "NoiseSensitivity"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Faithfulness(RagasScorer):
     """
