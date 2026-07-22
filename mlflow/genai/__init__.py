@@ -12,7 +12,12 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.evaluation import (
+    SweepResult,
+    evaluate,
+    evaluate_sweep,
+    to_predict_fn,
+)
 from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.judges import make_judge
 from mlflow.genai.labeling import (
@@ -75,7 +80,9 @@ __all__ = [
     "datasets",
     "test_agent",
     "evaluate",
+    "evaluate_sweep",
     "to_predict_fn",
+    "SweepResult",
     "Scorer",
     "scorer",
     "get_scorer",
