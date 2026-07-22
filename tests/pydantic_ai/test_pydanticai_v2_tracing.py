@@ -10,12 +10,18 @@ from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent, ModelRetry
 from pydantic_ai.capabilities.instrumentation import Instrumentation
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.pydantic_ai.autolog_v2 import (
+    patched_capability_tool_execute,
+    patched_mcp_direct_call_tool,
+    patched_mcp_list_tools,
+)
 
 from tests.tracing.helper import get_traces
 
@@ -150,6 +156,74 @@ def test_validation_failure_remains_visible_after_successful_retry():
     assert tool_span.inputs == {"left": 2, "right": 1}
     assert tool_span.outputs == 3
     assert spans[0].status.status_code == "OK"
+
+
+@pytest.mark.asyncio
+async def test_mcp_list_tools_uses_public_transport_payload():
+    mlflow.pydantic_ai.autolog()
+    toolset = object.__new__(MCPToolset)
+
+    async def list_tools(self):
+        return [{"name": "remote_tool"}]
+
+    result = await patched_mcp_list_tools(list_tools, toolset)
+
+    assert result == [{"name": "remote_tool"}]
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "MCPToolset.list_tools"
+    assert span.span_type == SpanType.TOOL
+    assert span.inputs == {}
+    assert span.outputs == [{"name": "remote_tool"}]
+
+
+@pytest.mark.asyncio
+async def test_mcp_tool_has_logical_and_nested_transport_spans():
+    mlflow.pydantic_ai.autolog()
+    instrumentation = object.__new__(Instrumentation)
+    toolset = object.__new__(MCPToolset)
+    call = ToolCallPart(tool_name="remote_tool", args={"value": 2})
+    tool_def = ToolDefinition(name="remote_tool", parameters_json_schema={})
+
+    async def direct_call_tool(self, name, args, *, metadata=None, use_task=False):
+        assert metadata == {"request": "metadata"}
+        assert use_task is True
+        return {"doubled": args["value"] * 2}
+
+    async def execute_handler(args):
+        return await patched_mcp_direct_call_tool(
+            direct_call_tool,
+            toolset,
+            "remote_tool",
+            args,
+            metadata={"request": "metadata"},
+            use_task=True,
+        )
+
+    async def execute(self, ctx, *, call, tool_def, args, handler):
+        return await handler(args)
+
+    result = await patched_capability_tool_execute(
+        execute,
+        instrumentation,
+        None,
+        call=call,
+        tool_def=tool_def,
+        args={"value": 2},
+        handler=execute_handler,
+    )
+
+    assert result == {"doubled": 4}
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert [span.name for span in spans] == ["remote_tool", "MCPToolset.direct_call_tool"]
+    assert spans[0].inputs == {"value": 2}
+    assert spans[0].outputs == {"doubled": 4}
+    assert spans[1].inputs == {"name": "remote_tool", "args": {"value": 2}}
+    assert spans[1].outputs == {"doubled": 4}
+    assert spans[1].parent_id == spans[0].span_id
 
 
 @pytest.mark.asyncio

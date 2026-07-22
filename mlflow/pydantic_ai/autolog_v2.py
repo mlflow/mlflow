@@ -258,6 +258,50 @@ async def patched_capability_tool_execute(
         return result
 
 
+async def patched_mcp_list_tools(original, self):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not config.log_traces:
+        return await original(self)
+
+    with mlflow.start_span(name="MCPToolset.list_tools", span_type=SpanType.TOOL) as span:
+        span.set_inputs({})
+        result = await original(self)
+        span.set_outputs(serialize_output(result))
+        return result
+
+
+async def patched_mcp_direct_call_tool(
+    original,
+    self,
+    name,
+    args,
+    *,
+    metadata=None,
+    use_task=False,
+):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not config.log_traces:
+        return await original(
+            self,
+            name,
+            args,
+            metadata=metadata,
+            use_task=use_task,
+        )
+
+    with mlflow.start_span(name="MCPToolset.direct_call_tool", span_type=SpanType.TOOL) as span:
+        span.set_inputs({"name": name, "args": args})
+        result = await original(
+            self,
+            name,
+            args,
+            metadata=metadata,
+            use_task=use_task,
+        )
+        span.set_outputs(serialize_output(result))
+        return result
+
+
 class _StreamedRunResultSyncWrapper:
     """Keep a sync streaming span open until the Pydantic AI result is closed."""
 
@@ -400,6 +444,7 @@ def setup_autologging() -> None:
     """Install the Pydantic AI 2.x agent and model patches."""
     from pydantic_ai import Agent
     from pydantic_ai.capabilities.instrumentation import Instrumentation
+    from pydantic_ai.mcp import MCPToolset
 
     _patch_agent_init(Agent)
     safe_patch(mlflow.pydantic_ai.FLAVOR_NAME, Agent, "run", patched_agent_run)
@@ -425,3 +470,5 @@ def setup_autologging() -> None:
         "wrap_tool_execute",
         patched_capability_tool_execute,
     )
+    _patch_async_method(MCPToolset, "list_tools", patched_mcp_list_tools)
+    _patch_async_method(MCPToolset, "direct_call_tool", patched_mcp_direct_call_tool)
