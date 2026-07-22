@@ -90,17 +90,36 @@ class Utils {
   static pipeLineStepNameTag = 'mlflow.pipeline.step.name';
 
   static formatMetric(value: any) {
-    if (value === 0) {
-      return '0';
-    } else if (Math.abs(value) < 1e-3) {
-      return value.toExponential(3).toString();
-    } else if (Math.abs(value) < 10) {
-      return (Math.round(value * 1000) / 1000).toString();
-    } else if (Math.abs(value) < 100) {
-      return (Math.round(value * 100) / 100).toString();
-    } else {
-      return (Math.round(value * 10) / 10).toString();
+    if (value === 0) return '0';
+    if (value == null || !isFinite(value)) return String(value);
+
+    const abs = Math.abs(value);
+    const exponent = Math.floor(Math.log10(abs));
+    const sign = value < 0 ? '-' : '';
+
+    const groupInt = (s: string) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const groupFrac = (s: string) => s.replace(/(\d{3})(?=\d)/g, '$1 ');
+    const fmt = (n: number, decimals: number) => {
+      const fixed = n.toFixed(decimals);
+      const dot = fixed.indexOf('.');
+      if (dot === -1) return groupInt(fixed);
+      return groupInt(fixed.slice(0, dot)) + '.' + groupFrac(fixed.slice(dot + 1));
+    };
+
+    if (exponent >= -4 && exponent <= 4) {
+      // Normal range: 4 sig figs anchored to this value's own magnitude.
+      // If the value is an integer, show no decimal places.
+      const decimals = Number.isInteger(value) ? 0 : Math.max(0, 3 - exponent);
+      return sign + fmt(abs, decimals);
     }
+
+    // Extreme range: scaled notation, e.g. "1.234×10⁻⁶"
+    const toSup = (n: number) => {
+      const map: Record<string, string> = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+      return String(n).split('').map((c) => map[c] ?? c).join('');
+    };
+    const scaled = abs / Math.pow(10, exponent);
+    return sign + fmt(scaled, 3) + '×10' + toSup(exponent);
   }
 
   /**
