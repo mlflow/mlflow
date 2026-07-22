@@ -23,30 +23,41 @@ export const INPUT_REQUEST_KEY = 'request';
 const COMMON_MESSAGE_FORMATS = ['openai', 'langchain', 'anthropic'] as const;
 
 /**
- * Attempts to extract the last user message content from various chat formats.
+ * Attempts to extract the last message content for the given role from various chat formats.
  * Returns undefined if the input cannot be parsed as a chat format.
  */
-export const tryExtractUserMessageContent = (input: unknown): string | undefined => {
-  // This prevents raw/truncated strings from being incorrectly treated as user messages
+export const tryExtractMessageContent = (input: unknown, role: string): string | undefined => {
+  // This prevents raw/truncated strings from being incorrectly treated as messages.
   if (isNil(input) || typeof input !== 'object') {
     return undefined;
   }
 
   try {
+    const extractContent = (messages: ReturnType<typeof normalizeConversation>) => {
+      const message = messages?.findLast((msg) => msg.role === role);
+      return message?.content || undefined;
+    };
+
     for (const format of COMMON_MESSAGE_FORMATS) {
-      const messages = normalizeConversation(input, format);
-      if (messages && messages.length > 0) {
-        const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user');
-        if (lastUserMessage?.content) {
-          return lastUserMessage.content;
-        }
+      const content = extractContent(normalizeConversation(input, format));
+      if (content) {
+        return content;
       }
+    }
+
+    const content = extractContent(normalizeConversation(input));
+    if (content) {
+      return content;
     }
   } catch {
     // JSON may be truncated or malformed, silently fail
   }
 
   return undefined;
+};
+
+export const tryExtractUserMessageContent = (input: unknown): string | undefined => {
+  return tryExtractMessageContent(input, 'user');
 };
 
 const INPUT_MESSAGES_KEY = 'messages';
