@@ -825,6 +825,8 @@ mlflow.gateway.config.OpenAIConfig.validate_field_compatibility
 mlflow.gateway.config.OpenAIConfig.validate_openai_api_key
 mlflow.gateway.config.PaLMConfig
 mlflow.gateway.config.PaLMConfig.validate_palm_api_key
+mlflow.gateway.config.PortkeyConfig
+mlflow.gateway.config.PortkeyConfig.validate_provider_api_key
 mlflow.gateway.config.Provider
 mlflow.gateway.config.Provider.values
 mlflow.gateway.config.RouteDestinationConfig
