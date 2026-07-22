@@ -288,6 +288,36 @@ class _OpenAICompatibleConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class PortkeyConfig(_OpenAICompatibleConfig):
+    """Config for the Portkey AI gateway provider.
+
+    In addition to the Portkey API key, Portkey must be told which upstream provider
+    to route a request to. This is expressed either as a provider slug
+    (``portkey_provider``), a saved Portkey config (``portkey_config``), or a Model
+    Catalog reference embedded in the model name (e.g. ``@openai-prod/gpt-4o``).
+
+    Args:
+        portkey_provider: Value for the ``x-portkey-provider`` header. Either a Model
+            Catalog integration slug prefixed with ``@`` (e.g. ``@openai-prod``), or a
+            bare provider slug (e.g. ``openai``), which requires ``provider_api_key``.
+        portkey_config: Value for the ``x-portkey-config`` header. A saved Portkey
+            config ID (e.g. ``pc-xxxx``) or a raw JSON config string.
+        provider_api_key: Upstream provider API key, forwarded to Portkey via the
+            ``Authorization`` header. Only needed when ``portkey_provider`` is a bare
+            provider slug whose credentials are not stored in Portkey.
+    """
+
+    portkey_provider: str | None = None
+    portkey_config: str | None = None
+    provider_api_key: str | None = None
+
+    @field_validator("provider_api_key", mode="before")
+    def validate_provider_api_key(cls, value):
+        if value is None:
+            return None
+        return _resolve_api_key_from_input(value)
+
+
 class VertexAIConfig(ConfigModel):
     vertex_project: str
     vertex_location: str | None = None

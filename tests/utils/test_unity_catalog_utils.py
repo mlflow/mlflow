@@ -1,5 +1,7 @@
 import pytest
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionDeploymentJobState,
@@ -31,6 +33,31 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
+)
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    DeploymentJobConnection,
+    ModelVersionInfo,
+    RegisteredModelAliasInfo,
+    RegisteredModelInfo,
+    TagKeyValue,
+)
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    ModelMetric as OssProtoModelMetric,
+)
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    ModelParam as OssProtoModelParam,
+)
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    ModelVersionDeploymentJobState as OssProtoModelVersionDeploymentJobState,
+)
+from mlflow.protos.unity_catalog_messages_pb2 import (
+    ModelVersionStatus as OssProtoModelVersionStatus,
+)
+from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
+    model_version_from_uc_native_proto,
+    model_version_search_from_uc_native_proto,
+    registered_model_from_uc_native_proto,
+    registered_model_search_from_uc_native_proto,
 )
 from mlflow.utils._unity_catalog_utils import (
     _parse_aws_sse_credential,
@@ -345,3 +372,184 @@ def test_registered_model_and_registered_model_search_equality():
 )
 def test_parse_aws_sse_credential(temp_credentials, parsed):
     assert _parse_aws_sse_credential(temp_credentials) == parsed
+
+
+# ---------------------------------------------------------------------------
+# Enriched converters (native /api/2.1 governance + MLflow-enrichment surface). The governance
+# entity is flattened together with the enrichment fields, so these read the info proto directly.
+# ---------------------------------------------------------------------------
+
+
+def test_registered_model_from_uc_native_proto():
+    expected_registered_model = RegisteredModel(
+        name="catalog.schema.name",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        aliases=[
+            RegisteredModelAlias(alias="champion", version="3"),
+            RegisteredModelAlias(alias="challenger", version="5"),
+        ],
+        tags=[
+            RegisteredModelTag(key="key1", value="value"),
+            RegisteredModelTag(key="key2", value=""),
+        ],
+        deployment_job_id="job_42",
+        deployment_job_state="CONNECTED",
+    )
+    uc_proto = RegisteredModelInfo(
+        name="name",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.name",
+        comment="description",
+        created_at=1,
+        updated_at=2,
+        aliases=[
+            RegisteredModelAliasInfo(alias_name="champion", version_num=3),
+            RegisteredModelAliasInfo(alias_name="challenger", version_num=5),
+        ],
+        tags=[
+            TagKeyValue(key="key1", value="value"),
+            TagKeyValue(key="key2", value=""),
+        ],
+        deployment_job_id="job_42",
+        deployment_job_state=DeploymentJobConnection.State.Value("CONNECTED"),
+    )
+    assert registered_model_from_uc_native_proto(uc_proto) == expected_registered_model
+
+
+def test_model_version_from_uc_native_proto():
+    expected_model_version = ModelVersion(
+        name="catalog.schema.model",
+        version="3",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        user_id="creator",
+        source="source",
+        run_id="run_id",
+        status="READY",
+        aliases=["champion"],
+        tags=[ModelVersionTag(key="k", value="v")],
+        model_id="m-123",
+        params=[ModelParam(key="p", value="1")],
+        metrics=[
+            Metric(
+                key="acc",
+                value=0.9,
+                timestamp=10,
+                step=1,
+                dataset_name="d",
+                dataset_digest="dig",
+                model_id="m-123",
+                run_id="run_id",
+            )
+        ],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "job_1",
+            "run_1",
+            "CONNECTED",
+            "RUNNING",
+            "task",
+        ),
+    )
+    uc_proto = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        comment="description",
+        source="source",
+        run_id="run_id",
+        status=OssProtoModelVersionStatus.Value("READY"),
+        version=3,
+        created_at=1,
+        updated_at=2,
+        created_by="creator",
+        aliases=[RegisteredModelAliasInfo(alias_name="champion", version_num=3)],
+        tags=[TagKeyValue(key="k", value="v")],
+        model_id="m-123",
+        model_params=[OssProtoModelParam(name="p", value="1")],
+        model_metrics=[
+            OssProtoModelMetric(
+                key="acc",
+                value=0.9,
+                timestamp=10,
+                step=1,
+                dataset_name="d",
+                dataset_digest="dig",
+                model_id="m-123",
+                run_id="run_id",
+            )
+        ],
+        deployment_job_state=OssProtoModelVersionDeploymentJobState(
+            job_id="job_1",
+            run_id="run_1",
+            job_state=DeploymentJobConnection.State.Value("CONNECTED"),
+            run_state=OssProtoModelVersionDeploymentJobState.DeploymentJobRunState.Value("RUNNING"),
+            current_task_name="task",
+        ),
+    )
+    assert model_version_from_uc_native_proto(uc_proto) == expected_model_version
+
+
+def test_registered_model_search_from_uc_native_proto():
+    expected_registered_model = RegisteredModelSearch(
+        name="catalog.schema.name",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        aliases=[],
+        tags=[],
+    )
+    uc_proto = RegisteredModelInfo(
+        name="name",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.name",
+        comment="description",
+        created_at=1,
+        updated_at=2,
+        aliases=[RegisteredModelAliasInfo(alias_name="champion", version_num=3)],
+        tags=[TagKeyValue(key="key1", value="value")],
+    )
+    assert registered_model_search_from_uc_native_proto(uc_proto) == expected_registered_model
+
+
+def test_model_version_search_from_uc_native_proto():
+    expected_model_version = ModelVersionSearch(
+        name="catalog.schema.model",
+        version="3",
+        creation_timestamp=1,
+        last_updated_timestamp=2,
+        description="description",
+        user_id="creator",
+        source="source",
+        run_id="run_id",
+        status="READY",
+        aliases=[],
+        tags=[],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "",
+            "",
+            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
+            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
+            "",
+        ),
+    )
+    uc_proto = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        comment="description",
+        source="source",
+        run_id="run_id",
+        status=OssProtoModelVersionStatus.Value("READY"),
+        version=3,
+        created_at=1,
+        updated_at=2,
+        created_by="creator",
+        aliases=[RegisteredModelAliasInfo(alias_name="champion", version_num=3)],
+        tags=[TagKeyValue(key="k", value="v")],
+    )
+    assert model_version_search_from_uc_native_proto(uc_proto) == expected_model_version
