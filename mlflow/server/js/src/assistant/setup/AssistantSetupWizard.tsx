@@ -97,8 +97,6 @@ const StepIndicator = ({ currentStep, completedSteps }: StepIndicatorProps) => {
 interface AssistantSetupWizardProps {
   experimentId?: string;
   onComplete: () => void;
-  /** Initial step to start at (for settings flow) */
-  initialStep?: SetupStep;
   /** Callback for back button when in settings mode */
   onBack?: () => void;
 }
@@ -106,7 +104,6 @@ interface AssistantSetupWizardProps {
 export const AssistantSetupWizard = ({
   experimentId,
   onComplete,
-  initialStep,
   onBack: onBackFromSettings,
 }: AssistantSetupWizardProps) => {
   const { theme } = useDesignSystemTheme();
@@ -115,7 +112,7 @@ export const AssistantSetupWizard = ({
   // Settings mode: when navigated to from settings (onBack is provided)
   const isSettingsMode = !!onBackFromSettings;
 
-  const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep || 'provider');
+  const [currentStep, setCurrentStep] = useState<SetupStep>('provider');
   const [completedSteps, setCompletedSteps] = useState<Set<SetupStep>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<string>('claude_code');
   const [cachedAuthStatus, setCachedAuthStatus] = useState<Record<string, AuthState>>({});
@@ -123,7 +120,7 @@ export const AssistantSetupWizard = ({
   useEffect(() => {
     if (!config?.providers) return;
     const current = Object.entries(config.providers).find(([, p]) => p.selected)?.[0];
-    if (current) setSelectedProvider(current);
+    setSelectedProvider(current ?? 'claude_code');
   }, [config]);
 
   const markStepComplete = useCallback((step: SetupStep) => {
@@ -173,6 +170,19 @@ export const AssistantSetupWizard = ({
   }, [currentStep]);
 
   const renderStepContent = () => {
+    if (isSettingsMode) {
+      return (
+        <SetupStepProject
+          experimentId={experimentId}
+          provider={selectedProvider}
+          onBack={onBackFromSettings ?? (() => {})}
+          onComplete={handleProjectComplete}
+          nextLabel="Save"
+          backLabel="Cancel"
+        />
+      );
+    }
+
     switch (currentStep) {
       case 'provider':
         return <SetupStepProvider selectedProvider={selectedProvider} onContinue={handleProviderContinue} />;
