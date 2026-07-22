@@ -179,7 +179,7 @@ async def patched_capability_model_request(original, self, ctx, **kwargs):
         return result
 
 
-async def patched_capability_tool_validate(
+async def patched_capability_tool_validate_error(
     original,
     self,
     ctx,
@@ -187,9 +187,9 @@ async def patched_capability_tool_validate(
     call,
     tool_def,
     args,
-    handler,
+    error,
 ):
-    """Trace validation only when it fails, leaving retry handling to Pydantic AI."""
+    """Trace failed validation while leaving error handling to Pydantic AI."""
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not config.log_traces:
         return await original(
@@ -198,28 +198,22 @@ async def patched_capability_tool_validate(
             call=call,
             tool_def=tool_def,
             args=args,
-            handler=handler,
+            error=error,
         )
 
-    from pydantic import ValidationError
-    from pydantic_ai import ModelRetry
-
-    try:
+    with mlflow.start_span(
+        name=f"{call.tool_name}.validation",
+        span_type=SpanType.PARSER,
+    ) as span:
+        span.set_inputs(args)
         return await original(
             self,
             ctx,
             call=call,
             tool_def=tool_def,
             args=args,
-            handler=handler,
+            error=error,
         )
-    except (ValidationError, ModelRetry):
-        with mlflow.start_span(
-            name=f"{call.tool_name}.validation",
-            span_type=SpanType.PARSER,
-        ) as span:
-            span.set_inputs(args)
-            raise
 
 
 async def patched_capability_tool_execute(
@@ -457,13 +451,13 @@ def setup_autologging() -> None:
         "wrap_model_request",
         patched_capability_model_request,
     )
-    # Validation and execution may raise ModelRetry as normal agent control flow. Using
+    # Validation errors and tool execution retries are normal agent control flow. Using
     # safe_patch here would mark the enclosing autologging session as failed and suppress
     # instrumentation for the successful retry.
     _patch_async_method(
         Instrumentation,
-        "wrap_tool_validate",
-        patched_capability_tool_validate,
+        "on_tool_validate_error",
+        patched_capability_tool_validate_error,
     )
     _patch_async_method(
         Instrumentation,

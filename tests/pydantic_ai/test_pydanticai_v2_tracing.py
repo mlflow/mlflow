@@ -115,24 +115,19 @@ async def test_tool_validation_failure_is_traced(error_type):
         class Arguments(BaseModel):
             left: int
 
-        async def handler(args):
-            Arguments.model_validate(args)
-
-        expected_error = ValidationError
+        with pytest.raises(ValidationError, match="valid integer") as exc_info:
+            Arguments.model_validate(call.args)
+        error = exc_info.value
     else:
+        error = ModelRetry("try different arguments")
 
-        async def handler(args):
-            raise ModelRetry("try different arguments")
-
-        expected_error = ModelRetry
-
-    with pytest.raises(expected_error):
-        await instrumentation.wrap_tool_validate(
+    with pytest.raises(type(error)):
+        await instrumentation.on_tool_validate_error(
             None,
             call=call,
             tool_def=tool_def,
             args=call.args,
-            handler=handler,
+            error=error,
         )
 
     traces = get_traces()
