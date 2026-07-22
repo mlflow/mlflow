@@ -203,9 +203,8 @@ class ChatMessage(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("role", str, True)
 
-        # Multimodal content: a list of content-part dicts (e.g. text and image_url
-        # blocks). Such content serializes unchanged into the request payload, so we
-        # only skip the str-content check while still validating the other fields.
+        # Multimodal content is a list of content-part dicts (e.g. text and image_url
+        # blocks); skip the str-content check but still validate the other fields.
         if isinstance(self.content, list):
             self._validate_field("name", str, False)
             self._convert_dataclass_list("tool_calls", ToolCall, False)

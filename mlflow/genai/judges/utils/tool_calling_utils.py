@@ -77,9 +77,8 @@ def _process_tool_calls(
             )
             continue
 
-        # An image result must ride in on a follow-up user turn: OpenAI-format
-        # endpoints reject image blocks inside role="tool" messages. Emit a text
-        # tool ack to satisfy the tool_call_id, and defer the multimodal user message.
+        # Image blocks are rejected inside role="tool" messages, so emit a text ack
+        # to satisfy the tool_call_id and defer the image to a user turn (see above).
         if isinstance(result, SpanImageResult):
             tool_response_messages.append(
                 _create_tool_response_message(
@@ -136,18 +135,10 @@ def _create_tool_response_message(tool_call_id: str, tool_name: str, content: st
 
 
 def _create_image_turn_message(tool_call_id: str, result: Any) -> "ChatMessage":
-    """Create the follow-up user message that delivers a fetched image to the model.
+    """Build the user message that delivers a fetched image, tagged with its tool_call_id.
 
-    The message carries multimodal content (a text part plus an image_url part) and is
-    tagged with the originating tool_call_id so context-window pruning can drop it
-    together with its tool-call pair.
-
-    Args:
-        tool_call_id: The ID of the tool call that produced the image.
-        result: The SpanImageResult carrying the image data URL.
-
-    Returns:
-        A ChatMessage with role="user" and multimodal content.
+    The tag lets a user message (which has no tool_call_id of its own) still be paired
+    with the tool call that produced it when trimming messages.
     """
     from mlflow.types.llm import ChatMessage
 
@@ -163,12 +154,11 @@ def _create_image_turn_message(tool_call_id: str, result: Any) -> "ChatMessage":
 
 
 class _ImageTurnDict(dict):
-    """A provider-safe multimodal user-message dict for the LiteLLM path.
+    """A multimodal user-message dict whose tool_call_id rides as an instance attribute.
 
-    The originating tool_call_id is stored as an instance ATTRIBUTE, not a dict key, so
-    it never appears in the payload forwarded to ``litellm.completion`` (strict
-    OpenAI-compatible endpoints 400 on unknown message keys) while pruning can still
-    associate the turn with its tool-call pair.
+    Storing the tool_call_id as an attribute rather than a dict key keeps it out of the
+    message sent to the model provider (strict OpenAI-compatible endpoints 400 on unknown
+    message keys) while still letting it be paired with its tool call when trimming.
     """
 
 
@@ -176,9 +166,8 @@ def _tag_image_turn(message: Any, tool_call_id: str) -> None:
     """Tag a message as an injected image user-turn belonging to ``tool_call_id``.
 
     The tag is always an instance attribute (never a dict key), so it stays out of the
-    provider request payload on every message type: ChatMessage (dataclass),
-    litellm.Message (pydantic), and _ImageTurnDict. Best-effort: if the message type
-    rejects the extra attribute, pruning falls back to leaving the turn in place.
+    message sent to the model provider. Best-effort: if the message type rejects the
+    extra attribute, the turn simply stays in place when trimming, which is safe.
     """
     try:
         object.__setattr__(message, IMAGE_TURN_TOOL_CALL_ID_ATTR, tool_call_id)
@@ -187,11 +176,10 @@ def _tag_image_turn(message: Any, tool_call_id: str) -> None:
 
 
 def _to_litellm_image_turn(message: Any) -> _ImageTurnDict:
-    """Convert an image-turn ChatMessage into a provider-safe dict for the LiteLLM path.
+    """Convert an image-turn ChatMessage into an _ImageTurnDict.
 
-    litellm.Message (content: str) rejects the multimodal LIST content, so the image turn
-    is sent as a plain dict. Uses _ImageTurnDict so the pruning tag rides as an attribute
-    rather than a leaking dict key.
+    litellm.Message types content as ``str`` and rejects the multimodal list, so the
+    image turn is sent as a dict instead.
     """
     turn = _ImageTurnDict(role=message.role, content=message.content)
     _tag_image_turn(turn, _get_image_turn_tool_call_id(message))
@@ -199,16 +187,11 @@ def _to_litellm_image_turn(message: Any) -> _ImageTurnDict:
 
 
 def _get_image_turn_tool_call_id(message: Any) -> str | None:
-    """Return the tool_call_id an injected image user-turn belongs to, or None.
-
-    The tag is always an instance attribute, so a single attribute lookup covers
-    ChatMessage, litellm.Message, and _ImageTurnDict; plain untagged dicts yield None.
-    """
+    """Return the tool_call_id an injected image user-turn belongs to, or None if untagged."""
     return getattr(message, IMAGE_TURN_TOOL_CALL_ID_ATTR, None)
 
 
 def _get_message_field(message: Any, field: str) -> Any:
-    """Read a message field from either an object message or a plain dict message."""
     if isinstance(message, dict):
         return message.get(field)
     return getattr(message, field, None)

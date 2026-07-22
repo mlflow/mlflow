@@ -395,12 +395,11 @@ def _invoke_litellm_and_handle_tools(
                 for tc in message.tool_calls
             ]
             tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
-            # Convert ChatMessage responses back to litellm Messages for the conversation.
             litellm_tool_messages = []
             for msg in tool_response_messages:
                 # An injected image user-turn carries multimodal LIST content, which the
                 # strict litellm.Message pydantic model (content: str) rejects. Send it as
-                # a provider-safe dict instead; normal tool responses stay litellm.Message.
+                # a provider-safe dict instead.
                 if _get_image_turn_tool_call_id(msg) is not None:
                     litellm_tool_messages.append(_to_litellm_image_turn(msg))
                 else:

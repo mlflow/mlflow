@@ -22,18 +22,12 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.tracing.attachments import Attachment
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 
-# Matches any mlflow-attachment:// reference embedded in the serialized span.
 _ATTACHMENT_REF_RE = re.compile(r"mlflow-attachment://[^\s\"'\\]+")
 
 
 @dataclass
 class SpanImageResult:
-    """Result carrying real image bytes fetched for a span.
-
-    The data URL is carried out of the tool so the tool-calling loop can deliver
-    it on a follow-up ``role="user"`` turn (OpenAI-format endpoints reject image
-    blocks inside ``role="tool"`` messages) rather than flattening it to text.
-    """
+    """The image bytes fetched for a span, as a base64 data URL."""
 
     span_id: str
     content_type: str
@@ -45,8 +39,7 @@ class GetSpanImageTool(JudgeTool):
     Tool for fetching the actual image bytes of an attachment referenced in a span.
 
     Resolves an ``mlflow-attachment://`` reference, downloads the bytes, and
-    returns them as a base64 data URL. The image is delivered to the model as a
-    viewable image in the following user message.
+    returns them as a base64 data URL.
     """
 
     @property
@@ -109,9 +102,8 @@ class GetSpanImageTool(JudgeTool):
         if target is None:
             return f"Error: span '{span_id}' not found in trace"
 
-        # The image reference survives only inside the serialized span (autolog
-        # rewrites the inline data URL to an mlflow-attachment:// token), so scan
-        # the same JSON the text tools expose to the model.
+        # Autolog rewrites an inline image data URL to an mlflow-attachment:// token,
+        # which survives only inside the serialized span, so scan that JSON for it.
         serialized = json.dumps(target.to_dict(), default=str)
         refs = _ATTACHMENT_REF_RE.findall(serialized)
         if not refs:
@@ -135,8 +127,7 @@ class GetSpanImageTool(JudgeTool):
             )
 
         # NB: _get_artifact_repo_for_trace / download_trace_attachment is the current
-        # internal accessor for trace attachment bytes; there is no public API for it
-        # yet (the tracing client and server handler use the same internal path).
+        # internal accessor for trace attachment bytes; there is no public API for it yet.
         from mlflow.tracing.client import TracingClient
 
         repo = TracingClient()._get_artifact_repo_for_trace(trace.info)
