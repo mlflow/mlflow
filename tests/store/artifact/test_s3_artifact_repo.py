@@ -21,6 +21,7 @@ from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3Artifact
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
+    _attachment_content_disposition,
     _cached_get_s3_client,
 )
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
@@ -1012,6 +1013,68 @@ def test_get_download_presigned_url_returns_file_size(s3_artifact_root, tmp_path
 
     # Verify file size matches
     assert presigned_response.file_size == len(file_content)
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("model.pkl", 'attachment; filename="model.pkl"'),
+        ('quo"ted.txt', 'attachment; filename="quo\\"ted.txt"'),
+        ("back\\slash.bin", 'attachment; filename="back\\\\slash.bin"'),
+        ("modèle.txt", "attachment; filename*=UTF-8''mod%C3%A8le.txt"),
+        # Control characters must never reach a header value verbatim (header
+        # injection); they are routed through the percent-encoded form.
+        ("new\nline.txt", "attachment; filename*=UTF-8''new%0Aline.txt"),
+    ],
+)
+def test_attachment_content_disposition(filename, expected):
+    assert _attachment_content_disposition(filename) == expected
+
+
+def test_get_download_presigned_url_sets_attachment_disposition(s3_artifact_root, tmp_path):
+    # The URL must carry an `attachment` Content-Disposition override so that a browser
+    # navigating to it saves the artifact under its own filename instead of rendering
+    # renderable types (text, HTML, images) inline. The override is part of the
+    # SigV4-signed query, so it cannot be stripped or altered without invalidating the URL.
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "report.html"
+    file_path = tmp_path / file_name
+    file_text = "<html><body>hello</body></html>"
+    file_path.write_text(file_text)
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+    assert query.get("response-content-disposition") == ['attachment; filename="report.html"']
+
+    # The URL remains usable end to end. (Real S3 echoes the signed
+    # `response-content-disposition` override as the response Content-Disposition
+    # header; moto does not implement the echo, so only the URL shape is asserted
+    # here.)
+    response = requests.get(presigned_response.url, timeout=10)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_non_ascii_filename_disposition(s3_artifact_root, tmp_path):
+    # Non-ASCII filenames cannot be carried in the plain quoted `filename=` parameter;
+    # RFC 5987's `filename*=UTF-8''` form is used so browsers restore the original name.
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "modèle-final.txt"
+    file_path = tmp_path / file_name
+    file_path.write_text("bonjour")
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+    assert query.get("response-content-disposition") == [
+        "attachment; filename*=UTF-8''mod%C3%A8le-final.txt"
+    ]
+
+    response = requests.get(presigned_response.url, timeout=10)
+    assert response.status_code == 200
 
 
 def test_get_download_presigned_url_missing_artifact(s3_artifact_root):
