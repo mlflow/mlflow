@@ -112,29 +112,6 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
-/** The provider/model backing the current session, resolved by the `/providers` discovery API. */
-export interface SelectedProvider {
-  /** Provider id as keyed in `/config` (e.g. `claude_code`, `mlflow_gateway`). */
-  id: string;
-  /** Configured model / endpoint name for that provider ('default' = provider decides). */
-  model: string;
-  /** True when the provider was picked by default resolution, not an explicit selection. */
-  autoSelected?: boolean;
-  /**
-   * For the gateway (which routes rather than serves models), the LLM provider behind the
-   * resolved endpoint (e.g. 'openai', 'anthropic') so the composer shows the actual vendor.
-   */
-  modelProvider?: string;
-  /** Concrete vendor model backing an assistant-managed Gateway endpoint. */
-  providerModel?: string;
-  /** Curated vendor model choices for an assistant-managed Gateway endpoint. */
-  modelOptions?: string[];
-  /** Whether this selected provider/endpoint still needs an API key before chat. */
-  requiresApiKey?: boolean;
-  /** Whether this selected provider/endpoint already has the required API key. */
-  hasApiKey?: boolean;
-}
-
 /** One provider as reported by the `/providers` discovery endpoint. */
 export interface ProviderInfo {
   name: string;
@@ -172,6 +149,18 @@ export interface ProvidersResponse {
   gateway_vendor_options?: Record<string, string[]>;
 }
 
+export type AssistantProviderSelection =
+  | { kind: 'provider'; name: string; model?: string }
+  | {
+      kind: 'gateway';
+      endpointName: string;
+      gatewayVendor?: string;
+      providerModel?: string;
+      modelOptions?: string[];
+      requiresApiKey?: boolean;
+      hasApiKey?: boolean;
+    };
+
 /**
  * Machine-readable codes carried by stream error events so the UI can map a
  * failure to a recovery action. Mirrors `ErrorCode` in `mlflow/assistant/types.py`.
@@ -183,21 +172,6 @@ export const AssistantErrorCode = {
   NoProvider: 'no_provider',
 } as const;
 export type AssistantErrorCode = (typeof AssistantErrorCode)[keyof typeof AssistantErrorCode];
-
-export interface SelectProviderOptions {
-  /** Gateway vendor to create/select through `mlflow_gateway` (e.g. 'openai'). */
-  gatewayVendor?: string;
-  /** Concrete vendor model to use for an assistant-managed Gateway endpoint. */
-  providerModel?: string;
-  /** Curated vendor model choices for the optimistic selection. */
-  modelOptions?: string[];
-  /** Whether the optimistic selection still needs an API key before chat. */
-  requiresApiKey?: boolean;
-  /** Whether the optimistic selection already has the required API key. */
-  hasApiKey?: boolean;
-  /** Display vendor behind a Gateway endpoint. Defaults to `gatewayVendor`. */
-  modelProvider?: string;
-}
 
 /** Cumulative token usage reported by the provider for the current session. */
 export interface TokenUsage {
@@ -234,10 +208,10 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
-  /** The provider/model backing the session, or null when nothing resolves */
-  selectedProvider: SelectedProvider | null;
+  /** The provider/model backing the composer selection, or null when nothing resolves */
+  activeProvider: ResolvedProviderInfo | null;
   /** All providers this client could use, per discovery (feeds the composer's provider picker) */
-  availableProviders: ProviderInfo[];
+  providers: ProviderInfo[];
   /** Curated vendor/model shortcuts that create assistant-managed Gateway LLM Connections. */
   gatewayVendorOptions: Record<string, string[]>;
   /** Whether the resolved provider still needs an API key before the first chat */
@@ -260,7 +234,7 @@ export interface AssistantAgentActions {
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
   /** Optimistically switch the active provider (persisted on the next send). */
-  selectProvider: (providerId: string, model?: string, options?: SelectProviderOptions) => void;
+  selectProvider: (selection: AssistantProviderSelection) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */

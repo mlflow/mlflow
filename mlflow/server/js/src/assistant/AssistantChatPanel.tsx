@@ -3,21 +3,17 @@
  * Displays the chat interface for the Assistant.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Alert,
   Button,
   Card,
-  CheckIcon,
-  ChevronDownIcon,
   CloseIcon,
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
-  DropdownMenu,
   GearIcon,
   InfoTooltip,
-  PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -35,12 +31,10 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { getAssistantProvider, getLlmProviderDisplay } from './providerRegistry';
-import { AssistantErrorCode, type ProviderInfo, type SelectProviderOptions, type SelectedProvider } from './types';
+import { AssistantErrorCode } from './types';
 import { ApiKeyPrompt } from './ApiKeyPrompt';
 import { GATEWAY_PROVIDER_ID } from './constants';
-import { useEndpointsQuery } from '../gateway/hooks/useEndpointsQuery';
-import { GatewayRoutePaths } from '../gateway/routes';
-import type { Endpoint } from '../gateway/types';
+import { AssistantProviderPicker } from './AssistantProviderPicker';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
@@ -78,360 +72,6 @@ const formatCostUsd = (cost: number): string =>
     currency: 'USD',
     maximumFractionDigits: cost < 1 ? 4 : 2,
   }).format(cost);
-
-const GATEWAY_VENDOR_ORDER = ['openai', 'anthropic', 'gemini'];
-
-const gatewayVendorEndpointName = (vendor: string): string => `mlflow-assistant-${vendor}`;
-
-const orderedGatewayVendors = (options: Record<string, string[]>): string[] => {
-  const known = GATEWAY_VENDOR_ORDER.filter((vendor) => vendor in options);
-  const rest = Object.keys(options)
-    .filter((vendor) => !known.includes(vendor))
-    .sort();
-  return [...known, ...rest];
-};
-
-const endpointModelName = (endpoint: Endpoint | undefined): string | undefined =>
-  endpoint?.model_mappings?.[0]?.model_definition?.model_name;
-
-const GatewayVendorItems = ({
-  currentProvider,
-  gatewayVendorOptions,
-  onSelect,
-}: {
-  currentProvider: SelectedProvider;
-  gatewayVendorOptions: Record<string, string[]>;
-  onSelect: (endpointName: string, options?: SelectProviderOptions) => void;
-}) => {
-  const { data: endpoints } = useEndpointsQuery();
-  const { theme } = useDesignSystemTheme();
-  const managedVendors = orderedGatewayVendors(gatewayVendorOptions);
-  if (managedVendors.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {managedVendors.map((vendor) => {
-        const endpointName = gatewayVendorEndpointName(vendor);
-        const endpoint = endpoints.find((candidate) => candidate.name === endpointName);
-        const modelOptions = gatewayVendorOptions[vendor] ?? [];
-        const providerModel = endpointModelName(endpoint) ?? modelOptions[0];
-        const vendorDisplay = getLlmProviderDisplay(vendor);
-        const isCurrent =
-          currentProvider.id === GATEWAY_PROVIDER_ID &&
-          currentProvider.model === endpointName &&
-          currentProvider.modelProvider === vendor;
-
-        return (
-          <DropdownMenu.Item
-            componentId="mlflow.assistant.provider_picker.item"
-            key={vendor}
-            onClick={() =>
-              onSelect(endpointName, {
-                gatewayVendor: vendor,
-                modelProvider: vendor,
-                providerModel,
-                modelOptions,
-                requiresApiKey: !endpoint,
-                hasApiKey: Boolean(endpoint),
-              })
-            }
-          >
-            {vendorDisplay?.logo && (
-              <img
-                src={vendorDisplay.logo}
-                alt=""
-                aria-hidden
-                css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
-              />
-            )}
-            <span css={{ flex: 1 }}>{vendorDisplay?.name ?? vendor}</span>
-            {isCurrent && <CheckIcon css={{ marginLeft: theme.spacing.sm }} />}
-          </DropdownMenu.Item>
-        );
-      })}
-      <DropdownMenu.Separator />
-    </>
-  );
-};
-
-/**
- * Custom endpoint list inside the gateway submenu, plus a shortcut to create a new
- * endpoint. Hosted provider shortcuts are intentionally rendered at the top level
- * of the composer picker instead of being hidden under this submenu.
- */
-const GatewayEndpointItems = ({
-  gatewayVendorOptions,
-  onSelect,
-}: {
-  gatewayVendorOptions: Record<string, string[]>;
-  onSelect: (endpointName: string, options?: SelectProviderOptions) => void;
-}) => {
-  const { data: endpoints, isLoading } = useEndpointsQuery();
-  const managedEndpointNames = new Set(Object.keys(gatewayVendorOptions).map(gatewayVendorEndpointName));
-  const customEndpoints = endpoints.filter((endpoint) => !managedEndpointNames.has(endpoint.name));
-
-  const openCreateEndpoint = useCallback(() => {
-    // MLflow uses hash routing, so SPA routes must be prefixed with `/#`
-    // for fresh-tab loads to land on the right page.
-    window.open(`/#${GatewayRoutePaths.createEndpointPage}`, '_blank', 'noopener');
-  }, []);
-
-  return (
-    <>
-      {isLoading ? (
-        <DropdownMenu.Item componentId="mlflow.assistant.provider_picker.endpoint" disabled>
-          <Spinner size="small" />
-        </DropdownMenu.Item>
-      ) : (
-        customEndpoints.map((endpoint) => (
-          <DropdownMenu.Item
-            componentId="mlflow.assistant.provider_picker.endpoint"
-            key={endpoint.name}
-            onClick={() => onSelect(endpoint.name)}
-          >
-            {endpoint.name}
-          </DropdownMenu.Item>
-        ))
-      )}
-      <DropdownMenu.Item componentId="mlflow.assistant.provider_picker.create_endpoint" onClick={openCreateEndpoint}>
-        <PlusIcon css={{ marginRight: 4 }} />
-        <FormattedMessage
-          defaultMessage="Create new endpoint"
-          description="Option in the assistant provider picker that opens the gateway endpoint creation page"
-        />
-      </DropdownMenu.Item>
-    </>
-  );
-};
-
-/** Hover explanation for providers that cannot be selected right now. */
-const disabledReasonFor = (candidate: ProviderInfo, intl: ReturnType<typeof useIntl>): string => {
-  // These CLI providers are localhost-only, so they only ever appear on the same
-  // machine that runs the server — hence "your machine", not "the MLflow server".
-  if (candidate.name === 'claude_code' || candidate.name === 'codex') {
-    return intl.formatMessage(
-      {
-        defaultMessage: 'The {name} CLI is not installed on your machine.',
-        description: 'Hover explanation for a CLI assistant provider that is not installed',
-      },
-      { name: candidate.display_name },
-    );
-  }
-  if (candidate.name === 'ollama') {
-    return intl.formatMessage({
-      defaultMessage: 'No running Ollama server was found (or it has no models pulled).',
-      description: 'Hover explanation for the Ollama assistant provider when unavailable',
-    });
-  }
-  return intl.formatMessage({
-    defaultMessage: 'This provider is not available on the MLflow server.',
-    description: 'Generic hover explanation for an unavailable assistant provider',
-  });
-};
-
-/**
- * Provider chip in the composer: shows the provider/vendor backing the session
- * and opens an upward menu to switch to any other discovered provider without
- * going through Settings. Switching is optimistic and local (no backend call);
- * the selection is persisted on the next send, and anything the new provider
- * still needs (API key, login) is collected lazily then.
- */
-const ProviderPicker = ({
-  provider,
-  providers,
-  gatewayVendorOptions,
-  disabled,
-  onSelect,
-}: {
-  provider: SelectedProvider;
-  providers: ProviderInfo[];
-  gatewayVendorOptions: Record<string, string[]>;
-  disabled?: boolean;
-  onSelect: (providerId: string, model?: string, options?: SelectProviderOptions) => void;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  const meta = getAssistantProvider(provider.id);
-  // The gateway routes rather than serves models: show the endpoint's actual
-  // LLM vendor (OpenAI, Anthropic, ...) when it's known.
-  const llmVendor = provider.modelProvider ? getLlmProviderDisplay(provider.modelProvider) : undefined;
-  const label = llmVendor?.name ?? meta?.name ?? provider.id;
-  const logo = llmVendor?.logo ?? meta?.logo;
-  const ProviderIcon = llmVendor ? undefined : meta?.icon;
-
-  const trigger = (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-label="Change assistant provider"
-      css={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: theme.spacing.xs,
-        minWidth: 0,
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        cursor: disabled ? 'default' : 'pointer',
-      }}
-    >
-      {logo && <img src={logo} alt="" aria-hidden css={{ width: 14, height: 14, flexShrink: 0, borderRadius: 2 }} />}
-      {!logo && ProviderIcon && (
-        <ProviderIcon
-          aria-hidden
-          css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }}
-        />
-      )}
-      <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
-        {label}
-      </Typography.Text>
-      {!disabled && <ChevronDownIcon css={{ fontSize: 12, color: theme.colors.textSecondary }} />}
-    </button>
-  );
-
-  if (disabled) {
-    // Remote clients cannot update the server-side config, so the chip stays display-only.
-    return trigger;
-  }
-
-  return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
-      <DropdownMenu.Content side="top" align="start" css={{ minWidth: 220 }}>
-        {providers.map((candidate) => {
-          const candidateMeta = getAssistantProvider(candidate.name);
-          const candidateLogo = candidateMeta?.logo;
-          const CandidateIcon = candidateMeta?.icon;
-          const candidateLabel = candidateMeta?.name ?? candidate.display_name;
-          const isCurrent = candidate.name === provider.id;
-          const itemContent = (
-            <>
-              {candidateLogo && (
-                <img
-                  src={candidateLogo}
-                  alt=""
-                  aria-hidden
-                  css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
-                />
-              )}
-              {!candidateLogo && CandidateIcon && (
-                <CandidateIcon
-                  aria-hidden
-                  css={{ fontSize: 16, marginRight: theme.spacing.xs, color: theme.colors.textSecondary }}
-                />
-              )}
-              <span css={{ flex: 1 }}>{candidateLabel}</span>
-              {isCurrent && <CheckIcon css={{ marginLeft: theme.spacing.sm }} />}
-            </>
-          );
-          if (candidate.name === GATEWAY_PROVIDER_ID) {
-            // Hosted vendors are top-level shortcuts. The Gateway submenu is
-            // reserved for custom endpoints and creating a new endpoint.
-            return (
-              <Fragment key={candidate.name}>
-                <GatewayVendorItems
-                  currentProvider={provider}
-                  gatewayVendorOptions={gatewayVendorOptions}
-                  onSelect={(endpointName, options) => onSelect(candidate.name, endpointName, options)}
-                />
-                <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger>{itemContent}</DropdownMenu.SubTrigger>
-                  <DropdownMenu.SubContent>
-                    <GatewayEndpointItems
-                      gatewayVendorOptions={gatewayVendorOptions}
-                      onSelect={(endpointName, options) => onSelect(candidate.name, endpointName, options)}
-                    />
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
-              </Fragment>
-            );
-          }
-          return (
-            <DropdownMenu.Item
-              componentId="mlflow.assistant.provider_picker.item"
-              key={candidate.name}
-              disabled={!candidate.available}
-              disabledReason={candidate.available ? undefined : disabledReasonFor(candidate, intl)}
-              onClick={() => onSelect(candidate.name, candidate.model_options[0])}
-            >
-              {itemContent}
-            </DropdownMenu.Item>
-          );
-        })}
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
-  );
-};
-
-const ModelPicker = ({
-  model,
-  options,
-  disabled,
-  onSelect,
-}: {
-  model: string;
-  options: string[];
-  disabled?: boolean;
-  onSelect: (model: string) => void;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  if (options.length === 0) {
-    return null;
-  }
-
-  const currentModel = model && model !== 'default' && options.includes(model) ? model : options[0];
-  const trigger = (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-label="Change assistant model"
-      css={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: theme.spacing.xs,
-        minWidth: 0,
-        maxWidth: 180,
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        cursor: disabled ? 'default' : 'pointer',
-      }}
-    >
-      <Typography.Text
-        size="sm"
-        color="secondary"
-        css={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {currentModel}
-      </Typography.Text>
-      {!disabled && <ChevronDownIcon css={{ fontSize: 12, color: theme.colors.textSecondary }} />}
-    </button>
-  );
-
-  if (disabled || options.length === 1) {
-    return trigger;
-  }
-
-  return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
-      <DropdownMenu.Content side="top" align="start" css={{ minWidth: 180 }}>
-        {options.map((option) => (
-          <DropdownMenu.Item
-            componentId="mlflow.assistant.model_picker.item"
-            key={option}
-            onClick={() => onSelect(option)}
-          >
-            <span css={{ flex: 1 }}>{option}</span>
-            {option === currentModel && <CheckIcon css={{ marginLeft: theme.spacing.sm }} />}
-          </DropdownMenu.Item>
-        ))}
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
-  );
-};
 
 export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
 
@@ -788,8 +428,8 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     regenerateLastMessage,
     cancelSession,
     tokenUsage,
-    selectedProvider,
-    availableProviders,
+    activeProvider,
+    providers,
     gatewayVendorOptions,
     selectProvider,
     isLocalServer,
@@ -808,17 +448,6 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
   const [pendingKeyMessage, setPendingKeyMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const currentProviderInfo = selectedProvider
-    ? availableProviders.find((provider) => provider.name === selectedProvider.id)
-    : undefined;
-  const currentModelOptions =
-    selectedProvider?.modelOptions && selectedProvider.modelOptions.length > 0
-      ? selectedProvider.modelOptions
-      : (currentProviderInfo?.model_options ?? []);
-  const currentModel =
-    selectedProvider?.modelOptions && selectedProvider.modelOptions.length > 0
-      ? (selectedProvider.providerModel ?? currentModelOptions[0] ?? selectedProvider.model)
-      : (selectedProvider?.model ?? 'default');
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -848,13 +477,13 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
   // is still missing (the ideal-flow popup: the first send doubles as setup).
   const deliverMessage = useCallback(
     (message: string) => {
-      if (needsApiKey && selectedProvider) {
+      if (needsApiKey && activeProvider) {
         setPendingKeyMessage(message);
         return;
       }
       sendMessage(message);
     },
-    [needsApiKey, selectedProvider, sendMessage],
+    [activeProvider, needsApiKey, sendMessage],
   );
 
   const handleApiKeySaved = useCallback(() => {
@@ -967,8 +596,22 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
         {errorCode && RECOVERABLE_ERROR_CODES.has(errorCode) && (
           <RecoverableErrorCallout errorCode={errorCode} error={error} onOpenSettings={onOpenSettings} />
         )}
-        {(pendingKeyMessage != null || errorCode === AssistantErrorCode.ApiKeyMissing) && selectedProvider && (
-          <ApiKeyPrompt provider={selectedProvider} onSaved={handleApiKeySaved} />
+        {(pendingKeyMessage != null || errorCode === AssistantErrorCode.ApiKeyMissing) && activeProvider && (
+          <ApiKeyPrompt
+            providerId={activeProvider.name}
+            providerName={
+              (activeProvider.name === GATEWAY_PROVIDER_ID && activeProvider.model_provider
+                ? getLlmProviderDisplay(activeProvider.model_provider)?.name
+                : undefined) ??
+              getAssistantProvider(activeProvider.name)?.name ??
+              activeProvider.name
+            }
+            gatewayVendor={
+              activeProvider.name === GATEWAY_PROVIDER_ID ? (activeProvider.model_provider ?? undefined) : undefined
+            }
+            providerModel={activeProvider.provider_model}
+            onSaved={handleApiKeySaved}
+          />
         )}
         <div
           css={{
@@ -1021,35 +664,14 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
             }}
           >
-            {selectedProvider && (
-              <>
-                <ProviderPicker
-                  provider={selectedProvider}
-                  providers={availableProviders}
-                  gatewayVendorOptions={gatewayVendorOptions}
-                  disabled={!isLocalServer}
-                  onSelect={selectProvider}
-                />
-                <ModelPicker
-                  model={currentModel}
-                  options={currentModelOptions}
-                  disabled={!isLocalServer}
-                  onSelect={(model) => {
-                    if (selectedProvider.id === GATEWAY_PROVIDER_ID && selectedProvider.modelProvider) {
-                      selectProvider(selectedProvider.id, selectedProvider.model, {
-                        gatewayVendor: selectedProvider.modelProvider,
-                        modelProvider: selectedProvider.modelProvider,
-                        providerModel: model,
-                        modelOptions: currentModelOptions,
-                        requiresApiKey: selectedProvider.requiresApiKey,
-                        hasApiKey: selectedProvider.hasApiKey,
-                      });
-                    } else {
-                      selectProvider(selectedProvider.id, model);
-                    }
-                  }}
-                />
-              </>
+            {activeProvider && (
+              <AssistantProviderPicker
+                provider={activeProvider}
+                providers={providers}
+                gatewayVendorOptions={gatewayVendorOptions}
+                disabled={!isLocalServer}
+                onSelect={selectProvider}
+              />
             )}
             <div css={{ flex: 1 }} />
             {tokenUsage.totalTokens > 0 && (
@@ -1223,15 +845,8 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const {
-    closePanel,
-    reset,
-    setupComplete,
-    isLoadingConfig,
-    canUseAssistant,
-    completeSetup,
-    isLocalServer,
-  } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 

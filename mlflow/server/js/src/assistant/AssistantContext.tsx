@@ -11,10 +11,10 @@ import {
   type AssistantPart,
   type ChatMessage,
   type PermissionRequest,
+  type AssistantProviderSelection,
   type ProviderInfo,
   type ProvidersResponse,
-  type SelectProviderOptions,
-  type SelectedProvider,
+  type ResolvedProviderInfo,
   type ToolUseInfo,
   type ToolResultInfo,
   type TokenUsage,
@@ -31,6 +31,7 @@ import {
 } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
+import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
@@ -110,28 +111,47 @@ const generateMessageId = (): string => {
  */
 export function resolveSetupFromProviders(providersResponse: ProvidersResponse): {
   setupComplete: boolean;
-  selectedProvider: SelectedProvider | null;
+  activeProvider: ResolvedProviderInfo | null;
   needsApiKey: boolean;
 } {
   const resolved = providersResponse.resolved;
   if (!resolved) {
-    return { setupComplete: false, selectedProvider: null, needsApiKey: false };
+    return { setupComplete: false, activeProvider: null, needsApiKey: false };
   }
   return {
     setupComplete: true,
-    selectedProvider: {
-      id: resolved.name,
-      model: resolved.model ?? 'default',
-      autoSelected: resolved.auto_selected,
-      modelProvider: resolved.model_provider ?? undefined,
-      providerModel: resolved.provider_model ?? undefined,
-      modelOptions: resolved.model_options ?? [],
-      requiresApiKey: resolved.requires_api_key,
-      hasApiKey: resolved.has_api_key,
-    },
+    activeProvider: resolved,
     needsApiKey: resolved.requires_api_key && !resolved.has_api_key,
   };
 }
+
+const activeProviderFromSelection = (
+  selection: AssistantProviderSelection,
+  providers: ProviderInfo[],
+): ResolvedProviderInfo => {
+  if (selection.kind === 'gateway') {
+    return {
+      name: GATEWAY_PROVIDER_ID,
+      model: selection.endpointName,
+      auto_selected: false,
+      requires_api_key: selection.requiresApiKey ?? false,
+      has_api_key: selection.hasApiKey ?? true,
+      model_provider: selection.gatewayVendor,
+      provider_model: selection.providerModel ?? null,
+      model_options: selection.modelOptions ?? [],
+    };
+  }
+
+  const provider = providers.find((candidate) => candidate.name === selection.name);
+  return {
+    name: selection.name,
+    model: selection.model ?? provider?.model_options[0] ?? null,
+    auto_selected: false,
+    requires_api_key: provider?.requires_api_key ?? false,
+    has_api_key: provider?.has_api_key ?? false,
+    model_options: provider?.model_options ?? [],
+  };
+};
 
 /**
  * Set the current (open) text segment of an assistant turn. `text` is the full
@@ -250,8 +270,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<SelectedProvider | null>(null);
-  const [availableProviders, setAvailableProviders] = useState<ProviderInfo[]>([]);
+  const [activeProvider, setActiveProvider] = useState<ResolvedProviderInfo | null>(null);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [gatewayVendorOptions, setGatewayVendorOptions] = useState<Record<string, string[]>>({});
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
@@ -262,20 +282,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // before it can chat. Derived from discovery so a dropdown switch flips it
   // instantly, without a backend round trip.
   const needsApiKey = useMemo(() => {
-    if (!selectedProvider) {
+    if (!activeProvider) {
       return false;
     }
-    return Boolean(selectedProvider.requiresApiKey && !selectedProvider.hasApiKey);
-  }, [selectedProvider]);
+    return Boolean(activeProvider.requires_api_key && !activeProvider.has_api_key);
+  }, [activeProvider]);
 
   // A provider the user picked in the composer but hasn't committed yet. The
-  // chip updates immediately (optimistic `selectedProvider`); the config write
+  // chip updates immediately (optimistic `activeProvider`); the config write
   // is deferred to the next send so browsing the dropdown doesn't hit the
-  // backend. Holds a provider plus optional Gateway vendor metadata, or null
-  // when nothing is pending.
-  const unsavedProviderRef = useRef<
-    ({ name: string; model?: string } & Pick<SelectProviderOptions, 'gatewayVendor' | 'providerModel'>) | null
-  >(null);
+  // backend.
+  const pendingProviderSelectionRef = useRef<AssistantProviderSelection | null>(null);
 
   // Tracks whether the very first config load has completed. Later refreshes
   // (provider switch, API key save, panel reopen) update state in place without
@@ -460,21 +477,21 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const resolved = resolveSetupFromProviders(providersResponse);
       setSetupComplete(resolved.setupComplete);
       setRemoteAccessAllowed(config.remote_access_allowed ?? false);
-      setAvailableProviders(providersResponse.providers);
+      setProviders(providersResponse.providers);
       setGatewayVendorOptions(providersResponse.gateway_vendor_options ?? {});
       // Don't clobber an uncommitted optimistic pick with the resolved provider;
       // the send that persists it will refresh again and clear the ref.
-      if (!unsavedProviderRef.current) {
-        setSelectedProvider(resolved.selectedProvider);
+      if (!pendingProviderSelectionRef.current) {
+        setActiveProvider(resolved.activeProvider);
       }
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
       setRemoteAccessAllowed(false);
-      setAvailableProviders([]);
+      setProviders([]);
       setGatewayVendorOptions({});
-      if (!unsavedProviderRef.current) {
-        setSelectedProvider(null);
+      if (!pendingProviderSelectionRef.current) {
+        setActiveProvider(null);
       }
     } finally {
       hasLoadedConfigRef.current = true;
@@ -482,53 +499,36 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // Optimistically switch the composer's provider: update the chip immediately
-  // and record the pick to persist on the next send. For Gateway vendor
-  // shortcuts, `model` is the endpoint name and `providerModel` is the concrete
-  // vendor model to configure on that endpoint.
   const selectProvider = useCallback(
-    (providerId: string, model?: string, options: SelectProviderOptions = {}) => {
-      const info = availableProviders.find((p) => p.name === providerId);
-      const resolvedModel = model ?? info?.model_options[0] ?? 'default';
-      unsavedProviderRef.current = {
-        name: providerId,
-        model: resolvedModel,
-        gatewayVendor: options.gatewayVendor,
-        providerModel: options.providerModel,
-      };
-      setSelectedProvider({
-        id: providerId,
-        model: resolvedModel,
-        modelProvider: options.modelProvider ?? options.gatewayVendor,
-        providerModel: options.providerModel,
-        modelOptions: options.modelOptions ?? info?.model_options ?? [],
-        requiresApiKey: options.requiresApiKey,
-        hasApiKey: options.hasApiKey,
-        autoSelected: false,
-      });
+    (selection: AssistantProviderSelection) => {
+      pendingProviderSelectionRef.current = selection;
+      setActiveProvider(activeProviderFromSelection(selection, providers));
     },
-    [availableProviders],
+    [providers],
   );
 
   // Persist a pending optimistic provider pick to config before a turn streams,
   // so the backend resolves the provider the user chose. No-op when nothing is
   // pending. A background refresh after the turn syncs modelProvider/has_api_key.
   const flushPendingProvider = useCallback(async () => {
-    const pending = unsavedProviderRef.current;
+    const pending = pendingProviderSelectionRef.current;
     if (!pending) {
       return;
     }
-    unsavedProviderRef.current = null;
+    pendingProviderSelectionRef.current = null;
     const providerUpdate: { selected: true; model?: string; gateway_vendor?: string } = { selected: true };
-    if (pending.gatewayVendor) {
+    const providerName = pending.kind === 'gateway' ? GATEWAY_PROVIDER_ID : pending.name;
+    if (pending.kind === 'gateway' && pending.gatewayVendor) {
       providerUpdate.gateway_vendor = pending.gatewayVendor;
       if (pending.providerModel) {
         providerUpdate.model = pending.providerModel;
       }
+    } else if (pending.kind === 'gateway') {
+      providerUpdate.model = pending.endpointName;
     } else if (pending.model && pending.model !== 'default') {
       providerUpdate.model = pending.model;
     }
-    await updateConfig({ providers: { [pending.name]: providerUpdate } });
+    await updateConfig({ providers: { [providerName]: providerUpdate } });
     // Sync the resolved provider in the background (fills the gateway endpoint's
     // model vendor, clears needsApiKey after a key save). Not awaited so it
     // never delays the stream.
@@ -735,7 +735,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         // provider the user chose, then sync it in the background once streamed.
         // Only await when something is pending, so the common path still invokes
         // the stream synchronously (a reset mid-send must catch it in flight).
-        if (unsavedProviderRef.current) {
+        if (pendingProviderSelectionRef.current) {
           await flushPendingProvider();
         }
         const pageContext = getPageContext();
@@ -838,7 +838,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       // Commit any optimistic provider pick before streaming the turn (await
       // only when pending, to keep the no-switch path synchronous).
-      if (unsavedProviderRef.current) {
+      if (pendingProviderSelectionRef.current) {
         await flushPendingProvider();
       }
 
@@ -940,7 +940,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Commit any optimistic provider pick before re-streaming the turn (await
     // only when pending, to keep the no-switch path synchronous).
-    if (unsavedProviderRef.current) {
+    if (pendingProviderSelectionRef.current) {
       await flushPendingProvider();
     }
 
@@ -980,8 +980,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     isLoadingConfig,
     isLocalServer,
-    selectedProvider,
-    availableProviders,
+    activeProvider,
+    providers,
     gatewayVendorOptions,
     needsApiKey,
     pendingPrompt,
@@ -1019,8 +1019,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   setupComplete: false,
   isLoadingConfig: false,
   isLocalServer: false,
-  selectedProvider: null,
-  availableProviders: [],
+  activeProvider: null,
+  providers: [],
   gatewayVendorOptions: {},
   needsApiKey: false,
   pendingPrompt: null,

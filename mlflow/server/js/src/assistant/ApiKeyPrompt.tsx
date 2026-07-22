@@ -9,8 +9,6 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { updateConfig } from './AssistantService';
 import { GATEWAY_PROVIDER_ID } from './constants';
-import { getAssistantProvider, getLlmProviderDisplay } from './providerRegistry';
-import type { SelectedProvider } from './types';
 import { SecretInput } from '../gateway/components/secrets/SecretInput';
 
 const PROVIDER_KEY_PLACEHOLDERS = {
@@ -23,19 +21,22 @@ const keyPlaceholderFor = (providerId: string): string =>
   (PROVIDER_KEY_PLACEHOLDERS as Record<string, string | undefined>)[providerId] ?? DEFAULT_KEY_PLACEHOLDER;
 
 interface ApiKeyPromptProps {
-  /** Resolved provider/endpoint that needs a key before the next chat. */
-  provider: SelectedProvider;
+  providerId: string;
+  providerName: string;
+  gatewayVendor?: string;
+  providerModel?: string | null;
   /** Called after the key was saved successfully. */
   onSaved: () => void;
 }
 
-export const ApiKeyPrompt = ({ provider, onSaved }: ApiKeyPromptProps) => {
+export const ApiKeyPrompt = ({
+  providerId,
+  providerName,
+  gatewayVendor,
+  providerModel,
+  onSaved,
+}: ApiKeyPromptProps) => {
   const { theme } = useDesignSystemTheme();
-  const gatewayVendor = provider.id === GATEWAY_PROVIDER_ID ? provider.modelProvider : undefined;
-  const providerName =
-    (gatewayVendor ? getLlmProviderDisplay(gatewayVendor)?.name : undefined) ??
-    getAssistantProvider(provider.id)?.name ??
-    provider.id;
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,20 +54,20 @@ export const ApiKeyPrompt = ({ provider, onSaved }: ApiKeyPromptProps) => {
             [GATEWAY_PROVIDER_ID]: {
               gateway_vendor: gatewayVendor,
               api_key: apiKey.trim(),
-              model: provider.providerModel,
+              model: providerModel ?? undefined,
               selected: true,
             },
           },
         });
       } else {
-        await updateConfig({ providers: { [provider.id]: { api_key: apiKey.trim() } } });
+        await updateConfig({ providers: { [providerId]: { api_key: apiKey.trim() } } });
       }
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the API key');
       setIsSaving(false);
     }
-  }, [apiKey, gatewayVendor, provider, onSaved]);
+  }, [apiKey, gatewayVendor, providerId, providerModel, onSaved]);
 
   return (
     <div
@@ -96,7 +97,7 @@ export const ApiKeyPrompt = ({ provider, onSaved }: ApiKeyPromptProps) => {
           setApiKey(e.target.value);
           if (error) setError(null);
         }}
-        placeholder={keyPlaceholderFor(gatewayVendor ?? provider.id)}
+        placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
       />
 

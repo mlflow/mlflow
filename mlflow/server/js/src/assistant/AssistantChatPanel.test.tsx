@@ -1,12 +1,12 @@
 import { describe, test, expect, jest, beforeEach, beforeAll } from '@jest/globals';
-import { fireEvent, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
 import * as AssistantService from './AssistantService';
-import type { AssistantPart, ChatMessage, ProviderInfo, SelectedProvider } from './types';
+import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import type { Endpoint } from '../gateway/types';
 
@@ -24,27 +24,17 @@ const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
 const mockRefreshConfig = jest.fn(() => Promise.resolve());
+const mockRespondToPermission = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
-let mockSelectedProvider: SelectedProvider | null = null;
-let mockAvailableProviders: ProviderInfo[] = [];
+let mockActiveProvider: ResolvedProviderInfo | null = null;
+let mockProviders: ProviderInfo[] = [];
 let mockGatewayVendorOptions: Record<string, string[]> = {};
 let mockGatewayEndpoints: Endpoint[] = [];
 let mockIsLocalServer = true;
 let mockNeedsApiKey = false;
 let mockError: string | null = null;
 let mockErrorCode: string | null = null;
-
-const makeProviderInfo = (overrides: Partial<ProviderInfo> & { name: string; display_name: string }): ProviderInfo => ({
-  description: '',
-  available: true,
-  selected: false,
-  requires_api_key: false,
-  has_api_key: false,
-  allows_remote_access: false,
-  model_options: [],
-  ...overrides,
-});
 
 jest.mock('./AssistantService', () => ({
   __esModule: true,
@@ -72,8 +62,8 @@ jest.mock('./AssistantContext', () => ({
     setupComplete: mockSetupComplete,
     isLoadingConfig: false,
     isLocalServer: mockIsLocalServer,
-    selectedProvider: mockSelectedProvider,
-    availableProviders: mockAvailableProviders,
+    activeProvider: mockActiveProvider,
+    providers: mockProviders,
     gatewayVendorOptions: mockGatewayVendorOptions,
     needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
@@ -90,6 +80,8 @@ jest.mock('./AssistantContext', () => ({
     cancelSession: mockCancelSession,
     refreshConfig: mockRefreshConfig,
     completeSetup: jest.fn(),
+    pendingPermission: null,
+    respondToPermission: mockRespondToPermission,
   }),
 }));
 
@@ -122,11 +114,12 @@ describe('AssistantChatPanel', () => {
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
     mockRefreshConfig.mockClear();
+    mockRespondToPermission.mockClear();
     mockUpdateConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
-    mockSelectedProvider = null;
-    mockAvailableProviders = [];
+    mockActiveProvider = null;
+    mockProviders = [];
     mockGatewayVendorOptions = {};
     mockGatewayEndpoints = [];
     mockIsLocalServer = true;
@@ -249,15 +242,15 @@ describe('AssistantChatPanel', () => {
   });
 
   test('first send with a missing API key shows the inline key prompt instead of sending', async () => {
-    mockSelectedProvider = {
-      id: 'mlflow_gateway',
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
       model: 'mlflow-assistant-openai',
-      autoSelected: true,
-      modelProvider: 'openai',
-      providerModel: 'gpt-5.5',
-      modelOptions: ['gpt-5.5', 'gpt-5-mini'],
-      requiresApiKey: true,
-      hasApiKey: false,
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5', 'gpt-5-mini'],
+      requires_api_key: true,
+      has_api_key: false,
     };
     mockNeedsApiKey = true;
     const user = userEvent.setup();
@@ -275,15 +268,15 @@ describe('AssistantChatPanel', () => {
   });
 
   test('an api_key_missing stream error also shows the inline key prompt', () => {
-    mockSelectedProvider = {
-      id: 'mlflow_gateway',
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
       model: 'mlflow-assistant-openai',
-      autoSelected: true,
-      modelProvider: 'openai',
-      providerModel: 'gpt-5.5',
-      modelOptions: ['gpt-5.5', 'gpt-5-mini'],
-      requiresApiKey: true,
-      hasApiKey: false,
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5', 'gpt-5-mini'],
+      requires_api_key: true,
+      has_api_key: false,
     };
     mockError = 'OpenAI requires an API key.';
     mockErrorCode = 'api_key_missing';
@@ -295,77 +288,6 @@ describe('AssistantChatPanel', () => {
     expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
   });
 
-  test('the provider picker lists gateway vendor shortcuts at the top level', async () => {
-    mockSelectedProvider = { id: 'claude_code', model: 'default', autoSelected: true };
-    mockAvailableProviders = [
-      makeProviderInfo({ name: 'claude_code', display_name: 'Claude Code' }),
-      makeProviderInfo({ name: 'codex', display_name: 'OpenAI Codex' }),
-      makeProviderInfo({ name: 'mlflow_gateway', display_name: 'MLflow AI Gateway' }),
-    ];
-    mockGatewayVendorOptions = { openai: ['gpt-5.5', 'gpt-5-mini'] };
-    const user = userEvent.setup();
-    renderChatPanel();
-
-    await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
-    expect(await screen.findByText('Codex')).toBeInTheDocument();
-    expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByText('OpenAI'));
-
-    // Selection is local/optimistic — no backend write on click; it persists on send.
-    expect(mockSelectProvider).toHaveBeenCalledWith(
-      'mlflow_gateway',
-      'mlflow-assistant-openai',
-      expect.objectContaining({
-        gatewayVendor: 'openai',
-        modelProvider: 'openai',
-        providerModel: 'gpt-5.5',
-        modelOptions: ['gpt-5.5', 'gpt-5-mini'],
-        requiresApiKey: true,
-        hasApiKey: false,
-      }),
-    );
-    expect(mockUpdateConfig).not.toHaveBeenCalled();
-  });
-
-  test('the model picker switches the current provider model optimistically', async () => {
-    mockSelectedProvider = {
-      id: 'mlflow_gateway',
-      model: 'mlflow-assistant-openai',
-      autoSelected: false,
-      modelProvider: 'openai',
-      providerModel: 'gpt-5.5',
-      modelOptions: ['gpt-5.5', 'gpt-5-mini'],
-      requiresApiKey: true,
-      hasApiKey: false,
-    };
-    const user = userEvent.setup();
-    renderChatPanel();
-
-    await user.click(screen.getByRole('button', { name: 'Change assistant model' }));
-    await user.click(await screen.findByText('gpt-5-mini'));
-
-    expect(mockSelectProvider).toHaveBeenCalledWith(
-      'mlflow_gateway',
-      'mlflow-assistant-openai',
-      expect.objectContaining({
-        gatewayVendor: 'openai',
-        modelProvider: 'openai',
-        providerModel: 'gpt-5-mini',
-        modelOptions: ['gpt-5.5', 'gpt-5-mini'],
-        requiresApiKey: true,
-        hasApiKey: false,
-      }),
-    );
-  });
-
-  test('the provider picker is display-only for remote clients', () => {
-    mockSelectedProvider = { id: 'claude_code', model: 'default', autoSelected: true };
-    mockIsLocalServer = false;
-    renderChatPanel();
-
-    expect(screen.getByRole('button', { name: 'Change assistant provider' })).toBeDisabled();
-  });
-
   test('a classified stream error renders a recoverable callout with a settings shortcut', () => {
     mockError = 'Claude CLI not found';
     mockErrorCode = 'cli_not_installed';
@@ -373,26 +295,6 @@ describe('AssistantChatPanel', () => {
 
     expect(screen.getByText('Claude CLI not found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Settings' })).toBeInTheDocument();
-  });
-
-  test('a gateway-backed session shows the endpoint LLM vendor, not the gateway', () => {
-    mockSelectedProvider = {
-      id: 'mlflow_gateway',
-      model: 'chat-endpoint',
-      autoSelected: true,
-      modelProvider: 'openai',
-    };
-    renderChatPanel();
-
-    expect(screen.getByText('OpenAI')).toBeInTheDocument();
-    expect(screen.queryByText('MLflow AI Gateway')).not.toBeInTheDocument();
-  });
-
-  test('a gateway endpoint with an unknown vendor falls back to the gateway branding', () => {
-    mockSelectedProvider = { id: 'mlflow_gateway', model: 'chat-endpoint', autoSelected: true, modelProvider: 'xai' };
-    renderChatPanel();
-
-    expect(screen.getByText('MLflow AI Gateway')).toBeInTheDocument();
   });
 
   test('an unclassified error renders no recoverable callout', () => {

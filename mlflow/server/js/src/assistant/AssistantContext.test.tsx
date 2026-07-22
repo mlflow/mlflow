@@ -376,7 +376,7 @@ describe('AssistantProvider setup state from provider discovery', () => {
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
-    expect(result.current.selectedProvider).toBeNull();
+    expect(result.current.activeProvider).toBeNull();
     expect(result.current.needsApiKey).toBe(false);
   });
 
@@ -389,10 +389,10 @@ describe('AssistantProvider setup state from provider discovery', () => {
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(true);
-    expect(result.current.selectedProvider).toMatchObject({
-      id: 'mlflow_gateway',
+    expect(result.current.activeProvider).toMatchObject({
+      name: 'mlflow_gateway',
       model: 'chat-endpoint',
-      autoSelected: false,
+      auto_selected: false,
     });
   });
 
@@ -405,7 +405,7 @@ describe('AssistantProvider setup state from provider discovery', () => {
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(true);
-    expect(result.current.selectedProvider).toMatchObject({ id: 'claude_code', model: 'default', autoSelected: true });
+    expect(result.current.activeProvider).toMatchObject({ name: 'claude_code', model: null, auto_selected: true });
     expect(result.current.needsApiKey).toBe(false);
   });
 
@@ -432,22 +432,20 @@ describe('AssistantProvider setup state from provider discovery', () => {
 
   test('switching provider is optimistic: chip and needsApiKey update without a config write', async () => {
     mockGetProviders.mockResolvedValue({
-      providers: [
-        providerInfo({ name: 'claude_code' }),
-        providerInfo({ name: 'mlflow_gateway' }),
-      ],
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
       resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
       gateway_vendor_options: { openai: ['gpt-5.5', 'gpt-5-mini'] },
     });
 
     const result = await renderAndWaitForConfig();
-    expect(result.current.selectedProvider?.id).toBe('claude_code');
+    expect(result.current.activeProvider?.name).toBe('claude_code');
     expect(result.current.needsApiKey).toBe(false);
 
     act(() => {
-      result.current.selectProvider('mlflow_gateway', 'mlflow-assistant-openai', {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
         gatewayVendor: 'openai',
-        modelProvider: 'openai',
         providerModel: 'gpt-5.5',
         modelOptions: ['gpt-5.5', 'gpt-5-mini'],
         requiresApiKey: true,
@@ -455,28 +453,26 @@ describe('AssistantProvider setup state from provider discovery', () => {
       });
     });
 
-    expect(result.current.selectedProvider?.id).toBe('mlflow_gateway');
-    expect(result.current.selectedProvider?.model).toBe('mlflow-assistant-openai');
-    expect(result.current.selectedProvider?.providerModel).toBe('gpt-5.5');
+    expect(result.current.activeProvider?.name).toBe('mlflow_gateway');
+    expect(result.current.activeProvider?.model).toBe('mlflow-assistant-openai');
+    expect(result.current.activeProvider?.provider_model).toBe('gpt-5.5');
     expect(result.current.needsApiKey).toBe(true);
     expect(mockUpdateConfig).not.toHaveBeenCalled();
   });
 
   test('a pending provider pick is persisted on the next send, then synced', async () => {
     mockGetProviders.mockResolvedValue({
-      providers: [
-        providerInfo({ name: 'claude_code' }),
-        providerInfo({ name: 'mlflow_gateway' }),
-      ],
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
       resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
       gateway_vendor_options: { openai: ['gpt-5.5'] },
     });
 
     const result = await renderAndWaitForConfig();
     act(() => {
-      result.current.selectProvider('mlflow_gateway', 'mlflow-assistant-openai', {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
         gatewayVendor: 'openai',
-        modelProvider: 'openai',
         providerModel: 'gpt-5.5',
         modelOptions: ['gpt-5.5'],
         requiresApiKey: false,
@@ -506,7 +502,7 @@ describe('AssistantProvider setup state from provider discovery', () => {
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
-    expect(result.current.selectedProvider).toBeNull();
+    expect(result.current.activeProvider).toBeNull();
   });
 });
 
