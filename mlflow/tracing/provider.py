@@ -350,6 +350,9 @@ def set_span_in_context(span: "Span") -> SpanContextToken:
     """
     context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        # Read the opt-in flag before attaching so that a malformed env var value raises here,
+        # rather than after `mlflow_runtime_context.attach` (which would orphan the token).
+        propagate_to_otel_context = MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get()
         # In isolated tracer provider mode, attach to MLflow's runtime context so the span does
         # not get mixed with the native OpenTelemetry runtime context.
         mlflow_token = mlflow_runtime_context.attach(context)
@@ -358,7 +361,7 @@ def set_span_in_context(span: "Span") -> SpanContextToken:
         # `opentelemetry.trace.get_current_span()` can nest their spans under the MLflow span.
         # This is opt-in because it exposes the MLflow span to all OTel instrumentation in the
         # process (e.g. FastAPI, requests), reducing the isolation this mode normally provides.
-        if MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get():
+        if propagate_to_otel_context:
             # Build the new context from the current global OTel context so that other entries
             # (e.g. baggage) set by unrelated OTel instrumentation are preserved while the MLflow
             # span is active.
@@ -367,8 +370,7 @@ def set_span_in_context(span: "Span") -> SpanContextToken:
             return (mlflow_token, otel_token)
         return (mlflow_token, None)
     else:
-        token = context_api.attach(context)
-        return token
+        return context_api.attach(context)
 
 
 def detach_span_from_context(token: SpanContextToken):
