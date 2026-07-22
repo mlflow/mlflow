@@ -1,8 +1,11 @@
 """MLflow AI Gateway preset of the OpenAI-compatible assistant provider."""
 
+import logging
 from typing import ClassVar
 
 from mlflow.assistant.providers.openai_compatible import OpenAICompatibleProvider
+
+_logger = logging.getLogger(__name__)
 
 
 class MlflowGatewayProvider(OpenAICompatibleProvider):
@@ -37,3 +40,23 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
             chat_url_builder=self._build_chat_url,
             allows_remote_access=True,
         )
+
+    @staticmethod
+    def _list_endpoints():
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        store = _get_store()
+        try:
+            return store.list_gateway_endpoints()
+        except (AttributeError, NotImplementedError):
+            return []
+
+    def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
+        return [endpoint.name for endpoint in self._list_endpoints() if endpoint.name]
+
+    def is_available(self) -> bool:
+        try:
+            return bool(self.list_models())
+        except Exception:
+            _logger.debug("Failed to list gateway endpoints", exc_info=True)
+            return False
