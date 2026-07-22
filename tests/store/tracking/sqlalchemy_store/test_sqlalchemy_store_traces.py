@@ -1047,6 +1047,133 @@ def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemySt
     assert {t.request_id for t in traces} == {trace1_id, trace2_id}
 
 
+def test_search_traces_span_filters_deduplicate_matching_spans(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_filter_dedup")
+    trace_id = "trace1"
+    _create_trace(store, trace_id, exp_id)
+
+    span1 = create_test_span_with_content(
+        trace_id,
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span2 = create_test_span_with_content(
+        trace_id,
+        name="second_match",
+        span_id=222,
+        custom_attributes={"response": "needle again"},
+    )
+
+    store.log_spans(exp_id, [span1, span2])
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert [t.request_id for t in traces] == [trace_id]
+
+
+def test_search_traces_span_filters_remain_experiment_scoped(store: SqlAlchemyStore):
+    target_exp_id = store.create_experiment("target_exp")
+    other_exp_id = store.create_experiment("other_exp")
+
+    _create_trace(store, "target-trace", target_exp_id, request_time=1000)
+    _create_trace(store, "other-trace", other_exp_id, request_time=1000)
+
+    matching_span = create_test_span_with_content(
+        "other-trace",
+        name="other_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    store.log_spans(other_exp_id, [matching_span])
+
+    traces, _ = store.search_traces([target_exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert traces == []
+
+
+def test_search_traces_span_filters_respect_trace_time_window(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_time_window")
+    early_trace_id = "trace-early"
+    late_trace_id = "trace-late"
+
+    _create_trace(store, early_trace_id, exp_id, request_time=1000)
+    _create_trace(store, late_trace_id, exp_id, request_time=2000)
+
+    early_matching_span = create_test_span_with_content(
+        early_trace_id,
+        name="early_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    late_non_matching_span = create_test_span_with_content(
+        late_trace_id,
+        name="late_non_match",
+        span_id=222,
+        custom_attributes={"prompt": "different"},
+    )
+    store.log_spans(exp_id, [early_matching_span])
+    store.log_spans(exp_id, [late_non_matching_span])
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='timestamp >= 1500 AND timestamp < 2500 AND trace.text ILIKE "%needle%"',
+    )
+    assert traces == []
+
+
+def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_correlated_exists")
+
+    with store.ManagedSessionMaker() as session:
+        cases_orderby, parsed_orderby, sorting_joins = (
+            sqlalchemy_store_module._get_orderby_clauses_for_search_traces([], session)
+        )
+        stmt = store._trace_query(session)
+        if cases_orderby:
+            stmt = stmt.add_columns(*cases_orderby)
+
+        (
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        ) = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            (
+                "timestamp >= 20000 AND timestamp > 25000 AND timestamp < 30000 "
+                'AND trace.text ILIKE "%needle%"'
+            ),
+            session,
+            store._get_dialect(),
+        )
+        stmt = store._apply_trace_filter_clauses(
+            stmt,
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        )
+
+        for join_target in sorting_joins:
+            stmt = stmt.outerjoin(join_target)
+
+        stmt = stmt.filter(SqlTraceInfo.experiment_id.in_([int(exp_id)])).order_by(*parsed_orderby)
+        compiled_sql = str(
+            stmt.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+    assert "exists (select *" in compiled_sql
+    assert "spans.trace_id = trace_info.request_id" in compiled_sql
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled_sql
+    assert "spans.start_time_unix_nano >= 15000000000" in compiled_sql
+    assert "spans.start_time_unix_nano <" not in compiled_sql
+    assert "join spans" not in compiled_sql
+    assert "select distinct spans.trace_id as request_id" not in compiled_sql
+
+
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_no_results")
 
@@ -5977,6 +6104,52 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_find_completed_sessions_with_span_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions_with_span_filter")
+
+    # Session A should match, and duplicate matching spans on the first trace
+    # should not duplicate the returned session.
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    span_a1 = create_test_span_with_content(
+        "trace_a1",
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span_a2 = create_test_span_with_content(
+        "trace_a1",
+        name="second_match",
+        span_id=112,
+        custom_attributes={"response": "needle again"},
+    )
+    store.log_spans(exp_id, [span_a1, span_a2])
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string='trace.text ILIKE "%needle%"',
+    )
+
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
 
 
 def _archive_traces(
