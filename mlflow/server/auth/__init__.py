@@ -270,6 +270,8 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
+    AJAX_ONLINE_SCORING_CONFIG,
+    AJAX_ONLINE_SCORING_CONFIGS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
@@ -309,6 +311,8 @@ from mlflow.server.auth.routes import (
     LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USERS,
+    ONLINE_SCORING_CONFIG,
+    ONLINE_SCORING_CONFIGS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -324,10 +328,13 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _add_static_prefix,
+    _assert_array,
+    _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
+    _get_validated_flask_request_json,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -1286,6 +1293,34 @@ def validate_can_manage_scorer():
 
 def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
+
+
+def validate_can_update_online_scoring_config():
+    body = request.get_json(silent=True) or {}
+    experiment_id = body.get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_read_online_scoring_configs():
+    # Parse scorer_ids the same way the handler does (query params OR JSON body)
+    # so this gate can't be bypassed by moving scorer_ids into a GET request body.
+    # Omit _assert_required: an absent scorer_ids falls through to allow here and
+    # is handled by the handler's own validation, rather than raising in the gate.
+    request_json = _get_validated_flask_request_json(
+        request, schema={"scorer_ids": [_assert_array, _assert_item_type_string]}
+    )
+    scorer_ids = request_json.get("scorer_ids") or []
+    if not scorer_ids:
+        return True
+    username = authenticate_request().username
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    for config in configs:
+        if not _get_experiment_permission(config.experiment_id, username).can_read:
+            return False
+    return True
 
 
 def sender_is_admin():
@@ -2676,6 +2711,9 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
+    # Online scoring config endpoints are registered with view functions in the
+    # handler slot, so they cannot flow through this comprehension. Explicit
+    # validators for them are added in the update block below.
     if "/scorers/online-config" not in http_path
     # ``get_endpoints`` hardcodes the view function as the handler for explicitly
     # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
@@ -2769,6 +2807,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # Online scoring configuration (excluded from the auto generated map above).
+    (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
+    (AJAX_ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
 })
 
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
