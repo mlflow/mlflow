@@ -175,6 +175,48 @@ def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_
         auth_store.engine.dispose()
 
 
+def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_path, monkeypatch):
+    # Sibling of test_experiment_permission_honored_when_tracking_store_lacks_experiment for the
+    # _role_permission_for_known_workspace path (registered models / prompts): when the workspace
+    # can't be resolved (e.g. the registry lookup returned no workspace) and workspaces are
+    # disabled, resolution must still honor an explicit grant instead of falling through to
+    # default_permission.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    model_name = "m1"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_registered_model_permission(model_name, username, READ.name)
+
+    try:
+        # workspace_name=None mimics an unresolved workspace (e.g. RESOURCE_DOES_NOT_EXIST).
+        resolver = auth_module._role_permission_for_known_workspace(
+            username, "registered_model", model_name, None
+        )
+        perm = auth_module._get_role_permission_or_default(resolver)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant still falls through to default_permission (deny).
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_resolver = auth_module._role_permission_for_known_workspace(
+            "stranger", "registered_model", model_name, None
+        )
+        stranger_perm = auth_module._get_role_permission_or_default(stranger_resolver)
+        assert stranger_perm.name == NO_PERMISSIONS.name
+    finally:
+        auth_store.engine.dispose()
+
+
 def test_authenticate(client, monkeypatch):
     # unauthenticated
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)

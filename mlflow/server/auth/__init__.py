@@ -728,17 +728,24 @@ def _role_permission_for_known_workspace(
     """
 
     def _role_perm() -> Permission | None:
-        if workspace_name is None:
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        resolved_workspace = workspace_name
+        if resolved_workspace is None:
+            # Workspaces enabled + unknown workspace (e.g. resource not found) → deny.
+            # Workspaces disabled → every resource lives in the default workspace, which is
+            # where grants are stored, so resolve the grant there instead of ignoring it.
+            # Mirrors _role_permission_for so both resolvers behave identically.
+            if MLFLOW_ENABLE_WORKSPACES.get():
+                return NO_PERMISSIONS
+            resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
         perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
+            user.id, resource_type, resource_key, resolved_workspace
         )
         if perm is not None:
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
-        if _user_inherits_default_workspace_grant(workspace_name):
+        if _user_inherits_default_workspace_grant(resolved_workspace):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 
