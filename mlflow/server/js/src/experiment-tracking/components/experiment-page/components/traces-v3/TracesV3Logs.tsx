@@ -84,7 +84,6 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { IssueDetectionJobWatcher, type SubmittedIssueDetectionJob } from './IssueDetectionJobWatcher';
 import { useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
@@ -187,9 +186,6 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
-    const [submittedIssueDetectionJob, setSubmittedIssueDetectionJob] = useState<SubmittedIssueDetectionJob | null>(
-      null,
-    );
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
@@ -636,14 +632,10 @@ const TracesV3LogsImpl = React.memo(
             {JudgesStatusBanner}
             {renderMainContent()}
           </div>
-          {!disableActions && (
-            <IssueDetectionJobWatcher experimentId={singleExperimentId} submittedJob={submittedIssueDetectionJob} />
-          )}
           {!disableActions && isIssueDetectionModalOpen && (
             <IssueDetectionModal
               key={singleExperimentId}
               onClose={() => setIsIssueDetectionModalOpen(false)}
-              onSubmitted={setSubmittedIssueDetectionJob}
               experimentId={singleExperimentId}
               initialSelectedTraceIds={Object.entries(rowSelection)
                 .filter(([, isSelected]) => isSelected)

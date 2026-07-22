@@ -25,11 +25,6 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableIssueDetection: jest.fn(),
 }));
 
-// Mock IssueDetectionJobWatcher (polls for background jobs, not relevant here)
-jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionJobWatcher', () => ({
-  IssueDetectionJobWatcher: () => null,
-}));
-
 const TracesTabStub = () => {
   const location = useLocation();
   return <div data-testid="traces-tab-stub">{location.search}</div>;

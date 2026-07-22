@@ -239,14 +239,6 @@ export const shouldEnableIssueDetection = () => {
 };
 
 /**
- * When enabled, submitting issue detection runs the job in the background
- * (status chip + completion notification) instead of navigating to the run page.
- */
-export const shouldEnableBackgroundIssueDetection = () => {
-  return true;
-};
-
-/**
  * Controls visibility of the right panel (issues) on the evaluation runs page.
  * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
  */

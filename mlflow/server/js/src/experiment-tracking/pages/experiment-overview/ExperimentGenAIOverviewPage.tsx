@@ -5,7 +5,6 @@ import Routes from '../../routes';
 import { Alert, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
-import { IssueDetectionJobWatcher } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobWatcher';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useIsFileStore } from '../../hooks/useServerInfo';
@@ -292,7 +291,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
 
           {shouldEnableIssueDetection() && (
             <div css={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              <IssueDetectionJobWatcher experimentId={experimentId} />
               <DetectIssuesButton
                 componentId="mlflow.experiment.overview.detect-issues-button"
                 onClick={() => navigate(`${Routes.getExperimentPageTracesTabRoute(experimentId)}?detectIssues=true`)}

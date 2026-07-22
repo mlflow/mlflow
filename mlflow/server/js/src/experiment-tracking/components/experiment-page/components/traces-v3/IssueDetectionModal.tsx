@@ -10,16 +10,13 @@ import {
   ChevronRightIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
-import { shouldEnableBackgroundIssueDetection } from '../../../../../common/utils/FeatureUtils';
-import Routes from '../../../../routes';
-import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
 import { GenAIModelSelection, type GenAIModelSelectionRef } from './GenAIModelSelection';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
+import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 
 interface IssueDetectionModalProps {
   onClose: () => void;
@@ -27,7 +24,6 @@ interface IssueDetectionModalProps {
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
   defaultGroupBySession?: boolean;
-  onSubmitted?: (job: { jobId: string; runId: string; traceCount: number }) => void;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -36,11 +32,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   initialSelectedTraceIds = [],
   availableTraceIds = [],
   defaultGroupBySession = false,
-  onSubmitted,
 }) => {
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
-  const location = useLocation();
   const modelSelectionRef = useRef<GenAIModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -114,17 +107,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           onSuccess: (response) => {
             resetForm();
             onClose();
-            if (shouldEnableBackgroundIssueDetection() && onSubmitted) {
-              onSubmitted({
-                jobId: response.job_id,
-                runId: response.run_id,
-                traceCount: selectedTraceIds.length,
-              });
-              return;
-            }
-            navigate({
-              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
-              search: getPreservedQueryString(location.search),
+            recordSubmittedIssueDetectionJob({
+              experimentId,
+              jobId: response.job_id,
+              runId: response.run_id,
+              traceCount: selectedTraceIds.length,
             });
           },
         },
