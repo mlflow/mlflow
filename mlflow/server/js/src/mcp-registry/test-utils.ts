@@ -28,9 +28,12 @@ export const createMockMCPServerVersion = (overrides: Partial<MCPServerVersion> 
   ...overrides,
 });
 
-export const getMockedSearchMCPServersResponse = (servers: MCPServer[] = []) =>
+export const getMockedSearchMCPServersResponse = (
+  servers: MCPServer[] = [],
+  { userHasManage }: { userHasManage?: boolean } = {},
+) =>
   rest.get(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
-    res(ctx.json({ mcp_servers: servers, next_page_token: undefined })),
+    res(ctx.json({ mcp_servers: servers, next_page_token: undefined, user_has_manage: userHasManage })),
   );
 
 export const getMockedSearchMCPServersErrorResponse = (status = 500, message = 'Internal error') =>

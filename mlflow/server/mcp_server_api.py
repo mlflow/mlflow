@@ -331,6 +331,7 @@ class MCPServerVersionResponse(BaseModel):
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
+    connect_options: dict[str, ConnectOptionSettings] = Field(default_factory=dict)
     source: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -350,6 +351,7 @@ class MCPServerVersionResponse(BaseModel):
             tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
             aliases=entity.aliases,
             tags=entity.tags,
+            connect_options=entity.connect_options,
             source=entity.source,
             created_by=entity.created_by,
             last_updated_by=entity.last_updated_by,

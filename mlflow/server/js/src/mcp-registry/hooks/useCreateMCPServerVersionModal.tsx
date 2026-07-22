@@ -250,12 +250,15 @@ export const useCreateMCPServerVersionModal = ({
       <Input
         componentId="mlflow.mcp_registry.create.source"
         id="mlflow.mcp_registry.create.source"
+        type="url"
         value={formState.source}
         onChange={(e) => handleFieldChange('source', e.target.value)}
         placeholder={intl.formatMessage({
           defaultMessage: 'https://github.com/org/repo',
           description: 'Placeholder for source in create MCP server modal',
         })}
+        spellCheck={false}
+        autoComplete="off"
       />
       <Spacer />
       <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">

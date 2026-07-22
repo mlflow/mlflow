@@ -34,10 +34,11 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     initialValue: DEFAULT_PAGE_SIZE,
   });
 
+  const extraQueryKeysStable = useMemo(() => JSON.stringify(extraQueryKeys), [extraQueryKeys]);
   useEffect(() => {
     setCurrentPageToken(undefined);
     previousPageTokens.current = [];
-  }, [searchFilter]);
+  }, [searchFilter, extraQueryKeysStable]);
 
   const pageSizeSelect = useMemo<CursorPaginationProps['pageSizeSelect']>(
     () => ({
@@ -76,6 +77,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
 
   return {
     data: queryResult.data ? extractData(queryResult.data) : undefined,
+    rawResponse: queryResult.data,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     hasNextPage: Boolean(queryResult.data?.next_page_token),

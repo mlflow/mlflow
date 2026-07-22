@@ -40,6 +40,8 @@ export const RemotesSubsection = ({
     ? remotes
     : remotes.filter((r) => !connectOptions?.[buildRemoteConnectOptionKey(r)]?.hidden);
 
+  if (visibleRemotes.length === 0) return null;
+
   return (
     <div>
       <SubsectionHelpHeading
@@ -72,6 +74,9 @@ export const RemotesSubsection = ({
             },
             { action: expanded ? 'Collapse' : 'Expand', url: remote.url ?? remote.type },
           )
+        }
+        getRowStyle={(remote) =>
+          connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden ? { opacity: 0.5 } : undefined
         }
         renderRow={({ item: remote }) => (
           <RemoteRowContent

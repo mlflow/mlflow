@@ -1968,6 +1968,7 @@ module.exports = {
   "mlflow.mcp_registry.filter_toggle": "",
   "mlflow.mcp_registry.grid.pagination": "",
   "mlflow.mcp_registry.latest_alias": "",
+  "mlflow.mcp_registry.latest_alias_tooltip": "",
   "mlflow.mcp_registry.quick_connect.version_status": "",
   "mlflow.mcp_registry.quick_connect_modal": "",
   "mlflow.mcp_registry.search": "",

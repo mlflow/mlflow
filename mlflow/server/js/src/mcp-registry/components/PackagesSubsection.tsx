@@ -48,6 +48,8 @@ export const PackagesSubsection = ({
   const visiblePackages = showAll ? filteredPackages : filteredPackages.slice(0, INITIAL_VISIBLE_PACKAGES);
   const hiddenCount = filteredPackages.length - INITIAL_VISIBLE_PACKAGES;
 
+  if (filteredPackages.length === 0) return null;
+
   return (
     <div>
       <SubsectionHelpHeading
@@ -75,6 +77,9 @@ export const PackagesSubsection = ({
             },
             { action: expanded ? 'Collapse' : 'Expand', identifier: pkg.identifier },
           )
+        }
+        getRowStyle={(pkg) =>
+          connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden ? { opacity: 0.5 } : undefined
         }
         renderRow={({ item: pkg }) => (
           <PackageRowContent

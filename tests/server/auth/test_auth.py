@@ -4816,9 +4816,10 @@ def test_mcp_server_nested_delete_requires_can_delete(fastapi_client, monkeypatc
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_patch_connect_options_requires_manage(fastapi_client, monkeypatch, prefix):
+def test_mcp_server_patch_connect_options_allowed_for_edit(fastapi_client, monkeypatch, prefix):
     owner, owner_pw = create_user(fastapi_client.tracking_uri)
     editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
     server_name = "com.test/connect-opts"
 
     with User(owner, owner_pw, monkeypatch):
@@ -4840,23 +4841,33 @@ def test_mcp_server_patch_connect_options_requires_manage(fastapi_client, monkey
         server_name,
         "EDIT",
     )
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        reader,
+        "mcp_server",
+        server_name,
+        "READ",
+    )
 
+    # EDIT user can PATCH connect_options
     with User(editor, editor_pw, monkeypatch):
         resp = requests.patch(
             url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
             json={"connect_options": {"npm:foo": {"hidden": True}}},
             auth=(editor, editor_pw),
         )
+        assert resp.status_code == 200
+
+    # READ user cannot PATCH connect_options
+    with User(reader, reader_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:bar": {"hidden": True}}},
+            auth=(reader, reader_pw),
+        )
         assert resp.status_code == 403
 
     with User(owner, owner_pw, monkeypatch):
-        resp = requests.patch(
-            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
-            json={"connect_options": {"npm:foo": {"hidden": True}}},
-            auth=(owner, owner_pw),
-        )
-        assert resp.status_code == 200
-
         resp = requests.get(
             url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
             auth=(owner, owner_pw),

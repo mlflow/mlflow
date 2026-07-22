@@ -338,7 +338,6 @@ from mlflow.server.handlers import (
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
-    MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
 )
@@ -4531,13 +4530,6 @@ def _get_mcp_server_validator(
             case "GET":
                 return perm.can_read
             case "POST" | "PATCH":
-                if request.method == "PATCH" and not perm.can_manage:
-                    try:
-                        body = json.loads(await request.body())
-                    except (json.JSONDecodeError, ValueError):
-                        return False
-                    if "connect_options" in body:
-                        return False
                 return perm.can_update
             case "DELETE":
                 return perm.can_delete
@@ -4556,8 +4548,6 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
     parts = suffix.split("/") if suffix else []
 
     if _is_mcp_server_version_create_path(parts):
-        if not getattr(request.state, "mcp_server_parent_auto_created", False):
-            return
         name = f"{parts[0]}/{parts[1]}"
         try:
             server = _get_tracking_store().get_mcp_server(name)
@@ -4626,62 +4616,16 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
 
-    def _is_dimmed(s: dict[str, Any]) -> bool:
-        return not s.get("access_endpoints") or s.get("status") != "active"
-
-    def _stamp_and_check(s: dict[str, Any]) -> bool:
-        # Intentional side-effect: stamps ``allowed_actions`` onto ``s`` so the
-        # caller can include the enriched dict in the response without a second
-        # permission lookup.  Used as a filter predicate that both gates and
-        # enriches in a single pass.
+    readable = []
+    for s in data.get("mcp_servers", []):
         if not can_read(s["name"]):
-            return False
+            continue
         perm = _get_mcp_server_permission(s["name"], username)
         s["allowed_actions"] = _permission_to_allowed_actions(perm)
-        if _is_dimmed(s) and MANAGE.name not in s.get("allowed_actions", []):
-            return False
-        return True
+        readable.append(s)
 
-    def _stamp_entity_and_check(entity: Any) -> dict[str, Any] | None:
-        s = MCPServerResponse.from_entity(entity).model_dump(mode="json")
-        return s if _stamp_and_check(s) else None
-
-    readable = [s for s in data.get("mcp_servers", []) if _stamp_and_check(s)]
-
-    params = request.query_params
-    max_results = int(params.get("max_results", 100))
-    filter_string = params.get("filter_string")
-    order_by = params.getlist("order_by") or None
-
-    next_token = data.get("next_page_token")
-    while len(readable) < max_results and next_token:
-        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
-        page = _get_tracking_store().search_mcp_servers(
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=next_token,
-        )
-        if not page:
-            next_token = None
-            break
-        consumed = 0
-        for item in page:
-            if len(readable) >= max_results:
-                break
-            consumed += 1
-            stamped = _stamp_entity_and_check(item)
-            if stamped is not None:
-                readable.append(stamped)
-        if consumed < len(page):
-            next_token = SearchUtils.create_page_token(start_offset + consumed)
-        else:
-            next_token = page.token
-        if isinstance(next_token, bytes):
-            next_token = next_token.decode("utf-8")
-
-    data["next_page_token"] = next_token
-    data["mcp_servers"] = readable[:max_results]
+    data["mcp_servers"] = readable
+    data["user_has_manage"] = store.has_mcp_server_manage_permission(username)
     return json.dumps(data).encode()
 
 
@@ -4825,8 +4769,11 @@ _MCP_SUB_RESOURCE_SEGMENTS = frozenset({"versions", "aliases", "tags", "endpoint
 
 def _is_mcp_sub_resource_path(path: str) -> bool:
     for prefix in get_mcp_server_api_route_prefixes():
+        if not path.startswith(prefix):
+            continue
         if suffix := path[len(prefix) :].strip("/"):
-            if any(p in _MCP_SUB_RESOURCE_SEGMENTS for p in suffix.split("/")):
+            parts = suffix.split("/")
+            if len(parts) > 2 and parts[2] in _MCP_SUB_RESOURCE_SEGMENTS:
                 return True
     return False
 
@@ -5008,32 +4955,35 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 e.message,
                 status_code=e.get_http_status_code(),
             )
+
+        try:
+            response = await call_next(request)
+
+            if after_handler is not None and response.status_code < 400:
+                try:
+                    after_handler(user.username, request)
+                except Exception:
+                    _logger.exception(
+                        "after-request handler failed for %s %s", request.method, path
+                    )
+
+            response_filter = _find_fastapi_response_filter(path, request.method)
+            if response_filter is not None and response.status_code < 400:
+                body = bytearray()
+                async for chunk in response.body_iterator:
+                    body.extend(chunk)
+                return _apply_fastapi_response_filter(
+                    response_filter=response_filter,
+                    username=user.username,
+                    body=bytes(body),
+                    request=request,
+                    response=response,
+                    path=path,
+                )
+
+            return response
         finally:
             workspace_context.clear_server_request_workspace()
-
-        response = await call_next(request)
-
-        if after_handler is not None and response.status_code < 400:
-            try:
-                after_handler(user.username, request)
-            except Exception:
-                _logger.exception("after-request handler failed for %s %s", request.method, path)
-
-        response_filter = _find_fastapi_response_filter(path, request.method)
-        if response_filter is not None and response.status_code < 400:
-            body = bytearray()
-            async for chunk in response.body_iterator:
-                body.extend(chunk)
-            return _apply_fastapi_response_filter(
-                response_filter=response_filter,
-                username=user.username,
-                body=bytes(body),
-                request=request,
-                response=response,
-                path=path,
-            )
-
-        return response
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python

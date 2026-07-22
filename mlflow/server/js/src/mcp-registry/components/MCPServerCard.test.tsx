@@ -119,9 +119,57 @@ describe('MCPServerCard', () => {
         expect(screen.getByText('io.github.test/unavailable')).toBeInTheDocument();
       });
 
-      // When isUnavailable is true, the connect button is replaced with a disabled icon
-      // and the tooltip text "No access endpoints configured" is present
       expect(screen.queryByLabelText('Connect')).not.toBeInTheDocument();
+    });
+
+    it('shows disabled connect icon when endpoints exist but none target the latest version', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/stale-endpoint',
+          status: MCPStatus.ACTIVE,
+          latest_version: '2.0.0',
+          access_endpoints: [
+            {
+              id: 'ae-1',
+              server_name: 'io.github.test/stale-endpoint',
+              url: 'https://example.com/mcp',
+              transport_type: 'streamable-http' as any,
+              resolved_version: { version: '1.0.0', status: MCPStatus.ACTIVE },
+            } as any,
+          ],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/stale-endpoint')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText('Connect')).not.toBeInTheDocument();
+    });
+
+    it('shows enabled connect icon when endpoint targets the latest version', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/current-endpoint',
+          status: MCPStatus.ACTIVE,
+          latest_version: '2.0.0',
+          access_endpoints: [
+            {
+              id: 'ae-1',
+              server_name: 'io.github.test/current-endpoint',
+              url: 'https://example.com/mcp',
+              transport_type: 'streamable-http' as any,
+              resolved_version: { version: '2.0.0', status: MCPStatus.ACTIVE },
+            } as any,
+          ],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/current-endpoint')).toBeInTheDocument();
+      });
+
+      expect(document.querySelector('[data-component-id="mlflow.mcp_registry.card.connect"]')).toBeInTheDocument();
     });
   });
 });

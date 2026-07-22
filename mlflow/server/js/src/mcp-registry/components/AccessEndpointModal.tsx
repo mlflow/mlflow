@@ -225,6 +225,7 @@ export const AccessEndpointModal = ({
           </FieldLabel>
           <Input
             componentId="mlflow.mcp_registry.endpoint_modal.endpoint"
+            type="url"
             value={endpointUrl}
             onChange={(e) => setEndpointUrl(e.target.value)}
             disabled={isSubmitting}
@@ -233,6 +234,8 @@ export const AccessEndpointModal = ({
               description: 'MCP registry endpoint modal endpoint placeholder',
             })}
             validationState={endpointUrl.trim() && !isValidUrl ? 'error' : undefined}
+            spellCheck={false}
+            autoComplete="off"
           />
           {endpointUrl.trim() && !isValidUrl && (
             <Typography.Text color="error" size="sm" data-testid="mcp-endpoint-modal-url-error">

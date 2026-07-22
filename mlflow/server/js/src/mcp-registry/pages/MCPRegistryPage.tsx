@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -20,7 +20,7 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable, useCurrentUserQuery } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
-import { getServerPermissions } from '../utils';
+import { getServerPermissions, isServerDimmed } from '../utils';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
 import { MCPServerListTable } from '../components/MCPServerListTable';
 import { MCPServerListFilters } from '../components/MCPServerListFilters';
@@ -47,6 +47,7 @@ const MCPRegistryPage = () => {
 
   const {
     data: servers,
+    rawResponse,
     isLoading,
     error,
     hasNextPage,
@@ -59,17 +60,19 @@ const MCPRegistryPage = () => {
     availableOnly: effectiveFilterMode === 'available',
   });
 
+  const visibleServers = useMemo(() => {
+    if (!servers || !isAuthAvailable) return servers;
+    if (effectiveFilterMode === 'available') return servers;
+    return servers.filter((s) => !isServerDimmed(s) || getServerPermissions(s).canManage);
+  }, [servers, isAuthAvailable, effectiveFilterMode]);
+
   const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
     onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
   });
 
-  const { data: allServersProbe } = useMCPServersListQuery({
-    availableOnly: false,
-    enabled: isAuthAvailable && !isAuthLoading,
-  });
-  const hasManageOnAny = allServersProbe?.some((s) => getServerPermissions(s).canManage) ?? false;
+  const hasManageOnAny = rawResponse?.user_has_manage !== false;
   const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
-  const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
+  const isServersEmpty = !isLoading && !error && !visibleServers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
       <FormattedMessage defaultMessage="Create MCP server" description="Button to create a new MCP server" />
@@ -160,7 +163,7 @@ const MCPRegistryPage = () => {
           {!error &&
             (viewMode === 'grid' ? (
               <MCPServerCardGrid
-                servers={servers}
+                servers={visibleServers}
                 isLoading={isLoading}
                 isFiltered={Boolean(debouncedSearchFilter)}
                 hasNextPage={hasNextPage}
@@ -172,7 +175,7 @@ const MCPRegistryPage = () => {
               />
             ) : (
               <MCPServerListTable
-                servers={servers}
+                servers={visibleServers}
                 hasNextPage={hasNextPage}
                 hasPreviousPage={hasPreviousPage}
                 isLoading={isLoading}

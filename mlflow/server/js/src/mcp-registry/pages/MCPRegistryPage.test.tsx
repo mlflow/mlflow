@@ -171,9 +171,9 @@ describe('MCPRegistryPage', () => {
         ...overrides,
       });
 
-    it('hides toggle when user has no MANAGE permission', async () => {
+    it('hides toggle when user_has_manage is false', async () => {
       server.use(
-        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })]),
+        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })], { userHasManage: false }),
         getMockedCurrentUserResponse({ isAdmin: false }),
       );
       renderPage();
@@ -183,18 +183,9 @@ describe('MCPRegistryPage', () => {
       expect(screen.queryByTestId('mcp-registry-availability-filter')).not.toBeInTheDocument();
     });
 
-    it('shows toggle when user has MANAGE permission on at least one server', async () => {
+    it('shows toggle when user_has_manage is true', async () => {
       server.use(
-        getMockedSearchMCPServersResponse([
-          activeServer({
-            allowed_actions: [
-              MCPServerAction.USE,
-              MCPServerAction.UPDATE,
-              MCPServerAction.DELETE,
-              MCPServerAction.MANAGE,
-            ],
-          }),
-        ]),
+        getMockedSearchMCPServersResponse([activeServer()], { userHasManage: true }),
         getMockedCurrentUserResponse({ isAdmin: false }),
       );
       renderPage();
@@ -206,7 +197,7 @@ describe('MCPRegistryPage', () => {
       });
     });
 
-    it('shows toggle for admin users (allowed_actions undefined)', async () => {
+    it('shows toggle for admin users (user_has_manage undefined)', async () => {
       server.use(getMockedSearchMCPServersResponse([activeServer()]), getMockedCurrentUserResponse({ isAdmin: true }));
       renderPage();
       await waitFor(() => {
@@ -214,6 +205,60 @@ describe('MCPRegistryPage', () => {
       });
       await waitFor(() => {
         expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      });
+    });
+
+    it('hides dimmed servers without MANAGE in All mode', async () => {
+      const managedServer = activeServer({
+        name: 'my-server',
+        allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
+      });
+      const dimmedReadOnly = createMockMCPServer({
+        name: 'other-server',
+        status: MCPStatus.DRAFT,
+        access_endpoints: [],
+        allowed_actions: [],
+      });
+      server.use(
+        getMockedSearchMCPServersResponse([managedServer, dimmedReadOnly], { userHasManage: true }),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('my-server')).toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      });
+
+      await userEvent.click(screen.getByText('All'));
+
+      await waitFor(() => {
+        expect(screen.getByText('my-server')).toBeInTheDocument();
+        expect(screen.queryByText('other-server')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows dimmed servers with MANAGE in All mode', async () => {
+      const dimmedManaged = createMockMCPServer({
+        name: 'my-dimmed-server',
+        status: MCPStatus.DRAFT,
+        access_endpoints: [],
+        allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
+      });
+      server.use(
+        getMockedSearchMCPServersResponse([dimmedManaged], { userHasManage: true }),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      });
+
+      await userEvent.click(screen.getByText('All'));
+
+      await waitFor(() => {
+        expect(screen.getByText('my-dimmed-server')).toBeInTheDocument();
       });
     });
   });

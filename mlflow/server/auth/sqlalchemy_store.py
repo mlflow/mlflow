@@ -1700,6 +1700,21 @@ class SqlAlchemyStore:
         user_id, rows = self._list_per_resource_permissions(username, RESOURCE_TYPE_MCP_SERVER)
         return [MCPServerPermission(name=p, user_id=user_id, permission=perm) for p, perm in rows]
 
+    def has_mcp_server_manage_permission(self, username: str) -> bool:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            return session.query(
+                session
+                .query(SqlRolePermission)
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .filter(
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                    SqlRolePermission.resource_type == RESOURCE_TYPE_MCP_SERVER,
+                    SqlRolePermission.permission == MANAGE.name,
+                )
+                .exists()
+            ).scalar()
+
     def update_mcp_server_permission(
         self, name: str, username: str, permission: str
     ) -> MCPServerPermission:

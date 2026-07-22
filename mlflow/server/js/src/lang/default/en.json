@@ -12559,6 +12559,10 @@
     "defaultMessage": "Start Demo",
     "description": "Demo banner launch button"
   },
+  "svXy8B": {
+    "defaultMessage": "This alias is automatically maintained and always resolves to the highest published version.",
+    "description": "Tooltip explaining the @latest alias in MCP registry"
+  },
   "svzyNI": {
     "defaultMessage": "Judge \"{label}\" completed successfully.",
     "description": "Banner message shown when a judge run completes successfully"

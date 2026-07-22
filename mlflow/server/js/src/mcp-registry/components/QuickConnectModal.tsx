@@ -19,8 +19,7 @@ export const QuickConnectModal = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const endpoint = server.latest_version
-    ? (server.access_endpoints?.find((e) => e.resolved_version?.version === server.latest_version) ??
-      server.access_endpoints?.[0])
+    ? server.access_endpoints?.find((e) => e.resolved_version?.version === server.latest_version)
     : server.access_endpoints?.[0];
   const displayName = resolveDisplayName(server);
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);

@@ -14,6 +14,7 @@ export function ExpandableListSection<T>({
   renderRow,
   renderExpanded,
   getAriaLabel,
+  getRowStyle,
   footer,
 }: {
   items: T[];
@@ -21,6 +22,7 @@ export function ExpandableListSection<T>({
   renderRow: (ctx: { item: T; expanded: boolean }) => React.ReactNode;
   renderExpanded: (item: T) => React.ReactNode;
   getAriaLabel: (item: T, expanded: boolean) => string;
+  getRowStyle?: (item: T) => React.CSSProperties | undefined;
   footer?: React.ReactNode;
 }) {
   const { theme } = useDesignSystemTheme();
@@ -32,7 +34,11 @@ export function ExpandableListSection<T>({
         const key = getKey(item, index);
         const expanded = expandedKey === key;
         return (
-          <div key={key} css={{ borderTop: index > 0 ? `1px solid ${theme.colors.border}` : 'none' }}>
+          <div
+            key={key}
+            css={{ borderTop: index > 0 ? `1px solid ${theme.colors.border}` : 'none' }}
+            style={getRowStyle?.(item)}
+          >
             <button
               type="button"
               onClick={() => setExpandedKey(expanded ? null : key)}

@@ -260,6 +260,7 @@ export interface SearchMCPAccessEndpointsParams {
 export interface SearchMCPServersResponse {
   mcp_servers: MCPServer[];
   next_page_token?: string;
+  user_has_manage?: boolean;
 }
 
 export interface SearchMCPServerVersionsResponse {
