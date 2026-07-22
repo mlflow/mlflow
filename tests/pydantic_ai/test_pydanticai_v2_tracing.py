@@ -16,6 +16,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
 
 import mlflow
+import mlflow.pydantic_ai.autolog_v2
 from mlflow.entities import SpanType
 from mlflow.pydantic_ai.autolog_v2 import (
     _StreamedRunResultSyncWrapper,
@@ -198,6 +199,73 @@ def test_validation_failure_remains_visible_after_successful_retry():
     assert tool_span.inputs == {"left": 2, "right": 1}
     assert tool_span.outputs == 3
     assert spans[0].status.status_code == "OK"
+
+
+def test_tool_retry_does_not_suppress_successful_retry_span():
+    mlflow.pydantic_ai.autolog()
+    request_count = 0
+    tool_count = 0
+
+    def model_function(_messages, _agent_info):
+        nonlocal request_count
+        request_count += 1
+        if request_count <= 2:
+            part = ToolCallPart(tool_name="retry_once", args={"value": request_count})
+        else:
+            part = TextPart(content="done")
+        return ModelResponse(parts=[part])
+
+    def retry_once(value: int) -> int:
+        nonlocal tool_count
+        tool_count += 1
+        if tool_count == 1:
+            raise ModelRetry("try again")
+        return value
+
+    agent = Agent(FunctionModel(model_function), tools=[retry_once])
+
+    assert agent.run_sync("retry the tool").output == "done"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    tool_spans = [span for span in traces[0].data.spans if span.name == "retry_once"]
+    assert [span.status.status_code for span in tool_spans] == ["ERROR", "OK"]
+    assert tool_spans[1].outputs == 2
+
+
+@pytest.mark.asyncio
+async def test_tool_autologging_failure_does_not_affect_tool_result(monkeypatch):
+    mlflow.pydantic_ai.autolog()
+    instrumentation = Instrumentation()
+    call = ToolCallPart(tool_name="add", args={"left": 1, "right": 2})
+    tool_def = ToolDefinition(name="add", parameters_json_schema={})
+    handler_call_count = 0
+
+    def raise_serialization_error(_result):
+        raise RuntimeError("serialization failed")
+
+    async def handler(args):
+        nonlocal handler_call_count
+        handler_call_count += 1
+        return args["left"] + args["right"]
+
+    monkeypatch.setenv("MLFLOW_AUTOLOGGING_TESTING", "false")
+    monkeypatch.setattr(
+        mlflow.pydantic_ai.autolog_v2,
+        "serialize_output",
+        raise_serialization_error,
+    )
+
+    result = await instrumentation.wrap_tool_execute(
+        None,
+        call=call,
+        tool_def=tool_def,
+        args=call.args,
+        handler=handler,
+    )
+
+    assert result == 3
+    assert handler_call_count == 1
 
 
 @pytest.mark.asyncio

@@ -420,18 +420,6 @@ def _patch_streaming_method(cls, method_name, wrapper_func) -> None:
     _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
 
 
-def _patch_async_method(cls, method_name, wrapper_func) -> None:
-    """Patch an async control-flow hook without marking handled exceptions as patch failures."""
-    original = getattr(cls, method_name)
-
-    @functools.wraps(original)
-    async def patched_method(self, *args, **kwargs):
-        return await wrapper_func(original, self, *args, **kwargs)
-
-    patch = _wrap_patch(cls, method_name, patched_method)
-    _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
-
-
 def _patch_agent_init(agent_cls) -> None:
     original = agent_cls.__init__
 
@@ -445,8 +433,16 @@ def _patch_agent_init(agent_cls) -> None:
 
 def setup_autologging() -> None:
     """Install the Pydantic AI 2.x agent and model patches."""
+    from pydantic import ValidationError
     from pydantic_ai import Agent
     from pydantic_ai.capabilities.instrumentation import Instrumentation
+    from pydantic_ai.exceptions import (
+        ApprovalRequired,
+        CallDeferred,
+        ModelRetry,
+        SkipToolExecution,
+        ToolRetryError,
+    )
     from pydantic_ai.mcp import MCPToolset
 
     _patch_agent_init(Agent)
@@ -460,18 +456,36 @@ def setup_autologging() -> None:
         "wrap_model_request",
         patched_capability_model_request,
     )
-    # Validation errors and tool execution retries are normal agent control flow. Using
-    # safe_patch here would mark the enclosing autologging session as failed and suppress
-    # instrumentation for the successful retry.
-    _patch_async_method(
+    safe_patch(
+        mlflow.pydantic_ai.FLAVOR_NAME,
         Instrumentation,
         "on_tool_validate_error",
         patched_capability_tool_validate_error,
+        non_fatal_original_exceptions=(ValidationError, ModelRetry),
     )
-    _patch_async_method(
+    safe_patch(
+        mlflow.pydantic_ai.FLAVOR_NAME,
         Instrumentation,
         "wrap_tool_execute",
         patched_capability_tool_execute,
+        non_fatal_original_exceptions=(
+            ApprovalRequired,
+            CallDeferred,
+            ModelRetry,
+            SkipToolExecution,
+            ToolRetryError,
+        ),
     )
-    _patch_async_method(MCPToolset, "list_tools", patched_mcp_list_tools)
-    _patch_async_method(MCPToolset, "direct_call_tool", patched_mcp_direct_call_tool)
+    safe_patch(
+        mlflow.pydantic_ai.FLAVOR_NAME,
+        MCPToolset,
+        "list_tools",
+        patched_mcp_list_tools,
+    )
+    safe_patch(
+        mlflow.pydantic_ai.FLAVOR_NAME,
+        MCPToolset,
+        "direct_call_tool",
+        patched_mcp_direct_call_tool,
+        non_fatal_original_exceptions=(ModelRetry,),
+    )
