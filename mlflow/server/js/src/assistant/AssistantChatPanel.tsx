@@ -3,7 +3,7 @@
  * Displays the chat interface for the Assistant.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Alert,
@@ -94,12 +94,7 @@ const orderedGatewayVendors = (options: Record<string, string[]>): string[] => {
 const endpointModelName = (endpoint: Endpoint | undefined): string | undefined =>
   endpoint?.model_mappings?.[0]?.model_definition?.model_name;
 
-/**
- * Endpoint list inside the gateway submenu, plus a shortcut to create a new
- * endpoint. Lives in its own component so the endpoints fetch only fires when
- * the submenu is actually opened.
- */
-const GatewayEndpointItems = ({
+const GatewayVendorItems = ({
   currentProvider,
   gatewayVendorOptions,
   onSelect,
@@ -108,17 +103,12 @@ const GatewayEndpointItems = ({
   gatewayVendorOptions: Record<string, string[]>;
   onSelect: (endpointName: string, options?: SelectProviderOptions) => void;
 }) => {
-  const { data: endpoints, isLoading } = useEndpointsQuery();
+  const { data: endpoints } = useEndpointsQuery();
   const { theme } = useDesignSystemTheme();
-  const managedEndpointNames = new Set(Object.keys(gatewayVendorOptions).map(gatewayVendorEndpointName));
   const managedVendors = orderedGatewayVendors(gatewayVendorOptions);
-  const customEndpoints = endpoints.filter((endpoint) => !managedEndpointNames.has(endpoint.name));
-
-  const openCreateEndpoint = useCallback(() => {
-    // MLflow uses hash routing, so SPA routes must be prefixed with `/#`
-    // for fresh-tab loads to land on the right page.
-    window.open(`/#${GatewayRoutePaths.createEndpointPage}`, '_blank', 'noopener');
-  }, []);
+  if (managedVendors.length === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -161,7 +151,35 @@ const GatewayEndpointItems = ({
           </DropdownMenu.Item>
         );
       })}
-      {managedVendors.length > 0 && <DropdownMenu.Separator />}
+      <DropdownMenu.Separator />
+    </>
+  );
+};
+
+/**
+ * Custom endpoint list inside the gateway submenu, plus a shortcut to create a new
+ * endpoint. Hosted provider shortcuts are intentionally rendered at the top level
+ * of the composer picker instead of being hidden under this submenu.
+ */
+const GatewayEndpointItems = ({
+  gatewayVendorOptions,
+  onSelect,
+}: {
+  gatewayVendorOptions: Record<string, string[]>;
+  onSelect: (endpointName: string, options?: SelectProviderOptions) => void;
+}) => {
+  const { data: endpoints, isLoading } = useEndpointsQuery();
+  const managedEndpointNames = new Set(Object.keys(gatewayVendorOptions).map(gatewayVendorEndpointName));
+  const customEndpoints = endpoints.filter((endpoint) => !managedEndpointNames.has(endpoint.name));
+
+  const openCreateEndpoint = useCallback(() => {
+    // MLflow uses hash routing, so SPA routes must be prefixed with `/#`
+    // for fresh-tab loads to land on the right page.
+    window.open(`/#${GatewayRoutePaths.createEndpointPage}`, '_blank', 'noopener');
+  }, []);
+
+  return (
+    <>
       {isLoading ? (
         <DropdownMenu.Item componentId="mlflow.assistant.provider_picker.endpoint" disabled>
           <Spinner size="small" />
@@ -295,19 +313,25 @@ const ProviderPicker = ({
             </>
           );
           if (candidate.name === GATEWAY_PROVIDER_ID) {
-            // Always enabled: the submenu lists existing endpoints and offers
-            // creating a new one when there are none yet.
+            // Hosted vendors are top-level shortcuts. The Gateway submenu is
+            // reserved for custom endpoints and creating a new endpoint.
             return (
-              <DropdownMenu.Sub key={candidate.name}>
-                <DropdownMenu.SubTrigger>{itemContent}</DropdownMenu.SubTrigger>
-                <DropdownMenu.SubContent>
-                  <GatewayEndpointItems
-                    currentProvider={provider}
-                    gatewayVendorOptions={gatewayVendorOptions}
-                    onSelect={(endpointName, options) => onSelect(candidate.name, endpointName, options)}
-                  />
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Sub>
+              <Fragment key={candidate.name}>
+                <GatewayVendorItems
+                  currentProvider={provider}
+                  gatewayVendorOptions={gatewayVendorOptions}
+                  onSelect={(endpointName, options) => onSelect(candidate.name, endpointName, options)}
+                />
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger>{itemContent}</DropdownMenu.SubTrigger>
+                  <DropdownMenu.SubContent>
+                    <GatewayEndpointItems
+                      gatewayVendorOptions={gatewayVendorOptions}
+                      onSelect={(endpointName, options) => onSelect(candidate.name, endpointName, options)}
+                    />
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Sub>
+              </Fragment>
             );
           }
           return (
