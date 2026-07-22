@@ -238,6 +238,43 @@ export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: stri
   return matches;
 };
 
+export const getLinkFieldKey = (index: number, field: string): string => {
+  return `link-${index}-${field}`;
+};
+
+const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
+  const links = span.links;
+  if (!links) {
+    return [];
+  }
+
+  const matches: SearchMatch[] = [];
+  links.forEach((link, index) => {
+    const fields: Record<string, string> = {
+      span_id: JSON.stringify(link.span_id),
+      ...(link.attributes && Object.keys(link.attributes).length > 0
+        ? { attributes: JSON.stringify(link.attributes, null, 2) }
+        : {}),
+    };
+
+    Object.entries(fields).forEach(([field, value]) => {
+      const key = getLinkFieldKey(index, field);
+      const numValueMatches = value.toLowerCase().split(searchFilter).length - 1;
+      for (let i = 0; i < numValueMatches; i++) {
+        matches.push({
+          span,
+          section: 'links',
+          key,
+          isKeyMatch: false,
+          matchIndex: i,
+        });
+      }
+    });
+  });
+
+  return matches;
+};
+
 /**
  * This function extracts all the matches from a span based on the search filter,
  * and appends some necessary metadata that is necessary for the jump-to-search
@@ -257,11 +294,16 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
     outputs: span?.outputs,
     attributes: span?.attributes,
     events: span?.events,
+    links: span?.links,
   };
 
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events') => {
+  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
       matches.push(...getMatchesFromEvent(span, searchFilter));
+      return;
+    }
+    if (label === 'links') {
+      matches.push(...getMatchesFromLinks(span, searchFilter));
       return;
     }
 
@@ -527,6 +569,7 @@ export const normalizeNewSpanData = (
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -548,6 +591,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    links,
     chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
@@ -1374,6 +1418,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links }),
   };
 };
 

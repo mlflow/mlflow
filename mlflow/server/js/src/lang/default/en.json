@@ -4019,6 +4019,10 @@
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
     "description": "Hint for ConversationalGuidelines template"
   },
+  "Hg5XD1": {
+    "defaultMessage": "No links found",
+    "description": "Empty state for the links tab in the model trace explorer. Links connect spans across different traces."
+  },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
