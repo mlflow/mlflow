@@ -31,11 +31,11 @@ class CodexProvider(AssistantProvider):
 
     @property
     def display_name(self) -> str:
-        return "OpenAI Codex"
+        return "Codex"
 
     @property
     def description(self) -> str:
-        return "AI-powered assistant using the OpenAI Codex CLI"
+        return "AI-powered assistant using the Codex CLI"
 
     def is_available(self) -> bool:
         return shutil.which(_CODEX_BINARY) is not None

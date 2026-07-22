@@ -299,6 +299,7 @@ describe('AssistantChatPanel', () => {
     mockSelectedProvider = { id: 'claude_code', model: 'default', autoSelected: true };
     mockAvailableProviders = [
       makeProviderInfo({ name: 'claude_code', display_name: 'Claude Code' }),
+      makeProviderInfo({ name: 'codex', display_name: 'OpenAI Codex' }),
       makeProviderInfo({ name: 'mlflow_gateway', display_name: 'MLflow AI Gateway' }),
     ];
     mockGatewayVendorOptions = { openai: ['gpt-5.5', 'gpt-5-mini'] };
@@ -306,6 +307,8 @@ describe('AssistantChatPanel', () => {
     renderChatPanel();
 
     await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
+    expect(await screen.findByText('Codex')).toBeInTheDocument();
+    expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
     fireEvent.click(await screen.findByText('OpenAI'));
 
     // Selection is local/optimistic — no backend write on click; it persists on send.

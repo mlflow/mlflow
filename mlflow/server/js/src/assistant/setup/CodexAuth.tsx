@@ -96,7 +96,7 @@ export const CodexAuth = ({ cachedAuthStatus, onAuthStatusChange, onBack, onCont
               fontWeight: theme.typography.typographyBoldFontWeight,
             }}
           >
-            Install OpenAI Codex CLI
+            Install Codex CLI
           </span>
         </div>
         <Typography.Text color="secondary">The Codex CLI is required but not installed on your system.</Typography.Text>
@@ -110,7 +110,7 @@ export const CodexAuth = ({ cachedAuthStatus, onAuthStatusChange, onBack, onCont
           href="https://github.com/openai/codex"
           target="_blank"
         >
-          Learn more about OpenAI Codex CLI
+          Learn more about Codex CLI
         </Typography.Link>
       </div>
     );

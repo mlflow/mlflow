@@ -259,6 +259,7 @@ const ProviderPicker = ({
   const llmVendor = provider.modelProvider ? getLlmProviderDisplay(provider.modelProvider) : undefined;
   const label = llmVendor?.name ?? meta?.name ?? provider.id;
   const logo = llmVendor?.logo ?? meta?.logo;
+  const ProviderIcon = llmVendor ? undefined : meta?.icon;
 
   const trigger = (
     <button
@@ -277,6 +278,12 @@ const ProviderPicker = ({
       }}
     >
       {logo && <img src={logo} alt="" aria-hidden css={{ width: 14, height: 14, flexShrink: 0, borderRadius: 2 }} />}
+      {!logo && ProviderIcon && (
+        <ProviderIcon
+          aria-hidden
+          css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }}
+        />
+      )}
       <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
         {label}
       </Typography.Text>
@@ -296,6 +303,7 @@ const ProviderPicker = ({
         {providers.map((candidate) => {
           const candidateMeta = getAssistantProvider(candidate.name);
           const candidateLogo = candidateMeta?.logo;
+          const CandidateIcon = candidateMeta?.icon;
           const candidateLabel = candidateMeta?.name ?? candidate.display_name;
           const isCurrent = candidate.name === provider.id;
           const itemContent = (
@@ -306,6 +314,12 @@ const ProviderPicker = ({
                   alt=""
                   aria-hidden
                   css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
+                />
+              )}
+              {!candidateLogo && CandidateIcon && (
+                <CandidateIcon
+                  aria-hidden
+                  css={{ fontSize: 16, marginRight: theme.spacing.xs, color: theme.colors.textSecondary }}
                 />
               )}
               <span css={{ flex: 1 }}>{candidateLabel}</span>

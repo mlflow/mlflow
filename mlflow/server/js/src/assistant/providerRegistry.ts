@@ -1,9 +1,11 @@
 /**
  * Shared registry of assistant providers: the single source of truth for a provider id's
- * human display name and brand logo. Used by the setup wizard (to pick one) and the composer
+ * human display name and branding. Used by the setup wizard (to pick one) and the composer
  * (to show, read-only, which one is active). Keyed by the same provider ids the `/config`
  * payload uses (see `GATEWAY_PROVIDER_ID` and the server-side provider names).
  */
+import type { ElementType } from 'react';
+import { CodeIcon, TerminalIcon } from '@databricks/design-system';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
@@ -13,9 +15,10 @@ import OllamaLogo from '@mlflow/mlflow/src/common/static/logos/ollama.png';
 export interface AssistantProvider {
   id: string;
   name: string;
-  /** Longer copy for the setup card; the composer only uses `name` + `logo`. */
+  /** Longer copy for the setup card; the composer only uses `name` + branding. */
   description: string;
-  logo: string;
+  logo?: string;
+  icon?: ElementType;
   available: boolean;
 }
 
@@ -23,8 +26,8 @@ export const ASSISTANT_PROVIDERS: AssistantProvider[] = [
   {
     id: 'claude_code',
     name: 'Claude Code',
-    description: "AI assistant powered by Anthropic's Claude. Requires Claude Code CLI installed locally.",
-    logo: AnthropicLogo,
+    description: 'AI assistant powered by the Claude Code CLI. Requires Claude Code CLI installed locally.',
+    icon: TerminalIcon,
     available: true,
   },
   {
@@ -43,10 +46,9 @@ export const ASSISTANT_PROVIDERS: AssistantProvider[] = [
   },
   {
     id: 'codex',
-    name: 'OpenAI Codex',
-    description:
-      'AI assistant powered by OpenAI via the Codex CLI. Requires the codex CLI to be installed and authenticated.',
-    logo: OpenAiLogo,
+    name: 'Codex',
+    description: 'AI assistant powered by the Codex CLI. Requires the codex CLI to be installed and authenticated.',
+    icon: CodeIcon,
     available: true,
   },
 ];
