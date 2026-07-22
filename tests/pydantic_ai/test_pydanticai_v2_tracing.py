@@ -234,15 +234,19 @@ def test_tool_retry_does_not_suppress_successful_retry_span():
 
 
 @pytest.mark.asyncio
-async def test_tool_autologging_failure_does_not_affect_tool_result(monkeypatch):
+@pytest.mark.parametrize("failure_point", ["before", "after"])
+async def test_tool_autologging_failure_does_not_affect_tool_result(
+    monkeypatch,
+    failure_point,
+):
     mlflow.pydantic_ai.autolog()
     instrumentation = Instrumentation()
     call = ToolCallPart(tool_name="add", args={"left": 1, "right": 2})
     tool_def = ToolDefinition(name="add", parameters_json_schema={})
     handler_call_count = 0
 
-    def raise_serialization_error(_result):
-        raise RuntimeError("serialization failed")
+    def raise_instrumentation_error(*args, **kwargs):
+        raise RuntimeError("instrumentation failed")
 
     async def handler(args):
         nonlocal handler_call_count
@@ -250,11 +254,14 @@ async def test_tool_autologging_failure_does_not_affect_tool_result(monkeypatch)
         return args["left"] + args["right"]
 
     monkeypatch.setenv("MLFLOW_AUTOLOGGING_TESTING", "false")
-    monkeypatch.setattr(
-        mlflow.pydantic_ai.autolog_v2,
-        "serialize_output",
-        raise_serialization_error,
-    )
+    if failure_point == "before":
+        monkeypatch.setattr(mlflow, "start_span", raise_instrumentation_error)
+    else:
+        monkeypatch.setattr(
+            mlflow.pydantic_ai.autolog_v2,
+            "serialize_output",
+            raise_instrumentation_error,
+        )
 
     result = await instrumentation.wrap_tool_execute(
         None,

@@ -235,7 +235,6 @@ def safe_patch(
     patch_function,
     manage_run=False,
     extra_tags=None,
-    non_fatal_original_exceptions=(),
 ):
     """Patches the specified `function_name` on the specified `destination` class for autologging
     purposes, preceding its implementation with an error-safe copy of the specified patch
@@ -259,10 +258,6 @@ def safe_patch(
             does not apply the `with_managed_run` wrapper to the specified
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
-        non_fatal_original_exceptions: Exception types raised by the original function that should
-            propagate without marking the shared autologging session as failed. This is intended
-            for library exceptions that represent expected control flow and are handled by an
-            outer library call.
     """
     from mlflow.tracking.fluent import active_run
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
@@ -492,12 +487,7 @@ def safe_patch(
                     event_logger.log_patch_function_success(args, kwargs)
 
                 except Exception as e:
-                    session.state = (
-                        "succeeded"
-                        if failed_during_original
-                        and isinstance(e, non_fatal_original_exceptions)
-                        else "failed"
-                    )
+                    session.state = "failed"
                     patch_error = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
@@ -647,12 +637,7 @@ def safe_patch(
                     event_logger.log_patch_function_success(args, kwargs)
 
                 except Exception as e:
-                    session.state = (
-                        "succeeded"
-                        if failed_during_original
-                        and isinstance(e, non_fatal_original_exceptions)
-                        else "failed"
-                    )
+                    session.state = "failed"
                     patch_error = e
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
