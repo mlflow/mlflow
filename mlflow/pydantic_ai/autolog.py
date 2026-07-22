@@ -2,13 +2,14 @@ import contextvars
 import inspect
 import logging
 from contextlib import asynccontextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import is_dataclass
 from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.pydantic_ai.autolog_utils import parse_usage, serialize_output
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -20,6 +21,11 @@ _in_sync_stream_context: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "_in_sync_stream_context", default=False
 )
 _SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
+
+# Keep these private aliases for compatibility with code that imported them from
+# this module before the shared helpers were extracted.
+_parse_usage = parse_usage
+_serialize_output = serialize_output
 
 
 def _is_safe_for_serialization(value: Any) -> bool:
@@ -454,29 +460,6 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         return kwargs
 
 
-def _serialize_output(result: Any) -> Any:
-    if result is None:
-        return None
-
-    if hasattr(result, "new_messages") and callable(result.new_messages):
-        try:
-            new_messages = result.new_messages()
-            serialized_messages = [asdict(msg) for msg in new_messages]
-
-            try:
-                serialized_result = asdict(result)
-            except Exception:
-                # We can't use asdict for StreamedRunResult because its async generator
-                serialized_result = dict(result.__dict__) if hasattr(result, "__dict__") else {}
-
-            serialized_result["_new_messages_serialized"] = serialized_messages
-            return serialized_result
-        except Exception as e:
-            _logger.debug(f"Failed to serialize new_messages: {e}")
-
-    return result.__dict__ if hasattr(result, "__dict__") else result
-
-
 def _get_agent_attributes(instance):
     attrs = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     attrs.update(_extract_safe_attributes(instance))
@@ -516,40 +499,3 @@ def _parse_tools(tools):
         for tool in tools
         if (data := tool.model_dumps(exclude_none=True))
     ]
-
-
-def _parse_usage(result: Any) -> dict[str, int] | None:
-    try:
-        if isinstance(result, tuple) and len(result) == 2:
-            usage = result[1]
-        else:
-            usage_attr = getattr(result, "usage", None)
-            if usage_attr is None:
-                return None
-
-            # Handle both property (RunResult) and method (StreamedRunResult)
-            # StreamedRunResult has .usage() as a method
-            usage = usage_attr() if callable(usage_attr) else usage_attr
-
-        if usage is None:
-            return None
-
-        # input_tokens/output_tokens are the current field names; request_tokens/
-        # response_tokens are deprecated aliases kept for backward compatibility.
-        input_tokens = getattr(usage, "input_tokens", None)
-        if input_tokens is None:
-            input_tokens = getattr(usage, "request_tokens", 0)
-        output_tokens = getattr(usage, "output_tokens", None)
-        if output_tokens is None:
-            output_tokens = getattr(usage, "response_tokens", 0)
-        total_tokens = getattr(usage, "total_tokens")
-        if total_tokens is None:
-            total_tokens = input_tokens + output_tokens
-        return {
-            TokenUsageKey.INPUT_TOKENS: input_tokens,
-            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-            TokenUsageKey.TOTAL_TOKENS: total_tokens,
-        }
-    except Exception as e:
-        _logger.debug(f"Failed to parse token usage from output: {e}")
-    return None
