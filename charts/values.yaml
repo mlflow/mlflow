@@ -246,6 +246,22 @@ storage:
   # Path where the PVC is mounted inside the container.
   mountPath: /mlflow
 
+# Liveness probe configuration for the mlflow container.
+# Note: successThreshold is always 1 for liveness probes (Kubernetes requirement).
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe configuration for the mlflow container.
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
 # CPU and memory resource requests and limits for the mlflow container.
 resources:
   {}
