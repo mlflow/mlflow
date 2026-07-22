@@ -14,11 +14,11 @@ name: Flaky test detector
 # the bot never merges, and tests classified `investigate`/`fix` are left for a human.
 on:
   schedule:
-    # Runs Mondays at 09:00 UTC and Wednesdays at 18:00 UTC. The detector scans a
+    # Runs Mondays at 09:00 UTC and Thursdays at 18:00 UTC. The detector scans a
     # trailing window (14 days by default) so flakes near the week boundary aren't
     # missed; the rolling report issue dedups the overlap between runs.
     - cron: "0 9 * * 1"
-    - cron: "0 18 * * 3"
+    - cron: "0 18 * * 4"
   workflow_dispatch:
     inputs:
       since:
