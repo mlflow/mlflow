@@ -575,6 +575,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0Z9gG2": {
+    "defaultMessage": "Estimated cost ~{cost}, from public model pricing; actual may vary (provider and cache rates).",
+    "description": "Estimated session cost with a disclaimer that it is approximate"
+  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -2814,6 +2818,10 @@
   "BNc3Cn": {
     "defaultMessage": "Confirm new password",
     "description": "Placeholder for the confirm-password input"
+  },
+  "BOm6XU": {
+    "defaultMessage": "Input {input} · Output {output} tokens",
+    "description": "Breakdown of session token usage into input (prompt) and output (completion) tokens"
   },
   "BOz0T2": {
     "defaultMessage": "Select metric",
@@ -5375,6 +5383,10 @@
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > System metrics tab"
   },
+  "OcN222": {
+    "defaultMessage": "Cost estimate unavailable for this model.",
+    "description": "Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -7807,6 +7819,10 @@
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
   },
+  "aKVdS3": {
+    "defaultMessage": "Model: {model}",
+    "description": "Tooltip on the assistant composer showing the active provider's configured model name"
+  },
   "aKW54p": {
     "defaultMessage": "See it in action",
     "description": "Label on the click-to-play video preview in the traces empty state"
@@ -10214,6 +10230,10 @@
   "lCfyQO": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the logged model details metrics table"
+  },
+  "lCp+DF": {
+    "defaultMessage": "Cached {cached} tokens, reused conversation context billed at a reduced rate",
+    "description": "Portion of input tokens re-read from the provider's prompt cache across turns"
   },
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
