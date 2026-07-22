@@ -382,7 +382,6 @@ def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
 
 
 def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):
-    """Verify the OTel global context is cleaned up when the MLflow span ends (opt-in)."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
     monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
@@ -398,7 +397,6 @@ def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):
 
 
 def test_nested_mlflow_spans_maintain_otel_context_when_opted_in(monkeypatch):
-    """Verify nested MLflow spans properly manage the OTel context stack (opt-in)."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
     monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
@@ -435,7 +433,6 @@ def test_get_bridged_tracer_provider_returns_mlflow_provider_isolated(monkeypatc
 
 
 def test_get_bridged_tracer_provider_routes_spans_to_mlflow(monkeypatch):
-    """Spans created via the bridged provider's tracer should be captured by MLflow."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
     set_destination(MlflowExperimentLocation(experiment_id))
@@ -454,7 +451,6 @@ def test_get_bridged_tracer_provider_routes_spans_to_mlflow(monkeypatch):
 
 
 def test_get_bridged_tracer_provider_returns_global_provider_unified(monkeypatch):
-    """In unified mode, the bridged provider is the shared global provider."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
     set_destination(MlflowExperimentLocation(experiment_id))
