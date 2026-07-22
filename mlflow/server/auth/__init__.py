@@ -338,6 +338,7 @@ from mlflow.server.handlers import (
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
+    MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
 )
@@ -4548,6 +4549,8 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
     parts = suffix.split("/") if suffix else []
 
     if _is_mcp_server_version_create_path(parts):
+        if not getattr(request.state, "mcp_server_parent_auto_created", False):
+            return
         name = f"{parts[0]}/{parts[1]}"
         try:
             server = _get_tracking_store().get_mcp_server(name)
@@ -4616,15 +4619,35 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
 
-    readable = []
-    for s in data.get("mcp_servers", []):
-        if not can_read(s["name"]):
-            continue
+    def _stamp(s: dict[str, Any]) -> dict[str, Any]:
         perm = _get_mcp_server_permission(s["name"], username)
         s["allowed_actions"] = _permission_to_allowed_actions(perm)
-        readable.append(s)
+        return s
 
-    data["mcp_servers"] = readable
+    readable = [_stamp(s) for s in data.get("mcp_servers", []) if can_read(s["name"])]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=token,
+        ),
+        get_name=lambda s: s.name,
+        to_dict=lambda s: _stamp(
+            MCPServerResponse.from_entity(s).model_dump(mode="json")
+        ),
+    )
+    data["mcp_servers"] = readable[:max_results]
     data["user_has_manage"] = store.has_mcp_server_manage_permission(username)
     return json.dumps(data).encode()
 
@@ -4767,8 +4790,11 @@ FASTAPI_RESPONSE_FILTERS: dict[
 _MCP_SUB_RESOURCE_SEGMENTS = frozenset({"versions", "aliases", "tags", "endpoints"})
 
 
+_MCP_SERVER_API_ROUTE_PREFIXES = get_mcp_server_api_route_prefixes()
+
+
 def _is_mcp_sub_resource_path(path: str) -> bool:
-    for prefix in get_mcp_server_api_route_prefixes():
+    for prefix in _MCP_SERVER_API_ROUTE_PREFIXES:
         if not path.startswith(prefix):
             continue
         if suffix := path[len(prefix) :].strip("/"):

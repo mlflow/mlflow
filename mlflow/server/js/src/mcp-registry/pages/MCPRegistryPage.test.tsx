@@ -208,7 +208,7 @@ describe('MCPRegistryPage', () => {
       });
     });
 
-    it('hides dimmed servers without MANAGE in All mode', async () => {
+    it('shows dimmed servers in All mode regardless of permissions', async () => {
       const managedServer = activeServer({
         name: 'my-server',
         allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
@@ -235,30 +235,7 @@ describe('MCPRegistryPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('my-server')).toBeInTheDocument();
-        expect(screen.queryByText('other-server')).not.toBeInTheDocument();
-      });
-    });
-
-    it('shows dimmed servers with MANAGE in All mode', async () => {
-      const dimmedManaged = createMockMCPServer({
-        name: 'my-dimmed-server',
-        status: MCPStatus.DRAFT,
-        access_endpoints: [],
-        allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
-      });
-      server.use(
-        getMockedSearchMCPServersResponse([dimmedManaged], { userHasManage: true }),
-        getMockedCurrentUserResponse({ isAdmin: false }),
-      );
-      renderPage();
-      await waitFor(() => {
-        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
-      });
-
-      await userEvent.click(screen.getByText('All'));
-
-      await waitFor(() => {
-        expect(screen.getByText('my-dimmed-server')).toBeInTheDocument();
+        expect(screen.getByText('other-server')).toBeInTheDocument();
       });
     });
   });

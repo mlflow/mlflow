@@ -28,7 +28,13 @@ import { MCPServerTags } from './MCPServerTags';
 import { QuickConnectModal } from './QuickConnectModal';
 import { textEllipsisStyles, flexRowStyles, monoFontStyles, noShrinkStyles } from '../styles';
 import { useUpdateMCPServerTags } from '../hooks/useUpdateMCPServerTags';
-import { isServerDimmed, formatTransportType, resolveDisplayName, getServerPermissions } from '../utils';
+import {
+  findLatestEndpoint,
+  isServerDimmed,
+  formatTransportType,
+  resolveDisplayName,
+  getServerPermissions,
+} from '../utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
@@ -143,9 +149,7 @@ const MCPServerEndpointsCell = ({
   const { theme } = useDesignSystemTheme();
   const { onOpenConnect } = (meta ?? {}) as MCPServerTableMeta;
 
-  const latestEndpoint = original.latest_version
-    ? (original.access_endpoints ?? []).find((b) => b.resolved_version?.version === original.latest_version)
-    : undefined;
+  const latestEndpoint = findLatestEndpoint(original);
   if (!latestEndpoint) return '—';
 
   const displayUrl = latestEndpoint.url.replace(/^https?:\/\//, '');

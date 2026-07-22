@@ -1704,15 +1704,19 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             return session.query(
-                session
-                .query(SqlRolePermission)
+                session.query(SqlRolePermission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlUserRoleAssignment.role_id == SqlRole.id)
                 .filter(
-                    SqlRole.name == self._synthetic_user_role_name(user.id),
-                    SqlRolePermission.resource_type == RESOURCE_TYPE_MCP_SERVER,
+                    SqlUserRoleAssignment.user_id == user.id,
                     SqlRolePermission.permission == MANAGE.name,
+                    (SqlRolePermission.resource_type == RESOURCE_TYPE_MCP_SERVER)
+                    | (
+                        (SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE)
+                        & (SqlRolePermission.resource_pattern == "*")
+                    ),
                 )
-                .exists()
+                .exists(),
             ).scalar()
 
     def update_mcp_server_permission(

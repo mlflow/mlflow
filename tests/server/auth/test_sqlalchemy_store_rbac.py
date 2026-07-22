@@ -987,3 +987,44 @@ def test_get_role_permission_picks_highest(store, user, perms, expected):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == expected
+
+
+# ---- has_mcp_server_manage_permission ----
+
+
+def test_has_mcp_server_manage_no_roles(store, user):
+    assert store.has_mcp_server_manage_permission(user.username) is False
+
+
+def test_has_mcp_server_manage_via_synthetic_role(store, user):
+    store.create_mcp_server_permission("ns/server", user.username, "MANAGE")
+    assert store.has_mcp_server_manage_permission(user.username) is True
+
+
+def test_has_mcp_server_manage_via_admin_role(store, user):
+    role = store.create_role(name="mcp-admin", workspace="default")
+    store.add_role_permission(role.id, "mcp_server", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.has_mcp_server_manage_permission(user.username) is True
+
+
+def test_has_mcp_server_manage_via_workspace_admin(store, user):
+    role = store.create_role(name="ws-admin", workspace="default")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.has_mcp_server_manage_permission(user.username) is True
+
+
+def test_has_mcp_server_manage_edit_is_not_manage(store, user):
+    store.create_mcp_server_permission("ns/server", user.username, "EDIT")
+    assert store.has_mcp_server_manage_permission(user.username) is False
+
+
+def test_has_mcp_server_manage_workspace_use_does_not_fold(store, user):
+    role = store.create_role(name="ws-member", workspace="default")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.has_mcp_server_manage_permission(user.username) is False

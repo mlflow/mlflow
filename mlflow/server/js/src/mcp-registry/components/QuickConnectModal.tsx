@@ -4,7 +4,7 @@ import { FormattedMessage } from 'react-intl';
 
 import { ConnectionSource } from '../types';
 import type { MCPServer } from '../types';
-import { resolveDisplayName, STATUS_TAG_COLOR } from '../utils';
+import { findLatestEndpoint, resolveDisplayName, STATUS_TAG_COLOR } from '../utils';
 import { deriveClientName } from '../installInstructions';
 import { ConnectionInstructions } from './ConnectionInstructions';
 
@@ -18,9 +18,7 @@ export const QuickConnectModal = ({
   onClose: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const endpoint = server.latest_version
-    ? server.access_endpoints?.find((e) => e.resolved_version?.version === server.latest_version)
-    : server.access_endpoints?.[0];
+  const endpoint = findLatestEndpoint(server);
   const displayName = resolveDisplayName(server);
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
 

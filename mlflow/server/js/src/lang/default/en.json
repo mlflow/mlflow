@@ -3359,10 +3359,6 @@
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
   },
-  "DHbrOD": {
-    "defaultMessage": "No access endpoints configured",
-    "description": "Tooltip for disabled access endpoints icon on MCP server card"
-  },
   "DJsLPv": {
     "defaultMessage": "Delete {count, plural, one {guardrail} other {# guardrails}}",
     "description": "Bulk delete guardrails modal title"
@@ -9347,6 +9343,10 @@
     "defaultMessage": "Manager",
     "description": "Tag content marking a workspace-admin role (multi-tenant)"
   },
+  "et6nRo": {
+    "defaultMessage": "No access endpoint available for the latest version",
+    "description": "Tooltip for disabled access endpoints icon on MCP server card"
+  },
   "etvfuH": {
     "defaultMessage": "Root Cause Analysis",
     "description": "Root cause analysis section title"
@@ -11687,10 +11687,6 @@
     "defaultMessage": "Datasets",
     "description": "Region label for the V2 evaluation datasets table — wraps the table and pagination"
   },
-  "otlhso": {
-    "defaultMessage": "No access endpoints configured for this server",
-    "description": "Tooltip for unavailable label on MCP server detail page"
-  },
   "ov1whU": {
     "defaultMessage": "AI Judge",
     "description": "Label for AI judge in the tooltip for the assessment in the evaluation metrics."
@@ -13618,6 +13614,10 @@
   "y6KMoc": {
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
+  },
+  "y6rw0w": {
+    "defaultMessage": "No access endpoint available for the latest version",
+    "description": "Tooltip for unavailable label on MCP server detail page"
   },
   "y7+wS+": {
     "defaultMessage": "Relevance",

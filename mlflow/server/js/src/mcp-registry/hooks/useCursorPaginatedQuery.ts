@@ -34,7 +34,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     initialValue: DEFAULT_PAGE_SIZE,
   });
 
-  const extraQueryKeysStable = useMemo(() => JSON.stringify(extraQueryKeys), [extraQueryKeys]);
+  const extraQueryKeysStable = JSON.stringify(extraQueryKeys);
   useEffect(() => {
     setCurrentPageToken(undefined);
     previousPageTokens.current = [];

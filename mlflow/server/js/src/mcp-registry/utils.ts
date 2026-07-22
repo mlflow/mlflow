@@ -86,6 +86,11 @@ export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: str
 
 const hasNoEndpoints = (server: MCPServer): boolean => (server.access_endpoints?.length ?? 0) === 0;
 
+export const findLatestEndpoint = (server: MCPServer): MCPAccessEndpoint | undefined =>
+  server.latest_version
+    ? (server.access_endpoints ?? []).find((e) => e.resolved_version?.version === server.latest_version)
+    : server.access_endpoints?.[0];
+
 export const isServerDimmed = (server: MCPServer): boolean =>
   hasNoEndpoints(server) || server.status !== MCPStatus.ACTIVE;
 

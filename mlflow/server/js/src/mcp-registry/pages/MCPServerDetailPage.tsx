@@ -235,7 +235,7 @@ const MCPServerDetailPage = () => {
                 content={
                   isUnavailable ? (
                     <FormattedMessage
-                      defaultMessage="No access endpoints configured for this server"
+                      defaultMessage="No access endpoint available for the latest version"
                       description="Tooltip for unavailable label on MCP server detail page"
                     />
                   ) : (

@@ -90,7 +90,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
                 componentId="mlflow.mcp_registry.card.endpoints_tooltip"
                 content={
                   <FormattedMessage
-                    defaultMessage="No access endpoints configured"
+                    defaultMessage="No access endpoint available for the latest version"
                     description="Tooltip for disabled access endpoints icon on MCP server card"
                   />
                 }
