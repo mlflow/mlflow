@@ -11,6 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { shouldEnableBackgroundIssueDetection } from '../../../../../common/utils/FeatureUtils';
 import Routes from '../../../../routes';
 import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
@@ -26,6 +27,7 @@ interface IssueDetectionModalProps {
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
   defaultGroupBySession?: boolean;
+  onSubmitted?: (job: { jobId: string; runId: string; traceCount: number }) => void;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -34,6 +36,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   initialSelectedTraceIds = [],
   availableTraceIds = [],
   defaultGroupBySession = false,
+  onSubmitted,
 }) => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
@@ -111,6 +114,14 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           onSuccess: (response) => {
             resetForm();
             onClose();
+            if (shouldEnableBackgroundIssueDetection() && onSubmitted) {
+              onSubmitted({
+                jobId: response.job_id,
+                runId: response.run_id,
+                traceCount: selectedTraceIds.length,
+              });
+              return;
+            }
             navigate({
               pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
               search: getPreservedQueryString(location.search),
