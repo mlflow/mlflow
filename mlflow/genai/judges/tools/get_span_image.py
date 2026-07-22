@@ -68,8 +68,9 @@ class GetSpanImageTool(JudgeTool):
                         "attachment_index": {
                             "type": "integer",
                             "description": (
-                                "Zero-based index selecting which image attachment to fetch "
-                                "when the span contains more than one. Defaults to 0 (the first)."
+                                "Zero-based index selecting which attachment reference to fetch "
+                                "when the span contains more than one. If omitted, the first image "
+                                "attachment is used (non-image references are skipped)."
                             ),
                         },
                     },
@@ -80,7 +81,7 @@ class GetSpanImageTool(JudgeTool):
         )
 
     def invoke(
-        self, trace: Trace, span_id: str, attachment_index: int = 0
+        self, trace: Trace, span_id: str, attachment_index: int | None = None
     ) -> SpanImageResult | str:
         """
         Fetch an image attachment referenced in a span.
@@ -89,7 +90,8 @@ class GetSpanImageTool(JudgeTool):
             trace: The MLflow trace object to analyze.
             span_id: The ID of the span whose image attachment to fetch.
             attachment_index: Zero-based index selecting which attachment reference to
-                fetch when the span has multiple. Defaults to 0.
+                fetch when the span has multiple. If ``None`` (the default), the first
+                image attachment is used, skipping any non-image references.
 
         Returns:
             A SpanImageResult with the base64 data URL on success, or a descriptive
@@ -109,22 +111,38 @@ class GetSpanImageTool(JudgeTool):
         if not refs:
             return f"Error: no mlflow-attachment:// image reference found in span '{span_id}'"
 
-        if attachment_index < 0 or attachment_index >= len(refs):
-            return (
-                f"Error: attachment_index {attachment_index} is out of range for span "
-                f"'{span_id}', which has {len(refs)} attachment reference(s)"
+        if attachment_index is None:
+            # Default: pick the first image ref so a non-image attachment sitting before
+            # an image one doesn't shadow it.
+            parsed = next(
+                (
+                    p
+                    for ref in refs
+                    if (p := Attachment.parse_ref(ref)) is not None
+                    and p["content_type"].startswith("image/")
+                ),
+                None,
             )
+            if parsed is None:
+                return f"Error: no image attachment found in span '{span_id}'"
+        else:
+            if attachment_index < 0 or attachment_index >= len(refs):
+                return (
+                    f"Error: attachment_index {attachment_index} is out of range for span "
+                    f"'{span_id}', which has {len(refs)} attachment reference(s)"
+                )
 
-        parsed = Attachment.parse_ref(refs[attachment_index])
-        if parsed is None:
-            return f"Error: could not parse attachment reference in span '{span_id}'"
+            parsed = Attachment.parse_ref(refs[attachment_index])
+            if parsed is None:
+                return f"Error: could not parse attachment reference in span '{span_id}'"
+
+            if not parsed["content_type"].startswith("image/"):
+                return (
+                    f"Error: attachment in span '{span_id}' is not an image "
+                    f"(content_type='{parsed['content_type']}')"
+                )
 
         content_type = parsed["content_type"]
-        if not content_type.startswith("image/"):
-            return (
-                f"Error: attachment in span '{span_id}' is not an image "
-                f"(content_type='{content_type}')"
-            )
 
         # NB: _get_artifact_repo_for_trace / download_trace_attachment is the current
         # internal accessor for trace attachment bytes; there is no public API for it yet.

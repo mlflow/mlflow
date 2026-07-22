@@ -1,8 +1,13 @@
 import base64
+import json
 from typing import Any
 
 import mlflow
-from mlflow.genai.judges.tools.get_span_image import GetSpanImageTool, SpanImageResult
+from mlflow.genai.judges.tools.get_span_image import (
+    _ATTACHMENT_REF_RE,
+    GetSpanImageTool,
+    SpanImageResult,
+)
 from mlflow.tracing.attachments import Attachment
 from mlflow.types.llm import ToolDefinition
 
@@ -96,12 +101,48 @@ def test_get_span_image_invoke_no_attachment():
     assert "no mlflow-attachment" in result
 
 
-def test_get_span_image_invoke_non_image_content_type():
+def test_get_span_image_invoke_default_skips_non_image_before_image():
+    # A non-image attachment sitting before an image one must not shadow the image on
+    # the default (no explicit index) call.
+    trace, span_id = _make_trace_with_attachments({
+        "audio": Attachment(content_type="audio/wav", content_bytes=_AUDIO_BYTES),
+        "image": Attachment(content_type="image/png", content_bytes=_IMAGE_BYTES),
+    })
+
+    result = GetSpanImageTool().invoke(trace, span_id)
+
+    assert isinstance(result, SpanImageResult)
+    assert result.content_type == "image/png"
+    assert base64.b64decode(result.data_url.split(",", 1)[1]) == _IMAGE_BYTES
+
+
+def test_get_span_image_invoke_default_no_image_among_non_images():
     trace, span_id = _make_trace_with_attachments({
         "audio": Attachment(content_type="audio/wav", content_bytes=_AUDIO_BYTES)
     })
 
     result = GetSpanImageTool().invoke(trace, span_id)
+
+    assert isinstance(result, str)
+    assert "no image attachment found" in result
+
+
+def test_get_span_image_invoke_explicit_index_at_non_image_errors():
+    # An explicit index pointing at a non-image ref still reports the non-image error,
+    # even when an image ref exists elsewhere in the span.
+    trace, span_id = _make_trace_with_attachments({
+        "audio": Attachment(content_type="audio/wav", content_bytes=_AUDIO_BYTES),
+        "image": Attachment(content_type="image/png", content_bytes=_IMAGE_BYTES),
+    })
+
+    # Find the index of the non-image ref so the assertion is order-independent.
+    span = next(s for s in trace.data.spans if s.span_id == span_id)
+    refs = _ATTACHMENT_REF_RE.findall(json.dumps(span.to_dict(), default=str))
+    audio_index = next(
+        i for i, ref in enumerate(refs) if Attachment.parse_ref(ref)["content_type"] == "audio/wav"
+    )
+
+    result = GetSpanImageTool().invoke(trace, span_id, attachment_index=audio_index)
 
     assert isinstance(result, str)
     assert "not an image" in result

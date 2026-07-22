@@ -18,6 +18,11 @@ if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
+    # A conversation message on the litellm path is either a litellm.Message or a plain
+    # dict — the injected multimodal image turn is a dict, since litellm.Message rejects
+    # list content.
+    _LiteLLMMessage = litellm.Message | dict
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
@@ -145,7 +150,7 @@ _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 def _invoke_litellm(
     litellm_model: str,
-    messages: list["litellm.Message"],
+    messages: list[_LiteLLMMessage],
     tools: list[dict[str, Any]],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
@@ -286,7 +291,7 @@ def _invoke_litellm_and_handle_tools(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _prune_messages_for_context_window() -> list[litellm.Message] | None:
+    def _prune_messages_for_context_window() -> list[_LiteLLMMessage] | None:
         if provider == "gateway":
             # For gateway provider, we don't know the underlying model,
             # so simply remove the oldest tool call pair.
@@ -395,7 +400,7 @@ def _invoke_litellm_and_handle_tools(
                 for tc in message.tool_calls
             ]
             tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
-            litellm_tool_messages = []
+            litellm_tool_messages: list[_LiteLLMMessage] = []
             for msg in tool_response_messages:
                 # An injected image user-turn carries multimodal LIST content, which the
                 # strict litellm.Message pydantic model (content: str) rejects. Send it as
@@ -471,10 +476,10 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
 
 
 def _prune_messages_exceeding_context_window_length(
-    messages: list["litellm.Message"],
+    messages: list[_LiteLLMMessage],
     model: str | None = None,
     max_tokens: int | None = None,
-) -> list["litellm.Message"] | None:
+) -> list[_LiteLLMMessage] | None:
     """
     Prune messages from history to stay under token limit.
 
@@ -483,12 +488,13 @@ def _prune_messages_exceeding_context_window_length(
     a single tool call pair (useful when the underlying model is unknown).
 
     Args:
-        messages: List of LiteLLM message objects.
+        messages: List of conversation messages (litellm.Message objects and/or plain
+            dicts for injected multimodal image turns).
         model: Model name for token counting. Required for token-based pruning.
         max_tokens: Maximum token limit. If None, removes the oldest tool call pair.
 
     Returns:
-        Pruned list of LiteLLM message objects, or None if no tool calls to remove.
+        Pruned list of messages, or None if no tool calls to remove.
     """
     import litellm
 

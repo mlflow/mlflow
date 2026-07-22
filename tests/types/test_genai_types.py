@@ -73,3 +73,18 @@ def test_chat_message_accepts_multimodal_list_content():
     # _message_to_dict must forward the list content unchanged.
     serialized = _message_to_dict(message)
     assert serialized == {"role": "user", "content": content}
+
+
+def test_chat_message_list_content_with_refusal_raises():
+    from mlflow.types.llm import ChatMessage
+
+    content = [{"type": "text", "text": "hi"}]
+    with pytest.raises(ValueError, match="Both `content` and `refusal` cannot be set"):
+        ChatMessage(role="assistant", content=content, refusal="I cannot help")
+
+
+def test_chat_message_list_content_with_non_dict_item_raises():
+    from mlflow.types.llm import ChatMessage
+
+    with pytest.raises(ValueError, match="content` list items must all be dicts"):
+        ChatMessage(role="user", content=[{"type": "text", "text": "ok"}, "not-a-dict"])

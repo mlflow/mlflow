@@ -182,7 +182,8 @@ class ChatMessage(_BaseDataclass):
     Args:
         role (str): The role of the entity that sent the message (e.g. ``"user"``,
             ``"system"``, ``"assistant"``, ``"tool"``).
-        content (str): The content of the message.
+        content (str or list of dict): The content of the message. Either a string or a
+            list of multimodal content-part dicts (e.g. text and image_url blocks).
             **Optional** Can be ``None`` if refusal or tool_calls are provided.
         refusal (str): The refusal message content.
             **Optional** Supplied if a refusal response is provided.
@@ -194,7 +195,7 @@ class ChatMessage(_BaseDataclass):
     """
 
     role: str
-    content: str | None = None
+    content: str | list[dict[str, Any]] | None = None
     refusal: str | None = None
     name: str | None = None
     tool_calls: list[ToolCall] | None = None
@@ -203,22 +204,24 @@ class ChatMessage(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("role", str, True)
 
-        # Multimodal content is a list of content-part dicts (e.g. text and image_url
-        # blocks); skip the str-content check but still validate the other fields.
-        if isinstance(self.content, list):
-            self._validate_field("name", str, False)
-            self._convert_dataclass_list("tool_calls", ToolCall, False)
-            self._validate_field("tool_call_id", str, False)
-            return
-
+        # The refusal/content mutual-exclusion invariant applies regardless of whether
+        # content is a str or a multimodal list, so check it before branching on type.
         if self.refusal:
             self._validate_field("refusal", str, True)
             if self.content:
                 raise ValueError("Both `content` and `refusal` cannot be set")
-        elif self.tool_calls:
-            self._validate_field("content", str, False)
-        else:
-            self._validate_field("content", str, True)
+
+        if isinstance(self.content, list):
+            # Multimodal content is a list of content-part dicts (e.g. text and image_url
+            # blocks); validate the shape lightly (each part is a dict) rather than the
+            # str-content check, then validate the remaining fields as usual.
+            if not all(isinstance(part, dict) for part in self.content):
+                raise ValueError("`content` list items must all be dicts (content parts)")
+        elif not self.refusal:
+            if self.tool_calls:
+                self._validate_field("content", str, False)
+            else:
+                self._validate_field("content", str, True)
 
         self._validate_field("name", str, False)
         self._convert_dataclass_list("tool_calls", ToolCall, False)
