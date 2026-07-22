@@ -33,11 +33,11 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _strip_markdown_code_blocks,
 )
 from mlflow.genai.judges.utils.tool_calling_utils import (
-    IMAGE_TURN_TOOL_CALL_ID_ATTR,
     _get_image_turn_tool_call_id,
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
+    _to_litellm_image_turn,
 )
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -399,16 +399,10 @@ def _invoke_litellm_and_handle_tools(
             litellm_tool_messages = []
             for msg in tool_response_messages:
                 # An injected image user-turn carries multimodal LIST content, which the
-                # strict litellm.Message pydantic model (content: str) rejects. litellm's
-                # completion() accepts plain dict messages with multimodal list content
-                # (the normal OpenAI shape), so append the image turn as a dict and carry
-                # the pruning tag as a dict key. Normal tool responses stay litellm.Message.
-                if (image_turn_id := _get_image_turn_tool_call_id(msg)) is not None:
-                    litellm_tool_messages.append({
-                        "role": msg.role,
-                        "content": msg.content,
-                        IMAGE_TURN_TOOL_CALL_ID_ATTR: image_turn_id,
-                    })
+                # strict litellm.Message pydantic model (content: str) rejects. Send it as
+                # a provider-safe dict instead; normal tool responses stay litellm.Message.
+                if _get_image_turn_tool_call_id(msg) is not None:
+                    litellm_tool_messages.append(_to_litellm_image_turn(msg))
                 else:
                     litellm_tool_messages.append(
                         litellm.Message(

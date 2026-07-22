@@ -170,6 +170,38 @@ def test_process_tool_calls_normal_result_still_single_tool_message(mock_trace):
     assert json.loads(result[0].content) == {"result": "plain"}
 
 
+def test_process_tool_calls_batched_calls_emit_all_tool_responses_before_image_turn(mock_trace):
+    # OpenAI requires all role="tool" responses for an assistant turn to be consecutive,
+    # immediately after the assistant message, with no other role interleaved. When one
+    # assistant turn batches an image tool call and a normal one, every tool response
+    # (including the image ack) must precede the injected user image turn.
+    image_call = _make_tool_call("call_img", "get_span_image")
+    normal_call = _make_tool_call("call_norm", "get_span")
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.side_effect = [
+            SpanImageResult(
+                span_id="span-1", content_type="image/png", data_url="data:image/png;base64,QUJD"
+            ),
+            {"result": "normal data"},
+        ]
+
+        result = _process_tool_calls(tool_calls=[image_call, normal_call], trace=mock_trace)
+
+    # ack(image) + tool(normal) + user(image) — the user turn comes strictly last.
+    assert [msg.role for msg in result] == ["tool", "tool", "user"]
+
+    tool_msgs = [msg for msg in result if msg.role == "tool"]
+    # Each tool_call_id has exactly one tool response.
+    assert sorted(msg.tool_call_id for msg in tool_msgs) == ["call_img", "call_norm"]
+
+    image_turn = result[-1]
+    assert isinstance(image_turn.content, list)
+    assert _get_image_turn_tool_call_id(image_turn) == "call_img"
+
+
 def test_remove_oldest_tool_call_pair_drops_injected_image_turn(mock_trace):
     tool_call = _make_tool_call("call_img", "get_span_image")
 

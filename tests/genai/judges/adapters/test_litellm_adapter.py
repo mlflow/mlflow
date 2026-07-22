@@ -866,20 +866,92 @@ def test_litellm_image_turn_rewrap_is_accepted_and_preserves_multimodal_content(
         litellm.Message(role="user", content=image_turn["content"])
 
 
-def test_remove_oldest_tool_call_pair_drops_litellm_image_dict_turn():
-    """The pruner must drop an injected image turn (a plain dict tagged with its
-    tool_call_id) along with its tool-call pair, and not crash on untagged dict messages.
+def test_litellm_forwarded_messages_contain_no_internal_keys(mock_trace):
+    """Regression: no mlflow-internal key may leak into the messages forwarded to
+    litellm.completion. The image-turn ↔ tool_call association is tracked out-of-band
+    (an instance attribute), so strict OpenAI endpoints cannot 400 on an unknown key.
     """
-    from mlflow.genai.judges.utils.tool_calling_utils import IMAGE_TURN_TOOL_CALL_ID_ATTR
+    from mlflow.genai.judges.tools.get_span_image import SpanImageResult
 
-    image_turn = {
-        "role": "user",
-        "content": [
+    allowed_keys = {"role", "content", "tool_call_id", "name", "tool_calls"}
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_img",
+                            "function": {"name": "get_span_image", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+    final_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "red", "rationale": "ok"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[tool_call_response, final_response],
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_span_image"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = SpanImageResult(
+            span_id="span-1", content_type="image/png", data_url="data:image/png;base64,QUJD"
+        )
+
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Judge the image in the trace")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    forwarded = mock_litellm.call_args_list[1].kwargs["messages"]
+    # No message may carry the mlflow-internal pruning tag as a real key.
+    for msg in forwarded:
+        keys = set(msg.keys()) if isinstance(msg, dict) else set(msg.model_dump().keys())
+        assert "_mlflow_image_turn_tool_call_id" not in keys
+
+    # The dict image turn (the case that previously leaked) exposes ONLY OpenAI keys.
+    dict_turns = [m for m in forwarded if isinstance(m, dict)]
+    assert len(dict_turns) == 1
+    assert set(dict_turns[0].keys()) <= allowed_keys
+
+
+def test_remove_oldest_tool_call_pair_drops_litellm_image_dict_turn():
+    """The pruner must drop an injected image turn (the provider-safe _ImageTurnDict,
+    tagged out-of-band with its tool_call_id) along with its tool-call pair, and not
+    crash on untagged dict messages.
+    """
+    from mlflow.genai.judges.utils.tool_calling_utils import (
+        _ImageTurnDict,
+        _tag_image_turn,
+    )
+
+    image_turn = _ImageTurnDict(
+        role="user",
+        content=[
             {"type": "text", "text": "Fetched image for span span-1:"},
             {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
         ],
-        IMAGE_TURN_TOOL_CALL_ID_ATTR: "call_img",
-    }
+    )
+    _tag_image_turn(image_turn, "call_img")
+    # The out-of-band tag must not appear as a dict key (provider-payload safety).
+    assert set(image_turn.keys()) == {"role", "content"}
+
     # An untagged plain dict message must survive and must not crash the pruner.
     untagged_dict = {"role": "user", "content": "plain dict, no tag"}
 
