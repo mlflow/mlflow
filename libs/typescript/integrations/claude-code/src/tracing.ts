@@ -556,7 +556,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         // into a trace-level total so the trace's cost column is populated.
         const traceCost = sumCosts(
           Array.from(trace.spanDict.values())
-            .map((span) => span.attributes[LLM_COST_ATTRIBUTE] as LlmCost | undefined)
+            .map((span) => span.getAttribute(LLM_COST_ATTRIBUTE) as LlmCost | undefined)
             .filter((c): c is LlmCost => c != null),
         );
         if (traceCost) {

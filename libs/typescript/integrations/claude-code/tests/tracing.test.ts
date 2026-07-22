@@ -67,6 +67,7 @@ jest.mock('@mlflow/core', () => {
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
         }),
+        getAttribute: jest.fn((key: string): any => span.attributes[key]),
         setOutputs: jest.fn((outputs: any) => {
           span.outputs = outputs;
         }),
@@ -247,8 +248,10 @@ describe('processTranscript', () => {
       expect(cost.output_cost).toBeCloseTo(0.000375, 9);
       expect(cost.total_cost).toBeCloseTo(0.000792, 9);
 
-      // Trace-level cost mirrors the single LLM turn's total.
+      // Trace-level cost mirrors the single LLM turn's cost breakdown.
       const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
+      expect(traceCost.input_cost).toBeCloseTo(0.000417, 9);
+      expect(traceCost.output_cost).toBeCloseTo(0.000375, 9);
       expect(traceCost.total_cost).toBeCloseTo(0.000792, 9);
     });
 
