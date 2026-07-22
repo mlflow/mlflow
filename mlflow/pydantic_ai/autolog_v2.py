@@ -188,6 +188,7 @@ async def patched_capability_tool_validate_error(
     tool_def,
     args,
     error,
+    **kwargs,
 ):
     """Trace failed validation while leaving error handling to Pydantic AI."""
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
@@ -199,6 +200,7 @@ async def patched_capability_tool_validate_error(
             tool_def=tool_def,
             args=args,
             error=error,
+            **kwargs,
         )
 
     with mlflow.start_span(
@@ -213,6 +215,7 @@ async def patched_capability_tool_validate_error(
             tool_def=tool_def,
             args=args,
             error=error,
+            **kwargs,
         )
 
 
@@ -225,6 +228,7 @@ async def patched_capability_tool_execute(
     tool_def,
     args,
     handler,
+    **kwargs,
 ):
     """Trace a logical tool execution using only its public name, arguments, and result."""
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
@@ -236,6 +240,7 @@ async def patched_capability_tool_execute(
             tool_def=tool_def,
             args=args,
             handler=handler,
+            **kwargs,
         )
 
     with mlflow.start_span(name=call.tool_name, span_type=SpanType.TOOL) as span:
@@ -247,19 +252,20 @@ async def patched_capability_tool_execute(
             tool_def=tool_def,
             args=args,
             handler=handler,
+            **kwargs,
         )
         span.set_outputs(serialize_output(result))
         return result
 
 
-async def patched_mcp_list_tools(original, self):
+async def patched_mcp_list_tools(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not config.log_traces:
-        return await original(self)
+        return await original(self, *args, **kwargs)
 
     with mlflow.start_span(name="MCPToolset.list_tools", span_type=SpanType.TOOL) as span:
         span.set_inputs({})
-        result = await original(self)
+        result = await original(self, *args, **kwargs)
         span.set_outputs(serialize_output(result))
         return result
 
@@ -272,6 +278,7 @@ async def patched_mcp_direct_call_tool(
     *,
     metadata=None,
     use_task=False,
+    **kwargs,
 ):
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not config.log_traces:
@@ -281,6 +288,7 @@ async def patched_mcp_direct_call_tool(
             args,
             metadata=metadata,
             use_task=use_task,
+            **kwargs,
         )
 
     with mlflow.start_span(name="MCPToolset.direct_call_tool", span_type=SpanType.TOOL) as span:
@@ -291,6 +299,7 @@ async def patched_mcp_direct_call_tool(
             args,
             metadata=metadata,
             use_task=use_task,
+            **kwargs,
         )
         span.set_outputs(serialize_output(result))
         return result

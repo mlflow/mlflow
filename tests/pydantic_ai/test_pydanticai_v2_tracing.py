@@ -20,6 +20,7 @@ from mlflow.entities import SpanType
 from mlflow.pydantic_ai.autolog_v2 import (
     _StreamedRunResultSyncWrapper,
     patched_capability_tool_execute,
+    patched_capability_tool_validate_error,
     patched_mcp_direct_call_tool,
     patched_mcp_list_tools,
 )
@@ -140,6 +141,30 @@ async def test_tool_validation_failure_is_traced(error_type):
     assert len(span.events) == 1
 
 
+@pytest.mark.asyncio
+async def test_tool_validation_forwards_additional_keyword_arguments():
+    instrumentation = object.__new__(Instrumentation)
+    call = ToolCallPart(tool_name="add", args={"left": "invalid"})
+    tool_def = ToolDefinition(name="add", parameters_json_schema={})
+    error = ModelRetry("try different arguments")
+
+    async def on_error(self, ctx, *, call, tool_def, args, error, future_option):
+        assert future_option == "future-value"
+        raise error
+
+    with pytest.raises(ModelRetry, match="try different arguments"):
+        await patched_capability_tool_validate_error(
+            on_error,
+            instrumentation,
+            None,
+            call=call,
+            tool_def=tool_def,
+            args=call.args,
+            error=error,
+            future_option="future-value",
+        )
+
+
 def test_validation_failure_remains_visible_after_successful_retry():
     mlflow.pydantic_ai.autolog()
     request_count = 0
@@ -180,10 +205,15 @@ async def test_mcp_list_tools_uses_public_transport_payload():
     mlflow.pydantic_ai.autolog()
     toolset = object.__new__(MCPToolset)
 
-    async def list_tools(self):
+    async def list_tools(self, *, future_option):
+        assert future_option == "future-value"
         return [{"name": "remote_tool"}]
 
-    result = await patched_mcp_list_tools(list_tools, toolset)
+    result = await patched_mcp_list_tools(
+        list_tools,
+        toolset,
+        future_option="future-value",
+    )
 
     assert result == [{"name": "remote_tool"}]
     traces = get_traces()
@@ -203,9 +233,18 @@ async def test_mcp_tool_has_logical_and_nested_transport_spans():
     call = ToolCallPart(tool_name="remote_tool", args={"value": 2})
     tool_def = ToolDefinition(name="remote_tool", parameters_json_schema={})
 
-    async def direct_call_tool(self, name, args, *, metadata=None, use_task=False):
+    async def direct_call_tool(
+        self,
+        name,
+        args,
+        *,
+        metadata=None,
+        use_task=False,
+        future_option=None,
+    ):
         assert metadata == {"request": "metadata"}
         assert use_task is True
+        assert future_option == "future-value"
         return {"doubled": args["value"] * 2}
 
     async def execute_handler(args):
@@ -216,9 +255,11 @@ async def test_mcp_tool_has_logical_and_nested_transport_spans():
             args,
             metadata={"request": "metadata"},
             use_task=True,
+            future_option="future-value",
         )
 
-    async def execute(self, ctx, *, call, tool_def, args, handler):
+    async def execute(self, ctx, *, call, tool_def, args, handler, future_option):
+        assert future_option == "future-value"
         return await handler(args)
 
     result = await patched_capability_tool_execute(
@@ -229,6 +270,7 @@ async def test_mcp_tool_has_logical_and_nested_transport_spans():
         tool_def=tool_def,
         args={"value": 2},
         handler=execute_handler,
+        future_option="future-value",
     )
 
     assert result == {"doubled": 4}
