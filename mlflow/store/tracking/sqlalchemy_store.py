@@ -5055,10 +5055,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
-                # Prepare dimension attributes with model name and provider if available
+                # Prepare dimension attributes with model name, provider and skill name if available
                 dimension_attribute_keys = [
                     SpanAttributeKey.MODEL,
                     SpanAttributeKey.MODEL_PROVIDER,
+                    SpanAttributeKey.SKILL_NAME,
                 ]
                 dimension_attributes = {}
                 for key in dimension_attribute_keys:
