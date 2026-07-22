@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784681945584,
+  "lastUpdate": 1784715410677,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15389,6 +15389,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 35.63777580000078,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69567756+rs-03@users.noreply.github.com",
+            "name": "Rahul Sangamker",
+            "username": "rs-03"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a11a620e38a8631713e9b3d4dba0c0725dd0064",
+          "message": "Support Portkey routing configuration in the AI Gateway (#24398)\n\nSigned-off-by: Rahul Sangamker <rahul.sangamker03@gmail.com>",
+          "timestamp": "2026-07-22T10:13:11Z",
+          "tree_id": "effb4c127abf7418ef528bbcecf9ba81734c4c58",
+          "url": "https://github.com/mlflow/mlflow/commit/1a11a620e38a8631713e9b3d4dba0c0725dd0064"
+        },
+        "date": 1784715409360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.00760619999946,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.275127799999396,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.927878032786392,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.13768496428789,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.39425535593249,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 41.34118359999661,
             "unit": "ms"
           }
         ]
