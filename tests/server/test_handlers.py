@@ -6074,7 +6074,7 @@ def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch):
         "experiment_id": "exp-123",
         "trace_ids": ["trace-1"],
         "categories": ["correctness"],
-        "provider": "openai",
+        "provider": "OpenAI",
         "model": "gpt-4o",
         # No secret_id: the job inherits the server's environment key
     }
@@ -6094,6 +6094,31 @@ def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch):
         assert resp.get_json()["job_id"] == "job-456"
         mock_submit_job.assert_called_once()
         assert mock_submit_job.call_args.kwargs["extra_envs"] is None
+        assert mock_submit_job.call_args.kwargs["params"]["model"] == "openai:/gpt-4o"
+
+
+def test_invoke_issue_detection_handler_unknown_provider_fails_fast(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "unknown",
+        "model": "some-model",
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 400
+        assert "Unsupported provider 'unknown'" in resp.get_json()["message"]
+        mock_submit_job.assert_not_called()
 
 
 def _make_genai_evaluate_job(job_id: str = "job-genai-1") -> JobEntity:
