@@ -37,13 +37,16 @@ def test_unsupported_v2_version_does_not_enable_autologging(monkeypatch, version
 
     with (
         mock.patch.object(autolog_v2, "setup_autologging") as setup_autologging,
-        mock.patch("mlflow.pydantic_ai.setup_autologging") as setup_legacy_autologging,
+        mock.patch.object(
+            mlflow.pydantic_ai,
+            "_get_tool_manager_module_path",
+        ) as legacy_setup_probe,
         mock.patch.object(mlflow.pydantic_ai._logger, "warning") as warning,
     ):
         _call_autolog()
 
     setup_autologging.assert_not_called()
-    setup_legacy_autologging.assert_not_called()
+    legacy_setup_probe.assert_not_called()
     warning.assert_called_once_with(
         "MLflow Pydantic AI autologging requires pydantic-ai >= %s for Pydantic AI "
         "2.x, but version %s is installed. Autologging has not been enabled. Please "
