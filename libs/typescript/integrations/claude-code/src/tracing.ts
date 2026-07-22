@@ -16,9 +16,11 @@ import {
   LLM_COST_ATTRIBUTE,
   TRACE_COST_METADATA,
   calculateCost,
+  setModelRates,
   sumCosts,
   type LlmCost,
 } from './pricing.js';
+import { loadCatalogRates } from './modelCatalog.js';
 import {
   extractTextContent,
   findFinalAssistantResponse,
@@ -498,6 +500,10 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
     }
 
     const convStartNs = parseTimestampToNs(lastUserEntry.timestamp);
+
+    // Prefer fresh rates from the published model catalog (filesystem TTL cache);
+    // calculateCost falls back to the bundled snapshot when unavailable.
+    setModelRates(await loadCatalogRates());
 
     const parentSpan = startSpan({
       name: 'claude_code_conversation',

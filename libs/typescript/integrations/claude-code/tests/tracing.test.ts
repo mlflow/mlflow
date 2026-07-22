@@ -4,6 +4,10 @@ import { tmpdir } from 'node:os';
 
 import type { TranscriptEntry } from '../src/types';
 
+// Keep unit tests offline and deterministic: disable the remote model-catalog
+// lookup so processTranscript prices with the bundled snapshot.
+process.env.MLFLOW_MODEL_CATALOG_URI = '';
+
 // ============================================================================
 // Mock @mlflow/core
 // ============================================================================
@@ -236,7 +240,7 @@ describe('processTranscript', () => {
       const llms = getSpansByType('LLM');
       expect(llms).toHaveLength(1);
       // claude-sonnet-4 @ input=10, cacheRead=40, cacheWrite=100, output=25:
-      // input_cost = 10*3e-6 + 40*3e-6*0.1 + 100*3e-6*1.25 = 0.000417; output = 25*15e-6 = 0.000375.
+      // input_cost = 10*3e-6 + 40*0.3e-6 + 100*3.75e-6 = 0.000417; output = 25*15e-6 = 0.000375.
       const cost = llms[0].attributes['mlflow.llm.cost'];
       expect(cost).toBeDefined();
       expect(cost.input_cost).toBeCloseTo(0.000417, 9);

@@ -7,12 +7,15 @@
  * the client on Databricks). So the plugin computes it here and writes it onto the
  * spans/trace in the same shape MLflow's Python cost pipeline produces.
  *
- * Rates mirror MLflow's bundled provider pricing (`mlflow/utils/providers`).
- * Anthropic prices cached tokens at fixed multiples of the base input rate: cache
- * creation (write) = 1.25x and cache read = 0.1x. These prices are hardcoded and
- * may need updating as Anthropic changes pricing or ships new models.
+ * Rates come from MLflow's model catalog, the same data the Python cost
+ * pipeline reads: the published catalog fetched at runtime when available
+ * (see `modelCatalog.ts`), falling back to the snapshot bundled in
+ * `anthropicPricing.ts` at development time (`npm run sync:pricing`).
  */
 import type { TokenUsage } from './types.js';
+import { ANTHROPIC_MODEL_RATES, type AnthropicModelRate } from './anthropicPricing.js';
+
+export type ModelRates = Readonly<Record<string, AnthropicModelRate>>;
 
 /** Span attribute holding a single call's cost, matching Python's SpanAttributeKey.LLM_COST. */
 export const LLM_COST_ATTRIBUTE = 'mlflow.llm.cost';
@@ -26,33 +29,28 @@ export interface LlmCost {
   total_cost: number;
 }
 
-interface BaseRate {
-  /** USD per input token (per million tokens; scaled by PER_MTOK). */
-  input: number;
-  /** USD per output token (per million tokens; scaled by PER_MTOK). */
-  output: number;
-}
-
 const PER_MTOK = 1e-6;
 
-// Anthropic prices cached tokens as multiples of the base input rate.
-const CACHE_WRITE_MULTIPLIER = 1.25;
-const CACHE_READ_MULTIPLIER = 0.1;
+let activeRates: ModelRates = ANTHROPIC_MODEL_RATES;
 
-// Prefix -> per-MTok base rates, most specific first (matched with startsWith).
-const CLAUDE_MODEL_RATES: ReadonlyArray<readonly [string, BaseRate]> = [
-  ['claude-opus-4', { input: 15, output: 75 }],
-  ['claude-sonnet-4', { input: 3, output: 15 }],
-  ['claude-haiku-4', { input: 1, output: 5 }],
-  ['claude-3-7-sonnet', { input: 3, output: 15 }],
-  ['claude-3-5-sonnet', { input: 3, output: 15 }],
-  ['claude-3-5-haiku', { input: 0.8, output: 4 }],
-  ['claude-3-opus', { input: 15, output: 75 }],
-  ['claude-3-haiku', { input: 0.25, output: 1.25 }],
-];
+/**
+ * Replace the rate table used by calculateCost — processTranscript calls this
+ * with rates resolved from the remote model catalog. Passing null restores the
+ * bundled snapshot.
+ */
+export function setModelRates(rates: ModelRates | null): void {
+  activeRates = rates ?? ANTHROPIC_MODEL_RATES;
+}
 
-function lookupRate(model: string): BaseRate | undefined {
-  return CLAUDE_MODEL_RATES.find(([prefix]) => model.startsWith(prefix))?.[1];
+function lookupRate(model: string): AnthropicModelRate | undefined {
+  const exact = activeRates[model];
+  if (exact) {
+    return exact;
+  }
+  // A dated snapshot newer than the catalog (e.g. claude-opus-4-8-20260901)
+  // falls back to its undated family alias.
+  const undated = model.replace(/-\d{8}$/, '');
+  return undated === model ? undefined : activeRates[undated];
 }
 
 /**
@@ -81,11 +79,12 @@ export function calculateCost(
   const cacheRead = usage.cache_read_input_tokens || 0;
   const cacheWrite = usage.cache_creation_input_tokens || 0;
 
-  const inputRate = rate.input * PER_MTOK;
+  // Cache rates come from the catalog per model; fall back to the base input
+  // rate when missing, matching Python's cost_per_token.
   const inputCost =
-    inputTokens * inputRate +
-    cacheRead * inputRate * CACHE_READ_MULTIPLIER +
-    cacheWrite * inputRate * CACHE_WRITE_MULTIPLIER;
+    inputTokens * rate.input * PER_MTOK +
+    cacheRead * (rate.cacheRead ?? rate.input) * PER_MTOK +
+    cacheWrite * (rate.cacheWrite ?? rate.input) * PER_MTOK;
   const outputCost = outputTokens * rate.output * PER_MTOK;
 
   return {
