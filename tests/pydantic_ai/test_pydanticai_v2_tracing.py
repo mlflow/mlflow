@@ -6,8 +6,13 @@ from packaging.version import Version
 if Version(importlib.metadata.version("pydantic_ai")).major < 2:
     pytest.skip("Pydantic AI 2.x tracing tests", allow_module_level=True)
 
-from pydantic_ai import Agent
+from pydantic import BaseModel, ValidationError
+from pydantic_ai import Agent, ModelRetry
+from pydantic_ai.capabilities.instrumentation import Instrumentation
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.tools import ToolDefinition
 
 import mlflow
 from mlflow.entities import SpanType
@@ -50,6 +55,101 @@ def test_run_sync_preserves_run_nesting():
     ]
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].parent_id == spans[1].span_id
+
+
+def test_tool_span_uses_logical_tool_payload():
+    mlflow.pydantic_ai.autolog()
+
+    def add(left: int, right: int) -> int:
+        return left + right
+
+    agent = Agent(TestModel(), tools=[add])
+    agent.run_sync("add two numbers")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    tool_span = next(span for span in traces[0].data.spans if span.name == "add")
+    assert tool_span.span_type == SpanType.TOOL
+    assert tool_span.inputs == {"left": 0, "right": 0}
+    assert tool_span.outputs == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", ["validation_error", "model_retry"])
+async def test_tool_validation_failure_is_traced(error_type):
+    mlflow.pydantic_ai.autolog()
+    instrumentation = Instrumentation()
+    call = ToolCallPart(tool_name="add", args={"left": "invalid", "right": 1})
+    tool_def = ToolDefinition(name="add", parameters_json_schema={})
+
+    if error_type == "validation_error":
+
+        class Arguments(BaseModel):
+            left: int
+
+        async def handler(args):
+            Arguments.model_validate(args)
+
+        expected_error = ValidationError
+    else:
+
+        async def handler(args):
+            raise ModelRetry("try different arguments")
+
+        expected_error = ModelRetry
+
+    with pytest.raises(expected_error):
+        await instrumentation.wrap_tool_validate(
+            None,
+            call=call,
+            tool_def=tool_def,
+            args=call.args,
+            handler=handler,
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "add.validation"
+    assert span.span_type == SpanType.PARSER
+    assert span.inputs == {"left": "invalid", "right": 1}
+    assert span.status.status_code == "ERROR"
+    assert len(span.events) == 1
+
+
+def test_validation_failure_remains_visible_after_successful_retry():
+    mlflow.pydantic_ai.autolog()
+    request_count = 0
+
+    def model_function(_messages, _agent_info):
+        nonlocal request_count
+        request_count += 1
+        if request_count == 1:
+            part = ToolCallPart(tool_name="add", args={"left": "invalid", "right": 1})
+        elif request_count == 2:
+            part = ToolCallPart(tool_name="add", args={"left": 2, "right": 1})
+        else:
+            part = TextPart(content="done")
+        return ModelResponse(parts=[part])
+
+    def add(left: int, right: int) -> int:
+        return left + right
+
+    agent = Agent(FunctionModel(model_function), tools=[add])
+
+    assert agent.run_sync("add two numbers").output == "done"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    validation_span = next(span for span in spans if span.name == "add.validation")
+    tool_span = next(span for span in spans if span.name == "add")
+    assert validation_span.status.status_code == "ERROR"
+    assert validation_span.inputs == {"left": "invalid", "right": 1}
+    assert tool_span.status.status_code == "OK"
+    assert tool_span.inputs == {"left": 2, "right": 1}
+    assert tool_span.outputs == 3
+    assert spans[0].status.status_code == "OK"
 
 
 @pytest.mark.asyncio

@@ -179,6 +179,85 @@ async def patched_capability_model_request(original, self, ctx, **kwargs):
         return result
 
 
+async def patched_capability_tool_validate(
+    original,
+    self,
+    ctx,
+    *,
+    call,
+    tool_def,
+    args,
+    handler,
+):
+    """Trace validation only when it fails, leaving retry handling to Pydantic AI."""
+    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not config.log_traces:
+        return await original(
+            self,
+            ctx,
+            call=call,
+            tool_def=tool_def,
+            args=args,
+            handler=handler,
+        )
+
+    from pydantic import ValidationError
+    from pydantic_ai import ModelRetry
+
+    try:
+        return await original(
+            self,
+            ctx,
+            call=call,
+            tool_def=tool_def,
+            args=args,
+            handler=handler,
+        )
+    except (ValidationError, ModelRetry):
+        with mlflow.start_span(
+            name=f"{call.tool_name}.validation",
+            span_type=SpanType.PARSER,
+        ) as span:
+            span.set_inputs(args)
+            raise
+
+
+async def patched_capability_tool_execute(
+    original,
+    self,
+    ctx,
+    *,
+    call,
+    tool_def,
+    args,
+    handler,
+):
+    """Trace a logical tool execution using only its public name, arguments, and result."""
+    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not config.log_traces:
+        return await original(
+            self,
+            ctx,
+            call=call,
+            tool_def=tool_def,
+            args=args,
+            handler=handler,
+        )
+
+    with mlflow.start_span(name=call.tool_name, span_type=SpanType.TOOL) as span:
+        span.set_inputs(args)
+        result = await original(
+            self,
+            ctx,
+            call=call,
+            tool_def=tool_def,
+            args=args,
+            handler=handler,
+        )
+        span.set_outputs(serialize_output(result))
+        return result
+
+
 class _StreamedRunResultSyncWrapper:
     """Keep a sync streaming span open until the Pydantic AI result is closed."""
 
@@ -294,6 +373,18 @@ def _patch_streaming_method(cls, method_name, wrapper_func) -> None:
     _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
 
 
+def _patch_async_method(cls, method_name, wrapper_func) -> None:
+    """Patch an async control-flow hook without marking handled exceptions as patch failures."""
+    original = getattr(cls, method_name)
+
+    @functools.wraps(original)
+    async def patched_method(self, *args, **kwargs):
+        return await wrapper_func(original, self, *args, **kwargs)
+
+    patch = _wrap_patch(cls, method_name, patched_method)
+    _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
+
+
 def _patch_agent_init(agent_cls) -> None:
     original = agent_cls.__init__
 
@@ -320,4 +411,17 @@ def setup_autologging() -> None:
         Instrumentation,
         "wrap_model_request",
         patched_capability_model_request,
+    )
+    # Validation and execution may raise ModelRetry as normal agent control flow. Using
+    # safe_patch here would mark the enclosing autologging session as failed and suppress
+    # instrumentation for the successful retry.
+    _patch_async_method(
+        Instrumentation,
+        "wrap_tool_validate",
+        patched_capability_tool_validate,
+    )
+    _patch_async_method(
+        Instrumentation,
+        "wrap_tool_execute",
+        patched_capability_tool_execute,
     )
