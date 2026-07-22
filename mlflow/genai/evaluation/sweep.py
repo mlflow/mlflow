@@ -1,26 +1,15 @@
 """Evaluate multiple configurations with repeated runs for confidence intervals.
 
 :func:`evaluate_sweep` runs :func:`mlflow.genai.evaluate` across a grid of
-``|predict_fns| x n_repeats`` cells. Each config is evaluated ``n_repeats``
-times so a confidence interval can be estimated per scorer, and multiple
-configs (e.g. different models or agent variants) are compared side by side on
-both quality and latency.
+``|predict_fns| x n_repeats`` cells, comparing configs on quality and latency
+with a confidence interval per scorer.
 
-Design notes:
-
-* **One child run per cell.** A parent run is opened, and each (config, repeat)
-  is a nested child run that reuses the existing single-run ``evaluate`` path.
-  No changes to the evaluation harness are required.
-* **Cells run sequentially.** MLflow's fluent active-run stack and autologging
-  are process-global, so concurrent nested runs would corrupt each other's
-  run/trace association. The harness already parallelizes rows within a single
-  eval up to hundreds of threads, so one cell saturates the LLM budget anyway —
-  sequential cells with a shared, sequential rate-limit budget are near-optimal
-  and avoid 429 storms from uncoordinated per-cell rate limiters.
-* **Confidence intervals are automatic.** See
-  :mod:`mlflow.genai.evaluation.statistics` — pass/fail scorers use a Wilson
-  interval, numeric scorers with >= 2 repeats use a Student's t interval, and a
-  single repeat falls back to a bootstrap over rows.
+Each cell is a nested MLflow run under one parent run, reusing the existing
+single-run ``evaluate`` path (no harness changes). Cells run sequentially:
+MLflow's fluent run stack and autologging are process-global, so concurrent
+nested runs would corrupt run/trace association, and the harness already
+parallelizes rows within a cell. Confidence intervals are chosen automatically
+in :mod:`mlflow.genai.evaluation.statistics`.
 """
 
 from __future__ import annotations
@@ -290,6 +279,7 @@ def _compute_latency(child_run_ids: list[str]) -> LatencyStats | None:
     return LatencyStats(
         p50=_percentile(durations_ms, 50),
         p90=_percentile(durations_ms, 90),
+        p95=_percentile(durations_ms, 95),
         p99=_percentile(durations_ms, 99),
         mean=sum(durations_ms) / len(durations_ms),
         n_rows=len(durations_ms),
@@ -313,7 +303,7 @@ def _log_summary_metrics_to_parent(sweep_result: SweepResult) -> None:
     """Flatten per-config summary metrics onto the parent run.
 
     Logs ``{config}/{scorer}/mean|ci_low|ci_high|std`` plus
-    ``{config}/latency_p50|p90|p99`` so the sweep is visible in the runs UI.
+    ``{config}/latency_p50|p90|p95|p99`` so the sweep is visible in the runs UI.
     Config names are sanitized to the characters MLflow allows in metric keys.
     """
     metrics: dict[str, float] = {}
@@ -329,6 +319,7 @@ def _log_summary_metrics_to_parent(sweep_result: SweepResult) -> None:
         if config.latency is not None:
             metrics[f"{cfg_key}/latency_p50_ms"] = config.latency.p50
             metrics[f"{cfg_key}/latency_p90_ms"] = config.latency.p90
+            metrics[f"{cfg_key}/latency_p95_ms"] = config.latency.p95
             metrics[f"{cfg_key}/latency_p99_ms"] = config.latency.p99
 
     if metrics:

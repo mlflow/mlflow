@@ -61,6 +61,7 @@ class LatencyStats:
 
     p50: float
     p90: float
+    p95: float
     p99: float
     mean: float
     n_rows: int
@@ -131,9 +132,48 @@ class SweepResult:
                     "ci_method": interval.method,
                     "latency_p50_ms": lat.p50 if lat else None,
                     "latency_p90_ms": lat.p90 if lat else None,
+                    "latency_p95_ms": lat.p95 if lat else None,
                     "latency_p99_ms": lat.p99 if lat else None,
                 })
         return pd.DataFrame(rows)
+
+    def summary_df(self, precision: int = 3) -> "pd.DataFrame":
+        """Wide, human-readable table: one row per config, string cells.
+
+        Each scorer becomes a column formatted as ``"mean +/- std"``, and a
+        ``latency_ms`` column summarizes ``p50/p90/p95/p99``. Unlike
+        ``comparison_df`` (tidy, one row per config x scorer, numeric), this is
+        meant for at-a-glance printing and side-by-side model comparison.
+
+        Args:
+            precision: Decimal places for the scorer mean and standard deviation.
+        """
+        import pandas as pd
+
+        scorer_names = list(
+            dict.fromkeys(s for c in self.configs.values() for s in c.scorer_intervals)
+        )
+
+        rows = []
+        for config in self.configs.values():
+            row = {"config": config.name}
+            for scorer_name in scorer_names:
+                interval = config.scorer_intervals.get(scorer_name)
+                if interval is None:
+                    row[scorer_name] = "-"
+                else:
+                    row[scorer_name] = (
+                        f"{interval.mean:.{precision}f} +/- {interval.std:.{precision}f}"
+                    )
+            lat = config.latency
+            row["latency_ms"] = (
+                f"p50={lat.p50:.0f} p90={lat.p90:.0f} p95={lat.p95:.0f} p99={lat.p99:.0f}"
+                if lat
+                else "-"
+            )
+            rows.append(row)
+
+        return pd.DataFrame(rows).set_index("config")
 
     def best(self, scorer: str, higher_is_better: bool = True) -> str:
         """Name of the config with the best mean for ``scorer``.
@@ -174,7 +214,8 @@ class SweepResult:
             if cfg.latency is not None:
                 lines.append(
                     f"      latency_ms: p50={cfg.latency.p50:.0f} "
-                    f"p90={cfg.latency.p90:.0f} p99={cfg.latency.p99:.0f}"
+                    f"p90={cfg.latency.p90:.0f} p95={cfg.latency.p95:.0f} "
+                    f"p99={cfg.latency.p99:.0f}"
                 )
         lines.append(")")
         return "\n".join(lines)

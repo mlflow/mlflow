@@ -165,6 +165,26 @@ def test_sweep_comparison_df_shape(server_config):
         assert col in df.columns
 
 
+def test_sweep_summary_df_wide_layout(server_config):
+    result = mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[exact_match, output_length],
+        predict_fns={"good": good_model, "bad": bad_model},
+        n_repeats=2,
+    )
+    df = result.summary_df()
+    # One row per config, indexed by config name.
+    assert list(df.index) == ["good", "bad"]
+    # One column per scorer plus a latency column.
+    assert list(df.columns) == ["exact_match", "output_length", "latency_ms"]
+    # Scorer cells are "mean +/- std" strings.
+    assert df.loc["good", "exact_match"].startswith("1.000 +/- ")
+    assert df.loc["bad", "exact_match"].startswith("0.000 +/- ")
+    # Latency cell reports the four percentiles.
+    for pct in ("p50=", "p90=", "p95=", "p99="):
+        assert pct in df.loc["good", "latency_ms"]
+
+
 def test_sweep_predict_once_reuses_predictions(server_config):
     calls = {"n": 0}
 
