@@ -5,8 +5,21 @@ import { tmpdir } from 'node:os';
 import type { TranscriptEntry } from '../src/types';
 
 // Keep unit tests offline and deterministic: disable the remote model-catalog
-// lookup so processTranscript prices with the bundled snapshot.
-process.env.MLFLOW_MODEL_CATALOG_URI = '';
+// lookup so processTranscript prices with the bundled snapshot. Restored in
+// afterAll so the override does not leak into other test files in the worker.
+const ORIGINAL_CATALOG_URI = process.env.MLFLOW_MODEL_CATALOG_URI;
+
+beforeAll(() => {
+  process.env.MLFLOW_MODEL_CATALOG_URI = '';
+});
+
+afterAll(() => {
+  if (ORIGINAL_CATALOG_URI === undefined) {
+    delete process.env.MLFLOW_MODEL_CATALOG_URI;
+  } else {
+    process.env.MLFLOW_MODEL_CATALOG_URI = ORIGINAL_CATALOG_URI;
+  }
+});
 
 // ============================================================================
 // Mock @mlflow/core
