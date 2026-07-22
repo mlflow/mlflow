@@ -1461,6 +1461,15 @@ def _load_model(
 
     conf = conf | model_and_components
 
+    # If the loaded model was placed onto devices by accelerate (indicated by the presence of
+    # ``hf_device_map``), passing ``device`` to ``transformers.pipeline()`` raises a ValueError:
+    # "The model has been loaded with `accelerate` and therefore cannot be moved to a specific
+    # device."  This happens when the model was saved with quantization (e.g. BitsAndBytes) or an
+    # explicit ``device_map``.  Remove ``device`` so that the pipeline respects the existing
+    # accelerate placement.
+    if hasattr(conf.get(FlavorKey.MODEL), "hf_device_map"):
+        conf.pop("device", None)
+
     if return_type == "pipeline":
         conf.update(**kwargs)
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):
