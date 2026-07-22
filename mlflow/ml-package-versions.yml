@@ -960,6 +960,7 @@ pydantic_ai:
   autologging:
     minimum: "0.2.19"
     maximum: "2.15.0"
+    unsupported: [">=2.0.0,<2.5.0"]
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
