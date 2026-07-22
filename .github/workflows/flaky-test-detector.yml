@@ -25,6 +25,9 @@ on:
         description: "ISO date to scan from (default: 14 days ago)"
         required: false
 
+# Deny all permissions by default; each job grants only what it needs.
+permissions: {}
+
 defaults:
   run:
     shell: bash
@@ -49,7 +52,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
