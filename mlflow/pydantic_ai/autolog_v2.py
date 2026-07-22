@@ -435,23 +435,17 @@ def _safe_patch_async_hook(destination, function_name, patch_function) -> None:
     _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
 
 
-def _patch_agent_init(agent_cls) -> None:
-    original = agent_cls.__init__
-
-    @functools.wraps(original)
-    def patched_init(self, *args, **kwargs):
-        return patched_agent_init(original, self, *args, **kwargs)
-
-    patch = _wrap_patch(agent_cls, "__init__", patched_init)
-    _store_patch(mlflow.pydantic_ai.FLAVOR_NAME, patch)
-
-
 def setup_autologging() -> None:
     from pydantic_ai import Agent
     from pydantic_ai.capabilities.instrumentation import Instrumentation
     from pydantic_ai.mcp import MCPToolset
 
-    _patch_agent_init(Agent)
+    safe_patch(
+        mlflow.pydantic_ai.FLAVOR_NAME,
+        Agent,
+        "__init__",
+        patched_agent_init,
+    )
     safe_patch(mlflow.pydantic_ai.FLAVOR_NAME, Agent, "run", patched_agent_run)
     safe_patch(mlflow.pydantic_ai.FLAVOR_NAME, Agent, "run_sync", patched_agent_run_sync)
     _patch_streaming_method(Agent, "run_stream", patched_agent_run_stream)
