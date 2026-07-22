@@ -589,7 +589,10 @@ def _has_instrumentation_capability() -> bool:
         return False
 
 
-def setup_autologging() -> None:
+def setup_autologging(
+    get_tool_manager_module_path=_get_tool_manager_module_path,
+    tool_manager_uses_execute_tool_call=_tool_manager_uses_execute_tool_call,
+) -> None:
     """Install the Pydantic AI 1.x autologging patches."""
     from pydantic_ai import Agent
 
@@ -598,11 +601,11 @@ def setup_autologging() -> None:
         agent_methods.append("run_stream_sync")
 
     has_instrumentation_capability = _has_instrumentation_capability()
-    tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
+    tool_manager_path = f"{get_tool_manager_module_path()}.ToolManager"
     class_map = {
         "pydantic_ai.Agent": agent_methods,
         tool_manager_path: ["execute_tool_call"]
-        if _tool_manager_uses_execute_tool_call()
+        if tool_manager_uses_execute_tool_call()
         else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
