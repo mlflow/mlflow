@@ -1507,6 +1507,10 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5EY1X7": {
+    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
+    "description": "Introduction of the guidance callout on low-result issue detection runs"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -4259,6 +4263,10 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
+  "IxV+1g": {
+    "defaultMessage": "This stops the current run. You can start a new one at any time.",
+    "description": "Body of the confirmation dialog for canceling an issue detection run"
+  },
   "J+Mfua": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 evaluation dataset delete modal"
@@ -4670,6 +4678,10 @@
   "L3szkg": {
     "defaultMessage": "Failed to create assessment. Error: {error}",
     "description": "Error message when creating an assessment fails"
+  },
+  "L5/mUT": {
+    "defaultMessage": "Run detection again",
+    "description": "Button to re-run issue detection from the low-results callout"
   },
   "L71uzj": {
     "defaultMessage": "Provider",
@@ -5451,6 +5463,10 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
+  "Ortr1x": {
+    "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
+    "description": "Suggestion to collect user feedback on traces, with documentation link"
+  },
   "OvkqyX": {
     "defaultMessage": "Add Tag",
     "description": "Modal title for adding a new tag"
@@ -5863,6 +5879,10 @@
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
   },
+  "R+r9jY": {
+    "defaultMessage": "Cancel issue detection?",
+    "description": "Title of the confirmation dialog for canceling an issue detection run"
+  },
   "R/4/8G": {
     "defaultMessage": "Metric",
     "description": "Label for the metric column in the logged model details metrics table"
@@ -6263,6 +6283,10 @@
     "defaultMessage": "Custom code judge feedback",
     "description": "Tooltip content for custom code judge feedback"
   },
+  "Sw9saQ": {
+    "defaultMessage": "Add more traces. Only {count, plural, one {1 trace was} other {# traces were}} analyzed.",
+    "description": "Suggestion to analyze more traces, with the number analyzed in this run"
+  },
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
@@ -6470,6 +6494,10 @@
   "U+nNo1": {
     "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
     "description": "Generic error message for budget policy update"
+  },
+  "U0eQAT": {
+    "defaultMessage": "Only 1 issue found. There may be more.",
+    "description": "Title of the guidance callout when an issue detection run found a single issue"
   },
   "U0joaT": {
     "defaultMessage": "Select traces",
@@ -6679,6 +6707,10 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
+  "V386Xy": {
+    "defaultMessage": "0 issues doesn't always mean all clear",
+    "description": "Title of the guidance callout when an issue detection run found no issues"
+  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -6831,6 +6863,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
   },
+  "VjeYic": {
+    "defaultMessage": "<link>Annotate traces</link> in the review queue to capture known issues",
+    "description": "Suggestion to annotate traces in the review queue, with link to the review queue"
+  },
   "Vjha2S": {
     "defaultMessage": "Guardrails",
     "description": "Tab label for endpoint guardrails"
@@ -6882,6 +6918,10 @@
   "VtJXih": {
     "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
     "description": "Queue settings: validation shown when no questions are selected"
+  },
+  "VuoTZe": {
+    "defaultMessage": "Cancel run",
+    "description": "Confirm button that cancels the issue detection run"
   },
   "Vvs+79": {
     "defaultMessage": "Low",
@@ -7354,6 +7394,10 @@
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
+  },
+  "Y31bI7": {
+    "defaultMessage": "Try a stronger model. Model quality directly affects detection accuracy.",
+    "description": "Suggestion to use a stronger model for issue detection"
   },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
@@ -7918,6 +7962,10 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "adOmg9": {
+    "defaultMessage": "Add more traces for broader coverage",
+    "description": "Suggestion to analyze more traces"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",
