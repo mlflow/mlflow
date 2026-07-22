@@ -97,25 +97,13 @@ const StepIndicator = ({ currentStep, completedSteps }: StepIndicatorProps) => {
 interface AssistantSetupWizardProps {
   experimentId?: string;
   onComplete: () => void;
-  /** Initial step to start at (for settings flow) */
-  initialStep?: SetupStep;
-  /** Callback for back button when in settings mode */
-  onBack?: () => void;
 }
 
-export const AssistantSetupWizard = ({
-  experimentId,
-  onComplete,
-  initialStep,
-  onBack: onBackFromSettings,
-}: AssistantSetupWizardProps) => {
+export const AssistantSetupWizard = ({ experimentId, onComplete }: AssistantSetupWizardProps) => {
   const { theme } = useDesignSystemTheme();
   const { config } = useAssistantConfigQuery();
 
-  // Settings mode: when navigated to from settings (onBack is provided)
-  const isSettingsMode = !!onBackFromSettings;
-
-  const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep || 'provider');
+  const [currentStep, setCurrentStep] = useState<SetupStep>('provider');
   const [completedSteps, setCompletedSteps] = useState<Set<SetupStep>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<string>('claude_code');
   const [cachedAuthStatus, setCachedAuthStatus] = useState<Record<string, AuthState>>({});
@@ -123,7 +111,7 @@ export const AssistantSetupWizard = ({
   useEffect(() => {
     if (!config?.providers) return;
     const current = Object.entries(config.providers).find(([, p]) => p.selected)?.[0];
-    if (current) setSelectedProvider(current);
+    setSelectedProvider(current ?? 'claude_code');
   }, [config]);
 
   const markStepComplete = useCallback((step: SetupStep) => {
@@ -151,13 +139,8 @@ export const AssistantSetupWizard = ({
 
   const handleProjectComplete = useCallback(() => {
     markStepComplete('project');
-    // In settings mode, go back to chat panel instead of showing complete step
-    if (isSettingsMode && onBackFromSettings) {
-      onBackFromSettings();
-    } else {
-      setCurrentStep('complete');
-    }
-  }, [markStepComplete, isSettingsMode, onBackFromSettings]);
+    setCurrentStep('complete');
+  }, [markStepComplete]);
 
   const handleBack = useCallback(() => {
     const stepIndex = STEPS.findIndex((s) => s.key === currentStep);
@@ -191,10 +174,10 @@ export const AssistantSetupWizard = ({
           <SetupStepProject
             experimentId={experimentId}
             provider={selectedProvider}
-            onBack={isSettingsMode ? onBackFromSettings : handleBack}
+            onBack={handleBack}
             onComplete={handleProjectComplete}
-            nextLabel={isSettingsMode ? 'Save' : 'Finish'}
-            backLabel={isSettingsMode ? 'Cancel' : 'Back'}
+            nextLabel="Finish"
+            backLabel="Back"
           />
         );
       case 'complete':
@@ -215,19 +198,13 @@ export const AssistantSetupWizard = ({
       }}
     >
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        {isSettingsMode ? (
-          <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings wizard" />
-        ) : (
-          <FormattedMessage
-            defaultMessage="Setup MLflow Assistant"
-            description="Title for the MLflow Assistant setup wizard"
-          />
-        )}
+        <FormattedMessage
+          defaultMessage="Setup MLflow Assistant"
+          description="Title for the MLflow Assistant setup wizard"
+        />
       </Typography.Title>
 
-      {!isSettingsMode && currentStep !== 'complete' && (
-        <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />
-      )}
+      {currentStep !== 'complete' && <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />}
 
       <div css={{ flex: 1, overflow: 'auto' }}>{renderStepContent()}</div>
     </div>

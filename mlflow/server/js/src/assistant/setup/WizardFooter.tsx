@@ -37,7 +37,7 @@ export const WizardFooter = ({
     >
       {onBack && (
         <Button componentId="mlflow.assistant.setup.footer.back" onClick={onBack} disabled={backDisabled || isLoading}>
-          Back
+          {backLabel}
         </Button>
       )}
 

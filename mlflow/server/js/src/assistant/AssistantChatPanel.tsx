@@ -35,7 +35,7 @@ import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
-import { AssistantSetupWizard } from './setup';
+import { AssistantSettingsPage, AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
@@ -785,14 +785,7 @@ export const AssistantChatPanel = () => {
       case 'setup-wizard':
         return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
       case 'settings':
-        return (
-          <AssistantSetupWizard
-            experimentId={experimentId}
-            onComplete={handleSetupComplete}
-            initialStep="provider"
-            onBack={handleBackFromSettings}
-          />
-        );
+        return <AssistantSettingsPage experimentId={experimentId} onBack={handleBackFromSettings} />;
       case 'chat':
       default:
         if (!setupComplete) {
