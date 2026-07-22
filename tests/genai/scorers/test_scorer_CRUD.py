@@ -10,13 +10,12 @@ from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
-from mlflow.genai.scorers import Guidelines, scorer
+from mlflow.genai.scorers import Guidelines, list_scorer_versions, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
     delete_scorer,
     get_scorer,
-    list_scorer_versions,
     list_scorers,
 )
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -32,6 +31,12 @@ def _mock_response(payload):
 
 def _scheduled_scorers_response(configs):
     return _mock_response({"scheduled_scorers": {"scorers": configs}})
+
+
+def _not_found_response():
+    response = _mock_response({"error_code": "NOT_FOUND", "message": "Not found"})
+    response.status_code = 404
+    return response
 
 
 def _scorer_config(scorer, *, version=1, sample_rate=0.0, filter_string=None):
@@ -61,6 +66,7 @@ def _scorer_version_config(scorer, *, experiment_id="exp_123", version=1):
 
 def test_scorer_registry_functions_accessible_from_mlflow_genai():
     assert mlflow.genai.get_scorer is get_scorer
+    assert mlflow.genai.list_scorer_versions is list_scorer_versions
     assert mlflow.genai.list_scorers is list_scorers
     assert mlflow.genai.delete_scorer is delete_scorer
 
@@ -138,7 +144,7 @@ def test_mlflow_backend_scorer_operations():
         mlflow.delete_experiment(experiment_id)
 
 
-def test_databricks_backend_register_uses_scheduled_scorer_get_and_patch():
+def test_databricks_backend_register_uses_post_when_scheduled_scorers_do_not_exist():
     scorer_v1 = Guidelines(
         name="test_databricks_scorer",
         guidelines=["Be concise"],
@@ -169,6 +175,7 @@ def test_databricks_backend_register_uses_scheduled_scorer_get_and_patch():
     ):
         mock_http.side_effect = [
             _scheduled_scorers_response([]),
+            _not_found_response(),
             _scheduled_scorers_response([v1_config]),
             _scheduled_scorers_response([scheduled_v1_config]),
             _scheduled_scorers_response([v2_config]),
@@ -201,7 +208,13 @@ def test_databricks_backend_register_uses_scheduled_scorer_get_and_patch():
     assert mock_http.call_args_list[1].kwargs["json"]["scheduled_scorers"]["scorers"][0][
         "builtin"
     ] == {"name": "test_databricks_scorer"}
-    registered_v2_config = mock_http.call_args_list[3].kwargs["json"]["scheduled_scorers"][
+    patch_body = mock_http.call_args_list[1].kwargs["json"]
+    post_call = mock_http.call_args_list[2]
+    assert post_call.kwargs["endpoint"] == "/api/2.0/managed-evals/scheduled-scorers/exp_123"
+    assert post_call.kwargs["method"] == "POST"
+    assert post_call.kwargs["json"] == {"scheduled_scorers": patch_body["scheduled_scorers"]}
+    assert mock_http.call_args_list[4].kwargs["method"] == "PATCH"
+    registered_v2_config = mock_http.call_args_list[4].kwargs["json"]["scheduled_scorers"][
         "scorers"
     ][0]
     assert registered_v2_config["serialized_scorer"] == v2_config["serialized_scorer"]

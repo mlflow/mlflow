@@ -13,7 +13,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
@@ -21,6 +21,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
+from mlflow.protos.databricks_pb2 import NOT_FOUND, ErrorCode
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -470,6 +471,17 @@ class DatabricksStore(AbstractScorerStore):
         updated_configs = self._extract_current_scorer_configs(response)
         return updated_configs or configs
 
+    def _create_current_scorer_configs(
+        self, experiment_id: str, configs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        response = self._request(
+            "POST",
+            self._scheduled_scorers_endpoint(experiment_id),
+            json_body={"scheduled_scorers": {"scorers": configs}},
+        )
+        created_configs = self._extract_current_scorer_configs(response)
+        return created_configs or configs
+
     def _hydrate_scorer(
         self,
         scorer: Scorer,
@@ -556,7 +568,12 @@ class DatabricksStore(AbstractScorerStore):
         if not replaced:
             configs.append(updated_config)
 
-        updated_configs = self._patch_current_scorer_configs(experiment_id, configs)
+        try:
+            updated_configs = self._patch_current_scorer_configs(experiment_id, configs)
+        except RestException as e:
+            if e.error_code != ErrorCode.Name(NOT_FOUND):
+                raise
+            updated_configs = self._create_current_scorer_configs(experiment_id, configs)
         for config in updated_configs:
             if config.get("name") == name:
                 return self._config_to_scorer(config, experiment_id)
