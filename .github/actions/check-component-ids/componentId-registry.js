@@ -1719,6 +1719,9 @@ module.exports = {
   // -- mlflow.genai_traces_table_filter --
   "mlflow.genai_traces_table_filter.filter_dropdown": "",
 
+  // -- mlflow.generic_input_modal --
+  "mlflow.generic_input_modal.submission_error": "",
+
   // -- mlflow.home --
   "mlflow.home.create_workspace_modal": "",
   "mlflow.home.create_workspace_modal.error": "",

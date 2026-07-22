@@ -3323,6 +3323,10 @@
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
   },
+  "Dz6oRN": {
+    "defaultMessage": "The request failed. Please try again.",
+    "description": "Fallback error message shown inside an input modal when submission fails without details"
+  },
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
