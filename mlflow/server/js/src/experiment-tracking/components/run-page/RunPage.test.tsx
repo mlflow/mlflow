@@ -1,4 +1,4 @@
-import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, afterEach, beforeEach, test, expect } from '@jest/globals';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
@@ -12,6 +12,7 @@ import type { RunInfoEntity } from '../../types';
 import userEvent from '@testing-library/user-event';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
+import { MlflowService } from '../../sdk/MlflowService';
 import {
   shouldEnableGraphQLRunDetailsPage,
   shouldUseGetLoggedModelsBatchAPI,
@@ -177,6 +178,155 @@ describe('RunPage (legacy redux + REST API)', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Run ID test-run-uuid does not exist/)).toBeInTheDocument();
+    });
+  });
+
+  describe('comparison run management', () => {
+    const createRunEntity = (runUuid: string, runName: string) => ({
+      info: {
+        runUuid,
+        runName,
+        experimentId: testExperimentId,
+        artifactUri: '',
+        endTime: 0,
+        lifecycleStage: 'active',
+        startTime: 0,
+        status: 'FINISHED' as const,
+      },
+      data: { metrics: [], params: [], tags: [] },
+    });
+
+    const mountOnMetricsTab = () => {
+      const state: DeepPartial<ReduxState> = {
+        entities: {
+          runInfosByUuid: { [testRunUuid]: testRunInfo },
+          experimentsById: {
+            [testExperimentId]: { experimentId: testExperimentId, name: 'Test experiment' },
+          },
+          tagsByRunUuid: { [testRunUuid]: {} },
+          latestMetricsByRunUuid: {},
+          runDatasetsByUuid: {},
+          paramsByRunUuid: {},
+          modelVersionsByRunUuid: {},
+          artifactRootUriByRunUuid: {},
+          imagesByRunUuid: {},
+          sampledMetricsByRunUuid: {},
+        },
+        apis: {
+          experiment_request: { active: false },
+          run_request: { active: false },
+        },
+      };
+
+      const queryClient = new QueryClient();
+
+      return renderWithIntl(
+        <TestApolloProvider>
+          <DesignSystemProvider>
+            <QueryClientProvider client={queryClient}>
+              <MockedReduxStoreProvider state={state}>
+                <TestRouter
+                  initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}/model-metrics`]}
+                  routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid/*')]}
+                />
+              </MockedReduxStoreProvider>
+            </QueryClientProvider>
+          </DesignSystemProvider>
+        </TestApolloProvider>,
+      );
+    };
+
+    const openSwitcher = async () => {
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Switch run' })).toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: 'Switch run' }));
+      await screen.findByPlaceholderText('Search runs');
+    };
+
+    beforeEach(() => {
+      jest.spyOn(MlflowService, 'searchRuns').mockResolvedValue({ runs: [] });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('adds a comparison run and shows its name in the header label', async () => {
+      jest.spyOn(MlflowService, 'searchRuns').mockResolvedValueOnce({
+        runs: [createRunEntity('run-2', 'Run Two')],
+      });
+
+      mountOnMetricsTab();
+      await openSwitcher();
+
+      await userEvent.click(within(screen.getByRole('menuitemcheckbox', { name: /Run Two/ })).getByRole('button'));
+
+      // Close dropdown so "Run Two" only appears in the label, not the run list
+      await userEvent.click(screen.getByRole('button', { name: 'Switch run' }));
+      await waitFor(() => expect(screen.queryByPlaceholderText('Search runs')).not.toBeInTheDocument());
+
+      expect(screen.getByText('vs')).toBeInTheDocument();
+      expect(screen.getByText('Run Two')).toBeInTheDocument();
+    });
+
+    test('clicking compare on an active comparison run removes it', async () => {
+      jest.spyOn(MlflowService, 'searchRuns').mockResolvedValueOnce({
+        runs: [createRunEntity('run-2', 'Run Two')],
+      });
+
+      mountOnMetricsTab();
+      await openSwitcher();
+
+      // Add Run Two
+      await userEvent.click(within(screen.getByRole('menuitemcheckbox', { name: /Run Two/ })).getByRole('button'));
+      await waitFor(() => expect(screen.getByText('vs')).toBeInTheDocument());
+
+      // Toggle off — button is now primary (close icon), click it again
+      await userEvent.click(within(screen.getByRole('menuitemcheckbox', { name: /Run Two/ })).getByRole('button'));
+
+      await waitFor(() => expect(screen.queryByText('vs')).not.toBeInTheDocument());
+    });
+
+    test('caps comparison at 5 runs and disables further additions', async () => {
+      jest.spyOn(MlflowService, 'searchRuns').mockResolvedValueOnce({
+        runs: [
+          createRunEntity('run-2', 'Run Two'),
+          createRunEntity('run-3', 'Run Three'),
+          createRunEntity('run-4', 'Run Four'),
+          createRunEntity('run-5', 'Run Five'),
+          createRunEntity('run-6', 'Run Six'),
+          createRunEntity('run-7', 'Run Seven'),
+        ],
+      });
+
+      mountOnMetricsTab();
+      await openSwitcher();
+
+      for (const name of ['Run Two', 'Run Three', 'Run Four', 'Run Five', 'Run Six']) {
+        await userEvent.click(
+          within(screen.getByRole('menuitemcheckbox', { name: new RegExp(name) })).getByRole('button'),
+        );
+      }
+
+      await waitFor(() => expect(screen.getByText('5 runs')).toBeInTheDocument());
+      expect(within(screen.getByRole('menuitemcheckbox', { name: /Run Seven/ })).getByRole('button')).toBeDisabled();
+    });
+
+    test('clear button resets all comparison runs', async () => {
+      jest.spyOn(MlflowService, 'searchRuns').mockResolvedValueOnce({
+        runs: [createRunEntity('run-2', 'Run Two'), createRunEntity('run-3', 'Run Three')],
+      });
+
+      mountOnMetricsTab();
+      await openSwitcher();
+
+      await userEvent.click(within(screen.getByRole('menuitemcheckbox', { name: /Run Two/ })).getByRole('button'));
+      await userEvent.click(within(screen.getByRole('menuitemcheckbox', { name: /Run Three/ })).getByRole('button'));
+
+      await waitFor(() => expect(screen.getByText('2 runs')).toBeInTheDocument());
+
+      await userEvent.click(screen.getByRole('button', { name: 'Clear comparison' }));
+
+      await waitFor(() => expect(screen.queryByText('vs')).not.toBeInTheDocument());
     });
   });
 });

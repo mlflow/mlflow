@@ -8,7 +8,7 @@ import { ReduxState } from '../../../redux-types';
 import { type RunsChartsBarChartCardProps } from '../runs-charts/components/cards/RunsChartsBarChartCard';
 import type { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
 import userEvent from '@testing-library/user-event';
-import type { MetricEntitiesByName } from '../../types';
+import type { MetricEntitiesByName, RunEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MlflowService } from '../../sdk/MlflowService';
@@ -16,13 +16,19 @@ import { LOG_IMAGE_TAG_INDICATOR } from '../../constants';
 
 // Mock plot components, as they are not relevant to this test and would hog a lot of resources
 jest.mock('../runs-charts/components/cards/RunsChartsBarChartCard', () => ({
-  RunsChartsBarChartCard: ({ config }: RunsChartsBarChartCardProps) => (
-    <div data-testid="test-bar-plot">Bar plot for {config.metricKey}</div>
+  RunsChartsBarChartCard: ({ config, chartRunData }: RunsChartsBarChartCardProps) => (
+    <div data-testid="test-bar-plot" data-run-count={chartRunData?.length}>
+      Bar plot for {config.metricKey}
+    </div>
   ),
 }));
 jest.mock('../runs-charts/components/cards/RunsChartsLineChartCard', () => ({
-  RunsChartsLineChartCard: ({ config }: RunsChartsLineChartCardProps) => {
-    return <div data-testid="test-line-plot">Line plot for {config.metricKey}</div>;
+  RunsChartsLineChartCard: ({ config, chartRunData }: RunsChartsLineChartCardProps) => {
+    return (
+      <div data-testid="test-line-plot" data-run-count={chartRunData?.length}>
+        Line plot for {config.metricKey}
+      </div>
+    );
   },
 }));
 
@@ -71,17 +77,26 @@ describe('RunViewMetricCharts', () => {
     metricKeys = testMetricKeys,
     metrics = testMetrics,
     tags = {},
+    comparisonRuns,
   }: {
     mode?: 'model' | 'system';
     metricKeys?: string[];
     metrics?: MetricEntitiesByName;
     tags?: Record<string, KeyValueEntity>;
+    comparisonRuns?: RunEntity[];
   } = {}) => {
     const runInfo = {
       runUuid: testRunUuid,
     } as any;
     return render(
-      <RunViewMetricCharts runInfo={runInfo} metricKeys={metricKeys} mode={mode} latestMetrics={metrics} tags={tags} />,
+      <RunViewMetricCharts
+        runInfo={runInfo}
+        metricKeys={metricKeys}
+        mode={mode}
+        latestMetrics={metrics}
+        tags={tags}
+        comparisonRuns={comparisonRuns}
+      />,
       {
         wrapper: ({ children }) => (
           <DesignSystemProvider>
@@ -233,5 +248,29 @@ describe('RunViewMetricCharts', () => {
     });
 
     expect(MlflowService.listArtifacts).toHaveBeenCalledWith({ path: 'images', run_uuid: 'test_run_uuid' });
+  });
+
+  it('passes primary run and all comparison runs to chart cards', async () => {
+    const comparisonRuns: RunEntity[] = [
+      {
+        info: {
+          runUuid: 'cmp-1',
+          runName: 'Comparison Run',
+          experimentId: 'exp-1',
+          artifactUri: '',
+          endTime: 0,
+          lifecycleStage: 'active',
+          startTime: 0,
+          status: 'FINISHED',
+        },
+        data: { metrics: [], params: [], tags: [] },
+      },
+    ];
+
+    renderComponent({ metricKeys: ['metric_1'], metrics: testMetrics, comparisonRuns });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('test-bar-plot')).toHaveAttribute('data-run-count', '2');
+    });
   });
 });
