@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784774765246,
+  "lastUpdate": 1784774884724,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15713,6 +15713,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 37.254564599999185,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84731421+iyashk@users.noreply.github.com",
+            "name": "Yashwanth Kiran",
+            "username": "iyashk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bac866bf1a32188aa99eccd21691f575e65a0b3",
+          "message": "[BUG] Enforce artifact authorization on presigned download route in basic-auth (#24571)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>\nSigned-off-by: Yashwanth Kiran <84731421+iyashk@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T19:46:22-07:00",
+          "tree_id": "70d99a8ac7d17e2654a6b1eada2591b45a8bf5a5",
+          "url": "https://github.com/mlflow/mlflow/commit/5bac866bf1a32188aa99eccd21691f575e65a0b3"
+        },
+        "date": 1784774883394,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.737753000005114,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.767614255808567,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 25.994450626864083,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 26.702517627115213,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.78479412280606,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 42.280340999991495,
             "unit": "ms"
           }
         ]
