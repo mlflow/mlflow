@@ -451,7 +451,6 @@ class Scorer(BaseModel):
                     feedback_value_type=feedback_value_type,
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
-                    _skip_databricks_agents_check=True,
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(

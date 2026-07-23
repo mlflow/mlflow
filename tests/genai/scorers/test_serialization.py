@@ -371,26 +371,6 @@ def test_builtin_scorer_round_trip():
     assert result.metadata == {"chunk_index": 0}  # chunk_index should be preserved
 
 
-def test_instructions_judge_deserialization_does_not_check_databricks_agents():
-    serialized = SerializedScorer(
-        name="instructions_judge_scorer",
-        instructions_judge_pydantic_data={
-            "instructions": "Assess {{ outputs }}.",
-            "model": "databricks",
-        },
-    )
-
-    with patch(
-        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter."
-        "_check_databricks_agents_installed",
-        side_effect=AssertionError("databricks-agents check should not run during deserialization"),
-    ):
-        deserialized = Scorer.model_validate(serialized)
-
-    assert deserialized.name == "instructions_judge_scorer"
-    assert deserialized.model == "databricks"
-
-
 def test_builtin_scorer_with_parameters_round_trip():
     from mlflow.genai.scorers.builtin_scorers import Guidelines
 
