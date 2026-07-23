@@ -1,9 +1,11 @@
 import ast
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
+import annotate_flaky_tests
 from annotate_flaky_tests import _split_nodeid, annotate_file
 
 
@@ -91,3 +93,30 @@ def test_unparsable_file_is_handled_gracefully(tmp_path: Path):
     result, out = _annotate(tmp_path, "def test_a(:\n    pass\n", "test_a")
     assert not result.applied
     assert result.note == "file did not parse"
+
+
+def test_nodeid_escaping_repo_is_rejected(tmp_path, monkeypatch, capsys):
+    # A path-traversal nodeid must be refused before the file is touched, even if a file
+    # exists at the escaped location. Lay a real target OUTSIDE the repo root and point a
+    # `../`-traversal nodeid at it; the guard must skip it with a "path outside repo" note.
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    outside = tmp_path / "outside.py"
+    outside.write_text("def test_evil():\n    assert True\n")
+
+    classified = repo / "classified.json"
+    classified.write_text(
+        json.dumps([
+            {
+                "test": "tests/../../outside.py::test_evil",
+                "verdict": {"action": "annotate", "attempts": 2},
+            }
+        ])
+    )
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["annotate_flaky_tests.py", "--in", str(classified)])
+    annotate_flaky_tests.main()
+
+    # The out-of-repo file is left untouched (no decorator inserted).
+    assert "flaky" not in outside.read_text()
+    assert "path outside repo" in capsys.readouterr().out

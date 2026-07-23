@@ -95,6 +95,10 @@ def gh_api_objects(path: str, paginate: bool = False) -> list[dict[str, Any]]:
     raw = gh_api(path, paginate)
     if not raw:
         return []
+    # `gh api --paginate` concatenates each page's JSON body back-to-back (e.g.
+    # `{...}{...}`) rather than emitting one merged array, so a plain `json.loads`
+    # would choke on the second object. Walk the buffer with `raw_decode`, which
+    # returns one object plus the index where it stopped, until the string is consumed.
     decoder = json.JSONDecoder()
     objs: list[dict[str, Any]] = []
     idx = 0
@@ -134,13 +138,16 @@ def attempt_jobs(repo: str, run_id: int, attempt: int) -> list[dict[str, Any]]:
     return jobs
 
 
-def failing_tests_from_log(repo: str, job_id: int) -> dict[str, str]:
-    """{nodeid: first-line error} parsed from a job's log. Empty if none recoverable."""
-    log = gh_api_text_bytes(f"repos/{repo}/actions/jobs/{job_id}/logs")
-    if not log:
-        return {}
+def parse_failing_tests(log: str) -> dict[str, str]:
+    """{nodeid: first-line error} parsed from raw Actions log text. Empty if none found.
+
+    Pure function (no I/O) so it can be unit-tested against captured log snippets, which
+    guards the format-fragile regexes against GitHub Actions log-format drift.
+    """
     failures: dict[str, str] = {}
     for raw in log.splitlines():
+        # Actions prefixes every line with an ISO timestamp and pytest colorizes the
+        # FAILED/nodeid with ANSI SGR codes; strip both before the nodeid regex.
         line = _ANSI_RE.sub("", raw)
         line = _TIMESTAMP_RE.sub("", line)
         if not _OUTCOME_RE.search(line):
@@ -149,6 +156,14 @@ def failing_tests_from_log(repo: str, job_id: int) -> dict[str, str]:
             # First occurrence wins; keeps the concise summary-line message.
             failures.setdefault(m.group(1), m.group(2)[:300])
     return failures
+
+
+def failing_tests_from_log(repo: str, job_id: int) -> dict[str, str]:
+    """{nodeid: first-line error} parsed from a job's log. Empty if none recoverable."""
+    log = gh_api_text_bytes(f"repos/{repo}/actions/jobs/{job_id}/logs")
+    if not log:
+        return {}
+    return parse_failing_tests(log)
 
 
 def detect(repo: str, since: str) -> list[FlakyTest]:
@@ -165,9 +180,14 @@ def detect(repo: str, since: str) -> list[FlakyTest]:
         attempts = r["run_attempt"]
         sha = r["head_sha"][:8]
         event = r.get("event", "?")
+        # Compare each attempt `a` against the immediately following attempt `b=a+1`
+        # (not just first-vs-last), so a flake is caught on whichever consecutive pair it
+        # flipped fail->pass. `range(1, attempts)` yields a = 1 .. attempts-1, so the last
+        # pair examined is (attempts-1, attempts) and `b` never exceeds `attempts`.
         for a in range(1, attempts):
             b = a + 1
             jobs_a = attempt_jobs(repo, run_id, a)
+            # Index attempt b's jobs by name for O(1) lookup of the same job's later outcome.
             concl_b = {j["name"]: j.get("conclusion") for j in attempt_jobs(repo, run_id, b)}
             # A job that FAILED on attempt a and SUCCEEDED on attempt b is a ground-truth flake.
             for job in jobs_a:

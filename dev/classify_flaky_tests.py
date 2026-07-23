@@ -101,6 +101,8 @@ def _auth_headers() -> dict[str, str]:
         "Content-Type": "application/json",
         "anthropic-version": "2023-06-01",
     }
+    # Two auth schemes: a bearer token (used by internal gateways fronting the API) takes
+    # precedence, falling back to the standard `x-api-key` direct-to-Anthropic header.
     if token := os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     else:
@@ -113,8 +115,13 @@ def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
     request_body = {
         "model": DEFAULT_MODEL,
         "max_tokens": 1024,
+        # temperature=0 for the most deterministic verdict we can get: the same flake
+        # should classify the same way run-to-run so the report/PR stays stable.
         "temperature": 0,
         "messages": [{"role": "user", "content": prompt}],
+        # Constrain the reply to `_SCHEMA` so the model emits exactly the fields the
+        # downstream stages read — no prose to parse, and an off-schema reply is rejected
+        # by the API rather than reaching us.
         "output_config": {"format": {"type": "json_schema", "schema": _SCHEMA}},
     }
     req = urllib.request.Request(
@@ -126,8 +133,12 @@ def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
         with urllib.request.urlopen(req) as resp:
             response = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
+        # Surface the API error body (rate limit, auth, bad request) before re-raising;
+        # there is no per-test fallback, so a failed call aborts the classify step.
         print(f"API Error {e.code}: {e.read().decode()}", file=sys.stderr)
         raise
+    # Two-level decode: the outer envelope is the Messages API response; the schema-
+    # constrained verdict is itself a JSON string in the first content block's `text`.
     verdict: dict[str, Any] = json.loads(response["content"][0]["text"])
     return verdict
 

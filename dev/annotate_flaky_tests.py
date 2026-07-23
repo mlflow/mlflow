@@ -81,7 +81,9 @@ def _find_funcdef(
 
 def _already_flaky(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for dec in node.decorator_list:
-        # matches @pytest.mark.flaky and @pytest.mark.flaky(...)
+        # A bare `@pytest.mark.flaky` parses as an Attribute; `@pytest.mark.flaky(...)`
+        # parses as a Call wrapping that Attribute. Unwrap the Call to its `.func` so both
+        # forms are recognized and we don't double-annotate an already-flaky test.
         call = dec.func if isinstance(dec, ast.Call) else dec
         if isinstance(call, ast.Attribute) and call.attr == "flaky":
             return True
@@ -175,11 +177,22 @@ def main() -> None:
             continue
         rel_path, qualifiers = split
         path = Path(rel_path)
+        # Defense-in-depth: the nodeid comes from parsed CI logs, and the regex would
+        # accept a traversal like `tests/../../foo.py`. Reject anything that resolves
+        # outside the repo before we ever read/write it.
+        repo_root = Path.cwd().resolve()
+        if not path.resolve().is_relative_to(repo_root):
+            results.append(
+                Annotation(entry["test"], rel_path, qualifiers[-1], 0, False, "path outside repo")
+            )
+            continue
         if not path.exists():
             results.append(
                 Annotation(entry["test"], rel_path, qualifiers[-1], 0, False, "file missing")
             )
             continue
+        # Default to 3 attempts when the classifier approved a retry but left `attempts`
+        # null (or 0) — `or 3` covers both, since a retry with <2 attempts is a no-op.
         attempts = verdict.get("attempts") or 3
         results.append(annotate_file(path, qualifiers, attempts, args.report_ref))
 
