@@ -5,9 +5,6 @@ import {
   Input,
   LightbulbIcon,
   PencilIcon,
-  SimpleSelect,
-  SimpleSelectOption,
-  SimpleSelectOptionGroup,
   useDesignSystemTheme,
   SparkleIcon,
   Tooltip,
@@ -24,6 +21,11 @@ import { ALL_ISSUE_CATEGORIES } from './IssueDetectionCategories';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
+import {
+  ISSUE_DETECTION_PROVIDERS,
+  IssueDetectionModelDropdown,
+  type IssueDetectionModelSelection,
+} from './IssueDetectionModelDropdown';
 import heroImg from '../../../../../common/static/issue-detection-empty.svg';
 
 interface IssueDetectionModalProps {
@@ -38,20 +40,6 @@ const QUICK_SELECT_TRACE_COUNT = 50;
 const MIN_RECOMMENDED_TRACE_COUNT = 10;
 
 const MISSING_API_KEY_ERROR_FRAGMENT = 'No API key available';
-const ENDPOINT_SELECTION_PREFIX = 'endpoint:';
-const DIRECT_SELECTION_PREFIX = 'direct:';
-
-const DIRECT_MODEL_OPTIONS = [
-  { provider: 'openai', label: 'OpenAI', model: 'gpt-5.6-sol' },
-  { provider: 'anthropic', label: 'Anthropic', model: 'claude-opus-4-8' },
-  { provider: 'gemini', label: 'Google Gemini', model: 'gemini-3.6-flash' },
-] as const;
-
-type DirectModelOption = (typeof DIRECT_MODEL_OPTIONS)[number];
-
-type IssueDetectionModelSelection =
-  | { mode: 'endpoint'; endpointName: string; provider: string; model: string }
-  | { mode: 'direct'; provider: DirectModelOption['provider']; model: DirectModelOption['model'] };
 
 type ModalView = 'main' | 'apiKey';
 
@@ -81,23 +69,23 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
     if (!selection && !isLoadingEndpoints) {
-      const provider = DIRECT_MODEL_OPTIONS[0];
+      const provider = ISSUE_DETECTION_PROVIDERS[0];
       if (endpoints.length > 0) {
         setSelection({
           mode: 'endpoint',
           endpointName: endpoints[0].name,
-          provider: provider.provider,
-          model: provider.model,
+          provider: provider.id,
+          model: provider.defaultModel,
         });
       } else {
-        setSelection({ mode: 'direct', provider: provider.provider, model: provider.model });
+        setSelection({ mode: 'direct', provider: provider.id, model: provider.defaultModel });
       }
     }
   }, [selection, isLoadingEndpoints, endpoints]);
 
   // Direct providers use the API key already saved in AI Gateway (never asked upfront)
   const { existingSecrets } = useApiKeyConfiguration({
-    provider: selection?.mode === 'direct' ? selection.provider : DIRECT_MODEL_OPTIONS[0].provider,
+    provider: selection?.mode === 'direct' ? selection.provider : ISSUE_DETECTION_PROVIDERS[0].id,
   });
 
   const hasNoTraces = selectedTraceIds.length === 0 && availableTraceIds.length === 0;
@@ -184,32 +172,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, [resetIssueDetection, resetCreateSecret, onClose]);
 
   const selectedDirectOption =
-    selection?.mode === 'direct' ? DIRECT_MODEL_OPTIONS.find((option) => option.provider === selection.provider) : null;
-  const selectedModelValue = selection
-    ? selection.mode === 'endpoint'
-      ? `${ENDPOINT_SELECTION_PREFIX}${selection.endpointName}`
-      : `${DIRECT_SELECTION_PREFIX}${selection.provider}`
-    : undefined;
-
-  const handleModelSelectionChange = (value: string) => {
-    if (value.startsWith(ENDPOINT_SELECTION_PREFIX)) {
-      const endpointName = value.slice(ENDPOINT_SELECTION_PREFIX.length);
-      const fallback = DIRECT_MODEL_OPTIONS[0];
-      setSelection({
-        mode: 'endpoint',
-        endpointName,
-        provider: fallback.provider,
-        model: fallback.model,
-      });
-      return;
-    }
-
-    const provider = value.slice(DIRECT_SELECTION_PREFIX.length);
-    const option = DIRECT_MODEL_OPTIONS.find((modelOption) => modelOption.provider === provider);
-    if (option) {
-      setSelection({ mode: 'direct', provider: option.provider, model: option.model });
-    }
-  };
+    selection?.mode === 'direct' ? ISSUE_DETECTION_PROVIDERS.find((option) => option.id === selection.provider) : null;
 
   const summaryCardCss = {
     display: 'flex',
@@ -266,49 +229,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               description="Column header for the model powering issue detection"
             />
           </Typography.Text>
-          {selection && (
-            <>
-              <SimpleSelect
-                componentId="mlflow.traces.issue-detection-modal.model"
-                label={intl.formatMessage({
-                  defaultMessage: 'Model',
-                  description: 'Accessible label for issue detection model selector',
-                })}
-                value={selectedModelValue}
-                onChange={(e) => handleModelSelectionChange(e.target.value)}
-                contentProps={{ minWidth: 260 }}
-                data-testid="model-select"
-              >
-                {endpoints.length > 0 && (
-                  <SimpleSelectOptionGroup label="AI Gateway endpoints">
-                    {endpoints.map((endpoint) => (
-                      <SimpleSelectOption key={endpoint.name} value={`${ENDPOINT_SELECTION_PREFIX}${endpoint.name}`}>
-                        {endpoint.name}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelectOptionGroup>
-                )}
-                <SimpleSelectOptionGroup label="Direct providers">
-                  {DIRECT_MODEL_OPTIONS.map((option) => (
-                    <SimpleSelectOption
-                      key={option.provider}
-                      value={`${DIRECT_SELECTION_PREFIX}${option.provider}`}
-                    >{`${option.label} / ${option.model}`}</SimpleSelectOption>
-                  ))}
-                </SimpleSelectOptionGroup>
-              </SimpleSelect>
-              <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                {selection.mode === 'endpoint' ? (
-                  <FormattedMessage
-                    defaultMessage="AI Gateway endpoint"
-                    description="Hint for an issue detection model selected from AI Gateway endpoints"
-                  />
-                ) : (
-                  selectedDirectOption?.model
-                )}
-              </Typography.Hint>
-            </>
-          )}
+          {selection && <IssueDetectionModelDropdown endpoints={endpoints} value={selection} onChange={setSelection} />}
         </div>
         <div css={{ flex: 1, minWidth: 0 }}>
           <Typography.Text bold color="secondary" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
@@ -398,7 +319,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           <FormattedMessage
             defaultMessage="{provider} needs an API key. Paste it once and MLflow saves it securely in AI Gateway for all future runs."
             description="Explanation of the API key step in the issue detection modal"
-            values={{ provider: selectedDirectOption?.label ?? selection?.provider }}
+            values={{ provider: selectedDirectOption?.name ?? selection?.provider }}
           />
         </Typography.Text>
       </div>

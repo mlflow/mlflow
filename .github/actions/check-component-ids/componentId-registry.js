@@ -2203,6 +2203,7 @@ module.exports = {
   "mlflow.traces.issue-detection-modal.api-key-input": "",
   "mlflow.traces.issue-detection-modal.error": "",
   "mlflow.traces.issue-detection-modal.model": "",
+  "mlflow.traces.issue-detection-modal.model-dropdown": "",
   "mlflow.traces.issue-detection-modal.submit": "",
   "mlflow.traces.issue-detection-modal.submit.tooltip": "",
   "mlflow.traces.issue-detection.api-key.auth-mode-radio-group": "",

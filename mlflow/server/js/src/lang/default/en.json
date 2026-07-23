@@ -2899,6 +2899,10 @@
     "defaultMessage": "Issue detection summary",
     "description": "Issue detection summary > Title"
   },
+  "BcmFvf": {
+    "defaultMessage": "Create endpoint",
+    "description": "Action in the model dropdown to create a new AI Gateway endpoint"
+  },
   "Bcr4hl": {
     "defaultMessage": "Fetching traces failed",
     "description": "Evaluation review > evaluations list > error state title"
@@ -6719,10 +6723,6 @@
     "defaultMessage": "Use the parallel coordinates chart to compare how various parameters in model affect your model metrics.",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > description"
   },
-  "VAR0Cc": {
-    "defaultMessage": "Model",
-    "description": "Accessible label for issue detection model selector"
-  },
   "VAUHXW": {
     "defaultMessage": "No chart data available for the currently visible runs. Select other runs or <link>hide empty charts.</link>",
     "description": "Experiment tracking > runs charts > indication displayed when no corresponding data is found to be used in chart-based run comparison"
@@ -8455,10 +8455,6 @@
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
   },
-  "d5UNqI": {
-    "defaultMessage": "AI Gateway endpoint",
-    "description": "Hint for an issue detection model selected from AI Gateway endpoints"
-  },
   "d6Mx+/": {
     "defaultMessage": "Current password is required",
     "description": "Validation error when the current-password field is empty"
@@ -9114,6 +9110,10 @@
   "g5myH8": {
     "defaultMessage": "Webhooks",
     "description": "Sidebar link: Settings > Webhooks"
+  },
+  "g6nof1": {
+    "defaultMessage": "AI Gateway",
+    "description": "Model dropdown group for AI Gateway endpoints"
   },
   "g7xNvF": {
     "defaultMessage": "Display points",

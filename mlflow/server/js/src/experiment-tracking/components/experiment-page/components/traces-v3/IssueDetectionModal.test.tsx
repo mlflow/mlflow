@@ -6,12 +6,16 @@ import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 
 jest.mock('./hooks/useInvokeIssueDetection');
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
+}));
+jest.mock('../../../../../gateway/hooks/useModelsQuery', () => ({
+  useModelsQuery: jest.fn(),
 }));
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
   useApiKeyConfiguration: jest.fn(),
@@ -48,19 +52,24 @@ describe('IssueDetectionModal', () => {
   let mockInvokeIssueDetection: jest.Mock;
   let mockCreateSecret: jest.Mock;
 
-  const changeModel = async (optionLabel: string) => {
-    const trigger = document.querySelector<HTMLElement>(
-      '[data-component-id="mlflow.traces.issue-detection-modal.model"]',
-    );
-    if (!trigger) throw new Error('Model select trigger not found');
-    await userEvent.click(trigger);
-    await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
+  const changeModelToAnthropic = async () => {
+    await userEvent.click(screen.getByTestId('model-dropdown-trigger'));
+    await userEvent.click(screen.getByTestId('model-provider-anthropic'));
+    await userEvent.click(screen.getByTestId('model-option-anthropic-claude-opus-4-8'));
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     clearSubmittedIssueDetectionJob();
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
+    jest.mocked(useModelsQuery).mockImplementation(
+      ({ provider } = {}) =>
+        ({
+          data: provider === 'anthropic' ? [{ model: 'claude-opus-4-8' }, { model: 'claude-sonnet-4-6' }] : undefined,
+          isLoading: false,
+          refetch: jest.fn(),
+        }) as any,
+    );
     jest.mocked(useApiKeyConfiguration).mockReturnValue({
       existingSecrets: [{ secret_id: 'secret-123', secret_name: 'my-key' }],
       hasExistingSecrets: true,
@@ -147,7 +156,6 @@ describe('IssueDetectionModal', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     expect(screen.getByText('my-endpoint')).toBeInTheDocument();
-    expect(screen.getByText('AI Gateway endpoint')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
     await waitFor(() => {
@@ -163,7 +171,7 @@ describe('IssueDetectionModal', () => {
 
     expect(screen.getByText('gpt-5.6-sol')).toBeInTheDocument();
 
-    await changeModel('Anthropic / claude-opus-4-8');
+    await changeModelToAnthropic();
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
