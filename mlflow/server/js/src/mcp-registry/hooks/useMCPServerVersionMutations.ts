@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MCPRegistryApi } from '../api';
-import type { MCPStatus, MCPTool } from '../types';
+import type { ConnectOptionsMap, MCPStatus } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 
 const useInvalidateServerQueries = () => {
@@ -17,8 +17,7 @@ type UpdateMCPServerVersionPayload = {
   version: string;
   displayName?: string;
   status?: MCPStatus;
-  tools?: MCPTool[] | null;
-  connectOptions?: Record<string, { hidden?: boolean }> | null;
+  connectOptions?: ConnectOptionsMap | null;
   aliases?: { add: string[]; remove: string[] };
 };
 
@@ -26,21 +25,17 @@ export const useUpdateMCPServerVersion = (serverName: string) => {
   const invalidate = useInvalidateServerQueries();
 
   return useMutation<unknown, Error, UpdateMCPServerVersionPayload>({
-    mutationFn: async ({ version, displayName, status, tools, connectOptions, aliases }) => {
+    mutationFn: async ({ version, displayName, status, connectOptions, aliases }) => {
       const versionUpdate: Partial<{
         display_name: string | null;
         status: MCPStatus;
-        tools: MCPTool[] | null;
-        connect_options: Record<string, { hidden?: boolean }> | null;
+        connect_options: ConnectOptionsMap | null;
       }> = {};
       if (displayName !== undefined) {
         versionUpdate['display_name'] = displayName || null;
       }
       if (status !== undefined) {
         versionUpdate['status'] = status;
-      }
-      if (tools !== undefined) {
-        versionUpdate['tools'] = tools;
       }
       if (connectOptions !== undefined) {
         versionUpdate['connect_options'] = connectOptions;

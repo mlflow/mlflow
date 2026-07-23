@@ -15,9 +15,10 @@ import {
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { MCPServerVersion, MCPStatus } from '../types';
+import type { ConnectOptionsMap, MCPServerVersion } from '../types';
+import { MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
-import { validateServerJson, validateToolsJson } from '../utils';
+import { deriveConnectOptionKeys, validateServerJson, validateToolsJson } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
@@ -36,7 +37,7 @@ interface CreateMCPServerVersionFormState {
 const INITIAL_FORM_STATE: CreateMCPServerVersionFormState = {
   displayName: '',
   serverJsonText: '',
-  status: 'draft',
+  status: MCPStatus.DRAFT,
   source: '',
   toolsText: '',
   tags: {},
@@ -99,7 +100,7 @@ export const useCreateMCPServerVersionModal = ({
     }
 
     let parsedTools;
-    if (formState.toolsText.trim()) {
+    if (!isVersionMode && formState.toolsText.trim()) {
       const toolsResult = validateToolsJson(formState.toolsText);
       if (!toolsResult.valid) {
         setValidationError(toolsResult.error);
@@ -112,15 +113,33 @@ export const useCreateMCPServerVersionModal = ({
 
     const tagsToSet = Object.keys(formState.tags).length > 0 ? formState.tags : undefined;
 
+    const finalServerJson =
+      isVersionMode && serverName ? { ...serverJsonResult.parsed, name: serverName } : serverJsonResult.parsed;
+
+    let connectOptions: ConnectOptionsMap | undefined;
+    if (latestVersion?.connect_options) {
+      const pruned: ConnectOptionsMap = {};
+      for (const key of deriveConnectOptionKeys(finalServerJson)) {
+        const setting = latestVersion.connect_options[key];
+        if (setting) {
+          pruned[key] = setting;
+        }
+      }
+      if (Object.keys(pruned).length > 0) {
+        connectOptions = pruned;
+      }
+    }
+
     mutate(
       {
-        serverJson: serverJsonResult.parsed,
+        serverJson: finalServerJson,
         displayName: formState.displayName.trim() || undefined,
         isNewServer: !isVersionMode,
         status: formState.status,
         source: formState.source.trim() || undefined,
-        tools: parsedTools,
+        tools: isVersionMode ? (latestVersion?.tools ?? []) : parsedTools,
         tags: tagsToSet,
+        connectOptions,
       },
       {
         onSuccess: (data) => {
@@ -246,28 +265,35 @@ export const useCreateMCPServerVersionModal = ({
       <Input
         componentId="mlflow.mcp_registry.create.source"
         id="mlflow.mcp_registry.create.source"
+        type="url"
         value={formState.source}
         onChange={(e) => handleFieldChange('source', e.target.value)}
         placeholder={intl.formatMessage({
           defaultMessage: 'https://github.com/org/repo',
           description: 'Placeholder for source in create MCP server modal',
         })}
+        spellCheck={false}
+        autoComplete="off"
       />
       <Spacer />
-      <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
-        <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
-      </FormUI.Label>
-      <LazyJsonRecordEditor
-        value={formState.toolsText}
-        onChange={(value) => handleFieldChange('toolsText', value)}
-        height="100px"
-        maxHeight="240px"
-        ariaLabel={intl.formatMessage({
-          defaultMessage: 'Tools JSON editor',
-          description: 'Aria label for tools JSON editor',
-        })}
-      />
-      <Spacer />
+      {!isVersionMode && (
+        <>
+          <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
+            <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
+          </FormUI.Label>
+          <LazyJsonRecordEditor
+            value={formState.toolsText}
+            onChange={(value) => handleFieldChange('toolsText', value)}
+            height="100px"
+            maxHeight="240px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Tools JSON editor',
+              description: 'Aria label for tools JSON editor',
+            })}
+          />
+          <Spacer />
+        </>
+      )}
       <FormUI.Label>
         {isVersionMode ? (
           <FormattedMessage
@@ -342,9 +368,9 @@ export const useCreateMCPServerVersionModal = ({
       setFormState({
         displayName: '',
         serverJsonText: JSON.stringify(latestVersion.server_json, null, 2),
-        status: latestVersion.status === 'deleted' ? 'draft' : latestVersion.status,
+        status: latestVersion.status === MCPStatus.DELETED ? MCPStatus.DRAFT : latestVersion.status,
         source: latestVersion.source || '',
-        toolsText: latestVersion.tools?.length ? JSON.stringify(latestVersion.tools, null, 2) : '',
+        toolsText: '',
         tags: { ...latestVersion.tags },
       });
     } else {

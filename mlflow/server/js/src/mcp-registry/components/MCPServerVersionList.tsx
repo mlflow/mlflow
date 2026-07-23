@@ -24,7 +24,9 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServerVersion } from '../types';
+import { MCPServerDetailViewMode } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
+import { MCPServerVersionDiffSelectorButton } from './MCPServerVersionDiffSelectorButton';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import Utils from '../../common/utils/Utils';
 
@@ -79,7 +81,10 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
 export const MCPServerVersionList = ({
   versions,
   selectedVersion,
+  comparedVersion,
+  mode = MCPServerDetailViewMode.PREVIEW,
   onSelectVersion,
+  onSelectComparedVersion,
   isLoading,
   serverDisplayName,
   aliasesByVersion,
@@ -87,7 +92,10 @@ export const MCPServerVersionList = ({
 }: {
   versions?: MCPServerVersion[];
   selectedVersion?: string;
+  comparedVersion?: string;
+  mode?: MCPServerDetailViewMode;
   onSelectVersion: (version: string) => void;
+  onSelectComparedVersion?: (version: string) => void;
   isLoading?: boolean;
   serverDisplayName: string;
   aliasesByVersion: Record<string, string[]>;
@@ -95,6 +103,7 @@ export const MCPServerVersionList = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const isCompareMode = mode === MCPServerDetailViewMode.COMPARE;
 
   const columns = useMemo<ColumnDef<MCPServerVersion>[]>(
     () => [
@@ -145,28 +154,38 @@ export const MCPServerVersionList = ({
           table.getRowModel().rows.map((row) => {
             const version = row.original.version;
             const isSelected = selectedVersion === version;
+            const isCompared = comparedVersion === version;
             return (
               <TableRow
                 key={row.id}
-                tabIndex={0}
+                tabIndex={isCompareMode ? undefined : 0}
                 aria-selected={isSelected}
                 css={{
-                  backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-                  cursor: 'pointer',
+                  backgroundColor:
+                    isCompareMode && (isSelected || isCompared)
+                      ? theme.colors.actionDefaultBackgroundHover
+                      : !isCompareMode && isSelected
+                        ? theme.colors.actionDefaultBackgroundPress
+                        : 'transparent',
+                  cursor: isCompareMode ? 'default' : 'pointer',
                 }}
-                onClick={() => onSelectVersion(version)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectVersion(version);
-                  }
-                }}
+                onClick={isCompareMode ? undefined : () => onSelectVersion(version)}
+                onKeyDown={
+                  isCompareMode
+                    ? undefined
+                    : (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSelectVersion(version);
+                        }
+                      }
+                }
               >
                 {row.getAllCells().map((cell) => (
                   <TableCell key={cell.id} css={{ alignItems: 'center' }}>
                     <div css={spaceBetweenRowStyles}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      {isSelected && (
+                      {!isCompareMode && isSelected && (
                         <div css={selectedRowIndicatorStyles(theme)}>
                           <ChevronRightIcon />
                         </div>
@@ -174,6 +193,14 @@ export const MCPServerVersionList = ({
                     </div>
                   </TableCell>
                 ))}
+                {isCompareMode && (
+                  <MCPServerVersionDiffSelectorButton
+                    isSelectedBaseline={isSelected}
+                    isSelectedCompared={isCompared}
+                    onSelectBaseline={() => onSelectVersion(version)}
+                    onSelectCompared={() => onSelectComparedVersion?.(version)}
+                  />
+                )}
               </TableRow>
             );
           })

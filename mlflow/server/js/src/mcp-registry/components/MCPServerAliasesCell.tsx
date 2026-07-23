@@ -1,5 +1,5 @@
-import { Button, PencilIcon, Tag, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { Button, PencilIcon, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { AliasTag } from '../../common/components/AliasTag';
 import { tagListStyles } from '../styles';
 import { LATEST_ALIAS } from '../utils';
@@ -18,9 +18,22 @@ export const MCPServerAliasesCell = ({ aliases, onEdit, className }: MCPServerAl
     <div css={tagListStyles(theme)} className={className}>
       {aliases.map((alias) =>
         alias === LATEST_ALIAS ? (
-          <Tag key={alias} componentId="mlflow.mcp_registry.latest_alias" color="brown">
-            @ {alias}
-          </Tag>
+          <Tooltip
+            key={alias}
+            content={
+              <FormattedMessage
+                defaultMessage="This alias is automatically maintained and always resolves to the highest published version."
+                description="Tooltip explaining the @latest alias in MCP registry"
+              />
+            }
+            componentId="mlflow.mcp_registry.latest_alias_tooltip"
+          >
+            <span>
+              <Tag componentId="mlflow.mcp_registry.latest_alias" color="brown">
+                @ {alias}
+              </Tag>
+            </span>
+          </Tooltip>
         ) : (
           <AliasTag value={alias} key={alias} />
         ),

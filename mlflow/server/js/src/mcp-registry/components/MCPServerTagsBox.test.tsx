@@ -39,8 +39,8 @@ describe('MCPServerTagsBox', () => {
     expect(screen.getByRole('button', { name: 'Edit tags' })).toBeInTheDocument();
   });
 
-  it('renders Add tags button when server is undefined', () => {
+  it('hides Add tags button when server is undefined', () => {
     renderTagsBox({ server: undefined });
-    expect(screen.getByText('Add tags')).toBeInTheDocument();
+    expect(screen.queryByText('Add tags')).not.toBeInTheDocument();
   });
 });
