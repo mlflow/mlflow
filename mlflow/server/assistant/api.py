@@ -13,7 +13,11 @@ from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
-from mlflow.assistant.providers import list_providers
+from mlflow.assistant.gateway_connection import (
+    GatewayUnsupportedError,
+    ensure_gateway_connection,
+)
+from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -171,6 +175,33 @@ class SessionPatchResponse(BaseModel):
 class PermissionDecision(BaseModel):
     request_id: str  # the paused tool_call's id
     decision: Literal["allow", "deny"]
+
+
+def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | None:
+    api_key = provider_data.get("api_key")
+    gateway_vendor = provider_data.get("gateway_vendor")
+    if not api_key and gateway_vendor is None:
+        return None
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway vendor connections require an API key.",
+        )
+    if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="API keys must be stored in LLM Connections through the "
+            "'mlflow_gateway' provider.",
+        )
+    if gateway_vendor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway API keys require a gateway_vendor.",
+        )
+    try:
+        return ensure_gateway_connection(gateway_vendor, api_key)
+    except (GatewayUnsupportedError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # Skills-related models
@@ -433,7 +464,8 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
-            api_key = provider_data.get("api_key")
+            if gateway_model := _store_gateway_api_key(name, provider_data):
+                model = gateway_model
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
@@ -444,14 +476,13 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
             selected = provider_data.get("selected", False)
             if selected:
-                config.set_provider(name, model, permissions, base_url=base_url, api_key=api_key)
+                config.set_provider(name, model, permissions, base_url=base_url)
             else:
                 config.update_provider(
                     name,
                     model=model,
                     permissions=permissions,
                     base_url=base_url,
-                    api_key=api_key,
                 )
 
     # Update projects
