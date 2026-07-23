@@ -28,6 +28,11 @@ from mlflow.utils.crypto import KEKManager, _decrypt_secret
 
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
+# Chunk size for exact-identity dedup queries in the IntegrityError recovery
+# path of _log_metrics. 100 rows × 5 identity columns + 1 run_uuid = 501 bind
+# params, safely under the tightest supported dialect limit (SQLite, 999).
+_METRIC_DEDUP_CHUNK_SIZE = 100
+
 import mlflow.store.db.utils
 from mlflow.entities import (
     Assessment,
@@ -1260,32 +1265,61 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # continue using the session. In this case, we re-use the session to query
                 # SqlMetric
                 session.rollback()
-                # Divide metric keys into batches of 100 to avoid loading too much metric
-                # history data into memory at once
-                metric_keys = list({m.key for m in metric_instances})
-                metric_key_batches = [
-                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
-                ]
-                # Iteratively filter out metric_instances per batch to avoid
-                # loading all metric history into memory at once
-                # (see https://github.com/mlflow/mlflow/issues/19144)
-                for metric_key_batch in metric_key_batches:
-                    # obtain the metric history corresponding to the given metrics
-                    metric_history = (
-                        session
-                        .query(SqlMetric)
+
+                # Query exact metric identities instead of per-key history to bound
+                # recovery cost by batch size, not run history. See
+                # https://github.com/mlflow/mlflow/issues/24577
+                def _metric_id(key, timestamp, step, value, is_nan):
+                    # metric_pk minus the (constant) run_uuid. Key on the stored
+                    # is_nan flag, not float("nan"): NaN rows are persisted as
+                    # value=0, is_nan=True, and nan != nan in Python would
+                    # otherwise make NaN rows never match.
+                    return (key, timestamp, step, value, is_nan)
+
+                # Build an ordered identity -> instance map. This deduplicates
+                # candidates (including distinct in-batch NaN objects that
+                # sanitize to the same identity) and preserves insertion order
+                # for the retry list below.
+                metrics_by_id = {}
+                for m in metric_instances:
+                    metrics_by_id.setdefault(
+                        _metric_id(m.key, m.timestamp, m.step, m.value, m.is_nan), m
+                    )
+
+                candidates = list(metrics_by_id)
+                existing_ids = set()
+                for i in range(0, len(candidates), _METRIC_DEDUP_CHUNK_SIZE):
+                    chunk = candidates[i : i + _METRIC_DEDUP_CHUNK_SIZE]
+                    row_predicates = [
+                        and_(
+                            SqlMetric.key == key,
+                            SqlMetric.timestamp == timestamp,
+                            SqlMetric.step == step,
+                            SqlMetric.value == value,
+                            SqlMetric.is_nan == is_nan,
+                        )
+                        for key, timestamp, step, value, is_nan in chunk
+                    ]
+                    rows = (
+                        session.query(
+                            SqlMetric.key,
+                            SqlMetric.timestamp,
+                            SqlMetric.step,
+                            SqlMetric.value,
+                            SqlMetric.is_nan,
+                        )
                         .filter(
-                            SqlMetric.run_uuid == run_id,
-                            SqlMetric.key.in_(metric_key_batch),
+                            SqlMetric.run_uuid == run_id,  # constant -> factored out of the OR
+                            or_(*row_predicates),
                         )
                         .all()
                     )
-                    metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    metric_instances = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in metric_history
-                    ]
-                # if there exist metrics that were tried to be logged & rolled back even
-                # though they were not violating the PK, log them
+                    existing_ids.update(_metric_id(*row) for row in rows)
+
+                # Re-insert only the metrics that are genuinely new.
+                metric_instances = [
+                    m for metric_id, m in metrics_by_id.items() if metric_id not in existing_ids
+                ]
                 if non_existing_metrics := metric_instances:
                     _insert_metrics(non_existing_metrics)
 

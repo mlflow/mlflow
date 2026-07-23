@@ -2496,6 +2496,66 @@ def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: Sq
     )
 
 
+def test_log_batch_duplicate_nan_metric_retry(store: SqlAlchemyStore):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24577
+
+    NaN metrics are persisted as value=0, is_nan=True. The old dedup used
+    to_mlflow_entity() which compares float values, and nan != nan in Python,
+    so a retried NaN metric was never recognized as a duplicate and re-raised
+    IntegrityError. The fix keys on the stored is_nan flag instead.
+    """
+    run = _run_factory(store)
+    nan_metric = Metric(key="nan-key", value=float("nan"), timestamp=1, step=0)
+    # First log succeeds
+    store.log_batch(run.info.run_id, params=[], metrics=[nan_metric], tags=[])
+    # Retry the same NaN metric — should be deduplicated, not raise
+    store.log_batch(run.info.run_id, params=[], metrics=[nan_metric], tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=[nan_metric], tags=[])
+
+
+def test_log_batch_duplicate_mixed_with_new_and_nan(store: SqlAlchemyStore):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24577
+
+    A batch with duplicates (including NaN), plus genuinely new metrics,
+    should insert only the new ones without raising.
+    """
+    run = _run_factory(store)
+    metric_a = Metric(key="key-a", value=1.0, timestamp=1, step=0)
+    metric_b = Metric(key="key-b", value=2.0, timestamp=2, step=1)
+    nan_metric = Metric(key="nan-key", value=float("nan"), timestamp=3, step=2)
+    # Log initial batch
+    store.log_batch(run.info.run_id, params=[], metrics=[metric_a, metric_b, nan_metric], tags=[])
+    # Retry with duplicates + one new metric
+    new_metric = Metric(key="key-c", value=3.0, timestamp=4, step=3)
+    retry_batch = [metric_a, metric_b, nan_metric, new_metric]
+    store.log_batch(run.info.run_id, params=[], metrics=retry_batch, tags=[])
+    _verify_logged(
+        store,
+        run.info.run_id,
+        params=[],
+        metrics=[metric_a, metric_b, nan_metric, new_metric],
+        tags=[],
+    )
+
+
+def test_log_batch_duplicate_across_dedup_chunk_boundary(store: SqlAlchemyStore):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24577
+
+    Ensure dedup works when the number of candidate identities exceeds
+    _METRIC_DEDUP_CHUNK_SIZE (100), exercising the chunking logic.
+    """
+    run = _run_factory(store)
+    num_metrics = 250  # spans 3 chunks of 100
+    metrics = [
+        Metric(key=f"chunk-key-{i}", value=float(i), timestamp=i, step=i)
+        for i in range(num_metrics)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    # Retry all — all duplicates, should not raise
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
 def test_log_batch_null_metrics(store: SqlAlchemyStore):
     run = _run_factory(store)
 
