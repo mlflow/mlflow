@@ -17,7 +17,6 @@ from urllib.parse import quote
 from typing_extensions import NotRequired
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
     SCORER_BACKEND_TRACKING,
@@ -458,9 +457,13 @@ class DatabricksStore(AbstractScorerStore):
             items.extend(extract_items(response))
 
             next_page_token = response.get("next_page_token")
-            if not next_page_token:
+            if next_page_token is None:
                 return items
-            if not isinstance(next_page_token, str) or next_page_token == page_token:
+            if (
+                not isinstance(next_page_token, str)
+                or not next_page_token
+                or next_page_token == page_token
+            ):
                 raise MlflowException(
                     "Paginated response contained an invalid `next_page_token`.",
                     INTERNAL_ERROR,
@@ -473,47 +476,6 @@ class DatabricksStore(AbstractScorerStore):
             self._extract_current_scorer_configs,
         )
 
-    def _hydrate_scorer(
-        self,
-        scorer: Scorer,
-        experiment_id: str,
-        *,
-        sample_rate: float | None = None,
-        filter_string: str | None = None,
-    ) -> Scorer:
-        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
-        scorer._experiment_id = experiment_id
-        scorer._sampling_config = ScorerSamplingConfig(
-            sample_rate=sample_rate,
-            filter_string=filter_string,
-        )
-        return scorer
-
-    def _config_to_scorer(
-        self,
-        config: _SerializedScorerConfig,
-        experiment_id: str,
-        *,
-        current_config: _ScheduledScorerConfig | None = None,
-        display_name: str | None = None,
-    ) -> Scorer:
-        serialized_scorer = config.get("serialized_scorer")
-        if serialized_scorer is None:
-            raise MlflowException("Scorer response did not include `serialized_scorer`.")
-        scorer = Scorer.model_validate(json.loads(serialized_scorer))
-        display_name = display_name or config.get("name")
-        if display_name is not None and scorer.name != display_name:
-            scorer.name = display_name
-            if scorer._cached_dump is not None:
-                scorer._cached_dump["name"] = display_name
-        sampling_config = current_config if current_config is not None else config
-        return self._hydrate_scorer(
-            scorer,
-            experiment_id,
-            sample_rate=sampling_config.get("sample_rate"),
-            filter_string=sampling_config.get("filter_string"),
-        )
-
     def _find_current_scorer_config(self, experiment_id: str, name: str) -> _ScheduledScorerConfig:
         for config in self._list_current_scorer_configs(experiment_id):
             if config.get("name") == name:
@@ -522,16 +484,6 @@ class DatabricksStore(AbstractScorerStore):
             f"Scorer with name '{name}' not found for experiment {experiment_id}.",
             RESOURCE_DOES_NOT_EXIST,
         )
-
-    @staticmethod
-    def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
-        scorer = scheduled_scorer.scorer
-        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
-        scorer._sampling_config = ScorerSamplingConfig(
-            sample_rate=scheduled_scorer.sample_rate,
-            filter_string=scheduled_scorer.filter_string,
-        )
-        return scorer
 
     # Private functions for internal use by Scorer methods
     @staticmethod
@@ -556,7 +508,14 @@ class DatabricksStore(AbstractScorerStore):
             sample_rate=sample_rate,
             filter_string=filter_string,
         )
-        return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
+        return scheduled_scorer.scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_DATABRICKS,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(
+                sample_rate=scheduled_scorer.sample_rate,
+                filter_string=scheduled_scorer.filter_string,
+            ),
+        )
 
     @staticmethod
     def list_scheduled_scorers(experiment_id):
@@ -613,7 +572,14 @@ class DatabricksStore(AbstractScorerStore):
             sample_rate=sample_rate,
             filter_string=filter_string,
         )
-        return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
+        return scheduled_scorer.scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_DATABRICKS,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(
+                sample_rate=scheduled_scorer.sample_rate,
+                filter_string=scheduled_scorer.filter_string,
+            ),
+        )
 
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
@@ -636,7 +602,14 @@ class DatabricksStore(AbstractScorerStore):
 
         # Convert to Scorer instances with registration info
         return [
-            DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
+            scheduled_scorer.scorer._set_registration_metadata(
+                backend=SCORER_BACKEND_DATABRICKS,
+                experiment_id=experiment_id,
+                sampling_config=ScorerSamplingConfig(
+                    sample_rate=scheduled_scorer.sample_rate,
+                    filter_string=scheduled_scorer.filter_string,
+                ),
+            )
             for scheduled_scorer in scheduled_scorers
         ]
 
@@ -651,18 +624,30 @@ class DatabricksStore(AbstractScorerStore):
                 ),
             )
             current_config = self._find_current_scorer_config(experiment_id, name)
-            return self._config_to_scorer(
-                version_config,
-                experiment_id,
-                current_config=current_config,
-                display_name=version_config.get("display_name") or name,
+            return Scorer._from_serialized_scorer(
+                version_config.get("serialized_scorer"),
+                name=version_config.get("display_name") or name,
+            )._set_registration_metadata(
+                backend=SCORER_BACKEND_DATABRICKS,
+                experiment_id=experiment_id,
+                sampling_config=ScorerSamplingConfig(
+                    sample_rate=current_config.get("sample_rate"),
+                    filter_string=current_config.get("filter_string"),
+                ),
             )
 
         # Get the scheduled scorer from the server
         scheduled_scorer = DatabricksStore.get_scheduled_scorer(name, experiment_id)
 
         # Extract the scorer and set registration fields
-        return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
+        return scheduled_scorer.scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_DATABRICKS,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(
+                sample_rate=scheduled_scorer.sample_rate,
+                filter_string=scheduled_scorer.filter_string,
+            ),
+        )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
         experiment_id = self._resolve_experiment_id(experiment_id)
@@ -674,11 +659,16 @@ class DatabricksStore(AbstractScorerStore):
         current_config = self._find_current_scorer_config(experiment_id, name)
         return [
             (
-                self._config_to_scorer(
-                    config,
-                    experiment_id,
-                    current_config=current_config,
-                    display_name=config.get("display_name") or name,
+                Scorer._from_serialized_scorer(
+                    config.get("serialized_scorer"),
+                    name=config.get("display_name") or name,
+                )._set_registration_metadata(
+                    backend=SCORER_BACKEND_DATABRICKS,
+                    experiment_id=experiment_id,
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=current_config.get("sample_rate"),
+                        filter_string=current_config.get("filter_string"),
+                    ),
                 ),
                 config["scorer_version"],
             )

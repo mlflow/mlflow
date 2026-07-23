@@ -103,8 +103,11 @@ def test_mlflow_backend_scorer_operations():
 def test_databricks_backend_scorer_operations():
     # Mock the scheduled scorer responses
     mock_scheduled_scorer = Mock()
-    mock_scheduled_scorer.scorer = Mock(spec=Scorer)
-    mock_scheduled_scorer.scorer.name = "test_databricks_scorer"
+    mock_scheduled_scorer.scorer = Guidelines(
+        name="test_databricks_scorer",
+        guidelines=["Be concise"],
+        model="databricks:/judge",
+    )
     mock_scheduled_scorer.sample_rate = 0.5
     mock_scheduled_scorer.filter_string = "test_filter"
 
@@ -247,7 +250,7 @@ def test_databricks_backend_delete_all_uses_scheduled_scorer_delete(version):
     mock_http.assert_not_called()
 
 
-@pytest.mark.parametrize("next_page_token", [123, "same-token"])
+@pytest.mark.parametrize("next_page_token", [0, False, "", 123, "same-token"])
 def test_databricks_backend_pagination_rejects_invalid_next_page_token(next_page_token):
     with (
         patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
@@ -268,8 +271,8 @@ def test_databricks_backend_pagination_rejects_invalid_next_page_token(next_page
 def test_databricks_backend_config_response_errors_use_oss_error_codes():
     store = DatabricksStore(tracking_uri="databricks")
 
-    with pytest.raises(MlflowException, match="Scorer response") as malformed:
-        store._config_to_scorer({}, "exp_123")
+    with pytest.raises(MlflowException, match="Serialized scorer data is required") as malformed:
+        Scorer._from_serialized_scorer(None)
     assert malformed.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     with (
