@@ -5,5 +5,17 @@ runs:
   steps:
     - shell: bash
       run: |
-        # Run in background to save time
+        echo "Disk usage before cleanup:"
+        df -h /
+        # Remove large pre-installed toolchains that MLflow jobs never use so that
+        # disk-heavy steps (e.g. Docker image builds) have enough headroom. The
+        # deletions run in parallel to save time, but we `wait` for them to finish
+        # so subsequent steps observe the reclaimed space.
         sudo rm -rf /usr/local/lib/android &
+        sudo rm -rf /usr/share/dotnet &
+        sudo rm -rf /opt/ghc /usr/local/.ghcup &
+        sudo rm -rf /opt/hostedtoolcache/CodeQL &
+        sudo rm -rf /usr/local/share/boost &
+        wait
+        echo "Disk usage after cleanup:"
+        df -h /
