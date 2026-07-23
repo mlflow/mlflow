@@ -386,7 +386,14 @@ jobs:
               data = json.load(response)
 
           print(f"{package} PyPI JSON release metadata:")
-          for version in ["1.8.0a0", "1.9.0a0", "1.10.0a0", "1.11.0a0", "1.12.0a0"]:
+          for version in [
+              "1.8.0a0",
+              "1.9.0a0",
+              "1.10.0a0",
+              "1.11.0a0",
+              "1.12.0a0",
+              "1.13.0",
+          ]:
               files = data["releases"].get(version, [])
               if not files:
                   print(f"  {version}: <no files>")
@@ -411,6 +418,8 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu google-adk || true
           echo "Direct google-adk[gcp]==2.4.0 dry-run:"
           uv pip install --dry-run 'google-adk[gcp]==2.4.0' || true
+          echo "Direct google-adk[gcp]==2.4.0 dry-run with --prerelease=allow:"
+          uv pip install --dry-run --prerelease=allow 'google-adk[gcp]==2.4.0' || true
           echo "Direct google-adk[gcp] dry-run with --upgrade:"
           uv pip install --dry-run --upgrade 'google-adk[gcp]' || true
           echo "Direct google-adk[gcp] dry-run forcing compatible Starlette/OTel:"
