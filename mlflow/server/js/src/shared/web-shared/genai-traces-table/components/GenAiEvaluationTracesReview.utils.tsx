@@ -164,6 +164,25 @@ export enum KnownEvaluationResultAssessmentStringValue {
   UNKNOWN = 'unknown',
 }
 
+/**
+ * Normalizes assessment string values so that "pass"/"PASS" are treated as "yes"
+ * and "fail"/"FAIL" are treated as "no". This allows custom judges using
+ * Literal["PASS", "FAIL"] to get proper pass/fail coloring in the UI.
+ */
+export function normalizeAssessmentStringValue(value: string | null | undefined): string | null | undefined {
+  if (value == null) {
+    return value;
+  }
+  const lower = value.toLowerCase();
+  if (lower === 'pass') {
+    return KnownEvaluationResultAssessmentStringValue.YES;
+  }
+  if (lower === 'fail') {
+    return KnownEvaluationResultAssessmentStringValue.NO;
+  }
+  return value;
+}
+
 export function getAssessmentValueLabel(
   intl: IntlShape,
   theme: ThemeType,
@@ -180,7 +199,8 @@ export function getAssessmentValueLabel(
     };
   }
   if (assessmentInfo.dtype === 'pass-fail') {
-    if (value === KnownEvaluationResultAssessmentStringValue.YES) {
+    const normalizedValue = typeof value === 'string' ? normalizeAssessmentStringValue(value) : value;
+    if (normalizedValue === KnownEvaluationResultAssessmentStringValue.YES) {
       return {
         content: intl.formatMessage({
           defaultMessage: 'Pass',
@@ -209,7 +229,7 @@ export function getAssessmentValueLabel(
           </span>
         ),
       };
-    } else if (value === KnownEvaluationResultAssessmentStringValue.NO) {
+    } else if (normalizedValue === KnownEvaluationResultAssessmentStringValue.NO) {
       return {
         content: intl.formatMessage({
           defaultMessage: 'Fail',
@@ -752,11 +772,14 @@ export const isEvaluationResultPerRetrievalChunkAssessment = (assessmentEntry: R
 export const getEvaluationResultAssessmentValue = (
   assessment: RunEvaluationResultAssessment,
 ): AssessmentValueType | undefined => {
-  const value = assessment.stringValue ?? assessment.numericValue ?? assessment.booleanValue;
-  if (isNil(value)) {
+  const rawValue = assessment.stringValue ?? assessment.numericValue ?? assessment.booleanValue;
+  if (isNil(rawValue)) {
     return undefined;
   }
-  return value;
+  if (typeof rawValue === 'string') {
+    return normalizeAssessmentStringValue(rawValue) ?? rawValue;
+  }
+  return rawValue;
 };
 
 /**
