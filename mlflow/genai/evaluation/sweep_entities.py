@@ -99,6 +99,9 @@ class SweepConfigResult:
             trace reported cost data.
         results: The underlying per-repeat :class:`EvaluationResult` objects, for
             callers who want the raw per-run metrics and result DataFrames.
+        failed_repeats: Number of repeats that raised and were skipped. The
+            intervals and latency/cost stats are computed from the repeats that
+            succeeded.
     """
 
     name: str
@@ -107,6 +110,7 @@ class SweepConfigResult:
     latency: LatencyStats | None = None
     cost: CostStats | None = None
     results: list["EvaluationResult"] = field(default_factory=list)
+    failed_repeats: int = 0
 
 
 @experimental(version="3.15.0")

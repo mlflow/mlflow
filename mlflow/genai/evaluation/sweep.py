@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable
+from unittest import mock
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.base import evaluate
 from mlflow.genai.evaluation.statistics import compute_scorer_interval
@@ -120,7 +122,7 @@ def evaluate_sweep(
 
     parent_run = mlflow.active_run()
     parent_ctx = nullcontext(parent_run) if parent_run else mlflow.start_run()
-    with parent_ctx as parent:
+    with parent_ctx as parent, _sweep_execution_context():
         parent_run_id = parent.info.run_id
         if parent.data.tags.get(MLFLOW_RUN_TYPE) is None:
             mlflow.set_tag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE_SWEEP)
@@ -141,6 +143,30 @@ def evaluate_sweep(
         _log_summary_metrics_to_parent(sweep_result)
 
     return sweep_result
+
+
+@contextmanager
+def _sweep_execution_context():
+    """Configure the process for the duration of a sweep.
+
+    Suppresses the per-cell "view evaluation results" output — a sweep runs many
+    nested ``evaluate`` calls, and rendering that summary (and its REST fetch)
+    for every cell floods a notebook and can hang it. Also defaults
+    ``MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION`` on so a sweep doesn't invoke each
+    predict_fn on the first dataset sample before the run starts; an explicit
+    user setting is left untouched.
+    """
+    skip_validation = MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.is_set()
+    if not skip_validation:
+        MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.set(True)
+    try:
+        with mock.patch(
+            "mlflow.genai.evaluation.base.display_evaluation_output", lambda *a, **k: None
+        ):
+            yield
+    finally:
+        if not skip_validation:
+            MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.unset()
 
 
 def _normalize_predict_fns(
@@ -180,19 +206,36 @@ def _run_config(
     config_result = SweepConfigResult(name=name)
     reuse_data: Any | None = None  # traces from repeat 0, when predict_once is set
 
+    # The sweep defaults MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION on, which also skips
+    # evaluate's auto-tracing of an untraced predict_fn. Wrap it here so untraced
+    # functions still emit the trace scorers need, without the pre-run sample call.
+    if not getattr(predict_fn, "__mlflow_traced__", False):
+        predict_fn = mlflow.trace(predict_fn)
+
     for repeat in range(n_repeats):
         use_predictions = repeat == 0 or not predict_once
-        with mlflow.start_run(nested=True, run_name=f"{name}-repeat-{repeat}") as child:
-            if use_predictions:
-                result = evaluate(data=data, scorers=scorers, predict_fn=predict_fn)
-                if predict_once and n_repeats > 1:
-                    reuse_data = _traces_for_reuse(result.run_id)
-            else:
-                # Re-score the traces generated on repeat 0; no predict_fn.
-                result = evaluate(data=reuse_data, scorers=scorers)
+        # A single cell failing (bad endpoint, transient error) must not abort the
+        # whole sweep — record it and move on to the next repeat/config.
+        try:
+            with mlflow.start_run(nested=True, run_name=f"{name}-repeat-{repeat}") as child:
+                if use_predictions:
+                    result = evaluate(data=data, scorers=scorers, predict_fn=predict_fn)
+                    if predict_once and n_repeats > 1:
+                        reuse_data = _traces_for_reuse(result.run_id)
+                elif reuse_data is None:
+                    # predict_once, but repeat 0 failed to produce reusable traces.
+                    raise MlflowException(
+                        f"Cannot reuse predictions for '{name}' repeat {repeat}: "
+                        "repeat 0 did not produce traces."
+                    )
+                else:
+                    result = evaluate(data=reuse_data, scorers=scorers)
 
-            config_result.child_run_ids.append(child.info.run_id)
-            config_result.results.append(result)
+                config_result.child_run_ids.append(child.info.run_id)
+                config_result.results.append(result)
+        except Exception as e:
+            config_result.failed_repeats += 1
+            _logger.warning(f"Config '{name}' repeat {repeat} failed, skipping it: {e}")
 
     _aggregate_config(config_result)
     return config_result

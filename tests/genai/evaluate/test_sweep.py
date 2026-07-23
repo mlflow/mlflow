@@ -277,6 +277,52 @@ def test_sweep_list_of_predict_fns_named_by_function(server_config):
     assert set(result.configs) == {"good_model", "bad_model"}
 
 
+def test_sweep_continues_when_a_config_fails(server_config):
+    def broken_model(question: str) -> str:
+        raise RuntimeError("endpoint down")
+
+    result = mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[exact_match],
+        predict_fns={"good": good_model, "broken": broken_model},
+        n_repeats=2,
+    )
+    # The sweep completes and still contains the healthy config's results.
+    assert set(result.configs) == {"good", "broken"}
+    assert result.configs["good"].scorer_intervals["exact_match"].mean == 1.0
+    # A model whose every prediction errors scores lowest rather than crashing.
+    assert result.configs["broken"].scorer_intervals["exact_match"].mean == 0.0
+
+
+def test_sweep_traces_untraced_predict_fn(server_config):
+    # A plain, undecorated predict_fn must still produce scored traces even though
+    # the sweep defaults MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION on.
+    def plain_model(question: str) -> str:
+        return "good" if question in ANSWERS else "bad"
+
+    result = mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[output_length],
+        predict_fns={"plain": plain_model},
+        n_repeats=2,
+    )
+    assert "output_length" in result.configs["plain"].scorer_intervals
+
+
+def test_sweep_does_not_set_skip_validation_permanently(server_config):
+    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION
+
+    assert not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.is_set()
+    mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[exact_match],
+        predict_fns={"good": good_model},
+        n_repeats=1,
+    )
+    # The default is restored after the sweep, not leaked into the process.
+    assert not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.is_set()
+
+
 def test_sweep_rejects_invalid_n_repeats(server_config):
     with pytest.raises(MlflowException, match="n_repeats must be >= 1"):
         mlflow.genai.evaluate_sweep(
