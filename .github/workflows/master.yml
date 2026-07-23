@@ -421,6 +421,8 @@ jobs:
           PY
           uv pip tree --package google-adk || true
           echo "::endgroup::"
+          echo "Failing intentionally after google-adk CI diagnostics."
+          exit 1
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
