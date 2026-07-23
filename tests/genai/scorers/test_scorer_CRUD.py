@@ -383,7 +383,7 @@ def test_databricks_backend_current_scorer_configs_paginate():
 
         configs = DatabricksStore(tracking_uri="databricks")._list_current_scorer_configs("exp_123")
 
-    assert [config["name"] for config in configs] == ["scorer_v1", "scorer_v2"]
+    assert [config.name for config in configs] == ["scorer_v1", "scorer_v2"]
     assert mock_http.call_args_list[0].kwargs["params"] is None
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
 

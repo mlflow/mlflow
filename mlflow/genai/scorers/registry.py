@@ -11,10 +11,11 @@ from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, Optional, TypedDict, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
 from urllib.parse import quote
 
-from typing_extensions import NotRequired
+from pydantic import BaseModel, ConfigDict, ValidationError
+from typing_extensions import Self
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import (
@@ -37,23 +38,67 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-class _SerializedScorerConfig(TypedDict):
+class _SerializedScorerConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     name: str
     serialized_scorer: str
-    builtin: NotRequired[dict[str, str]]
-    custom: NotRequired[dict[str, Any]]
-    sample_rate: NotRequired[float]
-    filter_string: NotRequired[str | None]
+    builtin: dict[str, str] | None = None
+    custom: dict[str, Any] | None = None
+    sample_rate: float | None = None
+    filter_string: str | None = None
+
+    @classmethod
+    def _parse(cls, value: Any, response_field: str) -> Self:
+        try:
+            return cls.model_validate(value)
+        except ValidationError as e:
+            raise MlflowException(
+                f"Failed to parse managed scorer response field `{response_field}`: {e}",
+                INTERNAL_ERROR,
+            ) from e
+
+    @classmethod
+    def _parse_list(cls, value: Any, response_field: str) -> list[Self]:
+        if not isinstance(value, list):
+            raise MlflowException(
+                f"Failed to parse managed scorer response field `{response_field}`: "
+                "expected a list.",
+                INTERNAL_ERROR,
+            )
+        return [cls._parse(item, response_field) for item in value]
 
 
 class _ScheduledScorerConfig(_SerializedScorerConfig):
-    scorer_version: NotRequired[int]
+    scorer_version: int = 1
+
+    @classmethod
+    def from_list_response(cls, response: dict[str, Any]) -> list[Self]:
+        scheduled_scorers = response.get("scheduled_scorers", {})
+        if not isinstance(scheduled_scorers, dict):
+            raise MlflowException(
+                "Failed to parse managed scorer response field `scheduled_scorers`: "
+                "expected an object.",
+                INTERNAL_ERROR,
+            )
+        return cls._parse_list(
+            scheduled_scorers.get("scorers", []),
+            "scheduled_scorers.scorers",
+        )
 
 
 class _ScorerVersion(_SerializedScorerConfig):
-    display_name: NotRequired[str]
+    display_name: str | None = None
     scorer_version: int
-    create_time: NotRequired[str]
+    create_time: str | None = None
+
+    @classmethod
+    def from_response(cls, response: dict[str, Any]) -> Self:
+        return cls._parse(response, "scorer_version")
+
+    @classmethod
+    def from_list_response(cls, response: dict[str, Any]) -> list[Self]:
+        return cls._parse_list(response.get("scorer_versions", []), "scorer_versions")
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -367,6 +412,8 @@ class DatabricksStore(AbstractScorerStore):
     managed-evals API for versioned operations.
     """
 
+    # TODO: Extract managed-evals request and pagination handling into a shared
+    # ManagedEvalsClient used by other managed-evals integrations.
     _MANAGED_EVALS_BASE = "/api/2.0/managed-evals"
     _MANAGED_EVALS_SCHEDULED_SCORERS_BASE = f"{_MANAGED_EVALS_BASE}/scheduled-scorers"
 
@@ -431,19 +478,6 @@ class DatabricksStore(AbstractScorerStore):
             return {}
         return cast(dict[str, Any], response.json())
 
-    @staticmethod
-    def _extract_current_scorer_configs(
-        response: dict[str, Any],
-    ) -> list[_ScheduledScorerConfig]:
-        return cast(
-            list[_ScheduledScorerConfig],
-            response.get("scheduled_scorers", {}).get("scorers", []),
-        )
-
-    @staticmethod
-    def _extract_scorer_versions(response: dict[str, Any]) -> list[_ScorerVersion]:
-        return cast(list[_ScorerVersion], response.get("scorer_versions", []))
-
     def _get_paginated_results(
         self,
         endpoint: str,
@@ -473,12 +507,12 @@ class DatabricksStore(AbstractScorerStore):
     def _list_current_scorer_configs(self, experiment_id: str) -> list[_ScheduledScorerConfig]:
         return self._get_paginated_results(
             self._scheduled_scorers_endpoint(experiment_id),
-            self._extract_current_scorer_configs,
+            _ScheduledScorerConfig.from_list_response,
         )
 
     def _find_current_scorer_config(self, experiment_id: str, name: str) -> _ScheduledScorerConfig:
         for config in self._list_current_scorer_configs(experiment_id):
-            if config.get("name") == name:
+            if config.name == name:
                 return config
         raise MlflowException(
             f"Scorer with name '{name}' not found for experiment {experiment_id}.",
@@ -616,23 +650,21 @@ class DatabricksStore(AbstractScorerStore):
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
             experiment_id = self._resolve_experiment_id(experiment_id)
-            version_config = cast(
-                _ScorerVersion,
+            version_config = _ScorerVersion.from_response(
                 self._request(
-                    "GET",
-                    self._scorer_version_endpoint(experiment_id, name, version),
-                ),
+                    "GET", self._scorer_version_endpoint(experiment_id, name, version)
+                )
             )
             current_config = self._find_current_scorer_config(experiment_id, name)
             return Scorer._from_serialized_scorer(
-                version_config.get("serialized_scorer"),
-                name=version_config.get("display_name") or name,
+                version_config.serialized_scorer,
+                name=version_config.display_name or name,
             )._set_registration_metadata(
                 backend=SCORER_BACKEND_DATABRICKS,
                 experiment_id=experiment_id,
                 sampling_config=ScorerSamplingConfig(
-                    sample_rate=current_config.get("sample_rate"),
-                    filter_string=current_config.get("filter_string"),
+                    sample_rate=current_config.sample_rate,
+                    filter_string=current_config.filter_string,
                 ),
             )
 
@@ -653,24 +685,24 @@ class DatabricksStore(AbstractScorerStore):
         experiment_id = self._resolve_experiment_id(experiment_id)
         configs = self._get_paginated_results(
             self._scorer_versions_endpoint(experiment_id, name),
-            self._extract_scorer_versions,
+            _ScorerVersion.from_list_response,
         )
 
         current_config = self._find_current_scorer_config(experiment_id, name)
         return [
             (
                 Scorer._from_serialized_scorer(
-                    config.get("serialized_scorer"),
-                    name=config.get("display_name") or name,
+                    config.serialized_scorer,
+                    name=config.display_name or name,
                 )._set_registration_metadata(
                     backend=SCORER_BACKEND_DATABRICKS,
                     experiment_id=experiment_id,
                     sampling_config=ScorerSamplingConfig(
-                        sample_rate=current_config.get("sample_rate"),
-                        filter_string=current_config.get("filter_string"),
+                        sample_rate=current_config.sample_rate,
+                        filter_string=current_config.filter_string,
                     ),
                 ),
-                config["scorer_version"],
+                config.scorer_version,
             )
             for config in configs
         ]
