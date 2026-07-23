@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784825725042,
+  "lastUpdate": 1784826946443,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15983,6 +15983,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.056592800000772,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47610280+NeriCarcasci@users.noreply.github.com",
+            "name": "Neri Carcasci",
+            "username": "NeriCarcasci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2727ea6e315a86678e50cb304fb919fbad1a17f",
+          "message": "feat: Advertise presigned artifact capabilities via `/server-info` and auto-detect in Python client (#24341)\n\nSigned-off-by: Neri Carcasci <nericarcasci@gmail.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+          "timestamp": "2026-07-23T17:11:59Z",
+          "tree_id": "4131251a4237b5d31d4a0cbba11fa0e46d0a3434",
+          "url": "https://github.com/mlflow/mlflow/commit/e2727ea6e315a86678e50cb304fb919fbad1a17f"
+        },
+        "date": 1784826944717,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.777740099998084,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.92426780555776,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.098125063492763,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.18023687931039,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.930281827586267,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 49.821523199995,
             "unit": "ms"
           }
         ]
