@@ -20,6 +20,10 @@ _TEST_IMAGE_NAME = "test-sagemaker-image"
 _docker_client = docker.from_env()
 
 
+# This test performs a real `docker build` that downloads ~100MB of apt packages. When the
+# Ubuntu apt mirror is slow, a single build attempt can exceed the global 1200s pytest-timeout
+# (see `pyproject.toml`), so give this test a larger timeout of its own.
+@pytest.mark.timeout(2400)
 @pytest.mark.parametrize(
     ("env_manager", "install_java"), [("conda", None), ("virtualenv", None), ("virtualenv", False)]
 )
