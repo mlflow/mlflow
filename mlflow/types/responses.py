@@ -518,7 +518,9 @@ def _cc_stream_to_responses_stream(
                 for item in content:
                     if isinstance(item, dict):
                         if item.get("type") == "reasoning":
-                            reasoning_content += item.get("summary", [])[0].get("text", "")
+                            summary = item.get("summary", [])
+                            if summary:
+                                reasoning_content += summary[0].get("text", "")
                         if item.get("type") == "text" and item.get("text"):
                             llm_content += item["text"]
                             yield ResponsesAgentStreamEvent(
