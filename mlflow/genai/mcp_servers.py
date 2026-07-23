@@ -20,6 +20,8 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.telemetry.events import McpRegistryRegisterServerFromUrlEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -272,6 +274,7 @@ def _read_server_json_remote(url: str) -> dict[str, Any]:
         ) from e
 
 
+@record_usage_event(McpRegistryRegisterServerFromUrlEvent)
 @experimental(version="3.15.0")
 def register_mcp_server_from_url(
     url: str,

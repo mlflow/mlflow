@@ -105,6 +105,9 @@ from mlflow.telemetry.events import (
     LogMetricEvent,
     LogParamEvent,
     MakeJudgeEvent,
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+    McpRegistryRegisterServerFromUrlEvent,
     McpRunEvent,
     MergeRecordsEvent,
     PromptOptimizationEvent,
@@ -2523,3 +2526,129 @@ def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "source_run_id": None,
         },
     )
+
+
+def test_mcp_registry_create_server_version_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    from mlflow.entities.mcp_server import MCPStatus, MCPTool
+
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    store.create_mcp_server_version(
+        server_json={
+            "name": "io.test/my-server",
+            "version": "1.0.0",
+            "remotes": [{"url": "https://mcp.example.com"}],
+        },
+        source="https://github.com/test/repo",
+        status=MCPStatus.DRAFT,
+        tools=[MCPTool(name="search", description="Search the web")],
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateServerVersionEvent.name,
+        {
+            "status": "draft",
+            "has_source": True,
+            "num_tools": 1,
+            "has_remotes": True,
+        },
+    )
+
+    store.create_mcp_server_version(
+        server_json={"name": "io.test/simple-server", "version": "0.1.0"},
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateServerVersionEvent.name,
+        {
+            "status": "draft",
+            "has_source": False,
+            "num_tools": None,
+            "has_remotes": False,
+        },
+    )
+
+
+def test_mcp_registry_create_access_endpoint_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus
+
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    store.create_mcp_server_version(
+        server_json={"name": "io.test/my-server", "version": "1.0.0"},
+        status=MCPStatus.ACTIVE,
+    )
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    store.create_mcp_access_endpoint(
+        server_name="io.test/my-server",
+        url="https://mcp.example.com",
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version="1.0.0",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateAccessEndpointEvent.name,
+        {"transport_type": "streamable-http", "uses_alias": False},
+    )
+
+    store.set_mcp_server_alias(name="io.test/my-server", alias="production", version="1.0.0")
+    store.create_mcp_access_endpoint(
+        server_name="io.test/my-server",
+        url="https://mcp-prod.example.com",
+        transport_type=MCPRemoteTransportType.SSE,
+        server_alias="production",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateAccessEndpointEvent.name,
+        {"transport_type": "sse", "uses_alias": True},
+    )
+
+
+def test_mcp_registry_register_server_from_url_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    import mlflow.genai
+
+    server_json = {"name": "io.test/url-server", "version": "1.0.0"}
+    json_path = tmp_path / "server.json"
+    json_path.write_text(json.dumps(server_json))
+
+    mlflow.genai.register_mcp_server_from_url(url=str(json_path))
+
+    mock_telemetry_client.flush()
+
+    from_url_events = [
+        record
+        for record in mock_requests
+        if record["data"]["event_name"] == McpRegistryRegisterServerFromUrlEvent.name
+    ]
+    assert len(from_url_events) == 1
+    params = json.loads(from_url_events[0]["data"]["params"])
+    assert params == {"url_scheme": "file"}
+
+    create_version_events = [
+        record
+        for record in mock_requests
+        if record["data"]["event_name"] == McpRegistryCreateServerVersionEvent.name
+    ]
+    assert len(create_version_events) == 1
+    params = json.loads(create_version_events[0]["data"]["params"])
+    assert params == {
+        "status": "draft",
+        "has_source": True,
+        "num_tools": None,
+        "has_remotes": False,
+    }
