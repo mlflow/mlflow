@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import ntpath
 import os
 import subprocess
 import sys
@@ -322,6 +323,28 @@ def test_signature_and_examples_are_saved_correctly(
 class DummyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         return model_input
+
+
+def test_artifact_paths_use_posix_separators(tmp_path):
+    artifact_path = tmp_path / "payload.txt"
+    artifact_path.write_text("payload")
+    os_join = os.path.join
+
+    def windows_artifacts_subpath(path, *paths):
+        join = ntpath.join if path == "artifacts" else os_join
+        return join(path, *paths)
+
+    model_path = tmp_path / "pyfunc_model"
+    with mock.patch("os.path.join", windows_artifacts_subpath):
+        mlflow.pyfunc.save_model(
+            path=model_path,
+            python_model=DummyModel(),
+            artifacts={"payload": str(artifact_path)},
+        )
+
+    config = Model.load(model_path)
+    saved_artifact_subpath = config.flavors["python_function"]["artifacts"]["payload"]["path"]
+    assert saved_artifact_subpath == "artifacts/payload.txt"
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
