@@ -1252,3 +1252,84 @@ def test_lazy_span_matches_eager_span_after_materialization():
     assert lazy.status == eager.status
     assert lazy.events == eager.events
     assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()
+
+
+def test_lazy_span_from_stored_content_preserves_unmodified_raw_json():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+
+    assert lazy.__dict__["_raw_json"] == raw_json
+    assert lazy.json_for_export() == raw_json
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_from_stored_content_drops_raw_json_when_translated():
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.constant import SpanAttributeKey
+
+    # Missing/unknown span type + OpenInference kind triggers translate_loaded_span.
+    span_dict = {
+        "trace_id": "AAAAAAAAAAAAAAAAAAAAAQ==",
+        "span_id": "AAAAAAAAAAI=",
+        "parent_span_id": None,
+        "name": "translated",
+        "start_time_unix_nano": 1,
+        "end_time_unix_nano": 2,
+        "events": [],
+        "status": {"code": "STATUS_CODE_OK", "message": ""},
+        "attributes": {
+            SpanAttributeKey.REQUEST_ID: json.dumps("tr-1"),
+            SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.UNKNOWN),
+            "openinference.span.kind": "LLM",
+        },
+        "links": [],
+    }
+    raw_json = json.dumps(span_dict, separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+
+    assert lazy.__dict__["_raw_json"] is None
+    assert json.loads(lazy.json_for_export())["attributes"][
+        SpanAttributeKey.SPAN_TYPE
+    ] == json.dumps(SpanType.LLM)
+
+
+def test_trace_data_to_json_bytes_passthrough_for_unmodified_lazy_spans():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    payload = TraceData(spans=[lazy]).to_json_bytes()
+
+    assert payload == b'{"spans":[' + raw_json.encode("utf-8") + b"]}"
+    assert lazy.__dict__["_materialized"] is False
+    assert json.loads(payload)["spans"][0]["name"] == "child"
+
+
+def test_trace_data_to_json_bytes_mixed_lazy_and_eager_spans():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    immutable = span.to_immutable_span()
+    raw_json = json.dumps(immutable.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    payload = TraceData(spans=[lazy, immutable]).to_json_bytes()
+    parsed = json.loads(payload)
+
+    assert len(parsed["spans"]) == 2
+    assert parsed["spans"][0]["name"] == "child"
+    assert parsed["spans"][1]["name"] == "child"
