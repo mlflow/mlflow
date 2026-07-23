@@ -9,6 +9,8 @@ from mlflow.entities import SpanType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
+    EXCLUDED_CONTENT_PLACEHOLDER,
+    _content_excluded_trace_ids,
     _extract_caller,
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
@@ -380,6 +382,129 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 
     # Input should be unwrapped to just the payload dict
     assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
+
+
+# ---------------------------------------------------------------------------
+# Tests for content exclusion
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def endpoint_config_exclude_content():
+    return GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="test-endpoint",
+        experiment_id=_get_experiment_id(),
+        usage_tracking=True,
+        exclude_content=True,
+        models=[],
+    )
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content(endpoint_config_exclude_content):
+    async def func_with_child_span(payload):
+        with mlflow.start_span("model/openai/gpt-4", span_type=SpanType.LLM) as child:
+            child.set_inputs({"messages": payload["messages"]})
+            child.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+            )
+            child.set_outputs({"choices": [{"message": {"content": "SECRET ANSWER"}}]})
+        return {"choices": [{"message": {"content": "SECRET ANSWER"}}]}
+
+    traced_func = maybe_traced_gateway_call(func_with_child_span, endpoint_config_exclude_content)
+    result = await traced_func({"messages": [{"role": "user", "content": "SECRET PROMPT"}]})
+
+    # The caller still receives the full response
+    assert result == {"choices": [{"message": {"content": "SECRET ANSWER"}}]}
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # No content should leak anywhere in the exported trace
+    assert "SECRET" not in trace.to_json()
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    model_span = span_name_to_span["model/openai/gpt-4"]
+
+    assert gateway_span.inputs == EXCLUDED_CONTENT_PLACEHOLDER
+    assert gateway_span.outputs == EXCLUDED_CONTENT_PLACEHOLDER
+    assert model_span.inputs == EXCLUDED_CONTENT_PLACEHOLDER
+    assert model_span.outputs == EXCLUDED_CONTENT_PLACEHOLDER
+
+    # Usage metadata and endpoint attributes are kept
+    assert model_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "prompt_tokens": 5,
+        "completion_tokens": 7,
+        "total_tokens": 12,
+    }
+    assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
+    assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    assert trace.info.status == "OK"
+    assert trace.info.execution_duration is not None
+
+    # Request/response previews on the trace info are redacted as well
+    assert "SECRET" not in (trace.info.request_preview or "")
+    assert "SECRET" not in (trace.info.response_preview or "")
+
+    # The exclusion registry is drained once the trace completes
+    assert _content_excluded_trace_ids == set()
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content_streaming(
+    endpoint_config_exclude_content,
+):
+    async def mock_async_stream(payload):
+        yield _make_chunk(content="SECRET")
+        yield _make_chunk(content=" ANSWER")
+        yield _make_chunk(
+            content=None,
+            finish_reason="stop",
+            usage=ChatUsage(prompt_tokens=5, completion_tokens=2, total_tokens=7),
+        )
+
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream,
+        endpoint_config_exclude_content,
+        output_reducer=aggregate_chat_stream_chunks,
+    )
+
+    chunks = [
+        chunk
+        async for chunk in traced_func({"messages": [{"role": "user", "content": "SECRET PROMPT"}]})
+    ]
+    assert len(chunks) == 3
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    assert "SECRET" not in trace.to_json()
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    assert gateway_span.inputs == EXCLUDED_CONTENT_PLACEHOLDER
+    assert gateway_span.outputs == EXCLUDED_CONTENT_PLACEHOLDER
+    assert _content_excluded_trace_ids == set()
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content_disabled_keeps_content(endpoint_config):
+    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
+    await traced_func({"input": "visible"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    assert gateway_span.inputs == {"input": "visible"}
+    assert gateway_span.outputs == {"result": "success", "payload": {"input": "visible"}}
 
 
 # ---------------------------------------------------------------------------

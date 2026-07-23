@@ -345,6 +345,9 @@ class GatewayEndpoint(_MlflowObject):
         fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
         experiment_id: ID of the MLflow experiment where traces for this endpoint are logged.
         usage_tracking: Whether usage tracking is enabled for this endpoint.
+        exclude_content: Whether request/response content is excluded from traces.
+            When True, prompts, messages, and model responses are redacted from
+            traces while usage metadata (token counts, latency, status) is kept.
         workspace: Workspace that owns the endpoint.
     """
 
@@ -360,6 +363,7 @@ class GatewayEndpoint(_MlflowObject):
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
     usage_tracking: bool = True
+    exclude_content: bool = False
     workspace: str | None = None
 
     def __post_init__(self):
@@ -386,6 +390,7 @@ class GatewayEndpoint(_MlflowObject):
             proto.experiment_id = self.experiment_id
 
         proto.usage_tracking = self.usage_tracking
+        proto.exclude_content = self.exclude_content
 
         return proto
 
@@ -406,6 +411,8 @@ class GatewayEndpoint(_MlflowObject):
 
         usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else True
 
+        exclude_content = proto.exclude_content if proto.HasField("exclude_content") else False
+
         return cls(
             endpoint_id=proto.endpoint_id,
             name=proto.name or None,
@@ -421,6 +428,7 @@ class GatewayEndpoint(_MlflowObject):
             fallback_config=fallback_config,
             experiment_id=experiment_id,
             usage_tracking=usage_tracking,
+            exclude_content=exclude_content,
         )
 
 

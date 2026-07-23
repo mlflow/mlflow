@@ -476,6 +476,7 @@ class GatewayCreateEndpointEvent(Event):
             else None,
             "num_model_configs": len(arguments.get("model_configs") or []),
             "usage_tracking": arguments.get("usage_tracking"),
+            "exclude_content": arguments.get("exclude_content"),
         }
 
 
@@ -493,6 +494,7 @@ class GatewayUpdateEndpointEvent(Event):
             if arguments.get("model_configs") is not None
             else None,
             "usage_tracking": arguments.get("usage_tracking"),
+            "exclude_content": arguments.get("exclude_content"),
         }
 
 

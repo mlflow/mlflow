@@ -2137,6 +2137,9 @@ Request Structure
 | usage_tracking   | ``BOOL``                                            | Whether to enable usage tracking for this endpoint. Defaults to false. When true, traces will be logged for endpoint        |
 |                  |                                                     | invocations.                                                                                                                |
 +------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------+
+| exclude_content  | ``BOOL``                                            | Whether to exclude request/response content from traces. Defaults to false. When true, prompts, messages, and model         |
+|                  |                                                     | responses are redacted from traces while usage metadata (token counts, latency, status) is kept.                            |
++------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateGatewayEndpointResponse:
 
@@ -2259,6 +2262,9 @@ Request Structure
 +------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------+
 | usage_tracking   | ``BOOL``                                            | Whether to enable usage tracking for this endpoint. When set to true, traces will be logged for endpoint invocations. When  |
 |                  |                                                     | set to false, usage tracking is disabled and experiment_id is cleared.                                                      |
++------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------+
+| exclude_content  | ``BOOL``                                            | Whether to exclude request/response content from traces. When set to true, prompts, messages, and model responses are       |
+|                  |                                                     | redacted from traces while usage metadata (token counts, latency, status) is kept.                                          |
 +------------------+-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowUpdateGatewayEndpointResponse:
@@ -6499,6 +6505,9 @@ Endpoint entity representing an LLM gateway endpoint
 +------------------+------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------+
 | usage_tracking   | ``BOOL``                                             | Whether usage tracking is enabled for this endpoint. When true, an experiment will be auto-created if not provided, and    |
 |                  |                                                      | traces will be logged for endpoint invocations.                                                                            |
++------------------+------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------+
+| exclude_content  | ``BOOL``                                             | Whether to exclude request/response content from traces. When true, prompts, messages, and model responses are redacted    |
+|                  |                                                      | from traces while usage metadata (token counts, latency, status) is kept.                                                  |
 +------------------+------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGatewayEndpointBinding:

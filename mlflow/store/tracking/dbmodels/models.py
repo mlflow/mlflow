@@ -2589,6 +2589,12 @@ class SqlGatewayEndpoint(Base):
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
     """
+    exclude_content = Column(Boolean, nullable=False, default=False)
+    """
+    Exclude content: `Boolean`. Whether request/response content is excluded from traces.
+    When true, prompts, messages, and model responses are redacted from traces while
+    usage metadata (token counts, latency, status) is kept.
+    """
     workspace = Column(
         String(63),
         nullable=False,
@@ -2639,6 +2645,7 @@ class SqlGatewayEndpoint(Base):
             fallback_config=fallback_config,
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
+            exclude_content=self.exclude_content,
             workspace=self.workspace,
         )
 

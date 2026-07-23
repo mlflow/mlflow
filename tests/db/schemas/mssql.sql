@@ -190,6 +190,7 @@ CREATE TABLE endpoints (
 	fallback_config_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id INTEGER,
 	usage_tracking BIT DEFAULT ('0') NOT NULL,
+	exclude_content BIT DEFAULT ('0') NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
 	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL,

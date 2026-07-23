@@ -596,6 +596,7 @@ class SqlAlchemyGatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        exclude_content: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -613,6 +614,10 @@ class SqlAlchemyGatewayStoreMixin:
                           with name 'gateway/{endpoint_name}'.
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
+            exclude_content: Whether to exclude request/response content from traces.
+                            When True, prompts, messages, and model responses are redacted
+                            from traces while usage metadata (token counts, latency,
+                            status) is kept.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -686,6 +691,7 @@ class SqlAlchemyGatewayStoreMixin:
                     fallback_config_json=fallback_config_json,
                     experiment_id=int(experiment_id) if experiment_id else None,
                     usage_tracking=usage_tracking,
+                    exclude_content=exclude_content,
                 )
             )
             session.add(sql_endpoint)
@@ -754,6 +760,7 @@ class SqlAlchemyGatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        exclude_content: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -767,6 +774,8 @@ class SqlAlchemyGatewayStoreMixin:
             model_configs: Optional new list of model configurations (replaces all linkages).
             experiment_id: Optional new experiment ID for tracing.
             usage_tracking: Optional flag to enable/disable usage tracking.
+            exclude_content: Optional flag to exclude request/response content from
+                            traces while keeping usage metadata.
 
         Returns:
             Updated Endpoint entity.
@@ -782,6 +791,9 @@ class SqlAlchemyGatewayStoreMixin:
             # Handle usage_tracking update
             if usage_tracking is not None:
                 sql_endpoint.usage_tracking = usage_tracking
+
+            if exclude_content is not None:
+                sql_endpoint.exclude_content = exclude_content
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
