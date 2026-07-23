@@ -27,6 +27,7 @@ def _make_policy(
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -38,6 +39,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
+        target_value=target_value,
     )
 
 
@@ -161,6 +163,46 @@ def test_policy_applies_workspace_none_matches_default():
     policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE)
     # policy.workspace resolves to "default" via __post_init__
     assert _policy_applies(policy, None) is True
+
+
+# --- _policy_applies ENDPOINT scope tests ---
+
+
+def test_policy_applies_endpoint_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
+    assert _policy_applies(policy, workspace=None, endpoint_id="ep-1") is True
+
+
+def test_policy_applies_endpoint_no_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
+    assert _policy_applies(policy, workspace=None, endpoint_id="ep-2") is False
+
+
+def test_policy_applies_endpoint_none_request():
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
+    # A request without an endpoint (e.g. the windows listing) never matches.
+    assert _policy_applies(policy, workspace=None, endpoint_id=None) is False
+
+
+def test_policy_applies_endpoint_ignores_workspace():
+    # ENDPOINT scope matches purely on endpoint_id; workspace is irrelevant.
+    policy = _make_policy(
+        target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1", workspace="ws-a"
+    )
+    assert _policy_applies(policy, workspace="ws-b", endpoint_id="ep-1") is True
+    assert _policy_applies(policy, workspace="ws-a", endpoint_id="ep-other") is False
+
+
+def test_policy_applies_global_ignores_endpoint():
+    policy = _make_policy(target_scope=BudgetTargetScope.GLOBAL)
+    assert _policy_applies(policy, workspace=None, endpoint_id="ep-1") is True
+
+
+def test_policy_applies_workspace_ignores_endpoint():
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE, workspace="ws1")
+    # WORKSPACE scope still matches on workspace regardless of endpoint_id.
+    assert _policy_applies(policy, workspace="ws1", endpoint_id="ep-anything") is True
+    assert _policy_applies(policy, workspace="ws2", endpoint_id="ep-anything") is False
 
 
 # --- InMemoryBudgetTracker tests ---
@@ -492,3 +534,304 @@ def test_get_all_windows_after_policy_removed():
     windows = tracker.get_all_windows()
     assert len(windows) == 1
     assert windows[0].policy.budget_policy_id == "bp-1"
+
+
+# --- InMemoryBudgetTracker endpoint-scoped tests ---
+
+
+def _endpoint_policy(budget_policy_id="bp-ep", endpoint_id="ep-1", **kwargs):
+    return _make_policy(
+        budget_policy_id=budget_policy_id,
+        target_scope=BudgetTargetScope.ENDPOINT,
+        target_value=endpoint_id,
+        **kwargs,
+    )
+
+
+def test_endpoint_scoped_cost_recording_matches_endpoint():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([_endpoint_policy(endpoint_id="ep-1", budget_amount=100.0)])
+
+    # Cost routed to a different endpoint must not accumulate.
+    tracker.record_cost(200.0, endpoint_id="ep-2")
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 0.0
+
+    # Cost routed to the matching endpoint accumulates.
+    tracker.record_cost(40.0, endpoint_id="ep-1")
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 40.0
+
+
+def test_endpoint_scoped_cost_recording_ignores_no_endpoint():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([_endpoint_policy(endpoint_id="ep-1", budget_amount=100.0)])
+
+    tracker.record_cost(50.0, endpoint_id=None)
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 0.0
+
+
+def test_endpoint_scoped_exceed_and_reject():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _endpoint_policy(endpoint_id="ep-1", budget_amount=50.0, budget_action=BudgetAction.REJECT)
+    ])
+
+    newly_exceeded = tracker.record_cost(60.0, endpoint_id="ep-1")
+    assert len(newly_exceeded) == 1
+    assert newly_exceeded[0].policy.budget_policy_id == "bp-ep"
+
+    # Only requests to the matching endpoint are rejected.
+    exceeded, window = tracker.should_reject_request(endpoint_id="ep-1")
+    assert exceeded is True
+    assert window.policy.target_value == "ep-1"
+
+    exceeded_other, window_other = tracker.should_reject_request(endpoint_id="ep-2")
+    assert exceeded_other is False
+    assert window_other is None
+
+    # A request with no endpoint (e.g. non-gateway path) is never rejected by an
+    # endpoint-scoped policy.
+    exceeded_none, _ = tracker.should_reject_request(endpoint_id=None)
+    assert exceeded_none is False
+
+
+def test_endpoint_policies_are_isolated_from_each_other():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _endpoint_policy(budget_policy_id="bp-a", endpoint_id="ep-a", budget_amount=100.0),
+        _endpoint_policy(budget_policy_id="bp-b", endpoint_id="ep-b", budget_amount=100.0),
+    ])
+
+    tracker.record_cost(70.0, endpoint_id="ep-a")
+    assert tracker._get_window_info("bp-a").cumulative_spend == 70.0
+    assert tracker._get_window_info("bp-b").cumulative_spend == 0.0
+
+
+def test_global_and_endpoint_policies_both_apply():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(budget_policy_id="bp-global", budget_amount=1000.0),
+        _endpoint_policy(budget_policy_id="bp-ep", endpoint_id="ep-1", budget_amount=100.0),
+    ])
+
+    # A request to ep-1 counts against both the GLOBAL and the ENDPOINT policy.
+    tracker.record_cost(30.0, endpoint_id="ep-1")
+    assert tracker._get_window_info("bp-global").cumulative_spend == 30.0
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 30.0
+
+    # A request to ep-2 only counts against the GLOBAL policy.
+    tracker.record_cost(20.0, endpoint_id="ep-2")
+    assert tracker._get_window_info("bp-global").cumulative_spend == 50.0
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 30.0
+
+
+def test_endpoint_and_workspace_policies_independent():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(
+            budget_policy_id="bp-ws",
+            target_scope=BudgetTargetScope.WORKSPACE,
+            workspace="ws1",
+            budget_amount=100.0,
+        ),
+        _endpoint_policy(budget_policy_id="bp-ep", endpoint_id="ep-1", budget_amount=100.0),
+    ])
+
+    # Request from ws1 to ep-1 hits both.
+    tracker.record_cost(25.0, workspace="ws1", endpoint_id="ep-1")
+    assert tracker._get_window_info("bp-ws").cumulative_spend == 25.0
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 25.0
+
+    # Request from ws2 to ep-1 hits only the endpoint policy.
+    tracker.record_cost(25.0, workspace="ws2", endpoint_id="ep-1")
+    assert tracker._get_window_info("bp-ws").cumulative_spend == 25.0
+    assert tracker._get_window_info("bp-ep").cumulative_spend == 50.0
+
+
+# --- _policy_applies USER scope tests ---
+
+
+def test_policy_applies_user_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    assert _policy_applies(policy, None, principal="alice") is True
+    # workspace is irrelevant for a USER-scoped policy
+    assert _policy_applies(policy, "ws1", principal="alice") is True
+
+
+def test_policy_applies_user_no_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    assert _policy_applies(policy, None, principal="bob") is False
+
+
+def test_policy_applies_user_principal_none_request():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    # An unauthenticated request (principal=None) never matches a USER policy.
+    assert _policy_applies(policy, None, principal=None) is False
+
+
+def test_policy_applies_user_policy_without_principal_never_matches():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value=None)
+    assert _policy_applies(policy, None, principal=None) is False
+    assert _policy_applies(policy, None, principal="alice") is False
+
+
+def test_policy_applies_global_ignores_principal():
+    policy = _make_policy(target_scope=BudgetTargetScope.GLOBAL)
+    assert _policy_applies(policy, None, principal="alice") is True
+    assert _policy_applies(policy, None, principal=None) is True
+
+
+def test_policy_applies_workspace_ignores_principal():
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE, workspace="ws1")
+    assert _policy_applies(policy, "ws1", principal="alice") is True
+    assert _policy_applies(policy, "ws2", principal="alice") is False
+
+
+# --- InMemoryBudgetTracker USER-scope tests ---
+
+
+def test_user_scoped_cost_recording_matches_principal():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_policy(
+        target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0
+    )
+    tracker.refresh_policies([policy])
+
+    # Cost from a different user should not apply
+    tracker.record_cost(200.0, principal="bob")
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+
+    # Cost from the matching user applies
+    tracker.record_cost(50.0, principal="alice")
+    assert window.cumulative_spend == 50.0
+
+
+def test_user_scoped_cost_recording_ignores_unauthenticated_request():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    tracker.refresh_policies([policy])
+
+    tracker.record_cost(50.0, principal=None)
+    assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_user_scoped_should_reject_only_for_matching_principal():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_policy(
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150.0, principal="alice")
+
+    exceeded, window = tracker.should_reject_request(principal="alice")
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-test"
+
+    # Other users are unaffected by alice's budget
+    exceeded, window = tracker.should_reject_request(principal="bob")
+    assert exceeded is False
+    assert window is None
+
+
+def test_multiple_user_policies_are_independent():
+    tracker = InMemoryBudgetTracker()
+    alice = _make_policy(
+        budget_policy_id="bp-alice",
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    bob = _make_policy(
+        budget_policy_id="bp-bob",
+        target_scope=BudgetTargetScope.USER,
+        target_value="bob",
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    tracker.refresh_policies([alice, bob])
+
+    tracker.record_cost(150.0, principal="alice")
+    assert tracker._get_window_info("bp-alice").cumulative_spend == 150.0
+    assert tracker._get_window_info("bp-bob").cumulative_spend == 0.0
+
+    exceeded, _ = tracker.should_reject_request(principal="alice")
+    assert exceeded is True
+    exceeded, _ = tracker.should_reject_request(principal="bob")
+    assert exceeded is False
+
+
+def test_user_and_global_policies_stack():
+    tracker = InMemoryBudgetTracker()
+    global_policy = _make_policy(budget_policy_id="bp-global", budget_amount=1000.0)
+    user_policy = _make_policy(
+        budget_policy_id="bp-user",
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+        budget_amount=100.0,
+    )
+    tracker.refresh_policies([global_policy, user_policy])
+
+    exceeded = tracker.record_cost(150.0, principal="alice")
+    # Both the global and user windows accrue; only the user policy is exceeded.
+    assert {w.policy.budget_policy_id for w in exceeded} == {"bp-user"}
+    assert tracker._get_window_info("bp-global").cumulative_spend == 150.0
+    assert tracker._get_window_info("bp-user").cumulative_spend == 150.0
+
+
+def test_user_scoped_zero_budget_rejects_immediately():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+            budget_amount=0.0,
+            budget_action=BudgetAction.REJECT,
+        )
+    ])
+    # No spend recorded yet, but a $0 budget is already met (0 >= 0), so the very
+    # first request from alice is rejected.
+    exceeded, window = tracker.should_reject_request(principal="alice")
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-test"
+    # Other users are unaffected.
+    assert tracker.should_reject_request(principal="bob") == (False, None)
+
+
+def test_user_scoped_rejects_at_exact_limit():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+            budget_amount=100.0,
+            budget_action=BudgetAction.REJECT,
+        )
+    ])
+    tracker.record_cost(99.99, principal="alice")
+    assert tracker.should_reject_request(principal="alice")[0] is False
+
+    tracker.record_cost(0.01, principal="alice")  # now exactly at the $100 limit
+    assert tracker.should_reject_request(principal="alice")[0] is True
+
+
+def test_user_scoped_exceeded_flips_once_then_keeps_accumulating():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+            budget_amount=100.0,
+            budget_action=BudgetAction.ALERT,
+        )
+    ])
+    # First crossing reports the window as newly exceeded (fires the alert once).
+    assert len(tracker.record_cost(150.0, principal="alice")) == 1
+    # Continued overuse accumulates but does not re-report.
+    assert tracker.record_cost(50.0, principal="alice") == []
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 200.0
+    assert window.exceeded is True

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -50,6 +51,7 @@ from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
     _create_provider_from_endpoint_name,
+    _get_request_principal,
     anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
@@ -3708,3 +3710,72 @@ async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyS
     assert jspan.span_type == SpanType.EVALUATOR
     assert jspan.outputs["passed"] is True
     assert jspan.parent_id == gspan.span_id
+
+
+# ==================== Per-user budget: principal derivation ====================
+
+
+def test_get_request_principal_reads_username():
+    req = SimpleNamespace(state=SimpleNamespace(username="alice@example.com"))
+    assert _get_request_principal(req) == "alice@example.com"
+
+    req_no_user = SimpleNamespace(state=SimpleNamespace())
+    assert _get_request_principal(req_no_user) is None
+
+
+def test_invocations_passes_principal_to_budget_enforcement(store: SqlAlchemyStore):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    @app.middleware("http")
+    async def _set_username(request, call_next):
+        request.state.username = "alice@example.com"
+        return await call_next(request)
+
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
+    )
+    mock_response = chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hi!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+    )
+
+    async def _mock_chat(payload):
+        return mock_response
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit") as mock_check,
+        patch("mlflow.server.gateway_api.make_budget_on_complete") as mock_on_complete,
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = _mock_chat
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        response = client.post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={"model": "my-endpoint", "messages": [{"role": "user", "content": "Hi"}]},
+        )
+
+    assert response.status_code == 200
+    mock_check.assert_called_once()
+    assert mock_check.call_args.kwargs["principal"] == "alice@example.com"
+    mock_on_complete.assert_called()
+    assert mock_on_complete.call_args.kwargs["principal"] == "alice@example.com"
+    assert mock_on_complete.call_args.kwargs["endpoint_id"] == "test-endpoint-id"

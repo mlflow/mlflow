@@ -12,10 +12,14 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import type { BudgetAction, DurationUnit } from '../../types';
 import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+// 'ALL' maps to WORKSPACE when workspaces are enabled, GLOBAL otherwise.
+type BudgetScopeChoice = 'ALL' | 'ENDPOINT' | 'USER';
 
 const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
   DAILY: { unit: 'DAYS', value: 1 },
@@ -33,12 +37,18 @@ interface FormData {
   budgetAmount: string;
   duration: DurationPreset;
   budgetAction: BudgetAction;
+  scope: BudgetScopeChoice;
+  endpointId: string;
+  principal: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
   duration: 'MONTHLY',
   budgetAction: 'REJECT',
+  scope: 'ALL',
+  endpointId: '',
+  principal: '',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -51,6 +61,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     error: mutationError,
     reset: resetMutation,
   } = useCreateBudgetPolicy();
+  const { data: endpoints } = useEndpointsQuery();
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -68,20 +79,27 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    return !isNaN(amount) && amount > 0;
-  }, [formData.budgetAmount]);
+    if (isNaN(amount) || amount <= 0) return false;
+    if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
+    return formData.scope !== 'USER' || formData.principal.trim().length > 0;
+  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.principal]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
 
     const { unit, value } = DURATION_MAP[formData.duration];
+    const isUserScope = formData.scope === 'USER';
 
     try {
       await createBudgetPolicy({
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
-        target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
+        ...(formData.scope === 'ENDPOINT'
+          ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
+          : isUserScope
+            ? { target_scope: 'USER' as const, target_value: formData.principal.trim() }
+            : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
       });
     } catch {
@@ -158,6 +176,59 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
               step="0.01"
             />
           </div>
+        </div>
+
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="Applies to" description="Budget scope label" />
+          </Typography.Text>
+          <SimpleSelect
+            id="create-budget-policy-scope"
+            componentId="mlflow.gateway.create-budget-policy-modal.scope"
+            value={formData.scope}
+            onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
+          >
+            <SimpleSelectOption value="ALL">All endpoints and users</SimpleSelectOption>
+            <SimpleSelectOption value="ENDPOINT">Specific endpoint</SimpleSelectOption>
+            <SimpleSelectOption value="USER">Specific user</SimpleSelectOption>
+          </SimpleSelect>
+          {formData.scope === 'ENDPOINT' && (
+            <SimpleSelect
+              id="create-budget-policy-endpoint"
+              componentId="mlflow.gateway.create-budget-policy-modal.endpoint"
+              value={formData.endpointId}
+              onChange={({ target }) => handleFieldChange('endpointId', target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select an endpoint',
+                description: 'Placeholder for budget policy endpoint selector',
+              })}
+            >
+              {endpoints.map((endpoint) => (
+                <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
+                  {endpoint.name}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          )}
+          {formData.scope === 'USER' && (
+            <>
+              <Input
+                componentId="mlflow.gateway.create-budget-policy-modal.principal"
+                value={formData.principal}
+                onChange={(e) => handleFieldChange('principal', e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Username, e.g., alice',
+                  description: 'Budget principal (username) placeholder',
+                })}
+              />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled."
+                  description="Helper text for per-user budget scope"
+                />
+              </Typography.Text>
+            </>
+          )}
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
