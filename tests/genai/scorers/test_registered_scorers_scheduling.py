@@ -24,6 +24,20 @@ def mock_databricks_runtime():
         yield
 
 
+@pytest.fixture
+def mock_register_scorer():
+    def register_scorer(experiment_id, scorer):
+        scorer._experiment_id = experiment_id
+        scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+        return 1
+
+    with patch(
+        "mlflow.genai.scorers.registry.DatabricksStore.register_scorer",
+        side_effect=register_scorer,
+    ) as mock_register:
+        yield mock_register
+
+
 @scorer
 def length_check(outputs):
     """Check if response is adequately detailed"""
@@ -36,10 +50,9 @@ def serialization_scorer(outputs) -> bool:
     return len(outputs) > 5
 
 
-def test_scorer_register():
+def test_scorer_register(mock_register_scorer):
     my_scorer = length_check
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
-        registered = my_scorer.register(name="my_length_check")
+    registered = my_scorer.register(name="my_length_check")
 
     # Check immutability - returns new instance
     assert registered is not my_scorer
@@ -51,22 +64,17 @@ def test_scorer_register():
     assert my_scorer.name == "length_check"
     assert my_scorer._sampling_config is None
 
-    # Check the mock was called correctly
-    mock_add.assert_called_once()
-    call_args = mock_add.call_args.kwargs
-    assert call_args["scorer"].name == "my_length_check"
-    assert call_args["sample_rate"] == 0.0
-    assert call_args["filter_string"] is None
+    mock_register_scorer.assert_called_once()
+    assert mock_register_scorer.call_args.args[1].name == "my_length_check"
 
 
-def test_scorer_register_default_name():
+def test_scorer_register_default_name(mock_register_scorer):
     my_scorer = length_check
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
-        registered = my_scorer.register()
+    registered = my_scorer.register()
 
     assert registered.name == "length_check"  # Uses scorer's name
-    mock_add.assert_called_once()
-    assert mock_add.call_args.kwargs["scorer"].name == "length_check"
+    mock_register_scorer.assert_called_once()
+    assert mock_register_scorer.call_args.args[1].name == "length_check"
 
 
 def test_scorer_start():
@@ -178,15 +186,13 @@ def test_scorer_stop():
     assert mock_update.call_args.kwargs["sample_rate"] == 0.0
 
 
-def test_scorer_register_with_experiment_id():
+def test_scorer_register_with_experiment_id(mock_register_scorer):
     my_scorer = length_check
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
-        my_scorer.register(name="test_scorer", experiment_id="exp123")
+    my_scorer.register(name="test_scorer", experiment_id="exp123")
 
-    mock_add.assert_called_once()
-    call_args = mock_add.call_args.kwargs
-    assert call_args["experiment_id"] == "exp123"
-    assert call_args["scorer"].name == "test_scorer"
+    mock_register_scorer.assert_called_once()
+    assert mock_register_scorer.call_args.args[0] == "exp123"
+    assert mock_register_scorer.call_args.args[1].name == "test_scorer"
 
 
 def test_scorer_start_with_name_param():
@@ -238,16 +244,14 @@ def test_scorer_update_with_all_params():
     assert call_args["filter_string"] == "new_filter"
 
 
-def test_builtin_scorer_register():
+def test_builtin_scorer_register(mock_register_scorer):
     guidelines_scorer = Guidelines(guidelines="Be helpful")
 
     # Verify original serialization
     original_dump = guidelines_scorer.model_dump()
     assert original_dump["name"] == "guidelines"
 
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
-        # Register with custom name
-        registered = guidelines_scorer.register(name="my_guidelines")
+    registered = guidelines_scorer.register(name="my_guidelines")
 
     assert registered is not guidelines_scorer
     assert registered.name == "my_guidelines"
@@ -285,7 +289,7 @@ def test_builtin_scorer_update():
     assert updated.guidelines == "Be helpful"  # Original field preserved
 
 
-def test_all_methods_are_immutable():
+def test_all_methods_are_immutable(mock_register_scorer):
     original = length_check
 
     # Set up some state
@@ -294,10 +298,9 @@ def test_all_methods_are_immutable():
     original._sampling_config = ScorerSamplingConfig(sample_rate=0.1, filter_string="original")
 
     # Test each method
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
-        registered = original.register(name="new_name")
-        assert registered is not original
-        assert original.name == "original_name"  # Unchanged
+    registered = original.register(name="new_name")
+    assert registered is not original
+    assert original.name == "original_name"  # Unchanged
 
     with patch(
         "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
@@ -352,7 +355,7 @@ def test_class_scorer_cannot_be_registered():
         custom_scorer.stop()
 
 
-def test_register_with_custom_name_updates_serialization():
+def test_register_with_custom_name_updates_serialization(mock_register_scorer):
     # Use the pre-defined scorer to avoid source extraction issues
     test_scorer = serialization_scorer
 
@@ -360,9 +363,7 @@ def test_register_with_custom_name_updates_serialization():
     original_dump = test_scorer.model_dump()
     assert original_dump["name"] == "serialization_scorer"
 
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
-        # Register with custom name
-        registered = test_scorer.register(name="custom_test_name")
+    registered = test_scorer.register(name="custom_test_name")
 
     # Verify the registered scorer has the correct name
     assert registered.name == "custom_test_name"
@@ -375,5 +376,5 @@ def test_register_with_custom_name_updates_serialization():
     assert test_scorer.name == "serialization_scorer"
 
     # Verify the server was called with the correct name
-    mock_add.assert_called_once()
-    assert mock_add.call_args.kwargs["scorer"].name == "custom_test_name"
+    mock_register_scorer.assert_called_once()
+    assert mock_register_scorer.call_args.args[1].name == "custom_test_name"

@@ -933,7 +933,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
@@ -1016,7 +1016,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,

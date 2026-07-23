@@ -157,3 +157,19 @@ def test_versioned_scorer_operations_do_not_require_agents_sdk(scorer_http):
     assert exact.name == "test_scorer"
     assert [version for _, version in versions] == [1]
     assert scorer_http.call_args_list[-1].kwargs["method"] == "DELETE"
+
+
+def test_register_scorer_does_not_require_agents_sdk(scorer_http):
+    config = _scorer_config()
+    scorer_http.side_effect = [
+        _scheduled_scorers_response([]),
+        _scheduled_scorers_response([config]),
+    ]
+
+    registered = Guidelines(
+        name="test_scorer",
+        guidelines=["Be helpful"],
+        model="databricks:/judge",
+    ).register(experiment_id="test_experiment")
+
+    assert registered.name == "test_scorer"
