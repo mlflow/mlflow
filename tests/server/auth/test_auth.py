@@ -198,14 +198,24 @@ def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_
     )
 
     try:
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant (not the
+        # default) is what's honored.
         perm = auth_module._get_experiment_permission(experiment_id, username)
         assert perm.name == READ.name
         assert perm.can_read
 
-        # A user without a grant still falls through to default_permission (deny).
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel — the two are otherwise
+        # indistinguishable when default_permission == NO_PERMISSIONS.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
         auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
         stranger_perm = auth_module._get_experiment_permission(experiment_id, "stranger")
-        assert stranger_perm.name == NO_PERMISSIONS.name
+        assert stranger_perm.name == READ.name
     finally:
         auth_store.engine.dispose()
 
@@ -234,6 +244,7 @@ def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_pat
 
     try:
         # workspace_name=None mimics an unresolved workspace (e.g. RESOURCE_DOES_NOT_EXIST).
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant is honored.
         resolver = auth_module._role_permission_for_known_workspace(
             username, "registered_model", model_name, None
         )
@@ -241,13 +252,20 @@ def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_pat
         assert perm.name == READ.name
         assert perm.can_read
 
-        # A user without a grant still falls through to default_permission (deny).
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
         auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
         stranger_resolver = auth_module._role_permission_for_known_workspace(
             "stranger", "registered_model", model_name, None
         )
         stranger_perm = auth_module._get_role_permission_or_default(stranger_resolver)
-        assert stranger_perm.name == NO_PERMISSIONS.name
+        assert stranger_perm.name == READ.name
     finally:
         auth_store.engine.dispose()
 

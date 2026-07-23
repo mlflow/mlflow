@@ -738,6 +738,9 @@ def _role_permission_for(
         # don't lose resource-level access.
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
+        # Only reachable with workspaces enabled — the guard above returns first when
+        # disabled, so ``_user_inherits_default_workspace_grant`` (which touches the
+        # workspace store) never runs on an artifacts-only / workspaces-disabled server.
         if _user_inherits_default_workspace_grant(workspace_name):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
@@ -775,6 +778,9 @@ def _role_permission_for_known_workspace(
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
+        # Only reachable with workspaces enabled (see _role_permission_for): the guard
+        # above returns first when disabled, so the workspace-store lookup here never runs
+        # on a workspaces-disabled server.
         if _user_inherits_default_workspace_grant(resolved_workspace):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
