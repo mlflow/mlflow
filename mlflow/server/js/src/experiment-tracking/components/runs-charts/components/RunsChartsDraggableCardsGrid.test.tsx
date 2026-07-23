@@ -35,9 +35,11 @@ jest.mock('../../../../common/utils/FeatureUtils', () => ({
   shouldEnableHidingChartsWithNoData: jest.fn(() => true),
 }));
 
-// Mock useIsInViewport hook to simulate that the chart element is in the viewport
+const mockUseIsInViewport = jest.fn(() => ({ isInViewport: true, setElementRef: jest.fn() }));
+
+// Mock useIsInViewport hook to simulate that the chart element is in the viewport by default
 jest.mock('../hooks/useIsInViewport', () => ({
-  useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
+  useIsInViewport: () => mockUseIsInViewport(),
 }));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -529,6 +531,108 @@ describe('RunsChartsDraggableCardsGrid', () => {
     await waitFor(() => {
       expect(screen.queryAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(0);
       expect(screen.getByText('No charts in this section')).toBeInTheDocument();
+    });
+  });
+
+  test('virtualizes large grids by rendering placeholders for groups outside the viewport', async () => {
+    // Create enough cards to trigger virtualization (threshold is 30).
+    const cards = Array.from({ length: 60 }, (_, i) => ({
+      type: RunsChartType.BAR,
+      metricKey: `metric_${i + 1}`,
+      uuid: `card_${i + 1}`,
+    })) as RunsChartsBarCardConfig[];
+
+    // Simulate groups outside the viewport.
+    mockUseIsInViewport.mockReturnValue({ isInViewport: false, setElementRef: jest.fn() });
+
+    const TestComponent = () => {
+      const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+        ...createExperimentPageUIState(),
+        compareRunCharts: cards,
+      });
+
+      return (
+        <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+          <RunsChartsDraggableCardsGridContextProvider visibleChartCards={cards}>
+            <RunsChartsDraggableCardsGridSection
+              cardsConfig={uiState.compareRunCharts ?? []}
+              chartRunData={[]}
+              sectionId="virtualization-test"
+              setFullScreenChart={noop}
+              groupBy={null}
+              onRemoveChart={noop}
+              onStartEditChart={noop}
+              sectionConfig={{
+                display: true,
+                isReordered: false,
+                name: 'section_1',
+                uuid: 'section_1',
+                cardHeight: 360,
+                columns: 3,
+              }}
+            />
+          </RunsChartsDraggableCardsGridContextProvider>
+        </RunsChartsUIConfigurationContextProvider>
+      );
+    };
+
+    renderTestComponent(<TestComponent />);
+
+    await waitFor(() => {
+      // No chart cards should be mounted; only group placeholders should exist.
+      expect(screen.queryAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(0);
+      expect(screen.getAllByTestId('virtualized-chart-group-placeholder')).toHaveLength(2);
+    });
+
+    // Reset the mock so subsequent tests render cards normally.
+    mockUseIsInViewport.mockReturnValue({ isInViewport: true, setElementRef: jest.fn() });
+  });
+
+  test('renders all cards in a virtualized grid when groups are in the viewport', async () => {
+    // Create enough cards to trigger virtualization (threshold is 30).
+    const cards = Array.from({ length: 60 }, (_, i) => ({
+      type: RunsChartType.BAR,
+      metricKey: `metric_${i + 1}`,
+      uuid: `card_${i + 1}`,
+    })) as RunsChartsBarCardConfig[];
+
+    mockUseIsInViewport.mockReturnValue({ isInViewport: true, setElementRef: jest.fn() });
+
+    const TestComponent = () => {
+      const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+        ...createExperimentPageUIState(),
+        compareRunCharts: cards,
+      });
+
+      return (
+        <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+          <RunsChartsDraggableCardsGridContextProvider visibleChartCards={cards}>
+            <RunsChartsDraggableCardsGridSection
+              cardsConfig={uiState.compareRunCharts ?? []}
+              chartRunData={[]}
+              sectionId="virtualization-test"
+              setFullScreenChart={noop}
+              groupBy={null}
+              onRemoveChart={noop}
+              onStartEditChart={noop}
+              sectionConfig={{
+                display: true,
+                isReordered: false,
+                name: 'section_1',
+                uuid: 'section_1',
+                cardHeight: 360,
+                columns: 3,
+              }}
+            />
+          </RunsChartsDraggableCardsGridContextProvider>
+        </RunsChartsUIConfigurationContextProvider>
+      );
+    };
+
+    renderTestComponent(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(60);
     });
   });
 });
