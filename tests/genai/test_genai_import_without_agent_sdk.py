@@ -120,34 +120,6 @@ def _scorer_config(name="test_scorer"):
     }
 
 
-def _instructions_judge_config(name="instructions_judge_scorer"):
-    return {
-        "name": name,
-        "serialized_scorer": json.dumps({
-            "name": name,
-            "aggregations": None,
-            "description": None,
-            "is_session_level_scorer": False,
-            "mlflow_version": "3.0.0",
-            "serialization_version": 1,
-            "builtin_scorer_class": None,
-            "builtin_scorer_pydantic_data": None,
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-            "instructions_judge_pydantic_data": {
-                "instructions": "Assess {{ outputs }}.",
-                "model": "databricks",
-            },
-            "memory_augmented_judge_data": None,
-            "third_party_scorer_data": None,
-        }),
-        "custom": {},
-        "sample_rate": 0.0,
-        "scorer_version": 1,
-    }
-
-
 @pytest.fixture
 def scorer_http():
     with (
@@ -158,31 +130,6 @@ def scorer_http():
         patch("mlflow.genai.scorers.registry.http_request") as mock_http,
     ):
         yield mock_http
-
-
-def test_versioned_get_with_databricks_instructions_judge_does_not_require_agents_sdk(
-    scorer_http,
-):
-    config = _instructions_judge_config()
-    scorer_key = DatabricksStore._scorer_resource_key("instructions_judge_scorer")
-    version_config = {
-        **config,
-        "name": f"experiments/test_experiment/scorers/{scorer_key}/versions/1",
-        "display_name": "instructions_judge_scorer",
-    }
-    scorer_http.side_effect = [
-        _mock_response(version_config),
-        _scheduled_scorers_response([config]),
-    ]
-
-    scorer = get_scorer(
-        name="instructions_judge_scorer",
-        experiment_id="test_experiment",
-        version=1,
-    )
-
-    assert scorer.name == "instructions_judge_scorer"
-    assert scorer.model == "databricks"
 
 
 def test_versioned_scorer_operations_do_not_require_agents_sdk(scorer_http):

@@ -362,12 +362,6 @@ class DatabricksStore(AbstractScorerStore):
             f"{self._MANAGED_EVALS_SCHEDULED_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
         )
 
-    def _scorer_version_resource_parent(self, experiment_id: str, name: str) -> str:
-        return (
-            f"experiments/{self._encode_path_param(experiment_id)}"
-            f"/scorers/{self._scorer_resource_key(name)}"
-        )
-
     @staticmethod
     def _validate_version(version: Any) -> int:
         if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
@@ -376,18 +370,15 @@ class DatabricksStore(AbstractScorerStore):
             )
         return version
 
-    def _scorer_version_resource_name(self, experiment_id: str, name: str, version: int) -> str:
-        version = self._validate_version(version)
-        parent = self._scorer_version_resource_parent(experiment_id, name)
-        return f"{parent}/versions/{version}"
-
     def _scorer_version_endpoint(self, experiment_id: str, name: str, version: int) -> str:
-        resource_name = self._scorer_version_resource_name(experiment_id, name, version)
-        return f"{self._MANAGED_EVALS_BASE}/{resource_name}"
+        version = self._validate_version(version)
+        return f"{self._scorer_versions_endpoint(experiment_id, name)}/{version}"
 
     def _scorer_versions_endpoint(self, experiment_id: str, name: str) -> str:
-        parent = self._scorer_version_resource_parent(experiment_id, name)
-        return f"{self._MANAGED_EVALS_BASE}/{parent}/versions"
+        return (
+            f"{self._MANAGED_EVALS_BASE}/experiments/{self._encode_path_param(experiment_id)}"
+            f"/scorers/{self._scorer_resource_key(name)}/versions"
+        )
 
     def _request(
         self,
@@ -410,10 +401,6 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def _extract_current_scorer_configs(response: dict[str, Any]) -> list[dict[str, Any]]:
         return response.get("scheduled_scorers", {}).get("scorers", [])
-
-    @staticmethod
-    def _get_config_version(config: dict[str, Any]) -> int:
-        return config.get("scorer_version", 1)
 
     def _list_current_scorer_configs(self, experiment_id: str) -> list[dict[str, Any]]:
         endpoint = self._scheduled_scorers_endpoint(experiment_id)
@@ -638,7 +625,7 @@ class DatabricksStore(AbstractScorerStore):
                     current_config=current_config,
                     display_name=config.get("display_name") or name,
                 ),
-                self._get_config_version(config),
+                config["scorer_version"],
             )
             for config in configs
         ]

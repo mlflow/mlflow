@@ -212,11 +212,8 @@ def test_databricks_backend_version_resource_names_use_unpadded_base64url():
     assert store._scorer_versions_endpoint("123", "quality/foo") == (
         "/api/2.0/managed-evals/experiments/123/scorers/cXVhbGl0eS9mb28/versions"
     )
-    assert store._scorer_version_endpoint("123", "quality/foo", 7) == (
-        "/api/2.0/managed-evals/experiments/123/scorers/cXVhbGl0eS9mb28/versions/7"
-    )
-    assert store._scorer_version_resource_name("exp/123", "quality/foo", 7) == (
-        "experiments/exp%2F123/scorers/cXVhbGl0eS9mb28/versions/7"
+    assert store._scorer_version_endpoint("exp/123", "quality/foo", 7) == (
+        "/api/2.0/managed-evals/experiments/exp%2F123/scorers/cXVhbGl0eS9mb28/versions/7"
     )
 
 
@@ -336,14 +333,6 @@ def test_databricks_backend_current_scorer_configs_paginate():
     assert [config["name"] for config in configs] == ["scorer_v1", "scorer_v2"]
     assert mock_http.call_args_list[0].kwargs["params"] is None
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
-
-
-def test_databricks_backend_legacy_current_config_defaults_to_version_one():
-    scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
-    config = _scorer_config(scorer)
-    config.pop("scorer_version")
-
-    assert DatabricksStore._get_config_version(config) == 1
 
 
 def _mock_gateway_endpoint():
