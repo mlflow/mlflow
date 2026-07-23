@@ -101,14 +101,50 @@ def test_uc_models_artifact_uri_with_scope_and_prefix_throws():
         )
 
 
-def _mock_temporary_creds_response(temporary_creds):
+def _mock_temporary_creds_response(temporary_creds, native=True):
     mock_response = mock.MagicMock(autospec=Response)
     mock_response.status_code = 200
-    mock_response.text = json.dumps({"credentials": temporary_creds})
+    # The UC-native passthrough json-inlines a managed-catalog TemporaryCredentials, so the
+    # response body is the flat credentials object (no enclosing "credentials" field). The
+    # legacy /api/2.0 endpoint wraps the credentials in a "credentials" field.
+    body = temporary_creds if native else {"credentials": temporary_creds}
+    mock_response.text = json.dumps(body)
     return mock_response
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(monkeypatch):
+# The request shape (native /api/2.1 vs legacy /api/2.0) is cloud-agnostic, so this AWS test is
+# parametrized over the MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY switch to cover both endpoints and
+# both response wrappings. The azure/gcp/list tests below exercise the native path only, since
+# they cover cloud-specific credential parsing rather than the request path.
+@pytest.mark.parametrize(
+    ("native", "expected_endpoint", "expected_json"),
+    [
+        (
+            True,
+            "/api/2.1/unity-catalog/temporary-model-version-credentials",
+            {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "model_name": "MyModel",
+                "version": 12,
+                "operation": "READ_MODEL_VERSION",
+            },
+        ),
+        (
+            False,
+            "/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            {
+                "name": "catalog.schema.MyModel",
+                "version": "12",
+                "operation": "MODEL_VERSION_OPERATION_READ",
+            },
+        ),
+    ],
+)
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
+    monkeypatch, native, expected_endpoint, expected_json
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true" if native else "false")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "s3://blah_bucket/"
@@ -136,9 +172,10 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
         mock_s3_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
         mock_s3_repo.download_artifacts.return_value = fake_local_path
         optimized_s3_artifact_repo_class_mock.return_value = mock_s3_repo
-        request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
+        request_mock.return_value = _mock_temporary_creds_response(temporary_creds, native=native)
         models_repo = UnityCatalogModelsArtifactRepository(
-            artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
+            artifact_uri="models:/catalog.schema.MyModel/12",
+            registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         optimized_s3_artifact_repo_class_mock.assert_called_once_with(
@@ -152,14 +189,15 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint=expected_endpoint,
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            json=expected_json,
             extra_headers=ANY,
         )
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
@@ -184,7 +222,8 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
-            artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
+            artifact_uri="models:/catalog.schema.MyModel/12",
+            registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         adls_artifact_repo_class_mock.assert_called_once_with(
@@ -196,14 +235,21 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
         mock_adls_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            json={
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "model_name": "MyModel",
+                "version": 12,
+                "operation": "READ_MODEL_VERSION",
+            },
             extra_headers=ANY,
         )
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "gs://test_bucket/some/path"
@@ -232,7 +278,8 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mon
         gcs_artifact_repo_class_mock.return_value = mock_gcs_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
-            artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
+            artifact_uri="models:/catalog.schema.MyModel/12",
+            registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
         )
         assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         gcs_artifact_repo_class_mock.assert_called_once_with(
@@ -244,9 +291,15 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mon
         assert credentials.token == fake_oauth_token
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            json={
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "model_name": "MyModel",
+                "version": 12,
+                "operation": "READ_MODEL_VERSION",
+            },
             extra_headers=ANY,
         )
 
@@ -272,6 +325,7 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
 
 
 def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
@@ -298,7 +352,8 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
-            artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
+            artifact_uri="models:/catalog.schema.MyModel/12",
+            registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
         )
         assert models_repo.list_artifacts("artifact_path") == [fake_fileinfo]
         adls_artifact_repo_class_mock.assert_called_once_with(
@@ -310,9 +365,15 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
         mock_adls_repo.list_artifacts.assert_called_once_with(path="artifact_path")
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
+            json={
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "model_name": "MyModel",
+                "version": 12,
+                "operation": "READ_MODEL_VERSION",
+            },
             extra_headers=ANY,
         )
 
@@ -426,3 +487,40 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
         presigned_store = uc_store._get_artifact_repo()
 
     assert type(presigned_store) is PresignedUrlArtifactRepository
+
+
+def test_get_scoped_token_uses_native_when_flag_enabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true")
+    store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value="s3://blah"
+    ):
+        repo = UnityCatalogModelsArtifactRepository(
+            "models:/catalog.schema.model/1", "databricks-uc"
+        )
+    sentinel = mock.Mock()
+    with (
+        mock.patch(f"{store_package}.get_databricks_host_creds"),
+        mock.patch(f"{store_package}.call_endpoint", return_value=sentinel) as call_endpoint,
+        mock.patch.object(repo, "_get_scoped_token_legacy") as legacy,
+    ):
+        result = repo._get_scoped_token(lineage_header_info=None)
+    # The native path issues the request itself rather than delegating to the legacy helper.
+    call_endpoint.assert_called_once()
+    legacy.assert_not_called()
+    assert result is sentinel
+
+
+def test_get_scoped_token_uses_legacy_when_flag_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "false")
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value="s3://blah"
+    ):
+        repo = UnityCatalogModelsArtifactRepository(
+            "models:/catalog.schema.model/1", "databricks-uc"
+        )
+    sentinel = mock.Mock()
+    with mock.patch.object(repo, "_get_scoped_token_legacy", return_value=sentinel) as legacy:
+        result = repo._get_scoped_token(lineage_header_info=None)
+    legacy.assert_called_once()
+    assert result is sentinel
