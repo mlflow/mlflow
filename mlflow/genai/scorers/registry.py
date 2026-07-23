@@ -9,9 +9,12 @@ import json
 import warnings
 from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
+from collections.abc import Mapping
 from functools import partial
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast
 from urllib.parse import quote
+
+from typing_extensions import NotRequired
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
@@ -30,6 +33,16 @@ from mlflow.utils.uri import get_uri_scheme
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
+
+class _ScheduledScorerConfig(TypedDict):
+    name: str
+    serialized_scorer: str
+    builtin: NotRequired[dict[str, str]]
+    custom: NotRequired[dict[str, Any]]
+    sample_rate: NotRequired[float]
+    filter_string: NotRequired[str | None]
+    scorer_version: NotRequired[int]
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -399,12 +412,17 @@ class DatabricksStore(AbstractScorerStore):
         return response.json()
 
     @staticmethod
-    def _extract_current_scorer_configs(response: dict[str, Any]) -> list[dict[str, Any]]:
-        return response.get("scheduled_scorers", {}).get("scorers", [])
+    def _extract_current_scorer_configs(
+        response: dict[str, Any],
+    ) -> list[_ScheduledScorerConfig]:
+        return cast(
+            list[_ScheduledScorerConfig],
+            response.get("scheduled_scorers", {}).get("scorers", []),
+        )
 
-    def _list_current_scorer_configs(self, experiment_id: str) -> list[dict[str, Any]]:
+    def _list_current_scorer_configs(self, experiment_id: str) -> list[_ScheduledScorerConfig]:
         endpoint = self._scheduled_scorers_endpoint(experiment_id)
-        configs = []
+        configs: list[_ScheduledScorerConfig] = []
         page_token = None
         while True:
             params = {"page_token": page_token} if page_token else None
@@ -432,10 +450,10 @@ class DatabricksStore(AbstractScorerStore):
 
     def _config_to_scorer(
         self,
-        config: dict[str, Any],
+        config: Mapping[str, Any],
         experiment_id: str,
         *,
-        current_config: dict[str, Any] | None = None,
+        current_config: _ScheduledScorerConfig | None = None,
         display_name: str | None = None,
     ) -> Scorer:
         serialized_scorer = config.get("serialized_scorer")
@@ -457,7 +475,7 @@ class DatabricksStore(AbstractScorerStore):
             filter_string=sampling_config.get("filter_string"),
         )
 
-    def _find_current_scorer_config(self, experiment_id: str, name: str) -> dict[str, Any]:
+    def _find_current_scorer_config(self, experiment_id: str, name: str) -> _ScheduledScorerConfig:
         for config in self._list_current_scorer_configs(experiment_id):
             if config.get("name") == name:
                 return config
