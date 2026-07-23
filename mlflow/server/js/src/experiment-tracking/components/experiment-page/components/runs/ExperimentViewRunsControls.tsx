@@ -123,6 +123,18 @@ export const ExperimentViewRunsControls = React.memo(
           />
         )}
 
+        {showActionButtons && !isComparingRuns && (
+          <div css={{ display: 'none' }}>
+            <ExperimentViewRunsColumnSelector
+              columnSelectorVisible={viewState.columnSelectorVisible}
+              onChangeColumnSelectorVisible={changeColumnSelectorVisible}
+              runsData={runsData}
+              selectedColumns={uiState.selectedColumns}
+              onResetColumns={onResetColumns}
+            />
+          </div>
+        )}
+
         {!showActionButtons && (
           <ExperimentViewRunsControlsFilters
             onDownloadCsv={onDownloadCsv}
