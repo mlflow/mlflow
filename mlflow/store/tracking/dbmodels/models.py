@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
+    Date,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -784,6 +785,46 @@ class SqlTraceInfo(Base):
     DB-backed trace payload generation used for concurrency coordination.
     Defaults to 0.
     """
+    trace_name = Column(String(500), nullable=True)
+    """
+    Denormalized trace name used by trace analytics queries.
+    """
+    session_id = Column(String(500), nullable=True)
+    """
+    Denormalized session identifier used by trace analytics queries.
+    """
+    input_tokens = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized input token usage used by trace analytics queries.
+    """
+    output_tokens = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized output token usage used by trace analytics queries.
+    """
+    total_tokens = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized total token usage used by trace analytics queries.
+    """
+    cache_read_input_tokens = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized cache-read token usage used by trace analytics queries.
+    """
+    cache_creation_input_tokens = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized cache-creation token usage used by trace analytics queries.
+    """
+    input_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace input cost used by trace analytics queries.
+    """
+    output_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace output cost used by trace analytics queries.
+    """
+    total_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace total cost used by trace analytics queries.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("request_id", name="trace_info_pk"),
@@ -873,6 +914,136 @@ class SqlTraceMetadata(Base):
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
+    )
+
+
+class SqlTraceMetricDailyRollup(Base):
+    __tablename__ = "sql_trace_metric_daily_rollups"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    trace_status = Column(String(50), nullable=True)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+    p50_value = Column(Float(precision=53), nullable=True)
+    p90_value = Column(Float(precision=53), nullable=True)
+    p99_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_trace_metric_daily_rollups_pk"),
+        Index(
+            "idx_trace_rollups_lookup",
+            "workspace",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "trace_status",
+        ),
+    )
+
+
+class SqlSpanCostDailyRollup(Base):
+    __tablename__ = "sql_span_cost_daily_rollups"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    model_name = Column(String(500), nullable=True)
+    model_provider = Column(String(500), nullable=True)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_span_cost_daily_rollups_pk"),
+        Index(
+            "idx_span_cost_rollups_lookup",
+            "workspace",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "model_name",
+            "model_provider",
+            mysql_length={"model_name": 64, "model_provider": 64},
+        ),
+    )
+
+
+class SqlAssessmentDailyRollup(Base):
+    __tablename__ = "sql_assessment_daily_rollups"
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_assessment_daily_rollups_pk"),
+        Index(
+            "idx_assessment_rollups_lookup",
+            "workspace",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+        ),
+    )
+
+
+class SqlTraceRollupRebuild(Base):
+    __tablename__ = "sql_trace_rollup_rebuild_queue"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    rollup_family = Column(String(50), nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace",
+            "experiment_id",
+            "rollup_day",
+            "rollup_family",
+            name="sql_trace_rollup_rebuild_queue_pk",
+        ),
     )
 
 
@@ -990,6 +1161,22 @@ class SqlAssessments(Base):
     """
     The update time of an assessment if the assessment has been updated: `BigInteger`.
     """
+    experiment_id = Column(Integer, nullable=True)
+    """
+    Denormalized experiment ID used by assessment analytics queries.
+    """
+    trace_timestamp_ms = Column(BigInteger, nullable=True)
+    """
+    Denormalized trace timestamp used by assessment analytics queries.
+    """
+    aggregate_value = Column(Float(precision=53), nullable=True)
+    """
+    Materialized numeric value used by assessment analytics aggregations.
+    """
+    is_numeric_value = Column(Boolean, nullable=False, default=False, server_default=sa.false())
+    """
+    Whether the original JSON assessment value is a finite number.
+    """
     source_type = Column(String(50), nullable=False)
     """
     Assessment source type: `String` (limit 50 characters). e.g., "HUMAN", "CODE", "LLM_JUDGE".
@@ -1038,6 +1225,14 @@ class SqlAssessments(Base):
         Index(f"index_{__tablename__}_run_id_created_timestamp", "run_id", "created_timestamp"),
         Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
         Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
+        Index("idx_assessments_exp_trace_ts", "experiment_id", "trace_timestamp_ms"),
+        Index(
+            "idx_assessments_exp_trace_ts_name",
+            "experiment_id",
+            "trace_timestamp_ms",
+            "name",
+        ),
+        Index("idx_assessments_exp_name_valid", "experiment_id", "name", "valid"),
     )
 
     def to_mlflow_entity(self) -> Assessment:
@@ -2041,6 +2236,26 @@ class SqlSpan(Base):
     Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
     efficient querying or metrics aggregation.
     """
+    input_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized input cost used by span analytics queries.
+    """
+    output_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized output cost used by span analytics queries.
+    """
+    total_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized total cost used by span analytics queries.
+    """
+    model_name = Column(String(500), nullable=True)
+    """
+    Denormalized model name used by span cost analytics queries.
+    """
+    model_provider = Column(String(500), nullable=True)
+    """
+    Denormalized model provider used by span cost analytics queries.
+    """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
     """
@@ -2058,6 +2273,36 @@ class SqlSpan(Base):
             "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
+        Index(
+            "idx_spans_cost_trace_time_cover",
+            "trace_id",
+            "start_time_unix_nano",
+            postgresql_include=[
+                "input_cost",
+                "output_cost",
+                "total_cost",
+                "model_name",
+                "model_provider",
+            ],
+            postgresql_where=sa.text(
+                "input_cost IS NOT NULL OR output_cost IS NOT NULL OR total_cost IS NOT NULL"
+            ),
+        ),
+        Index(
+            "idx_spans_cost_exp_time_cover",
+            "experiment_id",
+            "start_time_unix_nano",
+            postgresql_include=[
+                "input_cost",
+                "output_cost",
+                "total_cost",
+                "model_name",
+                "model_provider",
+            ],
+            postgresql_where=sa.text(
+                "input_cost IS NOT NULL OR output_cost IS NOT NULL OR total_cost IS NOT NULL"
+            ),
+        ),
     )
 
 

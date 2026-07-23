@@ -27,6 +27,10 @@ OTHER_WORKSPACE_CHILD_TABLES = [
     "mcp_server_version_tags",
     "mcp_server_aliases",
     "mcp_access_endpoints",
+    "sql_trace_metric_daily_rollups",
+    "sql_span_cost_daily_rollups",
+    "sql_assessment_daily_rollups",
+    "sql_trace_rollup_rebuild_queue",
 ]
 
 
