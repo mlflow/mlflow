@@ -1,23 +1,15 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import { first } from 'lodash';
-import type { MCPServerVersion } from '../types';
-
-export enum MCPServerDetailViewMode {
-  PREVIEW = 'preview',
-  COMPARE = 'compare',
-}
-
-interface State {
-  mode: MCPServerDetailViewMode;
-  comparedVersion?: string;
-}
+import type { MCPServerDetailViewState, MCPServerVersion } from '../types';
+import { MCPServerDetailViewMode } from '../types';
 
 type ViewAction =
   | { type: 'setPreviewMode' }
   | { type: 'setCompareMode'; comparedVersion?: string }
-  | { type: 'setComparedVersion'; comparedVersion?: string };
+  | { type: 'setComparedVersion'; comparedVersion?: string }
+  | { type: 'syncVersions'; versions: string[]; selectedVersion?: string };
 
-const viewStateReducer = (state: State, action: ViewAction): State => {
+const viewStateReducer = (state: MCPServerDetailViewState, action: ViewAction): MCPServerDetailViewState => {
   switch (action.type) {
     case 'setPreviewMode':
       return { ...state, mode: MCPServerDetailViewMode.PREVIEW, comparedVersion: undefined };
@@ -29,6 +21,20 @@ const viewStateReducer = (state: State, action: ViewAction): State => {
       };
     case 'setComparedVersion':
       return { ...state, comparedVersion: action.comparedVersion };
+    case 'syncVersions': {
+      let next = state;
+      if (next.mode === MCPServerDetailViewMode.COMPARE && action.versions.length < 2) {
+        next = { ...next, mode: MCPServerDetailViewMode.PREVIEW, comparedVersion: undefined };
+      }
+      if (next.comparedVersion && !action.versions.includes(next.comparedVersion)) {
+        const fallback =
+          action.versions[0] === action.selectedVersion
+            ? (action.versions[1] ?? '')
+            : (action.versions[0] ?? '');
+        next = { ...next, comparedVersion: fallback };
+      }
+      return next;
+    }
     default:
       return state;
   }
@@ -70,17 +76,14 @@ export const useMCPServerDetailViewState = (
     setComparedVersion(tempSelected);
   }, [selectedVersion, state.comparedVersion, setSelectedVersion, setComparedVersion]);
 
-  if (versions?.length && !selectedVersion) {
-    setSelectedVersion(first(versions)?.version);
-  }
-  if (state.mode === MCPServerDetailViewMode.COMPARE && versions && versions.length < 2) {
-    dispatch({ type: 'setPreviewMode' });
-  }
-  if (state.comparedVersion && versions?.length && !versions.some((v) => v.version === state.comparedVersion)) {
-    const fallback =
-      first(versions)?.version === selectedVersion ? (versions[1]?.version ?? '') : (first(versions)?.version ?? '');
-    dispatch({ type: 'setComparedVersion', comparedVersion: fallback });
-  }
+  useEffect(() => {
+    if (!versions?.length) return;
+    if (!selectedVersion) {
+      setSelectedVersion(first(versions)?.version);
+    }
+    const versionStrings = versions.map((v) => v.version);
+    dispatch({ type: 'syncVersions', versions: versionStrings, selectedVersion });
+  }, [versions, selectedVersion, setSelectedVersion]);
 
   return {
     viewState: { mode: state.mode, comparedVersion: state.comparedVersion },

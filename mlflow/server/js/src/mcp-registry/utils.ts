@@ -1,5 +1,14 @@
 import type { TagProps } from '@databricks/design-system';
-import type { MCPAccessEndpoint, MCPServer, MCPRemoteTransportType, MCPTool, ServerJSONPayload } from './types';
+import type {
+  ConnectOptionKey,
+  MCPAccessEndpoint,
+  MCPServer,
+  MCPRemoteTransportType,
+  MCPTool,
+  PackageConnectOptionKey,
+  RemoteConnectOptionKey,
+  ServerJSONPayload,
+} from './types';
 import { MCPStatus, MCPServerAction } from './types';
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
@@ -101,7 +110,10 @@ const hasAction = (actions: MCPServerAction[] | undefined, action: MCPServerActi
   actions === undefined || actions.includes(action);
 
 export const getServerPermissions = (server?: MCPServer) => {
-  const actions = server?.allowed_actions;
+  if (!server) {
+    return { canUpdate: false, canDelete: false, canManage: false };
+  }
+  const actions = server.allowed_actions;
   return {
     canUpdate: hasAction(actions, MCPServerAction.UPDATE),
     canDelete: hasAction(actions, MCPServerAction.DELETE),
@@ -175,8 +187,19 @@ export const validateToolsJson = (value: string): { valid: boolean; error?: stri
   return { valid: true, parsed: parsed as MCPTool[] };
 };
 
-export const buildPackageConnectOptionKey = (pkg: { registryType: string; identifier: string }): string =>
-  `${pkg.registryType}:${pkg.identifier}`;
+export const buildPackageConnectOptionKey = (pkg: { registryType: string; identifier: string }): PackageConnectOptionKey =>
+  `pkg:${pkg.registryType}:${pkg.identifier}`;
 
-export const buildRemoteConnectOptionKey = (remote: { url?: string; type: string }): string =>
-  `remote:${remote.url ?? remote.type}`;
+export const buildRemoteConnectOptionKey = (remote: { url?: string; type: string }): RemoteConnectOptionKey =>
+  remote.url ? `remote:${remote.type}:${remote.url}` : `remote:${remote.type}:`;
+
+export const deriveConnectOptionKeys = (serverJson: ServerJSONPayload): Set<ConnectOptionKey> => {
+  const keys = new Set<ConnectOptionKey>();
+  for (const pkg of serverJson.packages ?? []) {
+    keys.add(buildPackageConnectOptionKey(pkg));
+  }
+  for (const remote of serverJson.remotes ?? []) {
+    keys.add(buildRemoteConnectOptionKey(remote));
+  }
+  return keys;
+};

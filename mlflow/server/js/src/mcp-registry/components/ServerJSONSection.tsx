@@ -21,7 +21,7 @@ export const ServerJSONSection = ({
   version?: MCPServerVersion;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { showVisibilityControls, canUpdate } = useServerState(server);
+  const { showVisibilityControls } = useServerState(server);
   const { connectOptions, handleToggleConnectOption } = useConnectOptionToggle(server.name, version);
   const packages = serverJson.packages ?? [];
   const remotes = serverJson.remotes ?? [];
@@ -47,7 +47,7 @@ export const ServerJSONSection = ({
           onToggleConnectOption={handleToggleConnectOption}
         />
       )}
-      {canUpdate && <RawJSONToggle serverJson={serverJson} />}
+      <RawJSONToggle serverJson={serverJson} />
     </div>
   );
 };

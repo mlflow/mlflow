@@ -12,6 +12,7 @@ import {
   noShrinkStyles,
   blockLabelStyles,
   monoFontStyles,
+  hiddenRowStyle,
 } from '../styles';
 import { buildRemoteConnectOptionKey } from '../utils';
 import { ViewDetailsDrawer, DetailField } from './ViewDetailsDrawer';
@@ -76,7 +77,7 @@ export const RemotesSubsection = ({
           )
         }
         getRowStyle={(remote) =>
-          connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden ? { opacity: 0.5 } : undefined
+          hiddenRowStyle(connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden)
         }
         renderRow={({ item: remote }) => (
           <RemoteRowContent

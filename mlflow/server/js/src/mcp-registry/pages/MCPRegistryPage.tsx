@@ -17,7 +17,6 @@ import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWra
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useNavigate } from '../../common/utils/RoutingUtils';
-import { useIsAuthAvailable, useCurrentUserQuery } from '../../account/hooks';
 import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
 import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
@@ -33,20 +32,14 @@ type FilterMode = 'available' | 'all';
 const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const isAuthAvailable = useIsAuthAvailable();
-  const { isLoading: isAuthLoading } = useCurrentUserQuery();
-
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [filterMode, setFilterMode] = useState<FilterMode>(isAuthAvailable ? 'available' : 'all');
+  const [filterMode, setFilterMode] = useState<FilterMode>('available');
   const [searchFilter, setSearchFilter] = useState('');
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
   const navigate = useNavigate();
 
-  const effectiveFilterMode = !isAuthLoading && isAuthAvailable ? filterMode : 'all';
-
   const {
     data: servers,
-    rawResponse,
     isLoading,
     error,
     hasNextPage,
@@ -56,15 +49,13 @@ const MCPRegistryPage = () => {
     pageSizeSelect,
   } = useMCPServersListQuery({
     searchFilter: debouncedSearchFilter,
-    availableOnly: effectiveFilterMode === 'available',
+    availableOnly: filterMode === 'available',
   });
 
   const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
     onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
   });
 
-  const hasManageOnAny = rawResponse !== undefined && rawResponse.user_has_manage !== false;
-  const showAvailabilityFilter = !isAuthLoading && isAuthAvailable && hasManageOnAny;
   const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
   const createButton = !isServersEmpty ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
@@ -104,22 +95,20 @@ const MCPRegistryPage = () => {
                 componentId="mlflow.mcp_registry.search"
               />
             </div>
-            {showAvailabilityFilter && (
-              <SegmentedControlGroup
-                name="mcp-registry-filter-mode"
-                value={filterMode}
-                onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-                componentId="mlflow.mcp_registry.filter_toggle"
-                data-testid="mcp-registry-availability-filter"
-              >
-                <SegmentedControlButton value="available">
-                  <FormattedMessage defaultMessage="Available" description="Filter to show only available servers" />
-                </SegmentedControlButton>
-                <SegmentedControlButton value="all">
-                  <FormattedMessage defaultMessage="All" description="Filter to show all servers" />
-                </SegmentedControlButton>
-              </SegmentedControlGroup>
-            )}
+            <SegmentedControlGroup
+              name="mcp-registry-filter-mode"
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value as FilterMode)}
+              componentId="mlflow.mcp_registry.filter_toggle"
+              data-testid="mcp-registry-availability-filter"
+            >
+              <SegmentedControlButton value="available">
+                <FormattedMessage defaultMessage="Available" description="Filter to show only available servers" />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="all">
+                <FormattedMessage defaultMessage="All" description="Filter to show all servers" />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
             <SegmentedControlGroup
               name="mcp-registry-view-mode"
               value={viewMode}

@@ -35,7 +35,7 @@ export const AccessEndpointsSubsection = ({
   onEditEndpoint?: (endpoint: MCPAccessEndpoint) => void;
   onDeleteEndpoint?: (endpoint: MCPAccessEndpoint) => void;
 }) => {
-  const { canUpdate, canDelete, canManage } = useServerState(server);
+  const { canUpdate, canDelete } = useServerState(server);
   const intl = useIntl();
 
   return (

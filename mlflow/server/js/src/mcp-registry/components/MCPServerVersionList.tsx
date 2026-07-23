@@ -24,8 +24,8 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServerVersion } from '../types';
+import { MCPServerDetailViewMode } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
-import { MCPServerDetailViewMode } from '../hooks/useMCPServerDetailViewState';
 import { MCPServerVersionDiffSelectorButton } from './MCPServerVersionDiffSelectorButton';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import Utils from '../../common/utils/Utils';

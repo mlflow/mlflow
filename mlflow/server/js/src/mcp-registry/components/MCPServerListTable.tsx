@@ -26,7 +26,7 @@ import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import { QuickConnectModal } from './QuickConnectModal';
-import { textEllipsisStyles, flexRowStyles, monoFontStyles, noShrinkStyles } from '../styles';
+import { textEllipsisStyles, flexRowStyles } from '../styles';
 import { useUpdateMCPServerTags } from '../hooks/useUpdateMCPServerTags';
 import {
   findLatestEndpoint,
@@ -152,46 +152,32 @@ const MCPServerEndpointsCell = ({
   const latestEndpoint = findLatestEndpoint(original);
   if (!latestEndpoint) return '—';
 
-  const displayUrl = latestEndpoint.url.replace(/^https?:\/\//, '');
-
   return (
-    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
-      <Tag componentId="mlflow.mcp_registry.table.transport_tag" color="indigo" css={noShrinkStyles}>
-        {formatTransportType(latestEndpoint.transport_type)}
-      </Tag>
-      <Tooltip
-        content={<span css={{ wordBreak: 'break-all' }}>{latestEndpoint.url}</span>}
-        componentId="mlflow.mcp_registry.table.endpoint_tooltip"
-      >
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
+    <Tooltip
+      content={<span css={{ wordBreak: 'break-all' }}>{latestEndpoint.url}</span>}
+      componentId="mlflow.mcp_registry.table.endpoint_tooltip"
+    >
+      <Tag
+        componentId="mlflow.mcp_registry.table.transport_tag"
+        color="indigo"
+        role="button"
+        tabIndex={0}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onOpenConnect?.(original);
+        }}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             e.stopPropagation();
             onOpenConnect?.(original);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              onOpenConnect?.(original);
-            }
-          }}
-          css={{
-            ...monoFontStyles,
-            fontSize: theme.typography.fontSizeSm,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
-            color: theme.colors.actionPrimaryBackgroundDefault,
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          {displayUrl}
-        </span>
-      </Tooltip>
-    </span>
+          }
+        }}
+        css={{ cursor: 'pointer' }}
+      >
+        {formatTransportType(latestEndpoint.transport_type)}
+      </Tag>
+    </Tooltip>
   );
 };
 

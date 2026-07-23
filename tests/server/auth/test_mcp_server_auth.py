@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from mlflow.server.auth.__init__ import _is_mcp_sub_resource_path, _permission_to_allowed_actions
+from mlflow.server.auth.__init__ import _permission_to_allowed_actions
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 
 # ---------------------------------------------------------------------------
@@ -114,36 +114,3 @@ def test_stamp_enriches_dict():
 def test_connect_options_requires_update(permission, update_allowed):
     actions = _permission_to_allowed_actions(permission)
     assert ("UPDATE" in actions) == update_allowed
-
-
-# ---------------------------------------------------------------------------
-# _is_mcp_sub_resource_path: structural parsing after {namespace}/{slug}
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("path", "expected"),
-    [
-        # Server detail — NOT a sub-resource
-        ("/ajax-api/3.0/mlflow/mcp-servers/default/my-server", False),
-        ("/api/3.0/mlflow/mcp-servers/default/my-server", False),
-        # Sub-resource paths — IS a sub-resource
-        ("/ajax-api/3.0/mlflow/mcp-servers/default/my-server/versions/3", True),
-        ("/ajax-api/3.0/mlflow/mcp-servers/default/my-server/aliases/latest", True),
-        ("/ajax-api/3.0/mlflow/mcp-servers/default/my-server/tags", True),
-        ("/ajax-api/3.0/mlflow/mcp-servers/default/my-server/endpoints", True),
-        # Reserved word as namespace — NOT a sub-resource (this was the bug)
-        ("/ajax-api/3.0/mlflow/mcp-servers/tags/my-server", False),
-        ("/ajax-api/3.0/mlflow/mcp-servers/versions/my-server", False),
-        ("/ajax-api/3.0/mlflow/mcp-servers/endpoints/my-server", False),
-        ("/ajax-api/3.0/mlflow/mcp-servers/aliases/my-server", False),
-        # Reserved word as namespace WITH sub-resource — IS a sub-resource
-        ("/ajax-api/3.0/mlflow/mcp-servers/tags/my-server/versions/1", True),
-        ("/ajax-api/3.0/mlflow/mcp-servers/versions/foo/aliases/latest", True),
-        # Bare prefix — NOT a sub-resource
-        ("/ajax-api/3.0/mlflow/mcp-servers", False),
-        ("/ajax-api/3.0/mlflow/mcp-servers/", False),
-    ],
-)
-def test_is_mcp_sub_resource_path(path, expected):
-    assert _is_mcp_sub_resource_path(path) == expected

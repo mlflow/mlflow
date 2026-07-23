@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { ThemeType } from '@databricks/design-system';
 
 // Omits height: '100%' from the CLAUDE.md empty-state pattern so the empty state
@@ -251,3 +252,6 @@ export const blockLabelStyles = (theme: ThemeType) => ({
   display: 'block' as const,
   marginBottom: theme.spacing.xs,
 });
+
+export const hiddenRowStyle = (hidden: boolean | undefined): React.CSSProperties | undefined =>
+  hidden ? { opacity: 0.5 } : undefined;

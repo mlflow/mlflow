@@ -339,8 +339,11 @@ from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
     MCPServerResponse,
+    get_mcp_server as _get_mcp_server_endpoint,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
+    search_all_access_endpoints as _search_all_access_endpoints_endpoint,
+    search_mcp_servers as _search_mcp_servers_endpoint,
 )
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
@@ -4617,14 +4620,18 @@ def _backfill_readable_mcp_results(
 
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    can_read = _role_based_read_predicate(username, "mcp_server")
+    perm_cache: dict[str, Permission] = {}
+
+    def _perm(name: str) -> Permission:
+        if name not in perm_cache:
+            perm_cache[name] = _get_mcp_server_permission(name, username)
+        return perm_cache[name]
 
     def _stamp(s: dict[str, Any]) -> dict[str, Any]:
-        perm = _get_mcp_server_permission(s["name"], username)
-        s["allowed_actions"] = _permission_to_allowed_actions(perm)
+        s["allowed_actions"] = _permission_to_allowed_actions(_perm(s["name"]))
         return s
 
-    readable = [_stamp(s) for s in data.get("mcp_servers", []) if can_read(s["name"])]
+    readable = [_stamp(s) for s in data.get("mcp_servers", []) if _perm(s["name"]).can_read]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -4632,7 +4639,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     order_by = params.getlist("order_by") or None
 
     data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=can_read,
+        can_read=lambda name: _perm(name).can_read,
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
@@ -4643,12 +4650,9 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
             page_token=token,
         ),
         get_name=lambda s: s.name,
-        to_dict=lambda s: _stamp(
-            MCPServerResponse.from_entity(s).model_dump(mode="json")
-        ),
+        to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
     )
     data["mcp_servers"] = readable[:max_results]
-    data["user_has_manage"] = store.has_mcp_server_manage_permission(username)
     return json.dumps(data).encode()
 
 
@@ -4776,37 +4780,7 @@ def _find_fastapi_after_request_handler(
     )
 
 
-FASTAPI_RESPONSE_FILTERS: dict[
-    tuple[str, str],
-    Callable[[str, bytes, StarletteRequest], bytes],
-] = {
-    (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
-} | {
-    (f"{prefix}/endpoints", "GET"): _filter_search_mcp_endpoints
-    for prefix in get_mcp_server_api_route_prefixes()
-}
-
-
-_MCP_SUB_RESOURCE_SEGMENTS = frozenset({"versions", "aliases", "tags", "endpoints"})
-
-
-_MCP_SERVER_API_ROUTE_PREFIXES = get_mcp_server_api_route_prefixes()
-
-
-def _is_mcp_sub_resource_path(path: str) -> bool:
-    for prefix in _MCP_SERVER_API_ROUTE_PREFIXES:
-        if not path.startswith(prefix):
-            continue
-        if suffix := path[len(prefix) :].strip("/"):
-            parts = suffix.split("/")
-            if len(parts) > 2 and parts[2] in _MCP_SUB_RESOURCE_SEGMENTS:
-                return True
-    return False
-
-
 def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
-    if _is_mcp_sub_resource_path(request.url.path):
-        return body
     data = json.loads(body)
     if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)
@@ -4814,37 +4788,25 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     return json.dumps(data).encode()
 
 
-FASTAPI_PREFIX_RESPONSE_FILTERS: dict[
-    tuple[str, str],
+FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
+    Callable,
     Callable[[str, bytes, StarletteRequest], bytes],
-] = {(prefix, "GET"): _filter_get_mcp_server for prefix in get_mcp_server_api_route_prefixes()}
+] = {
+    _search_mcp_servers_endpoint: _filter_search_mcp_servers,
+    _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _get_mcp_server_endpoint: _filter_get_mcp_server,
+}
 
 
 def _find_fastapi_response_filter(
-    path: str, method: str
+    request: StarletteRequest, method: str
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    stripped = path.rstrip("/")
-    exact = next(
-        (
-            handler
-            for (route, m), handler in FASTAPI_RESPONSE_FILTERS.items()
-            if m == method and stripped == route.rstrip("/")
-        ),
-        None,
-    )
-    if exact:
-        return exact
-    return next(
-        (
-            handler
-            for (route, m), handler in sorted(
-                FASTAPI_PREFIX_RESPONSE_FILTERS.items(),
-                key=lambda x: -len(x[0][0]),
-            )
-            if m == method and stripped.startswith(route.rstrip("/") + "/")
-        ),
-        None,
-    )
+    if method != "GET":
+        return None
+    endpoint = request.scope.get("endpoint")
+    if endpoint is None:
+        return None
+    return FASTAPI_ENDPOINT_RESPONSE_FILTERS.get(endpoint)
 
 
 def _apply_fastapi_response_filter(
@@ -4981,35 +4943,32 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 e.message,
                 status_code=e.get_http_status_code(),
             )
-
-        try:
-            response = await call_next(request)
-
-            if after_handler is not None and response.status_code < 400:
-                try:
-                    after_handler(user.username, request)
-                except Exception:
-                    _logger.exception(
-                        "after-request handler failed for %s %s", request.method, path
-                    )
-
-            response_filter = _find_fastapi_response_filter(path, request.method)
-            if response_filter is not None and response.status_code < 400:
-                body = bytearray()
-                async for chunk in response.body_iterator:
-                    body.extend(chunk)
-                return _apply_fastapi_response_filter(
-                    response_filter=response_filter,
-                    username=user.username,
-                    body=bytes(body),
-                    request=request,
-                    response=response,
-                    path=path,
-                )
-
-            return response
         finally:
             workspace_context.clear_server_request_workspace()
+
+        response = await call_next(request)
+
+        if after_handler is not None and response.status_code < 400:
+            try:
+                after_handler(user.username, request)
+            except Exception:
+                _logger.exception("after-request handler failed for %s %s", request.method, path)
+
+        response_filter = _find_fastapi_response_filter(request, request.method)
+        if response_filter is not None and response.status_code < 400:
+            body = bytearray()
+            async for chunk in response.body_iterator:
+                body.extend(chunk)
+            return _apply_fastapi_response_filter(
+                response_filter=response_filter,
+                username=user.username,
+                body=bytes(body),
+                request=request,
+                response=response,
+                path=path,
+            )
+
+        return response
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python

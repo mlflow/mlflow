@@ -4634,12 +4634,19 @@ def test_read_predicate_honors_grant_default_workspace_access(
     + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
 )
 def test_response_filter_matches_trailing_slash(path):
-    assert _find_fastapi_response_filter(path, "GET") is not None
+    from mlflow.server.mcp_server_api import search_all_access_endpoints, search_mcp_servers
+
+    endpoint_fn = search_all_access_endpoints if "/endpoints" in path else search_mcp_servers
+    request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+    assert _find_fastapi_response_filter(request, "GET") is not None
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, monkeypatch):
-    handler = _find_fastapi_response_filter(f"{prefix}/com.test/server", "GET")
+    from mlflow.server.mcp_server_api import get_mcp_server
+
+    request = SimpleNamespace(scope={"endpoint": get_mcp_server})
+    handler = _find_fastapi_response_filter(request, "GET")
     assert handler is not None
     monkeypatch.setattr(
         auth_module,
@@ -4653,23 +4660,12 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, mon
     assert result["allowed_actions"] == []
 
 
-@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize(
-    "path_suffix",
-    [
-        "/com.test/server/versions/1",
-        "/com.test/server/aliases/latest",
-        "/com.test/server/tags",
-        "/com.test/server/endpoints",
-    ],
-)
-def test_response_filter_skips_sub_resource_paths(prefix, path_suffix):
-    handler = _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET")
-    assert handler is not None
-    request = SimpleNamespace(url=SimpleNamespace(path=f"{prefix}{path_suffix}"))
-    body = json.dumps({"name": "com.test/server"}).encode()
-    result = handler("testuser", body, request)
-    assert result == body
+def test_response_filter_skips_sub_resource_endpoints():
+    from mlflow.server.mcp_server_api import get_mcp_server_version, search_mcp_server_versions
+
+    for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
+        request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+        assert _find_fastapi_response_filter(request, "GET") is None
 
 
 def test_apply_fastapi_response_filter_fails_closed():

@@ -71,8 +71,8 @@ describe('RemotesSubsection', () => {
 
   it('returns null when all remotes are hidden via connectOptions and showVisibilityControls is false', () => {
     const connectOptions = {
-      'remote:https://a.example.com/mcp': { hidden: true },
-      'remote:https://b.example.com/mcp': { hidden: true },
+      'remote:streamable-http:https://a.example.com/mcp': { hidden: true },
+      'remote:sse:https://b.example.com/mcp': { hidden: true },
     };
     const { container } = render(
       <Wrapper>
@@ -89,8 +89,8 @@ describe('RemotesSubsection', () => {
 
   it('shows all remotes including hidden ones when showVisibilityControls is true', () => {
     const connectOptions = {
-      'remote:https://a.example.com/mcp': { hidden: true },
-      'remote:https://b.example.com/mcp': { hidden: true },
+      'remote:streamable-http:https://a.example.com/mcp': { hidden: true },
+      'remote:sse:https://b.example.com/mcp': { hidden: true },
     };
     render(
       <Wrapper>
@@ -133,8 +133,8 @@ describe('PackagesSubsection', () => {
 
   it('returns null when all packages are hidden via connectOptions and showVisibilityControls is false', () => {
     const connectOptions = {
-      'npm:@modelcontextprotocol/server-a': { hidden: true },
-      'pip:mcp-server-b': { hidden: true },
+      'pkg:npm:@modelcontextprotocol/server-a': { hidden: true },
+      'pkg:pip:mcp-server-b': { hidden: true },
     };
     const { container } = render(
       <Wrapper>
@@ -151,8 +151,8 @@ describe('PackagesSubsection', () => {
 
   it('shows all packages including hidden ones when showVisibilityControls is true', () => {
     const connectOptions = {
-      'npm:@modelcontextprotocol/server-a': { hidden: true },
-      'pip:mcp-server-b': { hidden: true },
+      'pkg:npm:@modelcontextprotocol/server-a': { hidden: true },
+      'pkg:pip:mcp-server-b': { hidden: true },
     };
     render(
       <Wrapper>
@@ -194,23 +194,13 @@ describe('ServerJSONSection', () => {
     });
   });
 
-  it('shows raw server.json toggle when canUpdate is true', () => {
-    mockPermissions({ canUpdate: true });
-    render(
-      <Wrapper>
-        <ServerJSONSection serverJson={serverJson} server={server} version={version} />
-      </Wrapper>,
-    );
-    expect(screen.getByText('View raw server.json')).toBeInTheDocument();
-  });
-
-  it('hides raw server.json toggle when canUpdate is false', () => {
+  it('shows raw server.json toggle regardless of permissions', () => {
     mockPermissions({ canUpdate: false });
     render(
       <Wrapper>
         <ServerJSONSection serverJson={serverJson} server={server} version={version} />
       </Wrapper>,
     );
-    expect(screen.queryByText('View raw server.json')).not.toBeInTheDocument();
+    expect(screen.getByText('View raw server.json')).toBeInTheDocument();
   });
 });

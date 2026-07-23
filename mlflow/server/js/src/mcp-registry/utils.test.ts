@@ -206,17 +206,17 @@ describe('validateToolsJson', () => {
 
 describe('buildPackageConnectOptionKey', () => {
   it('joins registry type and identifier', () => {
-    expect(buildPackageConnectOptionKey({ registryType: 'npm', identifier: '@acme/pkg' })).toBe('npm:@acme/pkg');
+    expect(buildPackageConnectOptionKey({ registryType: 'npm', identifier: '@acme/pkg' })).toBe('pkg:npm:@acme/pkg');
   });
 });
 
 describe('buildRemoteConnectOptionKey', () => {
   it('prefers url when present', () => {
-    expect(buildRemoteConnectOptionKey({ type: 'sse', url: 'https://example.com' })).toBe('remote:https://example.com');
+    expect(buildRemoteConnectOptionKey({ type: 'sse', url: 'https://example.com' })).toBe('remote:sse:https://example.com');
   });
 
   it('falls back to type when url is missing', () => {
-    expect(buildRemoteConnectOptionKey({ type: 'sse' })).toBe('remote:sse');
+    expect(buildRemoteConnectOptionKey({ type: 'sse' })).toBe('remote:sse:');
   });
 });
 

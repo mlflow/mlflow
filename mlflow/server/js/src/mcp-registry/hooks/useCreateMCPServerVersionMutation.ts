@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MCPRegistryApi } from '../api';
-import type { MCPServerVersion, MCPStatus, MCPTool, ServerJSONPayload } from '../types';
+import type { ConnectOptionsMap, MCPServerVersion, MCPStatus, MCPTool, ServerJSONPayload } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 
 type CreateMCPServerVersionPayload = {
@@ -11,13 +11,14 @@ type CreateMCPServerVersionPayload = {
   source?: string;
   tools?: MCPTool[];
   tags?: Record<string, string>;
+  connectOptions?: ConnectOptionsMap;
 };
 
 export const useCreateMCPServerVersionMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation<MCPServerVersion, Error, CreateMCPServerVersionPayload>({
-    mutationFn: async ({ serverJson, displayName, isNewServer, status, source, tools, tags }) => {
+    mutationFn: async ({ serverJson, displayName, isNewServer, status, source, tools, tags, connectOptions }) => {
       const name = serverJson.name;
       const version = await MCPRegistryApi.createMCPServerVersion(name, {
         server_json: serverJson,
@@ -25,6 +26,7 @@ export const useCreateMCPServerVersionMutation = () => {
         status,
         source,
         tools,
+        connect_options: connectOptions,
       });
 
       try {

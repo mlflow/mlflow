@@ -15,10 +15,10 @@ import {
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { MCPServerVersion } from '../types';
+import type { ConnectOptionsMap, MCPServerVersion } from '../types';
 import { MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
-import { validateServerJson, validateToolsJson } from '../utils';
+import { deriveConnectOptionKeys, validateServerJson, validateToolsJson } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
@@ -116,6 +116,20 @@ export const useCreateMCPServerVersionModal = ({
     const finalServerJson =
       isVersionMode && serverName ? { ...serverJsonResult.parsed, name: serverName } : serverJsonResult.parsed;
 
+    let connectOptions: ConnectOptionsMap | undefined;
+    if (latestVersion?.connect_options) {
+      const pruned: ConnectOptionsMap = {};
+      for (const key of deriveConnectOptionKeys(finalServerJson)) {
+        const setting = latestVersion.connect_options[key];
+        if (setting) {
+          pruned[key] = setting;
+        }
+      }
+      if (Object.keys(pruned).length > 0) {
+        connectOptions = pruned;
+      }
+    }
+
     mutate(
       {
         serverJson: finalServerJson,
@@ -125,6 +139,7 @@ export const useCreateMCPServerVersionModal = ({
         source: formState.source.trim() || undefined,
         tools: parsedTools,
         tags: tagsToSet,
+        connectOptions,
       },
       {
         onSuccess: (data) => {

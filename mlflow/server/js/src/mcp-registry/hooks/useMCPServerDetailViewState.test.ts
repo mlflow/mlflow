@@ -1,7 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useState } from 'react';
-import { useMCPServerDetailViewState, MCPServerDetailViewMode } from './useMCPServerDetailViewState';
+import { MCPServerDetailViewMode } from '../types';
+import { useMCPServerDetailViewState } from './useMCPServerDetailViewState';
 import { createMockMCPServerVersion } from '../test-utils';
 
 const v1 = createMockMCPServerVersion({ version: '1' });

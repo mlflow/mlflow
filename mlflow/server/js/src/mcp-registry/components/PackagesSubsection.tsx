@@ -14,6 +14,7 @@ import {
   noShrinkStyles,
   blockLabelStyles,
   monoFontStyles,
+  hiddenRowStyle,
 } from '../styles';
 import { buildPackageConnectOptionKey } from '../utils';
 import { ViewDetailsDrawer, DetailField, ArgumentList } from './ViewDetailsDrawer';
@@ -79,7 +80,7 @@ export const PackagesSubsection = ({
           )
         }
         getRowStyle={(pkg) =>
-          connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden ? { opacity: 0.5 } : undefined
+          hiddenRowStyle(connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden)
         }
         renderRow={({ item: pkg }) => (
           <PackageRowContent

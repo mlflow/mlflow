@@ -125,7 +125,9 @@ describe('MCPRegistryPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Search MCP servers by name'), 'github');
 
     await waitFor(() => {
-      expect(capturedFilter).toBe("name ILIKE '%github%'");
+      expect(capturedFilter).toBe(
+        "name ILIKE '%github%' AND status = 'active' AND has_access_endpoints = 'true'",
+      );
     });
   });
 
@@ -171,41 +173,16 @@ describe('MCPRegistryPage', () => {
         ...overrides,
       });
 
-    it('hides toggle when user_has_manage is false', async () => {
+    it('always shows the availability toggle', async () => {
       server.use(
-        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })], { userHasManage: false }),
+        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })]),
         getMockedCurrentUserResponse({ isAdmin: false }),
       );
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('server-1')).toBeInTheDocument();
       });
-      expect(screen.queryByTestId('mcp-registry-availability-filter')).not.toBeInTheDocument();
-    });
-
-    it('shows toggle when user_has_manage is true', async () => {
-      server.use(
-        getMockedSearchMCPServersResponse([activeServer()], { userHasManage: true }),
-        getMockedCurrentUserResponse({ isAdmin: false }),
-      );
-      renderPage();
-      await waitFor(() => {
-        expect(screen.getByText('server-1')).toBeInTheDocument();
-      });
-      await waitFor(() => {
-        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
-      });
-    });
-
-    it('shows toggle for admin users (user_has_manage undefined)', async () => {
-      server.use(getMockedSearchMCPServersResponse([activeServer()]), getMockedCurrentUserResponse({ isAdmin: true }));
-      renderPage();
-      await waitFor(() => {
-        expect(screen.getByText('server-1')).toBeInTheDocument();
-      });
-      await waitFor(() => {
-        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
-      });
+      expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
     });
 
     it('shows dimmed servers in All mode regardless of permissions', async () => {
@@ -220,15 +197,12 @@ describe('MCPRegistryPage', () => {
         allowed_actions: [],
       });
       server.use(
-        getMockedSearchMCPServersResponse([managedServer, dimmedReadOnly], { userHasManage: true }),
+        getMockedSearchMCPServersResponse([managedServer, dimmedReadOnly]),
         getMockedCurrentUserResponse({ isAdmin: false }),
       );
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('my-server')).toBeInTheDocument();
-      });
-      await waitFor(() => {
-        expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
       });
 
       await userEvent.click(screen.getByText('All'));

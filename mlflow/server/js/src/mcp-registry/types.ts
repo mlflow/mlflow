@@ -13,6 +13,25 @@ export enum TransportType {
 
 export type MCPRemoteTransportType = TransportType.STREAMABLE_HTTP | TransportType.SSE;
 
+export interface ConnectOptionSettings {
+  hidden?: boolean;
+}
+
+export type PackageConnectOptionKey = `pkg:${string}:${string}`;
+export type RemoteConnectOptionKey = `remote:${string}:${string}`;
+export type ConnectOptionKey = PackageConnectOptionKey | RemoteConnectOptionKey;
+export type ConnectOptionsMap = Record<ConnectOptionKey, ConnectOptionSettings>;
+
+export enum MCPServerDetailViewMode {
+  PREVIEW = 'preview',
+  COMPARE = 'compare',
+}
+
+export interface MCPServerDetailViewState {
+  mode: MCPServerDetailViewMode;
+  comparedVersion?: string;
+}
+
 export enum ConnectionSource {
   PACKAGE = 'package',
   REMOTE = 'remote',
@@ -82,7 +101,7 @@ export interface MCPServerVersion {
   tools?: MCPTool[];
   aliases: string[];
   tags: Record<string, string>;
-  connect_options?: Record<string, { hidden?: boolean }> | null;
+  connect_options?: ConnectOptionsMap | null;
   source?: string;
   created_by?: string;
   last_updated_by?: string;
@@ -197,13 +216,14 @@ export interface CreateMCPServerVersionRequest {
   status?: MCPStatus;
   source?: string;
   tools?: MCPTool[];
+  connect_options?: ConnectOptionsMap;
 }
 
 export interface UpdateMCPServerVersionRequest {
   display_name?: string | null;
   status?: MCPStatus | null;
   tools?: MCPTool[] | null;
-  connect_options?: Record<string, { hidden?: boolean }> | null;
+  connect_options?: ConnectOptionsMap | null;
 }
 
 export interface CreateMCPAccessEndpointRequest {
@@ -260,7 +280,6 @@ export interface SearchMCPAccessEndpointsParams {
 export interface SearchMCPServersResponse {
   mcp_servers: MCPServer[];
   next_page_token?: string;
-  user_has_manage?: boolean;
 }
 
 export interface SearchMCPServerVersionsResponse {
