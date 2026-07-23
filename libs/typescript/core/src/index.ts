@@ -39,6 +39,8 @@ export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_
 export type { SearchTracesOptions, SearchTracesResult } from './clients';
 export { TraceLocationType } from './core/entities/trace_location';
 export { SpanStatusCode } from './core/entities/span_status';
+export { SpanLink } from './core/entities/span_link';
+export type { SpanLinkParams, SerializedSpanLink } from './core/entities/span_link';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
 export type { TracingContextOptions } from './core/context';
 export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';
