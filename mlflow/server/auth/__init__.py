@@ -710,14 +710,21 @@ def _role_permission_for(
 
     def _role_perm() -> Permission | None:
         user = store.get_user(username)
-        workspace_name = _get_resource_workspace(
-            workspace_lookup_id, workspace_fetcher, workspace_label
-        )
-        if workspace_name is None:
-            # Workspace lookup failed — when workspaces are enabled, deny by returning
-            # NO_PERMISSIONS (security: don't let resource_not_found silently become a
-            # default-permission grant). When disabled, fall through to the default.
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            workspace_name = _get_resource_workspace(
+                workspace_lookup_id, workspace_fetcher, workspace_label
+            )
+            if workspace_name is None:
+                # Workspace lookup failed with workspaces enabled — deny by returning
+                # NO_PERMISSIONS (security: don't let resource_not_found silently become a
+                # default-permission grant).
+                return NO_PERMISSIONS
+        else:
+            # Workspaces disabled: every resource lives in the default workspace, which is
+            # where grants are stored. Skip the tracking-store workspace lookup so resolution
+            # honors the grant even when the tracking store has no data for the resource — e.g.
+            # an --artifacts-only server that shares the auth DB but has no experiment data.
+            workspace_name = DEFAULT_WORKSPACE_NAME
         perm = store.get_role_permission_for_resource(
             user.id, resource_type, resource_key, workspace_name
         )
@@ -731,6 +738,9 @@ def _role_permission_for(
         # don't lose resource-level access.
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
+        # Only reachable with workspaces enabled — the guard above returns first when
+        # disabled, so ``_user_inherits_default_workspace_grant`` (which touches the
+        # workspace store) never runs on an artifacts-only / workspaces-disabled server.
         if _user_inherits_default_workspace_grant(workspace_name):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
@@ -751,17 +761,27 @@ def _role_permission_for_known_workspace(
     """
 
     def _role_perm() -> Permission | None:
-        if workspace_name is None:
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        resolved_workspace = workspace_name
+        if resolved_workspace is None:
+            # Workspaces enabled + unknown workspace (e.g. resource not found) → deny.
+            # Workspaces disabled → every resource lives in the default workspace, which is
+            # where grants are stored, so resolve the grant there instead of ignoring it.
+            # Mirrors _role_permission_for so both resolvers behave identically.
+            if MLFLOW_ENABLE_WORKSPACES.get():
+                return NO_PERMISSIONS
+            resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
         perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
+            user.id, resource_type, resource_key, resolved_workspace
         )
         if perm is not None:
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
-        if _user_inherits_default_workspace_grant(workspace_name):
+        # Only reachable with workspaces enabled (see _role_permission_for): the guard
+        # above returns first when disabled, so the workspace-store lookup here never runs
+        # on a workspaces-disabled server.
+        if _user_inherits_default_workspace_grant(resolved_workspace):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 

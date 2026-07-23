@@ -166,6 +166,110 @@ def fastapi_workspace_client(tmp_path):
         yield MlflowClient(url)
 
 
+def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_path, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24566:
+    # On an --artifacts-only server the tracking store has no experiment data, so the
+    # resource->workspace lookup fails. With workspaces disabled, permission resolution must
+    # still honor an explicit experiment grant in the auth DB instead of falling through to
+    # default_permission (NO_PERMISSIONS => 403).
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    experiment_id = "123"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_experiment_permission(experiment_id, username, READ.name)
+
+    def _raise_not_found(_experiment_id):
+        raise MlflowException("no experiment data", RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_experiment=_raise_not_found),
+    )
+
+    try:
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant (not the
+        # default) is what's honored.
+        perm = auth_module._get_experiment_permission(experiment_id, username)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel — the two are otherwise
+        # indistinguishable when default_permission == NO_PERMISSIONS.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_perm = auth_module._get_experiment_permission(experiment_id, "stranger")
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
+def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_path, monkeypatch):
+    # Sibling of test_experiment_permission_honored_when_tracking_store_lacks_experiment for the
+    # _role_permission_for_known_workspace path (registered models / prompts): when the workspace
+    # can't be resolved (e.g. the registry lookup returned no workspace) and workspaces are
+    # disabled, resolution must still honor an explicit grant instead of falling through to
+    # default_permission.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    model_name = "m1"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_registered_model_permission(model_name, username, READ.name)
+
+    try:
+        # workspace_name=None mimics an unresolved workspace (e.g. RESOURCE_DOES_NOT_EXIST).
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant is honored.
+        resolver = auth_module._role_permission_for_known_workspace(
+            username, "registered_model", model_name, None
+        )
+        perm = auth_module._get_role_permission_or_default(resolver)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_resolver = auth_module._role_permission_for_known_workspace(
+            "stranger", "registered_model", model_name, None
+        )
+        stranger_perm = auth_module._get_role_permission_or_default(stranger_resolver)
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
 def test_authenticate(client, monkeypatch):
     # unauthenticated
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
