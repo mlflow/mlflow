@@ -417,8 +417,16 @@ class DatabricksStore(AbstractScorerStore):
         return config.get("scorer_version", 1)
 
     def _list_current_scorer_configs(self, experiment_id: str) -> list[dict[str, Any]]:
-        response = self._request("GET", self._scheduled_scorers_endpoint(experiment_id))
-        return self._extract_current_scorer_configs(response)
+        endpoint = self._scheduled_scorers_endpoint(experiment_id)
+        configs = []
+        page_token = None
+        while True:
+            params = {"page_token": page_token} if page_token else None
+            response = self._request("GET", endpoint, params=params)
+            configs.extend(self._extract_current_scorer_configs(response))
+            page_token = response.get("next_page_token")
+            if not page_token:
+                return configs
 
     def _hydrate_scorer(
         self,

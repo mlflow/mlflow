@@ -313,6 +313,29 @@ def test_databricks_backend_list_scorer_versions_paginates():
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
 
 
+def test_databricks_backend_current_scorer_configs_paginate():
+    scorer_v1 = Guidelines(name="scorer_v1", guidelines=["v1"], model="databricks:/judge")
+    scorer_v2 = Guidelines(name="scorer_v2", guidelines=["v2"], model="databricks:/judge")
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.side_effect = [
+            _mock_response({
+                "scheduled_scorers": {"scorers": [_scorer_config(scorer_v1)]},
+                "next_page_token": "page-2",
+            }),
+            _scheduled_scorers_response([_scorer_config(scorer_v2)]),
+        ]
+
+        configs = DatabricksStore(tracking_uri="databricks")._list_current_scorer_configs("exp_123")
+
+    assert [config["name"] for config in configs] == ["scorer_v1", "scorer_v2"]
+    assert mock_http.call_args_list[0].kwargs["params"] is None
+    assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
+
+
 def test_databricks_backend_current_config_parser_accepts_legacy_shape():
     scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
     config = _scorer_config(scorer)
