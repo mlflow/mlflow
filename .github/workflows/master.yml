@@ -375,6 +375,13 @@ jobs:
           uv run --no-sync python -m pip index versions google-adk || true
           echo "Direct google-adk[gcp] dry-run:"
           uv pip install --dry-run 'google-adk[gcp]' || true
+          echo "Direct google-adk[gcp] dry-run without PyTorch extra index:"
+          PIP_EXTRA_INDEX_URL= uv pip install --dry-run 'google-adk[gcp]' || true
+          echo "Direct google-adk[gcp] verbose dry-run:"
+          uv -v pip install --dry-run 'google-adk[gcp]' || true
+          echo "PyTorch extra index google-adk candidates:"
+          PIP_EXTRA_INDEX_URL= python -m pip index versions \
+            --index-url https://download.pytorch.org/whl/cpu google-adk || true
           echo "Direct google-adk[gcp]==2.4.0 dry-run:"
           uv pip install --dry-run 'google-adk[gcp]==2.4.0' || true
           echo "Direct google-adk[gcp] dry-run with --upgrade:"
