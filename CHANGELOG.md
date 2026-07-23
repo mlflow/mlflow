@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+Bug fixes:
+
+- [Artifacts] Log a warning instead of silently returning an empty list when a local artifact location is inaccessible (e.g. an unsupported or unmounted filesystem such as Lustre without the kernel module); listing keeps returning an empty list so training/inference are not interrupted (#24467, @fabiogeraci)
+
 ## 3.14.0 (2026-06-17)
 
 MLflow 3.14.0 includes several major features and improvements

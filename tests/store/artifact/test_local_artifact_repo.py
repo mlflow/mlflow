@@ -1,3 +1,4 @@
+import errno
 import io
 import json
 import os
@@ -40,6 +41,37 @@ def test_list_artifacts(local_artifact_repo, local_artifact_root):
     artifacts_list = local_artifact_repo.list_artifacts()
     assert len(artifacts_list) == 1
     assert artifacts_list[0].path == artifact_rel_path
+
+
+def test_list_artifacts_warns_but_does_not_raise_on_inaccessible_filesystem(local_artifact_repo):
+    # Simulate an unsupported/inaccessible filesystem (e.g. Lustre without the kernel module),
+    # where ``os.stat`` raises ``OSError`` with errno ``ENOSYS`` instead of ``FileNotFoundError``.
+    # The failure must be logged as a warning but must not raise, so that training/inference are
+    # not interrupted by a broken artifact filesystem.
+    error = OSError(errno.ENOSYS, os.strerror(errno.ENOSYS))
+    with (
+        mock.patch("mlflow.store.artifact.local_artifact_repo.os.stat", side_effect=error),
+        mock.patch("mlflow.store.artifact.local_artifact_repo._logger") as mock_logger,
+    ):
+        assert local_artifact_repo.list_artifacts() == []
+    mock_logger.warning.assert_called_once()
+    assert "Failed to access artifact location" in mock_logger.warning.call_args[0][0]
+
+
+def test_list_artifacts_warns_but_does_not_raise_when_listing_fails(local_artifact_repo):
+    # The directory exists (``os.stat`` succeeds) but becomes unreadable when listed.
+    error = OSError(errno.EIO, os.strerror(errno.EIO))
+    with (
+        mock.patch("mlflow.store.artifact.local_artifact_repo.os.listdir", side_effect=error),
+        mock.patch("mlflow.store.artifact.local_artifact_repo._logger") as mock_logger,
+    ):
+        assert local_artifact_repo.list_artifacts() == []
+    mock_logger.warning.assert_called_once()
+    assert "Failed to list artifacts" in mock_logger.warning.call_args[0][0]
+
+
+def test_list_artifacts_returns_empty_for_missing_dir(local_artifact_repo):
+    assert local_artifact_repo.list_artifacts("does_not_exist") == []
 
 
 def test_log_artifacts(local_artifact_repo, local_artifact_root):
