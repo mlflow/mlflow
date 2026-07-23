@@ -49,13 +49,9 @@ from mlflow.utils.uri import (
     is_databricks_unity_catalog_uri,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(
-    UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
-)
+_METHOD_TO_INFO = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX)
 # Legacy /api/2.0 endpoint map, used when MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY is off.
-_LEGACY_METHOD_TO_INFO = extract_api_info_for_service(
-    UcModelRegistryService, _REST_API_PATH_PREFIX
-)
+_LEGACY_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
