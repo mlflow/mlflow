@@ -708,3 +708,35 @@ def test_non_databricks_model_not_repriced_as_databricks():
     assert abs(result[CostKey.INPUT_COST] - expected_input) < 1e-9, (
         "gpt-4o price must not change due to the databricks-name fix"
     )
+
+
+def test_databricks_slash_prefixed_name_resolves_cost():
+    """'databricks/' prefix (e.g. 'databricks/databricks-claude-opus-4-8') must
+    return non-zero cost even when MODEL_PROVIDER attribute is absent."""
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks/databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider=None,
+    )
+    assert result is not None, (
+        "Cost must not be None for databricks/databricks-claude-opus-4-8 without provider"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens on databricks/databricks-claude-opus-4-8"
+    )
+
+
+def test_explicit_model_provider_passed_through():
+    """When model_provider='databricks' is supplied explicitly, cost resolves correctly.
+    Proves the effective_provider path still works after the model_provider rename."""
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider="databricks",
+    )
+    assert result is not None, (
+        "Cost must not be None when model_provider='databricks' is explicitly supplied"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens with explicit databricks provider"
+    )
