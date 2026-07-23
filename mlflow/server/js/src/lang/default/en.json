@@ -827,6 +827,10 @@
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
   },
+  "1rqKJk": {
+    "defaultMessage": "View details",
+    "description": "Link to the issue detection run overview from the completion notification"
+  },
   "1tVKvm": {
     "defaultMessage": "Change message role",
     "description": "Aria label for the dropdown that swaps a chat message role on the playground page"
@@ -3203,6 +3207,10 @@
     "defaultMessage": "An error occurred while rendering chat sessions.",
     "description": "Description for default error message in the MLflow experiment chat sessions page"
   },
+  "D9NBgY": {
+    "defaultMessage": "View progress",
+    "description": "Link to the issue detection run page from the job-started notification"
+  },
   "D9xvar": {
     "defaultMessage": "Cancel",
     "description": "Button to cancel editing"
@@ -4223,6 +4231,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "IkWwNU": {
+    "defaultMessage": "Issue detection started",
+    "description": "Notification title shown when an issue detection job is submitted"
+  },
   "Ikj6rr": {
     "defaultMessage": "Quick start",
     "description": "Gateway > Endpoints > Compact quick start section label"
@@ -5018,6 +5030,10 @@
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
+  },
+  "Myqag6": {
+    "defaultMessage": "View details",
+    "description": "Link to the issue detection run page from the failure notification"
   },
   "N/Svk+": {
     "defaultMessage": "Guidelines",
@@ -6439,6 +6455,10 @@
     "defaultMessage": "Dataset actions",
     "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
   },
+  "Tt6bVH": {
+    "defaultMessage": "View issues",
+    "description": "Link to the detected issues from the completion notification"
+  },
   "Tune9y": {
     "defaultMessage": "Created dataset \"{name}\"",
     "description": "Success toast after creating a V2 evaluation dataset"
@@ -7394,6 +7414,10 @@
   "YHOEuf": {
     "defaultMessage": "Share queue",
     "description": "Review queue header: share queue button aria label"
+  },
+  "YI2Zai": {
+    "defaultMessage": "Analyzing {count, plural, one {1 trace} other {# traces}}. We'll notify you here when it completes.",
+    "description": "Notification body shown when an issue detection job is submitted"
   },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
@@ -8539,6 +8563,10 @@
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
   },
+  "dgyN/J": {
+    "defaultMessage": "Issue detection completed",
+    "description": "Notification title shown when an issue detection job finishes successfully"
+  },
   "dkw8bG": {
     "defaultMessage": "Deny",
     "description": "Button to deny a tool-call permission request"
@@ -9234,6 +9262,10 @@
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
+  },
+  "ghkX74": {
+    "defaultMessage": "Issue detection failed",
+    "description": "Notification title shown when an issue detection job fails"
   },
   "ghvKpB": {
     "defaultMessage": "View full trace",
@@ -11810,6 +11842,10 @@
   "sYkXR1": {
     "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
     "description": "Request body tooltip for unified MLflow Invocations API"
+  },
+  "saHb/5": {
+    "defaultMessage": "Found {issueCount, plural, =0 {no issues} one {1 issue} other {# issues}} across {traceCount, plural, one {1 trace} other {# traces}}.",
+    "description": "Notification body shown when an issue detection job finishes successfully"
   },
   "sbHChH": {
     "defaultMessage": "Dataset name is required",
