@@ -174,6 +174,42 @@ describe('useCursorPaginatedQuery', () => {
     expect(result.current.hasPreviousPage).toBe(false);
   });
 
+  it('extraQueryKeys change resets pagination', async () => {
+    const capturedTokens: (string | null)[] = [];
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedTokens.push(req.url.searchParams.get('page_token'));
+        return res(ctx.json({ items: ['item'], next_page_token: 'next' }));
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ extra }: { extra: Record<string, unknown> }) =>
+        useCursorPaginatedQuery({ ...defaultOptions, extraQueryKeys: extra }),
+      { wrapper: createWrapper(), initialProps: { extra: { availableOnly: true } } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.onNextPage();
+    });
+
+    await waitFor(() => {
+      expect(capturedTokens).toContain('next');
+    });
+
+    rerender({ extra: { availableOnly: false } });
+
+    await waitFor(() => {
+      const lastToken = capturedTokens[capturedTokens.length - 1];
+      expect(lastToken).toBeNull();
+    });
+    expect(result.current.hasPreviousPage).toBe(false);
+  });
+
   it('enabled=false prevents query from firing', async () => {
     let requestCount = 0;
     mockServer.use(

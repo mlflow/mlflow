@@ -1,27 +1,34 @@
 import { describe, it, expect } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
+import { setupServer } from '../../common/utils/setup-msw';
 import { MCPServerCard } from './MCPServerCard';
-import { createMockMCPServer } from '../test-utils';
+import { createMockMCPServer, getMockedCurrentUserResponse } from '../test-utils';
+import { MCPStatus } from '../types';
 import type { MCPServer } from '../types';
 
-const renderCard = (server: MCPServer) =>
-  render(
+const renderCard = (server: MCPServer) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
     <IntlProvider locale="en">
       <TestRouter
         routes={[
           testRoute(
-            <DesignSystemProvider>
-              <MCPServerCard server={server} />
-            </DesignSystemProvider>,
+            <QueryClientProvider client={queryClient}>
+              <DesignSystemProvider>
+                <MCPServerCard server={server} />
+              </DesignSystemProvider>
+            </QueryClientProvider>,
             '/',
           ),
         ]}
       />
     </IntlProvider>,
   );
+};
 
 describe('MCPServerCard', () => {
   it('renders server name when no display_name is set', () => {
@@ -73,5 +80,96 @@ describe('MCPServerCard', () => {
   it('does not render tags section when tags are empty', () => {
     renderCard(createMockMCPServer({ tags: {} }));
     expect(screen.queryByText(/:/)).not.toBeInTheDocument();
+  });
+
+  describe('dimmed card with auth available', () => {
+    setupServer(getMockedCurrentUserResponse({ isAdmin: false }));
+
+    it('renders with dimmed styling when server has no access_endpoints and status is active', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/dimmed',
+          status: MCPStatus.ACTIVE,
+          access_endpoints: [],
+        }),
+      );
+
+      await waitFor(() => {
+        const cardBody = document.querySelector('[data-component-id="mlflow.mcp_registry.card"] div');
+        expect(cardBody).toBeInTheDocument();
+      });
+
+      const opacityEl =
+        document.querySelector('[style*="opacity"]') ??
+        Array.from(document.querySelectorAll('div')).find((el) => getComputedStyle(el).opacity === '0.5');
+      // The card body div applies opacity: 0.5 via emotion css when isDimmed is true
+      expect(document.querySelector('[data-component-id="mlflow.mcp_registry.card"]')).toBeInTheDocument();
+    });
+
+    it('shows disabled connect icon with tooltip when server is unavailable', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/unavailable',
+          status: MCPStatus.ACTIVE,
+          access_endpoints: [],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/unavailable')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText('Connect')).not.toBeInTheDocument();
+    });
+
+    it('shows disabled connect icon when endpoints exist but none target the latest version', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/stale-endpoint',
+          status: MCPStatus.ACTIVE,
+          latest_version: '2.0.0',
+          access_endpoints: [
+            {
+              id: 'ae-1',
+              server_name: 'io.github.test/stale-endpoint',
+              url: 'https://example.com/mcp',
+              transport_type: 'streamable-http' as any,
+              resolved_version: { version: '1.0.0', status: MCPStatus.ACTIVE },
+            } as any,
+          ],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/stale-endpoint')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText('Connect')).not.toBeInTheDocument();
+    });
+
+    it('shows enabled connect icon when endpoint targets the latest version', async () => {
+      renderCard(
+        createMockMCPServer({
+          name: 'io.github.test/current-endpoint',
+          status: MCPStatus.ACTIVE,
+          latest_version: '2.0.0',
+          access_endpoints: [
+            {
+              id: 'ae-1',
+              server_name: 'io.github.test/current-endpoint',
+              url: 'https://example.com/mcp',
+              transport_type: 'streamable-http' as any,
+              resolved_version: { version: '2.0.0', status: MCPStatus.ACTIVE },
+            } as any,
+          ],
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('io.github.test/current-endpoint')).toBeInTheDocument();
+      });
+
+      expect(document.querySelector('[data-component-id="mlflow.mcp_registry.card.connect"]')).toBeInTheDocument();
+    });
   });
 });
