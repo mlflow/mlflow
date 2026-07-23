@@ -153,6 +153,7 @@ async def test_astream_emits_usage_event_from_turn_completed():
     assert usage["prompt_tokens"] == 10
     assert usage["completion_tokens"] == 5
     assert usage["total_tokens"] == 15
+    assert usage["cache_read_tokens"] == 4
     assert usage["total_cost_usd"] is None
     mock_cost.assert_called_once()
 
@@ -200,6 +201,26 @@ async def test_astream_yields_error_on_nonzero_exit():
     error_events = [e for e in events if e.type == EventType.ERROR]
     assert len(error_events) == 1
     assert "OPENAI_API_KEY" in error_events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
 
 
 @pytest.mark.asyncio

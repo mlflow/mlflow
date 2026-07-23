@@ -23,7 +23,7 @@ server:
 
 mlflow:
   backendStoreUri: "sqlite:////mlflow/mlflow.db"
-  defaultArtifactRoot: "/mlflow/artifacts"
+  artifactsDestination: "/mlflow/artifacts"
 
   # --- For production: use a real database and object store instead ---
   # Option A: inline URI (password visible in values — development only).

@@ -5,6 +5,7 @@
 import type {
   MessageRequest,
   ToolUseInfo,
+  ToolResultInfo,
   AssistantConfig,
   AssistantConfigUpdate,
   HealthCheckResult,
@@ -15,39 +16,44 @@ import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/comm
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
+/** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
+const normalizeToolResultContent = (content: unknown): string => {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  return JSON.stringify(content, null, 2);
+};
+
 /**
- * Process content block array from assistant response.
- * Extracts text or tool uses and calls appropriate callbacks.
+ * Process a content block array from an assistant response, emitting text, tool-use,
+ * and tool-result blocks in order so the transcript preserves their sequence.
  */
-const processContentBlocks = (
+export const processContentBlocks = (
   content: any[],
   onMessage: (text: string) => void,
   onToolUse?: (tools: ToolUseInfo[]) => void,
+  onToolResult?: (result: ToolResultInfo) => void,
 ): void => {
-  // Extract text from TextBlock items
-  const text = content
-    .filter((block: any) => 'text' in block)
-    .map((block: any) => block.text)
-    .join('');
-
-  if (text) {
-    // Clear tools and show text when assistant is responding
-    onToolUse?.([]);
-    onMessage(text);
-    return;
-  }
-
-  // Only show tool uses when there's no text response yet
-  const toolUses = content
-    .filter((block: any) => block.name && block.input && !block.tool_use_id)
-    .map((block: any) => ({
-      id: block.id,
-      name: block.name,
-      description: block.input?.description,
-      input: block.input,
-    }));
-  if (toolUses.length > 0 && onToolUse) {
-    onToolUse(toolUses);
+  for (const block of content) {
+    if ('text' in block && block.text) {
+      onMessage(block.text);
+    } else if (block.tool_use_id) {
+      // ToolResultBlock: carries the output for a previously-streamed tool call.
+      onToolResult?.({
+        toolUseId: block.tool_use_id,
+        content: normalizeToolResultContent(block.content),
+        isError: Boolean(block.is_error),
+      });
+    } else if (block.name && block.input) {
+      // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
+      onToolUse?.([
+        {
+          id: block.id,
+          name: block.name,
+          description: block.input?.description,
+          input: block.input,
+        },
+      ]);
+    }
   }
 };
 
@@ -107,8 +113,16 @@ export interface SendMessageStreamCallbacks {
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
   onToolUse?: (tools: ToolUseInfo[]) => void;
+  onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cache_read_tokens?: number;
+    total_cost_usd?: number | null;
+  }) => void;
 }
 
 export interface SendMessageStreamResult {
@@ -124,7 +138,8 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onInterrupted, onPermissionRequest } = callbacks;
+  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
+    callbacks;
 
   // Listen for 'message' events (contains assistant's response)
   // Backend sends: {"message": {"role": "assistant", "content": "..."}}
@@ -136,7 +151,7 @@ const attachStreamListeners = (
         if (typeof content === 'string') {
           onMessage(content);
         } else if (Array.isArray(content)) {
-          processContentBlocks(content, onMessage, onToolUse);
+          processContentBlocks(content, onMessage, onToolUse, onToolResult);
         }
       }
     } catch (err) {
@@ -154,6 +169,8 @@ const attachStreamListeners = (
           onMessage(data.event.delta.text);
         } else if (data.event.type === 'status') {
           onStatus?.(data.event.status);
+        } else if (data.event.type === 'usage' && data.event.usage) {
+          onUsage?.(data.event.usage);
         }
       }
     } catch (err) {

@@ -99,7 +99,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
 
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
@@ -161,7 +167,13 @@ def test_trace_llm_complete_stream():
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -244,7 +256,13 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     if not IS_TRACING_SDK_ONLY:
         assert spans[0].llm_cost == {
@@ -393,7 +411,13 @@ def test_trace_llm_chat_stream():
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
