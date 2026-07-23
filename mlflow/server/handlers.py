@@ -5755,11 +5755,17 @@ def _create_gateway_secret():
     # Empty map means no auth_config was provided
     auth_config = dict(request_message.auth_config) or None
 
+    # Empty repeated field means no allowlisted_models were provided
+    allowlisted_models = [
+        {"provider": m.provider, "model": m.model} for m in request_message.allowlisted_models
+    ] or None
+
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
         secret_value=dict(request_message.secret_value),
         provider=request_message.provider or None,
         auth_config=auth_config,
+        allowlisted_models=allowlisted_models,
         created_by=request_message.created_by or None,
     )
     response_message = CreateGatewaySecret.Response()
@@ -5798,10 +5804,17 @@ def _update_gateway_secret():
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
 
+    # Proto3 repeated fields cannot distinguish absent from empty, so an empty list is treated
+    # as "clear" and a populated list replaces. See UpdateGatewaySecret proto docs.
+    allowlisted_models = [
+        {"provider": m.provider, "model": m.model} for m in request_message.allowlisted_models
+    ]
+
     secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
         secret_value=secret_value,
         auth_config=auth_config,
+        allowlisted_models=allowlisted_models,
         updated_by=request_message.updated_by or None,
     )
     response_message = UpdateGatewaySecret.Response()

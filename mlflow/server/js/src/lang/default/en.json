@@ -47,6 +47,10 @@
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
   },
+  "+9/TNn": {
+    "defaultMessage": "Allowed models",
+    "description": "Allowed models column header"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -286,6 +290,10 @@
   "/JTye7": {
     "defaultMessage": "JSON schema",
     "description": "Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
+  },
+  "/JcImW": {
+    "defaultMessage": "Add at least one model so this key can be used.",
+    "description": "Error message when no allowlisted models are selected for a connection"
   },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
@@ -859,6 +867,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "20oEJR": {
+    "defaultMessage": "Select a provider first to choose models.",
+    "description": "Hint shown when no provider is selected yet for the model allowlist"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -1070,6 +1082,10 @@
   "2plDKs": {
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
+  },
+  "2pzqNE": {
+    "defaultMessage": "No models available. Add a connection with allowed models to get started.",
+    "description": "Empty state shown in the model dropdown when no allowlisted models exist"
   },
   "2qOzHd": {
     "defaultMessage": "Source",
@@ -1391,6 +1407,10 @@
     "defaultMessage": "Name",
     "description": "Roles table name header"
   },
+  "4ZbHq8": {
+    "defaultMessage": "Store provider keys and choose which models MLflow features can use.",
+    "description": "Settings content section subtitle for LLM connections (API keys)"
+  },
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
@@ -1635,10 +1655,6 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
-  "5yjgeu": {
-    "defaultMessage": "This key will be saved for reuse.",
-    "description": "Text indicating API key will be saved for reuse"
-  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -1678,6 +1694,10 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
+  },
+  "6BuryR": {
+    "defaultMessage": "Add models",
+    "description": "Affordance to add allowlisted models to a connection with none set"
   },
   "6HjFD0": {
     "defaultMessage": "Key name",
@@ -2859,10 +2879,6 @@
     "defaultMessage": "One-line setup",
     "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
-  "BWH8UR": {
-    "defaultMessage": "API key name:",
-    "description": "Label for API key name input"
-  },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
@@ -3483,6 +3499,10 @@
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
   },
+  "EaKP0g": {
+    "defaultMessage": "Allowed models",
+    "description": "Section label for the model allowlist in the edit API key modal"
+  },
   "EbJub1": {
     "defaultMessage": "Test",
     "description": "Column label for the regression test name column"
@@ -3547,10 +3567,6 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
-  "F39ONm": {
-    "defaultMessage": "LLM Connections",
-    "description": "Sidebar link: Settings > LLM Connections"
-  },
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
@@ -3586,6 +3602,10 @@
   "FFe+Ug": {
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
+  },
+  "FGhkU0": {
+    "defaultMessage": "Choose which models this key can be used with. These appear as options wherever MLflow needs a model.",
+    "description": "Helper text for the model allowlist in the create API key modal"
   },
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
@@ -5247,6 +5267,10 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
   },
+  "Nudlhq": {
+    "defaultMessage": "Add model",
+    "description": "Button to add a model to a connection's allowlist"
+  },
   "NwNrl4": {
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
@@ -5346,10 +5370,6 @@
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
-  },
-  "OMyvg6": {
-    "defaultMessage": "Select provider",
-    "description": "Placeholder for provider selector"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -5454,6 +5474,10 @@
   "OneX+E": {
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
+  },
+  "OtOMs0": {
+    "defaultMessage": "Add a connection",
+    "description": "Action in the empty model dropdown that navigates to the LLM Connections settings"
   },
   "OvkqyX": {
     "defaultMessage": "Add Tag",
@@ -5878,6 +5902,10 @@
   "R28jzs": {
     "defaultMessage": "Action",
     "description": "Guardrail action column header"
+  },
+  "R31YeR": {
+    "defaultMessage": "Choose which models this key can be used with. These appear as options wherever MLflow needs a model.",
+    "description": "Helper text for the model allowlist in the edit API key modal"
   },
   "R32y7u": {
     "defaultMessage": "Running session level scorers is not yet supported",
@@ -6670,10 +6698,6 @@
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
-  },
-  "V0/5Oy": {
-    "defaultMessage": "Model: {model}",
-    "description": "Display of default model for selected provider"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -7895,6 +7919,10 @@
     "defaultMessage": "The chunk-relevance-precision LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance judge."
   },
+  "aUiVxB": {
+    "defaultMessage": "Select a model",
+    "description": "Placeholder for the allowlisted provider/model pair selector"
+  },
   "aVIoIw": {
     "defaultMessage": "No tools selected",
     "description": "Label for tool selector when no tools are selected"
@@ -8050,10 +8078,6 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
-  },
-  "bO0wxq": {
-    "defaultMessage": "Advanced settings",
-    "description": "Collapsible section for advanced settings"
   },
   "bO1IlR": {
     "defaultMessage": "Select all",
@@ -8507,10 +8531,6 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
-  "dQ3JME": {
-    "defaultMessage": "API key name",
-    "description": "Placeholder for API key name input"
-  },
   "dQawRm": {
     "defaultMessage": "Passthrough APIs",
     "description": "Passthrough APIs tab title"
@@ -8522,10 +8542,6 @@
   "dSaI6E": {
     "defaultMessage": "Failed to load audio attachment",
     "description": "Error message when trace audio attachment fails to load"
-  },
-  "dTHmzd": {
-    "defaultMessage": "Saved API keys can be managed in LLM Connections under Settings.",
-    "description": "Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -8791,13 +8807,13 @@
     "defaultMessage": "Description",
     "description": "Label for workspace description field"
   },
+  "efoaa0": {
+    "defaultMessage": "Manage connections",
+    "description": "Footer link below the model selector navigating to LLM Connections settings"
+  },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
-  },
-  "ejy0iU": {
-    "defaultMessage": "You can change this model in advanced settings",
-    "description": "Tooltip suggesting users can change the default model in advanced settings"
   },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
@@ -9526,10 +9542,6 @@
   "hpAK1G": {
     "defaultMessage": "Created by:",
     "description": "Label for created by"
-  },
-  "hr2v8O": {
-    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
-    "description": "Hint explaining how to use other providers via Gateway"
   },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
@@ -10363,10 +10375,6 @@
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
-  "leXUJw": {
-    "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
-    "description": "Settings content section subtitle for LLM connections (API keys)"
-  },
   "lf2ttL": {
     "defaultMessage": "Sample rate",
     "description": "Section header for sample rate"
@@ -10926,6 +10934,10 @@
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
+  },
+  "oFM+Cx": {
+    "defaultMessage": "Model",
+    "description": "Label for the allowlisted provider/model pair selector"
   },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
@@ -11939,6 +11951,10 @@
     "defaultMessage": "Last updated by",
     "description": "Column selector label for the last-updated-by column"
   },
+  "t1IZFv": {
+    "defaultMessage": "Manage connections",
+    "description": "Footer link in the model dropdown that navigates to the LLM Connections settings"
+  },
   "t3mHNt": {
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
@@ -12350,6 +12366,10 @@
   "vO6fuZ": {
     "defaultMessage": "Question preview",
     "description": "Queue settings: question preview section label"
+  },
+  "vP0PKh": {
+    "defaultMessage": "Allowed models",
+    "description": "Section label for the model allowlist in the create API key modal"
   },
   "vPnoNk": {
     "defaultMessage": "Save changes",
@@ -12958,6 +12978,10 @@
   "yL9JKm": {
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
+  },
+  "yLHPll": {
+    "defaultMessage": "Loading models...",
+    "description": "Loading state while fetching allowlisted models for issue detection"
   },
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",

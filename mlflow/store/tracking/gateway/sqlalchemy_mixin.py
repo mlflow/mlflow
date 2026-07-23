@@ -172,6 +172,7 @@ class SqlAlchemyGatewayStoreMixin:
         secret_value: dict[str, str],
         provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
+        allowlisted_models: list[dict[str, Any]] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
         """
@@ -186,6 +187,8 @@ class SqlAlchemyGatewayStoreMixin:
             provider: Optional LLM provider (e.g., "openai", "anthropic").
             auth_config: Optional provider-specific auth configuration dict.
                 Should include "auth_mode" for providers with multiple auth options.
+            allowlisted_models: Optional list of {provider, model} dicts to allowlist for this
+                key. Display/selection metadata only; never used for authentication.
             created_by: Username of the creator.
 
         Returns:
@@ -217,6 +220,9 @@ class SqlAlchemyGatewayStoreMixin:
                     kek_version=encrypted.kek_version,
                     provider=provider,
                     auth_config=json.dumps(auth_config) if auth_config else None,
+                    allowlisted_models=json.dumps(allowlisted_models)
+                    if allowlisted_models
+                    else None,
                     created_at=current_time,
                     last_updated_at=current_time,
                     created_by=created_by,
@@ -269,6 +275,7 @@ class SqlAlchemyGatewayStoreMixin:
         secret_id: str,
         secret_value: dict[str, str] | None = None,
         auth_config: dict[str, Any] | None = None,
+        allowlisted_models: list[dict[str, Any]] | None = None,
         updated_by: str | None = None,
     ) -> GatewaySecretInfo:
         """
@@ -283,6 +290,9 @@ class SqlAlchemyGatewayStoreMixin:
                   "aws_secret_access_key": "..."}
             auth_config: Optional updated auth configuration. If provided, replaces existing
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
+            allowlisted_models: Optional updated allowlisted models. If provided, replaces the
+                existing list. If None, it is unchanged. If empty list, clears it. Display/
+                selection metadata only; never used for authentication.
             updated_by: Username of the updater.
 
         Returns:
@@ -314,6 +324,12 @@ class SqlAlchemyGatewayStoreMixin:
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it
                 sql_secret.auth_config = json.dumps(auth_config) if auth_config else None
+
+            if allowlisted_models is not None:
+                # Empty list [] explicitly clears allowlisted_models, non-empty list replaces it
+                sql_secret.allowlisted_models = (
+                    json.dumps(allowlisted_models) if allowlisted_models else None
+                )
 
             sql_secret.last_updated_by = updated_by
             sql_secret.last_updated_at = get_current_time_millis()

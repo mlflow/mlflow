@@ -4,25 +4,22 @@ import React from 'react';
 import { renderWithDesignSystem } from '../../../../../common/utils/TestUtils.react18';
 import { GenAIModelSelection } from './GenAIModelSelection';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
 
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery');
+jest.mock('../../../../../gateway/hooks/useSecretsQuery');
 jest.mock('../../../../../gateway/hooks/useSecretsConfigQuery');
-jest.mock('../../../../../gateway/components/create-endpoint/ModelSelect', () => ({
-  ModelSelect: () => <div data-testid="model-select">Model Select</div>,
-}));
-jest.mock('./GenAIApiKeyConfigurator', () => ({
-  GenAIApiKeyConfigurator: () => <div data-testid="api-key-configurator">API Key Configurator</div>,
-}));
-jest.mock('./GenAIAdvancedSettings', () => ({
-  GenAIAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
-}));
 jest.mock('../../../../../gateway/components/endpoint-form', () => ({
   CreateEndpointModal: ({ open }: { open: boolean }) =>
     open ? <div data-testid="create-endpoint-modal">Create Endpoint Modal</div> : null,
 }));
-const mockUseApiKeyConfiguration = jest.fn();
-jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
-  useApiKeyConfiguration: (...args: any[]) => mockUseApiKeyConfiguration(...args),
+
+const mockNavigate = jest.fn();
+jest.mock('../../../../../common/utils/RoutingUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+    '../../../../../common/utils/RoutingUtils',
+  ),
+  useNavigate: () => mockNavigate,
 }));
 
 const mockEndpointQueryResult = (data: any[], isLoading = false) =>
@@ -31,6 +28,28 @@ const mockEndpointQueryResult = (data: any[], isLoading = false) =>
     isLoading,
     refetch: jest.fn(),
   } as any);
+
+const mockSecretsQueryResult = (secrets: any[], isLoading = false) =>
+  jest.mocked(useSecretsQuery).mockReturnValue({
+    data: secrets,
+    isLoading,
+    error: undefined,
+    refetch: jest.fn(),
+  } as any);
+
+// A secret carrying two allowlisted models -> two selectable pairs.
+const SECRET_WITH_MODELS = {
+  secret_id: 'secret-1',
+  secret_name: 'My Anthropic Key',
+  provider: 'anthropic',
+  masked_values: {},
+  created_at: 0,
+  last_updated_at: 0,
+  allowlisted_models: [
+    { model: 'claude-sonnet-4-6', provider: 'anthropic', supports_function_calling: true },
+    { model: 'claude-opus-4', provider: 'anthropic', supports_function_calling: true },
+  ],
+};
 
 describe('GenAIModelSelection', () => {
   const defaultProps = {
@@ -41,23 +60,12 @@ describe('GenAIModelSelection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [],
-      authModes: [],
-      defaultAuthMode: '',
-      isLoadingProviderConfig: false,
-    });
+    mockSecretsQueryResult([]);
   });
 
   test('defaults to endpoint mode when endpoints exist', async () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const ref = React.createRef<any>();
@@ -89,37 +97,18 @@ describe('GenAIModelSelection', () => {
 
   test('shows endpoint dropdown when endpoints exist', () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
-    // The first endpoint is auto-selected and shown in the trigger
     expect(getByText('test-endpoint')).toBeInTheDocument();
   });
 
   test('auto-selects first endpoint when endpoints are available', async () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'first-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
-      {
-        endpoint_id: 'ep-2',
-        name: 'second-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'first-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
+      { endpoint_id: 'ep-2', name: 'second-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const ref = React.createRef<any>();
@@ -127,28 +116,6 @@ describe('GenAIModelSelection', () => {
 
     await waitFor(() => {
       expect(ref.current?.getValues().endpointName).toBe('first-endpoint');
-    });
-  });
-
-  test('auto-selects first existing API key when secrets are available', async () => {
-    mockEndpointQueryResult([]);
-    mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [
-        { secret_id: 'secret-1', secret_name: 'My Key', provider: 'openai', masked_values: {} },
-        { secret_id: 'secret-2', secret_name: 'Other Key', provider: 'openai', masked_values: {} },
-      ],
-      authModes: [],
-      defaultAuthMode: '',
-      isLoadingProviderConfig: false,
-    });
-
-    const ref = React.createRef<any>();
-    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
-
-    await waitFor(() => {
-      const config = ref.current?.getValues().apiKeyConfig;
-      expect(config.mode).toBe('existing');
-      expect(config.existingSecretId).toBe('secret-1');
     });
   });
 
@@ -161,13 +128,10 @@ describe('GenAIModelSelection', () => {
   });
 
   test('respects initialValues.endpointName without overriding it when mode is not set', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({
-      data: [
-        { endpoint_id: 'ep-1', name: 'first-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
-        { endpoint_id: 'ep-2', name: 'specific-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
-      ],
-      isLoading: false,
-    } as any);
+    mockEndpointQueryResult([
+      { endpoint_id: 'ep-1', name: 'first-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
+      { endpoint_id: 'ep-2', name: 'specific-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
+    ]);
 
     const ref = React.createRef<any>();
     renderWithDesignSystem(
@@ -176,80 +140,14 @@ describe('GenAIModelSelection', () => {
 
     await waitFor(() => {
       const values = ref.current?.getValues();
-      // Should not be overridden with first-endpoint, and mode should be inferred as 'endpoint'
       expect(values.endpointName).toBe('specific-endpoint');
       expect(values.mode).toBe('endpoint');
     });
   });
 
-  test('initializes saveKey from initialValues.saveKey', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
-
-    const ref = React.createRef<any>();
-    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ saveKey: false }} />);
-
-    await waitFor(() => {
-      expect(ref.current?.getValues().saveKey).toBe(false);
-    });
-  });
-
-  test('does not auto-switch apiKeyConfig when readOnly is true', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
-    mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
-      authModes: [],
-      defaultAuthMode: '',
-      isLoadingProviderConfig: false,
-    });
-
-    const ref = React.createRef<any>();
-    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} readOnly />);
-
-    // Wait for effects to settle
-    await waitFor(() => {
-      const config = ref.current?.getValues().apiKeyConfig;
-      // Should remain 'new' because readOnly skips the auto-switch
-      expect(config.mode).toBe('new');
-    });
-  });
-
-  test('does not auto-switch apiKeyConfig when initialValues.apiKeyConfig is provided', async () => {
-    jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false } as any);
-    mockUseApiKeyConfiguration.mockReturnValue({
-      existingSecrets: [{ secret_id: 'existing-secret', secret_name: 'My Key', provider: 'openai', masked_values: {} }],
-      authModes: [],
-      defaultAuthMode: '',
-      isLoadingProviderConfig: false,
-    });
-
-    const initialApiKeyConfig = {
-      mode: 'new' as const,
-      existingSecretId: '',
-      newSecret: { name: 'provided-key', authMode: '', secretFields: {}, configFields: {} },
-    };
-
-    const ref = React.createRef<any>();
-    renderWithDesignSystem(
-      <GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ apiKeyConfig: initialApiKeyConfig }} />,
-    );
-
-    await waitFor(() => {
-      const config = ref.current?.getValues().apiKeyConfig;
-      // Should not be auto-switched to 'existing' because initialValues.apiKeyConfig was provided
-      expect(config.mode).toBe('new');
-      expect(config.newSecret.name).toBe('provided-key');
-    });
-  });
-
   test('shows "Configure model directly" option when showConfigureDirectly is true', () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
@@ -260,13 +158,7 @@ describe('GenAIModelSelection', () => {
 
   test('hides "Configure model directly" option by default', () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const { getByText, queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
@@ -277,13 +169,7 @@ describe('GenAIModelSelection', () => {
 
   test('shows "Create Gateway endpoint" option when showCreateEndpoint is true', () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showCreateEndpoint />);
@@ -292,32 +178,9 @@ describe('GenAIModelSelection', () => {
     expect(getByText('Create Gateway endpoint')).toBeInTheDocument();
   });
 
-  test('hides "Create Gateway endpoint" option by default', () => {
-    mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
-    ]);
-
-    const { getByText, queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
-
-    fireEvent.click(getByText('test-endpoint'));
-    expect(queryByText('Create Gateway endpoint')).not.toBeInTheDocument();
-  });
-
   test('opens create endpoint modal when "Create Gateway endpoint" is clicked', () => {
     mockEndpointQueryResult([
-      {
-        endpoint_id: 'ep-1',
-        name: 'test-endpoint',
-        model_mappings: [],
-        created_at: 0,
-        last_updated_at: 0,
-      },
+      { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
     const { getByText, queryByTestId } = renderWithDesignSystem(
@@ -328,5 +191,84 @@ describe('GenAIModelSelection', () => {
     expect(queryByTestId('create-endpoint-modal')).not.toBeInTheDocument();
     fireEvent.click(getByText('Create Gateway endpoint'));
     expect(queryByTestId('create-endpoint-modal')).toBeInTheDocument();
+  });
+
+  describe('direct mode: allowlisted-pair dropdown', () => {
+    beforeEach(() => {
+      // No endpoints -> defaults to direct mode.
+      mockEndpointQueryResult([]);
+    });
+
+    test('auto-selects the first allowlisted pair and exposes an existing-secret contract', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const ref = React.createRef<any>();
+      renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
+
+      await waitFor(() => {
+        const values = ref.current?.getValues();
+        expect(values.mode).toBe('direct');
+        // Pairs are sorted by label; "Anthropic · claude-opus-4" sorts before "... claude-sonnet-4-6".
+        expect(values.provider).toBe('anthropic');
+        expect(values.model).toBe('claude-opus-4');
+        expect(values.saveKey).toBe(false);
+        expect(values.apiKeyConfig.mode).toBe('existing');
+        expect(values.apiKeyConfig.existingSecretId).toBe('secret-1');
+      });
+    });
+
+    test('is valid once a pair is auto-selected', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const ref = React.createRef<any>();
+      renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
+
+      await waitFor(() => {
+        expect(ref.current?.isValid).toBe(true);
+      });
+    });
+
+    test('renders each allowlisted pair as an option', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const { getByText, getAllByText } = renderWithDesignSystem(
+        <GenAIModelSelection {...defaultProps} showConfigureDirectly />,
+      );
+
+      // The auto-selected pair is shown in the trigger; open the dropdown to see all options.
+      fireEvent.click(getAllByText('Anthropic · claude-opus-4')[0]);
+      expect(getByText('Anthropic · claude-sonnet-4-6')).toBeInTheDocument();
+    });
+
+    test('shows an empty state with an "Add a connection" action when no pairs exist', async () => {
+      mockSecretsQueryResult([]);
+
+      const ref = React.createRef<any>();
+      const { getByText } = renderWithDesignSystem(
+        <GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />,
+      );
+
+      fireEvent.click(getByText('Select a model'));
+      expect(
+        getByText('No models available. Add a connection with allowed models to get started.'),
+      ).toBeInTheDocument();
+      fireEvent.click(getByText('Add a connection'));
+      expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('#llm-connections'));
+
+      // With no pairs, the direct mode is invalid.
+      await waitFor(() => {
+        expect(ref.current?.isValid).toBe(false);
+      });
+    });
+
+    test('"Manage connections" footer link navigates to the connections settings', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const { getAllByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
+
+      // Footer link is rendered below the dropdown.
+      fireEvent.click(getAllByText('Manage connections')[0]);
+      expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('#llm-connections'));
+    });
   });
 });

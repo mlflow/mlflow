@@ -290,6 +290,89 @@ def test_update_gateway_secret_clear_auth_config(store: SqlAlchemyStore):
     )
 
 
+def test_create_gateway_secret_with_allowlisted_models(store: SqlAlchemyStore):
+    allowlisted_models = [
+        {"provider": "openai", "model": "gpt-4o"},
+        {"provider": "openai", "model": "gpt-4o-mini"},
+    ]
+    created = store.create_gateway_secret(
+        secret_name="allowlist-key",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+        allowlisted_models=allowlisted_models,
+    )
+
+    assert created.allowlisted_models == allowlisted_models
+
+    by_id = store.get_secret_info(secret_id=created.secret_id)
+    assert by_id.allowlisted_models == allowlisted_models
+
+    listed = store.list_secret_infos(provider="openai")
+    match = next(s for s in listed if s.secret_id == created.secret_id)
+    assert match.allowlisted_models == allowlisted_models
+
+
+def test_create_gateway_secret_without_allowlisted_models_is_none(store: SqlAlchemyStore):
+    created = store.create_gateway_secret(
+        secret_name="no-allowlist-key",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+
+    assert created.allowlisted_models is None
+    assert store.get_secret_info(secret_id=created.secret_id).allowlisted_models is None
+
+
+def test_update_gateway_secret_replaces_allowlisted_models(store: SqlAlchemyStore):
+    created = store.create_gateway_secret(
+        secret_name="update-allowlist",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+        allowlisted_models=[{"provider": "openai", "model": "gpt-4o"}],
+    )
+
+    new_models = [
+        {"provider": "openai", "model": "gpt-4o-mini"},
+        {"provider": "openai", "model": "o1"},
+    ]
+    store.update_gateway_secret(secret_id=created.secret_id, allowlisted_models=new_models)
+
+    assert store.get_secret_info(secret_id=created.secret_id).allowlisted_models == new_models
+
+
+def test_update_gateway_secret_empty_allowlisted_models_clears(store: SqlAlchemyStore):
+    created = store.create_gateway_secret(
+        secret_name="clear-allowlist",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+        allowlisted_models=[{"provider": "openai", "model": "gpt-4o"}],
+    )
+
+    store.update_gateway_secret(secret_id=created.secret_id, allowlisted_models=[])
+
+    assert store.get_secret_info(secret_id=created.secret_id).allowlisted_models is None
+
+
+def test_update_gateway_secret_none_allowlisted_models_unchanged(store: SqlAlchemyStore):
+    allowlisted_models = [{"provider": "openai", "model": "gpt-4o"}]
+    created = store.create_gateway_secret(
+        secret_name="unchanged-allowlist",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+        allowlisted_models=allowlisted_models,
+    )
+
+    store.update_gateway_secret(
+        secret_id=created.secret_id,
+        secret_value={"api_key": "sk-rotated"},
+        allowlisted_models=None,
+    )
+
+    assert (
+        store.get_secret_info(secret_id=created.secret_id).allowlisted_models == allowlisted_models
+    )
+
+
 def test_delete_gateway_secret(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
         secret_name="to-delete", secret_value={"api_key": "value"}

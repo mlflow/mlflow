@@ -1,10 +1,8 @@
-import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
   Tooltip,
-  Input,
-  Accordion,
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxTrigger,
@@ -14,60 +12,26 @@ import {
   DialogComboboxSeparator,
   Spinner,
   InfoSmallIcon,
-  Tag,
+  PlusIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
-import { GenAIApiKeyConfigurator } from './GenAIApiKeyConfigurator';
-import { GenAIAdvancedSettings } from './GenAIAdvancedSettings';
-import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
-import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useAllowlistedModelPairs } from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
 import type { Endpoint } from '../../../../../gateway/types';
+import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
+import { SETTINGS_SECTION_GENERAL } from '../../../../../settings/settingsSectionConstants';
+
+/** Deep-link to the LLM Connections section, now living within General settings. */
+const CONNECTIONS_ROUTE = `${Routes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}#llm-connections`;
 
 type ModelConfigMode = 'endpoint' | 'direct';
 
 const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
 const CREATE_ENDPOINT_VALUE = '__create_endpoint__';
-
-const DEFAULT_PROVIDER = 'openai';
-
-// Allowed core providers for issue detection, for these we support fetching API keys
-// and set them when running jobs. For other providers, users should configure gateway
-// endpoints directly.
-// TODO: add bedrock (requires boto3)
-const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
-
-// Display names for providers
-// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  gemini: 'Google Gemini',
-  azure: 'Azure OpenAI',
-};
-
-const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
-  mode: 'new',
-  existingSecretId: '',
-  newSecret: {
-    name: '',
-    authMode: '',
-    secretFields: {},
-    configFields: {},
-  },
-};
-
-// Default to recommended models for each provider
-// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
-const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
-  openai: 'gpt-5.4',
-  anthropic: 'claude-sonnet-4-6',
-  gemini: 'gemini-2.5-pro',
-};
 
 export interface ModelSelectionValues {
   mode: ModelConfigMode;
@@ -116,9 +80,13 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
   ) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
+    const navigate = useNavigate();
 
     // Fetch available endpoints
     const { data: endpoints, isLoading: isLoadingEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
+
+    // Flat list of allowlisted "provider · model" pairs across all connections (direct mode).
+    const { pairs: allowlistedPairs, isLoading: isLoadingPairs } = useAllowlistedModelPairs();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const hasEndpoints = endpoints.length > 0;
 
@@ -143,28 +111,46 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       }
     }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode, endpoints]);
 
-    const initialProvider = initialValues?.provider ?? DEFAULT_PROVIDER;
-    const [provider, setProvider] = useState(initialProvider);
-    const [model, setModel] = useState(initialValues?.model ?? DEFAULT_MODEL_BY_PROVIDER[initialProvider] ?? '');
-    const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(
-      () =>
-        initialValues?.apiKeyConfig ?? {
-          ...DEFAULT_API_KEY_CONFIG,
-          newSecret: {
-            ...DEFAULT_API_KEY_CONFIG.newSecret,
-            name: generateRandomName(initialProvider),
-          },
-        },
+    // Direct mode: the user picks a single allowlisted "provider · model" pair. The pair fully
+    // determines provider + model + secret_id, so no inline provider/model/key entry is needed.
+    // A pair is keyed by `${secretId}::${provider}::${model}`.
+    const pairKey = useCallback(
+      (p: { secretId: string; provider: string; model: string }) => `${p.secretId}::${p.provider}::${p.model}`,
+      [],
     );
-    const [saveKey] = useState(initialValues?.saveKey ?? true);
-    const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
+    const [selectedPairKey, setSelectedPairKey] = useState<string | undefined>(
+      initialValues?.provider && initialValues?.model && initialValues?.apiKeyConfig?.existingSecretId
+        ? `${initialValues.apiKeyConfig.existingSecretId}::${initialValues.provider}::${initialValues.model}`
+        : undefined,
+    );
 
-    // Track whether caller provided an initial apiKeyConfig to prevent auto-switching it
-    const hasInitialApiKeyConfig = useRef(initialValues?.apiKeyConfig != null);
+    const selectedPair = useMemo(
+      () => allowlistedPairs.find((p) => pairKey(p) === selectedPairKey),
+      [allowlistedPairs, selectedPairKey, pairKey],
+    );
 
-    const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
-      provider,
-    });
+    // Auto-select the first available pair once loaded, if nothing is selected yet.
+    useEffect(() => {
+      if (!isLoadingPairs && !selectedPairKey && allowlistedPairs.length > 0) {
+        setSelectedPairKey(pairKey(allowlistedPairs[0]));
+      }
+    }, [isLoadingPairs, selectedPairKey, allowlistedPairs, pairKey]);
+
+    // Derive the ModelSelectionValues fields for direct mode from the selected pair. We reuse the
+    // "existing secret" apiKeyConfig shape so IssueDetectionModal.handleSubmit passes secret_id
+    // straight through without creating a new secret.
+    const provider = selectedPair?.provider ?? '';
+    const model = selectedPair?.model ?? '';
+    const apiKeyConfig = useMemo<ApiKeyConfiguration>(
+      () => ({
+        mode: 'existing',
+        existingSecretId: selectedPair?.secretId ?? '',
+        newSecret: { name: '', authMode: '', secretFields: {}, configFields: {} },
+      }),
+      [selectedPair],
+    );
+    // Pairs reference already-saved connections, so no secret needs to be (re)saved on submit.
+    const saveKey = false;
 
     // Build endpoint options for the dropdown
     const endpointOptions = useMemo(() => {
@@ -216,74 +202,15 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       [refetchEndpoints],
     );
 
-    // Update API key mode to 'existing' and auto-select first secret when secrets become available.
-    // Skip when readOnly or when initialValues.apiKeyConfig was provided to preserve round-trip fidelity.
-    useEffect(() => {
-      if (readOnly || hasInitialApiKeyConfig.current) return;
-      if (provider && existingSecrets.length > 0) {
-        setApiKeyConfig((prev) => {
-          // Only update if currently in 'new' mode with no fields filled
-          if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
-            return { ...prev, mode: 'existing', existingSecretId: existingSecrets[0].secret_id };
-          }
-          return prev;
-        });
-      }
-    }, [readOnly, provider, existingSecrets]);
-
-    const handleProviderChange = useCallback((newProvider: string) => {
-      setProvider(newProvider);
-      const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
-      setModel(defaultModel ?? '');
-      setApiKeyConfig({
-        ...DEFAULT_API_KEY_CONFIG,
-        newSecret: {
-          ...DEFAULT_API_KEY_CONFIG.newSecret,
-          name: generateRandomName(newProvider),
-        },
-      });
-      setIsAdvancedSettingsExpanded(false);
-    }, []);
-
     const reset = useCallback(() => {
       setMode(hasEndpoints ? 'endpoint' : 'direct');
       setSelectedEndpointName(undefined);
-      setProvider(DEFAULT_PROVIDER);
-      setModel(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-      setApiKeyConfig({
-        ...DEFAULT_API_KEY_CONFIG,
-        newSecret: {
-          ...DEFAULT_API_KEY_CONFIG.newSecret,
-          name: generateRandomName(DEFAULT_PROVIDER),
-        },
-      });
-      setIsAdvancedSettingsExpanded(false);
+      setSelectedPairKey(undefined);
     }, [hasEndpoints]);
 
-    const isApiKeyValid =
-      apiKeyConfig.mode === 'existing'
-        ? Boolean(apiKeyConfig.existingSecretId)
-        : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
-          (!saveKey || Boolean(apiKeyConfig.newSecret.name));
-
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
-    const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
+    const isDirectModeValid = mode === 'direct' && Boolean(selectedPair);
     const isValid = isEndpointModeValid || isDirectModeValid;
-
-    // Compute whether there are optional fields in the selected auth mode
-    const hasOptionalFields = useMemo(() => {
-      const selectedAuthMode =
-        authModes.find((m) => m.mode === (apiKeyConfig.newSecret.authMode || defaultAuthMode)) ?? authModes[0];
-      if (!selectedAuthMode) return false;
-      const allFields = [...(selectedAuthMode.secret_fields ?? []), ...(selectedAuthMode.config_fields ?? [])];
-      return allFields.some((field) => !field.required);
-    }, [authModes, apiKeyConfig.newSecret.authMode, defaultAuthMode]);
-
-    // Show advanced settings if: 1) provider has default model, OR 2) user is entering new key AND there are optional fields
-    const hasEnteredNewApiKey =
-      apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v);
-    const shouldShowAdvancedSettings =
-      Boolean(DEFAULT_MODEL_BY_PROVIDER[provider]) || (hasEnteredNewApiKey && hasOptionalFields);
 
     useEffect(() => {
       onValidityChange(isValid);
@@ -426,151 +353,142 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
             )
           )}
 
-          {/* Direct provider/model configuration - shown when 'Configure model directly' is selected */}
+          {/* Direct mode: single dropdown of pre-allowlisted "provider · model" pairs. */}
           {mode === 'direct' && showConfigureDirectly && (
             <>
-              <div>
+              {isLoadingPairs ? (
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <Spinner size="small" />
+                  <Typography.Text color="secondary">
+                    <FormattedMessage
+                      defaultMessage="Loading models..."
+                      description="Loading state while fetching allowlisted models for issue detection"
+                    />
+                  </Typography.Text>
+                </div>
+              ) : (
                 <DialogCombobox
-                  componentId={`${componentId}.provider`}
-                  id={`${componentId}.provider`}
-                  value={provider ? [provider] : []}
+                  componentId={`${componentId}.model-pair`}
+                  id={`${componentId}.model-pair`}
+                  label={intl.formatMessage({
+                    defaultMessage: 'Model',
+                    description: 'Label for the allowlisted provider/model pair selector',
+                  })}
+                  value={selectedPair ? [pairKey(selectedPair)] : []}
                 >
                   <DialogComboboxTrigger
                     withInlineLabel={false}
                     allowClear={false}
                     disabled={readOnly}
                     placeholder={intl.formatMessage({
-                      defaultMessage: 'Select provider',
-                      description: 'Placeholder for provider selector',
+                      defaultMessage: 'Select a model',
+                      description: 'Placeholder for the allowlisted provider/model pair selector',
                     })}
-                    renderDisplayedValue={() => (provider ? <span>{PROVIDER_DISPLAY_NAMES[provider]}</span> : null)}
+                    renderDisplayedValue={() => (selectedPair ? <span>{selectedPair.label}</span> : null)}
                   />
                   <DialogComboboxContent>
                     <DialogComboboxOptionList>
-                      {ALLOWED_PROVIDERS.map((providerOption) => (
-                        <DialogComboboxOptionListSelectItem
-                          key={providerOption}
-                          value={providerOption}
-                          onChange={() => handleProviderChange(providerOption)}
-                          checked={provider === providerOption}
+                      {allowlistedPairs.length > 0 ? (
+                        <>
+                          <div css={{ maxHeight: 200, overflowY: 'auto', width: '100%', alignSelf: 'stretch' }}>
+                            {allowlistedPairs.map((pair) => {
+                              const key = pairKey(pair);
+                              return (
+                                <DialogComboboxOptionListSelectItem
+                                  key={key}
+                                  value={key}
+                                  onChange={() => setSelectedPairKey(key)}
+                                  checked={selectedPairKey === key}
+                                >
+                                  {pair.label}
+                                  <DialogComboboxHintRow>{pair.secretName}</DialogComboboxHintRow>
+                                </DialogComboboxOptionListSelectItem>
+                              );
+                            })}
+                          </div>
+                          <DialogComboboxSeparator />
+                          <button
+                            type="button"
+                            css={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: theme.spacing.xs,
+                              width: '100%',
+                              padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              color: theme.colors.actionPrimaryBackgroundDefault,
+                            }}
+                            onClick={() => navigate(CONNECTIONS_ROUTE)}
+                          >
+                            <PlusIcon />
+                            <FormattedMessage
+                              defaultMessage="Manage connections"
+                              description="Footer link in the model dropdown that navigates to the LLM Connections settings"
+                            />
+                          </button>
+                        </>
+                      ) : (
+                        <div
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.sm,
+                            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                          }}
                         >
-                          {PROVIDER_DISPLAY_NAMES[providerOption]}
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                      <DialogComboboxSeparator />
-                      <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, pointerEvents: 'none' }}>
-                        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                          <FormattedMessage
-                            defaultMessage="To use other providers, create an AI Gateway endpoint and select it."
-                            description="Hint explaining how to use other providers via Gateway"
-                          />
-                        </Typography.Text>
-                      </div>
+                          <Typography.Text color="secondary">
+                            <FormattedMessage
+                              defaultMessage="No models available. Add a connection with allowed models to get started."
+                              description="Empty state shown in the model dropdown when no allowlisted models exist"
+                            />
+                          </Typography.Text>
+                          <button
+                            type="button"
+                            css={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: theme.spacing.xs,
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: 0,
+                              color: theme.colors.actionPrimaryBackgroundDefault,
+                            }}
+                            onClick={() => navigate(CONNECTIONS_ROUTE)}
+                          >
+                            <PlusIcon />
+                            <FormattedMessage
+                              defaultMessage="Add a connection"
+                              description="Action in the empty model dropdown that navigates to the LLM Connections settings"
+                            />
+                          </button>
+                        </div>
+                      )}
                     </DialogComboboxOptionList>
                   </DialogComboboxContent>
                 </DialogCombobox>
-                {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
-                  <div css={{ marginTop: theme.spacing.xs }}>
-                    <Tooltip
-                      componentId={`${componentId}.default-model-tooltip`}
-                      content={intl.formatMessage({
-                        defaultMessage: 'You can change this model in advanced settings',
-                        description: 'Tooltip suggesting users can change the default model in advanced settings',
-                      })}
-                    >
-                      <Tag componentId={`${componentId}.default-model-tag`} css={{ cursor: 'help' }}>
-                        <FormattedMessage
-                          defaultMessage="Model: {model}"
-                          description="Display of default model for selected provider"
-                          values={{ model }}
-                        />
-                      </Tag>
-                    </Tooltip>
-                  </div>
-                )}
-                {provider && !DEFAULT_MODEL_BY_PROVIDER[provider] && (
-                  <div css={{ marginTop: theme.spacing.sm }}>
-                    <ModelSelect
-                      provider={provider}
-                      value={model}
-                      onChange={setModel}
-                      componentId={`${componentId}.model`}
-                      label={
-                        <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
-                          <FormattedMessage
-                            defaultMessage="Model *"
-                            description="Label for model selection (required)"
-                          />
-                        </Typography.Text>
-                      }
-                      hideCapabilities
-                    />
-                  </div>
-                )}
-              </div>
-              {provider && (
-                <>
-                  <GenAIApiKeyConfigurator
-                    value={apiKeyConfig}
-                    onChange={setApiKeyConfig}
-                    provider={provider}
-                    authModes={authModes}
-                    defaultAuthMode={defaultAuthMode}
-                    isLoadingProviderConfig={isLoadingProviderConfig}
-                    hasExistingSecrets={existingSecrets.length > 0}
-                    disabled={readOnly}
-                  />
-                  {saveKey &&
-                    apiKeyConfig.mode === 'new' &&
-                    Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-                      <div
-                        css={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: theme.spacing.sm,
-                          marginTop: -theme.spacing.xs,
-                        }}
-                      >
-                        <Tooltip
-                          componentId={`${componentId}.save-key-tooltip`}
-                          content={intl.formatMessage({
-                            defaultMessage: 'Saved API keys can be managed in LLM Connections under Settings.',
-                            description:
-                              'Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)',
-                          })}
-                        >
-                          <span>
-                            <Typography.Text color="secondary">
-                              <FormattedMessage
-                                defaultMessage="This key will be saved for reuse."
-                                description="Text indicating API key will be saved for reuse"
-                              />
-                            </Typography.Text>
-                          </span>
-                        </Tooltip>
-                        <Typography.Text color="secondary">
-                          <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
-                        </Typography.Text>
-                        <Input
-                          componentId={`${componentId}.api-key-name`}
-                          value={apiKeyConfig.newSecret.name}
-                          onChange={(e) =>
-                            setApiKeyConfig({
-                              ...apiKeyConfig,
-                              newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                            })
-                          }
-                          placeholder={intl.formatMessage({
-                            defaultMessage: 'API key name',
-                            description: 'Placeholder for API key name input',
-                          })}
-                          disabled={readOnly}
-                          css={{ width: 200 }}
-                        />
-                      </div>
-                    )}
-                </>
               )}
+              <a
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.xs,
+                  alignSelf: 'flex-start',
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(CONNECTIONS_ROUTE);
+                }}
+                href={CONNECTIONS_ROUTE}
+              >
+                <FormattedMessage
+                  defaultMessage="Manage connections"
+                  description="Footer link below the model selector navigating to LLM Connections settings"
+                />
+              </a>
             </>
           )}
         </div>
@@ -581,37 +499,6 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
             onClose={() => setIsCreateModalOpen(false)}
             onSuccess={handleCreateEndpointSuccess}
           />
-        )}
-
-        {mode === 'direct' && showConfigureDirectly && shouldShowAdvancedSettings && !readOnly && (
-          <Accordion
-            componentId={`${componentId}.advanced-settings`}
-            activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
-            onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
-            dangerouslyAppendEmotionCSS={{
-              background: 'transparent',
-              border: 'none',
-            }}
-          >
-            <Accordion.Panel
-              header={intl.formatMessage({
-                defaultMessage: 'Advanced settings',
-                description: 'Collapsible section for advanced settings',
-              })}
-              key="advanced"
-            >
-              <GenAIAdvancedSettings
-                provider={provider}
-                model={model}
-                onModelChange={setModel}
-                apiKeyConfig={apiKeyConfig}
-                onApiKeyConfigChange={setApiKeyConfig}
-                authModes={authModes}
-                defaultAuthMode={defaultAuthMode}
-                showModelSelector={Boolean(DEFAULT_MODEL_BY_PROVIDER[provider])}
-              />
-            </Accordion.Panel>
-          </Accordion>
         )}
       </div>
     );

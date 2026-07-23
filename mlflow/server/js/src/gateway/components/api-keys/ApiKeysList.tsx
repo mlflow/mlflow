@@ -6,8 +6,10 @@ import {
   Input,
   KeyIcon,
   LinkIcon,
+  PlusIcon,
   SearchIcon,
   Spinner,
+  Tag,
   Table,
   TableCell,
   TableHeader,
@@ -249,6 +251,11 @@ export const ApiKeysList = ({
               <FormattedMessage defaultMessage="Provider" description="Provider column header" />
             </TableHeader>
           )}
+          {visibleColumns.includes(ApiKeysColumn.ALLOWED_MODELS) && (
+            <TableHeader componentId="mlflow.gateway.api-keys.allowed-models-header" css={{ flex: 2 }}>
+              <FormattedMessage defaultMessage="Allowed models" description="Allowed models column header" />
+            </TableHeader>
+          )}
           {visibleColumns.includes(ApiKeysColumn.ENDPOINTS) && (
             <TableHeader componentId="mlflow.gateway.api-keys.endpoints-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Endpoints" description="Endpoints using this key column header" />
@@ -311,6 +318,36 @@ export const ApiKeysList = ({
                     <Typography.Text>{formatProviderName(secret.provider)}</Typography.Text>
                   ) : (
                     <Typography.Text color="secondary">-</Typography.Text>
+                  )}
+                </TableCell>
+              )}
+              {visibleColumns.includes(ApiKeysColumn.ALLOWED_MODELS) && (
+                <TableCell css={{ flex: 2 }}>
+                  {secret.allowlisted_models && secret.allowlisted_models.length > 0 ? (
+                    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                      {secret.allowlisted_models.map((model) => (
+                        <Tag
+                          key={model.model}
+                          componentId="mlflow.gateway.api-keys.allowed-model-tag"
+                          css={{ margin: 0 }}
+                        >
+                          {model.model}
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : (
+                    <Button
+                      componentId="mlflow.gateway.api-keys.add-models-button"
+                      type="tertiary"
+                      size="small"
+                      icon={<PlusIcon />}
+                      onClick={() => onKeyClick?.(secret)}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Add models"
+                        description="Affordance to add allowlisted models to a connection with none set"
+                      />
+                    </Button>
                   )}
                 </TableCell>
               )}
