@@ -344,7 +344,7 @@ class DatabricksStore(AbstractScorerStore):
     """
 
     _MANAGED_EVALS_BASE = "/api/2.0/managed-evals"
-    _MANAGED_EVALS_SCORERS_BASE = f"{_MANAGED_EVALS_BASE}/scheduled-scorers"
+    _MANAGED_EVALS_SCHEDULED_SCORERS_BASE = f"{_MANAGED_EVALS_BASE}/scheduled-scorers"
 
     def __init__(self, tracking_uri=None):
         self.get_host_creds = partial(get_databricks_host_creds, tracking_uri)
@@ -358,7 +358,9 @@ class DatabricksStore(AbstractScorerStore):
         return urlsafe_b64encode(name.encode("utf-8")).decode("ascii").rstrip("=")
 
     def _scheduled_scorers_endpoint(self, experiment_id: str) -> str:
-        return f"{self._MANAGED_EVALS_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
+        return (
+            f"{self._MANAGED_EVALS_SCHEDULED_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
+        )
 
     def _scorer_version_resource_parent(self, experiment_id: str, name: str) -> str:
         return (
@@ -407,10 +409,7 @@ class DatabricksStore(AbstractScorerStore):
 
     @staticmethod
     def _extract_current_scorer_configs(response: dict[str, Any]) -> list[dict[str, Any]]:
-        scheduled_scorers = response.get("scheduled_scorers", {})
-        if "scorers" in scheduled_scorers:
-            return scheduled_scorers["scorers"]
-        return scheduled_scorers.get("scorers_config", {}).get("scorers", [])
+        return response.get("scheduled_scorers", {}).get("scorers", [])
 
     @staticmethod
     def _get_config_version(config: dict[str, Any]) -> int:
@@ -435,7 +434,6 @@ class DatabricksStore(AbstractScorerStore):
         *,
         sample_rate: float | None = None,
         filter_string: str | None = None,
-        version: int | None = None,
     ) -> Scorer:
         scorer._registered_backend = SCORER_BACKEND_DATABRICKS
         scorer._experiment_id = experiment_id
@@ -443,7 +441,6 @@ class DatabricksStore(AbstractScorerStore):
             sample_rate=sample_rate,
             filter_string=filter_string,
         )
-        scorer._registered_scorer_version = version
         return scorer
 
     def _config_to_scorer(
@@ -471,7 +468,6 @@ class DatabricksStore(AbstractScorerStore):
             experiment_id,
             sample_rate=sampling_config.get("sample_rate"),
             filter_string=sampling_config.get("filter_string"),
-            version=self._get_config_version(config),
         )
 
     def _find_current_scorer_config(self, experiment_id: str, name: str) -> dict[str, Any]:

@@ -266,7 +266,6 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
         store.delete_scorer("exp_123", scorer_name, version=1)
 
     assert exact.name == scorer_name
-    assert exact._registered_scorer_version == 1
     assert exact._sampling_config == ScorerSamplingConfig(
         sample_rate=0.5,
         filter_string="trace.status = 'OK'",
@@ -339,16 +338,12 @@ def test_databricks_backend_current_scorer_configs_paginate():
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
 
 
-def test_databricks_backend_current_config_parser_accepts_legacy_shape():
+def test_databricks_backend_legacy_current_config_defaults_to_version_one():
     scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
     config = _scorer_config(scorer)
     config.pop("scorer_version")
-    response = {"scheduled_scorers": {"scorers_config": {"scorers": [config]}}}
 
-    configs = DatabricksStore._extract_current_scorer_configs(response)
-    parsed = DatabricksStore(tracking_uri="databricks")._config_to_scorer(configs[0], "exp_123")
-
-    assert parsed._registered_scorer_version == 1
+    assert DatabricksStore._get_config_version(config) == 1
 
 
 def _mock_gateway_endpoint():
