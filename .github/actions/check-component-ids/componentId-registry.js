@@ -2235,6 +2235,16 @@ module.exports = {
   "mlflow.traces.onboarding.step2.otel_code.copy": "",
   "mlflow.traces.onboarding.step2.otel_install.copy": "",
   "mlflow.traces.onboarding.trace_with_agent": "",
+  "mlflow.traces.save_view.link": "",
+  "mlflow.traces.save_view.modal": "",
+  "mlflow.traces.save_view.name_input": "",
+  "mlflow.traces.save_view.save_button": "",
+  "mlflow.traces.saved_views": "",
+  "mlflow.traces.saved_views.delete_confirm": "",
+  "mlflow.traces.saved_views.trigger": "",
+  "mlflow.traces.share_current_view": "",
+  "mlflow.traces.shared_view": "",
+  "mlflow.traces.shared_view.override_undo": "",
 
   // -- mlflow.traces-tab --
   "mlflow.traces-tab.trace-count": "",

@@ -11,6 +11,7 @@ import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
+import { TracesV3SavedViewsButton, TracesV3ShareButton, useTraceSavedViews } from './TracesV3SavedViews';
 import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
@@ -30,6 +31,9 @@ const TracesV3Content = ({
   endpointName,
   timeRange,
 }: TracesV3ContentProps) => {
+  // One useTraceSavedViews instance for both toolbar buttons: a single Apollo subscription and a
+  // single `atCap` source, instead of each button opening its own subscription.
+  const savedViews = useTraceSavedViews({ experimentId: experimentId || '' });
   if (viewState === 'logs') {
     return (
       <TracesV3Logs
@@ -38,6 +42,14 @@ const TracesV3Content = ({
         endpointName={endpointName || ''}
         timeRange={timeRange}
         drawerWidth="80vw"
+        toolbarCornerAddons={
+          experimentId && (
+            <>
+              <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />
+              <TracesV3ShareButton experimentId={experimentId} savedViews={savedViews} />
+            </>
+          )
+        }
       />
     );
   }
