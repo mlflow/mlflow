@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { MCPServerVersion } from '../types';
+import type { ConnectOptionKey, ConnectOptionsMap, MCPServerVersion } from '../types';
 import { useUpdateMCPServerVersion } from './useMCPServerVersionMutations';
 
 export const useConnectOptionToggle = (serverName: string, version?: MCPServerVersion) => {
-  const [localConnectOptions, setLocalConnectOptions] = useState<Record<string, { hidden?: boolean }> | undefined>(
-    undefined,
-  );
+  const [localConnectOptions, setLocalConnectOptions] = useState<ConnectOptionsMap | undefined>(undefined);
   const currentVersionRef = useRef(version?.version);
   currentVersionRef.current = version?.version;
 
@@ -17,11 +15,11 @@ export const useConnectOptionToggle = (serverName: string, version?: MCPServerVe
 
   const connectOptions = localConnectOptions ?? version?.connect_options ?? undefined;
 
-  const handleToggleConnectOption = (key: string, visible: boolean) => {
+  const handleToggleConnectOption = (key: ConnectOptionKey, visible: boolean) => {
     if (!version) return;
     const toggledVersion = version.version;
     const current = localConnectOptions ?? version.connect_options ?? {};
-    const updated = { ...current, [key]: { hidden: !visible } };
+    const updated: ConnectOptionsMap = { ...current, [key]: { hidden: !visible } };
     setLocalConnectOptions(updated);
     updateVersionMutation.mutate(
       { version: toggledVersion, connectOptions: updated },

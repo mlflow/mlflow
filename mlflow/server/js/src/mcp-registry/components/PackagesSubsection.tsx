@@ -4,7 +4,7 @@ import { Button, Tag, Typography, useDesignSystemTheme } from '@databricks/desig
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { ConnectionSource } from '../types';
-import type { ServerJSONPayload } from '../types';
+import type { ConnectOptionKey, ConnectOptionsMap, ServerJSONPayload } from '../types';
 import {
   borderedListContainerStyles,
   borderedListItemStyles,
@@ -37,8 +37,8 @@ export const PackagesSubsection = ({
   packages: Package[];
   derivedName: string;
   showVisibilityControls?: boolean;
-  connectOptions?: Record<string, { hidden?: boolean }>;
-  onToggleConnectOption?: (key: string, visible: boolean) => void;
+  connectOptions?: ConnectOptionsMap;
+  onToggleConnectOption?: (key: ConnectOptionKey, visible: boolean) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -79,9 +79,7 @@ export const PackagesSubsection = ({
             { action: expanded ? 'Collapse' : 'Expand', identifier: pkg.identifier },
           )
         }
-        getRowStyle={(pkg) =>
-          hiddenRowStyle(connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden)
-        }
+        getRowStyle={(pkg) => hiddenRowStyle(connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden)}
         renderRow={({ item: pkg }) => (
           <PackageRowContent
             pkg={pkg}

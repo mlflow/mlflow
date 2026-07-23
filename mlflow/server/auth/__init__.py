@@ -339,10 +339,16 @@ from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
     MCPServerResponse,
-    get_mcp_server as _get_mcp_server_endpoint,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_server as _get_mcp_server_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     search_all_access_endpoints as _search_all_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     search_mcp_servers as _search_mcp_servers_endpoint,
 )
 from mlflow.server.workspace_helpers import (
@@ -4789,7 +4795,7 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
 
 
 FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
-    Callable,
+    Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,

@@ -125,9 +125,7 @@ describe('MCPRegistryPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Search MCP servers by name'), 'github');
 
     await waitFor(() => {
-      expect(capturedFilter).toBe(
-        "name ILIKE '%github%' AND status = 'active' AND has_access_endpoints = 'true'",
-      );
+      expect(capturedFilter).toBe("name ILIKE '%github%' AND status = 'active' AND has_access_endpoints = 'true'");
     });
   });
 

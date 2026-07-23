@@ -2,7 +2,7 @@ import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { ConnectionSource } from '../types';
-import type { ServerJSONPayload } from '../types';
+import type { ConnectOptionKey, ConnectOptionsMap, ServerJSONPayload } from '../types';
 import {
   borderedListContainerStyles,
   borderedListItemStyles,
@@ -33,8 +33,8 @@ export const RemotesSubsection = ({
   remotes: Remote[];
   derivedName: string;
   showVisibilityControls?: boolean;
-  connectOptions?: Record<string, { hidden?: boolean }>;
-  onToggleConnectOption?: (key: string, visible: boolean) => void;
+  connectOptions?: ConnectOptionsMap;
+  onToggleConnectOption?: (key: ConnectOptionKey, visible: boolean) => void;
 }) => {
   const intl = useIntl();
   const visibleRemotes = showVisibilityControls
@@ -76,9 +76,7 @@ export const RemotesSubsection = ({
             { action: expanded ? 'Collapse' : 'Expand', url: remote.url ?? remote.type },
           )
         }
-        getRowStyle={(remote) =>
-          hiddenRowStyle(connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden)
-        }
+        getRowStyle={(remote) => hiddenRowStyle(connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden)}
         renderRow={({ item: remote }) => (
           <RemoteRowContent
             remote={remote}

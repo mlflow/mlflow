@@ -36,7 +36,6 @@ import {
   getServerPermissions,
 } from '../utils';
 import { Link } from '../../common/utils/RoutingUtils';
-import { useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
 
 const coreRowModel = getCoreRowModel<MCPServer>();
@@ -263,8 +262,6 @@ export const MCPServerListTable = ({
   onCreateServer?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  // One auth check + pure isServerDimmed per row (avoid N hooks)
-  const isAuthAvailable = useIsAuthAvailable();
   const columns = useMCPServerTableColumns();
   const { EditTagsModal, showEditServerTagsModal } = useUpdateMCPServerTags();
   const [connectServer, setConnectServer] = useState<MCPServer | null>(null);
@@ -309,13 +306,7 @@ export const MCPServerListTable = ({
       >
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
-            <TableHeader
-              componentId="mlflow.mcp_registry.table.header"
-              key={header.id}
-              style={
-                header.id === 'endpoints' ? { flex: 1.5 } : header.id === 'latestVersion' ? { flex: 0.5 } : undefined
-              }
-            >
+            <TableHeader componentId="mlflow.mcp_registry.table.header" key={header.id}>
               {flexRender(header.column.columnDef.header, header.getContext())}
             </TableHeader>
           ))}
@@ -324,7 +315,7 @@ export const MCPServerListTable = ({
           <TableSkeletonRows table={table} />
         ) : (
           table.getRowModel().rows.map((row) => {
-            const isDimmed = isAuthAvailable && isServerDimmed(row.original);
+            const isDimmed = isServerDimmed(row.original);
             return (
               <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
                 {row.getAllCells().map((cell) => (
@@ -333,11 +324,6 @@ export const MCPServerListTable = ({
                     css={{ alignItems: 'center' }}
                     style={{
                       opacity: isDimmed ? 0.5 : 1,
-                      ...(cell.column.id === 'endpoints'
-                        ? { flex: 1.5 }
-                        : cell.column.id === 'latestVersion'
-                          ? { flex: 0.5 }
-                          : undefined),
                     }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

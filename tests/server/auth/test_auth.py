@@ -48,6 +48,13 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
+from mlflow.server.mcp_server_api import (
+    get_mcp_server,
+    get_mcp_server_version,
+    search_all_access_endpoints,
+    search_mcp_server_versions,
+    search_mcp_servers,
+)
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -4629,22 +4636,15 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 
 @pytest.mark.parametrize(
-    "path",
-    [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
-    + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+    "endpoint_fn",
+    [search_mcp_servers, search_all_access_endpoints],
 )
-def test_response_filter_matches_trailing_slash(path):
-    from mlflow.server.mcp_server_api import search_all_access_endpoints, search_mcp_servers
-
-    endpoint_fn = search_all_access_endpoints if "/endpoints" in path else search_mcp_servers
+def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})
     assert _find_fastapi_response_filter(request, "GET") is not None
 
 
-@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, monkeypatch):
-    from mlflow.server.mcp_server_api import get_mcp_server
-
+def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
     handler = _find_fastapi_response_filter(request, "GET")
     assert handler is not None
@@ -4653,7 +4653,7 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, mon
         "_get_mcp_server_permission",
         lambda name, username: READ,
     )
-    request = SimpleNamespace(url=SimpleNamespace(path=f"{prefix}/com.test/server"))
+    request = SimpleNamespace()
     body = json.dumps({"name": "com.test/server"}).encode()
     result = json.loads(handler("testuser", body, request))
     assert result["name"] == "com.test/server"
@@ -4661,8 +4661,6 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(prefix, mon
 
 
 def test_response_filter_skips_sub_resource_endpoints():
-    from mlflow.server.mcp_server_api import get_mcp_server_version, search_mcp_server_versions
-
     for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
         request = SimpleNamespace(scope={"endpoint": endpoint_fn})
         assert _find_fastapi_response_filter(request, "GET") is None

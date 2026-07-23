@@ -27,10 +27,7 @@ const viewStateReducer = (state: MCPServerDetailViewState, action: ViewAction): 
         next = { ...next, mode: MCPServerDetailViewMode.PREVIEW, comparedVersion: undefined };
       }
       if (next.comparedVersion && !action.versions.includes(next.comparedVersion)) {
-        const fallback =
-          action.versions[0] === action.selectedVersion
-            ? (action.versions[1] ?? '')
-            : (action.versions[0] ?? '');
+        const fallback = action.versions.find((v) => v !== action.selectedVersion);
         next = { ...next, comparedVersion: fallback };
       }
       return next;
@@ -78,11 +75,12 @@ export const useMCPServerDetailViewState = (
 
   useEffect(() => {
     if (!versions?.length) return;
+    const resolved = selectedVersion ?? first(versions)?.version;
     if (!selectedVersion) {
-      setSelectedVersion(first(versions)?.version);
+      setSelectedVersion(resolved);
     }
     const versionStrings = versions.map((v) => v.version);
-    dispatch({ type: 'syncVersions', versions: versionStrings, selectedVersion });
+    dispatch({ type: 'syncVersions', versions: versionStrings, selectedVersion: resolved });
   }, [versions, selectedVersion, setSelectedVersion]);
 
   return {

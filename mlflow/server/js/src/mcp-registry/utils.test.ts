@@ -212,7 +212,9 @@ describe('buildPackageConnectOptionKey', () => {
 
 describe('buildRemoteConnectOptionKey', () => {
   it('prefers url when present', () => {
-    expect(buildRemoteConnectOptionKey({ type: 'sse', url: 'https://example.com' })).toBe('remote:sse:https://example.com');
+    expect(buildRemoteConnectOptionKey({ type: 'sse', url: 'https://example.com' })).toBe(
+      'remote:sse:https://example.com',
+    );
   });
 
   it('falls back to type when url is missing', () => {
@@ -287,32 +289,20 @@ describe('getServerPermissions', () => {
 });
 
 describe('isServerDimmed', () => {
-  const endpoint = createMockAccessEndpoint();
-
-  it('returns false for active server with endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_endpoints: [endpoint] }))).toBe(false);
+  it('returns false for active server', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE }))).toBe(false);
   });
 
-  it('returns true for active server without endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_endpoints: [] }))).toBe(true);
+  it('returns true for draft server', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT }))).toBe(true);
   });
 
-  it('returns true for draft server with endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_endpoints: [endpoint] }))).toBe(true);
-  });
-
-  it('returns true for draft server without endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DRAFT, access_endpoints: [] }))).toBe(true);
-  });
-
-  it('returns true for deprecated server with endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED, access_endpoints: [endpoint] }))).toBe(
-      true,
-    );
+  it('returns true for deprecated server', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.DEPRECATED }))).toBe(true);
   });
 
   it('returns true when status is undefined (no version resolved)', () => {
-    expect(isServerDimmed(createMockMCPServer({ access_endpoints: [endpoint] }))).toBe(true);
+    expect(isServerDimmed(createMockMCPServer({}))).toBe(true);
   });
 });
 

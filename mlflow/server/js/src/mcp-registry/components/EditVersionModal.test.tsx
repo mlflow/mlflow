@@ -13,19 +13,6 @@ import {
   getMockedUpdateMCPServerVersionResponse,
 } from '../test-utils';
 
-// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
-jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
-  LazyJsonRecordEditor: ({
-    ariaLabel,
-    value,
-    onChange,
-  }: {
-    ariaLabel: string;
-    value: string;
-    onChange: (next: string) => void;
-  }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
-}));
-
 const server = setupServer();
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
@@ -71,23 +58,6 @@ describe('EditVersionModal', () => {
   it('renders status selector with current status', () => {
     renderModal();
     expect(screen.getByText('Draft')).toBeInTheDocument();
-  });
-
-  it('renders tools editor with existing tools JSON', () => {
-    renderModal();
-    const editor = screen.getByLabelText('Tools JSON editor');
-    expect(editor).toHaveValue(JSON.stringify([{ name: 'test_tool', description: 'A test tool' }], null, 2));
-  });
-
-  it('shows validation error for invalid tools JSON', async () => {
-    renderModal();
-    const editor = screen.getByLabelText('Tools JSON editor');
-    await userEvent.clear(editor);
-    await userEvent.type(editor, 'not valid json');
-    await userEvent.click(screen.getByText('Save'));
-    await waitFor(() => {
-      expect(screen.getByText(/Invalid/i)).toBeInTheDocument();
-    });
   });
 
   it('does not call onClose without interaction', () => {

@@ -100,7 +100,7 @@ export const useCreateMCPServerVersionModal = ({
     }
 
     let parsedTools;
-    if (formState.toolsText.trim()) {
+    if (!isVersionMode && formState.toolsText.trim()) {
       const toolsResult = validateToolsJson(formState.toolsText);
       if (!toolsResult.valid) {
         setValidationError(toolsResult.error);
@@ -137,7 +137,7 @@ export const useCreateMCPServerVersionModal = ({
         isNewServer: !isVersionMode,
         status: formState.status,
         source: formState.source.trim() || undefined,
-        tools: parsedTools,
+        tools: isVersionMode ? (latestVersion?.tools ?? []) : parsedTools,
         tags: tagsToSet,
         connectOptions,
       },
@@ -276,20 +276,24 @@ export const useCreateMCPServerVersionModal = ({
         autoComplete="off"
       />
       <Spacer />
-      <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
-        <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
-      </FormUI.Label>
-      <LazyJsonRecordEditor
-        value={formState.toolsText}
-        onChange={(value) => handleFieldChange('toolsText', value)}
-        height="100px"
-        maxHeight="240px"
-        ariaLabel={intl.formatMessage({
-          defaultMessage: 'Tools JSON editor',
-          description: 'Aria label for tools JSON editor',
-        })}
-      />
-      <Spacer />
+      {!isVersionMode && (
+        <>
+          <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
+            <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
+          </FormUI.Label>
+          <LazyJsonRecordEditor
+            value={formState.toolsText}
+            onChange={(value) => handleFieldChange('toolsText', value)}
+            height="100px"
+            maxHeight="240px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Tools JSON editor',
+              description: 'Aria label for tools JSON editor',
+            })}
+          />
+          <Spacer />
+        </>
+      )}
       <FormUI.Label>
         {isVersionMode ? (
           <FormattedMessage
@@ -366,7 +370,7 @@ export const useCreateMCPServerVersionModal = ({
         serverJsonText: JSON.stringify(latestVersion.server_json, null, 2),
         status: latestVersion.status === MCPStatus.DELETED ? MCPStatus.DRAFT : latestVersion.status,
         source: latestVersion.source || '',
-        toolsText: latestVersion.tools?.length ? JSON.stringify(latestVersion.tools, null, 2) : '',
+        toolsText: '',
         tags: { ...latestVersion.tags },
       });
     } else {

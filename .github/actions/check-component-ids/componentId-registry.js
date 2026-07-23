@@ -1947,7 +1947,6 @@ module.exports = {
   "mlflow.mcp_registry.detail.version.edit_status_select": "",
   "mlflow.mcp_registry.detail.version.edit_version_error": "",
   "mlflow.mcp_registry.detail.version.edit_version_modal": "",
-  "mlflow.mcp_registry.detail.version.tools_validation_error": "",
   "mlflow.mcp_registry.detail.version_status": "",
   "mlflow.mcp_registry.detail.version_status_tag": "",
   "mlflow.mcp_registry.detail.version_tabs": "",

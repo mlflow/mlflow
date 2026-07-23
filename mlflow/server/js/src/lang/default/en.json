@@ -1547,10 +1547,6 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
-  "5F/eep": {
-    "defaultMessage": "Tools",
-    "description": "Version edit tools label"
-  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -6858,10 +6854,6 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
-  },
-  "UAZsdW": {
-    "defaultMessage": "Tools JSON editor",
-    "description": "Aria label for tools JSON editor in edit version modal"
   },
   "UBDg9j": {
     "defaultMessage": "Version target:",
