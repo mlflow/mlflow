@@ -767,6 +767,13 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # due to how None is cast
         return values
 
+    if t == DataType.binary and isinstance(values.dtype, pd.StringDtype):
+        # pandas 3 infers plain-string columns as StringDtype rather than object. Binary
+        # columns historically arrived as object and were passed through unchanged (see the
+        # ``t.to_pandas() == values.dtype`` check below, where binary maps to object), so accept
+        # StringDtype the same way.
+        return values
+
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
     # That is because pandas is aware of numpy.
