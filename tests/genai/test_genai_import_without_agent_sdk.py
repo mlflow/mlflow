@@ -1,14 +1,19 @@
+import json
+from unittest import mock
 from unittest.mock import patch
 
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.scorers import (
+    Guidelines,
     delete_scorer,
     get_scorer,
+    list_scorer_versions,
     list_scorers,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.registry import DatabricksStore
 
 
 # Test `mlflow.genai` namespace
@@ -89,4 +94,66 @@ def test_delete_scorer_raises_when_agents_not_installed():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-            delete_scorer(experiment_id="test_experiment", name="test_scorer")
+            delete_scorer(experiment_id="test_experiment", name="test_scorer", version="all")
+
+
+def _mock_response(payload):
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(payload)
+    response.json.return_value = payload
+    return response
+
+
+def _scheduled_scorers_response(configs):
+    return _mock_response({"scheduled_scorers": {"scorers": configs}})
+
+
+def _scorer_config(name="test_scorer"):
+    scorer = Guidelines(name=name, guidelines=["Be helpful"], model="databricks:/judge")
+    return {
+        "name": name,
+        "serialized_scorer": json.dumps(scorer.model_dump()),
+        "builtin": {"name": name},
+        "sample_rate": 0.0,
+        "scorer_version": 1,
+    }
+
+
+@pytest.fixture
+def scorer_http():
+    with (
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        yield mock_http
+
+
+def test_versioned_scorer_operations_do_not_require_agents_sdk(scorer_http):
+    config = _scorer_config()
+    scorer_key = DatabricksStore._scorer_resource_key("test_scorer")
+    version_config = {
+        "name": f"experiments/test_experiment/scorers/{scorer_key}/versions/1",
+        "display_name": "test_scorer",
+        "scorer_version": 1,
+        "serialized_scorer": config["serialized_scorer"],
+        "builtin": {"name": "test_scorer"},
+    }
+    scorer_http.side_effect = [
+        _mock_response(version_config),
+        _scheduled_scorers_response([config]),
+        _mock_response({"scorer_versions": [version_config]}),
+        _scheduled_scorers_response([config]),
+        _mock_response({}),
+    ]
+
+    exact = get_scorer(name="test_scorer", experiment_id="test_experiment", version=1)
+    versions = list_scorer_versions(name="test_scorer", experiment_id="test_experiment")
+    delete_scorer(name="test_scorer", experiment_id="test_experiment", version=1)
+
+    assert exact.name == "test_scorer"
+    assert [version for _, version in versions] == [1]
+    assert scorer_http.call_args_list[-1].kwargs["method"] == "DELETE"
