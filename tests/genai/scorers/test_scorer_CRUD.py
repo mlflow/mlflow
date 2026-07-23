@@ -166,9 +166,7 @@ def test_databricks_backend_scorer_operations():
         mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
 
         # Test delete operation
-        with pytest.raises(MlflowException, match="must set `version`"):
-            delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123", version="all")
+        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
         mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
 
 
@@ -233,23 +231,8 @@ def test_databricks_backend_exact_version_operations_require_positive_integer(ve
     mock_http.assert_not_called()
 
 
-def test_databricks_backend_delete_requires_explicit_version():
-    with (
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer"
-        ) as mock_delete,
-        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
-    ):
-        store = DatabricksStore(tracking_uri="databricks")
-
-        with pytest.raises(MlflowException, match="must set `version`"):
-            store.delete_scorer("exp_123", "test_scorer", version=None)
-
-    mock_delete.assert_not_called()
-    mock_http.assert_not_called()
-
-
-def test_databricks_backend_delete_all_uses_scheduled_scorer_delete():
+@pytest.mark.parametrize("version", [None, "all"])
+def test_databricks_backend_delete_all_uses_scheduled_scorer_delete(version):
     with (
         patch(
             "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer"
@@ -257,11 +240,29 @@ def test_databricks_backend_delete_all_uses_scheduled_scorer_delete():
         patch("mlflow.genai.scorers.registry.http_request") as mock_http,
     ):
         DatabricksStore(tracking_uri="databricks").delete_scorer(
-            "exp_123", "test_scorer", version="all"
+            "exp_123", "test_scorer", version=version
         )
 
     mock_delete.assert_called_once_with("exp_123", "test_scorer")
     mock_http.assert_not_called()
+
+
+@pytest.mark.parametrize("next_page_token", [123, "same-token"])
+def test_databricks_backend_pagination_rejects_invalid_next_page_token(next_page_token):
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.return_value = _mock_response({"next_page_token": next_page_token})
+        store = DatabricksStore(tracking_uri="databricks")
+
+        with pytest.raises(MlflowException, match="invalid `next_page_token`") as error:
+            store._get_paginated_results(
+                "/api/2.0/test",
+                lambda response: [],
+            )
+
+    assert error.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
 def test_databricks_backend_config_response_errors_use_oss_error_codes():

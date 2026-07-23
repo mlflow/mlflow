@@ -9,8 +9,9 @@ import json
 import warnings
 from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
+from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, TypeVar, cast
 from urllib.parse import quote
 
 from typing_extensions import NotRequired
@@ -23,7 +24,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -33,6 +34,8 @@ from mlflow.utils.uri import get_uri_scheme
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
+_T = TypeVar("_T")
 
 
 class _SerializedScorerConfig(TypedDict):
@@ -442,17 +445,33 @@ class DatabricksStore(AbstractScorerStore):
     def _extract_scorer_versions(response: dict[str, Any]) -> list[_ScorerVersion]:
         return cast(list[_ScorerVersion], response.get("scorer_versions", []))
 
-    def _list_current_scorer_configs(self, experiment_id: str) -> list[_ScheduledScorerConfig]:
-        endpoint = self._scheduled_scorers_endpoint(experiment_id)
-        configs: list[_ScheduledScorerConfig] = []
-        page_token = None
+    def _get_paginated_results(
+        self,
+        endpoint: str,
+        extract_items: Callable[[dict[str, Any]], list[_T]],
+    ) -> list[_T]:
+        items: list[_T] = []
+        page_token: str | None = None
         while True:
             params = {"page_token": page_token} if page_token else None
             response = self._request("GET", endpoint, params=params)
-            configs.extend(self._extract_current_scorer_configs(response))
-            page_token = response.get("next_page_token")
-            if not page_token:
-                return configs
+            items.extend(extract_items(response))
+
+            next_page_token = response.get("next_page_token")
+            if not next_page_token:
+                return items
+            if not isinstance(next_page_token, str) or next_page_token == page_token:
+                raise MlflowException(
+                    "Paginated response contained an invalid `next_page_token`.",
+                    INTERNAL_ERROR,
+                )
+            page_token = next_page_token
+
+    def _list_current_scorer_configs(self, experiment_id: str) -> list[_ScheduledScorerConfig]:
+        return self._get_paginated_results(
+            self._scheduled_scorers_endpoint(experiment_id),
+            self._extract_current_scorer_configs,
+        )
 
     def _hydrate_scorer(
         self,
@@ -647,16 +666,10 @@ class DatabricksStore(AbstractScorerStore):
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
         experiment_id = self._resolve_experiment_id(experiment_id)
-        endpoint = self._scorer_versions_endpoint(experiment_id, name)
-        configs: list[_ScorerVersion] = []
-        page_token: str | None = None
-        while True:
-            params = {"page_token": page_token} if page_token else None
-            response = self._request("GET", endpoint, params=params)
-            configs.extend(self._extract_scorer_versions(response))
-            page_token = response.get("next_page_token")
-            if not page_token:
-                break
+        configs = self._get_paginated_results(
+            self._scorer_versions_endpoint(experiment_id, name),
+            self._extract_scorer_versions,
+        )
 
         current_config = self._find_current_scorer_config(experiment_id, name)
         return [
@@ -673,12 +686,7 @@ class DatabricksStore(AbstractScorerStore):
         ]
 
     def delete_scorer(self, experiment_id, name, version):
-        if version is None:
-            raise MlflowException.invalid_parameter_value(
-                "You must set `version` argument to either an integer or 'all'."
-            )
-
-        if version == "all":
+        if version is None or version == "all":
             return DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
         experiment_id = self._resolve_experiment_id(experiment_id)
@@ -873,6 +881,7 @@ def delete_scorer(
     **Databricks Backend:**
         - Supports deleting a specific version
         - Supports deleting all versions with `version="all"`
+        - For backwards compatibility, `version=None` also deletes all versions
 
     Args:
         name (str): The name of the scorer to delete. This must match exactly with the
@@ -881,8 +890,9 @@ def delete_scorer(
             If None, uses the currently active experiment as determined by
             :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
         version (int | str | None, optional): The version(s) to delete. An integer deletes that
-            specific version, and the string `"all"` deletes all versions. This argument is
-            required.
+            specific version, and the string `"all"` deletes all versions. The OSS backend requires
+            this argument. For backwards compatibility, the Databricks backend treats `None` as
+            `"all"`.
 
     Raises:
         mlflow.MlflowException: If the scorer with the specified name is not found in
