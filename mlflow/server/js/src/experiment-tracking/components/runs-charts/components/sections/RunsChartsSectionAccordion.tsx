@@ -316,6 +316,20 @@ export const RunsChartsSectionAccordion = ({
     return { sectionsToRender: compareRunSectionsFiltered, chartsToRender: compareRunChartsFiltered };
   }, [search, compareRunCharts, compareRunSections]);
 
+  // Pre-compute section→charts mapping to avoid O(n²) filtering
+  const chartsBySectionId = useMemo(() => {
+    const map: Record<string, RunsChartsCardConfig[]> = {};
+    for (const config of chartsToRender || []) {
+      if (config.deleted) continue;
+      const sectionId = config.metricSectionId;
+      if (sectionId) {
+        if (!map[sectionId]) map[sectionId] = [];
+        map[sectionId].push(config);
+      }
+    }
+    return map;
+  }, [chartsToRender]);
+
   const isSearching = search !== '';
 
   if (!compareRunSections || !compareRunCharts) {
@@ -366,10 +380,7 @@ export const RunsChartsSectionAccordion = ({
     <div>
       <MetricChartsAccordion activeKey={activeKey} onActiveKeyChange={onActivePanelChange}>
         {(sectionsToRender || []).map((sectionConfig: ChartSectionConfig, index: number) => {
-          const sectionCharts = (chartsToRender || []).filter((config: RunsChartsCardConfig) => {
-            const section = (config as RunsChartsBarCardConfig).metricSectionId;
-            return !config.deleted && section === sectionConfig.uuid;
-          });
+          const sectionCharts = chartsBySectionId[sectionConfig.uuid] || [];
 
           return (
             <Accordion.Panel
