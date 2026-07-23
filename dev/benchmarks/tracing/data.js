@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784802804993,
+  "lastUpdate": 1784825725042,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15929,6 +15929,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.640068799998858,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jon@jonburdo.com",
+            "name": "Jon Burdo",
+            "username": "jonburdo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "045bceb7f65f80fed00ebc24b4c9f7f7a572a0b2",
+          "message": "Auto-discover MCP tools on create when tools is omitted (#24520)\n\nSigned-off-by: Jon Burdo <jon@jonburdo.com>\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>\nCo-authored-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:51:56Z",
+          "tree_id": "85d0fbf50f2ad8adcd2f367f74ae605c29c626e5",
+          "url": "https://github.com/mlflow/mlflow/commit/045bceb7f65f80fed00ebc24b4c9f7f7a572a0b2"
+        },
+        "date": 1784825723626,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.63686734999874,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.530656085713172,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.917887440677823,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.252591017855153,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.89519024561385,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.056592800000772,
             "unit": "ms"
           }
         ]
