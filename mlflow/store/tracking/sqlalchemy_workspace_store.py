@@ -519,6 +519,22 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                     return super()._create_default_experiment(session)
                 except IntegrityError as exc:
                     session.rollback()
+                    # Only swallow the error if experiment 0 now exists, i.e. another worker
+                    # won the race to create it (an expected experiment_pk collision). Any other
+                    # integrity failure (e.g. a different experiment already occupies the
+                    # (workspace, name) slot while ID 0 is genuinely missing) must be re-raised,
+                    # otherwise startup would proceed without the required default experiment.
+                    default_experiment_exists = (
+                        session
+                        .query(SqlExperiment.experiment_id)
+                        .filter(
+                            SqlExperiment.experiment_id == int(self.DEFAULT_EXPERIMENT_ID),
+                            SqlExperiment.workspace == workspace,
+                        )
+                        .first()
+                    )
+                    if default_experiment_exists is None:
+                        raise
                     _logger.debug(
                         "Default experiment already exists in the default workspace; another "
                         "worker likely created it. Swallowing IntegrityError: %s",

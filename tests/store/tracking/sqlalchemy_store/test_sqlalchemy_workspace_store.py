@@ -950,6 +950,47 @@ def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db
         SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
+def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
+    tmp_path, db_uri, monkeypatch
+):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
+    # occupies the (default workspace, "Default") slot. Re-creating experiment 0 will then trip
+    # the (workspace, name) unique constraint rather than the primary-key race, so the store must
+    # surface the error instead of silently starting up without a default experiment.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        default_experiment = (
+            session
+            .query(SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID))
+            .one()
+        )
+        session.delete(default_experiment)
+        session.flush()
+        session.add(
+            SqlExperiment(
+                experiment_id=123,
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                workspace=DEFAULT_WORKSPACE_NAME,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+                creation_time=_now_ms(),
+                last_update_time=_now_ms(),
+            )
+        )
+        session.flush()
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    with pytest.raises(MlflowException, match="IntegrityError"):
+        tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
 def test_single_tenant_startup_rejects_non_default_workspace_experiments(
     tmp_path, db_uri, monkeypatch
 ):
