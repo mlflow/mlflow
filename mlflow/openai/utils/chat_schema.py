@@ -149,6 +149,16 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
             if details := getattr(usage, "prompt_tokens_details", None):
                 if (cached := getattr(details, "cached_tokens", None)) is not None:
                     usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            # Databricks-served Anthropic endpoints return cache counts as top-level
+            # usage fields (cache_read_input_tokens, cache_creation_input_tokens) while
+            # prompt_tokens_details is None.  Read these when present and not already set
+            # via prompt_tokens_details.cached_tokens above.
+            if TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage_dict:
+                if (v := getattr(usage, "cache_read_input_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+            if TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage_dict:
+                if (v := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
             return usage_dict
     except ImportError:
         pass
