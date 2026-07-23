@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784826946443,
+  "lastUpdate": 1784827477937,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16037,6 +16037,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 49.821523199995,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "henishbrb@gmail.com",
+            "name": "Henish Borad",
+            "username": "henishborad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cf9613795d8dde4a9a6af679c324c4456ab2072",
+          "message": "Add `createPresignedDownloadUrl` tracking-service endpoint for direct artifact downloads (#24435)\n\nSigned-off-by: Henish Borad <henishb@amazon.com>\nCo-authored-by: Henish Borad <henishb@amazon.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-07-23T10:23:13-07:00",
+          "tree_id": "72a2ea8f428d8062a7bdc9aef8bc99afd8228e24",
+          "url": "https://github.com/mlflow/mlflow/commit/4cf9613795d8dde4a9a6af679c324c4456ab2072"
+        },
+        "date": 1784827476995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 52.45778549999969,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.094980531249142,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 16.707083999999586,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 26.23358889795967,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.42663894545558,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.770753199998694,
             "unit": "ms"
           }
         ]
