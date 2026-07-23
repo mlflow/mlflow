@@ -140,9 +140,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             temp_file_descriptor = None
             with temp_file:
                 writer(temp_file)
-            self._publish_staged_artifact(
-                temp_file_path, destination_file_path, finalize_temp_path
-            )
+            self._publish_staged_artifact(temp_file_path, destination_file_path, finalize_temp_path)
             published = True
         finally:
             if temp_file_descriptor is not None:

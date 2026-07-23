@@ -5002,7 +5002,7 @@ _MCP_SUBPATHS = [
     [f"{prefix}{sub}" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX) for sub in _MCP_SUBPATHS],
 )
 def test_mcp_server_routes_have_validators(path):
-    validator = _find_fastapi_validator(path)
+    validator = _find_fastapi_validator(path, "GET")
     assert validator is not None
 
 
@@ -5013,7 +5013,7 @@ def test_mcp_server_routes_have_validators(path):
 def test_mcp_server_routes_return_validator_with_custom_auth(path):
     with mock.patch("mlflow.server.auth.auth_config") as cfg:
         cfg.authorization_function = "custom_auth:authorize"
-        validator = _find_fastapi_validator(path)
+        validator = _find_fastapi_validator(path, "GET")
     assert validator is not None
 
 
@@ -5364,7 +5364,7 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
         assert auth_module.validate_can_create_mcp_server(username) is False
 
     # The FastAPI validator for root POST dispatches to validate_can_create_mcp_server.
-    validator = _find_fastapi_validator(prefix)
+    validator = _find_fastapi_validator(prefix, "POST")
     assert validator is not None
 
     auth_store.engine.dispose()
@@ -5514,7 +5514,7 @@ def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, m
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix):
-    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions")
+    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions", "POST")
     assert validator is not None
 
     class _Store:
