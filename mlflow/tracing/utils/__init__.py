@@ -403,6 +403,25 @@ def calculate_cost_by_model_and_token_usage(
             except Exception:
                 pass
 
+        # Infer "databricks" as the provider for bare Databricks serving-endpoint names
+        # (e.g. "databricks-claude-opus-4-8") when the MODEL_PROVIDER span attribute is
+        # absent.  Without this inference the cost returns None and the UI renders $0.00
+        # for traced tokens.  The inference is narrow: only names that start with
+        # "databricks-" or "databricks/" are assumed to be Databricks-hosted.
+        if result is None and isinstance(model_name, str) and not model_provider and (
+            model_name.startswith("databricks-") or model_name.startswith("databricks/")
+        ):
+            try:
+                result = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    custom_llm_provider="databricks",
+                    **cache_kwargs,
+                )
+            except Exception:
+                pass
+
         # Fallback: try without provider (for litellm this may match by model name alone,
         # for builtin this scans bundled providers).
         if result is None:
