@@ -195,6 +195,7 @@ describe('ArtifactView', () => {
   describe('artifact download', () => {
     let assignMock: jest.Mock;
     let originalLocation: Location;
+    let originalRevokeObjectURL: any;
     let createObjectURLSpy: any;
     let revokeObjectURLMock: jest.Mock;
     let anchor: any;
@@ -219,6 +220,8 @@ describe('ArtifactView', () => {
       // Mock the DOM download plumbing only after enzyme has mounted the component:
       // enzyme itself needs the real document.createElement to create its container.
       createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+      // jsdom does not implement URL.revokeObjectURL (and the test setup does not polyfill
+      // it), so jest.spyOn cannot be used here; the original value is restored in afterEach.
       revokeObjectURLMock = jest.fn();
       URL.revokeObjectURL = revokeObjectURLMock;
       anchor = { href: '', download: '', click: jest.fn() };
@@ -238,6 +241,7 @@ describe('ArtifactView', () => {
 
     beforeEach(() => {
       originalLocation = window.location;
+      originalRevokeObjectURL = (URL as any).revokeObjectURL;
       assignMock = jest.fn();
       // The download navigates the top-level page to a cross-origin (cloud storage) URL,
       // which no router test utility models — mock `location.assign` directly.
@@ -252,6 +256,7 @@ describe('ArtifactView', () => {
 
     afterEach(() => {
       jest.restoreAllMocks();
+      (URL as any).revokeObjectURL = originalRevokeObjectURL;
       // eslint-disable-next-line @databricks/no-mock-location
       Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
     });
@@ -290,6 +295,20 @@ describe('ArtifactView', () => {
       expect(notifySpy).toHaveBeenCalled();
       expect(assignMock).not.toHaveBeenCalled();
       expect(getArtifactBlob).not.toHaveBeenCalled();
+    });
+
+    test('should notify the user when the proxied fallback download itself fails', async () => {
+      const notifySpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+      presignedSpy.mockRejectedValue(new ErrorWrapper('older server', 404));
+
+      const implInstance = getImplInstance();
+      jest.mocked(getArtifactBlob).mockRejectedValueOnce(new ErrorWrapper('missing artifact', 404));
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(getArtifactBlob).toHaveBeenCalled();
+      expect(notifySpy).toHaveBeenCalled();
+      expect(assignMock).not.toHaveBeenCalled();
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
     });
 
     test('should use the proxied download when the presigned URL requires request headers', async () => {

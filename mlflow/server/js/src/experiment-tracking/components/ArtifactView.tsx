@@ -223,15 +223,25 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   async downloadArtifactViaBlob(url: string, artifactPath: string) {
-    const blob = await getArtifactBlob(url);
-    const blobUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = getBasename(artifactPath);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(blobUrl);
+    try {
+      const blob = await getArtifactBlob(url);
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = blobUrl;
+        anchor.download = getBasename(artifactPath);
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (e) {
+      // Surface proxied-download failures (e.g. a genuinely missing artifact reached via
+      // the presigned 404 fallback) instead of leaving an unhandled rejection with no
+      // user-visible feedback.
+      Utils.logErrorAndNotifyUser(e);
+    }
   }
 
   async onDownloadClick(
