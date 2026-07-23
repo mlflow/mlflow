@@ -16,6 +16,7 @@ from mlflow.genai.scorers.registry import (
     get_scorer,
     list_scorers,
 )
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.tracking._tracking_service.utils import _get_store
 
 
@@ -228,6 +229,31 @@ def test_databricks_backend_exact_version_operations_require_positive_integer(ve
             store.delete_scorer("exp_123", "test_scorer", version=version)
 
     mock_http.assert_not_called()
+
+
+def test_databricks_backend_delete_all_has_clear_error_before_write_support():
+    with patch("mlflow.genai.scorers.registry.http_request") as mock_http:
+        store = DatabricksStore(tracking_uri="databricks")
+
+        with pytest.raises(MlflowException, match="Deleting all scorer versions"):
+            store.delete_scorer("exp_123", "test_scorer", version="all")
+
+    mock_http.assert_not_called()
+
+
+def test_databricks_backend_config_response_errors_use_oss_error_codes():
+    store = DatabricksStore(tracking_uri="databricks")
+
+    with pytest.raises(MlflowException, match="Scorer response") as malformed:
+        store._config_to_scorer({}, "exp_123")
+    assert malformed.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+
+    with (
+        patch.object(store, "_list_current_scorer_configs", return_value=[]),
+        pytest.raises(MlflowException, match="not found") as missing,
+    ):
+        store._find_current_scorer_config("exp_123", "test_scorer")
+    assert missing.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_databricks_backend_version_operations_use_managed_resource_endpoints():

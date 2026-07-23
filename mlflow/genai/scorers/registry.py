@@ -9,7 +9,6 @@ import json
 import warnings
 from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
-from collections.abc import Mapping
 from functools import partial
 from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast
 from urllib.parse import quote
@@ -24,6 +23,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -35,14 +35,23 @@ if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 
-class _ScheduledScorerConfig(TypedDict):
+class _SerializedScorerConfig(TypedDict):
     name: str
     serialized_scorer: str
     builtin: NotRequired[dict[str, str]]
     custom: NotRequired[dict[str, Any]]
     sample_rate: NotRequired[float]
     filter_string: NotRequired[str | None]
+
+
+class _ScheduledScorerConfig(_SerializedScorerConfig):
     scorer_version: NotRequired[int]
+
+
+class _ScorerVersion(_SerializedScorerConfig):
+    display_name: NotRequired[str]
+    scorer_version: int
+    create_time: NotRequired[str]
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -363,6 +372,15 @@ class DatabricksStore(AbstractScorerStore):
         self.get_host_creds = partial(get_databricks_host_creds, tracking_uri)
 
     @staticmethod
+    def _resolve_experiment_id(experiment_id: str | None) -> str:
+        if resolved_experiment_id := experiment_id or _get_experiment_id():
+            return resolved_experiment_id
+        raise MlflowException(
+            "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
+            "or pass `experiment_id`."
+        )
+
+    @staticmethod
     def _encode_path_param(value: str) -> str:
         return quote(str(value), safe="")
 
@@ -376,7 +394,7 @@ class DatabricksStore(AbstractScorerStore):
         )
 
     @staticmethod
-    def _validate_version(version: Any) -> int:
+    def _validate_version(version: object) -> int:
         if isinstance(version, bool) or not isinstance(version, int) or version <= 0:
             raise MlflowException.invalid_parameter_value(
                 f"`version` must be a positive integer, got {version!r}."
@@ -409,7 +427,7 @@ class DatabricksStore(AbstractScorerStore):
         verify_rest_response(response, endpoint)
         if not response.text:
             return {}
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     @staticmethod
     def _extract_current_scorer_configs(
@@ -419,6 +437,10 @@ class DatabricksStore(AbstractScorerStore):
             list[_ScheduledScorerConfig],
             response.get("scheduled_scorers", {}).get("scorers", []),
         )
+
+    @staticmethod
+    def _extract_scorer_versions(response: dict[str, Any]) -> list[_ScorerVersion]:
+        return cast(list[_ScorerVersion], response.get("scorer_versions", []))
 
     def _list_current_scorer_configs(self, experiment_id: str) -> list[_ScheduledScorerConfig]:
         endpoint = self._scheduled_scorers_endpoint(experiment_id)
@@ -450,7 +472,7 @@ class DatabricksStore(AbstractScorerStore):
 
     def _config_to_scorer(
         self,
-        config: Mapping[str, Any],
+        config: _SerializedScorerConfig,
         experiment_id: str,
         *,
         current_config: _ScheduledScorerConfig | None = None,
@@ -458,9 +480,7 @@ class DatabricksStore(AbstractScorerStore):
     ) -> Scorer:
         serialized_scorer = config.get("serialized_scorer")
         if serialized_scorer is None:
-            raise MlflowException.invalid_parameter_value(
-                "Scheduled scorer response did not include `serialized_scorer`."
-            )
+            raise MlflowException("Scorer response did not include `serialized_scorer`.")
         scorer = Scorer.model_validate(json.loads(serialized_scorer))
         display_name = display_name or config.get("name")
         if display_name is not None and scorer.name != display_name:
@@ -480,7 +500,8 @@ class DatabricksStore(AbstractScorerStore):
             if config.get("name") == name:
                 return config
         raise MlflowException(
-            f"Scorer with name '{name}' not found for experiment {experiment_id}."
+            f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+            RESOURCE_DOES_NOT_EXIST,
         )
 
     @staticmethod
@@ -602,17 +623,20 @@ class DatabricksStore(AbstractScorerStore):
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
-            experiment_id = experiment_id or _get_experiment_id()
-            response = self._request(
-                "GET",
-                self._scorer_version_endpoint(experiment_id, name, version),
+            experiment_id = self._resolve_experiment_id(experiment_id)
+            version_config = cast(
+                _ScorerVersion,
+                self._request(
+                    "GET",
+                    self._scorer_version_endpoint(experiment_id, name, version),
+                ),
             )
             current_config = self._find_current_scorer_config(experiment_id, name)
             return self._config_to_scorer(
-                response,
+                version_config,
                 experiment_id,
                 current_config=current_config,
-                display_name=response.get("display_name") or name,
+                display_name=version_config.get("display_name") or name,
             )
 
         # Get the scheduled scorer from the server
@@ -622,14 +646,14 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
-        experiment_id = experiment_id or _get_experiment_id()
+        experiment_id = self._resolve_experiment_id(experiment_id)
         endpoint = self._scorer_versions_endpoint(experiment_id, name)
-        configs = []
-        page_token = None
+        configs: list[_ScorerVersion] = []
+        page_token: str | None = None
         while True:
             params = {"page_token": page_token} if page_token else None
             response = self._request("GET", endpoint, params=params)
-            configs.extend(response.get("scorer_versions", []))
+            configs.extend(self._extract_scorer_versions(response))
             page_token = response.get("next_page_token")
             if not page_token:
                 break
@@ -652,7 +676,12 @@ class DatabricksStore(AbstractScorerStore):
         if version is None:
             return DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
-        experiment_id = experiment_id or _get_experiment_id()
+        if version == "all":
+            raise MlflowException.invalid_parameter_value(
+                "Deleting all scorer versions is not supported by the Databricks backend yet."
+            )
+
+        experiment_id = self._resolve_experiment_id(experiment_id)
         self._request(
             "DELETE",
             self._scorer_version_endpoint(experiment_id, name, version),
