@@ -322,6 +322,10 @@ from mlflow.store.artifact.artifact_repo import (
     StreamUploadMixin,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.mlflow_artifacts_repo import (
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -6625,10 +6629,27 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
+
+    multipart_uploads_enabled = False
+    multipart_downloads_enabled = False
+    if _is_serving_proxied_artifacts():
+        try:
+            artifact_repo = _get_artifact_repo_mlflow_artifacts()
+            multipart_uploads_enabled = isinstance(artifact_repo, MultipartUploadMixin)
+            multipart_downloads_enabled = isinstance(artifact_repo, MultipartDownloadMixin)
+        except Exception:
+            _logger.debug(
+                "Failed to resolve artifact repo for multipart capability advertisement; "
+                "defaulting to disabled.",
+                exc_info=True,
+            )
+
     return jsonify({
         "store_type": store_type,
         "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
         "trace_archival_enabled": trace_archival_enabled,
+        SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
+        SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
     })
 
 
