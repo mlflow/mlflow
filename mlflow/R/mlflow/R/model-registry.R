@@ -1,3 +1,68 @@
+mlflow_python_create_model_version <- function(payload, client) {
+  payload_file <- tempfile(fileext = ".json")
+  on.exit(unlink(payload_file), add = TRUE)
+  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
+
+  env <- if (is.null(client)) list() else client$get_cli_env()
+  tracking_uri <- if (is.null(client)) {
+    mlflow_get_tracking_uri()
+  } else {
+    client$tracking_uri$raw_uri %||% mlflow_get_tracking_uri()
+  }
+  registry_uri <- if (is.null(client)) {
+    mlflow_get_registry_uri()
+  } else {
+    client$registry_uri$raw_uri %||% mlflow_get_registry_uri()
+  }
+  env <- modifyList(list(
+    MLFLOW_TRACKING_URI = tracking_uri,
+    MLFLOW_REGISTRY_URI = registry_uri
+  ), env)
+
+  response <- tryCatch({
+    withr::with_envvar(env, {
+      run(
+        python_bin(),
+        c("-c", paste(c(
+          "import json, sys",
+          "from mlflow.tracking import MlflowClient",
+          "with open(sys.argv[1], encoding='utf-8') as handle:",
+          "    print(MlflowClient().create_model_version(**json.load(handle)).version)"
+        ), collapse = "\n"), payload_file),
+        echo = mlflow_is_verbose(),
+        echo_cmd = mlflow_is_verbose()
+      )
+    })
+  }, error = function(e) {
+    stop("Python MLflow failed to handle Unity Catalog model artifacts: ",
+         conditionMessage(e), call. = FALSE)
+  })
+
+  lines <- strsplit(response$stdout, "\n", fixed = TRUE)[[1]]
+  lines <- lines[nzchar(lines)]
+  if (length(lines) == 0) {
+    stop("Python MLflow did not return a Unity Catalog model version.", call. = FALSE)
+  }
+  version <- lines[[length(lines)]]
+  version
+}
+
+mlflow_uc_stage_error <- function(method) {
+  stop(
+    sprintf("`%s()` is unsupported for Unity Catalog models. ", method),
+    "Use registered model aliases instead of stages.",
+    call. = FALSE
+  )
+}
+
+mlflow_registry_path_prefix <- function(client) {
+  if (is_uc_registry_uri(client)) {
+    "api/2.0/mlflow/unity-catalog"
+  } else {
+    mlflow_rest_path("2.0")
+  }
+}
+
 #' Create registered model
 #'
 #' Creates a new registered model in the model registry
@@ -10,6 +75,8 @@
 mlflow_create_registered_model <- function(name, tags = NULL,
                                            description = NULL, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -17,6 +84,7 @@ mlflow_create_registered_model <- function(name, tags = NULL,
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       tags = tags,
@@ -36,6 +104,8 @@ mlflow_create_registered_model <- function(name, tags = NULL,
 #' @export
 mlflow_get_registered_model <- function(name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -43,6 +113,7 @@ mlflow_get_registered_model <- function(name, client = NULL) {
     client = client,
     verb = "GET",
     version = "2.0",
+    path_prefix = path_prefix,
     query = list(name = name)
   )
 
@@ -59,6 +130,8 @@ mlflow_get_registered_model <- function(name, client = NULL) {
 #' @export
 mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -66,6 +139,7 @@ mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       new_name = cast_string(new_name)
@@ -85,6 +159,8 @@ mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
 #' @export
 mlflow_update_registered_model <- function(name, description, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -92,6 +168,7 @@ mlflow_update_registered_model <- function(name, description, client = NULL) {
     client = client,
     verb = "PATCH",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       description = cast_string(description)
@@ -110,6 +187,8 @@ mlflow_update_registered_model <- function(name, description, client = NULL) {
 #' @export
 mlflow_delete_registered_model <- function(name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -117,6 +196,7 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
     client = client,
     verb = "DELETE",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(name = cast_string(name))
   )
 }
@@ -127,11 +207,13 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
 #'
 #' @param filter A filter expression used to identify specific registered models.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations.
-#'   Example: "name = 'my_model_name' and tag.key = 'value1'"
+#'   Example: "name = 'my_model_name' and tag.key = 'value1'". Not supported when the
+#'   registry URI is `databricks-uc`.
 #' @param max_results Maximum number of registered models to retrieve.
 #' @param page_token Pagination token to go to the next page based on a
 #'   previous query.
 #' @param order_by List of registered model properties to order by. Example: "name".
+#'   Not supported when the registry URI is `databricks-uc`.
 #' @template roxlate-client
 #' @export
 mlflow_search_registered_models <- function(filter = NULL,
@@ -140,6 +222,34 @@ mlflow_search_registered_models <- function(filter = NULL,
                                             page_token = NULL,
                                             client = NULL) {
   client <- resolve_client(client)
+  uc_registry <- is_uc_registry_uri(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+
+  if (uc_registry) {
+    if (!is.null(filter)) {
+      stop("Unity Catalog registered model search does not support `filter`.", call. = FALSE)
+    }
+    if (length(order_by) > 0) {
+      stop("Unity Catalog registered model search does not support `order_by`.", call. = FALSE)
+    }
+    response <- mlflow_rest(
+      "registered-models",
+      "search",
+      client = client,
+      verb = "GET",
+      version = "2.0",
+      path_prefix = path_prefix,
+      query = list(
+        max_results = max_results,
+        page_token = page_token
+      )
+    )
+    return(list(
+      registered_models = response$registered_models %||% response$registered_model,
+      next_page_token = response$next_page_token
+    ))
+  }
 
   response <- mlflow_rest(
     "registered-models",
@@ -147,6 +257,7 @@ mlflow_search_registered_models <- function(filter = NULL,
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       filter = filter,
       max_results = max_results,
@@ -156,7 +267,7 @@ mlflow_search_registered_models <- function(filter = NULL,
   )
 
   return(list(
-    registered_models = response$registered_model,
+    registered_models = response$registered_models %||% response$registered_model,
     next_page_token = response$next_page_token
   ))
 }
@@ -168,10 +279,18 @@ mlflow_search_registered_models <- function(filter = NULL,
 #' @param name Name of the model.
 #' @param stages A list of desired stages. If the input list is NULL, return
 #'   latest versions for ALL_STAGES.
+#' @details Stages are not supported when the registry URI is `databricks-uc`. Use
+#'   `mlflow_get_model_version_by_alias()` or load an aliased model URI instead.
 #' @template roxlate-client
 #' @export
 mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
   client <- resolve_client(client)
+
+  if (is_uc_registry_uri(client)) {
+    mlflow_uc_stage_error("mlflow_get_latest_versions")
+  }
+
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
@@ -198,12 +317,41 @@ mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
 #' @param run_link MLflow run link - This is the exact link of the run that
 #'   generated this model version.
 #' @param description Description for model version.
+#' @details Use a fully qualified registered model name when your registry requires one,
+#'   for example `catalog.schema.model`.
 #' @template roxlate-client
 #' @export
 mlflow_create_model_version <- function(name, source, run_id = NULL,
                                         tags = NULL, run_link = NULL,
                                         description = NULL, client = NULL) {
   client <- resolve_client(client)
+
+  if (is_uc_registry_uri(client)) {
+    # Python MlflowClient.create_model_version() expects tags as a map, not
+    # REST key/value objects.
+    tag_map <- tags
+    if (!is.null(tags) && (is.null(names(tags)) || any(names(tags) == ""))) {
+      tag_map <- list()
+      for (tag in tags) {
+        tag_map[[cast_string(tag$key)]] <- cast_string(tag$value, allow_na = TRUE)
+      }
+    }
+
+    version <- mlflow_python_create_model_version(
+      list(
+        name = name,
+        source = source,
+        run_id = run_id,
+        tags = tag_map,
+        run_link = run_link,
+        description = description
+      ),
+      client = client
+    )
+    return(mlflow_get_model_version(name, version, client = client))
+  }
+
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "model-versions",
@@ -216,6 +364,7 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
       source = source,
       run_id = run_id,
       run_link = run_link,
+      tags = tags,
       description = description
     )
   )
@@ -231,6 +380,8 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
 #' @export
 mlflow_get_model_version <- function(name, version, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "model-versions",
@@ -238,6 +389,7 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
     client = client,
     verb = "GET",
     version = "2.0",
+    path_prefix = path_prefix,
     query = list(
       name = name,
       version = version
@@ -245,6 +397,104 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
   )
 
   return(response$model_version)
+}
+
+#' Register a model
+#'
+#' Registers an MLflow model URI under a registered model name.
+#'
+#' @param model_uri URI indicating the location of model artifacts.
+#' @param name Register model under this name.
+#' @param run_id MLflow run ID for correlation, if `model_uri` was generated
+#'   by an experiment run in MLflow Tracking.
+#' @param tags Additional metadata.
+#' @param description Description for model version.
+#' @param ... Additional arguments forwarded to `mlflow_create_model_version()`.
+#' @details Use a fully qualified registered model name when your registry requires one,
+#'   for example `catalog.schema.model`.
+#' @examples
+#' \dontrun{
+#' mlflow_register_model("runs:/<run_id>/model", "catalog.schema.model")
+#' }
+#' @template roxlate-client
+#' @export
+mlflow_register_model <- function(model_uri, name, run_id = NULL, tags = NULL,
+                                  description = NULL, client = NULL, ...) {
+  mlflow_create_model_version(
+    name = name,
+    source = model_uri,
+    run_id = run_id,
+    tags = tags,
+    description = description,
+    client = client,
+    ...
+  )
+}
+
+#' Set a model alias
+#'
+#' Assigns an alias to a registered model version.
+#'
+#' @param name Name of the registered model.
+#' @param alias Alias to set.
+#' @param version Model version number.
+#' @param ... Reserved for future options.
+#' @details Load an aliased model with `mlflow_load_model("models:/<model_name>@<alias>")`.
+#' @examples
+#' \dontrun{
+#' mlflow_set_registered_model_alias("catalog.schema.model", "champion", 1)
+#' mlflow_load_model("models:/catalog.schema.model@champion")
+#' }
+#' @template roxlate-client
+#' @export
+mlflow_set_registered_model_alias <- function(name, alias, version, client = NULL, ...) {
+  client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+  mlflow_rest(
+    "registered-models",
+    "alias",
+    client = client,
+    verb = "POST",
+    version = "2.0",
+    path_prefix = path_prefix,
+    data = list(
+      name = cast_string(name),
+      alias = cast_string(alias),
+      version = cast_string(version)
+    )
+  )
+  invisible(NULL)
+}
+
+#' Get model version by alias
+#'
+#' Resolves an alias to a registered model version.
+#'
+#' @param name Name of the registered model.
+#' @param alias Alias to resolve.
+#' @param ... Reserved for future options.
+#' @details To load the aliased model contents, use
+#'   `mlflow_load_model("models:/<model_name>@<alias>")`.
+#' @template roxlate-client
+#' @export
+mlflow_get_model_version_by_alias <- function(name, alias, client = NULL, ...) {
+  client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+  response <- mlflow_rest(
+    "registered-models",
+    "alias",
+    client = client,
+    verb = "GET",
+    version = "2.0",
+    path_prefix = path_prefix,
+    query = list(
+      name = cast_string(name),
+      alias = cast_string(alias)
+    )
+  )
+  response$model_version %||% response
 }
 
 #' Update model version
@@ -259,6 +509,8 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
 mlflow_update_model_version <- function(name, version, description,
                                         client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "model-versions",
@@ -266,6 +518,7 @@ mlflow_update_model_version <- function(name, version, description,
     client = client,
     verb = "PATCH",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = name,
       version = version,
@@ -284,6 +537,8 @@ mlflow_update_model_version <- function(name, version, description,
 #' @export
 mlflow_delete_model_version <- function(name, version, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "model-versions",
@@ -291,6 +546,7 @@ mlflow_delete_model_version <- function(name, version, client = NULL) {
     client = client,
     verb = "DELETE",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       version = cast_string(version)
@@ -302,6 +558,9 @@ mlflow_delete_model_version <- function(name, version, client = NULL) {
 #'
 #' Transition a model version to a different stage.
 #'
+#' Stages are not supported when the registry URI is `databricks-uc`. Use model aliases
+#' for registries that reject stages.
+#'
 #' @param name Name of the registered model.
 #' @param version Model version number.
 #' @param stage Transition `model_version` to this stage.
@@ -312,6 +571,12 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
                                                   archive_existing_versions = FALSE,
                                                   client = NULL) {
   client <- resolve_client(client)
+
+  if (is_uc_registry_uri(client)) {
+    mlflow_uc_stage_error("mlflow_transition_model_version_stage")
+  }
+
+  client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "model-versions",
@@ -335,6 +600,8 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
 #' Set a tag for the model version.
 #' When stage is set, tag will be set for latest model version of the stage.
 #' Setting both version and stage parameter will result in error.
+#' Stages are not supported when the registry URI is `databricks-uc`; set `version`
+#' directly in that case.
 #'
 #' @param name Registered model name.
 #' @param version Registered model version.
@@ -344,39 +611,43 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
 #' @template roxlate-client
 #' @export
 mlflow_set_model_version_tag <- function(name, version = NULL, key = NULL, value = NULL, stage = NULL, client = NULL) {
-    if (!is.null(version) && !is.null(stage)) {
-        stop("version and stage cannot be set together",
-            call. = FALSE
-        )
-    }
-
-    if (is.null(version) && is.null(stage)) {
-        stop("version or stage must be set",
-            call. = FALSE
-        )
-    }
-
-    client <- resolve_client(client)
-
-    if (!is.null(stage)) {
-        latest_versions <- mlflow_get_latest_versions(name = name, stages = list(stage))
-        if (is.null(latest_versions)) {
-            stop(sprintf("Could not find any model version for %s stage", stage),
-                call. = FALSE
-            )
-        }
-        version <- latest_versions[[1]]$version
-    }
-
-    response <- mlflow_rest(
-        "model-versions", "set-tag",
-        client = client, verb = "POST",
-        data = list(
-            name = name,
-            version = version,
-            key = key,
-            value = value
-        )
+  if (!is.null(version) && !is.null(stage)) {
+    stop("version and stage cannot be set together",
+      call. = FALSE
     )
-    invisible(NULL)
+  }
+
+  if (is.null(version) && is.null(stage)) {
+    stop("version or stage must be set",
+      call. = FALSE
+    )
+  }
+
+  client <- resolve_client(client)
+
+  if (!is.null(stage)) {
+    latest_versions <- mlflow_get_latest_versions(name = name, stages = list(stage), client = client)
+    if (is.null(latest_versions)) {
+      stop(sprintf("Could not find any model version for %s stage", stage),
+        call. = FALSE
+      )
+    }
+    version <- latest_versions[[1]]$version
+  }
+
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+
+  response <- mlflow_rest(
+    "model-versions", "set-tag",
+    client = client, verb = "POST",
+    path_prefix = path_prefix,
+    data = list(
+      name = name,
+      version = version,
+      key = key,
+      value = value
+    )
+  )
+  invisible(NULL)
 }

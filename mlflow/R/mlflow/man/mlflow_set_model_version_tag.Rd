@@ -33,4 +33,6 @@ MLflow will use the tracking server associated with the current tracking URI.}
 Set a tag for the model version.
 When stage is set, tag will be set for latest model version of the stage.
 Setting both version and stage parameter will result in error.
+Stages are not supported when the registry URI is `databricks-uc`; set `version`
+directly in that case.
 }

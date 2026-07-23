@@ -1,5 +1,7 @@
 context("Model Registry")
 
+testthat_uc_model_name <- "test_catalog.test_schema.model"
+
 get_mock_client <- function() {
   client <- new_mlflow_client_impl(
     get_host_creds = function() {
@@ -158,6 +160,7 @@ test_that("mlflow can retrieve a list of registered models without args", {
     }, {
       mock_client <- get_mock_client()
       search_result <- mlflow_search_registered_models(client = mock_client)
+      expect_equal(search_result$registered_models, list())
       expect_null(search_result$next_page_token)
   })
 })
@@ -172,7 +175,7 @@ test_that("mlflow can retrieve a list of registered models with args", {
       expect_equal(args$data$page_token, "abc")
       expect_equal(args$data$filter, "name LIKE '%foo'")
       expect_equal(
-        args$data$order_by, mlflow:::cast_string_list(list("name ASC", "last_updated_timestamp"))
+        args$data$order_by, cast_string_list(list("name ASC", "last_updated_timestamp"))
       )
 
       return(list(
@@ -205,6 +208,51 @@ test_that("mlflow can retrieve a list of registered models with args", {
       ))
       expect_equal(search_result$next_page_token, "def")
   })
+})
+
+test_that("Unity Catalog registered model search uses UC GET shape", {
+  mock_client <- get_mock_client()
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+  mock_client$registry_client <- mock_client
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      expect_equal(paste(args[1:2], collapse = "/"), "registered-models/search")
+      expect_equal(args$verb, "GET")
+      expect_equal(args$query$max_results, 5)
+      expect_equal(args$query$page_token, "abc")
+      expect_null(args$data)
+      list(
+        registered_models = list(list(name = testthat_uc_model_name)),
+        next_page_token = "def"
+      )
+    }, {
+      search_result <- mlflow_search_registered_models(
+        max_results = 5,
+        page_token = "abc",
+        client = mock_client
+      )
+      expect_equal(search_result$registered_models[[1]]$name, testthat_uc_model_name)
+      expect_equal(search_result$next_page_token, "def")
+    })
+})
+
+test_that("Unity Catalog registered model search rejects workspace-only options", {
+  mock_client <- get_mock_client()
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+  mock_client$registry_client <- mock_client
+
+  expect_error(
+    mlflow_search_registered_models(filter = "name LIKE '%foo'", client = mock_client),
+    "does not support `filter`",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_search_registered_models(order_by = list("name ASC"), client = mock_client),
+    "does not support `order_by`",
+    fixed = TRUE
+  )
 })
 
 test_that("mlflow can retrieve a list of model versions", {
@@ -340,6 +388,29 @@ test_that("mlflow can transition a model", {
   })
 })
 
+test_that("Unity Catalog model stages fail locally with alias guidance", {
+  mock_client <- get_mock_client()
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+  mock_client$registry_client <- mock_client
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) stop("unexpected registry call"), {
+      expect_error(
+        mlflow_get_latest_versions(name = testthat_uc_model_name, client = mock_client),
+        "aliases"
+      )
+      expect_error(
+        mlflow_transition_model_version_stage(
+          name = testthat_uc_model_name,
+          version = "1",
+          stage = "Production",
+          client = mock_client
+        ),
+        "aliases"
+      )
+  })
+})
+
 test_that("mlflow can set model version tag", {
   with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
@@ -360,4 +431,177 @@ test_that("mlflow can set model version tag", {
                                    value = "test_value",
                                    client = mock_client)
   })
+})
+
+test_that("mlflow_set_model_version_tag resolves stage with provided client", {
+  mock_client <- get_mock_client()
+  resolved_client <- NULL
+  tagged_version <- NULL
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_get_latest_versions = function(name, stages = list(), client = NULL) {
+      resolved_client <<- client
+      list(list(version = "11"))
+    },
+    mlflow_rest = function(...) {
+      args <- list(...)
+      tagged_version <<- args$data$version
+      list()
+    }, {
+      mlflow_set_model_version_tag(
+        name = "mymodel",
+        stage = "Production",
+        key = "test_key",
+        value = "test_value",
+        client = mock_client
+      )
+    })
+
+  expect_identical(resolved_client, mock_client)
+  expect_equal(tagged_version, "11")
+})
+
+test_that("registry calls use Unity Catalog path prefix and registry client", {
+  mock_client <- get_mock_client()
+  registry_client <- get_mock_client()
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+  mock_client$registry_client <- registry_client
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      expect_equal(args$path_prefix, "api/2.0/mlflow/unity-catalog")
+      expect_identical(args$client, registry_client)
+      list(model_version = list(name = "mymodel", version = "1"))
+    }, {
+      mlflow_get_model_version("mymodel", version = "1", client = mock_client)
+  })
+})
+
+test_that("mlflow_register_model delegates to mlflow_create_model_version", {
+  calls <- list()
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_create_model_version = function(name, source, run_id = NULL, tags = NULL, run_link = NULL,
+                                           description = NULL, client = NULL) {
+      calls[[1]] <<- list(
+        name = name,
+        source = source,
+        run_id = run_id,
+        tags = tags,
+        description = description,
+        client = client
+      )
+      list(model_version = list(version = "2"))
+    }, {
+      mock_client <- get_mock_client()
+      mlflow_register_model(
+        model_uri = "runs:/abc/model",
+        name = testthat_uc_model_name,
+        run_id = "abc",
+        tags = list(owner = "r"),
+        description = "desc",
+        client = mock_client
+      )
+    })
+
+  expect_equal(calls[[1]]$name, testthat_uc_model_name)
+  expect_equal(calls[[1]]$source, "runs:/abc/model")
+  expect_equal(calls[[1]]$run_id, "abc")
+  expect_equal(calls[[1]]$tags$owner, "r")
+  expect_equal(calls[[1]]$description, "desc")
+})
+
+test_that("model alias APIs call registered-models alias endpoint", {
+  calls <- list()
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      calls[[length(calls) + 1]] <<- args
+      if (identical(args$verb, "GET")) {
+        return(list(model_version = list(version = "7")))
+      }
+      list()
+    }, {
+      mock_client <- get_mock_client()
+      mlflow_set_registered_model_alias(testthat_uc_model_name, "prod", "7", client = mock_client)
+      resolved <- mlflow_get_model_version_by_alias(
+        testthat_uc_model_name,
+        "prod",
+        client = mock_client
+      )
+      expect_equal((resolved$model_version %||% resolved)$version, "7")
+    })
+
+  expect_equal(paste(calls[[1]][1:2], collapse = "/"), "registered-models/alias")
+  expect_equal(calls[[1]]$verb, "POST")
+  expect_equal(calls[[2]]$verb, "GET")
+})
+
+test_that("UC create model version delegates artifact handling to Python MLflow", {
+  mock_client <- get_mock_client()
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+
+  python_payload <- NULL
+  get_model_version_args <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_python_create_model_version = function(payload, client) {
+      python_payload <<- payload
+      expect_identical(client, mock_client)
+      "8"
+    },
+    mlflow_get_model_version = function(name, version, client = NULL) {
+      get_model_version_args <<- list(name = name, version = version, client = client)
+      list(name = name, version = version, status = "READY")
+    }, {
+      result <- mlflow_create_model_version(
+        name = testthat_uc_model_name,
+        source = "runs:/rid/model",
+        run_id = "rid",
+        description = "registered from R",
+        tags = list(owner = "mlflow-r"),
+        client = mock_client
+      )
+    })
+
+  expect_equal(result$version, "8")
+  expect_equal(python_payload$name, testthat_uc_model_name)
+  expect_equal(python_payload$source, "runs:/rid/model")
+  expect_equal(python_payload$run_id, "rid")
+  expect_equal(python_payload$description, "registered from R")
+  expect_equal(python_payload$tags, list(owner = "mlflow-r"))
+  expect_equal(get_model_version_args$name, testthat_uc_model_name)
+  expect_equal(get_model_version_args$version, "8")
+  expect_identical(get_model_version_args$client, mock_client)
+})
+
+test_that("Python MLflow create call uses client tracking and registry URIs", {
+  mock_client <- get_mock_client()
+  mock_client$tracking_uri <- list(raw_uri = "databricks://PROFILE")
+  mock_client$registry_uri <- list(raw_uri = "databricks-uc://PROFILE")
+
+  env <- NULL
+  args <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    mlflow_is_verbose = function() FALSE,
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      args <<- args
+      list(stdout = "8\n")
+    }, {
+      result <- mlflow_python_create_model_version(
+        list(name = "model", source = "runs:/rid/model"),
+        client = mock_client
+      )
+    })
+
+  expect_equal(result, "8")
+  expect_equal(env$tracking_uri, "databricks://PROFILE")
+  expect_equal(env$registry_uri, "databricks-uc://PROFILE")
+  expect_equal(args[1], "-c")
+  expect_true(grepl("create_model_version", args[2], fixed = TRUE))
 })

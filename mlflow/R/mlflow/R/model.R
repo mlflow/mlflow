@@ -14,6 +14,86 @@ mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
+# R only expands convenience shorthand before writing `MLmodel`. MLflow schema
+# validation is left to Python MLflow when the model metadata is parsed or used.
+mlflow_signature_format_type_spec <- function(type_spec) {
+  # Strings are the R shorthand for a field type, e.g. "double".
+  if (is.character(type_spec) && length(type_spec) == 1 && !is.na(type_spec) && nzchar(type_spec)) {
+    type_spec <- list(type = as.character(type_spec))
+  }
+
+  if (!is.list(type_spec)) {
+    return(type_spec)
+  }
+
+  if (!is.null(type_spec$items)) {
+    type_spec$items <- mlflow_signature_format_type_spec(type_spec$items)
+  }
+  if (!is.null(type_spec$properties) && is.list(type_spec$properties)) {
+    type_spec$properties <- lapply(type_spec$properties, mlflow_signature_format_type_spec)
+  }
+  if (!is.null(type_spec$values)) {
+    type_spec$values <- mlflow_signature_format_type_spec(type_spec$values)
+  }
+
+  type_spec
+}
+
+mlflow_signature_format_named_field <- function(type_spec, name) {
+  type_spec <- mlflow_signature_format_type_spec(type_spec)
+  if (is.list(type_spec) && !is.null(names(type_spec))) {
+    c(list(name = as.character(name)), type_spec[setdiff(names(type_spec), "name")])
+  } else {
+    list(name = as.character(name), type = type_spec)
+  }
+}
+
+mlflow_signature_schema_as_json <- function(schema, schema_name) {
+  if (is.null(schema)) return(NULL)
+  schema_names <- names(schema)
+  # Allow compact R shorthand: c(feature = "double").
+  if (
+    is.character(schema) && length(schema) > 0 &&
+      !is.null(schema_names) && !anyNA(schema_names) && all(nzchar(schema_names))
+  ) {
+    schema <- unname(purrr::imap(as.list(schema), mlflow_signature_format_named_field))
+    return(jsonlite::toJSON(schema, auto_unbox = TRUE))
+  }
+  if (!is.list(schema) || length(schema) == 0) {
+    stop(sprintf("`signature$%s` must be a non-empty list.", schema_name), call. = FALSE)
+  }
+
+  # A single anonymous type spec is one schema field.
+  if (!is.null(schema$type)) {
+    schema <- list(mlflow_signature_format_type_spec(schema))
+  } else if (is.null(schema_names) || anyNA(schema_names) || any(!nzchar(schema_names))) {
+    # Unnamed lists are treated as already being a list of MLflow field specs.
+    schema <- lapply(schema, mlflow_signature_format_type_spec)
+  } else {
+    schema <- unname(purrr::imap(schema, mlflow_signature_format_named_field))
+  }
+
+  jsonlite::toJSON(schema, auto_unbox = TRUE)
+}
+
+mlflow_signature_for_model_spec <- function(signature) {
+  if (is.null(signature)) return(NULL)
+
+  if (!is.list(signature)) {
+    stop("`signature` must be a list with `inputs` and/or `outputs`.", call. = FALSE)
+  }
+  if (is.null(signature$inputs) && is.null(signature$outputs)) {
+    stop("`signature` must include `inputs` and/or `outputs`.", call. = FALSE)
+  }
+  if (!is.null(signature$inputs)) {
+    signature$inputs <- mlflow_signature_schema_as_json(signature$inputs, "inputs")
+  }
+  if (!is.null(signature$outputs)) {
+    signature$outputs <- mlflow_signature_schema_as_json(signature$outputs, "outputs")
+  }
+  purrr::compact(signature)
+}
+
 #' Log Model
 #'
 #' Logs a model for this run. Similar to `mlflow_save_model()`
@@ -22,19 +102,26 @@ mlflow_save_model <- function(model, path, model_spec = list(), ...) {
 #' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param signature Optional model signature with `inputs` and/or `outputs`.
+#'   Each schema can be a list or a named character vector.
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(model, artifact_path, ...) {
+mlflow_log_model <- function(model, artifact_path, signature = NULL, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+  signature <- mlflow_signature_for_model_spec(signature)
+  model_spec <- list(
     utc_time_created = mlflow_timestamp(),
     run_id = mlflow_get_active_run_id_or_start_run(),
     artifact_path = artifact_path,
     flavors = list()
-  ), ...)
+  )
+  if (!is.null(signature)) {
+    model_spec$signature <- signature
+  }
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = model_spec, ...)
   res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
   tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
     warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
@@ -73,6 +160,10 @@ mlflow_timestamp <- function() {
 #' @template roxlate-client
 #' @param flavor Optional flavor specification (string). Can be used to load a particular flavor in
 #' case there are multiple flavors available.
+#' @examples
+#' \dontrun{
+#' mlflow_load_model("models:/catalog.schema.model@champion")
+#' }
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)

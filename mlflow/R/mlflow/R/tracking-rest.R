@@ -20,7 +20,7 @@ try_parse_response_as_text <- function(response) {
 
 #' @importFrom base64enc base64encode
 get_rest_config <- function(host_creds) {
-  headers <- list()
+  headers <- character()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
     basic_auth_str <- paste(host_creds$username, host_creds$password, sep = ":")
     paste("Basic", base64encode(charToRaw(basic_auth_str)), sep = " ")
@@ -30,9 +30,9 @@ get_rest_config <- function(host_creds) {
     NA
   }
   if (!is.na(auth_header)) {
-    headers$Authorization <- auth_header
+    headers["Authorization"] <- auth_header
   }
-  headers$`User-Agent` <- paste("mlflow-r-client", utils::packageVersion("mlflow"), sep = "/")
+  headers["User-Agent"] <- paste("mlflow-r-client", utils::packageVersion("mlflow"), sep = "/")
   is_insecure <- as.logical(host_creds$insecure)
   list(
     headers = headers,
@@ -45,25 +45,26 @@ get_rest_config <- function(host_creds) {
 }
 
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0",
-                         max_rate_limit_interval=60) {
+                         max_rate_limit_interval=60, path_prefix = mlflow_rest_path(version)) {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
   args <- list(...)
   api_url <- file.path(
     host_creds$host,
-    mlflow_rest_path(version),
+    path_prefix,
     paste(args, collapse = "/")
   )
-  req_headers <- do.call(httr::add_headers, rest_config$headers)
+  req_headers <- httr::add_headers(.headers = rest_config$headers)
+  json_body <- if (is.null(data)) NULL else rapply(data, as.character, how = "replace")
   get_response <- switch(
     verb,
     GET = function() {
-      httr::GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
-           req_headers)
+      httr::GET(api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+                req_headers)
     },
     POST = function(){
       httr::POST( api_url,
-            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            body = json_body,
             encode = "json",
             mlflow_rest_timeout(),
             config = rest_config$config,
@@ -72,7 +73,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     },
     PATCH = function(){
       httr::PATCH( api_url,
-            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            body = json_body,
             encode = "json",
             mlflow_rest_timeout(),
             config = rest_config$config,
@@ -81,7 +82,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     },
     DELETE = function() {
       httr::DELETE(api_url,
-              body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+              body = json_body,
               encode = "json",
               mlflow_rest_timeout(),
               config = rest_config$config,
