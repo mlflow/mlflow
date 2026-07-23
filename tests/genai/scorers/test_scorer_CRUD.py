@@ -166,7 +166,9 @@ def test_databricks_backend_scorer_operations():
         mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
 
         # Test delete operation
-        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
+        with pytest.raises(MlflowException, match="must set `version`"):
+            delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
+        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123", version="all")
         mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
 
 
@@ -231,13 +233,34 @@ def test_databricks_backend_exact_version_operations_require_positive_integer(ve
     mock_http.assert_not_called()
 
 
-def test_databricks_backend_delete_all_has_clear_error_before_write_support():
-    with patch("mlflow.genai.scorers.registry.http_request") as mock_http:
+def test_databricks_backend_delete_requires_explicit_version():
+    with (
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer"
+        ) as mock_delete,
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
         store = DatabricksStore(tracking_uri="databricks")
 
-        with pytest.raises(MlflowException, match="Deleting all scorer versions"):
-            store.delete_scorer("exp_123", "test_scorer", version="all")
+        with pytest.raises(MlflowException, match="must set `version`"):
+            store.delete_scorer("exp_123", "test_scorer", version=None)
 
+    mock_delete.assert_not_called()
+    mock_http.assert_not_called()
+
+
+def test_databricks_backend_delete_all_uses_scheduled_scorer_delete():
+    with (
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer"
+        ) as mock_delete,
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        DatabricksStore(tracking_uri="databricks").delete_scorer(
+            "exp_123", "test_scorer", version="all"
+        )
+
+    mock_delete.assert_called_once_with("exp_123", "test_scorer")
     mock_http.assert_not_called()
 
 

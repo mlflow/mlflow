@@ -674,12 +674,12 @@ class DatabricksStore(AbstractScorerStore):
 
     def delete_scorer(self, experiment_id, name, version):
         if version is None:
-            return DatabricksStore.delete_scheduled_scorer(experiment_id, name)
+            raise MlflowException.invalid_parameter_value(
+                "You must set `version` argument to either an integer or 'all'."
+            )
 
         if version == "all":
-            raise MlflowException.invalid_parameter_value(
-                "Deleting all scorer versions is not supported by the Databricks backend yet."
-            )
+            return DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
         experiment_id = self._resolve_experiment_id(experiment_id)
         self._request(
@@ -872,7 +872,7 @@ def delete_scorer(
 
     **Databricks Backend:**
         - Supports deleting a specific version
-        - For backwards compatibility, `version=None` deletes the whole scheduled scorer
+        - Supports deleting all versions with `version="all"`
 
     Args:
         name (str): The name of the scorer to delete. This must match exactly with the
@@ -880,13 +880,9 @@ def delete_scorer(
         experiment_id (str, optional): The ID of the MLflow experiment containing the scorer.
             If None, uses the currently active experiment as determined by
             :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
-        version (int | str | None, optional): The version(s) to delete:
-            For OSS MLflow tracking backend: if `None`, deletes the latest version only, if version
-            is an integer, deletes the specific version, if version is the string 'all', deletes
-            all versions of the scorer
-            For Databricks backend, an integer deletes that specific version. `None` retains its
-            backwards-compatible behavior of deleting the whole scheduled scorer. Deleting all
-            versions with `"all"` is not yet supported.
+        version (int | str | None, optional): The version(s) to delete. An integer deletes that
+            specific version, and the string `"all"` deletes all versions. This argument is
+            required.
 
     Raises:
         mlflow.MlflowException: If the scorer with the specified name is not found in
@@ -897,9 +893,6 @@ def delete_scorer(
         .. code-block:: python
 
             from mlflow.genai.scorers import delete_scorer
-
-            # Delete the latest version of a scorer from current experiment
-            delete_scorer(name="accuracy_scorer")
 
             # Delete a specific version of a scorer
             delete_scorer(name="safety_scorer", version=2)

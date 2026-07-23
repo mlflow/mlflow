@@ -94,7 +94,7 @@ def test_delete_scorer_raises_when_agents_not_installed():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-            delete_scorer(experiment_id="test_experiment", name="test_scorer")
+            delete_scorer(experiment_id="test_experiment", name="test_scorer", version="all")
 
 
 def _mock_response(payload):
