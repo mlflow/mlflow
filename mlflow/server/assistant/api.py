@@ -187,16 +187,16 @@ def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | No
             status_code=400,
             detail="Gateway vendor connections require an API key.",
         )
-    if gateway_vendor is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Gateway API keys require a gateway_vendor.",
-        )
     if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
         raise HTTPException(
             status_code=400,
             detail="API keys must be stored in LLM Connections through the "
             "'mlflow_gateway' provider.",
+        )
+    if gateway_vendor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway API keys require a gateway_vendor.",
         )
     try:
         return ensure_gateway_connection(gateway_vendor, api_key)
