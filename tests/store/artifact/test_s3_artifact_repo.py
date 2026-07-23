@@ -16,7 +16,9 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.span import Span, SpanAttributeKey
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import (
+    OptimizedS3ArtifactRepository,
+)
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
@@ -24,7 +26,6 @@ from mlflow.store.artifact.s3_artifact_repo import (
 )
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 from mlflow.tracing.utils import build_otel_context
-
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 
@@ -36,7 +37,9 @@ def s3_artifact_root(mock_s3_bucket):
 @pytest.fixture(params=[True, False])
 def s3_artifact_repo(s3_artifact_root, request):
     if request.param:
-        return OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+        return OptimizedS3ArtifactRepository(
+            posixpath.join(s3_artifact_root, "some/path")
+        )
     return S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
 
@@ -50,7 +53,9 @@ def teardown_function():
         del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
-def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_repo, tmp_path):
+def test_file_artifact_is_logged_and_downloaded_successfully(
+    s3_artifact_repo, tmp_path
+):
     file_name = "test.txt"
     file_path = tmp_path / file_name
     file_text = "Hello world!"
@@ -111,7 +116,8 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
+    ("ignore_tls_env", "verify"),
+    [("0", None), ("1", False), ("true", False), ("false", None)],
 )
 def test_get_s3_client_verify_param_set_correctly(
     s3_artifact_root, ignore_tls_env, verify, monkeypatch
@@ -240,18 +246,21 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
 
     s3_artifact_repo.log_artifacts(str(subdir))
 
-    root_artifacts_listing = sorted([
-        (f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()
-    ])
+    root_artifacts_listing = sorted(
+        [(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()]
+    )
     assert root_artifacts_listing == [
         ("a.txt", False, 1),
         ("b.txt", False, 1),
         ("nested", True, None),
     ]
 
-    nested_artifacts_listing = sorted([
-        (f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts("nested")
-    ])
+    nested_artifacts_listing = sorted(
+        [
+            (f.path, f.is_dir, f.file_size)
+            for f in s3_artifact_repo.list_artifacts("nested")
+        ]
+    )
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
@@ -309,7 +318,8 @@ def test_get_s3_file_upload_extra_args_env_var_not_present():
 
 def test_get_s3_file_upload_extra_args_invalid_json():
     os.environ.setdefault(
-        "MLFLOW_S3_UPLOAD_EXTRA_ARGS", '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}'
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}',
     )
 
     with pytest.raises(json.decoder.JSONDecodeError, match=r".+"):
@@ -366,12 +376,41 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
     s3_artifact_repo.log_artifacts(str(subdir), artifact_path.rstrip("/"))
 
     # confirm that artifact is present
-    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts(artifact_path)]
+    artifact_file_names = [
+        obj.path for obj in s3_artifact_repo.list_artifacts(artifact_path)
+    ]
     assert "subdir/a.txt" in artifact_file_names
 
     s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
     assert s3_artifact_repo.list_artifacts(artifact_path) == []
     assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_paginator = mock.Mock()
+    mock_s3.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "some/path/a.txt", "Size": 42},
+                {"Key": "some/path/b/", "Size": 0},
+                {"Key": "some/path/b/c.txt", "Size": 42},
+                {"Key": "some/path/b/d/d", "Size": 0},
+                {"Key": "some/path/b/d/e.txt", "Size": 42},
+            ],
+            "CommonPrefixes": [],
+        }
+    ]
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        artifacts = repo.list_artifacts()
+
+    actual_paths = [f.path for f in artifacts]
+    expected_paths = ["a.txt", "b/c.txt", "b/d/e.txt"]
+    assert actual_paths == expected_paths
 
 
 @pytest.mark.parametrize(
@@ -384,7 +423,9 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
         ("SignatureDoesNotMatch", "UNAUTHENTICATED"),
     ],
 )
-def test_list_artifacts_error_handling(s3_artifact_root, boto_error_code, expected_mlflow_error):
+def test_list_artifacts_error_handling(
+    s3_artifact_root, boto_error_code, expected_mlflow_error
+):
     artifact_path = "some/path/"
     s3_repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, artifact_path))
 
@@ -392,12 +433,14 @@ def test_list_artifacts_error_handling(s3_artifact_root, boto_error_code, expect
         mock_paginator = mock.Mock()
         boto_error_message = "Error message from the client"
         mock_paginator.paginate.side_effect = botocore.exceptions.ClientError(
-            {"Error": {"Code": boto_error_code, "Message": boto_error_message}}, "ListObjectsV2"
+            {"Error": {"Code": boto_error_code, "Message": boto_error_message}},
+            "ListObjectsV2",
         )
         mock_client.return_value.get_paginator.return_value = mock_paginator
 
         with pytest.raises(
-            MlflowException, match=f"Failed to list artifacts in {s3_repo.artifact_uri}:"
+            MlflowException,
+            match=f"Failed to list artifacts in {s3_repo.artifact_uri}:",
         ) as exc_info:
             s3_repo.list_artifacts(artifact_path)
         assert exc_info.value.error_code == expected_mlflow_error
@@ -456,7 +499,9 @@ def test_complete_multipart_upload(s3_artifact_root):
         url = credential.url
         response = requests.put(url, data=data)
         parts.append(
-            MultipartUploadPart(part_number=credential.part_number, etag=response.headers["ETag"])
+            MultipartUploadPart(
+                part_number=credential.part_number, etag=response.headers["ETag"]
+            )
         )
 
     repo.complete_multipart_upload(local_file, create.upload_id, parts)
@@ -493,7 +538,9 @@ def test_trace_data(s3_artifact_root):
     with pytest.raises(Exception, match=r"Trace data not found"):
         repo.download_trace_data()
     repo.upload_trace_data("invalid data")
-    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+    with pytest.raises(
+        MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="
+    ):
         repo.download_trace_data()
 
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
@@ -561,14 +608,18 @@ def test_archived_trace_data_round_trip():
     assert restored.to_dict() == trace_data.to_dict()
 
 
-def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, monkeypatch):
+def test_bucket_ownership_verification_with_env_var(
+    s3_artifact_repo, tmp_path, monkeypatch
+):
     file_name = "test.txt"
     file_path = tmp_path / file_name
     file_path.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
     repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
-    assert repo_with_owner._bucket_owner_params == {"ExpectedBucketOwner": "123456789012"}
+    assert repo_with_owner._bucket_owner_params == {
+        "ExpectedBucketOwner": "123456789012"
+    }
 
     mock_s3 = mock.Mock()
 
@@ -581,7 +632,9 @@ def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, 
     assert call_kwargs["ExtraArgs"]["ExpectedBucketOwner"] == "123456789012"
 
 
-def test_bucket_ownership_verification_without_env_var(s3_artifact_root, tmp_path, monkeypatch):
+def test_bucket_ownership_verification_without_env_var(
+    s3_artifact_root, tmp_path, monkeypatch
+):
     file_name = "test.txt"
     file_path = tmp_path / file_name
     file_path.touch()
@@ -812,7 +865,8 @@ def test_create_presigned_upload_url_with_extra_args(s3_artifact_root, monkeypat
     # Verify headers include the extra args mapped to HTTP headers
     assert presigned_response.headers.get("x-amz-server-side-encryption") == "aws:kms"
     assert (
-        presigned_response.headers.get("x-amz-server-side-encryption-aws-kms-key-id") == "my-key-id"
+        presigned_response.headers.get("x-amz-server-side-encryption-aws-kms-key-id")
+        == "my-key-id"
     )
     # Content-Type should still be present
     assert "Content-Type" in presigned_response.headers
