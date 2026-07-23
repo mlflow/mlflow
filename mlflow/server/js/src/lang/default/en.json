@@ -575,6 +575,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0Z9gG2": {
+    "defaultMessage": "Estimated cost ~{cost}, from public model pricing; actual may vary (provider and cache rates).",
+    "description": "Estimated session cost with a disclaimer that it is approximate"
+  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -594,6 +598,10 @@
   "0ja5l/": {
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
+  },
+  "0jvNkS": {
+    "defaultMessage": "+ Save current view...",
+    "description": "Menu item that opens the modal to save the current view"
   },
   "0ktvTS": {
     "defaultMessage": "Trace archival retention unit",
@@ -718,10 +726,6 @@
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
-  },
-  "1LQIa7": {
-    "defaultMessage": "+ Save current view...",
-    "description": "Menu item that opens the modal to save the current experiment view"
   },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -2755,10 +2759,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
-  "B5ECVe": {
-    "defaultMessage": "Delete saved view",
-    "description": "Accessible label for the button that deletes a saved experiment view"
-  },
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
@@ -2826,6 +2826,10 @@
   "BNc3Cn": {
     "defaultMessage": "Confirm new password",
     "description": "Placeholder for the confirm-password input"
+  },
+  "BOm6XU": {
+    "defaultMessage": "Input {input} · Output {output} tokens",
+    "description": "Breakdown of session token usage into input (prompt) and output (completion) tokens"
   },
   "BOz0T2": {
     "defaultMessage": "Select metric",
@@ -3330,6 +3334,10 @@
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
+  },
+  "Dz6oRN": {
+    "defaultMessage": "The request failed. Please try again.",
+    "description": "Fallback error message shown inside an input modal when submission fails without details"
   },
   "E+bByS": {
     "defaultMessage": "My queues",
@@ -4563,6 +4571,10 @@
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
   },
+  "Kc9rYy": {
+    "defaultMessage": "Delete saved view",
+    "description": "Accessible label for the button that deletes a saved view"
+  },
   "KcGozs": {
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
@@ -5395,6 +5407,10 @@
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > System metrics tab"
   },
+  "OcN222": {
+    "defaultMessage": "Cost estimate unavailable for this model.",
+    "description": "Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -6186,6 +6202,10 @@
   "SZQjTs": {
     "defaultMessage": "Result",
     "description": "Result column header"
+  },
+  "SaJbyH": {
+    "defaultMessage": "Copy share link",
+    "description": "Label for the button that copies a saved view share link"
   },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
@@ -7830,6 +7850,10 @@
   "aJoAu+": {
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
+  },
+  "aKVdS3": {
+    "defaultMessage": "Model: {model}",
+    "description": "Tooltip on the assistant composer showing the active provider's configured model name"
   },
   "aKW54p": {
     "defaultMessage": "See it in action",
@@ -9835,10 +9859,6 @@
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
   },
-  "j5awQa": {
-    "defaultMessage": "Copy share link",
-    "description": "Label for the button that copies a saved experiment view share link"
-  },
   "j77+aP": {
     "defaultMessage": "Fail",
     "description": "Evaluation results > overall assessment > fail value label. Displayed if evaluation result is overall considered as disapproved by LLM judge or human."
@@ -10258,6 +10278,10 @@
   "lCfyQO": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the logged model details metrics table"
+  },
+  "lCp+DF": {
+    "defaultMessage": "Cached {cached} tokens, reused conversation context billed at a reduced rate",
+    "description": "Portion of input tokens re-read from the provider's prompt cache across turns"
   },
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",

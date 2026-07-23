@@ -5,18 +5,27 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
-from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server import (
+    MCPRemoteTransportType,
+    MCPStatus,
+    MCPTool,
+    validate_mcp_server_name,
+)
+from mlflow.environment_variables import MLFLOW_ENABLE_MCP_TOOL_DISCOVERY
 from mlflow.exceptions import MlflowException
+from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.semver_utils import parse_semver
 from mlflow.utils.uri import get_uri_scheme, is_local_uri
-from mlflow.utils.validation import _validate_mcp_initial_status
+from mlflow.utils.validation import _validate_mcp_icon_payloads, _validate_mcp_initial_status
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -73,14 +82,35 @@ def register_mcp_server(
     display_name: str | None = None,
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
-    tools: list[MCPTool] | None = None,
+    tools: list[MCPTool] | None = NOT_SET,
     create_access_endpoints_from_remotes: bool = False,
+    mcp_server_access_headers: Mapping[str, str] | None = None,
 ) -> MCPServerVersion:
     """
     Register an MCP server from a ``server_json`` payload.
 
     If the parent ``MCPServer`` does not exist, it is created automatically.
     If the version already exists, a ``MlflowException`` is raised.
+
+    When ``tools`` is omitted, MLflow attempts best-effort auto-discovery by
+    querying the first usable remote URL in ``server_json.remotes[]`` (requires
+    ``mlflow[mcp]``), unless ``MLFLOW_ENABLE_MCP_TOOL_DISCOVERY`` is ``false``
+    in the current Python client process. Discovered tools are a one-time
+    snapshot stored on the version; they are not kept in sync with the live
+    server. Pass ``tools=None`` or ``tools=[]`` to disable discovery for a
+    single call, or pass an explicit tool list to store those definitions
+    instead.
+
+    Discovery failure (network, auth, protocol, timeout, or missing
+    ``mlflow[mcp]``) does **not** abort registration: the version is created
+    with ``tools=None``. Discovery is bounded by a short default timeout (see
+    ``mlflow.genai.mcp_tool_discovery.DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS``).
+    Live scrape does not failover to later remotes. Auth headers for create-time
+    discovery are only supported here via ``mcp_server_access_headers``; REST /
+    ``MlflowClient.create_mcp_server_version`` omit→discover has no header path
+    and will soft-fail to ``tools=None`` against authenticated remotes.
+    Access endpoints are not used for discovery (they are typically created
+    after the version).
 
     Args:
         server_json: The canonical MCP ``server.json`` payload. Must contain ``name``
@@ -89,10 +119,15 @@ def register_mcp_server(
         source: Provenance URI (e.g., a git repository URL).
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
-        tools: Declared tool definitions for this version.
+        tools: Declared tool definitions for this version. Omit for best-effort
+            auto-discover from a deployed remote when available (failure stores
+            ``None``). Pass ``None`` or ``[]`` to skip discovery.
         create_access_endpoints_from_remotes: When ``True``, create one direct-access
             endpoint per ``remotes[]`` entry in ``server_json``. This requires
-            ``status="active"``.
+            ``status="active"``. Independent of tool discovery.
+        mcp_server_access_headers: Optional HTTP headers used when auto-discovering
+            tools from a remote MCP server (for example auth headers). Tool lists
+            may vary by credentials. Ignored when discovery is not performed.
 
     Returns:
         The created :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -121,6 +156,43 @@ def register_mcp_server(
             "create_access_endpoints_from_remotes=True requires status='active'."
         )
 
+    # Validate payload before omit→discover so invalid creates never scrape
+    # remotes (or forward mcp_server_access_headers). Store create validates
+    # again; this covers the fluent path that resolves tools first.
+    name = server_json.get("name")
+    version = server_json.get("version")
+    if not name or not version:
+        raise MlflowException.invalid_parameter_value(
+            "server_json must contain 'name' and 'version' keys"
+        )
+    validate_mcp_server_name(name)
+    parse_semver(version, param_name="server_json.version")
+    _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+
+    # When omit->discover would scrape, reject an existing live version first so
+    # retries do not hit the remote before create. Store create remains
+    # authoritative for deleted rows and races.
+    if tools is NOT_SET and MLFLOW_ENABLE_MCP_TOOL_DISCOVERY.get():
+        try:
+            client.get_mcp_server_version(name, version)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+        else:
+            raise MlflowException(
+                f"MCP server version '{name}' version '{version}' already exists",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            )
+
+    # Resolve here so mcp_server_access_headers apply (create store/REST paths
+    # discover without custom headers). Passing a concrete value also avoids a
+    # second scrape when the tracking store is local.
+    resolved_tools = resolve_tools_for_create(
+        server_json=server_json,
+        tools=tools,
+        headers=mcp_server_access_headers,
+    )
+
     validated_remotes: list[tuple[str, MCPRemoteTransportType]] = []
     if create_access_endpoints_from_remotes:
         validated_remotes = _validate_endpoint_remotes(server_json)
@@ -130,7 +202,7 @@ def register_mcp_server(
         display_name=display_name,
         source=source,
         status=parsed_status,
-        tools=tools,
+        tools=resolved_tools,
     )
 
     for url, transport in validated_remotes:
@@ -206,11 +278,17 @@ def register_mcp_server_from_url(
     display_name: str | None = None,
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
-    tools: list[MCPTool] | None = None,
+    tools: list[MCPTool] | None = NOT_SET,
     create_access_endpoints_from_remotes: bool = False,
+    mcp_server_access_headers: Mapping[str, str] | None = None,
 ) -> MCPServerVersion:
     """
     Fetch a ``server.json`` from a URL or local file path and register the MCP server.
+
+    When ``tools`` is omitted, MLflow attempts best-effort auto-discovery from
+    the first usable remote in the fetched ``server.json``. See
+    :func:`register_mcp_server` for discovery semantics (snapshot storage,
+    soft-fail on errors, and opt-out).
 
     Args:
         url: HTTP/HTTPS URL or local file path (absolute path or ``file://`` URI)
@@ -219,10 +297,15 @@ def register_mcp_server_from_url(
         source: Provenance URI; defaults to ``url`` when not provided.
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
-        tools: Declared tool definitions for this version.
+        tools: Declared tool definitions for this version. Omit for best-effort
+            auto-discover from a deployed remote when available. Pass ``None``
+            or ``[]`` to skip discovery.
         create_access_endpoints_from_remotes: When ``True``, create one direct-access
             endpoint per ``remotes[]`` entry in ``server_json``. This requires
-            ``status="active"``.
+            ``status="active"``. Independent of tool discovery.
+        mcp_server_access_headers: Optional HTTP headers used when auto-discovering
+            tools from a remote MCP server. Tool lists may vary by credentials.
+            Ignored when discovery is not performed.
 
     Returns:
         The created :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -246,6 +329,7 @@ def register_mcp_server_from_url(
         status=status,
         tools=tools,
         create_access_endpoints_from_remotes=create_access_endpoints_from_remotes,
+        mcp_server_access_headers=mcp_server_access_headers,
     )
 
 
@@ -447,7 +531,8 @@ def update_mcp_server_version(
         display_name: New display name. Pass ``None`` to clear.
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
             ``"deleted"``). Transition rules are enforced.
-        tools: New tool definitions. Pass ``None`` to clear.
+        tools: New tool definitions. Pass ``None`` to clear. Does not
+            auto-discover tools from remotes; pass an explicit list (or clear).
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -458,6 +543,41 @@ def update_mcp_server_version(
         display_name=display_name,
         status=_parse_enum(status, MCPStatus, "status"),
         tools=tools,
+    )
+
+
+@experimental(version="3.15.0")
+def refresh_mcp_server_version_tools(
+    name: str,
+    version: str,
+    mcp_server_access_headers: Mapping[str, str] | None = None,
+    dry_run: bool = False,
+) -> MCPServerVersion:
+    """
+    Re-discover tools for an MCP server version and store the new snapshot.
+
+    This fetches the version's stored ``server_json``, scrapes the first usable
+    remote in ``server_json.remotes[]``, and updates ``tools`` on the version
+    with the discovered definitions. When ``dry_run=True``, the discovered tools
+    are only applied to the returned object and are not persisted.
+
+    Args:
+        name: Server name.
+        version: Version string.
+        mcp_server_access_headers: Optional HTTP headers used for the discovery
+            request (for example auth headers).
+        dry_run: If ``True``, return the version with discovered tools applied
+            locally without persisting the update.
+
+    Returns:
+        The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`,
+        or a non-persisted preview when ``dry_run=True``.
+    """
+    return MlflowClient().refresh_mcp_server_version_tools(
+        name=name,
+        version=version,
+        mcp_server_access_headers=mcp_server_access_headers,
+        dry_run=dry_run,
     )
 
 

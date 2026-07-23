@@ -130,6 +130,7 @@ mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
+mlflow.client.MlflowClient.refresh_mcp_server_version_tools
 mlflow.client.MlflowClient.register_prompt
 mlflow.client.MlflowClient.remove_dataset_from_experiments
 mlflow.client.MlflowClient.rename_experiment
@@ -865,6 +866,8 @@ mlflow.gateway.config.OpenAIConfig.validate_field_compatibility
 mlflow.gateway.config.OpenAIConfig.validate_openai_api_key
 mlflow.gateway.config.PaLMConfig
 mlflow.gateway.config.PaLMConfig.validate_palm_api_key
+mlflow.gateway.config.PortkeyConfig
+mlflow.gateway.config.PortkeyConfig.validate_provider_api_key
 mlflow.gateway.config.Provider
 mlflow.gateway.config.Provider.values
 mlflow.gateway.config.RouteDestinationConfig
@@ -1039,6 +1042,7 @@ mlflow.genai.optimize.types.PromptOptimizationResult
 mlflow.genai.optimize.types.PromptOptimizerOutput
 mlflow.genai.optimize_prompt
 mlflow.genai.optimize_prompts
+mlflow.genai.refresh_mcp_server_version_tools
 mlflow.genai.register_mcp_server
 mlflow.genai.register_mcp_server_from_url
 mlflow.genai.register_prompt
@@ -1895,6 +1899,7 @@ mlflow.tracing.disable
 mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
+mlflow.tracing.get_bridged_tracer_provider
 mlflow.tracing.get_tracing_context_headers_for_http_request
 mlflow.tracing.reset
 mlflow.tracing.set_databricks_monitoring_sql_warehouse_id

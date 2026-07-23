@@ -68,15 +68,19 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def _host_creds(self):
         return get_default_host_creds(self.artifact_uri)
 
+    def _is_multipart_upload_enabled(self):
+        """Whether presigned multipart upload should be attempted. Subclasses may override."""
+        return MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+
+    def _should_multipart_upload(self, local_file):
+        return self._is_multipart_upload_enabled() and (
+            os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+        )
+
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 
-        # Try to perform multipart upload if the file is large.
-        # If the server does not support, or if the upload failed, revert to normal upload.
-        if (
-            MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
-            and os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-        ):
+        if self._should_multipart_upload(local_file):
             try:
                 self._try_multipart_upload(local_file, artifact_path)
                 return

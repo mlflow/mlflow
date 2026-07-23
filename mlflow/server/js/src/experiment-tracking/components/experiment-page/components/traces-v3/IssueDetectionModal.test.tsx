@@ -18,8 +18,17 @@ jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKey
 }));
 
 jest.mock('../../../SelectTracesModal', () => ({
-  SelectTracesModal: ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (traceIds: string[]) => void }) => (
+  SelectTracesModal: ({
+    onClose,
+    onSuccess,
+    defaultGroupBySession,
+  }: {
+    onClose: () => void;
+    onSuccess: (traceIds: string[]) => void;
+    defaultGroupBySession?: boolean;
+  }) => (
     <div data-testid="select-traces-modal">
+      <div data-testid="default-group-by-session">{String(defaultGroupBySession)}</div>
       <button data-testid="select-traces-cancel" onClick={onClose}>
         Cancel
       </button>
@@ -267,6 +276,27 @@ describe('IssueDetectionModal', () => {
       jobId: 'job-123',
       runId: 'run-456',
       traceCount: 1,
+      submittedAtMs: expect.any(Number),
     });
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to true', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession />,
+    );
+
+    await userEvent.click(screen.getByTestId('traces-card'));
+
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('true');
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to false', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession={false} />,
+    );
+
+    await userEvent.click(screen.getByTestId('traces-card'));
+
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('false');
   });
 });

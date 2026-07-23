@@ -120,6 +120,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePresignedDownloadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
@@ -270,6 +271,8 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
+    AJAX_ONLINE_SCORING_CONFIG,
+    AJAX_ONLINE_SCORING_CONFIGS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
@@ -309,6 +312,8 @@ from mlflow.server.auth.routes import (
     LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USERS,
+    ONLINE_SCORING_CONFIG,
+    ONLINE_SCORING_CONFIGS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -324,10 +329,13 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _add_static_prefix,
+    _assert_array,
+    _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
+    _get_validated_flask_request_json,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -703,14 +711,21 @@ def _role_permission_for(
 
     def _role_perm() -> Permission | None:
         user = store.get_user(username)
-        workspace_name = _get_resource_workspace(
-            workspace_lookup_id, workspace_fetcher, workspace_label
-        )
-        if workspace_name is None:
-            # Workspace lookup failed — when workspaces are enabled, deny by returning
-            # NO_PERMISSIONS (security: don't let resource_not_found silently become a
-            # default-permission grant). When disabled, fall through to the default.
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            workspace_name = _get_resource_workspace(
+                workspace_lookup_id, workspace_fetcher, workspace_label
+            )
+            if workspace_name is None:
+                # Workspace lookup failed with workspaces enabled — deny by returning
+                # NO_PERMISSIONS (security: don't let resource_not_found silently become a
+                # default-permission grant).
+                return NO_PERMISSIONS
+        else:
+            # Workspaces disabled: every resource lives in the default workspace, which is
+            # where grants are stored. Skip the tracking-store workspace lookup so resolution
+            # honors the grant even when the tracking store has no data for the resource — e.g.
+            # an --artifacts-only server that shares the auth DB but has no experiment data.
+            workspace_name = DEFAULT_WORKSPACE_NAME
         perm = store.get_role_permission_for_resource(
             user.id, resource_type, resource_key, workspace_name
         )
@@ -724,6 +739,9 @@ def _role_permission_for(
         # don't lose resource-level access.
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
+        # Only reachable with workspaces enabled — the guard above returns first when
+        # disabled, so ``_user_inherits_default_workspace_grant`` (which touches the
+        # workspace store) never runs on an artifacts-only / workspaces-disabled server.
         if _user_inherits_default_workspace_grant(workspace_name):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
@@ -744,17 +762,27 @@ def _role_permission_for_known_workspace(
     """
 
     def _role_perm() -> Permission | None:
-        if workspace_name is None:
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        resolved_workspace = workspace_name
+        if resolved_workspace is None:
+            # Workspaces enabled + unknown workspace (e.g. resource not found) → deny.
+            # Workspaces disabled → every resource lives in the default workspace, which is
+            # where grants are stored, so resolve the grant there instead of ignoring it.
+            # Mirrors _role_permission_for so both resolvers behave identically.
+            if MLFLOW_ENABLE_WORKSPACES.get():
+                return NO_PERMISSIONS
+            resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
         perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
+            user.id, resource_type, resource_key, resolved_workspace
         )
         if perm is not None:
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
-        if _user_inherits_default_workspace_grant(workspace_name):
+        # Only reachable with workspaces enabled (see _role_permission_for): the guard
+        # above returns first when disabled, so the workspace-store lookup here never runs
+        # on a workspaces-disabled server.
+        if _user_inherits_default_workspace_grant(resolved_workspace):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 
@@ -1286,6 +1314,34 @@ def validate_can_manage_scorer():
 
 def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
+
+
+def validate_can_update_online_scoring_config():
+    body = request.get_json(silent=True) or {}
+    experiment_id = body.get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_read_online_scoring_configs():
+    # Parse scorer_ids the same way the handler does (query params OR JSON body)
+    # so this gate can't be bypassed by moving scorer_ids into a GET request body.
+    # Omit _assert_required: an absent scorer_ids falls through to allow here and
+    # is handled by the handler's own validation, rather than raising in the gate.
+    request_json = _get_validated_flask_request_json(
+        request, schema={"scorer_ids": [_assert_array, _assert_item_type_string]}
+    )
+    scorer_ids = request_json.get("scorer_ids") or []
+    if not scorer_ids:
+        return True
+    username = authenticate_request().username
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    for config in configs:
+        if not _get_experiment_permission(config.experiment_id, username).can_read:
+            return False
+    return True
 
 
 def sender_is_admin():
@@ -2545,6 +2601,10 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
+    # Minting a presigned download URL grants direct read access to a run's
+    # artifacts, so it requires the same per-run READ permission as the
+    # proxied artifact download paths.
+    CreatePresignedDownloadUrl: validate_can_read_run,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
@@ -2676,6 +2736,9 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
+    # Online scoring config endpoints are registered with view functions in the
+    # handler slot, so they cannot flow through this comprehension. Explicit
+    # validators for them are added in the update block below.
     if "/scorers/online-config" not in http_path
     # ``get_endpoints`` hardcodes the view function as the handler for explicitly
     # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
@@ -2769,6 +2832,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # Online scoring configuration (excluded from the auto generated map above).
+    (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
+    (AJAX_ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
 })
 
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
@@ -2837,9 +2905,6 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
-_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
-
-
 def _is_proxy_artifact_path(path: str) -> bool:
     # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
     # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.
@@ -2848,7 +2913,13 @@ def _is_proxy_artifact_path(path: str) -> bool:
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
+        # GetPresignedDownloadUrl mints a direct cloud-storage download URL and must
+        # require the same experiment artifact READ permission as the proxied
+        # /mlflow-artifacts/artifacts download path.
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
     ]
+    prefixes += [_add_static_prefix(prefix) for prefix in prefixes]
     return any(path.startswith(prefix) for prefix in prefixes)
 
 

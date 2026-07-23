@@ -505,10 +505,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       visible
       dangerouslySetAntdProps={{
         width: 520,
-        // The modal's dynamic sizing under-allocates the body by ~16px, leaving a
-        // spurious scrollbar. Disable body scrolling (content is always well under the
-        // viewport height) and reserve bottom padding so nothing real is clipped.
-        bodyStyle: { paddingLeft: 32, paddingRight: 32, paddingBottom: 24, overflowY: 'hidden' },
+        bodyStyle: { paddingLeft: 32, paddingRight: 32, paddingBottom: 24, overflowY: 'auto' },
       }}
       onCancel={isInvokingIssueDetection || isCreatingSecret ? undefined : handleClose}
       footer={renderFooter()}

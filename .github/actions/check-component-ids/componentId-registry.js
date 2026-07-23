@@ -816,6 +816,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.context.trace": "",
   "mlflow.assistant.chat_panel.copy": "",
   "mlflow.assistant.chat_panel.copy.tooltip": "",
+  "mlflow.assistant.chat_panel.provider_info.tooltip": "",
   "mlflow.assistant.chat_panel.regenerate": "",
   "mlflow.assistant.chat_panel.regenerate.tooltip": "",
   "mlflow.assistant.chat_panel.remote_close": "",
@@ -826,6 +827,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.settings.tooltip": "",
   "mlflow.assistant.chat_panel.setup": "",
   "mlflow.assistant.chat_panel.suggestion.card": "",
+  "mlflow.assistant.chat_panel.usage_info": "",
   "mlflow.assistant.fab": "",
   "mlflow.assistant.icon_button": "",
   "mlflow.assistant.icon_button.tooltip": "",
@@ -1350,13 +1352,8 @@ module.exports = {
   "mlflow.experiment_page.save_and_share_view.modal": "",
   "mlflow.experiment_page.save_and_share_view.name_input": "",
   "mlflow.experiment_page.save_and_share_view.save_button": "",
-  "mlflow.experiment_page.saved_views.copy_link": "",
-  "mlflow.experiment_page.saved_views.copy_link_tooltip": "",
-  "mlflow.experiment_page.saved_views.delete": "",
+  "mlflow.experiment_page.saved_views": "",
   "mlflow.experiment_page.saved_views.delete_confirm": "",
-  "mlflow.experiment_page.saved_views.item": "",
-  "mlflow.experiment_page.saved_views.save_current": "",
-  "mlflow.experiment_page.saved_views.search": "",
   "mlflow.experiment_page.saved_views.trigger": "",
   "mlflow.experiment_page.scorers.advanced_settings_toggle": "",
   "mlflow.experiment_page.scorers.auto_evaluate_toggle": "",
@@ -1364,9 +1361,7 @@ module.exports = {
   "mlflow.experiment_page.scorers.filter_string_syntax_link": "",
   "mlflow.experiment_page.scorers.search_traces_syntax_link": "",
   "mlflow.experiment_page.share_current_view": "",
-  "mlflow.experiment_page.shared_view.banner": "",
-  "mlflow.experiment_page.shared_view.discard": "",
-  "mlflow.experiment_page.shared_view.override": "",
+  "mlflow.experiment_page.shared_view": "",
   "mlflow.experiment_page.shared_view.override_undo": "",
   "mlflow.experiment_page.sort_dropdown.search": "",
   "mlflow.experiment_page.sort_dropdown.sort_asc": "",
@@ -1725,6 +1720,9 @@ module.exports = {
 
   // -- mlflow.genai_traces_table_filter --
   "mlflow.genai_traces_table_filter.filter_dropdown": "",
+
+  // -- mlflow.generic_input_modal --
+  "mlflow.generic_input_modal.submission_error": "",
 
   // -- mlflow.home --
   "mlflow.home.create_workspace_modal": "",

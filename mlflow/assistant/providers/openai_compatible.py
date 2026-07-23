@@ -90,6 +90,9 @@ def _build_usage_event(usage: dict[str, Any], model: str | None) -> Event:
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": usage.get("total_tokens") or 0,
+            # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+            # so the UI can distinguish fresh input from resent, cached context.
+            "cache_read_tokens": cache_read or 0,
             "total_cost_usd": cost[CostKey.TOTAL_COST] if cost else None,
         },
     })
