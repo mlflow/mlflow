@@ -101,6 +101,26 @@ class Client:
         return response.json()["jobs"]
 
 
+def wait_for_job_consumer_ready(client: Client, timeout: float = 60) -> None:
+    job_id = client.submit_job(
+        job_name="simple_job_fun",
+        params={"x": 0, "y": 0},
+    )["job_id"]
+    deadline = time.time() + timeout
+    last_status = None
+    while time.time() < deadline:
+        last_status = client.get_job(job_id)["status"]
+        if last_status == "SUCCEEDED":
+            return
+        if last_status in ["FAILED", "TIMEOUT", "CANCELED"]:
+            raise RuntimeError(f"Readiness probe job finished with status {last_status}")
+        time.sleep(0.5)
+    raise TimeoutError(
+        f"Job consumer did not complete the readiness probe within {timeout:g} seconds, "
+        f"last status: {last_status}"
+    )
+
+
 @pytest.fixture(scope="module")
 def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
     from tests.helper_functions import get_safe_port
@@ -138,9 +158,8 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
         start_new_session=True,  # new session & process group
     ) as server_proc:
         try:
-            time.sleep(10)  # wait the job runner up
             # wait server up.
-            deadline = time.time() + 15
+            deadline = time.time() + 60
             while time.time() < deadline:
                 time.sleep(1)
                 try:
@@ -150,8 +169,10 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
                 if resp.status_code == 200:
                     break
             else:
-                raise TimeoutError("Server did not report healthy within 15 seconds")
-            yield Client(f"http://127.0.0.1:{port}")
+                raise TimeoutError("Server did not report healthy within 60 seconds")
+            client = Client(f"http://127.0.0.1:{port}")
+            wait_for_job_consumer_ready(client)
+            yield client
         finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
@@ -208,6 +229,7 @@ def test_job_cancel(client: Client):
         "retry_count": 0,
         "status_details": None,
     }
+    wait_for_job_consumer_ready(client)
 
 
 def test_job_endpoint_invalid_job_name(client: Client):
