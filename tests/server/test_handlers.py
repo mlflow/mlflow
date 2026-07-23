@@ -161,6 +161,7 @@ from mlflow.server.handlers import (
     _create_experiment,
     _create_issue,
     _create_model_version,
+    _create_presigned_download_url,
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
     _create_registered_model,
@@ -1682,6 +1683,391 @@ def test_create_presigned_upload_url_blocked_in_artifacts_only_mode(monkeypatch)
 
     assert response.status_code == 503
     assert "artifacts-only" in response.get_data(as_text=True).lower()
+
+
+# --- Presigned download URL handler tests ---
+
+
+def test_create_presigned_download_url_success():
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    class MockPresignedDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            return PresignedDownloadUrlResponse(
+                url="https://s3.amazonaws.com/bucket/artifacts/model.pkl?X-Amz-Signature=abc",
+                headers={},
+                file_size=1024,
+            )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=MockPresignedDownloadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert "presigned_url" in data
+    assert "X-Amz-Signature" in data["presigned_url"]
+    # An empty proto map is omitted from the JSON body, so absent == no headers.
+    assert data.get("headers", {}) == {}
+    # file_size is an int64 proto field, serialized as a JSON number (not a string).
+    assert data["file_size"] == 1024
+
+
+def test_create_presigned_download_url_success_without_file_size():
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    class MockPresignedDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            return PresignedDownloadUrlResponse(
+                url="https://s3.amazonaws.com/bucket/artifacts/model.pkl?X-Amz-Signature=abc",
+                headers={},
+                file_size=None,
+            )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=MockPresignedDownloadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert "presigned_url" in data
+    assert "file_size" not in data
+
+
+def test_create_presigned_download_url_unsupported_repo():
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "file:///tmp/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=LocalArtifactRepository("/tmp/artifacts"),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned download" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "artifact_uri",
+    [
+        "mlflow-artifacts:/0/abc123/artifacts",
+        "http://mlflow-server:5000/api/2.0/mlflow-artifacts/artifacts",
+        "https://mlflow-server/api/2.0/mlflow-artifacts/artifacts",
+    ],
+)
+def test_create_presigned_download_url_rejects_proxy_artifact_uri(artifact_uri):
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = artifact_uri
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "proxied" in json_response["message"].lower()
+
+
+def test_create_presigned_download_url_invalid_run_id():
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "nonexistent_run"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+    ):
+        mock_store.return_value.get_run.side_effect = MlflowException(
+            "Run 'nonexistent_run' not found",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 404
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../../../etc/passwd",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_create_presigned_download_url_rejects_path_traversal(path):
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = path
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+    ):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_create_presigned_download_url_with_custom_expiration():
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    captured_expiration = {}
+
+    class MockPresignedDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            captured_expiration["value"] = expiration
+            return PresignedDownloadUrlResponse(
+                url="https://example.com/presigned",
+                headers={},
+                file_size=None,
+            )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+    request_proto.expiration = 60
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=MockPresignedDownloadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 200
+    assert captured_expiration["value"] == 60
+
+
+def test_create_presigned_download_url_default_expiration(monkeypatch):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    captured_expiration = {}
+
+    class MockPresignedDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            captured_expiration["value"] = expiration
+            return PresignedDownloadUrlResponse(
+                url="https://example.com/presigned",
+                headers={},
+                file_size=None,
+            )
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    # Don't set expiration - should default to MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS (300).
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=MockPresignedDownloadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 200
+    assert captured_expiration["value"] == 300
+
+    # The default is read from the env var, so overriding it flows through to the repo.
+    captured_expiration.clear()
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "123")
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=MockPresignedDownloadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 200
+    assert captured_expiration["value"] == 123
+
+
+def test_create_presigned_download_url_blocked_in_artifacts_only_mode(monkeypatch):
+    from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
+
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+
+    with app.test_request_context(method="POST", content_type="application/json"):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 503
+    assert "artifacts-only" in response.get_data(as_text=True).lower()
+
+
+@pytest.mark.parametrize("expiration", [-5, 0, 604801])
+def test_create_presigned_download_url_rejects_out_of_range_expiration(expiration):
+    # Cloud providers cap signed-URL lifetimes at 7 days (604800s) and reject
+    # out-of-range values only when the URL is used; the handler rejects them up front
+    # so a dead-on-arrival URL is never minted. Uses real request parsing (no
+    # _get_request_message mock) to exercise the full request path.
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"run_id": "abc123", "path": "model.pkl", "expiration": expiration}),
+    ):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
+
+
+def test_create_presigned_download_url_rejects_out_of_range_default_expiration(monkeypatch):
+    # The bound applies to the resolved value, so a misconfigured
+    # MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS is rejected too — not just an
+    # out-of-range value sent by the client.
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "999999999")
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"run_id": "abc123", "path": "model.pkl"}),
+    ):
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
 
 
 @pytest.mark.parametrize(

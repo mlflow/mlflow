@@ -83,6 +83,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedDownloadException,
     _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
@@ -191,6 +192,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePresignedDownloadUrl,
     CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
@@ -3722,6 +3724,11 @@ def _validate_support_presigned_upload(artifact_repo):
         raise _UnsupportedPresignedUploadException()
 
 
+def _validate_support_presigned_download(artifact_repo):
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        raise _UnsupportedPresignedDownloadException()
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_presigned_upload_url():
@@ -3758,6 +3765,62 @@ def _create_presigned_upload_url():
 
     response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
     response_message = response.to_proto()
+    resp = Response(mimetype="application/json")
+    resp.set_data(message_to_json(response_message))
+    return resp
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_presigned_download_url():
+    """
+    Handler for POST /api/2.0/mlflow/artifacts/presigned-download-url.
+    Generates a presigned URL for downloading an artifact directly from cloud storage.
+    """
+    request_message = _get_request_message(
+        CreatePresignedDownloadUrl(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "path": [_assert_required, _assert_string],
+            "expiration": [_assert_intlike],
+        },
+    )
+    run_id = request_message.run_id
+    path = validate_path_is_safe(request_message.path)
+    expiration = (
+        request_message.expiration
+        if request_message.HasField("expiration")
+        else MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+    )
+    # Cloud providers cap signed-URL lifetimes at 7 days (604800 seconds) and reject
+    # out-of-range values only when the URL is used, so an out-of-range value — whether
+    # from the request or from MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS — would mint a
+    # URL that is dead on arrival. Fail fast here instead.
+    if not 1 <= expiration <= 604800:
+        raise MlflowException(
+            f"expiration must be between 1 and 604800 seconds (got {expiration}).",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    run = _get_tracking_store().get_run(run_id)
+    artifact_uri = run.info.artifact_uri
+    artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
+    if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
+        raise MlflowException(
+            "Presigned download is not supported for runs with proxied artifact storage "
+            f"(artifact URI scheme: {artifact_uri_scheme}). "
+            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    artifact_repo = _get_artifact_repo(run)
+    _validate_support_presigned_download(artifact_repo)
+
+    presigned = artifact_repo.get_download_presigned_url(path, expiration=expiration)
+    response_message = CreatePresignedDownloadUrl.Response()
+    response_message.presigned_url = presigned.url
+    response_message.headers.update(presigned.headers)
+    if presigned.file_size is not None:
+        response_message.file_size = presigned.file_size
     resp = Response(mimetype="application/json")
     resp.set_data(message_to_json(response_message))
     return resp
@@ -7734,6 +7797,7 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     CreatePresignedUploadUrl: _create_presigned_upload_url,
+    CreatePresignedDownloadUrl: _create_presigned_download_url,
     GetMetricHistory: _get_metric_history,
     GetMetricHistoryBulkInterval: get_metric_history_bulk_interval_handler,
     SearchExperiments: _search_experiments,
