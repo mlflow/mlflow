@@ -127,7 +127,7 @@ export const PARSE_MLMODEL_FILE = 'PARSE_MLMODEL_FILE';
 export const parseMlModelFile = (modelName: any, version: any, mlModelFile: any, id = getUUID()) => {
   if (mlModelFile) {
     try {
-      const parsedMlModelFile = yaml.safeLoad(mlModelFile);
+      const parsedMlModelFile = yaml.load(mlModelFile);
       return {
         type: PARSE_MLMODEL_FILE,
         payload: Promise.resolve(parsedMlModelFile),
