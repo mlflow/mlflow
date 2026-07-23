@@ -1,4 +1,8 @@
+import asyncio
 import contextvars
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -6,6 +10,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import mlflow
 from mlflow.genai.agent_server import (
     AgentServer,
     get_invoke_function,
@@ -1322,3 +1327,313 @@ def test_return_trace_header_case_insensitive(header_value):
         assert "output" in response_json
         assert response_json["metadata"] == {"trace_id": "test-trace-id-123"}
         mock_span.assert_called_once()
+
+
+# Concurrency: sync handlers must run off the event loop so a slow request does not
+# block other concurrent requests (e.g. /health). See GitHub issue #23953.
+
+_SLOW_HANDLER_SECONDS = 2.0
+# /health must respond well within the slow handler's duration. On the unfixed
+# (blocking) code the loop is frozen for _SLOW_HANDLER_SECONDS, so the wall-clock
+# time to serve /health exceeds this threshold; on the fixed code it is near-zero.
+_RESPONSIVE_THRESHOLD_SECONDS = 1.0
+
+
+@pytest.mark.asyncio
+async def test_sync_invoke_does_not_block_event_loop():
+    handler_started = threading.Event()
+
+    @invoke()
+    def slow_invoke(request):
+        handler_started.set()
+        time.sleep(_SLOW_HANDLER_SECONDS)
+        return {"result": "done"}
+
+    server = AgentServer()
+    transport = httpx.ASGITransport(app=server.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        start = time.perf_counter()
+        invoke_task = asyncio.create_task(client.post("/invocations", json={"x": 1}))
+        # Deterministically wait until the handler has started (and offloaded to a
+        # worker thread) before timing /health, instead of assuming a fixed delay.
+        # Waiting on the Event from an executor thread keeps the event loop free.
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, handler_started.wait)
+
+        health = await client.get("/health")
+        health_latency = time.perf_counter() - start
+
+        assert health.status_code == 200
+        assert health.json() == {"status": "healthy"}
+        assert health_latency < _RESPONSIVE_THRESHOLD_SECONDS
+
+        invoke_resp = await invoke_task
+        assert invoke_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_does_not_block_event_loop():
+    handler_started = threading.Event()
+
+    @stream()
+    def slow_stream(request):
+        handler_started.set()
+        time.sleep(_SLOW_HANDLER_SECONDS)
+        yield {"chunk": "done"}
+
+    server = AgentServer()
+    transport = httpx.ASGITransport(app=server.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        start = time.perf_counter()
+        stream_task = asyncio.create_task(
+            client.post("/invocations", json={"x": 1, "stream": True})
+        )
+        # Deterministically wait until the handler has started producing (on a worker
+        # thread) before timing /health, instead of assuming a fixed delay. Waiting on
+        # the Event from an executor thread keeps the event loop free.
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, handler_started.wait)
+
+        health = await client.get("/health")
+        health_latency = time.perf_counter() - start
+
+        assert health.status_code == 200
+        assert health.json() == {"status": "healthy"}
+        assert health_latency < _RESPONSIVE_THRESHOLD_SECONDS
+
+        stream_resp = await stream_task
+        assert stream_resp.status_code == 200
+        assert "chunk" in stream_resp.text
+
+
+def test_sync_invoke_preserves_active_span_in_worker_thread():
+    captured = {}
+
+    @invoke()
+    def capture_invoke(request):
+        captured["active_span"] = mlflow.get_current_active_span()
+        captured["thread"] = threading.current_thread()
+        return {"result": "ok"}
+
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.post("/invocations", json={"x": 1})
+    assert response.status_code == 200
+    # The handler ran on a worker thread (off the event loop) but still sees the
+    # span opened by the server, confirming the request context (including the
+    # OTel span contextvar) propagated via to_thread's copy_context.
+    assert captured["active_span"] is not None
+    assert captured["thread"] is not threading.main_thread()
+
+
+def test_sync_stream_preserves_active_span_in_worker_thread():
+    captured = {}
+
+    @stream()
+    def capture_stream(request):
+        captured["active_span"] = mlflow.get_current_active_span()
+        captured["thread"] = threading.current_thread()
+        yield {"chunk": "ok"}
+
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.post("/invocations", json={"x": 1, "stream": True})
+    assert response.status_code == 200
+    # The sync generator runs on a single worker thread in a copied context, so it
+    # observes the server's active span and its own spans nest correctly.
+    assert captured["active_span"] is not None
+    assert captured["thread"] is not threading.main_thread()
+
+
+def test_sync_stream_child_span_across_yields_succeeds():
+    # A child span held open across multiple yields is the scenario the single
+    # worker-thread design protects. The span's contextvar attach/detach tokens must
+    # be created and torn down in the same context; a per-__next__ threadpool (e.g.
+    # starlette.iterate_in_threadpool) resumes each yield in a different context and
+    # raises "token was created in a different Context", which surfaces as an SSE
+    # "error" event. One worker thread in a single copied context keeps it intact.
+    span_ids = []
+
+    @stream()
+    def span_stream(request):
+        with mlflow.start_span("child") as span:
+            span_ids.append(span.span_id)
+            yield {"chunk": "first"}
+            yield {"chunk": "second"}
+
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.post("/invocations", json={"x": 1, "stream": True})
+    assert response.status_code == 200
+    assert "first" in response.text
+    assert "second" in response.text
+    # No SSE error event: the cross-yield span never crossed a context boundary.
+    assert "error" not in response.text
+    assert len(span_ids) == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_worker_stops_on_client_disconnect():
+    from mlflow.genai.agent_server.server import _STREAM_MAX_CHUNKS_AHEAD
+
+    # On client disconnect Starlette closes the streaming body generator, which
+    # raises GeneratorExit into the worker bridge generator's yield. Closing the
+    # bridge generator directly reproduces that. Teardown must stop the worker
+    # thread and run the user generator's cleanup, rather than leaking the thread
+    # or draining an infinite stream to completion.
+    produced = 0
+    cleaned_up = threading.Event()
+
+    @stream()
+    def infinite_stream(request):
+        nonlocal produced
+        try:
+            while True:
+                produced += 1
+                yield {"chunk": produced}
+        finally:
+            cleaned_up.set()
+
+    server = AgentServer()
+    agen = server._iterate_sync_in_thread(infinite_stream, {"x": 1})
+
+    for _ in range(3):
+        await agen.__anext__()
+    await agen.aclose()
+
+    # The user generator's finally ran in the worker thread/context.
+    assert cleaned_up.wait(timeout=5)
+
+    # Production halts shortly after the stop signal: the count stops climbing and
+    # stays bounded by the queue size plus the few chunks produced before the stop
+    # took effect (never the unbounded full stream).
+    await asyncio.sleep(0.5)
+    count_after_close = produced
+    await asyncio.sleep(0.5)
+    assert produced == count_after_close
+    assert produced < _STREAM_MAX_CHUNKS_AHEAD * 2
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_disconnect_propagates_through_body_generator():
+    # End-to-end of the disconnect path: Starlette closes the StreamingResponse
+    # body (_generate), and the inner worker bridge generator is closed via the
+    # async-generator finalizer as _generate's frame unwinds. This is the
+    # load-bearing link the fix relies on -- without it the worker would run the
+    # infinite stream forever. Poll with asyncio.sleep (not a blocking wait) so
+    # the loop can run the scheduled finalizer.
+    cleaned_up = threading.Event()
+
+    @stream()
+    def infinite_stream(request):
+        try:
+            while True:
+                yield {"chunk": "x"}
+        finally:
+            cleaned_up.set()
+
+    server = AgentServer()
+    body = server._generate(infinite_stream, {"x": 1}, False)
+
+    for _ in range(3):
+        await body.__anext__()
+    await body.aclose()
+
+    for _ in range(100):
+        if cleaned_up.is_set():
+            break
+        await asyncio.sleep(0.05)
+    assert cleaned_up.is_set()
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_handler_error_propagates_to_consumer():
+    # A regular Exception raised by the user generator is captured on the worker
+    # thread and re-raised through the consumer, so the stream endpoint can surface
+    # it as an SSE error event.
+    @stream()
+    def failing_stream(request):
+        yield {"chunk": 1}
+        raise ValueError("boom")
+
+    server = AgentServer()
+    agen = server._iterate_sync_in_thread(failing_stream, {"x": 1})
+
+    assert await agen.__anext__() == {"chunk": 1}
+    with pytest.raises(ValueError, match="boom"):
+        await agen.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_handler_base_exception_is_not_captured(monkeypatch):
+    # BaseException types (KeyboardInterrupt, SystemExit) must propagate on the
+    # worker thread and terminate it, rather than being captured into the error
+    # channel and re-raised on the event loop where they would impede shutdown. The
+    # worker's uncaught KeyboardInterrupt reaches threading.excepthook; swallow it
+    # so it does not surface as a spurious thread-exception warning.
+    monkeypatch.setattr(threading, "excepthook", lambda args: None)
+    raised = threading.Event()
+
+    @stream()
+    def interrupted_stream(request):
+        yield {"chunk": 1}
+        raised.set()
+        raise KeyboardInterrupt
+
+    server = AgentServer()
+
+    # The consumer ends normally yielding only the pre-interrupt chunk: the
+    # sentinel carries no error because the KeyboardInterrupt was never captured
+    # into the error channel.
+    chunks = [chunk async for chunk in server._iterate_sync_in_thread(interrupted_stream, {"x": 1})]
+    assert chunks == [{"chunk": 1}]
+
+    assert raised.is_set()
+    # Let the worker finish unwinding the KeyboardInterrupt into the swallowing
+    # excepthook before monkeypatch restores the original at teardown.
+    await asyncio.sleep(0.1)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_sync_streams_do_not_starve_default_executor():
+    from mlflow.genai.agent_server.server import _STREAM_MAX_CHUNKS_AHEAD
+
+    # Regression test for the executor-starvation deadlock: an earlier design
+    # scheduled both the producer and every per-chunk get onto the loop's default
+    # executor (shared with asyncio.to_thread). With more concurrent streams than
+    # the pool has threads, the long-lived producers pin every thread; their
+    # queues fill, so they block on put while no thread is left to run a consumer
+    # get -- a hard deadlock. Each stream below yields more than the queue bound so
+    # the old producer would block on a full queue. The current design uses a
+    # dedicated thread plus an asyncio.Queue per stream and never touches the
+    # executor, so a tiny pool cannot starve it.
+    pool_size = 2
+    num_streams = pool_size + 4
+    chunks_per_stream = _STREAM_MAX_CHUNKS_AHEAD + 20
+
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(
+        ThreadPoolExecutor(max_workers=pool_size, thread_name_prefix="test-default-executor")
+    )
+
+    @stream()
+    def big_stream(request):
+        for i in range(chunks_per_stream):
+            yield {"chunk": i}
+
+    server = AgentServer()
+    transport = httpx.ASGITransport(app=server.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        tasks = [
+            asyncio.create_task(client.post("/invocations", json={"x": i, "stream": True}))
+            for i in range(num_streams)
+        ]
+        responses = await asyncio.wait_for(asyncio.gather(*tasks), timeout=10)
+
+    assert len(responses) == num_streams
+    for resp in responses:
+        assert resp.status_code == 200
+        assert resp.text.count('"chunk"') == chunks_per_stream
