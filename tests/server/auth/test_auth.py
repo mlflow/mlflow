@@ -239,6 +239,24 @@ def test_proxy_artifact_mpu_validator_returns_update_for_post():
     assert validator is auth_module.validate_can_update_experiment_artifact_proxy
 
 
+def test_proxy_artifact_presigned_path_detection():
+    # GetPresignedDownloadUrl paths must be recognized so basic-auth applies the same
+    # experiment artifact READ check it applies to /mlflow-artifacts/artifacts downloads.
+    assert auth_module._is_proxy_artifact_path(
+        "/api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+    assert auth_module._is_proxy_artifact_path(
+        "/ajax-api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+
+
+def test_proxy_artifact_presigned_validator_returns_read_for_get():
+    validator = auth_module._get_proxy_artifact_validator(
+        "GET", {"artifact_path": "1/run-id/artifacts/model.pkl"}
+    )
+    assert validator is auth_module.validate_can_read_experiment_artifact_proxy
+
+
 @pytest.mark.parametrize(
     ("path", "method"),
     [
@@ -285,6 +303,32 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
         data=b"forbidden",
         auth=(username2, password2),
     )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24567:
+    # GetPresignedDownloadUrl must enforce the same experiment artifact READ permission
+    # as the proxied download route. Without authorization, a user with no grant would
+    # reach the handler (returning a working presigned URL on cloud backends), leaking
+    # artifacts. A denied user must receive 403 before the handler runs.
+    # Runs against ``default_permission=NO_PERMISSIONS`` so a GET (READ) without an
+    # explicit grant is denied — a READ-permission default would otherwise allow it.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-presigned-authz-test")
+
+    presigned_url = (
+        client.tracking_uri + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
+    )
+    response = requests.get(url=presigned_url, auth=(username2, password2))
     assert response.status_code == 403
 
 
