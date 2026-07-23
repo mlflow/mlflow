@@ -923,6 +923,33 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
+def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db_uri, monkeypatch):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        store.rename_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, "renamed-default")
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # Re-initializing the store (simulating a server restart) must not crash on the renamed
+    # default experiment. The by-ID bootstrap guard should find experiment 0 and skip re-creating
+    # it, rather than colliding on the primary key.
+    restarted_store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    try:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            default_experiment = restarted_store.get_experiment(
+                SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+            )
+        assert default_experiment.name == "renamed-default"
+        assert default_experiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+    finally:
+        restarted_store._dispose_engine()
+        SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
 def test_single_tenant_startup_rejects_non_default_workspace_experiments(
     tmp_path, db_uri, monkeypatch
 ):
