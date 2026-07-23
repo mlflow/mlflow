@@ -324,10 +324,12 @@ jobs:
           uv sync --extra genai
           echo "::group::google-adk resolver diagnostics before overlay install"
           uv --version
-          python - <<'PY'
+          uv run --no-sync python - <<'PY'
           import importlib.metadata as md
           import os
+          import sys
 
+          print(f"sys.executable={sys.executable}")
           for name in [
               "PIP_INDEX_URL",
               "PIP_EXTRA_INDEX_URL",
@@ -370,9 +372,15 @@ jobs:
           if not found:
               print("<none>")
           PY
-          python -m pip index versions google-adk || true
+          uv run --no-sync python -m pip index versions google-adk || true
           echo "Direct google-adk[gcp] dry-run:"
           uv pip install --dry-run 'google-adk[gcp]' || true
+          echo "Direct google-adk[gcp]==2.4.0 dry-run:"
+          uv pip install --dry-run 'google-adk[gcp]==2.4.0' || true
+          echo "Direct google-adk[gcp] dry-run with --upgrade:"
+          uv pip install --dry-run --upgrade 'google-adk[gcp]' || true
+          echo "Direct google-adk[gcp] dry-run forcing compatible Starlette/OTel:"
+          uv pip install --dry-run 'google-adk[gcp]' 'starlette<1' 'opentelemetry-api<=1.42.1' 'opentelemetry-sdk<=1.42.1' || true
           echo "Full GenAI overlay dry-run:"
           uv pip install --dry-run \
             -r requirements/test-requirements.txt \
@@ -394,10 +402,12 @@ jobs:
             -r requirements/test-requirements.txt \
             deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
           echo "::group::google-adk diagnostics after overlay install"
-          python - <<'PY'
+          uv run --no-sync python - <<'PY'
           import importlib.metadata as md
+          import sys
           import traceback
 
+          print(f"sys.executable={sys.executable}")
           try:
               dist = md.distribution("google-adk")
           except md.PackageNotFoundError:
