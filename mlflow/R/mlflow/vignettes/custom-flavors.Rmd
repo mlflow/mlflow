@@ -1,0 +1,19 @@
+---
+title: "Creating custom model flavors"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Creating custom model flavors}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(mlflow)
+```
