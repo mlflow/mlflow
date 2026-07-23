@@ -138,10 +138,12 @@ describe('ToolCallGroup', () => {
     toolCall({ toolUseId: 't3', name: 'Bash', status: 'done', result: 'c' }),
   ];
 
-  test('renders the count, name summary, and a status label', () => {
+  test('renders the count, name summary, and a status icon', () => {
     renderGroup(calls);
     expect(screen.getByText('3 tool calls')).toBeInTheDocument();
     expect(screen.getByText('load_skill, Bash ×2')).toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    expect(screen.getByTestId('tool-call-status-done')).toBeInTheDocument();
     expect(screen.getByTestId('tool-group-status-done')).toBeInTheDocument();
   });
 

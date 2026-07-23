@@ -3,7 +3,7 @@
  * collapsible card whose header shows the tool name, a status badge, and a one-line
  * input summary, and whose expanded body shows the full input and (truncated) output.
  */
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import {
   CheckCircleIcon,
   ChevronDownIcon,
@@ -90,18 +90,6 @@ export const toolNameSummary = (parts: ToolCallPart[]): string => {
   return [...counts.entries()].map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
 };
 
-const GROUP_STATUS_LABEL: Record<NonNullable<ToolCallPart['status']>, ReactNode> = {
-  [ToolCallStatus.Running]: (
-    <FormattedMessage defaultMessage="Running" description="Status for an in-progress run of assistant tool calls" />
-  ),
-  [ToolCallStatus.Done]: (
-    <FormattedMessage defaultMessage="Completed" description="Status for a finished run of assistant tool calls" />
-  ),
-  [ToolCallStatus.Error]: (
-    <FormattedMessage defaultMessage="Failed" description="Status for a failed run of assistant tool calls" />
-  ),
-};
-
 // Activate a role="button" disclosure row from the keyboard, matching native <button> semantics.
 const onDisclosureKeyDown = (toggle: () => void) => (event: KeyboardEvent) => {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -121,12 +109,21 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
   const [expanded, setExpanded] = useState(false);
   const status = groupStatus(parts);
   const summary = toolNameSummary(parts);
-  const statusColor =
+  const statusLabel =
     status === ToolCallStatus.Done
-      ? theme.colors.textValidationSuccess
+      ? intl.formatMessage({
+          defaultMessage: 'Completed',
+          description: 'Status for a finished run of assistant tool calls',
+        })
       : status === ToolCallStatus.Error
-        ? theme.colors.textValidationDanger
-        : theme.colors.textSecondary;
+        ? intl.formatMessage({
+            defaultMessage: 'Failed',
+            description: 'Status for a failed run of assistant tool calls',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'Running',
+            description: 'Status for an in-progress run of assistant tool calls',
+          });
 
   const toggle = () => setExpanded((prev) => !prev);
 
@@ -136,10 +133,13 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
-        aria-label={intl.formatMessage({
-          defaultMessage: 'Tool calls',
-          description: 'Accessible label for the expandable summary row of a run of assistant tool calls',
-        })}
+        aria-label={intl.formatMessage(
+          {
+            defaultMessage: 'Tool calls: {status}',
+            description: 'Accessible label for the expandable summary row of a run of assistant tool calls',
+          },
+          { status: statusLabel },
+        )}
         onClick={toggle}
         onKeyDown={onDisclosureKeyDown(toggle)}
         css={{
@@ -180,13 +180,13 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
             {summary}
           </Typography.Text>
         )}
-        <Typography.Text
-          size="sm"
+        <span
           data-testid={`tool-group-status-${status}`}
-          css={{ flexShrink: 0, marginLeft: 'auto', color: statusColor }}
+          aria-label={statusLabel}
+          css={{ flexShrink: 0, marginLeft: 'auto', display: 'inline-flex' }}
         >
-          {GROUP_STATUS_LABEL[status]}
-        </Typography.Text>
+          <StatusBadge status={status} />
+        </span>
       </div>
 
       {expanded && (
