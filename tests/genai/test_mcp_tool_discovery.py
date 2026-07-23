@@ -42,23 +42,6 @@ def test_tool_from_sdk_model_dump():
     )
 
 
-def test_tool_from_sdk_plain_object():
-    tool = SimpleNamespace(
-        name="echo",
-        title="Echo",
-        description="Echo input",
-        inputSchema={"type": "object", "properties": {"text": {"type": "string"}}},
-        outputSchema=None,
-        annotations=None,
-        icons=None,
-        execution=None,
-    )
-    mapped = _tool_from_sdk(tool)
-    assert mapped.name == "echo"
-    assert mapped.title == "Echo"
-    assert mapped.input_schema == {"type": "object", "properties": {"text": {"type": "string"}}}
-
-
 def test_require_fastmcp_missing_dependency(monkeypatch):
     monkeypatch.setitem(sys.modules, "fastmcp", None)
     with pytest.raises(MlflowException, match="mlflow\\[mcp\\]"):
@@ -246,7 +229,7 @@ def test_resolve_tools_for_create_not_set_discovers_from_remote():
         "remotes": [{"type": "streamable-http", "url": "https://mcp.example.com/r"}],
     }
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="t")],
     ) as mock_discover:
         tools = resolve_tools_for_create(sj, tools=NOT_SET, headers={"Authorization": "x"})
@@ -265,7 +248,7 @@ def test_resolve_tools_for_create_explicit_none_and_list_skip_discovery():
         "version": "1.0.0",
         "remotes": [{"type": "streamable-http", "url": "https://mcp.example.com/r"}],
     }
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         assert resolve_tools_for_create(sj, tools=None) is None
         assert resolve_tools_for_create(sj, tools=[]) == []
         assert resolve_tools_for_create(sj, tools=[MCPTool(name="x")])[0].name == "x"
@@ -273,7 +256,7 @@ def test_resolve_tools_for_create_explicit_none_and_list_skip_discovery():
 
 
 def test_resolve_tools_for_create_not_set_without_remote_returns_none():
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         assert resolve_tools_for_create({"name": "n", "version": "1"}, tools=NOT_SET) is None
         assert (
             resolve_tools_for_create({"name": "n", "version": "1", "remotes": []}, tools=NOT_SET)
@@ -292,7 +275,7 @@ def test_resolve_tools_for_create_skips_remote_without_url_then_discovers_next()
         ],
     }
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="from-second")],
     ) as mock_discover:
         tools = resolve_tools_for_create(sj, tools=NOT_SET)
@@ -316,7 +299,7 @@ def test_resolve_tools_for_create_soft_fails_on_discovery_error_without_failover
         ],
     }
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         side_effect=MlflowException.invalid_parameter_value("Failed to discover MCP tools"),
     ) as mock_discover:
         assert resolve_tools_for_create(sj, tools=NOT_SET) is None
@@ -338,7 +321,7 @@ def test_resolve_tools_for_create_skips_unsupported_transport_then_discovers_nex
         ],
     }
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="from-good")],
     ) as mock_discover:
         tools = resolve_tools_for_create(sj, tools=NOT_SET)
@@ -357,14 +340,14 @@ def test_resolve_tools_for_create_soft_fails_when_only_unsupported_transport():
         "version": "1.0.0",
         "remotes": [{"type": "grpc-bidirectional", "url": "https://mcp.example.com/bad"}],
     }
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         assert resolve_tools_for_create(sj, tools=NOT_SET) is None
     mock_discover.assert_not_called()
 
 
 def test_resolve_tools_for_create_soft_fails_on_non_list_remotes():
     sj = {"name": "io.github.test/r", "version": "1.0.0", "remotes": "not-a-list"}
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         assert resolve_tools_for_create(sj, tools=NOT_SET) is None
     mock_discover.assert_not_called()
 
@@ -376,7 +359,7 @@ def test_resolve_tools_for_create_skips_discovery_when_env_disabled(monkeypatch)
         "version": "1.0.0",
         "remotes": [{"type": "streamable-http", "url": "https://mcp.example.com/r"}],
     }
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         assert resolve_tools_for_create(sj, tools=NOT_SET) is None
         # Explicit values still win when discovery is disabled.
         assert resolve_tools_for_create(sj, tools=[MCPTool(name="manual")])[0].name == "manual"

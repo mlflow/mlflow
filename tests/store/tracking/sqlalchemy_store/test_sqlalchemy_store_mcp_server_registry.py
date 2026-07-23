@@ -617,13 +617,13 @@ def test_create_mcp_server_version_omitted_tools_store_null_without_discovery(st
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/sql"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         sv_discovered = store.create_mcp_server_version(remotes_sj, tools=NOT_SET)
     mock_discover.assert_not_called()
     assert sv_discovered.tools is None
 
     # Explicit None disables discovery even when remotes exist.
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         sv_none = store.create_mcp_server_version(
             _server_json(
                 "io.github.test/none-tools",
@@ -643,7 +643,7 @@ def test_create_mcp_server_version_duplicate_raises_without_discovery(store):
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup"}],
     )
     store.create_mcp_server_version(remotes_sj, tools=None)
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         with pytest.raises(MlflowException, match="already exists") as exc:
             store.create_mcp_server_version(remotes_sj)
     assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
@@ -658,7 +658,7 @@ def test_create_mcp_server_version_deleted_duplicate_raises_without_discovery(st
     )
     store.create_mcp_server_version(remotes_sj, tools=None)
     store.delete_mcp_server_version("io.github.test/dup-deleted-discover", "1.0.0")
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         with pytest.raises(MlflowException, match="already exists") as exc:
             store.create_mcp_server_version(remotes_sj)
     assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"

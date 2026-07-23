@@ -69,23 +69,8 @@ def _require_fastmcp():
 
 
 def _tool_from_sdk(tool: Any) -> MCPTool:
-    if hasattr(tool, "model_dump"):
-        data = tool.model_dump(by_alias=True, exclude_none=True)
-    elif isinstance(tool, dict):
-        data = dict(tool)
-    else:
-        data = {
-            "name": getattr(tool, "name", None),
-            "title": getattr(tool, "title", None),
-            "description": getattr(tool, "description", None),
-            "inputSchema": getattr(tool, "inputSchema", None)
-            or getattr(tool, "input_schema", None),
-            "outputSchema": getattr(tool, "outputSchema", None)
-            or getattr(tool, "output_schema", None),
-            "annotations": getattr(tool, "annotations", None),
-            "icons": getattr(tool, "icons", None),
-            "execution": getattr(tool, "execution", None),
-        }
+    # fastmcp Client.list_tools() returns Pydantic Tool models.
+    data = tool.model_dump(by_alias=True, exclude_none=True)
     # Drop MCP protocol-only fields that MCPTool does not model.
     data.pop("meta", None)
     return MCPTool.from_dict(data)
@@ -142,13 +127,13 @@ async def _alist_tools(
     return [_tool_from_sdk(t) for t in sdk_tools]
 
 
-def _discover_mcp_tools(
+def discover_mcp_tools(
     url: str,
     transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
     headers: Mapping[str, str] | None = None,
     timeout: float = DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
 ) -> list[MCPTool]:
-    """Scrape ``tools/list`` from an MCP server URL."""
+    """List tools from a deployed MCP server endpoint."""
     if timeout <= 0:
         raise MlflowException.invalid_parameter_value(f"timeout must be positive, got {timeout!r}")
     try:
@@ -162,21 +147,6 @@ def _discover_mcp_tools(
         raise MlflowException.invalid_parameter_value(
             f"Failed to discover MCP tools from {url!r}: {e}"
         ) from e
-
-
-def discover_mcp_tools(
-    url: str,
-    transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
-    headers: Mapping[str, str] | None = None,
-    timeout: float = DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
-) -> list[MCPTool]:
-    """List tools from a deployed MCP server endpoint."""
-    return _discover_mcp_tools(
-        url=url,
-        transport_type=transport_type,
-        headers=headers,
-        timeout=timeout,
-    )
 
 
 def _first_discovery_remote(
@@ -231,7 +201,7 @@ def discover_tools_for_server_json(
             "No usable MCP remote found in server_json.remotes for tool discovery."
         )
     url, transport = remote
-    return _discover_mcp_tools(
+    return discover_mcp_tools(
         url=url,
         transport_type=transport,
         headers=headers,

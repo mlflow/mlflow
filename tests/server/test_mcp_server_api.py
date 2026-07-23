@@ -774,7 +774,7 @@ def test_create_version_omitted_tools_stores_null_without_discovery(client):
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/api"}],
     )
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="api_search")],
     ) as mock_discover:
         omit_r = client.post(
@@ -792,7 +792,7 @@ def test_create_version_explicit_null_tools_skips_discovery(client):
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         null_r = client.post(
             f"{PREFIX}/{_encode_path_param('com.example/null-tools')}/versions",
             json={"server_json": sj, "status": "active", "tools": None},

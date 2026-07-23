@@ -260,7 +260,7 @@ def test_client_create_mcp_server_version_via_rest_auto_discovers(rest_client):
             return_value=rest_client,
         ),
         mock.patch(
-            "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
             return_value=[MCPTool(name="from_rest_client")],
         ) as mock_discover,
     ):

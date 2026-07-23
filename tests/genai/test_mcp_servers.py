@@ -326,7 +326,7 @@ def test_register_mcp_server_invalid_semver_skips_discovery():
         "not-a-semver",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/bad-semver"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         with pytest.raises(MlflowException, match="server_json.version"):
             genai.register_mcp_server(server_json=sj)
     mock_discover.assert_not_called()
@@ -346,7 +346,7 @@ def test_register_mcp_server_auto_discovers_tools_from_remote():
         )
     ]
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=discovered,
     ) as mock_discover:
         version = genai.register_mcp_server(server_json=sj)
@@ -372,7 +372,7 @@ def test_register_mcp_server_auto_discover_passes_access_headers():
     )
     headers = {"Authorization": "Bearer secret"}
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="t1")],
     ) as mock_discover:
         genai.register_mcp_server(server_json=sj, mcp_server_access_headers=headers)
@@ -391,7 +391,7 @@ def test_register_mcp_server_explicit_none_skips_discovery():
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj, tools=None)
 
     mock_discover.assert_not_called()
@@ -407,7 +407,7 @@ def test_register_mcp_server_resolves_not_set_before_create_store_call():
     discovered = [MCPTool(name="resolved")]
     with (
         mock.patch(
-            "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
             return_value=discovered,
         ),
         mock.patch("mlflow.genai.mcp_servers.MlflowClient") as mock_client_cls,
@@ -456,7 +456,7 @@ def test_register_mcp_server_explicit_empty_list_skips_discovery():
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj, tools=[])
 
     mock_discover.assert_not_called()
@@ -470,7 +470,7 @@ def test_register_mcp_server_explicit_tools_skips_discovery():
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
     )
     tools = [MCPTool(name="manual")]
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj, tools=tools)
 
     mock_discover.assert_not_called()
@@ -479,7 +479,7 @@ def test_register_mcp_server_explicit_tools_skips_discovery():
 
 def test_register_mcp_server_no_remote_skips_discovery():
     sj = _server_json("io.github.test/no-remote-discover", "1.0.0")
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj)
 
     mock_discover.assert_not_called()
@@ -488,7 +488,7 @@ def test_register_mcp_server_no_remote_skips_discovery():
 
 def test_register_mcp_server_empty_remotes_skips_discovery():
     sj = _server_json("io.github.test/empty-remotes-discover", "1.0.0", remotes=[])
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj)
 
     mock_discover.assert_not_called()
@@ -503,7 +503,7 @@ def test_register_mcp_server_discovery_failure_still_creates_version():
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/down"}],
     )
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         side_effect=MlflowException.invalid_parameter_value("Failed to discover MCP tools"),
     ):
         version = genai.register_mcp_server(server_json=sj)
@@ -519,7 +519,7 @@ def test_register_mcp_server_omitted_tools_with_unsupported_remote_still_creates
         "1.0.0",
         remotes=[{"type": "grpc-bidirectional", "url": "https://mcp.example.com/grpc"}],
     )
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         version = genai.register_mcp_server(server_json=sj)
 
     mock_discover.assert_not_called()
@@ -541,7 +541,7 @@ def test_register_mcp_server_from_url_auto_discovers_tools():
             return_value=_FakeResponse(payload),
         ),
         mock.patch(
-            "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
             return_value=[MCPTool(name="from_url_tool")],
         ) as mock_discover,
     ):
@@ -566,7 +566,7 @@ def test_register_mcp_server_from_url_passes_access_headers():
             return_value=_FakeResponse(payload),
         ),
         mock.patch(
-            "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
             return_value=[MCPTool(name="authed")],
         ) as mock_discover,
     ):
@@ -766,7 +766,7 @@ def test_client_create_mcp_server_version_omitted_tools_auto_discovers():
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/client"}],
     )
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="from_client")],
     ) as mock_discover:
         version = client.create_mcp_server_version(server_json=sj)
@@ -787,7 +787,7 @@ def test_register_mcp_server_duplicate_skips_discovery():
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup-reg"}],
     )
     genai.register_mcp_server(server_json=sj, tools=None)
-    with mock.patch("mlflow.genai.mcp_tool_discovery._discover_mcp_tools") as mock_discover:
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
         with pytest.raises(MlflowException, match="already exists"):
             genai.register_mcp_server(server_json=sj)
     mock_discover.assert_not_called()
@@ -802,7 +802,7 @@ def test_register_mcp_server_deleted_duplicate_reaches_create_duplicate_check():
     genai.register_mcp_server(server_json=sj, tools=None)
     genai.delete_mcp_server_version(name=sj["name"], version=sj["version"])
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="rediscovered")],
     ) as mock_discover:
         with pytest.raises(MlflowException, match="already exists"):
@@ -892,7 +892,7 @@ def test_refresh_mcp_server_version_tools_discovers_and_updates():
     genai.register_mcp_server(server_json=sj, tools=None)
 
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="refreshed")],
     ) as mock_discover:
         refreshed = genai.refresh_mcp_server_version_tools(
@@ -923,7 +923,7 @@ def test_refresh_mcp_server_version_tools_dry_run_returns_preview_only():
     genai.register_mcp_server(server_json=sj, tools=None)
 
     with mock.patch(
-        "mlflow.genai.mcp_tool_discovery._discover_mcp_tools",
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
         return_value=[MCPTool(name="previewed")],
     ) as mock_discover:
         preview = genai.refresh_mcp_server_version_tools(
