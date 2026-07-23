@@ -139,6 +139,11 @@ def create_metric_from_scorers(
     """
     Create a metric function from scorers and an optional objective function.
 
+    This function creates a metric that mirrors evaluate()'s scorer execution
+    pattern (harness.py:839-864): per-scorer exception handling, assessment
+    logging on traces, and tracing disabled during scorer execution so judge
+    LLM calls don't create stray top-level traces.
+
     Args:
         scorers: List of scorers to evaluate inputs, outputs, and expectations.
         objective: Optional function that aggregates scorer outputs into a single score.
@@ -153,8 +158,23 @@ def create_metric_from_scorers(
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
     """
-    from mlflow.entities import Feedback
+    import logging
+    import traceback
+
+    import mlflow
+    from mlflow.entities import Feedback, SpanType
+    from mlflow.entities.assessment_error import AssessmentError
+    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
+    from mlflow.genai.evaluation.harness import _log_assessments
+    from mlflow.genai.evaluation.utils import (
+        make_code_type_assessment_source,
+        standardize_scorer_value,
+    )
     from mlflow.genai.judges import CategoricalRating
+    from mlflow.tracing.constant import TraceTagKey
+
+    _logger = logging.getLogger(__name__)
+    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def _convert_to_numeric(score: Any) -> float | None:
         """Convert a value to numeric, handling Feedback and primitive types."""
@@ -174,43 +194,109 @@ def create_metric_from_scorers(
         expectations: dict[str, Any],
         trace: Trace | None,
     ) -> tuple[float, dict[str, str], dict[str, float]]:
+        all_feedbacks = []
         scores = {}
         rationales = {}
 
-        for scorer in scorers:
-            scores[scorer.name] = scorer.run(
-                inputs=inputs, outputs=outputs, expectations=expectations, trace=trace
+        try:
+            for scorer in scorers:
+                # Per-scorer try/except matching evaluate()'s pattern
+                # in harness.py:839-864.
+                try:
+                    scorer_func = scorer.run
+
+                    # Conditionally wrap scorer with tracing, matching
+                    # evaluate()'s pattern in harness.py:843-846.
+                    if should_trace:
+                        scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                            scorer_func
+                        )
+
+                    value = scorer_func(
+                        inputs=inputs,
+                        outputs=outputs,
+                        expectations=expectations,
+                        trace=trace,
+                    )
+                    feedbacks = standardize_scorer_value(scorer.name, value)
+                except Exception as e:
+                    _logger.warning(
+                        f"Scorer '{scorer.name}' failed during optimization: "
+                        f"{type(e).__name__}: {e}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+                    feedbacks = [
+                        Feedback(
+                            name=scorer.name,
+                            source=make_code_type_assessment_source(scorer.name),
+                            error=AssessmentError(
+                                error_code="SCORER_ERROR",
+                                error_message=str(e),
+                                stack_trace=traceback.format_exc(),
+                            ),
+                        )
+                    ]
+
+                # Record scorer trace ID on feedbacks, matching
+                # harness.py:867-878.
+                if should_trace and (
+                    trace_id := mlflow.get_last_active_trace_id(thread_local=True)
+                ):
+                    for feedback in feedbacks:
+                        feedback.metadata = {
+                            **(feedback.metadata or {}),
+                            "scorer_trace_id": trace_id,
+                        }
+                    mlflow.set_trace_tag(
+                        trace_id=trace_id,
+                        key=TraceTagKey.SOURCE_SCORER_NAME,
+                        value=scorer.name,
+                    )
+
+                all_feedbacks.extend(feedbacks)
+
+                for fb in feedbacks:
+                    name = fb.name or scorer.name
+                    scores[name] = fb
+                    if fb.rationale:
+                        rationales[name] = fb.rationale
+
+            # Log assessments on the trace, matching evaluate()'s behavior.
+            if trace is not None:
+                try:
+                    active_run = mlflow.active_run()
+                    run_id = active_run.info.run_id if active_run else None
+                    _log_assessments(run_id=run_id, trace=trace, assessments=all_feedbacks)
+                except Exception as e:
+                    _logger.debug(f"Failed to log assessments: {e}")
+
+            # Try to convert all scores to numeric
+            numeric_scores = {}
+            for name, score in scores.items():
+                numeric_value = _convert_to_numeric(score)
+                if numeric_value is not None:
+                    numeric_scores[name] = numeric_value
+
+            if objective is not None:
+                return objective(scores), rationales, numeric_scores
+
+            # If all scores were convertible, use average as default aggregation
+            if len(numeric_scores) == len(scores):
+                aggregated = sum(numeric_scores.values()) / len(numeric_scores)
+                return aggregated, rationales, numeric_scores
+
+            # Non-convertible scores without objective -- return 0
+            return 0.0, rationales, numeric_scores
+
+        except Exception as e:
+            # Catch-all for unexpected errors in the scoring pipeline
+            _logger.warning(
+                f"Scoring pipeline failed: {type(e).__name__}: {e}. Returning score=0.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-
-        for key, score in scores.items():
-            if isinstance(score, Feedback):
-                rationales[key] = score.rationale
-
-        # Try to convert all scores to numeric
-        numeric_scores = {}
-        for name, score in scores.items():
-            numeric_value = _convert_to_numeric(score)
-            if numeric_value is not None:
-                numeric_scores[name] = numeric_value
-
-        if objective is not None:
-            return objective(scores), rationales, numeric_scores
-
-        # If all scores were convertible, use sum as default aggregation
-        if len(numeric_scores) == len(scores):
-            # We average the scores to get the score between 0 and 1.
-            aggregated = sum(numeric_scores.values()) / len(numeric_scores)
-            return aggregated, rationales, numeric_scores
-
-        # Otherwise, report error with actual types
-        non_convertible = {
-            k: type(v).__name__ for k, v in scores.items() if k not in numeric_scores
-        }
-        scorer_details = ", ".join([f"{k} (type: {t})" for k, t in non_convertible.items()])
-        raise MlflowException(
-            f"Scorers [{scorer_details}] return non-numerical values that cannot be "
-            "automatically aggregated. Please provide an `objective` function to aggregate "
-            "these values into a single score for optimization."
-        )
+            scorer_names = [s.name for s in scorers]
+            zero_scores = dict.fromkeys(scorer_names, 0.0)
+            error_rationales = {name: f"Error: {type(e).__name__}: {e}" for name in scorer_names}
+            return 0.0, error_rationales, zero_scores
 
     return metric
