@@ -69,6 +69,21 @@ class LatencyStats:
 
 @experimental(version="3.15.0")
 @dataclass
+class CostStats:
+    """Per-request cost for a config, in USD.
+
+    Cost is aggregated per request (per trace), not per token, from each trace's
+    ``cost`` metadata (token usage x LiteLLM pricing). ``n_rows`` is the number
+    of traces that carried cost data across all rows and repeats.
+    """
+
+    mean_per_request: float
+    total: float
+    n_rows: int
+
+
+@experimental(version="3.15.0")
+@dataclass
 class SweepConfigResult:
     """Aggregated results for a single swept configuration across all repeats.
 
@@ -80,6 +95,8 @@ class SweepConfigResult:
         scorer_intervals: Per-scorer point estimate and confidence interval,
             keyed by scorer name.
         latency: Prediction-latency percentiles across all rows and repeats.
+        cost: Per-request cost across all rows and repeats, or ``None`` when no
+            trace reported cost data.
         results: The underlying per-repeat :class:`EvaluationResult` objects, for
             callers who want the raw per-run metrics and result DataFrames.
     """
@@ -88,6 +105,7 @@ class SweepConfigResult:
     child_run_ids: list[str] = field(default_factory=list)
     scorer_intervals: dict[str, ScorerInterval] = field(default_factory=dict)
     latency: LatencyStats | None = None
+    cost: CostStats | None = None
     results: list["EvaluationResult"] = field(default_factory=list)
 
 
@@ -120,6 +138,7 @@ class SweepResult:
         rows = []
         for config in self.configs.values():
             lat = config.latency
+            cost = config.cost
             for scorer_name, interval in config.scorer_intervals.items():
                 rows.append({
                     "config": config.name,
@@ -130,6 +149,7 @@ class SweepResult:
                     "std": interval.std,
                     "n_samples": interval.n_samples,
                     "ci_method": interval.method,
+                    "cost_per_request_usd": cost.mean_per_request if cost else None,
                     "latency_p50_ms": lat.p50 if lat else None,
                     "latency_p90_ms": lat.p90 if lat else None,
                     "latency_p95_ms": lat.p95 if lat else None,
@@ -138,12 +158,14 @@ class SweepResult:
         return pd.DataFrame(rows)
 
     def summary_df(self, precision: int = 3) -> "pd.DataFrame":
-        """Wide, human-readable table: one row per config, string cells.
+        """Wide quality-vs-cost-vs-latency matrix: one row per config, string cells.
 
-        Each scorer becomes a column formatted as ``"mean +/- std"``, and a
-        ``latency_ms`` column summarizes ``p50/p90/p95/p99``. Unlike
-        ``comparison_df`` (tidy, one row per config x scorer, numeric), this is
-        meant for at-a-glance printing and side-by-side model comparison.
+        Each scorer becomes a ``"mean +/- std"`` column, plus a ``cost/req``
+        column (mean USD per request) and a ``latency_ms`` column summarizing
+        ``p50/p90/p95/p99``. This is the model-comparison matrix — one row per
+        model, scored on quality, cost, and latency side by side. Unlike
+        ``comparison_df`` (tidy, one row per config x scorer, numeric), it is
+        meant for at-a-glance printing.
 
         Args:
             precision: Decimal places for the scorer mean and standard deviation.
@@ -165,6 +187,7 @@ class SweepResult:
                     row[scorer_name] = (
                         f"{interval.mean:.{precision}f} +/- {interval.std:.{precision}f}"
                     )
+            row["cost/req"] = f"${config.cost.mean_per_request:.4f}" if config.cost else "-"
             lat = config.latency
             row["latency_ms"] = (
                 f"p50={lat.p50:.0f} p90={lat.p90:.0f} p95={lat.p95:.0f} p99={lat.p99:.0f}"
@@ -211,6 +234,8 @@ class SweepResult:
                     f"      {scorer_name}: {interval.mean:.3f} "
                     f"[{interval.ci_low:.3f}, {interval.ci_high:.3f}] ({interval.method})"
                 )
+            if cfg.cost is not None:
+                lines.append(f"      cost/req: ${cfg.cost.mean_per_request:.4f}")
             if cfg.latency is not None:
                 lines.append(
                     f"      latency_ms: p50={cfg.latency.p50:.0f} "

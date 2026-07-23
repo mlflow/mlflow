@@ -24,6 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.base import evaluate
 from mlflow.genai.evaluation.statistics import compute_scorer_interval
 from mlflow.genai.evaluation.sweep_entities import (
+    CostStats,
     LatencyStats,
     ScorerInterval,
     SweepConfigResult,
@@ -229,7 +230,7 @@ def _aggregate_config(config_result: SweepConfigResult) -> None:
         )
         config_result.scorer_intervals[scorer_name] = ScorerInterval.from_interval(interval)
 
-    config_result.latency = _compute_latency(config_result.child_run_ids)
+    config_result.latency, config_result.cost = _compute_trace_stats(config_result.child_run_ids)
 
 
 def _numeric_column_values(series) -> list[float]:
@@ -258,32 +259,51 @@ def _numeric_column_values(series) -> list[float]:
     return values
 
 
-def _compute_latency(child_run_ids: list[str]) -> LatencyStats | None:
-    """Aggregate per-row prediction latency across a config's child runs."""
+def _compute_trace_stats(
+    child_run_ids: list[str],
+) -> tuple[LatencyStats | None, CostStats | None]:
+    """Aggregate per-request latency and cost across a config's child-run traces.
+
+    Each trace is one request. Latency comes from the trace's execution duration
+    and cost from its ``cost`` metadata (USD, from token usage x LiteLLM
+    pricing). Cost is per request, not per token, and is ``None`` when no trace
+    carries cost data (e.g. the provider doesn't report token usage).
+    """
     durations_ms: list[float] = []
+    costs_usd: list[float] = []
     for run_id in child_run_ids:
         try:
             traces = mlflow.search_traces(run_id=run_id, return_type="list", include_spans=False)
         except Exception as e:
-            _logger.debug(f"Failed to fetch traces for latency of run {run_id}: {e}")
+            _logger.debug(f"Failed to fetch traces for run {run_id}: {e}")
             continue
         for trace in traces:
-            duration = trace.info.execution_duration
-            if duration is not None:
+            if (duration := trace.info.execution_duration) is not None:
                 durations_ms.append(float(duration))
+            if (cost := trace.info.cost) and (total := cost.get("total_cost")) is not None:
+                costs_usd.append(float(total))
 
-    if not durations_ms:
-        return None
+    latency = None
+    if durations_ms:
+        durations_ms.sort()
+        latency = LatencyStats(
+            p50=_percentile(durations_ms, 50),
+            p90=_percentile(durations_ms, 90),
+            p95=_percentile(durations_ms, 95),
+            p99=_percentile(durations_ms, 99),
+            mean=sum(durations_ms) / len(durations_ms),
+            n_rows=len(durations_ms),
+        )
 
-    durations_ms.sort()
-    return LatencyStats(
-        p50=_percentile(durations_ms, 50),
-        p90=_percentile(durations_ms, 90),
-        p95=_percentile(durations_ms, 95),
-        p99=_percentile(durations_ms, 99),
-        mean=sum(durations_ms) / len(durations_ms),
-        n_rows=len(durations_ms),
-    )
+    cost = None
+    if costs_usd:
+        cost = CostStats(
+            mean_per_request=sum(costs_usd) / len(costs_usd),
+            total=sum(costs_usd),
+            n_rows=len(costs_usd),
+        )
+
+    return latency, cost
 
 
 def _percentile(sorted_values: list[float], pct: float) -> float:
@@ -302,8 +322,8 @@ def _percentile(sorted_values: list[float], pct: float) -> float:
 def _log_summary_metrics_to_parent(sweep_result: SweepResult) -> None:
     """Flatten per-config summary metrics onto the parent run.
 
-    Logs ``{config}/{scorer}/mean|ci_low|ci_high|std`` plus
-    ``{config}/latency_p50|p90|p95|p99`` so the sweep is visible in the runs UI.
+    Logs ``{config}/{scorer}/mean|ci_low|ci_high|std``, ``{config}/latency_pXX``,
+    and ``{config}/cost_per_request_usd`` so the sweep is visible in the runs UI.
     Config names are sanitized to the characters MLflow allows in metric keys.
     """
     metrics: dict[str, float] = {}
@@ -321,6 +341,8 @@ def _log_summary_metrics_to_parent(sweep_result: SweepResult) -> None:
             metrics[f"{cfg_key}/latency_p90_ms"] = config.latency.p90
             metrics[f"{cfg_key}/latency_p95_ms"] = config.latency.p95
             metrics[f"{cfg_key}/latency_p99_ms"] = config.latency.p99
+        if config.cost is not None:
+            metrics[f"{cfg_key}/cost_per_request_usd"] = config.cost.mean_per_request
 
     if metrics:
         try:

@@ -165,6 +165,51 @@ def test_sweep_comparison_df_shape(server_config):
         assert col in df.columns
 
 
+def test_sweep_captures_cost_per_request(server_config):
+    from mlflow.entities.span import SpanAttributeKey
+    from mlflow.tracing.constant import TokenUsageKey
+
+    def costed_model(question: str) -> str:
+        span = mlflow.get_current_active_span()
+        if span is not None:
+            span.set_attribute(SpanAttributeKey.MODEL, "gpt-4o")
+            span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {
+                    TokenUsageKey.INPUT_TOKENS: 200,
+                    TokenUsageKey.OUTPUT_TOKENS: 100,
+                    TokenUsageKey.TOTAL_TOKENS: 300,
+                },
+            )
+        return "answer"
+
+    result = mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[output_length],
+        predict_fns={"gpt-4o": costed_model},
+        n_repeats=2,
+    )
+    cost = result.configs["gpt-4o"].cost
+    assert cost is not None
+    assert cost.mean_per_request > 0
+    assert cost.n_rows == len(DATA) * 2
+    # Cost surfaces in both result views.
+    assert "$" in result.summary_df().loc["gpt-4o", "cost/req"]
+    assert result.comparison_df["cost_per_request_usd"].notna().all()
+
+
+def test_sweep_cost_none_without_token_usage(server_config):
+    result = mlflow.genai.evaluate_sweep(
+        data=DATA,
+        scorers=[output_length],
+        predict_fns={"good": good_model},
+        n_repeats=1,
+    )
+    # good_model reports no token usage, so cost is unavailable.
+    assert result.configs["good"].cost is None
+    assert result.summary_df().loc["good", "cost/req"] == "-"
+
+
 def test_sweep_summary_df_wide_layout(server_config):
     result = mlflow.genai.evaluate_sweep(
         data=DATA,
@@ -175,8 +220,8 @@ def test_sweep_summary_df_wide_layout(server_config):
     df = result.summary_df()
     # One row per config, indexed by config name.
     assert list(df.index) == ["good", "bad"]
-    # One column per scorer plus a latency column.
-    assert list(df.columns) == ["exact_match", "output_length", "latency_ms"]
+    # One column per scorer plus cost and latency columns.
+    assert list(df.columns) == ["exact_match", "output_length", "cost/req", "latency_ms"]
     # Scorer cells are "mean +/- std" strings.
     assert df.loc["good", "exact_match"].startswith("1.000 +/- ")
     assert df.loc["bad", "exact_match"].startswith("0.000 +/- ")
