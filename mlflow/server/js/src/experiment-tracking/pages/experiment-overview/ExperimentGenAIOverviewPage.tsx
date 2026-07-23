@@ -290,7 +290,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <TracesV3DateSelector excludeOptions={['ALL']} componentId="mlflow.experiment.overview" />
 
           {shouldEnableIssueDetection() && (
-            <div css={{ marginLeft: 'auto' }}>
+            <div css={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <DetectIssuesButton
                 componentId="mlflow.experiment.overview.detect-issues-button"
                 onClick={() => navigate(`${Routes.getExperimentPageTracesTabRoute(experimentId)}?detectIssues=true`)}

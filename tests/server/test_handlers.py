@@ -6525,6 +6525,154 @@ def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
         )
 
 
+def test_invoke_issue_detection_handler_no_api_key_fails_fast(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        # No secret_id and no endpoint_name
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 400
+        json_response = resp.get_json()
+        assert "No API key available for provider 'openai'" in json_response["message"]
+        assert "OPENAI_API_KEY" in json_response["message"]
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "server-env-key")
+
+    mock_job = JobEntity(
+        job_id="job-456",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-456"
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "OpenAI",
+        "model": "gpt-4o",
+        # No secret_id: the job inherits the server's environment key
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["job_id"] == "job-456"
+        mock_submit_job.assert_called_once()
+        assert mock_submit_job.call_args.kwargs["extra_envs"] is None
+        assert mock_submit_job.call_args.kwargs["params"]["model"] == "openai:/gpt-4o"
+
+
+def test_invoke_issue_detection_handler_bedrock_uses_server_env_credentials(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+
+    mock_job = JobEntity(
+        job_id="job-bedrock",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-bedrock"
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "bedrock",
+        "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["job_id"] == "job-bedrock"
+        mock_submit_job.assert_called_once()
+        assert mock_submit_job.call_args.kwargs["extra_envs"] is None
+        assert (
+            mock_submit_job.call_args.kwargs["params"]["model"]
+            == "bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0"
+        )
+
+
+def test_invoke_issue_detection_handler_unknown_provider_fails_fast(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "unknown",
+        "model": "some-model",
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 400
+        assert "Unsupported provider 'unknown'" in resp.get_json()["message"]
+        mock_submit_job.assert_not_called()
+
+
 def _make_genai_evaluate_job(job_id: str = "job-genai-1") -> JobEntity:
     return JobEntity(
         job_id=job_id,

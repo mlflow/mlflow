@@ -5035,21 +5035,45 @@ def _invoke_issue_detection_handler():
     model = request_json.get("model")
     secret_id = request_json.get("secret_id")
     endpoint_name = request_json.get("endpoint_name")
+    provider_name = provider.lower() if provider else provider
 
     if not endpoint_name and not (provider and model):
         raise MlflowException(
             "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
         )
 
+    # Fail fast when no credential source exists, instead of submitting a job doomed to fail
+    if not endpoint_name and not secret_id:
+        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+
+        env_config = _CORE_PROVIDER_ENV_VARS.get(provider_name)
+        if not env_config:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported provider '{provider}'. Choose a supported provider or "
+                "AI Gateway endpoint."
+            )
+        if isinstance(env_config, dict):
+            env_vars = (
+                [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
+            )
+        else:
+            env_vars = [env_config]
+        if not any(os.environ.get(env_var) for env_var in env_vars):
+            env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
+            raise MlflowException.invalid_parameter_value(
+                f"No API key available for provider '{provider}'. Save an API key in "
+                f"AI Gateway, or set {env_var_hint} on the MLflow server."
+            )
+
     # Fetch credentials required for executing the job
     if secret_id:
         store = _get_tracking_store()
-        credentials = _fetch_provider_credentials(store, provider, secret_id)
+        credentials = _fetch_provider_credentials(store, provider_name, secret_id)
     else:
         credentials = None
 
     # Create the run upfront so we can return run_id immediately
-    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider_name}:/{model}"
     tags = {
         MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
         "categories": ",".join(categories),
