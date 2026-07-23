@@ -1090,7 +1090,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             raise MlflowException(
                 (
                     f"The experiment {experiment.experiment_id} must be in the 'active' state. "
-                    f"Current state is {experiment.lifecycle_stage}."
+                    f"Current state is {experiment.lifecycle_stage}. Restore it with "
+                    f"`MlflowClient().restore_experiment('{experiment.experiment_id}')` or use an "
+                    "active experiment."
                 ),
                 INVALID_PARAMETER_VALUE,
             )
