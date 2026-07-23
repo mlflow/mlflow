@@ -19,6 +19,7 @@ import GatewayRoutes from '../../routes';
 import Routes from '../../../experiment-tracking/routes';
 import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
+import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
@@ -583,7 +584,7 @@ export const EditEndpointFormRenderer = ({
       </Tabs.Root>
 
       {hasChanges && activeTab === 'overview' && (
-        <div
+        <AssistantAwareActionBar
           css={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -622,7 +623,7 @@ export const EditEndpointFormRenderer = ({
               <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
             </Button>
           </Tooltip>
-        </div>
+        </AssistantAwareActionBar>
       )}
     </div>
   );

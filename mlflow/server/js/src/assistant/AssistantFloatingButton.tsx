@@ -9,7 +9,7 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistant } from './AssistantContext';
-import { useFloatingObstructionWidth } from './useFloatingObstruction';
+import { useFloatingObstructionHeight, useFloatingObstructionWidth } from './useFloatingObstruction';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 
 // Width the pill expands to on hover; also used to keep it on-screen when shifted left.
@@ -49,6 +49,7 @@ export const AssistantFloatingButton = () => {
   const { theme } = useDesignSystemTheme();
   const { isLocalServer, isPanelOpen, openPanel } = useAssistant();
   const obstructionWidth = useFloatingObstructionWidth();
+  const obstructionHeight = useFloatingObstructionHeight();
   const windowWidth = useWindowWidth();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -85,6 +86,12 @@ export const AssistantFloatingButton = () => {
   // (expandable) button can't sit clear of it, yield entirely rather than float on top —
   // the surface has its own assistant entry (e.g. the trace drawer's header button).
   const rightInset = obstructionWidth > 0 ? obstructionWidth + theme.spacing.md : baseInset;
+  // Rise just above a bottom-pinned surface (e.g. a Cancel/Create action bar) so it never
+  // overlaps the page's primary buttons. Independent of the right shift above: with both a
+  // right drawer and a bottom bar open, the button shifts left AND lifts. No "does it fit"
+  // gate here — an action bar is short enough that lifting is always feasible (unlike a wide
+  // drawer, which can leave no horizontal room and forces the fade-out below).
+  const bottomInset = obstructionHeight > 0 ? obstructionHeight + theme.spacing.md : baseInset;
   const fitsClearOfObstruction = rightInset + FAB_EXPANDED_MAX_WIDTH + theme.spacing.md <= windowWidth;
   // When the surface is too wide for the button to sit clear, fade it out (kept mounted so
   // the transition can play) rather than overlapping the surface.
@@ -172,7 +179,8 @@ export const AssistantFloatingButton = () => {
       data-assistant-ui="true"
       css={{
         position: 'fixed',
-        bottom: baseInset,
+        // Rests on the bottom inset; rises above any bottom-pinned action bar that registers.
+        bottom: bottomInset,
         // Sits just left of any open right-side surface (e.g. a drawer) so it stays
         // visible without overlapping; otherwise rests in the bottom-right corner.
         right: rightInset,
@@ -184,7 +192,10 @@ export const AssistantFloatingButton = () => {
         visibility: hiddenByObstruction ? 'hidden' : 'visible',
         pointerEvents: hiddenByObstruction ? 'none' : 'auto',
         '@media (prefers-reduced-motion: no-preference)': {
-          transition: hiddenByObstruction ? 'opacity 0.15s ease, visibility 0s 0.15s' : 'opacity 0.15s ease',
+          // Animate the lift/shift (bottom/right) alongside the fade so repositioning is smooth.
+          transition: hiddenByObstruction
+            ? 'opacity 0.15s ease, visibility 0s 0.15s, bottom 0.2s ease, right 0.2s ease'
+            : 'opacity 0.15s ease, bottom 0.2s ease, right 0.2s ease',
         },
       }}
     >
