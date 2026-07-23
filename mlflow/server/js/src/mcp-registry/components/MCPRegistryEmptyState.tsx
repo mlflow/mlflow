@@ -21,7 +21,15 @@ export const MCPRegistryEmptyState = ({
   );
 };
 
-export const MCPServersEmptyState = ({ isFiltered, componentId }: { isFiltered?: boolean; componentId: string }) => {
+export const MCPServersEmptyState = ({
+  isFiltered,
+  componentId,
+  onCreateServer,
+}: {
+  isFiltered?: boolean;
+  componentId: string;
+  onCreateServer?: () => void;
+}) => {
   if (isFiltered) {
     return (
       <MCPRegistryEmptyState
@@ -45,7 +53,13 @@ export const MCPServersEmptyState = ({ isFiltered, componentId }: { isFiltered?:
         />
       }
       button={
-        <Button componentId={componentId} type="primary" icon={<PlusIcon />} disabled>
+        <Button
+          componentId={componentId}
+          type="primary"
+          icon={<PlusIcon />}
+          disabled={!onCreateServer}
+          onClick={onCreateServer}
+        >
           <FormattedMessage defaultMessage="Create MCP server" description="MCP servers empty state CTA button" />
         </Button>
       }

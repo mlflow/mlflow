@@ -1,9 +1,10 @@
 import type { TagProps } from '@databricks/design-system';
-import { Button, Drawer, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { Button, CopyIcon, Drawer, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { ServerJSONArgument } from '../types';
 import { sanitizeHref } from '../utils';
+import { copyToClipboard } from '../../common/utils/copyToClipboard';
 import {
   flexColumnGapStyles,
   flexRowStyles,
@@ -36,6 +37,7 @@ export const DetailField = ({
   tagColor,
   componentId,
   link,
+  copyable,
 }: {
   label: string;
   value: string;
@@ -43,8 +45,10 @@ export const DetailField = ({
   tagColor?: TagProps['color'];
   componentId?: string;
   link?: boolean;
+  copyable?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   let content: React.ReactNode;
   if (tagColor) {
@@ -79,6 +83,24 @@ export const DetailField = ({
         {label}:
       </Typography.Text>
       {content}
+      {copyable && (
+        <Tooltip
+          content={intl.formatMessage({ defaultMessage: 'Copy', description: 'Copy button tooltip' })}
+          componentId="mlflow.mcp_registry.detail.field_copy_tooltip"
+        >
+          <Button
+            componentId="mlflow.mcp_registry.detail.field_copy"
+            type="tertiary"
+            size="small"
+            icon={<CopyIcon />}
+            aria-label={intl.formatMessage(
+              { defaultMessage: 'Copy {label}', description: 'Aria label for copy button' },
+              { label },
+            )}
+            onClick={() => copyToClipboard(value)}
+          />
+        </Tooltip>
+      )}
     </div>
   );
 };

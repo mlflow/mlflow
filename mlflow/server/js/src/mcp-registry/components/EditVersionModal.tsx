@@ -10,12 +10,12 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { MCPServer, MCPServerVersion, MCPStatus } from '../types';
-import { STATUS_TRANSITIONS, LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson } from '../utils';
-import { flexColumnGapStyles, blockLabelStyles, monoFontStyles } from '../styles';
+import type { MCPServer, MCPServerVersion } from '../types';
+import { MCPStatus } from '../types';
+import { STATUS_TRANSITIONS, LATEST_ALIAS, RESERVED_ALIASES } from '../utils';
+import { flexColumnGapStyles, blockLabelStyles } from '../styles';
 import { AliasSelect } from '../../common/components/AliasSelect';
 import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
-import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 
 export const EditVersionModal = ({
   visible,
@@ -35,14 +35,11 @@ export const EditVersionModal = ({
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
 
   const initialDisplayName = version.display_name || version.server_json?.title || '';
-  const initialToolsText = version.tools?.length ? JSON.stringify(version.tools, null, 2) : '';
   const existingAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [status, setStatus] = useState<MCPStatus>(version.status);
   const [aliases, setAliases] = useState<string[]>(existingAliases);
-  const [toolsText, setToolsText] = useState(initialToolsText);
-  const [toolsValidationError, setToolsValidationError] = useState<string | null>(null);
 
   const handleSave = () => {
     const payload: Parameters<typeof updateVersionMutation.mutate>[0] = { version: version.version };
@@ -52,20 +49,6 @@ export const EditVersionModal = ({
     }
     if (status !== version.status) {
       payload.status = status;
-    }
-
-    setToolsValidationError(null);
-    if (toolsText !== initialToolsText) {
-      if (toolsText.trim()) {
-        const toolsResult = validateToolsJson(toolsText);
-        if (!toolsResult.valid) {
-          setToolsValidationError(toolsResult.error ?? 'Invalid tools JSON');
-          return;
-        }
-        payload.tools = toolsResult.parsed ?? null;
-      } else {
-        payload.tools = [];
-      }
     }
 
     const addedAliases = aliases.filter((a) => !existingAliases.includes(a));
@@ -81,7 +64,6 @@ export const EditVersionModal = ({
 
   const handleCancel = () => {
     updateVersionMutation.reset();
-    setToolsValidationError(null);
     onClose();
   };
 
@@ -141,7 +123,7 @@ export const EditVersionModal = ({
             value={status}
             onChange={({ target }) => setStatus(target.value as MCPStatus)}
           >
-            {(['draft', 'active', 'deprecated'] as MCPStatus[]).map((s) => (
+            {[MCPStatus.DRAFT, MCPStatus.ACTIVE, MCPStatus.DEPRECATED].map((s) => (
               <SimpleSelectOption
                 key={s}
                 value={s}
@@ -164,34 +146,6 @@ export const EditVersionModal = ({
             setDraftAliases={setAliases}
             version={version.version}
             aliasToVersionMap={Object.fromEntries((server.aliases ?? []).map((a) => [a.alias, a.version]))}
-          />
-        </div>
-        <div>
-          <Typography.Text bold css={blockLabelStyles(theme)}>
-            <FormattedMessage defaultMessage="Tools" description="Version edit tools label" />
-          </Typography.Text>
-          {toolsValidationError && (
-            <Alert
-              componentId="mlflow.mcp_registry.detail.version.tools_validation_error"
-              type="error"
-              closable
-              onClose={() => setToolsValidationError(null)}
-              message={toolsValidationError}
-              css={{ marginBottom: theme.spacing.xs }}
-            />
-          )}
-          <LazyJsonRecordEditor
-            value={toolsText}
-            onChange={(value) => {
-              setToolsText(value);
-              setToolsValidationError(null);
-            }}
-            height="120px"
-            maxHeight="360px"
-            ariaLabel={intl.formatMessage({
-              defaultMessage: 'Tools JSON editor',
-              description: 'Aria label for tools JSON editor in edit version modal',
-            })}
           />
         </div>
       </div>

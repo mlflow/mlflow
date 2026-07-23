@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
+import { MCPStatus, MCPServerAction } from '../types';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -13,6 +14,7 @@ import {
   createMockMCPServer,
   getMockedSearchMCPServersResponse,
   getMockedSearchMCPServersErrorResponse,
+  getMockedCurrentUserResponse,
 } from '../test-utils';
 
 describe('MCPRegistryPage', () => {
@@ -123,7 +125,7 @@ describe('MCPRegistryPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Search MCP servers by name'), 'github');
 
     await waitFor(() => {
-      expect(capturedFilter).toBe("name ILIKE '%github%'");
+      expect(capturedFilter).toBe("name ILIKE '%github%' AND status = 'active' AND has_access_endpoints = 'true'");
     });
   });
 
@@ -150,6 +152,63 @@ describe('MCPRegistryPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Latest version')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Available/All toggle visibility', () => {
+    const activeServer = (overrides: Partial<ReturnType<typeof createMockMCPServer>> = {}) =>
+      createMockMCPServer({
+        name: 'server-1',
+        status: MCPStatus.ACTIVE,
+        access_endpoints: [
+          {
+            id: 1,
+            server_name: 'server-1',
+            url: 'https://example.com',
+            transport_type: 'streamable-http',
+          } as any,
+        ],
+        ...overrides,
+      });
+
+    it('always shows the availability toggle', async () => {
+      server.use(
+        getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })]),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('server-1')).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+    });
+
+    it('shows dimmed servers in All mode regardless of permissions', async () => {
+      const managedServer = activeServer({
+        name: 'my-server',
+        allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
+      });
+      const dimmedReadOnly = createMockMCPServer({
+        name: 'other-server',
+        status: MCPStatus.DRAFT,
+        access_endpoints: [],
+        allowed_actions: [],
+      });
+      server.use(
+        getMockedSearchMCPServersResponse([managedServer, dimmedReadOnly]),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('my-server')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('All'));
+
+      await waitFor(() => {
+        expect(screen.getByText('my-server')).toBeInTheDocument();
+        expect(screen.getByText('other-server')).toBeInTheDocument();
+      });
     });
   });
 });

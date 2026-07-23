@@ -13,6 +13,7 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
+from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.environment_variables import MLFLOW_ENABLE_MCP_TOOL_DISCOVERY
 from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
@@ -518,6 +519,7 @@ def update_mcp_server_version(
     display_name: str | None = NOT_SET,
     status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
     tools: list[MCPTool] | None = NOT_SET,
+    connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
 ) -> MCPServerVersion:
     """
     Update mutable fields of an MCP server version.
@@ -533,6 +535,8 @@ def update_mcp_server_version(
             ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear. Does not
             auto-discover tools from remotes; pass an explicit list (or clear).
+        connect_options: Per-key settings for connect options (e.g. visibility).
+            Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -543,6 +547,7 @@ def update_mcp_server_version(
         display_name=display_name,
         status=_parse_enum(status, MCPStatus, "status"),
         tools=tools,
+        connect_options=connect_options,
     )
 
 

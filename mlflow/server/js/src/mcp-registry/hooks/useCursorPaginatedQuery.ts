@@ -11,6 +11,7 @@ interface PaginatedResponse {
 export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TData>({
   queryKeyPrefix,
   searchFilter,
+  extraQueryKeys,
   storageKey,
   queryFn,
   extractData,
@@ -18,6 +19,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
 }: {
   queryKeyPrefix: string;
   searchFilter?: string;
+  extraQueryKeys?: Record<string, unknown>;
   storageKey: string;
   queryFn: (params: { searchFilter?: string; pageToken?: string; pageSize: number }) => Promise<TResponse>;
   extractData: (response: TResponse) => TData | undefined;
@@ -32,10 +34,11 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     initialValue: DEFAULT_PAGE_SIZE,
   });
 
+  const extraQueryKeysStable = JSON.stringify(extraQueryKeys);
   useEffect(() => {
     setCurrentPageToken(undefined);
     previousPageTokens.current = [];
-  }, [searchFilter]);
+  }, [searchFilter, extraQueryKeysStable]);
 
   const pageSizeSelect = useMemo<CursorPaginationProps['pageSizeSelect']>(
     () => ({
@@ -51,7 +54,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
   );
 
   const queryResult = useQuery<TResponse, Error>(
-    [queryKeyPrefix, { searchFilter, pageToken: currentPageToken, pageSize }],
+    [queryKeyPrefix, { searchFilter, pageToken: currentPageToken, pageSize, ...extraQueryKeys }],
     {
       queryFn: () => queryFn({ searchFilter, pageToken: currentPageToken, pageSize }),
       retry: false,
@@ -74,6 +77,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
 
   return {
     data: queryResult.data ? extractData(queryResult.data) : undefined,
+    rawResponse: queryResult.data,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     hasNextPage: Boolean(queryResult.data?.next_page_token),

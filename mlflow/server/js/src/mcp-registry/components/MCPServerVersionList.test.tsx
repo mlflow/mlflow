@@ -1,4 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { MCPStatus } from '../types';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -41,8 +42,8 @@ describe('MCPServerVersionList', () => {
 
   it('renders status tags', () => {
     const versions = [
-      createMockMCPServerVersion({ version: '1.0.0', status: 'active' }),
-      createMockMCPServerVersion({ version: '0.9.0', status: 'draft' }),
+      createMockMCPServerVersion({ version: '1.0.0', status: MCPStatus.ACTIVE }),
+      createMockMCPServerVersion({ version: '0.9.0', status: MCPStatus.DRAFT }),
     ];
     renderVersionList({ versions });
     expect(screen.getByText('active')).toBeInTheDocument();

@@ -350,6 +350,15 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
 )
+from mlflow.server.mcp_server_api import (
+    get_mcp_server as _get_mcp_server_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_all_access_endpoints as _search_all_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_mcp_servers as _search_mcp_servers_endpoint,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     _get_workspace_store,
@@ -1075,6 +1084,19 @@ def _get_mcp_server_permission(name: str, username: str) -> Permission:
             workspace_label="mcp server",
         ),
     )
+
+
+def _permission_to_allowed_actions(perm: Permission) -> list[str]:
+    actions = []
+    if perm.can_use:
+        actions.append("USE")
+    if perm.can_update:
+        actions.append("UPDATE")
+    if perm.can_delete:
+        actions.append("DELETE")
+    if perm.can_manage:
+        actions.append("MANAGE")
+    return actions
 
 
 def validate_can_read_experiment():
@@ -4682,8 +4704,18 @@ def _backfill_readable_mcp_results(
 
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [s for s in data.get("mcp_servers", []) if can_read(s["name"])]
+    perm_cache: dict[str, Permission] = {}
+
+    def _perm(name: str) -> Permission:
+        if name not in perm_cache:
+            perm_cache[name] = _get_mcp_server_permission(name, username)
+        return perm_cache[name]
+
+    def _stamp(s: dict[str, Any]) -> dict[str, Any]:
+        s["allowed_actions"] = _permission_to_allowed_actions(_perm(s["name"]))
+        return s
+
+    readable = [_stamp(s) for s in data.get("mcp_servers", []) if _perm(s["name"]).can_read]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -4691,7 +4723,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     order_by = params.getlist("order_by") or None
 
     data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=can_read,
+        can_read=lambda name: _perm(name).can_read,
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
@@ -4702,7 +4734,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
             page_token=token,
         ),
         get_name=lambda s: s.name,
-        to_dict=lambda s: MCPServerResponse.from_entity(s).model_dump(mode="json"),
+        to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
     )
     data["mcp_servers"] = readable[:max_results]
     return json.dumps(data).encode()
@@ -4832,28 +4864,33 @@ def _find_fastapi_after_request_handler(
     )
 
 
-FASTAPI_RESPONSE_FILTERS: dict[
-    tuple[str, str],
+def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    if name := data.get("name"):
+        perm = _get_mcp_server_permission(name, username)
+        data["allowed_actions"] = _permission_to_allowed_actions(perm)
+    return json.dumps(data).encode()
+
+
+FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
+    Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
-    (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
-} | {
-    (f"{prefix}/endpoints", "GET"): _filter_search_mcp_endpoints
-    for prefix in get_mcp_server_api_route_prefixes()
+    _search_mcp_servers_endpoint: _filter_search_mcp_servers,
+    _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _get_mcp_server_endpoint: _filter_get_mcp_server,
 }
 
 
 def _find_fastapi_response_filter(
-    path: str, method: str
+    request: StarletteRequest, method: str
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    return next(
-        (
-            handler
-            for (route, m), handler in FASTAPI_RESPONSE_FILTERS.items()
-            if m == method and path.rstrip("/") == route.rstrip("/")
-        ),
-        None,
-    )
+    if method != "GET":
+        return None
+    endpoint = request.scope.get("endpoint")
+    if endpoint is None:
+        return None
+    return FASTAPI_ENDPOINT_RESPONSE_FILTERS.get(endpoint)
 
 
 def _apply_fastapi_response_filter(
@@ -5017,7 +5054,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
         # Response filters are RBAC-based; admins retain unfiltered full access.
         if not user.is_admin:
-            response_filter = _find_fastapi_response_filter(path, request.method)
+            response_filter = _find_fastapi_response_filter(request, request.method)
             if response_filter is not None and response.status_code < 400:
                 body = bytearray()
                 async for chunk in response.body_iterator:

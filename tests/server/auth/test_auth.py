@@ -48,6 +48,13 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
+from mlflow.server.mcp_server_api import (
+    get_mcp_server,
+    get_mcp_server_version,
+    search_all_access_endpoints,
+    search_mcp_server_versions,
+    search_mcp_servers,
+)
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -4990,18 +4997,34 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 
 @pytest.mark.parametrize(
-    "path",
-    [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
-    + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+    "endpoint_fn",
+    [search_mcp_servers, search_all_access_endpoints],
 )
-def test_response_filter_matches_trailing_slash(path):
-    assert _find_fastapi_response_filter(path, "GET") is not None
+def test_response_filter_matches_endpoint_functions(endpoint_fn):
+    request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+    assert _find_fastapi_response_filter(request, "GET") is not None
 
 
-@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/endpoints/123"])
-def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
-    assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
+def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
+    request = SimpleNamespace(scope={"endpoint": get_mcp_server})
+    handler = _find_fastapi_response_filter(request, "GET")
+    assert handler is not None
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_permission",
+        lambda name, username: READ,
+    )
+    request = SimpleNamespace()
+    body = json.dumps({"name": "com.test/server"}).encode()
+    result = json.loads(handler("testuser", body, request))
+    assert result["name"] == "com.test/server"
+    assert result["allowed_actions"] == []
+
+
+def test_response_filter_skips_sub_resource_endpoints():
+    for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
+        request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+        assert _find_fastapi_response_filter(request, "GET") is None
 
 
 def test_apply_fastapi_response_filter_fails_closed():
@@ -5145,6 +5168,67 @@ def test_mcp_server_nested_delete_requires_can_delete(fastapi_client, monkeypatc
             auth=(editor, editor_pw),
         )
         assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_patch_connect_options_allowed_for_edit(fastapi_client, monkeypatch, prefix):
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/connect-opts"
+
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        editor,
+        "mcp_server",
+        server_name,
+        "EDIT",
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        reader,
+        "mcp_server",
+        server_name,
+        "READ",
+    )
+
+    # EDIT user can PATCH connect_options
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:foo": {"hidden": True}}},
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 200
+
+    # READ user cannot PATCH connect_options
+    with User(reader, reader_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:bar": {"hidden": True}}},
+            auth=(reader, reader_pw),
+        )
+        assert resp.status_code == 403
+
+    with User(owner, owner_pw, monkeypatch):
+        resp = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["connect_options"] == {"npm:foo": {"hidden": True}}
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -5460,6 +5544,18 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
             json={"name": name},
             auth=admin_auth,
         ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
 
     for name in readable_names:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
@@ -5474,7 +5570,8 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
     assert readable_names[0] in admin_names
     assert hidden_name in admin_names
 
-    # Reader sees only servers with an explicit READ grant.
+    # Reader sees only servers with an explicit READ grant (all are available
+    # because they have active versions with endpoints).
     with User(reader, reader_pw, monkeypatch):
         resp = requests.get(
             url=fastapi_client.tracking_uri + prefix,
@@ -5553,6 +5650,18 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
         requests.post(
             url=fastapi_client.tracking_uri + prefix,
             json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
             auth=admin_auth,
         ).raise_for_status()
 

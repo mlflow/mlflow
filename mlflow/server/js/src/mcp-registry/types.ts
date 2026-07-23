@@ -1,4 +1,9 @@
-export type MCPStatus = 'draft' | 'active' | 'deprecated' | 'deleted';
+export enum MCPStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  DEPRECATED = 'deprecated',
+  DELETED = 'deleted',
+}
 
 export enum TransportType {
   STDIO = 'stdio',
@@ -6,14 +11,43 @@ export enum TransportType {
   SSE = 'sse',
 }
 
+export type MCPRemoteTransportType = TransportType.STREAMABLE_HTTP | TransportType.SSE;
+
+export interface ConnectOptionSettings {
+  hidden?: boolean;
+}
+
+export type PackageConnectOptionKey = `pkg:${string}:${string}`;
+export type RemoteConnectOptionKey = `remote:${string}:${string}`;
+export type ConnectOptionKey = PackageConnectOptionKey | RemoteConnectOptionKey;
+export type ConnectOptionsMap = Record<ConnectOptionKey, ConnectOptionSettings>;
+
+export enum MCPServerDetailViewMode {
+  PREVIEW = 'preview',
+  COMPARE = 'compare',
+}
+
+export interface MCPServerDetailViewState {
+  mode: MCPServerDetailViewMode;
+  comparedVersion?: string;
+}
+
 export enum ConnectionSource {
   PACKAGE = 'package',
   REMOTE = 'remote',
+  ENDPOINT = 'endpoint',
 }
 
 export enum ConnectionFormat {
   CLAUDE_CODE = 'claude-code',
   MCP_JSON = 'mcp-json',
+}
+
+export enum MCPServerAction {
+  USE = 'USE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  MANAGE = 'MANAGE',
 }
 
 // Entity types
@@ -47,6 +81,7 @@ export interface MCPServer {
   description?: string;
   icons?: MCPIcon[];
   status?: MCPStatus;
+  access_endpoints?: MCPAccessEndpoint[];
   latest_version?: string;
   aliases: MCPServerAlias[];
   tags: Record<string, string>;
@@ -54,6 +89,7 @@ export interface MCPServer {
   last_updated_by?: string;
   creation_timestamp?: number;
   last_updated_timestamp?: number;
+  allowed_actions?: MCPServerAction[];
 }
 
 export interface MCPServerVersion {
@@ -65,8 +101,23 @@ export interface MCPServerVersion {
   tools?: MCPTool[];
   aliases: string[];
   tags: Record<string, string>;
-  connect_options?: Record<string, { hidden?: boolean }> | null;
+  connect_options?: ConnectOptionsMap | null;
   source?: string;
+  created_by?: string;
+  last_updated_by?: string;
+  creation_timestamp?: number;
+  last_updated_timestamp?: number;
+}
+
+export interface MCPAccessEndpoint {
+  id: string;
+  server_name: string;
+  url: string;
+  transport_type: MCPRemoteTransportType;
+  tools?: MCPTool[];
+  server_version?: string;
+  server_alias?: string;
+  resolved_version?: MCPServerVersion;
   created_by?: string;
   last_updated_by?: string;
   creation_timestamp?: number;
@@ -165,13 +216,28 @@ export interface CreateMCPServerVersionRequest {
   status?: MCPStatus;
   source?: string;
   tools?: MCPTool[];
+  connect_options?: ConnectOptionsMap;
 }
 
 export interface UpdateMCPServerVersionRequest {
   display_name?: string | null;
   status?: MCPStatus | null;
   tools?: MCPTool[] | null;
-  connect_options?: Record<string, { hidden?: boolean }> | null;
+  connect_options?: ConnectOptionsMap | null;
+}
+
+export interface CreateMCPAccessEndpointRequest {
+  server_version?: string;
+  server_alias?: string;
+  url: string;
+  transport_type?: MCPRemoteTransportType;
+}
+
+export interface UpdateMCPAccessEndpointRequest {
+  server_version?: string | null;
+  server_alias?: string | null;
+  url?: string | null;
+  transport_type?: MCPRemoteTransportType | null;
 }
 
 export interface SetMCPServerTagRequest {
@@ -200,6 +266,15 @@ export interface SearchMCPServerVersionsParams {
   page_token?: string;
 }
 
+export interface SearchMCPAccessEndpointsParams {
+  server_version?: string;
+  server_alias?: string;
+  filter_string?: string;
+  max_results?: number;
+  order_by?: string[];
+  page_token?: string;
+}
+
 // Response types
 
 export interface SearchMCPServersResponse {
@@ -209,5 +284,10 @@ export interface SearchMCPServersResponse {
 
 export interface SearchMCPServerVersionsResponse {
   mcp_server_versions: MCPServerVersion[];
+  next_page_token?: string;
+}
+
+export interface SearchMCPAccessEndpointsResponse {
+  mcp_access_endpoints: MCPAccessEndpoint[];
   next_page_token?: string;
 }

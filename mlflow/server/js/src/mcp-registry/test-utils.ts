@@ -1,6 +1,7 @@
 import { rest } from 'msw';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import type { MCPServer, MCPServerVersion } from './types';
+import type { MCPAccessEndpoint, MCPServer, MCPServerVersion } from './types';
+import { MCPStatus, TransportType } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
 
@@ -20,7 +21,7 @@ export const createMockMCPServerVersion = (overrides: Partial<MCPServerVersion> 
     title: 'Test Server',
     description: 'A test MCP server',
   },
-  status: 'active',
+  status: MCPStatus.ACTIVE,
   aliases: [],
   tags: {},
   creation_timestamp: 1717520552000,
@@ -86,3 +87,47 @@ export const getMockedCurrentUserResponse = ({ isAdmin = false }: { isAdmin?: bo
   rest.get(getAjaxUrl('ajax-api/2.0/mlflow/users/current'), (_req, res, ctx) =>
     res(ctx.json({ user: { username: 'testuser', is_admin: isAdmin } })),
   );
+
+// Access endpoint mocks
+
+export const createMockAccessEndpoint = (overrides: Partial<MCPAccessEndpoint> = {}): MCPAccessEndpoint => ({
+  id: 'ae-mock-1',
+  server_name: 'io.github.test/server',
+  url: 'https://example.com/mcp',
+  transport_type: TransportType.STREAMABLE_HTTP,
+  ...overrides,
+});
+
+export const getMockedSearchAccessEndpointsResponse = (endpoints: MCPAccessEndpoint[] = []) =>
+  rest.get(getAjaxUrl(`${BASE_URL}/:name/endpoints`), (_req, res, ctx) =>
+    res(ctx.json({ mcp_access_endpoints: endpoints, next_page_token: undefined })),
+  );
+
+export const getMockedCreateAccessEndpointResponse = (endpoint?: MCPAccessEndpoint) =>
+  rest.post(getAjaxUrl(`${BASE_URL}/:name/endpoints`), (_req, res, ctx) =>
+    res(ctx.json(endpoint ?? createMockAccessEndpoint())),
+  );
+
+export const getMockedUpdateAccessEndpointResponse = (endpoint?: MCPAccessEndpoint) =>
+  rest.patch(getAjaxUrl(`${BASE_URL}/:name/endpoints/:endpointId`), (_req, res, ctx) =>
+    res(ctx.json(endpoint ?? createMockAccessEndpoint())),
+  );
+
+export const getMockedDeleteAccessEndpointResponse = () =>
+  rest.delete(getAjaxUrl(`${BASE_URL}/:name/endpoints/:endpointId`), (_req, res, ctx) => res(ctx.json({})));
+
+export const getMockedAccessEndpointErrorResponse = (
+  method: 'post' | 'patch' = 'post',
+  status = 400,
+  message = 'Bad request',
+) => {
+  const handler =
+    method === 'post'
+      ? rest.post(getAjaxUrl(`${BASE_URL}/:name/endpoints`), (_req, res, ctx) =>
+          res(ctx.status(status), ctx.json({ message })),
+        )
+      : rest.patch(getAjaxUrl(`${BASE_URL}/:name/endpoints/:endpointId`), (_req, res, ctx) =>
+          res(ctx.status(status), ctx.json({ message })),
+        );
+  return handler;
+};

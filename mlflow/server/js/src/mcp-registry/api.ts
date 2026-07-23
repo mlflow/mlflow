@@ -2,16 +2,21 @@ import { fetchAPI, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
 import type {
   MCPServer,
   MCPServerVersion,
+  MCPAccessEndpoint,
   CreateMCPServerRequest,
   UpdateMCPServerRequest,
   CreateMCPServerVersionRequest,
   UpdateMCPServerVersionRequest,
+  CreateMCPAccessEndpointRequest,
+  UpdateMCPAccessEndpointRequest,
   SetMCPServerTagRequest,
   SetMCPServerAliasRequest,
   SearchMCPServersParams,
   SearchMCPServerVersionsParams,
+  SearchMCPAccessEndpointsParams,
   SearchMCPServersResponse,
   SearchMCPServerVersionsResponse,
+  SearchMCPAccessEndpointsResponse,
 } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
@@ -120,6 +125,49 @@ export const MCPRegistryApi = {
 
   getLatestMCPServerVersion: (name: string): Promise<MCPServerVersion> => {
     return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/aliases/latest`)) as Promise<MCPServerVersion>;
+  },
+
+  // MCP Access Endpoint endpoints
+
+  createMCPAccessEndpoint: (name: string, request: CreateMCPAccessEndpointRequest): Promise<MCPAccessEndpoint> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints`), {
+      method: HTTPMethods.POST,
+      body: request,
+    }) as Promise<MCPAccessEndpoint>;
+  },
+
+  searchMCPAccessEndpoints: (
+    name: string,
+    params: SearchMCPAccessEndpointsParams = {},
+  ): Promise<SearchMCPAccessEndpointsResponse> => {
+    const query = buildSearchParams({
+      server_version: params.server_version,
+      server_alias: params.server_alias,
+      filter_string: params.filter_string,
+      max_results: params.max_results,
+      order_by: params.order_by,
+      page_token: params.page_token,
+    });
+    return fetchAPI(
+      getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints${query}`),
+    ) as Promise<SearchMCPAccessEndpointsResponse>;
+  },
+
+  updateMCPAccessEndpoint: (
+    name: string,
+    endpointId: string,
+    request: UpdateMCPAccessEndpointRequest,
+  ): Promise<MCPAccessEndpoint> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${encodeURIComponent(endpointId)}`), {
+      method: HTTPMethods.PATCH,
+      body: request,
+    }) as Promise<MCPAccessEndpoint>;
+  },
+
+  deleteMCPAccessEndpoint: (name: string, endpointId: string): Promise<void> => {
+    return fetchAPI(getAjaxUrl(`${BASE_URL}/${encodeURIComponent(name)}/endpoints/${encodeURIComponent(endpointId)}`), {
+      method: HTTPMethods.DELETE,
+    }) as Promise<void>;
   },
 
   // MCP Server Tag endpoints

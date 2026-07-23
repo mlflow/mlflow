@@ -71,6 +71,10 @@
     "defaultMessage": "Python",
     "description": "Tab label for the runnable Python code-snippet path in the eval-runs empty state"
   },
+  "+GpIle": {
+    "defaultMessage": "Endpoint URL",
+    "description": "Endpoint drawer endpoint label"
+  },
   "+HgSTK": {
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
@@ -199,6 +203,10 @@
     "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
     "description": "An error message explaining that an error occurred while fetching trace data"
   },
+  "+pqOTO": {
+    "defaultMessage": "Streamable HTTP",
+    "description": "MCP registry streamable HTTP transport option"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -302,6 +310,10 @@
   "/JTye7": {
     "defaultMessage": "JSON schema",
     "description": "Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
+  },
+  "/JgjeO": {
+    "defaultMessage": "Empty",
+    "description": "Fallback for empty content in compare view"
   },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
@@ -763,6 +775,10 @@
     "defaultMessage": "Demo data",
     "description": "Demo data settings title"
   },
+  "1SDubG": {
+    "defaultMessage": "Access endpoint",
+    "description": "Quick connect modal access endpoint label"
+  },
   "1T2RpQ": {
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
@@ -1159,6 +1175,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text in the run evaluation modal"
   },
+  "3GjJJV": {
+    "defaultMessage": "Hidden from Connect tab. Click to show.",
+    "description": "Tooltip for hidden connect option toggle"
+  },
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
@@ -1547,10 +1567,6 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
-  "5F/eep": {
-    "defaultMessage": "Tools",
-    "description": "Version edit tools label"
-  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -1562,6 +1578,10 @@
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
+  },
+  "5LxBxh": {
+    "defaultMessage": "Show {count} more",
+    "description": "Show more tools button"
   },
   "5Mzdx4": {
     "defaultMessage": "{count, plural, one {# resource} other {# resources}}",
@@ -1710,6 +1730,10 @@
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
+  },
+  "68Lr/+": {
+    "defaultMessage": "Save",
+    "description": "MCP registry edit access endpoint modal save button"
   },
   "6AUuoS": {
     "defaultMessage": "Run judge on {isTraces, select, true {traces} other {sessions}}",
@@ -2027,6 +2051,10 @@
     "defaultMessage": "Edit webhook",
     "description": "Edit webhook modal title"
   },
+  "7ZHG+d": {
+    "defaultMessage": "Identical:",
+    "description": "MCP compare identical sections heading"
+  },
   "7ZcrHA": {
     "defaultMessage": "Source",
     "description": "Metadata label for the dataset record source (origin: trace, document, or human)"
@@ -2090,6 +2118,10 @@
   "7rO5IT": {
     "defaultMessage": "Select reviewers",
     "description": "Review queue: reviewers dropdown placeholder"
+  },
+  "7rcrX6": {
+    "defaultMessage": "Description",
+    "description": "MCP compare description heading"
   },
   "7ritzC": {
     "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
@@ -2250,6 +2282,10 @@
   "8biXJJ": {
     "defaultMessage": "Select output type",
     "description": "Placeholder for output type selection"
+  },
+  "8c3ulP": {
+    "defaultMessage": "Created by:",
+    "description": "MCP compare metadata created by label"
   },
   "8eVxXM": {
     "defaultMessage": "Cancel",
@@ -2999,10 +3035,6 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
-  "BfmA8L": {
-    "defaultMessage": "Shown in Connect tab. Click to hide.",
-    "description": "Tooltip for visible package toggle"
-  },
   "Bg/LgH": {
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
@@ -3147,10 +3179,6 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
-  "CHdcpF": {
-    "defaultMessage": "Show {count} more",
-    "description": "MCP server version detail show more packages button"
-  },
   "CIIUsc": {
     "defaultMessage": "SHA-256",
     "description": "Package file hash label"
@@ -3159,13 +3187,13 @@
     "defaultMessage": "Allow",
     "description": "Button to allow a tool-call permission request"
   },
+  "CIv6H7": {
+    "defaultMessage": "Local packages",
+    "description": "MCP compare packages heading"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
-  },
-  "CLOwLw": {
-    "defaultMessage": "Raw tools JSON",
-    "description": "Aria label for raw tools JSON viewer"
   },
   "CO81il": {
     "defaultMessage": "No usage data available",
@@ -3206,10 +3234,6 @@
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
-  },
-  "CXtsWk": {
-    "defaultMessage": "Raw server.json",
-    "description": "Aria label for raw server.json viewer"
   },
   "CZW5JY": {
     "defaultMessage": "Messages",
@@ -3330,6 +3354,10 @@
   "D6gLbL": {
     "defaultMessage": "Enter workspace description",
     "description": "Placeholder for workspace description input"
+  },
+  "D6jxyH": {
+    "defaultMessage": "Access endpoints",
+    "description": "MCP compare endpoints heading"
   },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
@@ -3459,6 +3487,10 @@
     "defaultMessage": "Download attachment ({contentType})",
     "description": "Download link for trace attachment with unknown content type"
   },
+  "DsitAi": {
+    "defaultMessage": "About access endpoints",
+    "description": "Aria label for access endpoints subsection help popover"
+  },
   "DutAb5": {
     "defaultMessage": "Search to find more queues",
     "description": "Add to review queue: hint that more custom queues are searchable"
@@ -3471,6 +3503,10 @@
     "defaultMessage": "Preview",
     "description": "Title of the preview section in the playground prompt-registry picker modal"
   },
+  "DxzCEr": {
+    "defaultMessage": "Show less",
+    "description": "Show less packages button"
+  },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
@@ -3482,6 +3518,10 @@
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
+  },
+  "E/HEEL": {
+    "defaultMessage": "Title",
+    "description": "MCP compare title heading"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3755,6 +3795,10 @@
     "defaultMessage": "Used by {custom} and {user}:",
     "description": "Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
   },
+  "FRNRtM": {
+    "defaultMessage": "{action} endpoint {url}",
+    "description": "Aria label for expanding/collapsing an access endpoint row"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3827,6 +3871,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
   },
+  "FijsAB": {
+    "defaultMessage": "Endpoint URL:",
+    "description": "MCP registry endpoint modal endpoint label"
+  },
   "Fk4w6k": {
     "defaultMessage": "Status",
     "description": "Review queue table: status column"
@@ -3882,6 +3930,10 @@
   "G2zMpZ": {
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > API keys list > Delete button with count"
+  },
+  "G3W8le": {
+    "defaultMessage": "No access endpoints configured for this server.",
+    "description": "Empty state message for access endpoints subsection"
   },
   "G4CVdi": {
     "defaultMessage": "Persona",
@@ -3951,6 +4003,10 @@
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
   },
+  "GL5NCx": {
+    "defaultMessage": "Target:",
+    "description": "Endpoint expanded target label"
+  },
   "GPOTWh": {
     "defaultMessage": "Tools",
     "description": "MCP server version detail tools tab"
@@ -3986,10 +4042,6 @@
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
-  },
-  "GeC7uZ": {
-    "defaultMessage": "Show less",
-    "description": "MCP server version detail show less tools button"
   },
   "GfFwBD": {
     "defaultMessage": "Declined",
@@ -4074,6 +4126,10 @@
   "H9MulE": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
+  },
+  "HCAsed": {
+    "defaultMessage": "Aliases:",
+    "description": "MCP compare metadata aliases label"
   },
   "HF6L/f": {
     "defaultMessage": "Monitor quality metrics from scorers",
@@ -4275,9 +4331,9 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
-  "HzNUhS": {
-    "defaultMessage": "Hidden from Connect tab. Click to show.",
-    "description": "Tooltip for hidden package toggle"
+  "I0VCTr": {
+    "defaultMessage": "Created:",
+    "description": "MCP compare metadata created label"
   },
   "I1mNex": {
     "defaultMessage": "Select the events that will trigger this webhook.",
@@ -4346,10 +4402,6 @@
   "IJgSCU": {
     "defaultMessage": "No saved views yet",
     "description": "Empty state shown in the saved views dropdown when no views exist"
-  },
-  "IJzPMh": {
-    "defaultMessage": "Disabled",
-    "description": "Label for disabled package"
   },
   "IKx3DN": {
     "defaultMessage": "Predict on a Pandas DataFrame.",
@@ -4451,6 +4503,10 @@
     "defaultMessage": "Name is required",
     "description": "Validation error when no prompt name is provided in the playground save-prompt-version modal"
   },
+  "IqAVzN": {
+    "defaultMessage": "Aliases",
+    "description": "MCP registry endpoint modal aliases group label"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -4462,6 +4518,10 @@
   "Isig6r": {
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
+  },
+  "Itto3x": {
+    "defaultMessage": "Transport",
+    "description": "Endpoint drawer transport label"
   },
   "J+Mfua": {
     "defaultMessage": "Delete",
@@ -4619,6 +4679,10 @@
     "defaultMessage": "Sample rate:",
     "description": "Sample rate label for scorer"
   },
+  "JfLrpE": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the MCP servers table"
+  },
   "Jfryx4": {
     "defaultMessage": "Top K",
     "description": "Label for the top-k input on the playground parameters panel"
@@ -4678,6 +4742,10 @@
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
+  },
+  "Jzwn+C": {
+    "defaultMessage": "MCP Server:",
+    "description": "MCP registry endpoint modal server label"
   },
   "K1JLVU": {
     "defaultMessage": "Latency",
@@ -4763,6 +4831,10 @@
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
   },
+  "KM8a8Y": {
+    "defaultMessage": "Source",
+    "description": "MCP compare source heading"
+  },
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
@@ -4770,6 +4842,10 @@
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
+  },
+  "KQMhjY": {
+    "defaultMessage": "Status:",
+    "description": "MCP compare metadata status label"
   },
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
@@ -4895,6 +4971,10 @@
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
   },
+  "L/5r8Q": {
+    "defaultMessage": "Server status is not active",
+    "description": "Tooltip for inactive status label on MCP server detail page"
+  },
   "L/U++H": {
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
@@ -4990,6 +5070,10 @@
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
+  },
+  "LYaZPq": {
+    "defaultMessage": "Switch sides",
+    "description": "Label for button to switch MCP server versions in comparison view"
   },
   "La+f9S": {
     "defaultMessage": "Budgets",
@@ -5263,6 +5347,10 @@
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
   },
+  "MnvmIg": {
+    "defaultMessage": "Created by",
+    "description": "Endpoint drawer created by label"
+  },
   "Mob8jy": {
     "defaultMessage": "Please input a new name for the experiment.",
     "description": "experiment page > edit experiment modal > empty experiment name validation error"
@@ -5310,6 +5398,10 @@
   "N1cbSU": {
     "defaultMessage": "Clear all demo data generated from the home page. This removes demo experiments, traces, evaluations, and prompts.",
     "description": "Demo data settings description"
+  },
+  "N1jKLL": {
+    "defaultMessage": "Access endpoints",
+    "description": "MCP server access endpoints subsection heading"
   },
   "N2F0dw": {
     "defaultMessage": "Delete dataset",
@@ -5430,6 +5522,14 @@
   "NX60WQ": {
     "defaultMessage": "Override saved view",
     "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
+  },
+  "NYkOOk": {
+    "defaultMessage": "Official endpoints",
+    "description": "MCP compare remotes heading"
+  },
+  "NbxAJs": {
+    "defaultMessage": "Metadata:",
+    "description": "MCP compare metadata tags label"
   },
   "NekUba": {
     "defaultMessage": "Add to dataset",
@@ -5570,6 +5670,10 @@
   "OCZ6Y6": {
     "defaultMessage": "Git branch",
     "description": "Column label for the git branch the trace was produced on"
+  },
+  "OCeqU8": {
+    "defaultMessage": "Add endpoint",
+    "description": "Button to add an access endpoint"
   },
   "OCpkAU": {
     "defaultMessage": "The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) to persist credentials securely. Start the MLflow server with a database URI:",
@@ -5723,6 +5827,10 @@
     "defaultMessage": "Add Tag",
     "description": "Modal title for adding a new tag"
   },
+  "OwYY8W": {
+    "defaultMessage": "Create",
+    "description": "MCP registry create access endpoint modal create button"
+  },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
@@ -5831,6 +5939,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PQy6iN": {
+    "defaultMessage": "Comparing version {baseline} with version {compared}",
+    "description": "MCP server version compare heading"
+  },
   "PRCcZe": {
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select traces modal showing number of selected traces"
@@ -5878,6 +5990,10 @@
   "Pe0JMj": {
     "defaultMessage": "Failed to update password",
     "description": "Generic error when password update fails for an unknown reason"
+  },
+  "PeKnIA": {
+    "defaultMessage": "Copy",
+    "description": "Copy button tooltip"
   },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
@@ -5946,6 +6062,10 @@
   "Q/evEc": {
     "defaultMessage": "Parameters ({length})",
     "description": "Run page > Overview > Parameters table > Section title"
+  },
+  "Q0/ro0": {
+    "defaultMessage": "Last updated",
+    "description": "Endpoint drawer last updated label"
   },
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
@@ -6046,6 +6166,10 @@
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QWJklp": {
+    "defaultMessage": "Connect to {name}",
+    "description": "Quick connect modal title"
   },
   "QWcxD+": {
     "defaultMessage": "State",
@@ -6231,6 +6355,10 @@
     "defaultMessage": "Did the conversation avoid causing user frustration?",
     "description": "Hint for UserFrustration template"
   },
+  "RSPGtl": {
+    "defaultMessage": "@latest",
+    "description": "MCP registry latest alias option"
+  },
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
@@ -6298,10 +6426,6 @@
   "RmmAwm": {
     "defaultMessage": "Top P",
     "description": "Label for top P input"
-  },
-  "RmqCEi": {
-    "defaultMessage": "Disabled",
-    "description": "Label for disabled remote endpoint"
   },
   "RoO7UF": {
     "defaultMessage": "Create",
@@ -6511,9 +6635,17 @@
     "defaultMessage": "No maximum",
     "description": "Numeric question: max-value input placeholder when unbounded"
   },
+  "Sg3+L8": {
+    "defaultMessage": "Versions",
+    "description": "MCP registry endpoint modal versions group label"
+  },
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
+  },
+  "SiXVvS": {
+    "defaultMessage": "Updated:",
+    "description": "MCP compare metadata updated label"
   },
   "SihD1a": {
     "defaultMessage": "LLM judge feedback",
@@ -6755,6 +6887,10 @@
     "defaultMessage": "Dataset actions",
     "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
   },
+  "Tst9MQ": {
+    "defaultMessage": "Add access endpoint",
+    "description": "MCP server add access endpoint modal title"
+  },
   "Tt6bVH": {
     "defaultMessage": "View issues",
     "description": "Link to the detected issues from the completion notification"
@@ -6807,9 +6943,9 @@
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
   },
-  "UAZsdW": {
-    "defaultMessage": "Tools JSON editor",
-    "description": "Aria label for tools JSON editor in edit version modal"
+  "UBDg9j": {
+    "defaultMessage": "Version target:",
+    "description": "Endpoint drawer version target label"
   },
   "UCQwvo": {
     "defaultMessage": "Registered prompts",
@@ -6842,6 +6978,10 @@
   "UP/Atk": {
     "defaultMessage": "Preview how the questions will appear for the human reviewer.",
     "description": "Queue settings: question preview section hint"
+  },
+  "UQI3dY": {
+    "defaultMessage": "All",
+    "description": "Filter to show all servers"
   },
   "UQhorr": {
     "defaultMessage": "Edit",
@@ -6931,6 +7071,10 @@
     "defaultMessage": "Created: {date}",
     "description": "Issue creation date label"
   },
+  "UnRN5H": {
+    "defaultMessage": "Create access endpoint",
+    "description": "MCP registry create access endpoint modal title"
+  },
   "Uod74j": {
     "defaultMessage": "Unassign",
     "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
@@ -6954,6 +7098,10 @@
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
+  },
+  "Uu1RtY": {
+    "defaultMessage": "Version:",
+    "description": "MCP compare metadata version label"
   },
   "Uue10g": {
     "defaultMessage": "Models",
@@ -7039,6 +7187,10 @@
     "defaultMessage": "Failed to update the review queue: {error}",
     "description": "Add to review queue: error toast when adding or removing traces fails"
   },
+  "VETJ8j": {
+    "defaultMessage": "Server-Sent Events (SSE)",
+    "description": "MCP registry SSE transport option"
+  },
   "VEuVfv": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected in the run evaluation modal"
@@ -7062,6 +7214,10 @@
   "VLLYVu": {
     "defaultMessage": "Delete",
     "description": "Delete webhook button"
+  },
+  "VMHghH": {
+    "defaultMessage": "Latest version:",
+    "description": "Quick connect modal latest version label"
   },
   "VMTV4I": {
     "defaultMessage": "Getting Started",
@@ -7311,6 +7467,10 @@
     "defaultMessage": "Tokens per Request",
     "description": "Title for the token stats chart in gateway"
   },
+  "WIl5iN": {
+    "defaultMessage": "Shown in Connect tab. Click to hide.",
+    "description": "Tooltip for visible connect option toggle"
+  },
   "WImn+W": {
     "defaultMessage": "LiteLLM ({count} providers)",
     "description": "Link to open modal with all LiteLLM providers"
@@ -7326,6 +7486,10 @@
   "WJuNcs": {
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
+  },
+  "WLolH+": {
+    "defaultMessage": "Delete access endpoint",
+    "description": "Aria label for delete access endpoint button"
   },
   "WP1pyQ": {
     "defaultMessage": "Created by",
@@ -7366,10 +7530,6 @@
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
-  },
-  "We46uF": {
-    "defaultMessage": "Input schema JSON",
-    "description": "Aria label for input schema JSON viewer"
   },
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
@@ -7491,6 +7651,10 @@
     "defaultMessage": "Last Updated:",
     "description": "Label for last updated"
   },
+  "X38RDh": {
+    "defaultMessage": "Copy {label}",
+    "description": "Aria label for copy button"
+  },
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
@@ -7534,6 +7698,10 @@
   "XCy4xh": {
     "defaultMessage": "The response must be concise, professional, and friendly.",
     "description": "Placeholder text for guidelines textarea"
+  },
+  "XDFG6S": {
+    "defaultMessage": "Available",
+    "description": "Filter to show only available servers"
   },
   "XEcsei": {
     "defaultMessage": "Input tokens",
@@ -7670,6 +7838,14 @@
   "XxfvgS": {
     "defaultMessage": "Min value",
     "description": "Numeric min value input"
+  },
+  "XyDNP/": {
+    "defaultMessage": "Repository",
+    "description": "MCP compare repository heading"
+  },
+  "XzMief": {
+    "defaultMessage": "Created at",
+    "description": "Endpoint drawer created at label"
   },
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
@@ -8311,6 +8487,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "alUSB5": {
+    "defaultMessage": "Unavailable",
+    "description": "Label for MCP server with no access endpoints"
+  },
   "an4yfn": {
     "defaultMessage": "Your changes will be lost if you leave this panel without saving.",
     "description": "Body text for the discard-unsaved-changes prompt on the dataset record side panel"
@@ -8363,6 +8543,10 @@
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
   },
+  "b3AmzB": {
+    "defaultMessage": "Select an MCP server",
+    "description": "MCP registry endpoint modal server placeholder"
+  },
   "b5Aw4a": {
     "defaultMessage": "Delete{count, select, 0 {} other { ({count})}}",
     "description": "Delete guardrails button with optional count"
@@ -8386,6 +8570,10 @@
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
+  },
+  "bDtS96": {
+    "defaultMessage": "Created:",
+    "description": "Endpoint expanded created label"
   },
   "bGHzui": {
     "defaultMessage": "Custom judge",
@@ -8503,6 +8691,10 @@
     "defaultMessage": "The context sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
   },
+  "bl6Nu0": {
+    "defaultMessage": "Website URL",
+    "description": "MCP compare websiteUrl heading"
+  },
   "blG8zm": {
     "defaultMessage": "You have not been assigned to any roles.",
     "description": "Empty-state description for the roles table on the account page"
@@ -8510,6 +8702,10 @@
   "bmBV9A": {
     "defaultMessage": "Average Value",
     "description": "Column header for average value"
+  },
+  "bmFw/h": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the MCP servers table"
   },
   "bmH/Ju": {
     "defaultMessage": "Source:",
@@ -8623,6 +8819,10 @@
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
   },
+  "cEr7IY": {
+    "defaultMessage": "Updated by",
+    "description": "Endpoint drawer updated by label"
+  },
   "cEwSR8": {
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
@@ -8703,6 +8903,10 @@
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
   },
+  "cWTq78": {
+    "defaultMessage": "Transport Type:",
+    "description": "MCP registry endpoint modal transport label"
+  },
   "cXNimy": {
     "defaultMessage": "Runtime hint",
     "description": "Package runtime hint label"
@@ -8726,6 +8930,10 @@
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
+  },
+  "chIROf": {
+    "defaultMessage": "Tools",
+    "description": "MCP compare tools heading"
   },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
@@ -8983,9 +9191,17 @@
     "defaultMessage": "Automatically log traces for LangGraph workflows by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangGraph package using MLflow autologging. This message is followed by a code example."
   },
+  "dw+xvS": {
+    "defaultMessage": "Version/Alias:",
+    "description": "MCP registry endpoint modal version/alias label"
+  },
   "dwTTNK": {
     "defaultMessage": "Are you sure you want to navigate away? Your pending text changes will be lost.",
     "description": "Prompt text for navigating away before saving changes in editable note in MLflow"
+  },
+  "dx0yyK": {
+    "defaultMessage": "Updated:",
+    "description": "Endpoint expanded updated label"
   },
   "dzIz7c": {
     "defaultMessage": "Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.",
@@ -9215,6 +9431,10 @@
     "defaultMessage": "Manager",
     "description": "Tag content marking a workspace-admin role (multi-tenant)"
   },
+  "et6nRo": {
+    "defaultMessage": "No access endpoint available for the latest version",
+    "description": "Tooltip for disabled access endpoints icon on MCP server card"
+  },
   "etvfuH": {
     "defaultMessage": "Root Cause Analysis",
     "description": "Root cause analysis section title"
@@ -9266,6 +9486,10 @@
   "f5cp11": {
     "defaultMessage": "Provide one or more function definitions the model can call. Choose how the model invokes them:",
     "description": "Intro line of the info popover next to the Tools section header"
+  },
+  "f6/IBm": {
+    "defaultMessage": "Preview",
+    "description": "MCP server detail preview tab"
   },
   "f6/YpY": {
     "defaultMessage": "Cancel",
@@ -9354,10 +9578,6 @@
   "faLIN+": {
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
-  },
-  "fbtFxp": {
-    "defaultMessage": "Hidden from Connect tab. Click to show.",
-    "description": "Tooltip for hidden endpoint toggle"
   },
   "fcIHyN": {
     "defaultMessage": "Medium",
@@ -9539,10 +9759,6 @@
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
   },
-  "gFsq/N": {
-    "defaultMessage": "Shown in Connect tab. Click to hide.",
-    "description": "Tooltip for visible endpoint toggle"
-  },
   "gH6GGr": {
     "defaultMessage": "Function name",
     "description": "Label for the tool function name input in the playground Tools card"
@@ -9606,6 +9822,10 @@
   "gTEFCD": {
     "defaultMessage": "See less",
     "description": "A button label in a message renderer that truncates long content when clicked."
+  },
+  "gTUIv+": {
+    "defaultMessage": "Show less",
+    "description": "Show less tools button"
   },
   "gUdmaJ": {
     "defaultMessage": "Schema",
@@ -9807,6 +10027,10 @@
     "defaultMessage": "Are you sure you want to delete {count, plural, one {# record} other {# records}}? This action cannot be undone.",
     "description": "Body for the V2 dataset records bulk-delete confirmation modal"
   },
+  "hD4A14": {
+    "defaultMessage": "MCP server",
+    "description": "Endpoint drawer server label"
+  },
   "hDExYR": {
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
@@ -9910,6 +10134,10 @@
   "hh+/og": {
     "defaultMessage": "Settings",
     "description": "Label for the playground top-bar button that opens model parameters"
+  },
+  "hiQwwW": {
+    "defaultMessage": "Version",
+    "description": "MCP registry endpoint modal version group label"
   },
   "hjAgZ8": {
     "defaultMessage": "Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.",
@@ -10059,6 +10287,10 @@
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
   },
+  "iJRv1X": {
+    "defaultMessage": "Access endpoint",
+    "description": "Header for the access endpoint column in the MCP servers table"
+  },
   "iLEEpo": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Queue settings: members field hint"
@@ -10074,6 +10306,10 @@
   "iNVXhw": {
     "defaultMessage": "{count} {count, plural, one {day} other {days}}",
     "description": "Formatted trace archival retention in days"
+  },
+  "iO+Ro8": {
+    "defaultMessage": "https://mcp.example.com/server",
+    "description": "MCP registry endpoint modal endpoint placeholder"
   },
   "iPTAj8": {
     "defaultMessage": "Retrieval",
@@ -10127,6 +10363,10 @@
     "defaultMessage": "Saved {name} v{version} to the registry",
     "description": "Success toast shown on the playground after saving the current messages as a new prompt version"
   },
+  "iXDBi4": {
+    "defaultMessage": "Configuration",
+    "description": "MCP compare extra config heading"
+  },
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
@@ -10146,6 +10386,10 @@
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
+  },
+  "iaICjw": {
+    "defaultMessage": "Display name",
+    "description": "MCP compare display name heading"
   },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
@@ -10270,6 +10514,10 @@
   "j5t9Sd": {
     "defaultMessage": "Enter display name",
     "description": "Placeholder for version display name input"
+  },
+  "j6ijji": {
+    "defaultMessage": "Are you sure you want to delete this access endpoint? This action cannot be undone.",
+    "description": "Access endpoint delete confirmation message"
   },
   "j77+aP": {
     "defaultMessage": "Fail",
@@ -10479,6 +10727,10 @@
     "defaultMessage": "Tool choice",
     "description": "Label above the tool choice segmented picker inside the Tools card"
   },
+  "k1/vs6": {
+    "defaultMessage": "Disabled",
+    "description": "Label for disabled connect option"
+  },
   "k2bPN+": {
     "defaultMessage": "Last used",
     "description": "Badge for last used workspace"
@@ -10486,6 +10738,10 @@
   "k4F8aJ": {
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
+  },
+  "k4Pj5X": {
+    "defaultMessage": "Select as compared version",
+    "description": "Label for selecting compared MCP server version in the comparison view"
   },
   "k4ulqN": {
     "defaultMessage": "Drag to reorder {option}",
@@ -10803,6 +11059,10 @@
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
+  "ld2Xn9": {
+    "defaultMessage": "Compare",
+    "description": "MCP server detail compare tab"
+  },
   "leXUJw": {
     "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
     "description": "Settings content section subtitle for LLM connections (API keys)"
@@ -10818,10 +11078,6 @@
   "lfe8zE": {
     "defaultMessage": "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
     "description": "Example placeholder text for instructions textarea"
-  },
-  "lfsyCQ": {
-    "defaultMessage": "Output schema JSON",
-    "description": "Aria label for output schema JSON viewer"
   },
   "lhFnAG": {
     "defaultMessage": "Insufficient",
@@ -11183,10 +11439,6 @@
     "defaultMessage": "Pass",
     "description": "The label for a passing asseessment above a bar-chart in the summary stats."
   },
-  "nE+gTQ": {
-    "defaultMessage": "Show less",
-    "description": "MCP server version detail show less packages button"
-  },
   "nEnDEu": {
     "defaultMessage": "Cancel",
     "description": "Cancel create evaluation dataset button text"
@@ -11198,10 +11450,6 @@
   "nF10K1": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
-  },
-  "nGF/Tf": {
-    "defaultMessage": "Show {count} more",
-    "description": "MCP server version detail show more tools button"
   },
   "nH5645": {
     "defaultMessage": "Package arguments",
@@ -11327,6 +11575,10 @@
     "defaultMessage": "No description",
     "description": "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
   },
+  "npL0Dq": {
+    "defaultMessage": "Edit access endpoint",
+    "description": "MCP registry edit access endpoint modal title"
+  },
   "npoynr": {
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
@@ -11390,6 +11642,10 @@
   "o6uTLu": {
     "defaultMessage": "Created",
     "description": "Column selector label for the create-time column"
+  },
+  "o77GlK": {
+    "defaultMessage": "Live connections between this registered server and deployed endpoints.",
+    "description": "Help text for MCP server access endpoints subsection"
   },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
@@ -11703,6 +11959,10 @@
     "defaultMessage": "Cancel",
     "description": "Text for canceling changes on rows in editable form table in MLflow"
   },
+  "pf+Uci": {
+    "defaultMessage": "Delete access endpoint",
+    "description": "Access endpoint delete confirmation modal title"
+  },
   "pfyUes": {
     "defaultMessage": "See details",
     "description": "Evaluation review > assessments > see details button"
@@ -11831,6 +12091,10 @@
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
   },
+  "qHqhov": {
+    "defaultMessage": "Select as baseline version",
+    "description": "Label for selecting baseline MCP server version in the comparison view"
+  },
   "qIHqi7": {
     "defaultMessage": "Evaluation runs",
     "description": "Issue detection run details > Breadcrumb > Evaluation runs"
@@ -11918,6 +12182,10 @@
   "qdYCbk": {
     "defaultMessage": "Copied to clipboard",
     "description": "Success message after copying trace link"
+  },
+  "qgCzU6": {
+    "defaultMessage": "Edit access endpoint",
+    "description": "Aria label for edit access endpoint button"
   },
   "qhOwHa": {
     "defaultMessage": "Endpoints",
@@ -12263,6 +12531,10 @@
     "defaultMessage": "No runs logged",
     "description": "Empty state title text for experiment runs page when no runs are logged in the experiment"
   },
+  "sCWoQU": {
+    "defaultMessage": "Enter a valid HTTP or HTTPS URL",
+    "description": "MCP registry endpoint modal endpoint URL validation error"
+  },
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
@@ -12410,6 +12682,10 @@
   "sulPqT": {
     "defaultMessage": "Start Demo",
     "description": "Demo banner launch button"
+  },
+  "svXy8B": {
+    "defaultMessage": "This alias is automatically maintained and always resolves to the highest published version.",
+    "description": "Tooltip explaining the @latest alias in MCP registry"
   },
   "svzyNI": {
     "defaultMessage": "Judge \"{label}\" completed successfully.",
@@ -12915,6 +13191,10 @@
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
   },
+  "vbYxpI": {
+    "defaultMessage": "Updated by:",
+    "description": "MCP compare metadata updated by label"
+  },
   "vcK5wo": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip to explain how to search MCP servers in the registry"
@@ -13295,6 +13575,10 @@
     "defaultMessage": "Chat",
     "description": "Label for chat prompt type in the prompt creation modal"
   },
+  "xLBSJC": {
+    "defaultMessage": "Icon:",
+    "description": "MCP compare metadata icon label"
+  },
   "xMNoOG": {
     "defaultMessage": "{version}",
     "description": "MCP server version item label"
@@ -13475,6 +13759,10 @@
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
   },
+  "y6rw0w": {
+    "defaultMessage": "No access endpoint available for the latest version",
+    "description": "Tooltip for unavailable label on MCP server detail page"
+  },
   "y7+wS+": {
     "defaultMessage": "Relevance",
     "description": "Issue category title for relevance"
@@ -13643,6 +13931,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
   },
+  "z4Cxm8": {
+    "defaultMessage": "Select version for comparison",
+    "description": "Aria label for the version comparison radio group"
+  },
   "z4aclU": {
     "defaultMessage": "Discard",
     "description": "Confirm-button text for the discard-unsaved-changes prompt"
@@ -13794,6 +14086,10 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "zfPkM2": {
+    "defaultMessage": "Show {count} more",
+    "description": "Show more packages button"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",

@@ -15,6 +15,7 @@ class ConnectOptionSettings:
     hidden: bool = False
 
 
+@experimental(version="3.15.0")
 @dataclass
 class MCPServerVersion:
     name: str
@@ -58,6 +59,10 @@ class MCPServerVersion:
                 aliases=data.get("aliases") or [],
                 tags=data.get("tags") or {},
                 source=data.get("source"),
+                connect_options={
+                    k: ConnectOptionSettings(**v)
+                    for k, v in (data.get("connect_options") or {}).items()
+                },
                 workspace=data.get("workspace"),
                 created_by=data.get("created_by"),
                 last_updated_by=data.get("last_updated_by"),

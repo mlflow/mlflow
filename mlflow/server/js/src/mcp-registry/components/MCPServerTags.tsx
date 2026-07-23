@@ -15,7 +15,7 @@ export const MCPServerTags = ({ tags }: { tags: Record<string, string> }) => {
         }
       }}
     >
-      <Overflow noMargin>
+      <Overflow>
         {entries.map(([key, value]) => (
           <KeyValueTag key={key} css={{ margin: 0 }} tag={{ key, value }} />
         ))}
