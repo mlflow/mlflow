@@ -30,7 +30,7 @@ def _missing_gateway_store() -> mock.MagicMock:
 @pytest.fixture
 def store():
     store = _missing_gateway_store()
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with mock.patch("mlflow.assistant.gateway_connection._get_store", return_value=store):
         yield store
 
 
@@ -47,7 +47,7 @@ def test_ensure_gateway_connection_creates_secret_model_and_endpoint(store):
         name="mlflow-assistant-anthropic",
         secret_id="sec-1",
         provider="anthropic",
-        model_name="claude-opus-5",
+        model_name="claude-sonnet-5",
     )
     store.create_gateway_endpoint.assert_called_once()
 

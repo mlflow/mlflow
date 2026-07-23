@@ -180,23 +180,23 @@ class PermissionDecision(BaseModel):
 def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | None:
     api_key = provider_data.get("api_key")
     gateway_vendor = provider_data.get("gateway_vendor")
-    if not api_key:
-        if gateway_vendor is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="Gateway vendor connections require an API key.",
-            )
+    if not api_key and gateway_vendor is None:
         return None
-    if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+    if not api_key:
         raise HTTPException(
             status_code=400,
-            detail="API keys must be stored in LLM Connections through the "
-            "'mlflow_gateway' provider.",
+            detail="Gateway vendor connections require an API key.",
         )
     if gateway_vendor is None:
         raise HTTPException(
             status_code=400,
             detail="Gateway API keys require a gateway_vendor.",
+        )
+    if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="API keys must be stored in LLM Connections through the "
+            "'mlflow_gateway' provider.",
         )
     try:
         return ensure_gateway_connection(gateway_vendor, api_key)

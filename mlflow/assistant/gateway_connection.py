@@ -3,10 +3,11 @@
 from mlflow.entities.gateway_endpoint import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.tracking._tracking_service.utils import _get_store
 
 _GATEWAY_VENDOR_MODELS = {
     "openai": "gpt-5.5",
-    "anthropic": "claude-opus-5",
+    "anthropic": "claude-sonnet-5",
     "gemini": "gemini-3-pro",
 }
 
@@ -19,8 +20,6 @@ class GatewayUnsupportedError(Exception):
 
 def ensure_gateway_connection(vendor: str, api_key: str) -> str:
     """Create or rotate the Gateway resources for an Assistant vendor key."""
-    from mlflow.tracking._tracking_service.utils import _get_store
-
     if (model_name := _GATEWAY_VENDOR_MODELS.get(vendor)) is None:
         raise ValueError(f"Unknown Gateway vendor: {vendor!r}")
 
@@ -70,7 +69,7 @@ def ensure_gateway_connection(vendor: str, api_key: str) -> str:
                     )
                 ],
             )
-    except (AttributeError, NotImplementedError) as e:
+    except NotImplementedError as e:
         raise GatewayUnsupportedError(
             "This MLflow server's tracking backend does not support the AI Gateway. "
             "Assistant-managed LLM Connections require a database-backed tracking store."

@@ -403,9 +403,7 @@ def test_update_config_sets_provider(client):
     assert data["providers"]["claude_code"]["selected"] is True
 
 
-def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(
-    client, isolated_config
-):
+def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(client, isolated_config):
     with patch(
         "mlflow.server.assistant.api.ensure_gateway_connection",
         return_value="mlflow-assistant-openai",
