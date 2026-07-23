@@ -17,12 +17,20 @@ import { LOG_IMAGE_TAG_INDICATOR } from '../../constants';
 // Mock plot components, as they are not relevant to this test and would hog a lot of resources
 jest.mock('../runs-charts/components/cards/RunsChartsBarChartCard', () => ({
   RunsChartsBarChartCard: ({ config }: RunsChartsBarChartCardProps) => (
-    <div data-testid="test-bar-plot">Bar plot for {config.metricKey}</div>
+    <div data-testid="test-bar-plot">
+      <div>Bar plot for {config.metricKey}</div>
+      {config.displayName && <div>{config.displayName}</div>}
+    </div>
   ),
 }));
 jest.mock('../runs-charts/components/cards/RunsChartsLineChartCard', () => ({
   RunsChartsLineChartCard: ({ config }: RunsChartsLineChartCardProps) => {
-    return <div data-testid="test-line-plot">Line plot for {config.metricKey}</div>;
+    return (
+      <div data-testid="test-line-plot">
+        <div>Line plot for {config.metricKey}</div>
+        {config.displayName && <div>{config.displayName}</div>}
+      </div>
+    );
   },
 }));
 
@@ -191,6 +199,12 @@ describe('RunViewMetricCharts', () => {
         timestamp: 0,
         value: 1000,
       },
+      'custom-prefix/test-line-metric': {
+        key: 'custom-prefix/test-line-metric',
+        step: 5,
+        timestamp: 0,
+        value: 1000,
+      },
     };
 
     renderComponent({
@@ -203,9 +217,12 @@ describe('RunViewMetricCharts', () => {
     });
     expect(screen.getByText('Bar plot for metric_4')).toBeInTheDocument();
     expect(screen.getByText('Bar plot for custom-prefix/test-metric')).toBeInTheDocument();
+    expect(screen.getByText('Line plot for custom-prefix/test-line-metric')).toBeInTheDocument();
 
     // Assert new section
     expect(screen.getByText('custom-prefix')).toBeInTheDocument();
+    expect(screen.getByText('test-metric')).toBeInTheDocument();
+    expect(screen.getByText('test-line-metric')).toBeInTheDocument();
   });
 
   it('adds should not call for image artifacts when `mlflow.loggedImages` tag is not set', async () => {
