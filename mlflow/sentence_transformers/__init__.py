@@ -128,6 +128,7 @@ def save_model(
     conda_env=None,
     metadata: dict[str, Any] | None = None,
     extra_files=None,
+    uv=None,
     **kwargs,
 ) -> None:
     """
@@ -169,6 +170,7 @@ def save_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
     """
     import sentence_transformers
@@ -238,7 +240,9 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
-            inferred_reqs = infer_pip_requirements(str(path), FLAVOR_NAME, fallback=default_reqs)
+            inferred_reqs = infer_pip_requirements(
+                str(path), FLAVOR_NAME, fallback=default_reqs, uv=uv
+            )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
@@ -257,6 +261,13 @@ def save_model(
     write_to(str(path.joinpath(_REQUIREMENTS_FILE_NAME)), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(str(path), source_dir)
 
 
 def _get_transformers_model_metadata(model) -> dict[str, str]:
@@ -323,6 +334,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -398,6 +410,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
     """
     if task is not None:
@@ -425,6 +438,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
         **kwargs,
     )
 
