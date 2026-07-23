@@ -667,3 +667,44 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
     # During the call to calculate cost, suppress was set to False
     # We are asserting that suppress is reset to the original value after
     assert litellm.suppress_debug_info is True
+
+
+def test_databricks_bare_endpoint_name_resolves_cost():
+    """Bare Databricks endpoint name (no 'databricks/' prefix, no MODEL_PROVIDER attribute)
+    must return a non-zero cost.
+
+    Regression: cost_per_token('databricks-claude-opus-4-8') raises
+    BadRequestError because litellm cannot infer the provider from the bare
+    name alone.  MLflow's existing fallback only retries with a provider when
+    the MODEL_PROVIDER span attribute is present.  Without it the cost returns
+    None and the UI renders $0.00 for ~1.6M tracked tokens.
+    """
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider=None,  # attribute absent from the span
+    )
+    assert result is not None, (
+        "Cost must not be None for databricks-claude-opus-4-8 even when MODEL_PROVIDER is absent"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens on databricks-claude-opus-4-8"
+    )
+
+
+def test_non_databricks_model_not_repriced_as_databricks():
+    """gpt-4o must still resolve correctly and must NOT receive the databricks provider."""
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="gpt-4o",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+        model_provider=None,
+    )
+    assert result is not None, "gpt-4o cost must resolve without provider"
+    assert result[CostKey.INPUT_COST] > 0
+    # sanity: gpt-4o input price is $2.50/1M, so 1k tokens => ~$0.0025
+    # databricks/... would give a completely different price; confirm it's not that
+    from litellm import cost_per_token as _cpt
+    expected_input, _ = _cpt(model="gpt-4o", prompt_tokens=1_000, completion_tokens=500)
+    assert abs(result[CostKey.INPUT_COST] - expected_input) < 1e-9, (
+        "gpt-4o price must not change due to the databricks-name fix"
+    )

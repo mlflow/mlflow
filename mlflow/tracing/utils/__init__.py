@@ -328,7 +328,19 @@ def calculate_cost_by_model_and_token_usage(
             **cache_kwargs,
         )
     except Exception as e:
-        if model_provider:
+        # Determine which provider to retry with.  The MODEL_PROVIDER span attribute
+        # is authoritative when present; otherwise infer "databricks" from the model
+        # name so that bare Databricks serving-endpoint names (e.g.
+        # "databricks-claude-opus-4-8") resolve correctly even when the attribute is
+        # absent.  The inference is narrow: only names that start with "databricks-"
+        # or "databricks/" are assumed to be Databricks-hosted.
+        effective_provider = model_provider
+        if not effective_provider and (
+            model_name.startswith("databricks-") or model_name.startswith("databricks/")
+        ):
+            effective_provider = "databricks"
+
+        if effective_provider:
             # pass model_provider only in exception case to avoid invalid model_provider
             # being used when model_name itself is enough to calculate cost, since model_provider
             # field can be with any value and litellm may not support it.
@@ -337,7 +349,7 @@ def calculate_cost_by_model_and_token_usage(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=effective_provider,
                     **cache_kwargs,
                 )
             except Exception as e:
