@@ -12,6 +12,7 @@ from clint.rules.forbidden_make_judge_in_builtin_scorers import (
 )
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
+from clint.rules.forbidden_trace_child_merge import ForbiddenTraceChildMerge
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
 from clint.rules.get_artifact_uri import GetArtifactUri
 from clint.rules.implicit_optional import ImplicitOptional
@@ -72,6 +73,7 @@ __all__ = [
     "ForbiddenDeprecationWarning",
     "ForbiddenMakeJudgeInBuiltinScorers",
     "ForbiddenSetActiveModelUsage",
+    "ForbiddenTraceChildMerge",
     "ForbiddenTopLevelImport",
     "GetArtifactUri",
     "ForbiddenTraceUIInNotebook",
