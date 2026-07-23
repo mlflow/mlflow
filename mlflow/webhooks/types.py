@@ -474,8 +474,9 @@ class BudgetPolicyExceededPayload(TypedDict):
             "current_spend": 105.50,
             "duration_unit": "MONTHS",
             "duration_value": 1,
-            "target_scope": "WORKSPACE",
+            "target_scope": "ENDPOINT",
             "workspace": "default",
+            "target_value": "ep-abc123",
             "window_start": 1704067200000,
         }
 
@@ -489,14 +490,18 @@ class BudgetPolicyExceededPayload(TypedDict):
     """The budget limit amount."""
     current_spend: float
     """The current cumulative spend when the limit was exceeded."""
-    duration_unit: Literal["MINUTES", "HOURS", "DAYS", "MONTHS"]
-    """The duration unit (MINUTES, HOURS, DAYS, MONTHS)."""
+    duration_unit: Literal["MINUTES", "HOURS", "DAYS", "WEEKS", "MONTHS"]
+    """The duration unit (MINUTES, HOURS, DAYS, WEEKS, MONTHS)."""
     duration_value: int
     """The duration value."""
-    target_scope: Literal["GLOBAL", "WORKSPACE"]
-    """The target scope (GLOBAL or WORKSPACE)."""
+    target_scope: Literal["GLOBAL", "WORKSPACE", "ENDPOINT", "USER"]
+    """The target scope (GLOBAL, WORKSPACE, ENDPOINT, or USER)."""
     workspace: str
     """The workspace this budget applies to."""
+    target_value: str | None
+    """The target this budget applies to, interpreted per target_scope: a gateway
+    endpoint ID for ENDPOINT scope, a principal (user identity) for USER scope.
+    None for GLOBAL and WORKSPACE scopes."""
     window_start: int
     """The start timestamp (milliseconds) of the current budget window."""
 
@@ -509,8 +514,9 @@ class BudgetPolicyExceededPayload(TypedDict):
             current_spend=105.50,
             duration_unit="MONTHS",
             duration_value=1,
-            target_scope="WORKSPACE",
+            target_scope="ENDPOINT",
             workspace="default",
+            target_value="ep-abc123",
             window_start=1704067200000,
         )
 
