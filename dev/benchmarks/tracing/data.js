@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784838332255,
+  "lastUpdate": 1784838543286,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16145,6 +16145,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 53.850058599999784,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dkuc@users.noreply.github.com",
+            "name": "Dan Kuc",
+            "username": "dkuc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80c376037e1d9c458968d9d5563482d82715c547",
+          "message": "Add telemetry events for MCP server registry operations (#24477)\n\nSigned-off-by: Dan Kuc <dkuc@redhat.com>\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-07-23T20:25:28Z",
+          "tree_id": "10a6828bfe44446f74df543b72c3f988044496e6",
+          "url": "https://github.com/mlflow/mlflow/commit/80c376037e1d9c458968d9d5563482d82715c547"
+        },
+        "date": 1784838536651,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.53785875000156,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.261334088235973,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 19.987918615385507,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.40620832203362,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.253776745762746,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 39.74541219999992,
             "unit": "ms"
           }
         ]
