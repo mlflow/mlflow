@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784774884724,
+  "lastUpdate": 1784775083654,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15767,6 +15767,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 42.280340999991495,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84731421+iyashk@users.noreply.github.com",
+            "name": "Yashwanth Kiran",
+            "username": "iyashk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f4f1a9c604e1eeab73b4eb2f46a3da212270e5b9",
+          "message": "[BUG] Fix otel parent context propagation (#24444)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-07-22T19:50:07-07:00",
+          "tree_id": "cbb7358dc7bdac6c6ed08053b3583ea984964a49",
+          "url": "https://github.com/mlflow/mlflow/commit/f4f1a9c604e1eeab73b4eb2f46a3da212270e5b9"
+        },
+        "date": 1784775082220,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.68627354999688,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.272877121211337,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.292078426228855,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.362512333333086,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.156594446428926,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.588753999999767,
             "unit": "ms"
           }
         ]
