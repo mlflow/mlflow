@@ -264,7 +264,7 @@ describe('useGroupedChartRunData', () => {
       } as any,
     ];
 
-    const misalignedMetrics: Record<string, SampledMetricsByRun> = {
+    const misalignedMetrics = {
       run_a: {
         runUuid: 'run_a',
         metric_1: {
@@ -285,7 +285,7 @@ describe('useGroupedChartRunData', () => {
           ],
         },
       } as any,
-    };
+    } satisfies Record<string, SampledMetricsByRun>;
 
     const result = renderConfiguredHook({
       ungroupedRunsData: misalignedGroup,

@@ -36,7 +36,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  const { unstable_batchedUpdates } = jest.requireActual('react-dom');
+  const { unstable_batchedUpdates } = jest.requireActual<typeof import('react-dom')>('react-dom');
   notifyManager.setBatchNotifyFunction(unstable_batchedUpdates);
 });
 
