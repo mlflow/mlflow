@@ -86,4 +86,5 @@ class LocalStorageStore {
   getItem(key: any) {
     return this.storageObj.getItem(this.withScopePrefix(key));
   }
+
 }

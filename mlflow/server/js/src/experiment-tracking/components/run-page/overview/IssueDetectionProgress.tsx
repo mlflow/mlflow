@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
@@ -18,6 +18,8 @@ import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
 import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
+import { ConfirmModal } from '../../modals/ConfirmModal';
+import { IssueDetectionLowResultsCallout } from '../IssueDetectionLowResultsCallout';
 import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
 
 export interface IssueJobResult {
@@ -61,7 +63,8 @@ export const IssueDetectionProgress = ({
   const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
-  const { cancelJob, isCancelling } = useCancelJob();
+  const { cancelJobAsync, isCancelling } = useCancelJob();
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
   const handleViewTraces = () => {
     if (experimentId && runUuid) {
@@ -75,24 +78,20 @@ export const IssueDetectionProgress = ({
     }
   };
 
-  const handleCancel = () => {
-    if (!jobId) return;
-    cancelJob(
-      { jobId, runUuid },
-      {
-        onError: (error) => {
-          Utils.logErrorAndNotifyUser(
-            intl.formatMessage(
-              {
-                defaultMessage: 'Failed to cancel job: {error}',
-                description: 'Error message when job cancellation fails',
-              },
-              { error: error.message },
-            ),
-          );
-        },
-      },
-    );
+  // Returns a promise so the shared ConfirmModal can show its loading state
+  const handleConfirmCancel = () => {
+    if (!jobId) return Promise.resolve();
+    return cancelJobAsync({ jobId, runUuid }).catch((error) => {
+      Utils.logErrorAndNotifyUser(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to cancel job: {error}',
+            description: 'Error message when job cancellation fails',
+          },
+          { error: error.message },
+        ),
+      );
+    });
   };
 
   const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
@@ -147,28 +146,18 @@ export const IssueDetectionProgress = ({
 
   return (
     <div css={{ marginBottom: theme.spacing.lg }}>
-      <div
-        css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm }}
-      >
-        <Typography.Title level={4} css={{ margin: 0 }}>
-          <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
-        </Typography.Title>
-        {!jobComplete && (
-          <Button
-            componentId="mlflow.traces.issue-detection.cancel-button"
-            onClick={handleCancel}
-            loading={isCancelling}
-          >
-            <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
-          </Button>
-        )}
-      </div>
+      <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.sm }}>
+        <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
+      </Typography.Title>
 
       <div
         css={{
           border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.borders.borderRadiusMd,
           padding: theme.spacing.md,
+          // Keep Cancel unobtrusive: reveal it only when the card is hovered or focused
+          '& [data-cancel-reveal]': { opacity: 0, transition: 'opacity 0.15s ease' },
+          '&:hover [data-cancel-reveal], &:focus-within [data-cancel-reveal]': { opacity: 1 },
         }}
       >
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
@@ -217,6 +206,19 @@ export const IssueDetectionProgress = ({
               />
             )}
           </Typography.Text>
+          {!jobComplete && (
+            <span data-cancel-reveal css={{ marginLeft: 'auto', opacity: isCancelling ? 1 : undefined }}>
+              <Button
+                componentId="mlflow.traces.issue-detection.cancel-button"
+                type="tertiary"
+                size="small"
+                onClick={() => setIsCancelConfirmOpen(true)}
+                loading={isCancelling}
+              >
+                <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
+              </Button>
+            </span>
+          )}
         </div>
         <div css={{ marginLeft: 24 }}>
           <Typography.Hint>
@@ -284,6 +286,15 @@ export const IssueDetectionProgress = ({
         </div>
       </div>
 
+      {isJobSucceeded && identifiedIssues <= 1 && (
+        <div css={{ marginTop: theme.spacing.md }}>
+          <IssueDetectionLowResultsCallout
+            issueCount={identifiedIssues}
+            tracesAnalyzed={result?.total_traces_analyzed ?? totalTraces}
+          />
+        </div>
+      )}
+
       {isJobFailed && jobErrorMessage && (
         <>
           <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
@@ -346,6 +357,30 @@ export const IssueDetectionProgress = ({
           </div>
         </>
       )}
+      <ConfirmModal
+        isOpen={isCancelConfirmOpen}
+        onClose={() => setIsCancelConfirmOpen(false)}
+        handleSubmit={handleConfirmCancel}
+        title={
+          <FormattedMessage
+            defaultMessage="Cancel issue detection?"
+            description="Title of the confirmation dialog for canceling an issue detection run"
+          />
+        }
+        helpText={
+          <FormattedMessage
+            defaultMessage="This stops the current run. You can start a new one at any time."
+            description="Body of the confirmation dialog for canceling an issue detection run"
+          />
+        }
+        confirmButtonText={
+          <FormattedMessage
+            defaultMessage="Cancel run"
+            description="Confirm button that cancels the issue detection run"
+          />
+        }
+        confirmButtonProps={{ danger: true }}
+      />
     </div>
   );
 };

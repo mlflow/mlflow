@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { IssuesTabEmptyState } from './IssuesTabEmptyState';
+import { IssueDetectionLowResultsCallout } from './IssueDetectionLowResultsCallout';
 import { IssueCard } from './IssueCard';
 import { IssueTracesPanel } from './IssueTracesPanel';
 import { IssueStatusFilter, type IssueStatusFilterValue } from './IssueStatusFilter';
@@ -100,6 +101,9 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
         }}
       >
         <IssuesTabEmptyState />
+        <div css={{ maxWidth: 560, marginTop: theme.spacing.md }}>
+          <IssueDetectionLowResultsCallout issueCount={0} />
+        </div>
       </div>
     );
   }

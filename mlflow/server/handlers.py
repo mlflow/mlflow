@@ -4974,6 +4974,19 @@ def _invoke_issue_detection_handler():
             "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
         )
 
+    # Fail fast when no credential source exists, instead of submitting a job doomed to fail
+    if not endpoint_name and not secret_id:
+        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+
+        env_config = _CORE_PROVIDER_ENV_VARS.get(provider)
+        env_var = env_config.get("api_key") if isinstance(env_config, dict) else env_config
+        if not env_var or not os.environ.get(env_var):
+            raise MlflowException.invalid_parameter_value(
+                f"No API key available for provider '{provider}'. Save an API key in "
+                f"AI Gateway, or set the {env_var or 'provider API key'} environment "
+                "variable on the MLflow server."
+            )
+
     # Fetch credentials required for executing the job
     if secret_id:
         store = _get_tracking_store()
