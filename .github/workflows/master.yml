@@ -373,6 +373,33 @@ jobs:
               print("<none>")
           PY
           uv run --no-sync python -m pip index versions google-adk || true
+          echo "opentelemetry-resourcedetector-gcp candidates:"
+          python -m pip index versions --pre opentelemetry-resourcedetector-gcp || true
+          uv pip install --dry-run 'opentelemetry-resourcedetector-gcp>=1.9.0a0,<2' || true
+          uv pip install --dry-run --prerelease=allow 'opentelemetry-resourcedetector-gcp>=1.9.0a0,<2' || true
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          package = "opentelemetry-resourcedetector-gcp"
+          with urllib.request.urlopen(f"https://pypi.org/pypi/{package}/json", timeout=30) as response:
+              data = json.load(response)
+
+          print(f"{package} PyPI JSON release metadata:")
+          for version in ["1.8.0a0", "1.9.0a0", "1.10.0a0", "1.11.0a0", "1.12.0a0"]:
+              files = data["releases"].get(version, [])
+              if not files:
+                  print(f"  {version}: <no files>")
+                  continue
+              for file in files:
+                  print(
+                      "  "
+                      f"{version}: yanked={file.get('yanked')} "
+                      f"requires_python={file.get('requires_python')!r} "
+                      f"upload_time={file.get('upload_time_iso_8601')} "
+                      f"filename={file.get('filename')}"
+                  )
+          PY
           echo "Direct google-adk[gcp] dry-run:"
           uv pip install --dry-run 'google-adk[gcp]' || true
           echo "Direct google-adk[gcp] dry-run without PyTorch extra index:"
