@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NotFoundError } from '@databricks/web-shared/errors';
 import { Typography, useLegacyNotification } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
@@ -13,6 +14,7 @@ export interface SubmittedIssueDetectionJob {
   jobId: string;
   runId: string;
   traceCount: number;
+  submittedAtMs: number;
 }
 
 type StoredSubmittedIssueDetectionJob = Omit<SubmittedIssueDetectionJob, 'experimentId'>;
@@ -21,6 +23,7 @@ export const ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY = 'mlflow.issueDetection
 const ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY = 'mlflow.issueDetection.trackedExperiments';
 const ISSUE_DETECTION_JOB_STORAGE_COMPONENT = 'IssueDetectionJobWatcher';
 const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
+const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
 
 const getSubmittedJobStore = (experimentId: string) =>
   LocalStorageUtils.getSessionScopedStoreForComponent(ISSUE_DETECTION_JOB_STORAGE_COMPONENT, experimentId);
@@ -37,7 +40,8 @@ const isStoredSubmittedIssueDetectionJob = (value: unknown): value is StoredSubm
   return (
     typeof candidate.jobId === 'string' &&
     typeof candidate.runId === 'string' &&
-    typeof candidate.traceCount === 'number'
+    typeof candidate.traceCount === 'number' &&
+    typeof candidate.submittedAtMs === 'number'
   );
 };
 
@@ -54,6 +58,9 @@ const appendSubmittedJob = <T extends { jobId: string }>(jobs: T[], job: T) => [
   ...jobs.filter((trackedJob) => trackedJob.jobId !== job.jobId),
   job,
 ];
+
+const isSubmittedIssueDetectionJobExpired = (job: SubmittedIssueDetectionJob, nowMs = Date.now()) =>
+  nowMs - job.submittedAtMs >= ISSUE_DETECTION_JOB_TTL_MS;
 
 const getTrackedExperimentIds = () => {
   try {
@@ -80,30 +87,12 @@ const setTrackedExperimentIds = (experimentIds: string[]) => {
   );
 };
 
-const getSubmittedIssueDetectionJobsForExperiment = (experimentId: string): SubmittedIssueDetectionJob[] => {
-  try {
-    const serializedJobs = getSubmittedJobStore(experimentId).getItem(ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY);
-    if (!serializedJobs) {
-      return [];
-    }
-
-    const parsedJobs: unknown = JSON.parse(serializedJobs);
-    return Array.isArray(parsedJobs)
-      ? parsedJobs.filter(isStoredSubmittedIssueDetectionJob).map((job) => ({
-          experimentId,
-          ...job,
-        }))
-      : [];
-  } catch {
-    return [];
-  }
-};
-
 const setSubmittedIssueDetectionJobsForExperiment = (experimentId: string, jobs: SubmittedIssueDetectionJob[]) => {
-  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(({ jobId, runId, traceCount }) => ({
+  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(({ jobId, runId, traceCount, submittedAtMs }) => ({
     jobId,
     runId,
     traceCount,
+    submittedAtMs,
   }));
   getSubmittedJobStore(experimentId).setItem(ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY, JSON.stringify(storedJobs));
 
@@ -116,6 +105,33 @@ const setSubmittedIssueDetectionJobsForExperiment = (experimentId: string, jobs:
         ).map(({ jobId }) => jobId)
       : trackedExperimentIds.filter((trackedExperimentId) => trackedExperimentId !== experimentId),
   );
+};
+
+const getSubmittedIssueDetectionJobsForExperiment = (experimentId: string): SubmittedIssueDetectionJob[] => {
+  try {
+    const serializedJobs = getSubmittedJobStore(experimentId).getItem(ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY);
+    if (!serializedJobs) {
+      return [];
+    }
+
+    const parsedJobs: unknown = JSON.parse(serializedJobs);
+    if (!Array.isArray(parsedJobs)) {
+      setSubmittedIssueDetectionJobsForExperiment(experimentId, []);
+      return [];
+    }
+
+    const jobs = parsedJobs.filter(isStoredSubmittedIssueDetectionJob).map((job) => ({
+      experimentId,
+      ...job,
+    }));
+    const activeJobs = jobs.filter((job) => !isSubmittedIssueDetectionJobExpired(job));
+    if (activeJobs.length !== parsedJobs.length) {
+      setSubmittedIssueDetectionJobsForExperiment(experimentId, activeJobs);
+    }
+    return activeJobs;
+  } catch {
+    return [];
+  }
 };
 
 export const getSubmittedIssueDetectionJobs = () =>
@@ -149,12 +165,15 @@ export const clearSubmittedIssueDetectionJob = (jobId?: string) => {
   });
 };
 
-export const recordSubmittedIssueDetectionJob = (job: SubmittedIssueDetectionJob) => {
+export const recordSubmittedIssueDetectionJob = (
+  job: Omit<SubmittedIssueDetectionJob, 'submittedAtMs'> & Partial<Pick<SubmittedIssueDetectionJob, 'submittedAtMs'>>,
+) => {
+  const submittedJob = { ...job, submittedAtMs: job.submittedAtMs ?? Date.now() };
   setSubmittedIssueDetectionJobsForExperiment(
-    job.experimentId,
-    appendSubmittedJob(getSubmittedIssueDetectionJobsForExperiment(job.experimentId), job),
+    submittedJob.experimentId,
+    appendSubmittedJob(getSubmittedIssueDetectionJobsForExperiment(submittedJob.experimentId), submittedJob),
   );
-  window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, { detail: job }));
+  window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, { detail: submittedJob }));
 };
 
 const getIssueDetectionRunRoute = (experimentId: string, runId: string, issueCount?: number) => {
@@ -168,14 +187,33 @@ const getIssueDetectionRunRoute = (experimentId: string, runId: string, issueCou
 const TrackedIssueDetectionJobNotification = ({
   job,
   onTerminalStatus,
+  onStopTracking,
 }: {
   job: SubmittedIssueDetectionJob;
   onTerminalStatus: (job: SubmittedIssueDetectionJob, status: JobStatus, result: unknown) => void;
+  onStopTracking: (job: SubmittedIssueDetectionJob) => void;
 }) => {
-  const { status, result } = useFetchJobStatus({
+  const { status, result, error } = useFetchJobStatus({
     jobId: job.jobId,
     enabled: true,
   });
+
+  useEffect(() => {
+    if (error instanceof NotFoundError) {
+      onStopTracking(job);
+    }
+  }, [error, job, onStopTracking]);
+
+  useEffect(() => {
+    if (isSubmittedIssueDetectionJobExpired(job)) {
+      onStopTracking(job);
+      return;
+    }
+
+    const timeoutMs = Math.max(job.submittedAtMs + ISSUE_DETECTION_JOB_TTL_MS - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => onStopTracking(job), timeoutMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [job, onStopTracking]);
 
   useEffect(() => {
     if (status && isJobComplete(status)) {
@@ -200,6 +238,10 @@ export const IssueDetectionJobNotifications = () => {
     (route: string) => (preservedQueryString ? `${route}${preservedQueryString}` : route),
     [preservedQueryString],
   );
+  const stopTrackingJob = useCallback((trackedJob: SubmittedIssueDetectionJob) => {
+    removeSubmittedIssueDetectionJob(trackedJob);
+    setTrackedJobs((currentJobs) => currentJobs.filter((job) => job.jobId !== trackedJob.jobId));
+  }, []);
 
   useEffect(() => {
     const handleSubmittedJob = (event: Event) => {
@@ -348,17 +390,21 @@ export const IssueDetectionJobNotifications = () => {
           });
         }
       }
-      removeSubmittedIssueDetectionJob(trackedJob);
-      setTrackedJobs((currentJobs) => currentJobs.filter((job) => job.jobId !== jobId));
+      stopTrackingJob(trackedJob);
     },
-    [notification, navigate, withPreservedQueryString],
+    [notification, navigate, stopTrackingJob, withPreservedQueryString],
   );
 
   return (
     <>
       {notificationContextHolder}
       {trackedJobs.map((job) => (
-        <TrackedIssueDetectionJobNotification key={job.jobId} job={job} onTerminalStatus={handleTerminalStatus} />
+        <TrackedIssueDetectionJobNotification
+          key={job.jobId}
+          job={job}
+          onTerminalStatus={handleTerminalStatus}
+          onStopTracking={stopTrackingJob}
+        />
       ))}
     </>
   );

@@ -402,6 +402,7 @@ describe('IssueDetectionModal', () => {
       jobId: 'job-123',
       runId: 'run-456',
       traceCount: 1,
+      submittedAtMs: expect.any(Number),
     });
   });
 

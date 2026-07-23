@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
+import { NotFoundError } from '@databricks/web-shared/errors';
 import { act, renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import {
   clearSubmittedIssueDetectionJob,
@@ -31,6 +32,7 @@ const submittedJob: SubmittedIssueDetectionJob = {
   jobId: 'job-1',
   runId: 'run-1',
   traceCount: 48,
+  submittedAtMs: Date.now(),
 };
 
 const secondSubmittedJob: SubmittedIssueDetectionJob = {
@@ -38,27 +40,44 @@ const secondSubmittedJob: SubmittedIssueDetectionJob = {
   jobId: 'job-2',
   runId: 'run-2',
   traceCount: 12,
+  submittedAtMs: Date.now(),
 };
 
-const createMockJobStatus = (status?: JobStatus, stage?: string, result?: unknown): UseFetchJobStatusResult => ({
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+const createMockJobStatus = (
+  status?: JobStatus,
+  stage?: string,
+  result?: unknown,
+  error: Error | null = null,
+): UseFetchJobStatusResult => ({
   status,
   result,
   status_details: stage ? { stage } : undefined,
   isLoading: false,
   isFetching: false,
   refetch: jest.fn(),
-  error: null,
+  error,
 });
 
 let mockJobStatuses: Record<string, UseFetchJobStatusResult>;
 
-const mockJobStatus = (status?: JobStatus, stage?: string, result?: unknown, jobId = submittedJob.jobId) => {
-  mockJobStatuses[jobId] = createMockJobStatus(status, stage, result);
+const mockUseFetchJobStatus = () => {
   jest
     .mocked(useFetchJobStatus)
     .mockImplementation(({ jobId }) =>
       jobId ? (mockJobStatuses[jobId] ?? createMockJobStatus(undefined)) : createMockJobStatus(undefined),
     );
+};
+
+const mockJobStatus = (status?: JobStatus, stage?: string, result?: unknown, jobId = submittedJob.jobId) => {
+  mockJobStatuses[jobId] = createMockJobStatus(status, stage, result);
+  mockUseFetchJobStatus();
+};
+
+const mockJobError = (error: Error, jobId = submittedJob.jobId) => {
+  mockJobStatuses[jobId] = createMockJobStatus(undefined, undefined, undefined, error);
+  mockUseFetchJobStatus();
 };
 
 describe('IssueDetectionJobNotifications', () => {
@@ -172,6 +191,31 @@ describe('IssueDetectionJobNotifications', () => {
 
     expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
     expect(screen.getByText('Found 2 issues across 10 traces.')).toBeInTheDocument();
+  });
+
+  test('removes stale submitted jobs from session storage', () => {
+    recordSubmittedIssueDetectionJob({
+      ...submittedJob,
+      submittedAtMs: Date.now() - ONE_HOUR_MS - 1,
+    });
+
+    renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    expect(getSubmittedIssueDetectionJob()).toBeNull();
+    expect(useFetchJobStatus).not.toHaveBeenCalled();
+  });
+
+  test('removes missing jobs from session storage without notifying', async () => {
+    recordSubmittedIssueDetectionJob(submittedJob);
+    mockJobError(new NotFoundError({}));
+
+    renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    await waitFor(() => {
+      expect(getSubmittedIssueDetectionJob()).toBeNull();
+    });
+    expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Issue detection failed')).not.toBeInTheDocument();
   });
 
   test('removes only the completed job from session storage', async () => {
