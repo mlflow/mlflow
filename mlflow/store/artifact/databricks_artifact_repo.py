@@ -281,9 +281,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 f"Incomplete download: read {actual_length} of {expected_length_int} bytes"
             )
 
-    def _stream_trace_response_to_path(
-        self, response: requests.Response, dst_path: Path
-    ) -> Path:
+    def _stream_trace_response_to_path(self, response: requests.Response, dst_path: Path) -> Path:
         partial_path = Path(f"{dst_path}.part")
         bytes_written = 0
         try:

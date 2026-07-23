@@ -1813,6 +1813,8 @@ def test_download_trace_data_to_file_cleans_partial_file_after_terminal_stream_f
         type=ArtifactCredentialType.AWS_PRESIGNED_URL,
     )
     cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    dst = tmp_path / "traces.json"
+    dst.write_text("stale")
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
@@ -1824,11 +1826,9 @@ def test_download_trace_data_to_file_cleans_partial_file_after_terminal_stream_f
                 [b'{"spans": ['], error=requests.ConnectionError("connection reset")
             ),
         ),
-        pytest.raises(requests.ConnectionError),
     ):
-        dst = tmp_path / "traces.json"
-        dst.write_text("stale")
-        databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+        with pytest.raises(requests.ConnectionError, match="connection reset"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
 
     assert not dst.exists()
     assert not Path(f"{dst}.part").exists()
@@ -1849,9 +1849,7 @@ def test_download_trace_data_to_file_retries_short_read(databricks_artifact_repo
         mock.patch(
             "requests.Session.request",
             side_effect=[
-                MockStreamingResponse(
-                    [b'{"spans": []}'], headers={"Content-Length": "32"}
-                ),
+                MockStreamingResponse([b'{"spans": []}'], headers={"Content-Length": "32"}),
                 MockStreamingResponse(
                     [success_payload],
                     headers={"Content-Length": str(len(success_payload))},
@@ -1876,6 +1874,8 @@ def test_download_trace_data_to_file_request_establishment_failure_not_retried(
         type=ArtifactCredentialType.AWS_PRESIGNED_URL,
     )
     cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    dst = tmp_path / "traces.json"
+    dst.write_text("stale")
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
@@ -1885,11 +1885,9 @@ def test_download_trace_data_to_file_request_establishment_failure_not_retried(
             f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.cloud_storage_http_request",
             side_effect=requests.ConnectionError("connect failed"),
         ) as mock_cloud_request,
-        pytest.raises(requests.ConnectionError),
     ):
-        dst = tmp_path / "traces.json"
-        dst.write_text("stale")
-        databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+        with pytest.raises(requests.ConnectionError, match="connect failed"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
 
     assert mock_cloud_request.call_count == 1
     assert not dst.exists()
@@ -1906,16 +1904,16 @@ def test_download_trace_data_to_file_not_found(databricks_artifact_repo_trace, t
     not_found.status_code = 404
     not_found._content = b"not found"
     not_found.close = lambda: None
+    dst = tmp_path / "traces.json"
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
             return_value=cred,
         ),
         mock.patch("requests.Session.request", return_value=not_found),
-        pytest.raises(MlflowTraceDataNotFound),
     ):
-        dst = tmp_path / "traces.json"
-        databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+        with pytest.raises(MlflowTraceDataNotFound, match="Trace data not found"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
 
     assert not dst.exists()
 
@@ -1930,6 +1928,7 @@ def test_download_trace_attachment_to_file_not_found(databricks_artifact_repo_tr
     not_found.status_code = 404
     not_found._content = b"not found"
     not_found.close = lambda: None
+    dst = tmp_path / attachment_id
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
@@ -1940,7 +1939,6 @@ def test_download_trace_attachment_to_file_not_found(databricks_artifact_repo_tr
             MlflowException, match=f"Attachment '{attachment_id}' not found."
         ) as exc_info,
     ):
-        dst = tmp_path / attachment_id
         databricks_artifact_repo_trace.download_trace_attachment_to_file(attachment_id, dst)
 
     assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"

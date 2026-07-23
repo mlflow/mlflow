@@ -158,7 +158,6 @@ from mlflow.server.handlers import (
     _cancel_prompt_optimization_job,
     _convert_path_parameter_to_flask_format,
     _create_artifact_file_response,
-    _create_temp_artifact_file_response,
     _create_dataset_handler,
     _create_experiment,
     _create_issue,
@@ -167,6 +166,7 @@ from mlflow.server.handlers import (
     _create_prompt_optimization_job,
     _create_registered_model,
     _create_review_queue,
+    _create_temp_artifact_file_response,
     _create_workspace_handler,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
@@ -4276,11 +4276,9 @@ def test_create_temp_artifact_file_response_rejects_unsatisfiable_range(tmp_path
     test_file.write_text("0123456789")
     cleanup = mock.MagicMock()
 
-    with (
-        app.test_request_context(method="GET", headers={"Range": "bytes=20-25"}),
-        pytest.raises(RequestedRangeNotSatisfiable),
-    ):
-        _create_temp_artifact_file_response(str(test_file), "artifacts/payload.txt", cleanup)
+    with app.test_request_context(method="GET", headers={"Range": "bytes=20-25"}):
+        with pytest.raises(RequestedRangeNotSatisfiable, match="Requested Range Not Satisfiable"):
+            _create_temp_artifact_file_response(str(test_file), "artifacts/payload.txt", cleanup)
 
     cleanup.assert_called_once()
 

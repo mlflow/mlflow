@@ -11,9 +11,9 @@ import threading
 import time
 import unicodedata
 import urllib
-from zlib import adler32
 from functools import partial, wraps
 from typing import Any, Callable
+from zlib import adler32
 
 import requests
 from cachetools import TTLCache
@@ -1193,7 +1193,11 @@ def _create_temp_artifact_file_response(
 
     try:
         response = current_app.response_class(
-            wrap_file(request.environ, wrapped_file),
+            wrap_file(
+                request.environ,
+                wrapped_file,
+                buffer_size=ARTIFACT_STREAM_CHUNK_SIZE,
+            ),
             mimetype=_guess_mime_type(file_path),
             direct_passthrough=True,
         )
