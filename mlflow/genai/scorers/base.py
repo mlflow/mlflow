@@ -287,6 +287,18 @@ class Scorer(BaseModel):
 
         return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
+    def _set_registration_metadata(
+        self,
+        *,
+        backend: str,
+        experiment_id: str | None,
+        sampling_config: ScorerSamplingConfig | None,
+    ) -> "Scorer":
+        self._registered_backend = backend
+        self._experiment_id = experiment_id
+        self._sampling_config = sampling_config
+        return self
+
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
         base_repr = super().__repr__()
@@ -369,6 +381,25 @@ class Scorer(BaseModel):
         result["call_signature"] = str(inspect.signature(self._original_func))
 
         return result
+
+    @classmethod
+    def _from_serialized_scorer(
+        cls,
+        serialized_scorer: str | SerializedScorer | dict[str, Any] | None,
+        *,
+        name: str | None = None,
+    ) -> "Scorer":
+        if serialized_scorer is None:
+            raise MlflowException("Serialized scorer data is required.")
+        if isinstance(serialized_scorer, str):
+            serialized_scorer = json.loads(serialized_scorer)
+
+        scorer = cls.model_validate(serialized_scorer)
+        if name is not None and scorer.name != name:
+            scorer.name = name
+            if scorer._cached_dump is not None:
+                scorer._cached_dump["name"] = name
+        return scorer
 
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
@@ -902,7 +933,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
@@ -985,7 +1016,7 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
