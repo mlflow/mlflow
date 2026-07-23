@@ -302,6 +302,16 @@ def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
 
 
+def test_proxy_artifact_path_detection_with_static_prefix(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+
+    assert auth_module._is_proxy_artifact_path("/mlflow/api/2.0/mlflow-artifacts/artifacts/foo")
+    assert auth_module._is_proxy_artifact_path(
+        "/mlflow/ajax-api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+    assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
+
+
 def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static/favicon routes
     # are served from e.g. ``/mlflow/health``. Health checks must not require
@@ -433,6 +443,38 @@ def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
         client.tracking_uri + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
     )
     response = requests.get(url=presigned_url, auth=(username2, password2))
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            STATIC_PREFIX_ENV_VAR: "/mlflow",
+        }
+    ],
+    indirect=True,
+)
+def test_presigned_download_authorization_required_with_static_prefix(client, monkeypatch):
+    prefixed_tracking_uri = f"{client.tracking_uri}/mlflow"
+    prefixed_client = MlflowClient(prefixed_tracking_uri)
+    username1, password1 = create_user(prefixed_tracking_uri)
+    username2, password2 = create_user(prefixed_tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = prefixed_client.create_experiment("prefixed-presigned-download-authz-test")
+
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + (
+                f"/mlflow/api/2.0/mlflow-artifacts/presigned/"
+                f"{experiment_id}/run-id/artifacts/model.pkl"
+            )
+        ),
+        auth=(username2, password2),
+    )
     assert response.status_code == 403
 
 
