@@ -322,6 +322,62 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --extra genai
+          echo "::group::google-adk resolver diagnostics before overlay install"
+          uv --version
+          python - <<'PY'
+          import importlib.metadata as md
+          import os
+
+          for name in [
+              "PIP_INDEX_URL",
+              "PIP_EXTRA_INDEX_URL",
+              "PIP_CONSTRAINT",
+              "UV_INDEX_URL",
+              "UV_EXTRA_INDEX_URL",
+              "UV_INDEX_STRATEGY",
+              "UV_EXCLUDE_NEWER",
+          ]:
+              print(f"{name}={os.environ.get(name, '<unset>')}")
+
+          print("\nInstalled resolver-relevant packages:")
+          for package in [
+              "fastapi",
+              "starlette",
+              "opentelemetry-api",
+              "opentelemetry-sdk",
+              "opentelemetry-exporter-otlp-proto-http",
+              "opentelemetry-exporter-otlp-proto-grpc",
+              "google-adk",
+          ]:
+              try:
+                  print(f"{package}=={md.version(package)}")
+              except md.PackageNotFoundError:
+                  print(f"{package}=<not installed>")
+
+          print("\nInstalled distributions declaring google-adk requirements:")
+          found = False
+          for dist in sorted(md.distributions(), key=lambda d: (d.metadata.get("Name") or "").lower()):
+              requirements = [
+                  req
+                  for req in (dist.metadata.get_all("Requires-Dist") or [])
+                  if "google-adk" in req.lower()
+              ]
+              if requirements:
+                  found = True
+                  print(f"{dist.metadata['Name']}=={dist.version}")
+                  for req in requirements:
+                      print(f"  {req}")
+          if not found:
+              print("<none>")
+          PY
+          python -m pip index versions google-adk || true
+          echo "Direct google-adk[gcp] dry-run:"
+          uv pip install --dry-run 'google-adk[gcp]' || true
+          echo "Full GenAI overlay dry-run:"
+          uv pip install --dry-run \
+            -r requirements/test-requirements.txt \
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]' || true
+          echo "::endgroup::"
           # TODO: migrate mlflow/genai/scorers/phoenix to arize-phoenix-evals 3.x API
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           # TODO: drop the langchain-community<0.4.2 pin once ragas releases a
@@ -337,6 +393,34 @@ jobs:
           uv pip install \
             -r requirements/test-requirements.txt \
             deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
+          echo "::group::google-adk diagnostics after overlay install"
+          python - <<'PY'
+          import importlib.metadata as md
+          import traceback
+
+          try:
+              dist = md.distribution("google-adk")
+          except md.PackageNotFoundError:
+              print("google-adk=<not installed>")
+          else:
+              print(f"google-adk=={dist.version}")
+              print("Requires-Dist:")
+              for req in dist.metadata.get_all("Requires-Dist") or []:
+                  print(f"  {req}")
+              print("Provides-Extra:")
+              for extra in dist.metadata.get_all("Provides-Extra") or []:
+                  print(f"  {extra}")
+
+          try:
+              import google.adk  # noqa: F401
+
+              print("import google.adk: ok")
+          except Exception:
+              print("import google.adk: failed")
+              traceback.print_exc()
+          PY
+          uv pip tree --package google-adk || true
+          echo "::endgroup::"
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
