@@ -2,7 +2,7 @@
 
 ### Quick Start example
 
-- `quickstart/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
+- `quickstart/mlflow_tracking.py` is a minimal example demonstrating core MLflow tracking concepts: logging parameters, metrics with steps, and artifacts.
 
 ## Tutorials
 
