@@ -220,7 +220,7 @@ class CodexProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error running Codex CLI")
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)
         finally:
             if mlflow_session_id:
                 clear_process_pid(mlflow_session_id)
@@ -260,6 +260,9 @@ class CodexProvider(AssistantProvider):
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
+                # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+                # so the UI can distinguish fresh input from resent, cached context.
+                "cache_read_tokens": cache_read or 0,
                 "total_cost_usd": cost[CostKey.TOTAL_COST] if cost else None,
             },
         })

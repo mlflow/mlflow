@@ -289,7 +289,7 @@ describe('DatabricksArtifactsClient', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should log download errors but return empty data', async () => {
+    it('should log and re-throw download errors', async () => {
       const traceInfo = new TraceInfo({
         traceId: 'tr-download-error',
         traceLocation: {
@@ -313,15 +313,12 @@ describe('DatabricksArtifactsClient', () => {
       // Spy on console.error
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      const result = await client.downloadTraceData(traceInfo);
+      await expect(client.downloadTraceData(traceInfo)).rejects.toThrow();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to download trace data for tr-download-error:',
         expect.any(Error),
       );
-
-      expect(result).toBeInstanceOf(TraceData);
-      expect(result.spans).toHaveLength(0);
 
       consoleSpy.mockRestore();
     });

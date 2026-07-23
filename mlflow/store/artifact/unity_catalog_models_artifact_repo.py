@@ -136,7 +136,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 entities,
                 ModelVersionLineageDirection.DOWNSTREAM,
             )
-            return DatabricksSDKModelsArtifactRepository(self.model_name, self.model_version)
+            return DatabricksSDKModelsArtifactRepository(
+                self.model_name, self.model_version, registry_uri=self.registry_uri
+            )
         scoped_token = self._get_scoped_token(lineage_header_info=lineage_header_info)
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:
             return PresignedUrlArtifactRepository(

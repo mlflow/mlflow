@@ -82,9 +82,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const { url, records, selectedRecord, bulk, columns, flags, searchInput, setPageIndex } = useDatasetRecordsController(
-    { experimentId, datasetId },
-  );
+  const { url, records, selectedRecord, bulk, tablePrefs, flags, searchInput, setPageIndex } =
+    useDatasetRecordsController({ experimentId, datasetId });
 
   const deleteRecordsMutation = useDeleteDatasetRecordsMutation(datasetId);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -348,9 +347,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                   panelOpen ? null : (
                     <>
                       <DatasetRecordsColumnSelector
-                        visibleColumns={columns.visibleColumns}
-                        onToggleColumn={columns.toggleColumn}
-                        onResetToDefaults={columns.resetToDefaults}
+                        visibleColumns={tablePrefs.visibleColumns}
+                        onToggleColumn={tablePrefs.toggleColumn}
+                        onResetToDefaults={tablePrefs.resetToDefaults}
                       />
                       {records.allRecords.length > 0 && (
                         // 1px nudge on top of the toolbar's `sm` gap to give the count
@@ -400,7 +399,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       isFetching={records.isFetching}
                       onRecordSelected={handleRecordSelected}
                       selectedRecordId={url.recordId}
-                      visibleColumns={columns.visibleColumns}
+                      visibleColumns={tablePrefs.visibleColumns}
+                      columnSizing={tablePrefs.columnSizing}
+                      setColumnSizing={tablePrefs.setColumnSizing}
                       selectedForBulk={bulk.selected}
                       isAllOnPageSelected={bulk.isAllVisibleChecked}
                       isSomeOnPageSelected={bulk.isSomeVisibleChecked}

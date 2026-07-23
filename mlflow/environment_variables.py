@@ -115,6 +115,15 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: **Experimental** — subject to change or removal in a future release.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
+#: Remote access is still limited to providers that don't require local execution
+#: (e.g. the MLflow Gateway); this only opts into that check.
+#: (default: ``False``)
+MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
+)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
@@ -490,6 +499,16 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
+)
+
+#: Specifies whether to route Unity Catalog model-registry calls to the native
+#: ``/api/2.1/unity-catalog/*`` endpoints. When ``True``, the ``databricks-uc`` scheme instantiates
+#: the native store that issues requests against the native surface; when ``False`` (default), the
+#: legacy store using the ``/api/2.0/mlflow/unity-catalog/*`` endpoints is used. This is a static
+#: per-process choice read when the store is constructed, not an adaptive runtime fallback.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", False
 )
 
 #: Private environment variable that should be set to ``True`` when running autologging tests.
@@ -1362,6 +1381,26 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
+
+#: Allowed schemes for icon URLs.
+#: Defaults to ``https``. Set to ``http,https`` for local development.
+MLFLOW_ICON_URL_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether to allow icon URLs that target private or loopback hosts.
+#: Intended for local development and testing only.
+MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", False
+)
+
+#: Optional allowlist of domains that icon URLs may target.
+#: Supports exact hosts and wildcard patterns like ``*.example.com``.
+#: When unset, icon URLs may use any public host allowed by the scheme/private-IP
+#: policy.
+MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
 
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(

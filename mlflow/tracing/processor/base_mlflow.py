@@ -126,6 +126,41 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
                 _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
 
 
+def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
+    """Flush then shut down a batch processor and drop it from the registry.
+
+    The outgoing provider's ``BatchSpanProcessor`` daemon thread is never stopped
+    by GC, so replacing a provider without this leaks a thread per cycle (#24209).
+    Flush before shutdown: OTel's ``shutdown()`` makes a later ``force_flush()`` a
+    no-op, so flushing first is what prevents dropping queued spans.
+    """
+    if processor._batch_delegate is None:
+        return
+    # Wait for in-flight on_end calls so their spans reach the queue before the
+    # flush, mirroring flush_all_batch_processors().
+    with processor._pending_on_end_condition:
+        processor._pending_on_end_condition.wait_for(
+            lambda: processor._pending_on_end_count == 0,
+            timeout=30.0,
+        )
+    try:
+        processor.force_flush()
+        exporter = processor.span_exporter
+        if hasattr(exporter, "_async_queue"):
+            exporter._async_queue.flush(terminate=True)
+    except Exception:
+        _logger.debug(f"Failed to flush processor {processor} before retiring", exc_info=True)
+    try:
+        processor.shutdown()
+    except Exception:
+        _logger.debug(f"Failed to shut down processor {processor}", exc_info=True)
+    # Null out the delegate so any lingering on_end call falls through to the
+    # SimpleSpanProcessor path instead of a dead batch thread.
+    processor._batch_delegate = None
+    with _batch_processor_registry_lock:
+        _batch_processor_registry.discard(processor)
+
+
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
     max_export_batch_size = MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get()
     # OTel requires max_export_batch_size <= max_queue_size (raises ValueError otherwise).
@@ -330,12 +365,21 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         })
 
         spans = trace.span_dict.values()
-        # Aggregate token usage information from all spans
-        if usage := aggregate_usage_from_spans(spans):
-            trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
+        # Aggregate token usage and cost as best-effort: this metadata is optional, and a
+        # failure here must never abort root-span export / trace finalization (#24344).
+        try:
+            if usage := aggregate_usage_from_spans(spans):
+                trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-        if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
-            trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+            if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+                trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to aggregate token usage/cost for trace {trace.info.trace_id}: {e}. "
+                "Continuing finalization without it. For full traceback, set logging level "
+                "to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def _truncate_metadata(self, value: str | None) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

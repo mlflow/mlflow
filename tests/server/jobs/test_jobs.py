@@ -23,12 +23,16 @@ from mlflow.server.jobs import (
 )
 from mlflow.server.jobs._job_subproc_entry import _main
 from mlflow.server.jobs.utils import (
+    MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR,
     MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
     MLFLOW_SERVER_JOB_PARAMS_ENV_VAR,
     MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
     _enqueue_unfinished_jobs,
     _exec_job,
+    _exec_job_in_subproc,
+    _exit_when_orphaned,
+    _start_huey_consumer_proc,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -957,6 +961,102 @@ def test_update_status_details_on_nonexistent_job(tmp_path: Path):
 
     with pytest.raises(MlflowException, match="Job .+ not found"):
         store.update_status_details("nonexistent-job-id", {"stage": "test"})
+
+
+def test_exit_when_orphaned_exits_when_parent_pid_changes():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "123"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
+        mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_exits_when_already_orphaned():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "123"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "not-a-pid"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
+        mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_start_huey_consumer_proc_passes_original_parent_pid():
+    with (
+        mock.patch("mlflow.server.jobs.utils.os.getpid", return_value=321),
+        mock.patch("mlflow.utils.process._exec_cmd") as mock_exec_cmd,
+    ):
+        _start_huey_consumer_proc("basic_job_fun", 3)
+
+    assert mock_exec_cmd.call_count == 1
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "321"
+
+
+def test_exec_job_in_subproc_passes_original_parent_pid(tmp_path: Path):
+    mock_job_store = mock.Mock()
+    result_path = tmp_path / "result.json"
+    result_path.write_text(
+        json.dumps({"succeeded": True, "result": "3", "is_transient_error": None, "error": None})
+    )
+    mock_popen = mock.MagicMock()
+    mock_popen.__enter__.return_value = mock_popen
+    mock_popen.__exit__.return_value = False
+    mock_popen.poll.return_value = 0
+    mock_popen.returncode = 0
+
+    with (
+        mock.patch("mlflow.server.jobs.utils.os.getpid", return_value=654),
+        mock.patch("mlflow.server.jobs.utils.subprocess.Popen", return_value=mock_popen) as popen,
+    ):
+        job_result = _exec_job_in_subproc(
+            function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+            params={"x": 1, "y": 2},
+            python_env=None,
+            transient_error_classes=None,
+            timeout=None,
+            tmpdir=str(tmp_path),
+            job_store=mock_job_store,
+            job_id="job-1",
+            job_name="basic_job_fun",
+            workspace=None,
+        )
+
+    assert job_result is not None
+    assert job_result.succeeded is True
+    assert job_result.result == "3"
+    assert popen.call_args.kwargs["env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "654"
 
 
 def test_subproc_entry_telemetry(tmp_path, monkeypatch):

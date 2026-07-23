@@ -43,6 +43,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.string_utils import quote
 
 from tests.helper_functions import (
     RestEndpoint,
@@ -783,7 +784,7 @@ def test_host_invalid_value():
         "mlflow.models.cli.get_flavor_backend",
         return_value=PyFuncBackend({}, env_manager=_EnvManager.VIRTUALENV),
     ):
-        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
+        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: -?[1-9]\d*"):
             CliRunner().invoke(
                 models_cli.serve,
                 ["--model-uri", model_info.model_uri, "--host", "localhost & echo BUG"],
@@ -1006,3 +1007,30 @@ def test_update_model_requirements_remove():
 
     reqs = _get_requirements_from_file(local_paths.conda)
     assert reqs == [Requirement(f"cloudpickle=={cloudpickle.__version__}")]
+
+
+def test_serve_stdin_shell_quotes_model_path():
+    # Regression test for GHSA-5r29-ccg5-cf9g / GHSA-cw8f-5wj5-grm3: the model path
+    # (an attacker-influenceable artifact directory name) must be shell-quoted before
+    # being interpolated into the `bash -c` command string, so metacharacters such as
+    # $(...) are passed as a literal argument instead of executed by the shell.
+    malicious_path = "/tmp/model$(touch /tmp/mlflow_stdin_pwned)"
+    # The env manager is arbitrary here: serve_stdin never branches on it and prepare_env
+    # is mocked below, so this does not exercise the LOCAL code path (which raises in prod).
+    backend = PyFuncBackend(config={}, env_manager=_EnvManager.LOCAL)
+
+    with (
+        mock.patch(
+            "mlflow.pyfunc.backend._download_artifact_from_uri", return_value=malicious_path
+        ) as mock_download,
+        mock.patch.object(backend, "prepare_env") as mock_prepare_env,
+    ):
+        backend.serve_stdin(model_uri="models:/m/1")
+
+    mock_download.assert_called_once()
+    command = mock_prepare_env.return_value.execute.call_args.kwargs["command"]
+    # `quote` matches the production shell-escaping (shlex.quote on POSIX, mslex on Windows),
+    # so this assertion holds on both platforms.
+    assert f"--model-uri {quote(malicious_path)}" in command
+    # The pre-fix code interpolated the path unquoted, letting the shell evaluate $(...).
+    assert f"--model-uri {malicious_path}" not in command

@@ -71,7 +71,7 @@ describe('ExperimentViewHeader', () => {
     mockNavigate.mockClear();
   });
 
-  const renderComponent = (experiment = defaultExperiment, initialPath = '/') => {
+  const renderComponent = (experiment = defaultExperiment, initialPath = '/', savedViewsSlot?: React.ReactNode) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const queryClient = new QueryClient();
     const Router = initialPath ? MemoryRouter : BrowserRouter;
@@ -88,7 +88,16 @@ describe('ExperimentViewHeader', () => {
             })}
           >
             <TestRouter
-              routes={[testRoute(<ExperimentViewHeader experiment={experiment} setEditing={setEditing} />, '*')]}
+              routes={[
+                testRoute(
+                  <ExperimentViewHeader
+                    experiment={experiment}
+                    setEditing={setEditing}
+                    savedViewsSlot={savedViewsSlot}
+                  />,
+                  '*',
+                ),
+              ]}
               initialEntries={[initialPath]}
               history={history}
             />
@@ -140,9 +149,23 @@ describe('ExperimentViewHeader', () => {
       expect(tooltip).toHaveTextContent('Trace Archival Retention: 30 days');
     });
 
-    it('displays share and management buttons', () => {
-      expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
+    it('displays the management button', () => {
       expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+
+    it('renders no saved-views controls when the slot is empty', () => {
+      // The header is presentational: it shows saved-views controls only when the tab-aware caller
+      // fills the slot (Runs tab), never on its own.
+      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('saved-views slot', () => {
+    it('renders whatever the tab-aware caller passes into the slot', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/', <button data-testid="header-saved-views">Views</button>);
+      });
+      expect(screen.getByTestId('header-saved-views')).toBeInTheDocument();
     });
   });
 
@@ -239,12 +262,11 @@ describe('ExperimentViewHeader', () => {
       );
     };
 
-    it('hides the share button and management menu when headerActionsHidden is true', async () => {
+    it('hides the management menu when headerActionsHidden is true', async () => {
       await act(async () => {
         renderWithHiddenActions();
       });
 
-      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
       expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
     });
   });
