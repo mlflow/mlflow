@@ -5460,6 +5460,289 @@ def test_list_budget_windows_no_workspace_returns_all():
     assert policy_ids == {"bp-global", "bp-ws"}
 
 
+# ==================== Per-endpoint Budget Policy Tests ====================
+
+
+def _make_endpoint_budget_policy(
+    budget_policy_id="bp-ep",
+    target_value="ep-1",
+    budget_amount=100.0,
+    workspace=None,
+):
+    return GatewayBudgetPolicy(
+        budget_policy_id=budget_policy_id,
+        budget_unit=BudgetUnit.USD,
+        budget_amount=budget_amount,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        created_at=0,
+        last_updated_at=0,
+        target_value=target_value,
+        workspace=workspace,
+    )
+
+
+@pytest.mark.parametrize(
+    ("target_scope", "target_value"),
+    [
+        (BudgetTargetScope.ENDPOINT, "ep-1"),
+        (BudgetTargetScope.GLOBAL, None),
+        (BudgetTargetScope.WORKSPACE, None),
+    ],
+)
+def test_validate_budget_target_scope_valid(target_scope, target_value):
+    from mlflow.server.handlers import _validate_budget_target_scope
+
+    # Should not raise.
+    _validate_budget_target_scope(target_scope, target_value)
+
+
+@pytest.mark.parametrize(
+    ("target_scope", "target_value", "match"),
+    [
+        (BudgetTargetScope.ENDPOINT, None, "target_value is required"),
+        (BudgetTargetScope.GLOBAL, "ep-1", "target_value can only be set"),
+        (BudgetTargetScope.WORKSPACE, "ep-1", "target_value can only be set"),
+    ],
+)
+def test_validate_budget_target_scope_invalid(target_scope, target_value, match):
+    from mlflow.server.handlers import _validate_budget_target_scope
+
+    with pytest.raises(MlflowException, match=match):
+        _validate_budget_target_scope(target_scope, target_value)
+
+
+def test_create_budget_policy_endpoint_scope():
+    created = _make_endpoint_budget_policy(target_value="ep-1")
+    store = mock.MagicMock()
+    store.create_budget_policy.return_value = created
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 100.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "ENDPOINT",
+                "budget_action": "REJECT",
+                "target_value": "ep-1",
+            },
+        )
+
+    assert response.status_code == 200
+    store.create_budget_policy.assert_called_once()
+    assert store.create_budget_policy.call_args.kwargs["target_value"] == "ep-1"
+    assert response.json["budget_policy"]["target_scope"] == "ENDPOINT"
+    assert response.json["budget_policy"]["target_value"] == "ep-1"
+
+
+def test_create_budget_policy_endpoint_scope_missing_target_value_returns_400():
+    store = mock.MagicMock()
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 100.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "ENDPOINT",
+                "budget_action": "REJECT",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    store.create_budget_policy.assert_not_called()
+
+
+def test_create_budget_policy_untargeted_with_target_value_returns_400():
+    store = mock.MagicMock()
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 100.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "GLOBAL",
+                "budget_action": "REJECT",
+                "target_value": "ep-1",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "target_value can only be set" in response.json["message"]
+    store.create_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_endpoint_scope():
+    updated = _make_endpoint_budget_policy(target_value="ep-2")
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+    store.update_budget_policy.return_value = updated
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={
+                "budget_policy_id": "bp-ep",
+                "target_scope": "ENDPOINT",
+                "target_value": "ep-2",
+            },
+        )
+
+    assert response.status_code == 200
+    store.update_budget_policy.assert_called_once()
+    assert store.update_budget_policy.call_args.kwargs["target_value"] == "ep-2"
+
+
+def test_update_budget_policy_target_value_alone_on_endpoint_policy():
+    # Updating just the target of an ENDPOINT policy must not require echoing
+    # the scope back.
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+    store.update_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-2")
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-ep", "target_value": "ep-2"},
+        )
+
+    assert response.status_code == 200
+    assert store.update_budget_policy.call_args.kwargs["target_value"] == "ep-2"
+
+
+def test_update_budget_policy_target_value_on_global_policy_returns_400():
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_budget_policy(budget_policy_id="bp-1")
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-1", "target_value": "ep-2"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value can only be set" in response.json["message"]
+    store.update_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_scope_echo_keeps_existing_target_value():
+    # Clients that round-trip the current scope (GET -> tweak amount -> UPDATE)
+    # must not be forced to also echo target_value: the existing one counts.
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+    store.update_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-ep", "target_scope": "ENDPOINT", "budget_amount": 42.0},
+        )
+
+    assert response.status_code == 200
+    store.update_budget_policy.assert_called_once()
+
+
+def test_update_budget_policy_switch_to_endpoint_requires_target_value():
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_budget_policy(budget_policy_id="bp-1")
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-1", "target_scope": "ENDPOINT"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    store.update_budget_policy.assert_not_called()
+
+
+def test_list_budget_windows_includes_target_value():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_endpoint_budget_policy(budget_policy_id="bp-ep", target_value="ep-1")
+    tracker.refresh_policies([policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    window = response.json["windows"][0]
+    assert window["budget_policy_id"] == "bp-ep"
+    assert window["target_value"] == "ep-1"
+
+
+def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
+    tracker = InMemoryBudgetTracker()
+    ep_team_a = _make_endpoint_budget_policy(
+        budget_policy_id="bp-ep-a", target_value="ep-a", workspace="team-a"
+    )
+    ep_team_b = _make_endpoint_budget_policy(
+        budget_policy_id="bp-ep-b", target_value="ep-b", workspace="team-b"
+    )
+    tracker.refresh_policies([ep_team_a, ep_team_b])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        WorkspaceContext("team-a"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    assert policy_ids == {"bp-ep-a"}
+
+
 def test_create_issue_with_all_fields():
     request_message = CreateIssue()
     request_message.experiment_id = "exp-123"

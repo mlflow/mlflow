@@ -452,6 +452,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
@@ -460,9 +461,12 @@ class GatewayStoreMixin:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
             duration: Fixed time window (unit + length pair).
-            target_scope: Scope of the budget (GLOBAL or WORKSPACE).
+            target_scope: Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
+            target_value: Target the policy applies to, interpreted per
+                ``target_scope``: a gateway endpoint ID for ENDPOINT scope.
+                Required for that scope.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -493,6 +497,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Update a budget policy.
@@ -505,6 +510,9 @@ class GatewayStoreMixin:
             target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
+            target_value: Optional new target the policy applies to (endpoint ID
+                for ENDPOINT scope). Required when switching to a targeted scope;
+                cleared automatically for GLOBAL/WORKSPACE.
 
         Returns:
             Updated GatewayBudgetPolicy entity.
@@ -538,6 +546,7 @@ class GatewayStoreMixin:
         start_time_ms: int,
         end_time_ms: int,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> float:
         """
         Sum total_cost from span metrics for gateway traces within a time range.
@@ -547,6 +556,8 @@ class GatewayStoreMixin:
             end_time_ms: Window end in epoch milliseconds (exclusive).
             workspace: If provided, filter to traces in experiments belonging
                 to this workspace.
+            endpoint_id: If provided, filter to traces routed to this gateway
+                endpoint.
 
         Returns:
             Total cost in USD.
