@@ -8,7 +8,7 @@ import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import Guidelines, Scorer, list_scorer_versions, scorer
+from mlflow.genai.scorers import Guidelines, list_scorer_versions, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
@@ -268,12 +268,8 @@ def test_databricks_backend_pagination_rejects_invalid_next_page_token(next_page
     assert error.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
-def test_databricks_backend_config_response_errors_use_oss_error_codes():
+def test_databricks_backend_missing_current_scorer_uses_oss_error_code():
     store = DatabricksStore(tracking_uri="databricks")
-
-    with pytest.raises(MlflowException, match="Serialized scorer data is required") as malformed:
-        Scorer._from_serialized_scorer(None)
-    assert malformed.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     with (
         patch.object(store, "_list_current_scorer_configs", return_value=[]),
@@ -383,7 +379,7 @@ def test_databricks_backend_current_scorer_configs_paginate():
 
         configs = DatabricksStore(tracking_uri="databricks")._list_current_scorer_configs("exp_123")
 
-    assert [config["name"] for config in configs] == ["scorer_v1", "scorer_v2"]
+    assert [config.name for config in configs] == ["scorer_v1", "scorer_v2"]
     assert mock_http.call_args_list[0].kwargs["params"] is None
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
 

@@ -383,25 +383,6 @@ class Scorer(BaseModel):
         return result
 
     @classmethod
-    def _from_serialized_scorer(
-        cls,
-        serialized_scorer: str | SerializedScorer | dict[str, Any] | None,
-        *,
-        name: str | None = None,
-    ) -> "Scorer":
-        if serialized_scorer is None:
-            raise MlflowException("Serialized scorer data is required.")
-        if isinstance(serialized_scorer, str):
-            serialized_scorer = json.loads(serialized_scorer)
-
-        scorer = cls.model_validate(serialized_scorer)
-        if name is not None and scorer.name != name:
-            scorer.name = name
-            if scorer._cached_dump is not None:
-                scorer._cached_dump["name"] = name
-        return scorer
-
-    @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
         # Handle SerializedScorer object
