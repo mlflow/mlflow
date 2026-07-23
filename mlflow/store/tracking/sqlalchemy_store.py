@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import bisect
 import hashlib
 import json
 import logging
@@ -19,8 +18,7 @@ from urllib.parse import urlparse
 
 import sqlalchemy
 import sqlalchemy.orm
-import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
+from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
 from sqlalchemy.sql.elements import ColumnElement
@@ -120,7 +118,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
@@ -1620,85 +1617,163 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         run_ids: list[str],
         metric_key: str,
         max_results: int,
-        start_step: int,
-        end_step: int,
+        start_step: int | None,
+        end_step: int | None,
     ) -> list[MetricWithRunId]:
-        """Override the base implementation to avoid loading all metric rows into Python.
+        """Return up to ``max_results`` metrics per run, evenly sampled across the values logged
+        for ``metric_key`` (optionally restricted to ``[start_step, end_step]``), always keeping
+        the first and last points when ``max_results`` > 1 and returns only the last point when
+        ``max_results`` == 1.
 
-        The base class implementation calls get_metric_history() for each run, which loads
-        every metric row (potentially hundreds of thousands) into Python just to extract
-        distinct steps for downsampling. This override performs the step discovery via a
-        SELECT DISTINCT query in SQL, which is dramatically faster when metrics tables
-        are large.
+        The sampling is performed entirely in SQL using window functions, so the server
+        materializes at most ~``max_results`` rows per run regardless of how many values were
+        logged. The previous implementation downsampled by *distinct step* and then fetched
+        every row for the sampled steps (capped at ``MAX_RESULTS_GET_METRIC_HISTORY``). That
+        collapsed to a single step -- and thus returned tens of thousands of rows -- whenever
+        many values shared one step (e.g. the default ``step=0`` used by ``log_metric`` without
+        an explicit step), causing large memory spikes. Sampling by row instead of by step keeps
+        the response bounded and representative of the whole range in that case.
         """
+        if (start_step is None) != (end_step is None):
+            raise MlflowException.invalid_parameter_value(
+                "Both start_step and end_step must be specified together, "
+                "or neither may be specified."
+            )
+        max_results = max(1, max_results)
+        metrics_with_run_ids = []
         with self.ManagedSessionMaker() as session:
             for run_id in run_ids:
                 self._validate_run_accessible(session, run_id)
-
-            # Get distinct steps across all runs using SQL instead of loading all rows
-            all_steps = [
-                row[0]
-                for row in session
-                .query(distinct(SqlMetric.step))
-                .filter(
-                    SqlMetric.key == metric_key,
-                    SqlMetric.run_uuid.in_(run_ids),
+            for run_id in run_ids:
+                metrics_with_run_ids.extend(
+                    self._sample_metric_history_single_run(
+                        session, run_id, metric_key, max_results, start_step, end_step
+                    )
                 )
-                .order_by(SqlMetric.step)
-                .all()
-            ]
-
-            if not all_steps:
-                return []
-
-            # Preserve min/max steps per run for data boundary accuracy
-            all_mins_and_maxes = set()
-            for min_step, max_step in (
-                session
-                .query(func.min(SqlMetric.step), func.max(SqlMetric.step))
-                .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids))
-                .group_by(SqlMetric.run_uuid)
-                .all()
-            ):
-                all_mins_and_maxes.add(min_step)
-                all_mins_and_maxes.add(max_step)
-
-            if start_step is None and end_step is None:
-                start_step = 0
-                end_step = all_steps[-1]
-
-            all_mins_and_maxes = {
-                step for step in all_mins_and_maxes if start_step <= step <= end_step
-            }
-
-            start_idx = bisect.bisect_left(all_steps, start_step)
-            end_idx = bisect.bisect_right(all_steps, end_step)
-
-            if end_idx - start_idx <= max_results:
-                sampled_steps = set(all_steps[start_idx:end_idx])
-            else:
-                num_steps = end_idx - start_idx
-                interval = num_steps / max_results
-                sampled_steps = set()
-                for i in range(max_results):
-                    idx = start_idx + int(i * interval)
-                    if idx < end_idx:
-                        sampled_steps.add(all_steps[idx])
-                sampled_steps.add(all_steps[end_idx - 1])
-
-            steps = sorted(sampled_steps.union(all_mins_and_maxes))
-
-        metrics_with_run_ids = []
-        for run_id in run_ids:
-            metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                )
-            )
         return metrics_with_run_ids
+
+    def _supports_window_functions(self, session) -> bool:
+        # NTILE / ROW_NUMBER are available on every backend MLflow targets except MySQL < 8.0 and
+        # MariaDB < 10.2, both of which MLflow still supports (e.g. MySQL 5.7).
+        if self.db_type != MYSQL:
+            return True
+        dialect = session.get_bind().dialect
+        version = getattr(dialect, "server_version_info", None)
+        if not version:
+            return True
+        if getattr(dialect, "_is_mariadb", False):
+            return version >= (10, 2)
+        return version >= (8, 0)
+
+    def _sample_metric_history_single_run(
+        self, session, run_id, metric_key, max_results, start_step, end_step
+    ) -> list[MetricWithRunId]:
+        filters = [SqlMetric.run_uuid == run_id, SqlMetric.key == metric_key]
+        if start_step is not None and end_step is not None:
+            filters.append(SqlMetric.step >= start_step)
+            filters.append(SqlMetric.step <= end_step)
+
+        # ``is_nan`` is part of the metric primary key, so include it in every ordering to keep
+        # sampling deterministic and preserve a NaN boundary point on ties.
+        order_by = [SqlMetric.step, SqlMetric.timestamp, SqlMetric.value, SqlMetric.is_nan]
+
+        if self._supports_window_functions(session):
+            rows = self._sample_rows_with_window_functions(session, filters, order_by, max_results)
+        else:
+            rows = self._sample_rows_in_python(session, filters, order_by, max_results)
+
+        return [
+            MetricWithRunId(
+                run_id=run_id,
+                metric=Metric(
+                    key=metric_key,
+                    value=row.value if not row.is_nan else float("nan"),
+                    timestamp=row.timestamp,
+                    step=row.step,
+                ),
+            )
+            for row in rows
+        ]
+
+    def _sample_rows_with_window_functions(self, session, filters, order_by, max_results):
+        # Assign each row to one of ``max_results`` evenly sized buckets across the full ordered
+        # result set, then keep the first row of each bucket. NTILE produces one bucket per row
+        # when there are fewer than ``max_results`` rows, so all rows are returned in that case.
+        bucketed = (
+            session
+            .query(
+                SqlMetric.value.label("value"),
+                SqlMetric.timestamp.label("timestamp"),
+                SqlMetric.step.label("step"),
+                SqlMetric.is_nan.label("is_nan"),
+                func.ntile(max_results).over(order_by=order_by).label("bucket"),
+            )
+            .filter(*filters)
+            .subquery()
+        )
+        bucket_order = [bucketed.c.step, bucketed.c.timestamp, bucketed.c.value, bucketed.c.is_nan]
+        ranked = session.query(
+            bucketed.c.value,
+            bucketed.c.timestamp,
+            bucketed.c.step,
+            bucketed.c.is_nan,
+            func
+            .row_number()
+            .over(partition_by=bucketed.c.bucket, order_by=bucket_order)
+            .label("rn"),
+        ).subquery()
+        rows = (
+            session
+            .query(ranked.c.value, ranked.c.timestamp, ranked.c.step, ranked.c.is_nan)
+            .filter(ranked.c.rn == 1)
+            .order_by(ranked.c.step, ranked.c.timestamp, ranked.c.value, ranked.c.is_nan)
+            .all()
+        )
+
+        # NTILE captures each bucket's first row but not necessarily the global last (maximum) one,
+        # so include it to preserve the metric's end boundary. Replace the last sampled point when
+        # already at ``max_results`` so the response never exceeds the requested size.
+        last_row = (
+            session
+            .query(SqlMetric.value, SqlMetric.timestamp, SqlMetric.step, SqlMetric.is_nan)
+            .filter(*filters)
+            .order_by(
+                SqlMetric.step.desc(),
+                SqlMetric.timestamp.desc(),
+                SqlMetric.value.desc(),
+                SqlMetric.is_nan.desc(),
+            )
+            .first()
+        )
+
+        def _row_key(row):
+            value = None if row.is_nan else row.value
+            return (row.step, row.timestamp, value, row.is_nan)
+
+        if last_row is not None and (not rows or _row_key(rows[-1]) != _row_key(last_row)):
+            if len(rows) >= max_results:
+                rows[-1] = last_row
+            else:
+                rows.append(last_row)
+        return rows
+
+    def _sample_rows_in_python(self, session, filters, order_by, max_results):
+        # Fallback for backends without window functions (MySQL < 8.0 / MariaDB < 10.2). The rows
+        # are streamed server-side and an evenly spaced sample is kept, so the server holds at most
+        # ~``max_results`` rows in memory regardless of how many values were logged.
+        total = session.query(func.count()).select_from(SqlMetric).filter(*filters).scalar()
+        if not total:
+            return []
+        target_indices = set(self._evenly_spaced_indices(total, max_results))
+
+        rows_iter = (
+            session
+            .query(SqlMetric.value, SqlMetric.timestamp, SqlMetric.step, SqlMetric.is_nan)
+            .filter(*filters)
+            .order_by(*order_by)
+            .yield_per(1000)
+        )
+        return [row for idx, row in enumerate(rows_iter) if idx in target_indices]
 
     def _search_datasets(self, experiment_ids):
         """
