@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import type { RefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from '@databricks/web-shared/zustand';
@@ -111,7 +111,9 @@ export const useRegisterFloatingBottomObstruction = (ref: RefObject<HTMLElement>
     const rect = element.getBoundingClientRect();
     const pinnedToBottom = rect.bottom >= window.innerHeight - FAB_CORNER_ZONE_PX;
     // Reserve up to the bar's top so the FAB clears it regardless of any inset below the bar.
-    const reservedBottomPx = window.innerHeight - rect.top;
+    // Cap at the viewport height so a bar taller than the viewport (top above y=0) can't push
+    // the button off-screen — at most it rides at the very top.
+    const reservedBottomPx = Math.min(window.innerHeight - rect.top, window.innerHeight);
     if (pinnedToBottom && rect.height > 0 && reservedBottomPx > 0) {
       setBottomObstruction(id, reservedBottomPx);
     } else {
@@ -137,12 +139,13 @@ export const useRegisterFloatingBottomObstruction = (ref: RefObject<HTMLElement>
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     // Capture-phase scroll so we also see scrolling inside nested scroll containers (a sticky
-    // footer lives in one), not just window scroll.
-    window.addEventListener('scroll', measure, true);
+    // footer lives in one), not just window scroll. Passive: measure never preventDefaults.
+    const scrollOpts = { capture: true, passive: true } as const;
+    window.addEventListener('scroll', measure, scrollOpts);
     window.addEventListener('resize', measure);
     return () => {
       observer.disconnect();
-      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('scroll', measure, scrollOpts);
       window.removeEventListener('resize', measure);
       removeBottomObstruction(id);
     };
