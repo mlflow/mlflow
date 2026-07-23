@@ -112,16 +112,20 @@ def test_partition_is_deterministic():
     assert first == second
 
 
-def test_classification_requires_repo_root_cwd(monkeypatch, tmp_path):
+def test_classification_requires_repo_root_cwd(monkeypatch):
     # Pins the load-bearing production assumption: classification is correct only when
     # pytest runs from the repo root. From the root, an absolute serial path is classified
-    # serial; from an unrelated CWD, `os.path.relpath` yields a `../`-prefixed path that no
-    # longer matches, so the item would (wrongly) fall into the parallel pass. This test
-    # documents WHY the CI job must not set a `working-directory:` other than the checkout.
+    # serial; from a nested CWD, `os.path.relpath` yields a path that no longer starts with
+    # `tests/`, so the item would (wrongly) fall into the parallel pass. This documents WHY
+    # the CI job must not set a `working-directory:` other than the checkout root.
+    #
+    # Use a repo *subdirectory* (not `tmp_path`) as the "wrong" CWD: on Windows
+    # `os.path.relpath` raises ValueError across drive letters (C: repo vs D: temp), which
+    # would mask the point being tested. A subdir is always on the same drive.
     item = _item("tests/data/test_spark_dataset.py")
     monkeypatch.chdir(_REPO_ROOT)
     assert _is_serial_item(item) is True
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.chdir(_REPO_ROOT / "tests")
     assert _is_serial_item(item) is False
 
 
