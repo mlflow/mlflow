@@ -385,7 +385,9 @@ def test_extract_experiment_id_from_artifact_proxy_path():
         == "55"
     )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path("/api/2.0/mlflow/experiments/get")
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow/experiments/get"
+        )
         is None
     )
 
@@ -480,6 +482,51 @@ def test_proxy_artifact_authorization_required_fastapi(fastapi_client, monkeypat
         auth=(username2, password2),
     )
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "GET"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "GET"),
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "PUT"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "PUT"),
+    ],
+)
+def test_fastapi_validator_matches_native_artifact_routes(path, method):
+    assert _find_fastapi_validator(path, method) is not None
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts", "GET"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts", "GET"),
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "DELETE"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "DELETE"),
+        ("/api/2.0/mlflow-artifacts/mpu/create/1/run-id/artifacts/model.pkl", "POST"),
+        ("/ajax-api/2.0/mlflow-artifacts/mpu/abort/1/run-id/artifacts/model.pkl", "POST"),
+    ],
+)
+def test_fastapi_validator_skips_flask_fallback_artifact_routes(path, method):
+    assert _find_fastapi_validator(path, method) is None
+
+
+def test_proxy_artifact_permission_reuses_authenticated_flask_user(monkeypatch):
+    permission = SimpleNamespace(can_read=True, can_update=True, can_manage=False)
+    authenticate_request = mock.Mock(side_effect=AssertionError("should not re-authenticate"))
+
+    monkeypatch.setattr(auth_module, "authenticate_request", authenticate_request)
+    monkeypatch.setattr(auth_module, "_get_experiment_id_from_view_args", lambda: "123")
+    monkeypatch.setattr(auth_module, "_role_permission_for", lambda **_: permission)
+    monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
+
+    with auth_module.app.test_request_context("/api/2.0/mlflow-artifacts/artifacts"):
+        auth_module.g.mlflow_authenticated_user = "alice"
+        result = auth_module._get_permission_from_experiment_id_artifact_proxy()
+
+    assert result is permission
+    authenticate_request.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -593,9 +640,11 @@ def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monk
         ),
     ],
 )
-def test_proxy_artifact_list_query_param_uses_experiment_permission_fastapi(
+def test_proxy_artifact_list_query_param_uses_experiment_permission_on_fastapi_server(
     fastapi_client, monkeypatch, list_path, query_path_template
 ):
+    # List-artifacts is still served by Flask on the FastAPI server, so this
+    # exercises the fallback auth path rather than the native FastAPI router.
     username1, password1 = create_user(fastapi_client.tracking_uri)
     username2, password2 = create_user(fastapi_client.tracking_uri)
 
@@ -799,6 +848,102 @@ def jwt_fastapi_artifact_client(tmp_path):
         server_type="fastapi",
     ) as url:
         yield MlflowClient(url)
+
+
+def _write_counting_custom_auth_setup(tmp_path: Path):
+    counter_path = tmp_path / "auth_count.txt"
+    counter_path.write_text("0")
+    (tmp_path / "counting_auth.py").write_text(
+        "from pathlib import Path\n"
+        "from werkzeug.datastructures import Authorization\n\n"
+        f"_COUNTER_PATH = Path({str(counter_path)!r})\n\n"
+        "def authenticate_request():\n"
+        "    _COUNTER_PATH.write_text(str(int(_COUNTER_PATH.read_text()) + 1))\n"
+        f'    return Authorization("basic", {{"username": {ADMIN_USERNAME!r}}})\n'
+    )
+    config_path = tmp_path / "counting_auth.ini"
+    config_path.write_text(
+        "[mlflow]\n"
+        "default_permission = READ\n"
+        f"database_uri = sqlite:///{tmp_path / 'basic_auth.db'}\n"
+        f"admin_username = {ADMIN_USERNAME}\n"
+        f"admin_password = {ADMIN_PASSWORD}\n"
+        "authorization_function = counting_auth:authenticate_request\n"
+        "grant_default_workspace_access = false\n"
+    )
+    return counter_path, {
+        "MLFLOW_AUTH_CONFIG_PATH": str(config_path),
+        MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+        "PYTHONPATH": str(tmp_path),
+        "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        "_MLFLOW_SERVER_ARTIFACT_DESTINATION": str(tmp_path / "served_artifacts"),
+    }
+
+
+@pytest.fixture
+def counting_custom_auth_fastapi_client(tmp_path):
+    tmp_path = tmp_path / "fastapi"
+    tmp_path.mkdir()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    counter_path, extra_env = _write_counting_custom_auth_setup(tmp_path)
+    extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield MlflowClient(url), counter_path
+
+
+@pytest.fixture
+def counting_custom_auth_flask_client(tmp_path):
+    tmp_path = tmp_path / "flask"
+    tmp_path.mkdir()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    counter_path, extra_env = _write_counting_custom_auth_setup(tmp_path)
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="flask",
+    ) as url:
+        yield MlflowClient(url), counter_path
+
+
+def _count_custom_auth_calls_for_artifact_list(client, counter_path):
+    experiment_id = client.create_experiment(f"counting-auth-fallback-{random_str()}")
+    counter_path.write_text("0")
+    response = requests.get(
+        f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+    )
+    return response, int(counter_path.read_text())
+
+
+def test_custom_auth_flask_fallback_artifact_list_matches_flask_auth_count_on_fastapi_server(
+    counting_custom_auth_flask_client,
+    counting_custom_auth_fastapi_client,
+):
+    flask_client, flask_counter_path = counting_custom_auth_flask_client
+    fastapi_client, fastapi_counter_path = counting_custom_auth_fastapi_client
+
+    flask_response, flask_count = _count_custom_auth_calls_for_artifact_list(
+        flask_client, flask_counter_path
+    )
+    fastapi_response, fastapi_count = _count_custom_auth_calls_for_artifact_list(
+        fastapi_client, fastapi_counter_path
+    )
+
+    assert flask_response.status_code == 200
+    assert fastapi_response.status_code == 200
+    assert fastapi_count == flask_count
 
 
 def test_custom_auth_artifact_upload_download_fastapi(jwt_fastapi_artifact_client):

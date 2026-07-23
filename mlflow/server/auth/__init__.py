@@ -822,7 +822,10 @@ def _get_experiment_id_from_view_args():
 
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
-    username = authenticate_request().username
+    # Flask artifact proxy routes have already authenticated in `_before_request`.
+    # Reuse that username so custom auth functions are not invoked twice on
+    # Flask-served list/delete/presigned/MPU requests.
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
 
     if experiment_id := _get_experiment_id_from_view_args():
         return _get_role_permission_or_default(
@@ -2907,6 +2910,19 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
+def _is_native_fastapi_proxy_artifact_path(path: str, method: str) -> bool:
+    # Only artifact download/upload routes are served natively by FastAPI. List,
+    # delete, presigned, and MPU routes still fall through to Flask and must
+    # rely on Flask's existing auth flow to avoid double-invoking custom auth
+    # functions.
+    if method not in {"GET", "PUT"}:
+        return False
+
+    prefixes = [
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    ]
+    return any(path.startswith(prefix) for prefix in prefixes)
 def _is_proxy_artifact_path(path: str) -> bool:
     # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
     # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.

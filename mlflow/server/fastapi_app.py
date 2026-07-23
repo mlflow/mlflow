@@ -237,7 +237,6 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes
     fastapi_app.include_router(artifact_router)
 
-<<<<<<< HEAD
     add_mcp_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
