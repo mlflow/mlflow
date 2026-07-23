@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useLocation, useNavigate, useParams } from '../common/utils/RoutingUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
@@ -89,16 +89,37 @@ const SettingsPage = () => {
     return 'general';
   }, [sectionParam]);
 
+  const llmConnectionsRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (sectionParam && !isSettingsPathSegment(sectionParam)) {
       const returnTo = new URLSearchParams(location.search).get(SETTINGS_RETURN_TO_PARAM);
+      // The standalone LLM Connections tab now lives inside General; redirect there and
+      // anchor-scroll to the embedded section so existing deep-links keep working.
+      const hash = sectionParam === SETTINGS_SECTION_LLM_CONNECTIONS ? `#${SETTINGS_SECTION_LLM_CONNECTIONS}` : '';
       const target = Routes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL);
-      navigate(returnTo ? `${target}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}` : target, {
+      const withReturnTo = returnTo ? `${target}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}` : target;
+      navigate(`${withReturnTo}${hash}`, {
         replace: true,
         state: location.state,
       });
     }
   }, [sectionParam, navigate, location.search, location.state]);
+
+  useEffect(() => {
+    if (location.hash !== `#${SETTINGS_SECTION_LLM_CONNECTIONS}`) {
+      return;
+    }
+    const element = llmConnectionsRef.current;
+    if (!element) {
+      return;
+    }
+    if (typeof element.scrollIntoView !== 'function') {
+      return;
+    }
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    element.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+  }, [location.hash, activeSection]);
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -266,26 +287,33 @@ const SettingsPage = () => {
                 </Typography.Text>
               </SettingsRow>
             </Card>
-          </>
-        )}
 
-        {activeSection === SETTINGS_SECTION_LLM_CONNECTIONS && (
-          <>
-            <SettingsSectionHeader
-              title={
-                <FormattedMessage
-                  defaultMessage="LLM Connections"
-                  description="Settings content section title: LLM connections"
-                />
-              }
-              subtitle={
-                <FormattedMessage
-                  defaultMessage="Create and manage API keys for authenticating to external LLM providers."
-                  description="Settings content section subtitle for LLM connections (API keys)"
-                />
-              }
-            />
-            <ApiKeysPageInner />
+            <div
+              ref={llmConnectionsRef}
+              id={SETTINGS_SECTION_LLM_CONNECTIONS}
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.lg,
+                scrollMarginTop: theme.spacing.md,
+              }}
+            >
+              <SettingsSectionHeader
+                title={
+                  <FormattedMessage
+                    defaultMessage="LLM Connections"
+                    description="Settings content section title: LLM connections"
+                  />
+                }
+                subtitle={
+                  <FormattedMessage
+                    defaultMessage="Store provider keys and choose which models MLflow features can use."
+                    description="Settings content section subtitle for LLM connections (API keys)"
+                  />
+                }
+              />
+              <ApiKeysPageInner />
+            </div>
           </>
         )}
 

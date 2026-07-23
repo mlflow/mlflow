@@ -1,6 +1,7 @@
-import { Alert, Input, Modal, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, FormUI, Input, Modal, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { SecretFormFields } from '../secrets';
+import { ModelAllowlistField } from '../model-selector/ModelAllowlistField';
 import { useEditApiKeyModal } from '../../hooks/useEditApiKeyModal';
 import { formatProviderName } from '../../utils/providerUtils';
 import type { SecretInfo } from '../../types';
@@ -18,12 +19,14 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
 
   const {
     formData,
+    allowlistedModels,
     errors,
     isLoading,
     errorMessage,
     isFormValid,
     provider,
     handleFormDataChange,
+    handleAllowlistedModelsChange,
     handleSubmit,
     handleClose,
   } = useEditApiKeyModal({ secret, onClose, onSuccess });
@@ -134,6 +137,28 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
           componentId="mlflow.gateway.edit-api-key-modal"
           hideNameField
         />
+
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Allowed models"
+              description="Section label for the model allowlist in the edit API key modal"
+            />
+          </Typography.Text>
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage
+              defaultMessage="Choose which models this key can be used with. These appear as options wherever MLflow needs a model."
+              description="Helper text for the model allowlist in the edit API key modal"
+            />
+          </Typography.Text>
+          <ModelAllowlistField
+            provider={provider}
+            value={allowlistedModels}
+            onChange={handleAllowlistedModelsChange}
+            componentId="mlflow.gateway.edit-api-key-modal.allowlisted-models"
+          />
+          {errors.allowlistedModels && <FormUI.Message type="error" message={errors.allowlistedModels} />}
+        </div>
       </div>
     </Modal>
   );
