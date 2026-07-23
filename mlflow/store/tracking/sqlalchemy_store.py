@@ -5084,6 +5084,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+                translated_span_type = _try_parse_json_string(
+                    span_attributes.get(SpanAttributeKey.SPAN_TYPE)
+)
+                if not translated_span_type:
+                    translated_span_type = span.span_type
+
+                if not translated_span_type:
+                    translated_span_type = "UNKNOWN"
+
+
+
 
                 # Prepare dimension attributes with model name and provider if available
                 dimension_attribute_keys = [
@@ -5095,6 +5106,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     if value := span_attributes.get(key):
                         dimension_attributes[key] = _try_parse_json_string(value)
 
+                        
+
                 # experiment_id filled in after we resolve trace infos
                 all_span_rows.append({
                     "trace_id": span.trace_id,
@@ -5102,7 +5115,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     "span_id": span.span_id,
                     "parent_span_id": span.parent_id,
                     "name": span.name,
-                    "type": span.span_type,
+                    "type": translated_span_type,
                     "status": span.status.status_code,
                     "start_time_unix_nano": span.start_time_ns,
                     "end_time_unix_nano": span.end_time_ns,
