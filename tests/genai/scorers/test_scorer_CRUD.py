@@ -245,6 +245,8 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
     )
     v1_version_config = _scorer_version_config(scorer_v1, version=1)
     v2_version_config = _scorer_version_config(scorer_v2, version=2)
+    v1_version_config.pop("display_name")
+    v2_version_config.pop("display_name")
 
     with (
         patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
@@ -270,6 +272,7 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
         filter_string="trace.status = 'OK'",
     )
     assert [version for _, version in versions] == [1, 2]
+    assert [scorer.name for scorer, _ in versions] == [scorer_name, scorer_name]
 
     scorer_key = "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI"
     assert mock_http.call_args_list[0].kwargs["endpoint"] == (

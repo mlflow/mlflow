@@ -611,7 +611,7 @@ class DatabricksStore(AbstractScorerStore):
                 response,
                 experiment_id,
                 current_config=current_config,
-                display_name=response["display_name"],
+                display_name=response.get("display_name") or name,
             )
 
         # Get the scheduled scorer from the server
@@ -640,7 +640,7 @@ class DatabricksStore(AbstractScorerStore):
                     config,
                     experiment_id,
                     current_config=current_config,
-                    display_name=config["display_name"],
+                    display_name=config.get("display_name") or name,
                 ),
                 self._get_config_version(config),
             )
