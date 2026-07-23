@@ -166,6 +166,110 @@ def fastapi_workspace_client(tmp_path):
         yield MlflowClient(url)
 
 
+def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_path, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24566:
+    # On an --artifacts-only server the tracking store has no experiment data, so the
+    # resource->workspace lookup fails. With workspaces disabled, permission resolution must
+    # still honor an explicit experiment grant in the auth DB instead of falling through to
+    # default_permission (NO_PERMISSIONS => 403).
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    experiment_id = "123"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_experiment_permission(experiment_id, username, READ.name)
+
+    def _raise_not_found(_experiment_id):
+        raise MlflowException("no experiment data", RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_experiment=_raise_not_found),
+    )
+
+    try:
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant (not the
+        # default) is what's honored.
+        perm = auth_module._get_experiment_permission(experiment_id, username)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel — the two are otherwise
+        # indistinguishable when default_permission == NO_PERMISSIONS.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_perm = auth_module._get_experiment_permission(experiment_id, "stranger")
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
+def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_path, monkeypatch):
+    # Sibling of test_experiment_permission_honored_when_tracking_store_lacks_experiment for the
+    # _role_permission_for_known_workspace path (registered models / prompts): when the workspace
+    # can't be resolved (e.g. the registry lookup returned no workspace) and workspaces are
+    # disabled, resolution must still honor an explicit grant instead of falling through to
+    # default_permission.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    model_name = "m1"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_registered_model_permission(model_name, username, READ.name)
+
+    try:
+        # workspace_name=None mimics an unresolved workspace (e.g. RESOURCE_DOES_NOT_EXIST).
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant is honored.
+        resolver = auth_module._role_permission_for_known_workspace(
+            username, "registered_model", model_name, None
+        )
+        perm = auth_module._get_role_permission_or_default(resolver)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_resolver = auth_module._role_permission_for_known_workspace(
+            "stranger", "registered_model", model_name, None
+        )
+        stranger_perm = auth_module._get_role_permission_or_default(stranger_resolver)
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
 def test_authenticate(client, monkeypatch):
     # unauthenticated
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
@@ -196,6 +300,16 @@ def test_validate_username_and_password(client, username, password):
 def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
+
+
+def test_proxy_artifact_path_detection_with_static_prefix(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+
+    assert auth_module._is_proxy_artifact_path("/mlflow/api/2.0/mlflow-artifacts/artifacts/foo")
+    assert auth_module._is_proxy_artifact_path(
+        "/mlflow/ajax-api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+    assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
 def test_is_unprotected_route_handles_static_prefix(monkeypatch):
@@ -237,6 +351,24 @@ def test_proxy_artifact_mpu_validator_returns_update_for_post():
         "POST", {"artifact_path": "1/run-id/artifacts/model"}
     )
     assert validator is auth_module.validate_can_update_experiment_artifact_proxy
+
+
+def test_proxy_artifact_presigned_path_detection():
+    # GetPresignedDownloadUrl paths must be recognized so basic-auth applies the same
+    # experiment artifact READ check it applies to /mlflow-artifacts/artifacts downloads.
+    assert auth_module._is_proxy_artifact_path(
+        "/api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+    assert auth_module._is_proxy_artifact_path(
+        "/ajax-api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+
+
+def test_proxy_artifact_presigned_validator_returns_read_for_get():
+    validator = auth_module._get_proxy_artifact_validator(
+        "GET", {"artifact_path": "1/run-id/artifacts/model.pkl"}
+    )
+    assert validator is auth_module.validate_can_read_experiment_artifact_proxy
 
 
 @pytest.mark.parametrize(
@@ -293,6 +425,64 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24567:
+    # GetPresignedDownloadUrl must enforce the same experiment artifact READ permission
+    # as the proxied download route. Without authorization, a user with no grant would
+    # reach the handler (returning a working presigned URL on cloud backends), leaking
+    # artifacts. A denied user must receive 403 before the handler runs.
+    # Runs against ``default_permission=NO_PERMISSIONS`` so a GET (READ) without an
+    # explicit grant is denied — a READ-permission default would otherwise allow it.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-presigned-authz-test")
+
+    presigned_url = (
+        client.tracking_uri + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
+    )
+    response = requests.get(url=presigned_url, auth=(username2, password2))
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            STATIC_PREFIX_ENV_VAR: "/mlflow",
+        }
+    ],
+    indirect=True,
+)
+def test_presigned_download_authorization_required_with_static_prefix(client, monkeypatch):
+    prefixed_tracking_uri = f"{client.tracking_uri}/mlflow"
+    prefixed_client = MlflowClient(prefixed_tracking_uri)
+    username1, password1 = create_user(prefixed_tracking_uri)
+    username2, password2 = create_user(prefixed_tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = prefixed_client.create_experiment("prefixed-presigned-download-authz-test")
+
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + (
+                f"/mlflow/api/2.0/mlflow-artifacts/presigned/"
+                f"{experiment_id}/run-id/artifacts/model.pkl"
+            )
+        ),
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monkeypatch):
     # Regression test for https://github.com/mlflow/mlflow/issues/21201:
     # When default_permission is NO_PERMISSIONS, a user with explicit experiment permission
@@ -338,6 +528,42 @@ def test_mpu_authorization_required(client, monkeypatch, mpu_action):
         auth=(username2, password2),
     )
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_download_url_authorization_required(client, monkeypatch):
+    # Minting a presigned download URL grants direct read access to a run's artifacts,
+    # so it must enforce the same per-run READ permission as the proxied download paths.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-download-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+
+    # user2 has no permission on user1's experiment — the auth layer must reject with
+    # 403 before the handler runs (without the validator this reaches the handler and
+    # returns a handler-level status such as 501 for the local artifact repository).
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # user1 (creator, MANAGE on the experiment) passes the auth layer; the request
+    # reaches the handler, which rejects the local (file://) artifact repo with 501.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):

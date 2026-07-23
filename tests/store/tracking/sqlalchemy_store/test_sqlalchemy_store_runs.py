@@ -2820,6 +2820,158 @@ def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore
     assert returned_steps == set(range(20, 31))
 
 
+def test_get_metric_history_bulk_interval_same_step_is_bounded(store: SqlAlchemyStore):
+    # Many values logged under a single step (the default step=0 used by log_metric without an
+    # explicit step) must not blow up the response. Previously the step-based downsampling
+    # collapsed to a single step and returned every row (up to 25000), causing memory spikes.
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "loss"
+    n = 5000
+    for start in range(0, n, 1000):
+        store.log_batch(
+            run_id,
+            metrics=[
+                models.SqlMetric(
+                    key=metric_key, value=float(i), timestamp=1000 + i, step=0
+                ).to_mlflow_entity()
+                for i in range(start, start + 1000)
+            ],
+            params=[],
+            tags=[],
+        )
+
+    max_results = 100
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=max_results,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Bounded to max_results, not the full 5000 rows logged at step 0.
+    assert len(result) == max_results
+    values = [m.value for m in result]
+    # The sample spans the full range: first and last logged values are both present.
+    assert values[0] == 0.0
+    assert values[-1] == float(n - 1)
+    # Values are an evenly spread sample, not just the first N rows (the old behavior).
+    assert max(values) == float(n - 1)
+
+
+def test_get_metric_history_bulk_interval_python_fallback_is_bounded(store: SqlAlchemyStore):
+    # Backends without window functions (MySQL < 8.0 / MariaDB < 10.2) take the Python sampling
+    # path. It must produce the same bounded, full-range result as the window-function path.
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "loss"
+    n = 5000
+    for start in range(0, n, 1000):
+        store.log_batch(
+            run_id,
+            metrics=[
+                models.SqlMetric(
+                    key=metric_key, value=float(i), timestamp=1000 + i, step=0
+                ).to_mlflow_entity()
+                for i in range(start, start + 1000)
+            ],
+            params=[],
+            tags=[],
+        )
+
+    max_results = 100
+    with mock.patch.object(
+        SqlAlchemyStore, "_supports_window_functions", return_value=False
+    ) as supports:
+        result = store.get_metric_history_bulk_interval(
+            run_ids=[run_id],
+            metric_key=metric_key,
+            max_results=max_results,
+            start_step=None,
+            end_step=None,
+        )
+    supports.assert_called()
+
+    assert len(result) == max_results
+    values = [m.value for m in result]
+    assert values[0] == 0.0
+    assert values[-1] == float(n - 1)
+    assert max(values) == float(n - 1)
+
+
+@pytest.mark.parametrize(
+    ("db_type", "server_version_info", "is_mariadb", "expected"),
+    [
+        (SQLITE, None, False, True),
+        (POSTGRES, None, False, True),
+        (MYSQL, (8, 0, 32), False, True),
+        (MYSQL, (5, 7, 40), False, False),
+        (MYSQL, (10, 5, 0), True, True),
+        (MYSQL, (10, 1, 0), True, False),
+        (MYSQL, None, False, True),
+    ],
+)
+def test_supports_window_functions(
+    store: SqlAlchemyStore, db_type, server_version_info, is_mariadb, expected
+):
+    session = mock.Mock()
+    dialect = session.get_bind.return_value.dialect
+    dialect.server_version_info = server_version_info
+    dialect._is_mariadb = is_mariadb
+    with mock.patch.object(store, "db_type", db_type):
+        assert store._supports_window_functions(session) is expected
+
+
+def test_get_metric_history_bulk_interval_fewer_than_max_results_returns_all(
+    store: SqlAlchemyStore,
+):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "test_metric"
+    for i in range(5):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=100,
+        start_step=None,
+        end_step=None,
+    )
+
+    assert [m.step for m in result] == [0, 1, 2, 3, 4]
+    assert [m.value for m in result] == [0.0, 1.0, 2.0, 3.0, 4.0]
+
+
+def test_get_metric_history_bulk_interval_preserves_nan(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "test_metric"
+    store.log_metric(
+        run_id,
+        models.SqlMetric(
+            key=metric_key, value=float("nan"), timestamp=1000, step=0, is_nan=True
+        ).to_mlflow_entity(),
+    )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    assert len(result) == 1
+    assert math.isnan(result[0].value)
+
+
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
         # cursor = conn.cursor()

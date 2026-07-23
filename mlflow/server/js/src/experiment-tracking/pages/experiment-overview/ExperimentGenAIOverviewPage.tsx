@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 import { Alert, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
-import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useIsFileStore } from '../../hooks/useServerInfo';
@@ -53,10 +53,10 @@ const DEMO_END_TIME_TAG = 'mlflow.demo.end_time_ms';
 const ExperimentGenAIOverviewPageImpl = () => {
   const intl = useIntl();
   const { experimentId } = useParams();
+  const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
-  const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
   const sqlWarehouseContext = useSqlWarehouseContextSafe();
 
@@ -293,7 +293,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
             <div css={{ marginLeft: 'auto' }}>
               <DetectIssuesButton
                 componentId="mlflow.experiment.overview.detect-issues-button"
-                onClick={() => setIsIssueDetectionModalOpen(true)}
+                onClick={() => navigate(`${Routes.getExperimentPageTracesTabRoute(experimentId)}?detectIssues=true`)}
               />
             </div>
           )}
@@ -375,9 +375,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Content>
         </OverviewChartProvider>
       </Tabs.Root>
-      {isIssueDetectionModalOpen && (
-        <IssueDetectionModal onClose={() => setIsIssueDetectionModalOpen(false)} experimentId={experimentId} />
-      )}
     </div>
   );
 };

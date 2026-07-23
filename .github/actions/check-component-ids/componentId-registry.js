@@ -816,6 +816,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.context.trace": "",
   "mlflow.assistant.chat_panel.copy": "",
   "mlflow.assistant.chat_panel.copy.tooltip": "",
+  "mlflow.assistant.chat_panel.provider_info.tooltip": "",
   "mlflow.assistant.chat_panel.regenerate": "",
   "mlflow.assistant.chat_panel.regenerate.tooltip": "",
   "mlflow.assistant.chat_panel.remote_close": "",
@@ -826,6 +827,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.settings.tooltip": "",
   "mlflow.assistant.chat_panel.setup": "",
   "mlflow.assistant.chat_panel.suggestion.card": "",
+  "mlflow.assistant.chat_panel.usage_info": "",
   "mlflow.assistant.fab": "",
   "mlflow.assistant.icon_button": "",
   "mlflow.assistant.icon_button.tooltip": "",
@@ -1719,6 +1721,9 @@ module.exports = {
   // -- mlflow.genai_traces_table_filter --
   "mlflow.genai_traces_table_filter.filter_dropdown": "",
 
+  // -- mlflow.generic_input_modal --
+  "mlflow.generic_input_modal.submission_error": "",
+
   // -- mlflow.home --
   "mlflow.home.create_workspace_modal": "",
   "mlflow.home.create_workspace_modal.error": "",
@@ -2211,6 +2216,9 @@ module.exports = {
   "mlflow.traces.issue-detection.api-key.mode": "",
   "mlflow.traces.issue-detection.api-key.secret-input": "",
   "mlflow.traces.issue-detection.cancel-button": "",
+  "mlflow.traces.issue-detection.completed-toast.view-results": "",
+  "mlflow.traces.issue-detection.failed-toast.view-details": "",
+  "mlflow.traces.issue-detection.started-toast.view-progress": "",
   "mlflow.traces.issue-detection.view-issues-button": "",
   "mlflow.traces.issue-detection.view-issues-link": "",
   "mlflow.traces.issue-detection.view-traces-link": "",

@@ -1,7 +1,10 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -604,6 +607,64 @@ def test_create_mcp_server_version_with_tools(store):
     assert sv.tools[0].name == "web_search"
 
 
+def test_create_mcp_server_version_omitted_tools_store_null_without_discovery(store):
+    # No remotes: omit/NOT_SET stores null without network.
+    sv = store.create_mcp_server_version(_server_json("io.github.test/omit-tools", "1.0.0"))
+    assert sv.tools is None
+
+    remotes_sj = _server_json(
+        "io.github.test/discover-tools",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/sql"}],
+    )
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        sv_discovered = store.create_mcp_server_version(remotes_sj, tools=NOT_SET)
+    mock_discover.assert_not_called()
+    assert sv_discovered.tools is None
+
+    # Explicit None disables discovery even when remotes exist.
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        sv_none = store.create_mcp_server_version(
+            _server_json(
+                "io.github.test/none-tools",
+                "1.0.0",
+                remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
+            ),
+            tools=None,
+        )
+    mock_discover.assert_not_called()
+    assert sv_none.tools is None
+
+
+def test_create_mcp_server_version_duplicate_raises_without_discovery(store):
+    remotes_sj = _server_json(
+        "io.github.test/dup-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup"}],
+    )
+    store.create_mcp_server_version(remotes_sj, tools=None)
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_mcp_server_version(remotes_sj)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    mock_discover.assert_not_called()
+
+
+def test_create_mcp_server_version_deleted_duplicate_raises_without_discovery(store):
+    remotes_sj = _server_json(
+        "io.github.test/dup-deleted-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup-del"}],
+    )
+    store.create_mcp_server_version(remotes_sj, tools=None)
+    store.delete_mcp_server_version("io.github.test/dup-deleted-discover", "1.0.0")
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_mcp_server_version(remotes_sj)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    mock_discover.assert_not_called()
+
+
 def test_create_mcp_server_version_rejects_risky_tool_icons(store):
     with pytest.raises(MlflowException, match="Icon URL"):
         store.create_mcp_server_version(
@@ -975,6 +1036,19 @@ def test_update_mcp_server_version_tools_none_clears_tools(store):
     )
     updated = store.update_mcp_server_version("io.github.test/servererver", "1.0.0", tools=None)
     assert updated.tools is None
+
+
+def test_update_mcp_server_version_omitted_tools_leaves_unchanged(store):
+    store.create_mcp_server_version(
+        _server_json(),
+        tools=[MCPTool(name="calculator")],
+    )
+    updated = store.update_mcp_server_version(
+        "io.github.test/servererver", "1.0.0", display_name="v1"
+    )
+    assert updated.display_name == "v1"
+    assert updated.tools is not None
+    assert updated.tools[0].name == "calculator"
 
 
 def test_update_mcp_server_version_returns_complete_entity(store):

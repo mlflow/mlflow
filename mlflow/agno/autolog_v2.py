@@ -5,11 +5,13 @@ Autologging logic for Agno V2 (>= 2.0.0) using OpenTelemetry instrumentation.
 import importlib.metadata as _meta
 import logging
 
+from opentelemetry import trace
+from opentelemetry.context import Context
+from opentelemetry.trace import Tracer, TracerProvider
 from packaging.version import Version
 
-import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import build_otlp_headers
+from mlflow.tracing.provider import _get_tracer, get_current_context
 
 _logger = logging.getLogger(__name__)
 _agno_instrumentor = None
@@ -38,6 +40,54 @@ def _is_agno_v2() -> bool:
         return False
 
 
+def _bridge_parent_context(context):
+    """Resolve the parent context for an Agno span."""
+    # Honor an explicitly-passed parent only when it actually carries a valid span. OpenInference
+    # sometimes hands us a context wrapping INVALID_SPAN (e.g. a top-level Agno Team, which it
+    # forces to a root span because its own get_current_span() check cannot see MLflow's active
+    # span in isolated mode). Treat such a context as "no parent" so we can still bridge below.
+    if context is not None and trace.get_current_span(context).get_span_context().is_valid:
+        return context
+
+    # A valid span is already active in the native OTel context, meaning we are inside the Agno
+    # subtree. Return None so OTel nests this span under it natively.
+    if trace.get_current_span().get_span_context().is_valid:
+        return None
+
+    # bridge to MLflow context management between isolated and non-isolated mode.
+    return get_current_context()
+
+
+class _MlflowContextBridgingTracer(Tracer):
+    """Delegating ``Tracer`` that parents Agno's OpenInference spans under active MLflow spans."""
+
+    def __init__(self, tracer: Tracer):
+        self._tracer = tracer
+
+    def start_span(self, name: str, context: Context | None = None, **kwargs):
+        return self._tracer.start_span(name, context=_bridge_parent_context(context), **kwargs)
+
+    def start_as_current_span(self, name: str, context: Context | None = None, **kwargs):
+        return self._tracer.start_as_current_span(
+            name, context=_bridge_parent_context(context), **kwargs
+        )
+
+    def __getattr__(self, name):
+        return getattr(self._tracer, name)
+
+
+class _MlflowTracerProvider(TracerProvider):
+    """``TracerProvider`` given to ``AgnoInstrumentor().instrument()``"""
+
+    def get_tracer(
+        self,
+        instrumenting_module_name: str,
+        *args,
+        **kwargs,
+    ) -> Tracer:
+        return _MlflowContextBridgingTracer(_get_tracer(instrumenting_module_name))
+
+
 def _setup_otel_instrumentation() -> None:
     """Set up OpenTelemetry instrumentation for Agno V2."""
     global _agno_instrumentor
@@ -48,31 +98,9 @@ def _setup_otel_instrumentation() -> None:
 
     try:
         from openinference.instrumentation.agno import AgnoInstrumentor
-        from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-        from mlflow.tracking.fluent import _get_experiment_id
-
-        tracking_uri = mlflow.get_tracking_uri()
-
-        tracking_uri = tracking_uri.rstrip("/")
-        endpoint = f"{tracking_uri}/v1/traces"
-
-        experiment_id = _get_experiment_id()
-
-        exporter = OTLPSpanExporter(endpoint=endpoint, headers=build_otlp_headers(experiment_id))
-
-        tracer_provider = trace.get_tracer_provider()
-        if not isinstance(tracer_provider, TracerProvider):
-            tracer_provider = TracerProvider()
-            trace.set_tracer_provider(tracer_provider)
-
-        tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
 
         _agno_instrumentor = AgnoInstrumentor()
-        _agno_instrumentor.instrument()
+        _agno_instrumentor.instrument(tracer_provider=_MlflowTracerProvider())
         _logger.debug("OpenTelemetry instrumentation enabled for Agno V2")
 
     except ImportError as exc:
