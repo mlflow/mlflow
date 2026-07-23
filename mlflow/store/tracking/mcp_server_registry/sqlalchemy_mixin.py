@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Any
 
 import sqlalchemy as sa
@@ -18,7 +18,7 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -279,6 +279,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -347,6 +348,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                         source=source,
                         created_by=created_by,
                         last_updated_by=created_by,
+                        connect_options=(
+                            {k: asdict(v) for k, v in connect_options.items()}
+                            if connect_options is not None
+                            else connect_options
+                        ),
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -484,6 +490,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         if tools is not NOT_SET:
             tools = _strip_tool_icon_response_fields(tools)
@@ -502,6 +509,12 @@ class SqlAlchemyMCPServerRegistryMixin:
                 sv.display_name = display_name
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
+            if connect_options is not NOT_SET:
+                sv.connect_options = (
+                    {k: asdict(v) for k, v in connect_options.items()}
+                    if connect_options is not None
+                    else connect_options
+                )
 
             sv.last_updated_by = last_updated_by
             sv.last_updated_at = get_current_time_millis()

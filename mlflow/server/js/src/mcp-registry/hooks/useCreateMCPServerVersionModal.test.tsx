@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { rest } from 'msw';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import {
@@ -40,6 +42,26 @@ const setTextareaValue = (element: HTMLElement, value: string) => {
 
 const TestComponent = ({ onSuccess }: { onSuccess?: (result: { name: string; version: string }) => void }) => {
   const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({ onSuccess });
+  return (
+    <>
+      <button onClick={openModal}>Open</button>
+      {CreateMCPServerVersionModal}
+    </>
+  );
+};
+
+const VersionModeTestComponent = ({
+  onSuccess,
+  latestVersion,
+}: {
+  onSuccess?: (result: { name: string; version: string }) => void;
+  latestVersion: ReturnType<typeof createMockMCPServerVersion>;
+}) => {
+  const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
+    onSuccess,
+    serverName: latestVersion.name,
+    latestVersion,
+  });
   return (
     <>
       <button onClick={openModal}>Open</button>
@@ -231,5 +253,52 @@ describe('useCreateMCPServerVersionModal', () => {
     // Display name should be empty
     const freshInput = screen.getByPlaceholderText('Human-readable label for this server');
     expect(freshInput).toHaveValue('');
+  });
+
+  it('carries over tools from latest version when creating a new version', async () => {
+    const tools = [{ name: 'search', description: 'Search the web' }];
+    const latestVersion = createMockMCPServerVersion({ tools });
+    const capturedBody = jest.fn();
+
+    mswServer.use(
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/mcp-servers/:name/versions'), async (req, res, ctx) => {
+        capturedBody(await req.json());
+        return res(ctx.json(createMockMCPServerVersion({ version: '2' })));
+      }),
+    );
+
+    const queryClient = new QueryClient();
+    render(<VersionModeTestComponent latestVersion={latestVersion} />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <TestRouter
+            routes={[
+              testRoute(
+                <DesignSystemProvider>
+                  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                </DesignSystemProvider>,
+                '/',
+              ),
+            ]}
+            initialEntries={['/']}
+          />
+        </IntlProvider>
+      ),
+    });
+
+    await userEvent.click(screen.getByText('Open'));
+    await waitFor(() => {
+      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Tools:')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Create'));
+
+    await waitFor(() => {
+      expect(capturedBody).toHaveBeenCalled();
+    });
+
+    expect(capturedBody.mock.calls[0][0]).toMatchObject({ tools });
   });
 });

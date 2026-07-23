@@ -1,6 +1,11 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MCPRegistryApi } from '../api';
-import type { MCPServer, MCPServerVersion, SearchMCPServerVersionsResponse } from '../types';
+import type {
+  MCPServer,
+  MCPServerVersion,
+  SearchMCPServerVersionsResponse,
+  SearchMCPAccessEndpointsResponse,
+} from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
@@ -45,4 +50,17 @@ export const useLatestMCPServerVersionQuery = (name: string, enabled = true) => 
     retry: false,
     enabled: Boolean(name) && enabled,
   });
+};
+
+export const useMCPAccessEndpointsQuery = (name: string) => {
+  const queryResult = useQuery<SearchMCPAccessEndpointsResponse, Error>([MCP_QUERY_KEYS.SERVER_ENDPOINTS, name], {
+    queryFn: () => MCPRegistryApi.searchMCPAccessEndpoints(name),
+    retry: false,
+    enabled: Boolean(name),
+  });
+
+  return {
+    ...queryResult,
+    data: queryResult.data?.mcp_access_endpoints,
+  };
 };

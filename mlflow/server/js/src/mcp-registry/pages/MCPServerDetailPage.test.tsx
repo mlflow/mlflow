@@ -7,10 +7,11 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import MCPServerDetailPage from './MCPServerDetailPage';
-import { TransportType } from '../types';
+import { TransportType, MCPStatus, MCPServerAction } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
+  createMockAccessEndpoint,
   getMockedGetMCPServerResponse,
   getMockedGetMCPServerErrorResponse,
   getMockedSearchMCPServerVersionsResponse,
@@ -21,6 +22,7 @@ import {
   getMockedSetMCPServerTagResponse,
   getMockedDeleteMCPServerTagResponse,
   getMockedCurrentUserResponse,
+  getMockedSearchAccessEndpointsResponse,
 } from '../test-utils';
 
 // Monaco does not render in jsdom; stand the editor in with a labelled textarea.
@@ -44,7 +46,7 @@ const mockServer = createMockMCPServer({
 const mockVersion = createMockMCPServerVersion({
   name: 'dev.mainline/mcp',
   version: '1',
-  status: 'active',
+  status: MCPStatus.ACTIVE,
   server_json: {
     name: 'dev.mainline/mcp',
     version: '1.0.0',
@@ -234,7 +236,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -287,7 +289,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -314,7 +316,7 @@ describe('MCPServerDetailPage', () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '2',
-      status: 'draft',
+      status: MCPStatus.DRAFT,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '2.0.0',
@@ -339,7 +341,7 @@ describe('MCPServerDetailPage', () => {
     const deletedVersion = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '1',
-      status: 'deleted',
+      status: MCPStatus.DELETED,
       server_json: {
         name: 'dev.mainline/mcp',
         version: '1.0.0',
@@ -422,5 +424,118 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('team')).toBeInTheDocument();
       });
     });
+  });
+
+  describe('permission gating via allowed_actions', () => {
+    const setupWithPermissions = (allowed_actions?: MCPServerAction[]) => {
+      const permServer = createMockMCPServer({
+        name: 'dev.mainline/mcp',
+        display_name: 'Mainline',
+        description: 'A test server',
+        allowed_actions,
+      });
+      server.use(getMockedGetMCPServerResponse(permServer), getMockedCurrentUserResponse({ isAdmin: false }));
+    };
+
+    it('hides all action buttons for READ-only user', async () => {
+      setupWithPermissions([]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getAllByText('Mainline').length).toBeGreaterThanOrEqual(1);
+      });
+      expect(screen.queryByText('Create MCP server version')).not.toBeInTheDocument();
+      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+      expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('More actions')).not.toBeInTheDocument();
+    });
+
+    it('shows edit buttons for EDIT user', async () => {
+      setupWithPermissions([MCPServerAction.USE, MCPServerAction.UPDATE]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByLabelText('More actions')).toBeInTheDocument();
+      expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
+    });
+
+    it('shows all buttons for MANAGE user', async () => {
+      setupWithPermissions([
+        MCPServerAction.USE,
+        MCPServerAction.UPDATE,
+        MCPServerAction.DELETE,
+        MCPServerAction.MANAGE,
+      ]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByText('Delete version')).toBeInTheDocument();
+      expect(screen.getByLabelText('More actions')).toBeInTheDocument();
+    });
+
+    it('shows all buttons when allowed_actions is undefined (no auth)', async () => {
+      setupWithPermissions(undefined);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByText('Delete version')).toBeInTheDocument();
+    });
+
+    it('shows Unavailable tag when auth is available and server has no endpoints', async () => {
+      setupWithPermissions([]);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('Unavailable')).toBeInTheDocument();
+      });
+    });
+  });
+
+  it('switches to compare view when Compare button is clicked', async () => {
+    const version2 = createMockMCPServerVersion({
+      name: 'dev.mainline/mcp',
+      version: '2',
+      status: MCPStatus.DRAFT,
+      server_json: {
+        name: 'dev.mainline/mcp',
+        version: '2.0.0',
+        title: 'Mainline v2',
+        description: 'Updated version.',
+      },
+    });
+    server.use(getMockedSearchMCPServerVersionsResponse([mockVersion, version2]));
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Compare'));
+    await waitFor(() => {
+      expect(screen.getByText(/Comparing version/)).toBeInTheDocument();
+    });
+  });
+
+  it('renders AccessEndpointsSubsection when endpoints data is present', async () => {
+    const endpoint = createMockAccessEndpoint({
+      server_name: 'dev.mainline/mcp',
+      url: 'https://api.mainline.dev/mcp',
+      transport_type: TransportType.STREAMABLE_HTTP,
+    });
+    server.use(getMockedSearchAccessEndpointsResponse([endpoint]));
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Access endpoints')).toBeInTheDocument();
+    });
+    expect(screen.getByText('https://api.mainline.dev/mcp')).toBeInTheDocument();
   });
 });

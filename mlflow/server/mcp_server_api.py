@@ -23,7 +23,7 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.validation import (
@@ -222,6 +222,7 @@ class CreateMCPServerVersionRequest(BaseModel):
             "stores no tools. Pass [] for an empty list, or a tool list."
         ),
     )
+    connect_options: dict[str, ConnectOptionSettings] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -259,6 +260,7 @@ class UpdateMCPServerVersionRequest(BaseModel):
     tools: list[MCPToolRequestPayload] | None = Field(
         default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
     )
+    connect_options: dict[str, ConnectOptionSettings] | None = None
 
 
 class CreateMCPAccessEndpointRequest(BaseModel):
@@ -374,6 +376,7 @@ class MCPServerVersionResponse(BaseModel):
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
+    connect_options: dict[str, ConnectOptionSettings] = Field(default_factory=dict)
     source: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -393,6 +396,7 @@ class MCPServerVersionResponse(BaseModel):
             tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
             aliases=entity.aliases,
             tags=entity.tags,
+            connect_options=entity.connect_options,
             source=entity.source,
             created_by=entity.created_by,
             last_updated_by=entity.last_updated_by,
@@ -542,6 +546,8 @@ def _update_mcp_server_version_kwargs(
         kwargs["status"] = _parse_status(body.status)
     if "tools" in provided_fields:
         kwargs["tools"] = _tool_payloads_to_entities(body.tools)
+    if "connect_options" in provided_fields:
+        kwargs["connect_options"] = body.connect_options
     return kwargs
 
 
@@ -728,6 +734,7 @@ def create_mcp_server_version(
         status=status,
         tools=tools,
         created_by=username,
+        connect_options=body.connect_options,
     )
     return MCPServerVersionResponse.from_entity(ver)
 
