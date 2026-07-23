@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784775083654,
+  "lastUpdate": 1784801800830,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -15821,6 +15821,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.588753999999767,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Mytolo@users.noreply.github.com",
+            "name": "Panajiotis Kessler",
+            "username": "Mytolo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cae618f1ba0c2fa0fe607d530d8744f74e056e8a",
+          "message": "Bound get-history-bulk-interval memory by sampling metric history by row (#24305)\n\nSigned-off-by: Panajiotis Kessler <Panajiotis.Kessler@gmail.com>\nSigned-off-by: Panajiotis Kessler <Mytolo@users.noreply.github.com>\nSigned-off-by: Panajiotis Kessler <Panajiotis.Kessler@digits.schwarz>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: joshuawong-db <joshua.wong@databricks.com>",
+          "timestamp": "2026-07-23T10:12:56Z",
+          "tree_id": "bf0bfd45ed1f3c39bafa81018828970229a00940",
+          "url": "https://github.com/mlflow/mlflow/commit/cae618f1ba0c2fa0fe607d530d8744f74e056e8a"
+        },
+        "date": 1784801799291,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.07066474999937,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.69552495238127,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.68642975675536,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.041608492308086,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.739664156250285,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.015900600000123,
             "unit": "ms"
           }
         ]
