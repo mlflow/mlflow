@@ -4809,6 +4809,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
+            self._get_sql_trace_info(session, trace_id)
 
             # Build list of prompt version IDs (format: "name/version")
             prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
