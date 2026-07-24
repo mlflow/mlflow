@@ -261,6 +261,13 @@ class MyClass {
 </Tabs>
 </TabsWrapper>
 
+:::warning `set_outputs()` inside `@mlflow.trace` is overwritten by the return value
+
+`span.set_inputs()` called inside a `@mlflow.trace`-decorated function correctly overrides the auto-captured inputs. `span.set_outputs()` called inside the function body does not persist: the decorator records the function's actual return value after the function returns, overwriting your value.
+
+To control the stored output, use `mlflow.start_span()` as a context manager (see [Code Block](#code-block)), which gives you full control over both inputs and outputs. To control what appears in the `Response` column of the Traces UI without changing the stored span output, use `mlflow.update_current_trace(response_preview=...)` (see [Customizing Request and Response Previews in the UI](#customizing-request-and-response-previews-in-the-ui)).
+:::
+
 ## Adding Trace Tags
 
 Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/genai/tracing/attach-tags) for the other methods.
