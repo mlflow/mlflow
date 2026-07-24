@@ -255,3 +255,13 @@ export const blockLabelStyles = (theme: ThemeType) => ({
 
 export const hiddenRowStyle = (hidden: boolean | undefined): React.CSSProperties | undefined =>
   hidden ? { opacity: 0.5 } : undefined;
+
+export const previewRowStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.md,
+  padding: theme.spacing.md,
+  backgroundColor: theme.colors.backgroundSecondary,
+  border: `1px solid ${theme.colors.border}`,
+  borderRadius: theme.general.borderRadiusBase,
+});

@@ -68,6 +68,7 @@ export interface MCPIcon {
   sizes?: string[];
   mimeType?: string;
   theme?: string;
+  source?: 'server' | 'version';
 }
 
 export interface MCPServerAlias {
@@ -187,6 +188,7 @@ export interface ServerJSONPayload {
   version: string;
   title?: string;
   description?: string;
+  icons?: MCPIcon[];
   packages?: ServerJSONPackage[];
   remotes?: ServerJSONTransport[];
   repository?: ServerJSONRepository;

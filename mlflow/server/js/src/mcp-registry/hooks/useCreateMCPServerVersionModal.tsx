@@ -12,17 +12,19 @@ import {
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { ConnectOptionsMap, MCPServerVersion } from '../types';
+import type { ConnectOptionsMap, MCPIcon, MCPServer, MCPServerVersion } from '../types';
 import { MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
-import { deriveConnectOptionKeys, validateServerJson, validateToolsJson } from '../utils';
+import { deriveConnectOptionKeys, validateServerJson } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
 import { TagKeySelectDropdown } from '../../common/components/TagSelectDropdown';
+import { IconEditor } from '../components/IconEditor';
+import { SubsectionHelpHeading } from '../components/SubsectionHelpHeading';
 import { monoFontStyles } from '../styles';
 
 interface CreateMCPServerVersionFormState {
@@ -30,7 +32,7 @@ interface CreateMCPServerVersionFormState {
   serverJsonText: string;
   status: MCPStatus;
   source: string;
-  toolsText: string;
+  icons: MCPIcon[];
   tags: Record<string, string>;
 }
 
@@ -39,17 +41,19 @@ const INITIAL_FORM_STATE: CreateMCPServerVersionFormState = {
   serverJsonText: '',
   status: MCPStatus.DRAFT,
   source: '',
-  toolsText: '',
+  icons: [],
   tags: {},
 };
 
 export const useCreateMCPServerVersionModal = ({
   onSuccess,
   serverName,
+  server,
   latestVersion,
 }: {
   onSuccess?: (result: { name: string; version: string }) => void;
   serverName?: string;
+  server?: MCPServer;
   latestVersion?: MCPServerVersion;
 } = {}) => {
   const isVersionMode = Boolean(serverName);
@@ -60,6 +64,15 @@ export const useCreateMCPServerVersionModal = ({
   const { theme } = useDesignSystemTheme();
 
   const { mutate, error: mutationError, reset: resetMutation, isLoading } = useCreateMCPServerVersionMutation();
+
+  const serverJsonIcons = useMemo(() => {
+    try {
+      const parsed = JSON.parse(formState.serverJsonText);
+      return Array.isArray(parsed?.icons) ? (parsed.icons as MCPIcon[]) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [formState.serverJsonText]);
 
   const tagForm = useForm<KeyValueEntity>({ defaultValues: { key: undefined, value: '' } });
   const tagFormValues = tagForm.watch();
@@ -99,16 +112,6 @@ export const useCreateMCPServerVersionModal = ({
       return;
     }
 
-    let parsedTools;
-    if (!isVersionMode && formState.toolsText.trim()) {
-      const toolsResult = validateToolsJson(formState.toolsText);
-      if (!toolsResult.valid) {
-        setValidationError(toolsResult.error);
-        return;
-      }
-      parsedTools = toolsResult.parsed as { name: string; [key: string]: unknown }[];
-    }
-
     setValidationError(undefined);
 
     const tagsToSet = Object.keys(formState.tags).length > 0 ? formState.tags : undefined;
@@ -130,6 +133,8 @@ export const useCreateMCPServerVersionModal = ({
       }
     }
 
+    const validIcons = formState.icons.filter((i) => i.src.trim());
+
     mutate(
       {
         serverJson: finalServerJson,
@@ -137,7 +142,8 @@ export const useCreateMCPServerVersionModal = ({
         isNewServer: !isVersionMode,
         status: formState.status,
         source: formState.source.trim() || undefined,
-        tools: isVersionMode ? (latestVersion?.tools ?? []) : parsedTools,
+        icons: isVersionMode ? undefined : validIcons.length > 0 ? validIcons : null,
+        tools: isVersionMode ? (latestVersion?.tools ?? []) : undefined,
         tags: tagsToSet,
         connectOptions,
       },
@@ -278,18 +284,26 @@ export const useCreateMCPServerVersionModal = ({
       <Spacer />
       {!isVersionMode && (
         <>
-          <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
-            <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
-          </FormUI.Label>
-          <LazyJsonRecordEditor
-            value={formState.toolsText}
-            onChange={(value) => handleFieldChange('toolsText', value)}
-            height="100px"
-            maxHeight="240px"
-            ariaLabel={intl.formatMessage({
-              defaultMessage: 'Tools JSON editor',
-              description: 'Aria label for tools JSON editor',
+          <SubsectionHelpHeading
+            title={
+              <FormattedMessage defaultMessage="Icons" description="Label for icons field in create MCP server modal" />
+            }
+            componentId="mlflow.mcp_registry.create.icons_help"
+            helpAriaLabel={intl.formatMessage({
+              defaultMessage: 'About icons',
+              description: 'Aria label for icons help popover in create MCP server modal',
             })}
+            helpText={
+              <FormattedMessage
+                defaultMessage="Set icons or override icons from server.json. Use 'light' or 'dark' for theme-specific icons, or 'any' for one that works in both."
+                description="Help text for icons in create MCP server modal"
+              />
+            }
+          />
+          <IconEditor
+            icons={formState.icons}
+            onChange={(icons) => handleFieldChange('icons', icons)}
+            serverJsonIcons={serverJsonIcons}
           />
           <Spacer />
         </>
@@ -370,7 +384,7 @@ export const useCreateMCPServerVersionModal = ({
         serverJsonText: JSON.stringify(latestVersion.server_json, null, 2),
         status: latestVersion.status === MCPStatus.DELETED ? MCPStatus.DRAFT : latestVersion.status,
         source: latestVersion.source || '',
-        toolsText: '',
+        icons: server?.icons ?? latestVersion.server_json?.icons ?? [],
         tags: { ...latestVersion.tags },
       });
     } else {

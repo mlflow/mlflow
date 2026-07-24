@@ -7,7 +7,7 @@ import {
   ListIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
-  WrenchIcon,
+  McpIcon,
   Spacer,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -71,7 +71,7 @@ const MCPRegistryPage = () => {
           title={
             <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <span css={headerIconStyles(theme)}>
-                <WrenchIcon />
+                <McpIcon />
               </span>
               <FormattedMessage defaultMessage="MCP Registry" description="MCP Registry page title" />
             </span>
