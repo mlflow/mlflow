@@ -11,6 +11,28 @@
  */
 export const DEFAULT_LOCALE = 'en';
 
+type RawMessage =
+  | string
+  | {
+      defaultMessage?: string;
+    };
+
+export function normalizeMessages(messages: Record<string, RawMessage>) {
+  return Object.fromEntries(
+    Object.entries(messages).flatMap(([key, message]) => {
+      if (typeof message === 'string') {
+        return [[key, message]];
+      }
+
+      if (message?.defaultMessage) {
+        return [[key, message.defaultMessage]];
+      }
+
+      return [];
+    }),
+  );
+}
+
 export async function loadMessages(locale: any) {
   // No compiled messages for the default locale — react-intl renders the
   // inline `defaultMessage` from each <FormattedMessage> / formatMessage call.
@@ -19,7 +41,7 @@ export async function loadMessages(locale: any) {
   }
 
   try {
-    return (await import(`../lang/compiled/${locale}.json`)).default;
+    return normalizeMessages((await import(`../lang/${locale}.json`)).default);
   } catch (e) {
     return {};
   }
