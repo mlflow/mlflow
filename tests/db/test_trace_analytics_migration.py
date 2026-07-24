@@ -26,6 +26,7 @@ USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
+_PAGINATION_ROW_COUNT = 2_501
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -594,6 +595,190 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
                     sa.text("SELECT total_cost FROM trace_info WHERE request_id = 'trace-fallback'")
                 ).scalar_one()
                 is None
+            )
+    finally:
+        engine.dispose()
+
+
+def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path):
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            _seed_legacy_analytics_data(conn)
+            trace_info = _table(conn, "trace_info")
+            trace_tags = _table(conn, "trace_tags")
+            trace_metadata = _table(conn, "trace_request_metadata")
+            trace_metrics = _table(conn, "trace_metrics")
+            spans = _table(conn, "spans")
+            span_metrics = _table(conn, "span_metrics")
+            assessments = _table(conn, "assessments")
+
+            trace_ids = [f"trace-page-{i:04d}" for i in range(_PAGINATION_ROW_COUNT)]
+            conn.execute(
+                trace_info.insert(),
+                [
+                    {
+                        "request_id": trace_id,
+                        "experiment_id": 1,
+                        "timestamp_ms": 1_800_000_000_000 + i,
+                        "execution_time_ms": i,
+                        "status": "OK",
+                    }
+                    for i, trace_id in enumerate(trace_ids)
+                ],
+            )
+            conn.execute(
+                trace_tags.insert(),
+                [
+                    {
+                        "request_id": trace_id,
+                        "key": TraceTagKey.TRACE_NAME,
+                        "value": f"trace-name-{i}",
+                    }
+                    for i, trace_id in enumerate(trace_ids)
+                ],
+            )
+            conn.execute(
+                trace_metadata.insert(),
+                [
+                    {
+                        "request_id": trace_id,
+                        "key": TraceMetadataKey.TRACE_SESSION,
+                        "value": f"session-{i}",
+                    }
+                    for i, trace_id in enumerate(trace_ids)
+                ],
+            )
+            conn.execute(
+                trace_metrics.insert(),
+                [
+                    {
+                        "request_id": trace_id,
+                        "key": TokenUsageKey.INPUT_TOKENS,
+                        "value": i,
+                    }
+                    for i, trace_id in enumerate(trace_ids)
+                ],
+            )
+
+            span_trace_id = trace_ids[0]
+            span_ids = [f"span-page-{i:04d}" for i in range(_PAGINATION_ROW_COUNT)]
+            conn.execute(
+                spans.insert(),
+                [
+                    {
+                        "trace_id": span_trace_id,
+                        "experiment_id": 1,
+                        "span_id": span_id,
+                        "name": f"span {i}",
+                        "type": "CHAT_MODEL",
+                        "status": "OK",
+                        "start_time_unix_nano": i,
+                        "end_time_unix_nano": i + 1,
+                        "content": "{}",
+                        "dimension_attributes": json.dumps({
+                            SpanAttributeKey.MODEL: f"model-{i}",
+                            SpanAttributeKey.MODEL_PROVIDER: f"provider-{i}",
+                        }),
+                    }
+                    for i, span_id in enumerate(span_ids)
+                ],
+            )
+            conn.execute(
+                span_metrics.insert(),
+                [
+                    {
+                        "trace_id": span_trace_id,
+                        "span_id": span_id,
+                        "key": CostKey.TOTAL_COST,
+                        "value": i,
+                    }
+                    for i, span_id in enumerate(span_ids)
+                ],
+            )
+            conn.execute(
+                assessments.insert(),
+                [
+                    {
+                        "assessment_id": f"assessment-page-{i:04d}",
+                        "trace_id": trace_id,
+                        "name": "quality",
+                        "assessment_type": "feedback",
+                        "value": str(i),
+                        "created_timestamp": i,
+                        "last_updated_timestamp": i,
+                        "source_type": "CODE",
+                        "valid": True,
+                    }
+                    for i, trace_id in enumerate(trace_ids)
+                ],
+            )
+
+        command.upgrade(config, REVISION)
+
+        with engine.connect() as conn:
+            trace_info = _table(conn, "trace_info")
+            assert (
+                conn.execute(
+                    sa.select(sa.func.count()).where(trace_info.c.request_id.like("trace-page-%"))
+                ).scalar_one()
+                == _PAGINATION_ROW_COUNT
+            )
+            last_trace = conn.execute(
+                sa.select(
+                    trace_info.c.trace_name,
+                    trace_info.c.session_id,
+                    trace_info.c.input_tokens,
+                ).where(trace_info.c.request_id == trace_ids[-1])
+            ).one()
+            assert last_trace == (
+                f"trace-name-{_PAGINATION_ROW_COUNT - 1}",
+                f"session-{_PAGINATION_ROW_COUNT - 1}",
+                float(_PAGINATION_ROW_COUNT - 1),
+            )
+
+            spans = _table(conn, "spans")
+            assert (
+                conn.execute(
+                    sa.select(sa.func.count()).where(
+                        spans.c.trace_id == span_trace_id,
+                        spans.c.span_id.like("span-page-%"),
+                        spans.c.total_cost.is_not(None),
+                    )
+                ).scalar_one()
+                == _PAGINATION_ROW_COUNT
+            )
+            last_span = conn.execute(
+                sa.select(spans.c.model_name, spans.c.model_provider, spans.c.total_cost).where(
+                    spans.c.trace_id == span_trace_id,
+                    spans.c.span_id == span_ids[-1],
+                )
+            ).one()
+            assert last_span == (
+                f"model-{_PAGINATION_ROW_COUNT - 1}",
+                f"provider-{_PAGINATION_ROW_COUNT - 1}",
+                float(_PAGINATION_ROW_COUNT - 1),
+            )
+
+            assessments = _table(conn, "assessments")
+            assert (
+                conn.execute(
+                    sa.select(sa.func.count()).where(
+                        assessments.c.assessment_id.like("assessment-page-%"),
+                        assessments.c.experiment_id == 1,
+                        assessments.c.is_numeric_value.is_(True),
+                    )
+                ).scalar_one()
+                == _PAGINATION_ROW_COUNT
+            )
+            assert conn.execute(
+                sa.select(assessments.c.trace_timestamp_ms, assessments.c.aggregate_value).where(
+                    assessments.c.assessment_id
+                    == f"assessment-page-{_PAGINATION_ROW_COUNT - 1:04d}"
+                )
+            ).one() == (
+                1_800_000_000_000 + _PAGINATION_ROW_COUNT - 1,
+                float(_PAGINATION_ROW_COUNT - 1),
             )
     finally:
         engine.dispose()

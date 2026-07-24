@@ -8,7 +8,6 @@ Create Date: 2026-07-22 00:00:00.000000
 
 import json
 import math
-from itertools import islice
 
 import sqlalchemy as sa
 from alembic import op
@@ -363,14 +362,33 @@ def _backfill_trace_analytics():
     trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
     trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
 
-    trace_ids = bind.execute(sa.select(trace_info.c.request_id).order_by(trace_info.c.request_id))
+    trace_name = (
+        sa
+        .select(trace_tags.c.value)
+        .where(
+            trace_tags.c.request_id == trace_info.c.request_id,
+            trace_tags.c.key == TraceTagKey.TRACE_NAME,
+        )
+        .correlate(trace_info)
+        .scalar_subquery()
+    )
+    session_id = (
+        sa
+        .select(trace_metadata.c.value)
+        .where(
+            trace_metadata.c.request_id == trace_info.c.request_id,
+            trace_metadata.c.key == TraceMetadataKey.TRACE_SESSION,
+        )
+        .correlate(trace_info)
+        .scalar_subquery()
+    )
+    bind.execute(trace_info.update().values(trace_name=trace_name, session_id=session_id))
+
     update_stmt = (
         trace_info
         .update()
         .where(trace_info.c.request_id == sa.bindparam("request_id_param"))
         .values(
-            trace_name=sa.bindparam("trace_name"),
-            session_id=sa.bindparam("session_id"),
             input_tokens=sa.bindparam("input_tokens"),
             output_tokens=sa.bindparam("output_tokens"),
             total_tokens=sa.bindparam("total_tokens"),
@@ -381,17 +399,16 @@ def _backfill_trace_analytics():
             total_cost=sa.bindparam("total_cost"),
         )
     )
-    for batch in _batched(trace_ids, _BATCH_SIZE):
+    last_request_id = None
+    while True:
+        page_stmt = sa.select(trace_info.c.request_id).order_by(trace_info.c.request_id)
+        if last_request_id is not None:
+            page_stmt = page_stmt.where(trace_info.c.request_id > last_request_id)
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
         batch_ids = [row.request_id for row in batch]
-        trace_names = {
-            row.request_id: row.value
-            for row in bind.execute(
-                sa.select(trace_tags.c.request_id, trace_tags.c.value).where(
-                    trace_tags.c.request_id.in_(batch_ids),
-                    trace_tags.c.key == TraceTagKey.TRACE_NAME,
-                )
-            )
-        }
         metadata_by_trace = {trace_id: {} for trace_id in batch_ids}
         for row in bind.execute(
             sa.select(
@@ -399,7 +416,6 @@ def _backfill_trace_analytics():
             ).where(
                 trace_metadata.c.request_id.in_(batch_ids),
                 trace_metadata.c.key.in_([
-                    TraceMetadataKey.TRACE_SESSION,
                     TraceMetadataKey.TOKEN_USAGE,
                     TraceMetadataKey.COST,
                 ]),
@@ -435,12 +451,11 @@ def _backfill_trace_analytics():
             }
             updates.append({
                 "request_id_param": trace_id,
-                "trace_name": trace_names.get(trace_id),
-                "session_id": values.get(TraceMetadataKey.TRACE_SESSION),
                 **tokens,
                 **{column: costs.get(column) for column in _COST_COLUMNS.values()},
             })
         bind.execute(update_stmt, updates)
+        last_request_id = batch_ids[-1]
 
 
 def _backfill_span_analytics():
@@ -448,11 +463,6 @@ def _backfill_span_analytics():
     metadata = sa.MetaData()
     spans = sa.Table("spans", metadata, autoload_with=bind)
     span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
-    span_rows = bind.execute(
-        sa.select(spans.c.trace_id, spans.c.span_id, spans.c.dimension_attributes).order_by(
-            spans.c.trace_id, spans.c.span_id
-        )
-    )
     update_stmt = (
         spans
         .update()
@@ -468,7 +478,26 @@ def _backfill_span_analytics():
             model_provider=sa.bindparam("model_provider"),
         )
     )
-    for batch in _batched(span_rows, _BATCH_SIZE):
+    last_span_key = None
+    while True:
+        page_stmt = sa.select(
+            spans.c.trace_id, spans.c.span_id, spans.c.dimension_attributes
+        ).order_by(spans.c.trace_id, spans.c.span_id)
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            page_stmt = page_stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
         span_keys = [(row.trace_id, row.span_id) for row in batch]
         trace_ids = list(dict.fromkeys(trace_id for trace_id, _ in span_keys))
         span_ids = list(dict.fromkeys(span_id for _, span_id in span_keys))
@@ -501,6 +530,7 @@ def _backfill_span_analytics():
                 "model_provider": _string_or_none(dimensions.get(SpanAttributeKey.MODEL_PROVIDER)),
             })
         bind.execute(update_stmt, updates)
+        last_span_key = span_keys[-1]
 
 
 def _backfill_assessment_analytics():
@@ -508,42 +538,59 @@ def _backfill_assessment_analytics():
     metadata = sa.MetaData()
     trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
     assessments = sa.Table("assessments", metadata, autoload_with=bind)
-    rows = bind.execute(
+
+    experiment_id = (
         sa
-        .select(
-            assessments.c.assessment_id,
-            assessments.c.value,
-            trace_info.c.experiment_id,
-            trace_info.c.timestamp_ms,
-        )
-        .select_from(
-            assessments.join(trace_info, assessments.c.trace_id == trace_info.c.request_id)
-        )
-        .order_by(assessments.c.assessment_id)
+        .select(trace_info.c.experiment_id)
+        .where(trace_info.c.request_id == assessments.c.trace_id)
+        .correlate(assessments)
+        .scalar_subquery()
     )
+    trace_timestamp_ms = (
+        sa
+        .select(trace_info.c.timestamp_ms)
+        .where(trace_info.c.request_id == assessments.c.trace_id)
+        .correlate(assessments)
+        .scalar_subquery()
+    )
+    bind.execute(
+        assessments.update().values(
+            experiment_id=experiment_id,
+            trace_timestamp_ms=trace_timestamp_ms,
+        )
+    )
+
     update_stmt = (
         assessments
         .update()
         .where(assessments.c.assessment_id == sa.bindparam("assessment_id_param"))
         .values(
-            experiment_id=sa.bindparam("experiment_id"),
-            trace_timestamp_ms=sa.bindparam("trace_timestamp_ms"),
             aggregate_value=sa.bindparam("aggregate_value"),
             is_numeric_value=sa.bindparam("is_numeric_value"),
         )
     )
-    for batch in _batched(rows, _BATCH_SIZE):
+    last_assessment_id = None
+    while True:
+        page_stmt = sa.select(
+            assessments.c.assessment_id,
+            assessments.c.value,
+        ).order_by(assessments.c.assessment_id)
+        if last_assessment_id is not None:
+            page_stmt = page_stmt.where(assessments.c.assessment_id > last_assessment_id)
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
         updates = []
         for row in batch:
             aggregate_value, is_numeric_value = _assessment_aggregate(row.value)
             updates.append({
                 "assessment_id_param": row.assessment_id,
-                "experiment_id": row.experiment_id,
-                "trace_timestamp_ms": row.timestamp_ms,
                 "aggregate_value": aggregate_value,
                 "is_numeric_value": is_numeric_value,
             })
         bind.execute(update_stmt, updates)
+        last_assessment_id = updates[-1]["assessment_id_param"]
 
 
 def _validate_required_trace_joins():
@@ -619,9 +666,3 @@ def _finite_float_or_none(value):
 
 def _string_or_none(value):
     return value if isinstance(value, str) else None
-
-
-def _batched(iterable, size):
-    iterator = iter(iterable)
-    while batch := list(islice(iterator, size)):
-        yield batch
