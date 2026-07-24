@@ -100,6 +100,16 @@ export class MlflowService {
   static deleteRun = (data: { run_id: string }) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
 
   /**
+   * Create a presigned URL for downloading a run artifact directly from cloud storage.
+   */
+  static createPresignedDownloadUrl = (data: { run_id: string; path: string }) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/presigned-download-url', data }) as Promise<{
+      presigned_url?: string;
+      headers?: Record<string, string>;
+      file_size?: number;
+    }>;
+
+  /**
    * Search datasets used in experiments
    */
   static searchDatasets = (data: any) =>
