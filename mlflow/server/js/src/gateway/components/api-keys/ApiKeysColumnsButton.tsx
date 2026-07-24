@@ -14,6 +14,7 @@ import { useIntl } from 'react-intl';
 export enum ApiKeysColumn {
   KEY_NAME = 'key_name',
   PROVIDER = 'provider',
+  ALLOWED_MODELS = 'allowed_models',
   ENDPOINTS = 'endpoints',
   USED_BY = 'used_by',
   LAST_UPDATED = 'last_updated',
@@ -24,6 +25,7 @@ export type ToggleableApiKeysColumn = Exclude<ApiKeysColumn, ApiKeysColumn.KEY_N
 
 const COLUMN_LABELS: Record<ToggleableApiKeysColumn, string> = {
   [ApiKeysColumn.PROVIDER]: 'Provider',
+  [ApiKeysColumn.ALLOWED_MODELS]: 'Allowed models',
   [ApiKeysColumn.ENDPOINTS]: 'Endpoints',
   [ApiKeysColumn.USED_BY]: 'Used by',
   [ApiKeysColumn.LAST_UPDATED]: 'Last updated',

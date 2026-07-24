@@ -25,10 +25,21 @@ import { ModelRow } from './ModelRow';
 interface ModelSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (model: ProviderModel) => void;
+  /** Called with the chosen model on confirm in single-select mode. */
+  onSelect?: (model: ProviderModel) => void;
   provider: string;
   /** Current model name value, used to pre-populate the modal when editing */
   initialValue?: string;
+  /**
+   * When true, render checkboxes and allow selecting multiple models at once.
+   * Confirm calls `onSelectMultiple` with the full selection. The custom-model-name
+   * input is hidden in this mode. Defaults to false (single-select radio behavior).
+   */
+  multiSelect?: boolean;
+  /** Models to pre-check when opening in multi-select mode. */
+  initialSelected?: ProviderModel[];
+  /** Called with the full set of selected models on confirm in multi-select mode. */
+  onSelectMultiple?: (models: ProviderModel[]) => void;
 }
 
 interface CapabilityFilter {
@@ -43,10 +54,20 @@ interface FilterState {
   capabilities: CapabilityFilter;
 }
 
-export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initialValue }: ModelSelectorModalProps) => {
+export const ModelSelectorModal = ({
+  isOpen,
+  onClose,
+  onSelect,
+  provider,
+  initialValue,
+  multiSelect = false,
+  initialSelected,
+  onSelectMultiple,
+}: ModelSelectorModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set());
   const [customModelName, setCustomModelName] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -64,6 +85,14 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
   useEffect(() => {
     if (!isOpen) {
       setHasInitialized(false);
+      return;
+    }
+
+    if (multiSelect) {
+      if (!hasInitialized) {
+        setSelectedModelIds(new Set((initialSelected ?? []).map((m) => m.model)));
+        setHasInitialized(true);
+      }
       return;
     }
 
@@ -86,7 +115,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
         setCustomModelName('');
       }
     }
-  }, [isOpen, initialValue, models, hasInitialized]);
+  }, [isOpen, initialValue, models, hasInitialized, multiSelect, initialSelected]);
 
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
@@ -133,6 +162,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
 
   const handleClose = useCallback(() => {
     setSelectedModelId(null);
+    setSelectedModelIds(new Set());
     setCustomModelName('');
     setFilters({
       search: '',
@@ -161,29 +191,65 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
     setCustomModelName('');
   }, []);
 
+  const handleModelToggle = useCallback((modelId: string) => {
+    setSelectedModelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) {
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleConfirm = useCallback(() => {
+    if (multiSelect) {
+      const selected = (models ?? []).filter((m) => selectedModelIds.has(m.model));
+      onSelectMultiple?.(selected);
+      handleClose();
+      return;
+    }
     if (isCustomMode) {
-      onSelect({
+      onSelect?.({
         model: customModelName.trim(),
         provider: provider,
         supports_function_calling: false,
       });
       handleClose();
     } else if (selectedModel) {
-      onSelect(selectedModel);
+      onSelect?.(selectedModel);
       handleClose();
     }
-  }, [isCustomMode, customModelName, selectedModel, provider, onSelect, handleClose]);
+  }, [
+    multiSelect,
+    models,
+    selectedModelIds,
+    onSelectMultiple,
+    isCustomMode,
+    customModelName,
+    selectedModel,
+    provider,
+    onSelect,
+    handleClose,
+  ]);
 
-  const isConfirmDisabled = isCustomMode ? !customModelName.trim() : !selectedModel;
+  const isConfirmDisabled = multiSelect ? false : isCustomMode ? !customModelName.trim() : !selectedModel;
 
   return (
     <Modal
       componentId="mlflow.gateway.model-selector-modal"
-      title={intl.formatMessage({
-        defaultMessage: 'Select model',
-        description: 'Model selector modal title',
-      })}
+      title={
+        multiSelect
+          ? intl.formatMessage({
+              defaultMessage: 'Select models',
+              description: 'Model selector modal title in multi-select mode',
+            })
+          : intl.formatMessage({
+              defaultMessage: 'Select model',
+              description: 'Model selector modal title',
+            })
+      }
       visible={isOpen}
       onCancel={handleClose}
       size="wide"
@@ -214,10 +280,18 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
               disabled={isConfirmDisabled}
               onClick={handleConfirm}
             >
-              {intl.formatMessage({
-                defaultMessage: 'Select',
-                description: 'Select button',
-              })}
+              {multiSelect
+                ? intl.formatMessage(
+                    {
+                      defaultMessage: '{count, plural, =0 {Select} other {Select (#)}}',
+                      description: 'Confirm button in multi-select model modal, with selected count',
+                    },
+                    { count: selectedModelIds.size },
+                  )
+                : intl.formatMessage({
+                    defaultMessage: 'Select',
+                    description: 'Select button',
+                  })}
             </Button>
           </div>
         </div>
@@ -392,6 +466,18 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
                     })}
                   </Typography.Text>
                 </div>
+              ) : multiSelect ? (
+                <div css={{ width: '100%' }}>
+                  {filteredModels.map((model) => (
+                    <ModelRow
+                      key={model.model}
+                      model={model}
+                      isSelected={selectedModelIds.has(model.model)}
+                      onSelect={handleModelToggle}
+                      multiSelect
+                    />
+                  ))}
+                </div>
               ) : (
                 <Radio.Group
                   name="model-selector"
@@ -452,54 +538,58 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
         </div>
 
         {/* Divider with "or" */}
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.md,
-            marginTop: theme.spacing.sm,
-          }}
-        >
-          <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage defaultMessage="or" description="Divider between model list and custom input" />
-          </Typography.Text>
-          <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
-        </div>
+        {!multiSelect && (
+          <>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.md,
+                marginTop: theme.spacing.sm,
+              }}
+            >
+              <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage defaultMessage="or" description="Divider between model list and custom input" />
+              </Typography.Text>
+              <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
+            </div>
 
-        {/* Custom model input */}
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-            opacity: selectedModelId ? 0.5 : 1,
-            transition: 'opacity 0.2s ease',
-          }}
-        >
-          <Typography.Text bold>
-            <FormattedMessage
-              defaultMessage="Use a custom model name"
-              description="Label for custom model input section"
-            />
-          </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.model-selector-modal.custom-model"
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Enter model name...',
-              description: 'Placeholder for custom model input',
-            })}
-            value={customModelName}
-            onChange={(e) => handleCustomModelChange(e.target.value)}
-            disabled={Boolean(selectedModelId)}
-          />
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="Enter a model name not listed above. Capabilities may not be detected."
-              description="Help text for custom model input"
-            />
-          </Typography.Text>
-        </div>
+            {/* Custom model input */}
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.xs,
+                opacity: selectedModelId ? 0.5 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Use a custom model name"
+                  description="Label for custom model input section"
+                />
+              </Typography.Text>
+              <Input
+                componentId="mlflow.gateway.model-selector-modal.custom-model"
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter model name...',
+                  description: 'Placeholder for custom model input',
+                })}
+                value={customModelName}
+                onChange={(e) => handleCustomModelChange(e.target.value)}
+                disabled={Boolean(selectedModelId)}
+              />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="Enter a model name not listed above. Capabilities may not be detected."
+                  description="Help text for custom model input"
+                />
+              </Typography.Text>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );

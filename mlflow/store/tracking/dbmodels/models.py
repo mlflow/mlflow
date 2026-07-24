@@ -2475,6 +2475,12 @@ class SqlGatewaySecret(Base):
     and disambiguation. Not encrypted since it contains no secrets.
     For multi-auth providers, includes "auth_mode" key (e.g., "access_keys", "iam_role").
     """
+    allowlisted_models = Column(Text, nullable=True)
+    """
+    Allowlisted models: `Text` (JSON string). JSON-encoded list of ``{"provider", "model"}``
+    dicts the user has allowlisted for this key. Display/selection metadata only; NEVER used
+    for authentication or credential resolution. Not encrypted since it contains no secrets.
+    """
     description = Column(Text, nullable=True)
     """
     Secret description: `Text`. Optional user-provided description for the API key.
@@ -2528,6 +2534,9 @@ class SqlGatewaySecret(Base):
             last_updated_at=self.last_updated_at,
             provider=self.provider,
             auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            allowlisted_models=json.loads(self.allowlisted_models)
+            if self.allowlisted_models
+            else None,
             workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,

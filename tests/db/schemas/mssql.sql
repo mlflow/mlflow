@@ -135,6 +135,7 @@ CREATE TABLE secrets (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	allowlisted_models VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
 	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
 )

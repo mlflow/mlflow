@@ -76,6 +76,20 @@ const defaultErrorHandler = async ({
   reject(error);
 };
 
+/**
+ * Reduce each allowlisted model to the minimal {provider, model} shape the backend
+ * persists, dropping capability metadata the UI only uses locally.
+ */
+const serializeSecretRequest = <T extends CreateSecretRequest | UpdateSecretRequest>(request: T): T => {
+  if (!request.allowlisted_models) {
+    return request;
+  }
+  return {
+    ...request,
+    allowlisted_models: request.allowlisted_models.map(({ provider, model }) => ({ provider, model })),
+  } as T;
+};
+
 export const GatewayApi = {
   // Provider Metadata
   listProviders: () => {
@@ -113,7 +127,7 @@ export const GatewayApi = {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/create',
       method: 'POST',
-      body: JSON.stringify(request),
+      body: JSON.stringify(serializeSecretRequest(request)),
       error: defaultErrorHandler,
     }) as Promise<CreateSecretInfoResponse>;
   },
@@ -132,7 +146,7 @@ export const GatewayApi = {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/update',
       method: 'POST',
-      body: JSON.stringify(request),
+      body: JSON.stringify(serializeSecretRequest(request)),
       error: defaultErrorHandler,
     }) as Promise<UpdateSecretInfoResponse>;
   },

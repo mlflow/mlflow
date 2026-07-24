@@ -47,6 +47,10 @@
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
   },
+  "+9/TNn": {
+    "defaultMessage": "Allowed models",
+    "description": "Allowed models column header"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -418,6 +422,10 @@
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
+  },
+  "/qZCTk": {
+    "defaultMessage": "No connections found",
+    "description": "Empty state title when filter returns no results"
   },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
@@ -859,6 +867,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "20oEJR": {
+    "defaultMessage": "Select a provider first to choose models.",
+    "description": "Hint shown when no provider is selected yet for the model allowlist"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -1070,6 +1082,10 @@
   "2plDKs": {
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
+  },
+  "2pzqNE": {
+    "defaultMessage": "No models available. Add a connection with allowed models to get started.",
+    "description": "Empty state shown in the model dropdown when no allowlisted models exist"
   },
   "2qOzHd": {
     "defaultMessage": "Source",
@@ -1391,6 +1407,10 @@
     "defaultMessage": "Name",
     "description": "Roles table name header"
   },
+  "4ZbHq8": {
+    "defaultMessage": "Store provider keys and choose which models MLflow features can use.",
+    "description": "Settings content section subtitle for LLM connections (API keys)"
+  },
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
@@ -1563,6 +1583,10 @@
     "defaultMessage": "Define the acceptable range for numeric input values. Leave either bound blank for no limit.",
     "description": "Numeric range hint"
   },
+  "5X9dKr": {
+    "defaultMessage": "Select models",
+    "description": "Model selector modal title in multi-select mode"
+  },
   "5YOBk/": {
     "defaultMessage": "Export as CSV",
     "description": "Experiment page > compare runs tab > chart header > export CSV data option"
@@ -1635,10 +1659,6 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
-  "5yjgeu": {
-    "defaultMessage": "This key will be saved for reuse.",
-    "description": "Text indicating API key will be saved for reuse"
-  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -1678,10 +1698,6 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
-  },
-  "6HjFD0": {
-    "defaultMessage": "Key name",
-    "description": "API key name column header"
   },
   "6I8pKa": {
     "defaultMessage": "Auth Type:",
@@ -2214,10 +2230,6 @@
   "8ikgws": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Label for a single turn within an experiment chat session"
-  },
-  "8kU9Sc": {
-    "defaultMessage": "No API keys found",
-    "description": "Empty state title when filter returns no results"
   },
   "8mP5Mz": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
@@ -2803,10 +2815,6 @@
     "defaultMessage": "(empty)",
     "description": "Placeholder for an empty JSON cell"
   },
-  "BF9qQD": {
-    "defaultMessage": "Use \"Create API key\" button to create a new API key",
-    "description": "Empty state message for API keys list explaining how to create"
-  },
   "BFzsMn": {
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
@@ -2858,10 +2866,6 @@
   "BUdrAE": {
     "defaultMessage": "One-line setup",
     "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
-  },
-  "BWH8UR": {
-    "defaultMessage": "API key name:",
-    "description": "Label for API key name input"
   },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
@@ -3427,6 +3431,10 @@
     "defaultMessage": "Parameters",
     "description": "Field name text for parameters table in the model comparison page"
   },
+  "EKhXrS": {
+    "defaultMessage": "Add connection",
+    "description": "Add LLM connection confirm button text"
+  },
   "EKyt+3": {
     "defaultMessage": "Metrics:",
     "description": "Label text for metrics in parallel coordinates plot in MLflow"
@@ -3602,6 +3610,10 @@
   "FNEy+/": {
     "defaultMessage": "Used by {custom} and {user}:",
     "description": "Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
+  },
+  "FRQmJN": {
+    "defaultMessage": "{count, plural, =0 {Select} other {Select (#)}}",
+    "description": "Confirm button in multi-select model modal, with selected count"
   },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
@@ -3950,6 +3962,10 @@
   "HT6/F3": {
     "defaultMessage": "Value",
     "description": "Usage overview > filter row > value column label"
+  },
+  "HU8off": {
+    "defaultMessage": "Allowed models (optional)",
+    "description": "Section label for the optional model allowlist in the add connection modal"
   },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
@@ -4795,6 +4811,10 @@
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
   },
+  "Ltm2qx": {
+    "defaultMessage": "Add a provider key so features like Detect Issues can call an LLM.",
+    "description": "Empty state message for LLM connections list explaining how to add one"
+  },
   "LuOEnE": {
     "defaultMessage": "Add",
     "description": "Categorical add-option button"
@@ -5347,10 +5367,6 @@
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
   },
-  "OMyvg6": {
-    "defaultMessage": "Select provider",
-    "description": "Placeholder for provider selector"
-  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -5454,6 +5470,10 @@
   "OneX+E": {
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
+  },
+  "OtOMs0": {
+    "defaultMessage": "Add a connection",
+    "description": "Action in the empty model dropdown that navigates to the LLM Connections settings"
   },
   "OvkqyX": {
     "defaultMessage": "Add Tag",
@@ -5818,10 +5838,6 @@
   "QnZkGt": {
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
-  },
-  "QqbUt/": {
-    "defaultMessage": "Search API Keys",
-    "description": "Placeholder for API key search filter"
   },
   "QqxiAM": {
     "defaultMessage": "The type of value the judge will return. Ensure this matches the output format specified in your instructions.",
@@ -6567,10 +6583,6 @@
     "defaultMessage": "Unsaved changes",
     "description": "Status text shown when the dataset record drawer has unsaved edits"
   },
-  "UXdH8W": {
-    "defaultMessage": "Create API Key",
-    "description": "Create API key button text"
-  },
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
@@ -6635,10 +6647,6 @@
     "defaultMessage": "Expectations",
     "description": "Header for the dataset record expectations column"
   },
-  "UqGOOx": {
-    "defaultMessage": "No API keys created",
-    "description": "Empty state title for API keys list"
-  },
   "Uqhamv": {
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
@@ -6670,10 +6678,6 @@
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
-  },
-  "V0/5Oy": {
-    "defaultMessage": "Model: {model}",
-    "description": "Display of default model for selected provider"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -7206,6 +7210,10 @@
   "XCy4xh": {
     "defaultMessage": "The response must be concise, professional, and friendly.",
     "description": "Placeholder text for guidelines textarea"
+  },
+  "XDrxai": {
+    "defaultMessage": "Search connections",
+    "description": "Placeholder for LLM connections search filter"
   },
   "XEcsei": {
     "defaultMessage": "Input tokens",
@@ -7819,6 +7827,10 @@
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
   },
+  "aCvmbZ": {
+    "defaultMessage": "Edit models",
+    "description": "Button to edit the models in a connection's allowlist when some are already selected"
+  },
   "aCzpU3": {
     "defaultMessage": "Off",
     "description": "Telemetry disabled label"
@@ -7894,6 +7906,10 @@
   "aUOkOC": {
     "defaultMessage": "The chunk-relevance-precision LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance judge."
+  },
+  "aUiVxB": {
+    "defaultMessage": "Select a model",
+    "description": "Placeholder for the allowlisted provider/model pair selector"
   },
   "aVIoIw": {
     "defaultMessage": "No tools selected",
@@ -8050,10 +8066,6 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
-  },
-  "bO0wxq": {
-    "defaultMessage": "Advanced settings",
-    "description": "Collapsible section for advanced settings"
   },
   "bO1IlR": {
     "defaultMessage": "Select all",
@@ -8435,6 +8447,10 @@
     "defaultMessage": "Enable Usage Tracking in the Overview tab to configure guardrails",
     "description": "Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first"
   },
+  "d31aqR": {
+    "defaultMessage": "No connections yet",
+    "description": "Empty state title for LLM connections list"
+  },
   "d34yzQ": {
     "defaultMessage": "Rejected",
     "description": "Issue status tag label for rejected issues"
@@ -8507,10 +8523,6 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
-  "dQ3JME": {
-    "defaultMessage": "API key name",
-    "description": "Placeholder for API key name input"
-  },
   "dQawRm": {
     "defaultMessage": "Passthrough APIs",
     "description": "Passthrough APIs tab title"
@@ -8522,10 +8534,6 @@
   "dSaI6E": {
     "defaultMessage": "Failed to load audio attachment",
     "description": "Error message when trace audio attachment fails to load"
-  },
-  "dTHmzd": {
-    "defaultMessage": "Saved API keys can be managed in LLM Connections under Settings.",
-    "description": "Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -8791,13 +8799,13 @@
     "defaultMessage": "Description",
     "description": "Label for workspace description field"
   },
+  "efoaa0": {
+    "defaultMessage": "Manage connections",
+    "description": "Footer link below the model selector navigating to LLM Connections settings"
+  },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
-  },
-  "ejy0iU": {
-    "defaultMessage": "You can change this model in advanced settings",
-    "description": "Tooltip suggesting users can change the default model in advanced settings"
   },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
@@ -9015,6 +9023,10 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
+  "flh5P9": {
+    "defaultMessage": "Select models",
+    "description": "Button to select models for a connection's allowlist"
+  },
   "fnKCv5": {
     "defaultMessage": "Cancel",
     "description": "Issue detection progress > Cancel button"
@@ -9122,6 +9134,10 @@
   "gCQwvN": {
     "defaultMessage": "Delete",
     "description": "Manage review questions: confirm delete"
+  },
+  "gCgSlZ": {
+    "defaultMessage": "Choose which models this connection can be used with. Leave empty to allow all of the provider's models.",
+    "description": "Helper text for the optional model allowlist in the add connection modal"
   },
   "gF1WQp": {
     "defaultMessage": "Add message",
@@ -9527,10 +9543,6 @@
     "defaultMessage": "Created by:",
     "description": "Label for created by"
   },
-  "hr2v8O": {
-    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
-    "description": "Hint explaining how to use other providers via Gateway"
-  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -9799,6 +9811,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
   },
+  "iyUnfB": {
+    "defaultMessage": "Choose which models this connection can be used with. Leave empty to allow all of the provider's models.",
+    "description": "Helper text for the optional model allowlist in the edit API key modal"
+  },
   "izKjfs": {
     "defaultMessage": "No resource permissions to show.",
     "description": "Empty-state description for the permissions table"
@@ -9934,6 +9950,10 @@
   "jULSKd": {
     "defaultMessage": "Output",
     "description": "Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page."
+  },
+  "jXVRkf": {
+    "defaultMessage": "Name",
+    "description": "LLM connection name column header"
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
@@ -10363,10 +10383,6 @@
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
-  "leXUJw": {
-    "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
-    "description": "Settings content section subtitle for LLM connections (API keys)"
-  },
   "lf2ttL": {
     "defaultMessage": "Sample rate",
     "description": "Section header for sample rate"
@@ -10450,6 +10466,10 @@
   "m1Nb7W": {
     "defaultMessage": "Save",
     "description": "Evaluation review > assessments > save button"
+  },
+  "m3C0XF": {
+    "defaultMessage": "Add connection",
+    "description": "Gateway > LLM connections list > Add connection button"
   },
   "m4159e": {
     "defaultMessage": "Metrics ({length})",
@@ -10691,10 +10711,6 @@
     "defaultMessage": "Search by name to add a user's queue",
     "description": "Add to review queue: prompt to search users"
   },
-  "n4on5x": {
-    "defaultMessage": "Create",
-    "description": "Gateway > API keys list > Create button"
-  },
   "n6SrIn": {
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
@@ -10926,6 +10942,10 @@
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
+  },
+  "oFM+Cx": {
+    "defaultMessage": "Model",
+    "description": "Label for the allowlisted provider/model pair selector"
   },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
@@ -11230,6 +11250,10 @@
   "pm1RNL": {
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
+  },
+  "poNnMB": {
+    "defaultMessage": "All models",
+    "description": "Indicates a connection with an empty allowlist can be used with all of the provider's models"
   },
   "prRya4": {
     "defaultMessage": "Model",
@@ -11939,6 +11963,10 @@
     "defaultMessage": "Last updated by",
     "description": "Column selector label for the last-updated-by column"
   },
+  "t1IZFv": {
+    "defaultMessage": "Manage connections",
+    "description": "Footer link in the model dropdown that navigates to the LLM Connections settings"
+  },
   "t3mHNt": {
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
@@ -11958,10 +11986,6 @@
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
-  },
-  "tCkDwC": {
-    "defaultMessage": "Create API Key",
-    "description": "Title for create API key modal"
   },
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
@@ -12427,6 +12451,10 @@
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
   },
+  "vn0njX": {
+    "defaultMessage": "Allowed models (optional)",
+    "description": "Section label for the optional model allowlist in the edit API key modal"
+  },
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
@@ -12690,6 +12718,10 @@
   "x2+7hZ": {
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
+  },
+  "x2tqD5": {
+    "defaultMessage": "Add connection",
+    "description": "Title for the add LLM connection modal"
   },
   "x5IuGA": {
     "defaultMessage": "Loaded {name} v{version}",
@@ -12958,6 +12990,10 @@
   "yL9JKm": {
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
+  },
+  "yLHPll": {
+    "defaultMessage": "Loading models...",
+    "description": "Loading state while fetching allowlisted models for issue detection"
   },
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",

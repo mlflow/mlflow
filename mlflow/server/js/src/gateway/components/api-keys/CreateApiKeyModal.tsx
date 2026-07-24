@@ -1,10 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Alert, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ProviderSelect } from '../create-endpoint';
 import { SecretFormFields, type SecretFormData } from '../secrets';
+import { ModelAllowlistField } from '../model-selector/ModelAllowlistField';
 import { useCreateSecret } from '../../hooks/useCreateSecret';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
+import type { ProviderModel } from '../../types';
 
 interface CreateApiKeyModalProps {
   open: boolean;
@@ -24,6 +26,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
   const intl = useIntl();
   const [provider, setProvider] = useState('');
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
+  const [allowlistedModels, setAllowlistedModels] = useState<ProviderModel[]>([]);
   const [errors, setErrors] = useState<{
     provider?: string;
     name?: string;
@@ -39,6 +42,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     (newProvider: string) => {
       setProvider(newProvider);
       setFormData(INITIAL_FORM_DATA);
+      setAllowlistedModels([]);
       setErrors({});
       resetMutation();
     },
@@ -83,9 +87,14 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     return Object.keys(newErrors).length === 0;
   }, [provider, formData.name, formData.secretFields, intl]);
 
+  const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
+    setAllowlistedModels(models);
+  }, []);
+
   const handleClose = useCallback(() => {
     setProvider('');
     setFormData(INITIAL_FORM_DATA);
+    setAllowlistedModels([]);
     setErrors({});
     resetMutation();
     onClose();
@@ -104,11 +113,12 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       secret_value: formData.secretFields,
       provider,
       auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+      allowlisted_models: allowlistedModels,
     }).then(() => {
       handleClose();
       onSuccess?.();
     });
-  }, [validateForm, formData, provider, createSecret, handleClose, onSuccess]);
+  }, [validateForm, formData, provider, allowlistedModels, createSecret, handleClose, onSuccess]);
 
   const errorMessage = useMemo((): string | null => {
     if (!mutationError) return null;
@@ -164,15 +174,15 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     <Modal
       componentId="mlflow.gateway.create-api-key-modal"
       title={intl.formatMessage({
-        defaultMessage: 'Create API Key',
-        description: 'Title for create API key modal',
+        defaultMessage: 'Add connection',
+        description: 'Title for the add LLM connection modal',
       })}
       visible={open}
       onCancel={handleClose}
       onOk={handleSubmit}
       okText={intl.formatMessage({
-        defaultMessage: 'Create API Key',
-        description: 'Create API key button text',
+        defaultMessage: 'Add connection',
+        description: 'Add LLM connection confirm button text',
       })}
       cancelText={intl.formatMessage({
         defaultMessage: 'Cancel',
@@ -207,6 +217,39 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
             errors={errors}
             componentId="mlflow.gateway.create-api-key-modal"
           />
+        )}
+
+        {provider && (
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.md,
+              borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            }}
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Allowed models (optional)"
+                  description="Section label for the optional model allowlist in the add connection modal"
+                />
+              </Typography.Text>
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="Choose which models this connection can be used with. Leave empty to allow all of the provider's models."
+                  description="Helper text for the optional model allowlist in the add connection modal"
+                />
+              </Typography.Text>
+            </div>
+            <ModelAllowlistField
+              provider={provider}
+              value={allowlistedModels}
+              onChange={handleAllowlistedModelsChange}
+              componentId="mlflow.gateway.create-api-key-modal.allowlisted-models"
+            />
+          </div>
         )}
 
         {!provider && (

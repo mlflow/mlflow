@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { useUpdateSecret } from './useUpdateSecret';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { SecretFormData } from '../components/secrets/types';
-import type { SecretInfo } from '../types';
+import type { ProviderModel, SecretInfo } from '../types';
 
 interface UseEditApiKeyModalParams {
   secret: SecretInfo | null;
@@ -22,6 +22,8 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   const intl = useIntl();
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
   const [initialFormData, setInitialFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
+  const [allowlistedModels, setAllowlistedModels] = useState<ProviderModel[]>([]);
+  const [initialAllowlistedModels, setInitialAllowlistedModels] = useState<ProviderModel[]>([]);
   const [errors, setErrors] = useState<{
     secretFields?: Record<string, string>;
     configFields?: Record<string, string>;
@@ -57,6 +59,9 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       };
       setFormData(data);
       setInitialFormData(data);
+      const existingModels = secret.allowlisted_models ?? [];
+      setAllowlistedModels(existingModels);
+      setInitialAllowlistedModels(existingModels);
       setErrors({});
       resetMutationRef.current();
     }
@@ -69,6 +74,11 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     },
     [resetMutation],
   );
+
+  const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
+    setAllowlistedModels(models);
+    resetMutationRef.current();
+  }, []);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
@@ -87,12 +97,14 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
+    setAllowlistedModels(initialAllowlistedModels);
     setErrors({});
     resetMutation();
-  }, [initialFormData, resetMutation]);
+  }, [initialFormData, initialAllowlistedModels, resetMutation]);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
+    setAllowlistedModels([]);
     setErrors({});
     resetMutation();
     onClose();
@@ -139,25 +151,28 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
         secret_id: secret.secret_id,
         secret_value: hasSecretValues ? formData.secretFields : undefined,
         auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+        allowlisted_models: allowlistedModels,
       });
 
       // Update initial state to match saved values so isDirty resets,
       // but keep form populated (don't reset to empty like handleClose does)
       setInitialFormData(formData);
+      setInitialAllowlistedModels(allowlistedModels);
       setErrors({});
       resetMutation();
       onSuccess?.();
     } catch {
       // Error is handled by mutation state
     }
-  }, [secret, validateForm, formData, selectedAuthMode, updateSecret, resetMutation, onSuccess]);
+  }, [secret, validateForm, formData, allowlistedModels, selectedAuthMode, updateSecret, resetMutation, onSuccess]);
 
   const isDirty = useMemo(() => {
     if (JSON.stringify(formData.secretFields) !== JSON.stringify(initialFormData.secretFields)) return true;
     if (JSON.stringify(formData.configFields) !== JSON.stringify(initialFormData.configFields)) return true;
     if (formData.authMode !== initialFormData.authMode) return true;
+    if (JSON.stringify(allowlistedModels) !== JSON.stringify(initialAllowlistedModels)) return true;
     return false;
-  }, [formData, initialFormData]);
+  }, [formData, initialFormData, allowlistedModels, initialAllowlistedModels]);
 
   const isFormValid = useMemo(() => {
     // Must have changes to save
@@ -184,6 +199,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
   return {
     formData,
+    allowlistedModels,
     errors,
     isLoading,
     errorMessage,
@@ -192,6 +208,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     isDirty,
     provider,
     handleFormDataChange,
+    handleAllowlistedModelsChange,
     handleSubmit,
     handleClose,
     resetForm,
