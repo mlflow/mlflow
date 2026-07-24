@@ -84,6 +84,42 @@ def test_server_static_prefix_validation():
         result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
+    # A prefix overlapping one of the routes mirrored under it (see
+    # `create_fastapi_app`) is rejected, since it would be ambiguous which route a
+    # request under the prefix is actually meant for.
+    for colliding_prefix in ("/gateway", "/v1", "/ajax-api/3.0", "/ajax-api/3.0/jobs"):
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            result = CliRunner().invoke(server, ["--static-prefix", colliding_prefix])
+            assert "conflicts with the reserved route" in result.output
+            run_server_mock.assert_not_called()
+    # A sibling of a reserved route (e.g. a "jobs-v2" prefix next to the real "jobs"
+    # route) does not overlap it and must be accepted.
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--static-prefix", "/ajax-api/3.0/jobs-v2"])
+        run_server_mock.assert_called_once()
+    # FastAPI's `include_router(prefix=...)` treats "{"/"}" as a path-parameter
+    # template, which the auth checks (matching the literal configured value) can't
+    # see through, so it's rejected outright.
+    for templated_prefix in ("/{user}", "/x{y}"):
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            result = CliRunner().invoke(server, ["--static-prefix", templated_prefix])
+            assert "must not contain '{' or '}'" in result.output
+            run_server_mock.assert_not_called()
+    # `is_unprotected_route()` matches `/health`, `/static`, `/favicon.ico` lexically
+    # (not segment-boundary aware, to also match the real `/static-files/<path>`
+    # route). A prefix that itself lexically starts with one of these would make
+    # every route mirrored under it skip authentication entirely.
+    for unprotected_prefix in (
+        "/health",
+        "/healthcheck",
+        "/static",
+        "/static-files",
+        "/favicon.ico",
+    ):
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            result = CliRunner().invoke(server, ["--static-prefix", unprotected_prefix])
+            assert "conflicts with the unauthenticated routes" in result.output
+            run_server_mock.assert_not_called()
 
 
 def test_server_cli_fails_when_workspace_env_set():

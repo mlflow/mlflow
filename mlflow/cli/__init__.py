@@ -350,6 +350,31 @@ def _validate_server_args(
         )
 
 
+# Canonical route roots that `create_fastapi_app` mirrors under `--static-prefix`
+# (kept in sync with `_CANONICAL_FASTAPI_PATH_ROOTS` in mlflow/server/auth/__init__.py,
+# duplicated here rather than imported to avoid pulling the (optional-dependency-heavy)
+# auth module into every CLI invocation).
+_RESERVED_STATIC_PREFIX_ROOTS = (
+    "/gateway",
+    "/v1/traces",
+    "/ajax-api/3.0/jobs",
+    "/ajax-api/3.0/mlflow/assistant",
+)
+
+# `is_unprotected_route()` (mlflow/server/auth/__init__.py) matches these lexically
+# (a plain `.startswith()`, not segment-boundary aware — the real static-files route
+# is `/static-files/<path>`, not `/static`, and is meant to match via that lexical
+# rule). A `--static-prefix` that itself lexically starts with one of these would
+# make every FastAPI route mirrored under it (see `create_fastapi_app`) match
+# `is_unprotected_route()` and skip authentication entirely, so it's rejected using
+# the same lexical rule rather than the segment-aware one used above.
+_UNPROTECTED_STATIC_PREFIX_ROOTS = ("/health", "/static", "/favicon.ico")
+
+
+def _path_segments_overlap(a: str, b: str) -> bool:
+    return a == b or a.startswith(f"{b}/") or b.startswith(f"{a}/")
+
+
 def _validate_static_prefix(ctx, param, value):
     """
     Validate that the static_prefix option starts with a "/" and does not end in a "/".
@@ -361,6 +386,35 @@ def _validate_static_prefix(ctx, param, value):
             raise UsageError("--static-prefix must begin with a '/'.")
         if value.endswith("/"):
             raise UsageError("--static-prefix should not end with a '/'.")
+
+        # `create_fastapi_app` passes this value as the `prefix` argument to FastAPI's
+        # `include_router()`, which interprets "{" / "}" as Starlette path-parameter
+        # template syntax (e.g. "/{user}" becomes a route matching "/alice", "/bob",
+        # ...). The auth checks compare against the literal configured value, so any
+        # concrete request that matched such a template would resolve to no validator
+        # at all — an unauthenticated bypass. `--static-prefix` is meant to be a
+        # literal, static path segment, so reject template syntax outright.
+        if "{" in value or "}" in value:
+            raise UsageError("--static-prefix must not contain '{' or '}'.")
+
+        # A prefix that overlaps one of the routes mirrored under it (see
+        # `create_fastapi_app`) is ambiguous: a request to the real, unprefixed route
+        # can be indistinguishable from a request to a *different* router's mirror
+        # nested under this prefix, which can misclassify or weaken permission checks.
+        for reserved in _RESERVED_STATIC_PREFIX_ROOTS:
+            if _path_segments_overlap(value, reserved):
+                raise UsageError(
+                    f"--static-prefix '{value}' conflicts with the reserved route "
+                    f"'{reserved}'. Choose a prefix that does not overlap "
+                    f"{', '.join(_RESERVED_STATIC_PREFIX_ROOTS)}."
+                )
+
+        if value.startswith(_UNPROTECTED_STATIC_PREFIX_ROOTS):
+            raise UsageError(
+                f"--static-prefix '{value}' conflicts with the unauthenticated "
+                f"routes {', '.join(_UNPROTECTED_STATIC_PREFIX_ROOTS)}. Choose a "
+                f"prefix that does not start with any of these."
+            )
     return value
 
 

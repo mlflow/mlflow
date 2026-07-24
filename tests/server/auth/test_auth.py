@@ -332,6 +332,60 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
+def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
+    # `create_fastapi_app` mirrors the OTLP/job/gateway/assistant routers under
+    # `--static-prefix`; the validator lookup must recognize the prefixed form too,
+    # otherwise those routes would be served without any auth check at all.
+    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions") is not None
+    assert _find_fastapi_validator("/v1/traces") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/jobs/search") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config") is not None
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions") is None
+
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions") is not None
+    assert _find_fastapi_validator("/mlflow/v1/traces") is not None
+    assert _find_fastapi_validator("/mlflow/ajax-api/3.0/jobs/search") is not None
+    assert _find_fastapi_validator("/mlflow/ajax-api/3.0/mlflow/assistant/config") is not None
+    # Unprefixed forms still resolve (local/direct access).
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions") is not None
+    # Unrelated paths under the prefix stay unmatched.
+    assert _find_fastapi_validator("/mlflow/api/2.0/mlflow/experiments/search") is None
+
+
+@pytest.mark.parametrize("prefix", ["/gateway", "/v1", "/ajax-api/3.0"])
+def test_find_fastapi_validator_prefix_colliding_with_canonical_route(monkeypatch, prefix):
+    # If `--static-prefix` collides with one of the canonical route roots, naively
+    # stripping it from a genuine unprefixed request would mangle the path into
+    # something that matches nothing, appearing unprotected. A real, unprefixed
+    # request to a canonical route must always keep its validator regardless of the
+    # configured prefix.
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, prefix)
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions") is not None
+    assert _find_fastapi_validator("/v1/traces") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/jobs/search") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config") is not None
+
+
+def test_find_fastapi_validator_matches_canonical_roots_on_segment_boundary(monkeypatch):
+    # `--static-prefix /ajax-api/3.0/jobs-v2` is a sibling of, not nested under, the
+    # real `/ajax-api/3.0/jobs` route (no CLI-level collision), but naive lexical
+    # `.startswith()` matching would still misclassify its mirrored gateway/otel
+    # routes as jobs requests, applying a weaker validator than intended.
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/ajax-api/3.0/jobs-v2")
+    gateway_validator = _find_fastapi_validator(
+        "/ajax-api/3.0/jobs-v2/gateway/mlflow/v1/chat/completions"
+    )
+    otel_validator = _find_fastapi_validator("/ajax-api/3.0/jobs-v2/v1/traces")
+    # The jobs router's own mirror under this same prefix, for comparison.
+    jobs_validator = _find_fastapi_validator("/ajax-api/3.0/jobs-v2/ajax-api/3.0/jobs/search")
+
+    assert gateway_validator.__qualname__ == "_get_gateway_validator.<locals>.validator"
+    assert otel_validator.__qualname__ == "_get_otel_validator.<locals>.validator"
+    assert jobs_validator.__qualname__ == "_get_require_authentication_validator.<locals>.validator"
+
+
 def test_proxy_artifact_mpu_path_detection():
     # MPU create/complete/abort paths should be recognized as proxy artifact paths
     for action in ("create", "complete", "abort"):
@@ -3942,6 +3996,86 @@ def test_gateway_basic_auth_still_works_without_new_header(
 
 def test_gateway_auth_header_honors_internal_token(mock_auth_store, mock_auth_config, monkeypatch):
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_auth_header_honored_under_static_prefix(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # `create_fastapi_app` also mirrors `gateway_router` under `--static-prefix`; the
+    # dedicated auth header must still be preferred there, not just on the unprefixed path.
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/myprefix/gateway/proxy/my-endpoint/v1/responses",
+        authorization="Bearer sk-provider-key",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_internal_token_honored_under_static_prefix(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/myprefix/gateway/proxy/my-endpoint/v1/responses",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_internal_token_not_honored_on_non_gateway_prefixed_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # The internal token must stay restricted to /gateway/ routes (prefixed or not);
+    # it must not become a master password for other prefixed routes.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/myprefix/ajax-api/3.0/jobs/search",
+        authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_auth_store.get_user.assert_not_called()
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+
+
+def test_gateway_auth_still_recognized_when_prefix_collides_with_gateway_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # `--static-prefix /gateway` collides with the canonical `/gateway/` route root.
+    # A genuine, unprefixed request to a real gateway route must still get the
+    # dedicated-header/internal-token treatment, not be mistaken for an unrelated path.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/gateway")
     credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
     request = _make_request(
         "/gateway/proxy/my-endpoint/v1/responses",

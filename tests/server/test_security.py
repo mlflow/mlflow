@@ -333,6 +333,23 @@ def test_is_api_endpoint(path, expected):
     assert is_api_endpoint(path) == expected
 
 
+def test_is_api_endpoint_handles_static_prefix(monkeypatch: pytest.MonkeyPatch):
+    # `create_fastapi_app` also mirrors the Job/Assistant APIs under `--static-prefix`
+    # (mlflow/server/fastapi_app.py); CORS blocking must still apply to that mirror,
+    # not just the unprefixed `/api/`/`/ajax-api/` paths.
+    monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
+    assert not is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert not is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    assert is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+    # Unprefixed forms remain recognized (local/direct access).
+    assert is_api_endpoint("/api/2.0/mlflow/experiments/list")
+    # Unrelated prefixed paths stay unmatched.
+    assert not is_api_endpoint("/myprefix/health")
+
+
 @pytest.mark.parametrize(
     ("origin", "expect_cors_header"),
     [
