@@ -46,9 +46,11 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     capture_function_input_args,
+    construct_trace_id_v4,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    parse_trace_id_v4,
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
@@ -816,6 +818,28 @@ def start_span_no_context(
     return mlflow_span
 
 
+def _resolve_uc_trace_id(trace_id: str) -> str:
+    """
+    Resolve a plain trace ID to its Unity Catalog V4 form using the active experiment.
+
+    If ``trace_id`` already carries a location (``trace:/<location>/<id>``) or the active
+    experiment does not store its traces in Unity Catalog, ``trace_id`` is returned
+    unchanged. Otherwise it is qualified with the experiment's UC location so it can be
+    routed to the UC-backed endpoints.
+    """
+    from mlflow.tracing.client import TracingClient
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    if parse_trace_id_v4(trace_id)[0] is not None:
+        return trace_id
+
+    location = TracingClient()._resolve_uc_trace_location(_get_experiment_id())
+    if location is None:
+        return trace_id
+
+    return construct_trace_id_v4(location, trace_id)
+
+
 @deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
@@ -851,6 +875,9 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     """
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
+    # A plain trace ID does not carry the Unity Catalog location needed to fetch traces
+    # stored in UC. Resolve it from the active experiment's trace destination.
+    trace_id = _resolve_uc_trace_id(trace_id)
 
     exc: MlflowException | None = None
     try:
@@ -872,6 +899,14 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
             if not flush
             else ""
         )
+        # If the ID is still a plain ID, the active experiment did not resolve a Unity
+        # Catalog location. Point the user to the fully-qualified form for UC traces.
+        if parse_trace_id_v4(trace_id)[0] is None:
+            hint += (
+                " If this trace is stored in Unity Catalog, pass the fully-qualified trace ID "
+                "in the form `trace:/<catalog>.<schema>.<table>/<trace_id>`, or set an active "
+                "experiment linked to the UC location."
+            )
         _logger.warning(
             f"Failed to get trace from the tracking store: {exc}.{hint} "
             "For full traceback, set logging level to debug.",

@@ -65,7 +65,12 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
+from mlflow.tracing.utils import (
+    TraceJSONEncoder,
+    construct_trace_id_v4,
+    exclude_immutable_tags,
+    parse_trace_id_v4,
+)
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
@@ -128,6 +133,39 @@ class TracingClient:
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
 
+    def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
+        """
+        Resolve the Unity Catalog trace location for an experiment.
+
+        Traces stored in Unity Catalog are addressed by a
+        ``catalog.schema.table_prefix`` location rather than a plain trace ID. The
+        location is not derivable from the trace ID alone, so it is resolved from the
+        experiment's trace destination tag (see ``Experiment.trace_location``).
+
+        Returns the location string if the experiment stores traces in Unity Catalog, or
+        ``None`` otherwise (non-Databricks tracking, an experiment whose traces live in
+        the MLflow experiment itself, or a resolution failure).
+        """
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
+
+    def _apply_uc_location_to_trace_ids(self, trace_ids: list[str], location: str) -> list[str]:
+        """Rewrite plain trace IDs to the V4 ``trace:/<location>/<id>`` form, leaving IDs
+        that already carry a location unchanged."""
+        return [
+            tid if parse_trace_id_v4(tid)[0] is not None else construct_trace_id_v4(location, tid)
+            for tid in trace_ids
+        ]
+
     def delete_traces(
         self,
         experiment_id: str,
@@ -135,6 +173,11 @@ class TracingClient:
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
+        # For Unity Catalog-backed experiments, plain trace IDs must be qualified with the
+        # experiment's UC location before being sent to the backend, which otherwise
+        # rejects them as malformed request IDs.
+        if trace_ids and (location := self._resolve_uc_trace_location(experiment_id)):
+            trace_ids = self._apply_uc_location_to_trace_ids(trace_ids, location)
         return self.store.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
