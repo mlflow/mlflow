@@ -15,21 +15,21 @@ commit is cleanly self-contained, so the revert blast radius is small.
   Add/Delete toolbar and four drawers/modals. General's other rows are single-line
   toggle/button cards (`SettingsRow`). Embedding a table-plus-toolbar under a list of
   toggles is what reads as "weird." Restyling it into a compact summary card (Option B)
-  would require building a *second* surface for the same manager and a click-out — more
+  would require building a _second_ surface for the same manager and a click-out — more
   code, more drift, and it hides the very thing the user wanted front-and-center.
 
 - **Precedent points the other way.** Webhooks is the closest analog in this repo: it
-  is *also* a full CRUD table (list + Create button + form/delete modals in
+  is _also_ a full CRUD table (list + Create button + form/delete modals in
   `WebhooksSettings.tsx`, 292 lines) and it lives on its **own** dedicated tab
   `/settings/webhooks`. Before this branch, LLM Connections was consistent with
-  Webhooks. This branch made LLM Connections the *inconsistent* one — the only heavy
+  Webhooks. This branch made LLM Connections the _inconsistent_ one — the only heavy
   CRUD surface crammed into a shared section. Reverting restores parity ("one heavy
   manager = one tab").
 
 - **A dedicated PAGE satisfies "front and center" better than a General section does.**
-  The user's original goal was discoverability. But a section buried *below* Theme /
+  The user's original goal was discoverability. But a section buried _below_ Theme /
   Telemetry / Demo-data cards in General (reachable only by scrolling, or via a hash
-  that smooth-scrolls) is arguably *less* discoverable than a top-level, always-visible
+  that smooth-scrolls) is arguably _less_ discoverable than a top-level, always-visible
   sidebar item sitting right next to General and Webhooks. The earlier "buried tab"
   complaint is resolved not by merging into General, but by keeping it a sibling tab in
   the same sub-sidebar the user already sees. That reconciles the tension: promote it to
@@ -94,7 +94,7 @@ commit mixed wording+placement. Verify the model-allowlist feature commits stay 
 
 - **Routes/redirects:** `/settings/llm-connections` becomes a real tab again;
   `/gateway/api-keys` stays redirected (to the standalone route now). No broken URLs —
-  both were already handled, we're just changing the redirect *target*.
+  both were already handled, we're just changing the redirect _target_.
 - **Deep links:** two in-app links (`EditEndpointFormRenderer`, `GenAIModelSelection`)
   switch from `general#llm-connections` back to the section route. Once the standalone
   route exists again, the hash form is unnecessary.
