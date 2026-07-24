@@ -27,7 +27,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   const [errors, setErrors] = useState<{
     secretFields?: Record<string, string>;
     configFields?: Record<string, string>;
-    allowlistedModels?: string;
   }>({});
 
   const { mutateAsync: updateSecret, isLoading, error: mutationError, reset: resetMutation } = useUpdateSecret();
@@ -78,10 +77,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
   const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
     setAllowlistedModels(models);
-    setErrors((prev) => ({
-      ...prev,
-      allowlistedModels: models.length > 0 ? undefined : prev.allowlistedModels,
-    }));
     resetMutationRef.current();
   }, []);
 
@@ -96,16 +91,9 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       }
     }
 
-    if (allowlistedModels.length === 0) {
-      newErrors.allowlistedModels = intl.formatMessage({
-        defaultMessage: 'Add at least one model so this key can be used.',
-        description: 'Error message when no allowlisted models are selected for a connection',
-      });
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [secret, formData.secretFields, allowlistedModels, intl]);
+  }, [secret, formData.secretFields]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
@@ -206,10 +194,8 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     );
     if (!allRequiredConfigsProvided) return false;
 
-    if (allowlistedModels.length === 0) return false;
-
     return true;
-  }, [secret, isDirty, formData.secretFields, formData.configFields, allowlistedModels, selectedAuthMode]);
+  }, [secret, isDirty, formData.secretFields, formData.configFields, selectedAuthMode]);
 
   return {
     formData,

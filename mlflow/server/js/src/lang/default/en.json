@@ -291,10 +291,6 @@
     "defaultMessage": "JSON schema",
     "description": "Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
   },
-  "/JcImW": {
-    "defaultMessage": "Add at least one model so this key can be used.",
-    "description": "Error message when no allowlisted models are selected for a connection"
-  },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
@@ -1702,10 +1698,6 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
-  },
-  "6BuryR": {
-    "defaultMessage": "Add models",
-    "description": "Affordance to add allowlisted models to a connection with none set"
   },
   "6I8pKa": {
     "defaultMessage": "Auth Type:",
@@ -3499,10 +3491,6 @@
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
   },
-  "EaKP0g": {
-    "defaultMessage": "Allowed models",
-    "description": "Section label for the model allowlist in the edit API key modal"
-  },
   "EbJub1": {
     "defaultMessage": "Test",
     "description": "Column label for the regression test name column"
@@ -3975,6 +3963,10 @@
     "defaultMessage": "Value",
     "description": "Usage overview > filter row > value column label"
   },
+  "HU8off": {
+    "defaultMessage": "Allowed models (optional)",
+    "description": "Section label for the optional model allowlist in the add connection modal"
+  },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
     "description": "Evaluation review > see detailed trace view button"
@@ -4274,10 +4266,6 @@
   "InNAAD": {
     "defaultMessage": "Name is required",
     "description": "Validation error when no prompt name is provided in the playground save-prompt-version modal"
-  },
-  "Inrmk6": {
-    "defaultMessage": "Select at least one model so this connection can be used.",
-    "description": "Error message when no allowlisted models are selected for a connection"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
@@ -5907,10 +5895,6 @@
     "defaultMessage": "Action",
     "description": "Guardrail action column header"
   },
-  "R31YeR": {
-    "defaultMessage": "Choose which models this key can be used with. These appear as options wherever MLflow needs a model.",
-    "description": "Helper text for the model allowlist in the edit API key modal"
-  },
   "R32y7u": {
     "defaultMessage": "Running session level scorers is not yet supported",
     "description": "Tooltip message when scorer is session-level"
@@ -5978,10 +5962,6 @@
   "RWVGkL": {
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
-  },
-  "RWx8Nv": {
-    "defaultMessage": "Choose which models this connection can be used with. These appear as options wherever MLflow needs a model.",
-    "description": "Helper text for the model allowlist in the add connection modal"
   },
   "RXI71h": {
     "defaultMessage": "Top P",
@@ -9155,6 +9135,10 @@
     "defaultMessage": "Delete",
     "description": "Manage review questions: confirm delete"
   },
+  "gCgSlZ": {
+    "defaultMessage": "Choose which models this connection can be used with. Leave empty to allow all of the provider's models.",
+    "description": "Helper text for the optional model allowlist in the add connection modal"
+  },
   "gF1WQp": {
     "defaultMessage": "Add message",
     "description": "Label for the button that appends a new chat message on the playground page"
@@ -9826,6 +9810,10 @@
   "iwD/Dv": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
+  },
+  "iyUnfB": {
+    "defaultMessage": "Choose which models this connection can be used with. Leave empty to allow all of the provider's models.",
+    "description": "Helper text for the optional model allowlist in the edit API key modal"
   },
   "izKjfs": {
     "defaultMessage": "No resource permissions to show.",
@@ -11263,6 +11251,10 @@
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
   },
+  "poNnMB": {
+    "defaultMessage": "All models",
+    "description": "Indicates a connection with an empty allowlist can be used with all of the provider's models"
+  },
   "prRya4": {
     "defaultMessage": "Model",
     "description": "Gateway > Endpoint details > Section title for model configuration card"
@@ -11418,10 +11410,6 @@
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
-  },
-  "qXYKf7": {
-    "defaultMessage": "Allowed models",
-    "description": "Section label for the model allowlist in the add connection modal"
   },
   "qZKsz+": {
     "defaultMessage": "Cancel",
@@ -12462,6 +12450,10 @@
   "vmiE+n": {
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
+  },
+  "vn0njX": {
+    "defaultMessage": "Allowed models (optional)",
+    "description": "Section label for the optional model allowlist in the edit API key modal"
   },
   "vqWexj": {
     "defaultMessage": "Back to experiment list",

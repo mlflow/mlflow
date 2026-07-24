@@ -1448,7 +1448,6 @@ module.exports = {
   "mlflow.gateway.api-key-details.drawer.name-tooltip": "",
   "mlflow.gateway.api-key-details.drawer.provider-tooltip": "",
   "mlflow.gateway.api-key-details.drawer.save-button": "",
-  "mlflow.gateway.api-keys.add-models-button": "",
   "mlflow.gateway.api-keys.allowed-model-tag": "",
   "mlflow.gateway.api-keys.allowed-models-header": "",
   "mlflow.gateway.api-keys.bulk-delete-button": "",
