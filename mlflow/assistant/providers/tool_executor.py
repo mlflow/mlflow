@@ -64,8 +64,10 @@ def static_permission_error(
     if tool_name in {"Write", "Edit"} and not cwd:
         return f"Permission denied: {tool_name} requires a configured project directory"
 
-    if tool_name in _FILE_TOOLS and cwd:
+    if tool_name in _FILE_TOOLS:
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
+            if cwd is None:
+                return f"Permission denied: {tool_name} requires a configured project directory"
             target = _resolve_file_path(raw_path, cwd)
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
