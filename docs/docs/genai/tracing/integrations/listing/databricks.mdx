@@ -117,6 +117,16 @@ Browse to your MLflow UI (for example, http://localhost:5000) and open the `Data
 
 <ImageBox src="/images/llms/tracing/basic-openai-trace.png" alt="Databricks Tracing" />
 
+:::note[Prompt-cache token counts for Databricks-served Anthropic models]
+
+Databricks-served Anthropic (Claude) models return prompt-cache token counts as top-level fields in the `usage` object: `cache_read_input_tokens` and `cache_creation_input_tokens`. These fields are not nested under `usage.prompt_tokens_details` as in the standard OpenAI response shape.
+
+`mlflow.openai.autolog()` reads cache counts from `usage.prompt_tokens_details.cached_tokens` (the OpenAI-standard path), which is absent on Databricks-served Anthropic responses. Cache read and write metrics appear as n/a on traces recorded via `mlflow.openai.autolog()`.
+
+`mlflow.langchain.autolog()` maps the top-level Anthropic fields directly, so cache counts are captured when tracing through a LangChain client.
+
+:::
+
 -> View <u>[Next Steps](#next-steps)</u> for learning about more MLflow features like user feedback tracking, prompt management, and evaluation.
 
 ## Streaming and Async Support
