@@ -2923,6 +2923,8 @@ def _is_native_fastapi_proxy_artifact_path(path: str, method: str) -> bool:
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
     ]
     return any(path.startswith(prefix) for prefix in prefixes)
+
+
 def _is_proxy_artifact_path(path: str) -> bool:
     # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
     # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.
