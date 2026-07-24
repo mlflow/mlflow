@@ -194,7 +194,7 @@ lint = [
   "check-jsonschema==0.37.4",
 ]
 pytest = [
-  "pytest==9.0.2",
+  "pytest==9.1.1",
   "pytest-asyncio",
   "pytest-benchmark",
   "pytest-repeat",
