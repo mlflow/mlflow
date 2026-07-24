@@ -40,8 +40,20 @@ const setTextareaValue = (element: HTMLElement, value: string) => {
   fireEvent.change(element, { target: { value } });
 };
 
-const TestComponent = ({ onSuccess }: { onSuccess?: (result: { name: string; version: string }) => void }) => {
-  const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({ onSuccess });
+const TestComponent = ({
+  onSuccess,
+  serverName,
+  latestVersion,
+}: {
+  onSuccess?: (result: { name: string; version: string }) => void;
+  serverName?: string;
+  latestVersion?: ReturnType<typeof createMockMCPServerVersion>;
+}) => {
+  const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
+    onSuccess,
+    serverName,
+    latestVersion,
+  });
   return (
     <>
       <button onClick={openModal}>Open</button>
@@ -77,9 +89,18 @@ describe('useCreateMCPServerVersionModal', () => {
     getMockedUpdateMCPServerResponse(),
   );
 
-  const renderModal = (onSuccess?: (result: { name: string; version: string }) => void) => {
+  const renderModal = (
+    onSuccessOrProps?:
+      | ((result: { name: string; version: string }) => void)
+      | {
+          onSuccess?: (result: { name: string; version: string }) => void;
+          serverName?: string;
+          latestVersion?: ReturnType<typeof createMockMCPServerVersion>;
+        },
+  ) => {
+    const props = typeof onSuccessOrProps === 'function' ? { onSuccess: onSuccessOrProps } : (onSuccessOrProps ?? {});
     const queryClient = new QueryClient();
-    render(<TestComponent onSuccess={onSuccess} />, {
+    render(<TestComponent {...props} />, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
           <TestRouter
@@ -113,7 +134,6 @@ describe('useCreateMCPServerVersionModal', () => {
     expect(screen.getByText(/server\.json:/)).toBeInTheDocument();
     expect(screen.getByText('Status:')).toBeInTheDocument();
     expect(screen.getByText('Source:')).toBeInTheDocument();
-    expect(screen.getByText('Tools:')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
     expect(screen.getByText('Create')).toBeInTheDocument();
   });
@@ -300,5 +320,31 @@ describe('useCreateMCPServerVersionModal', () => {
     });
 
     expect(capturedBody.mock.calls[0][0]).toMatchObject({ tools });
+  });
+
+  it('renders Icons section in new-server mode', async () => {
+    renderModal();
+    await openModal();
+
+    expect(screen.getByText('Icons')).toBeInTheDocument();
+    expect(screen.getByText('Preview')).toBeInTheDocument();
+  });
+
+  it('hides Icons section in version mode', async () => {
+    const latestVersion = createMockMCPServerVersion({
+      server_json: {
+        name: 'io.github.test/server',
+        version: '2.0.0',
+        icons: [{ src: 'https://example.com/existing-icon.svg' }],
+      },
+    });
+
+    renderModal({ serverName: 'io.github.test/server', latestVersion });
+    await userEvent.click(screen.getByText('Open'));
+    await waitFor(() => {
+      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Icons')).not.toBeInTheDocument();
   });
 });

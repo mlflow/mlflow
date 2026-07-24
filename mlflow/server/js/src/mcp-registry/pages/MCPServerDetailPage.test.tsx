@@ -386,11 +386,11 @@ describe('MCPServerDetailPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
       const menuItems = await screen.findAllByRole('menuitem');
-      const editItem = menuItems.find((item) => item.textContent === 'Edit display name');
+      const editItem = menuItems.find((item) => item.textContent === 'Edit');
       expect(editItem).toBeDefined();
       await userEvent.click(editItem!);
       await waitFor(() => {
-        expect(screen.getByText('Edit display name')).toBeInTheDocument();
+        expect(screen.getByText('Edit server details')).toBeInTheDocument();
       });
     });
   });

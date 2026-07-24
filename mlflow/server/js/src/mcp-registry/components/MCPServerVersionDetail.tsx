@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { tagListStyles, textEllipsisStyles, mcpIconStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
+import { tagListStyles, textEllipsisStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
 import {
   Button,
-  McpIcon,
   PencilIcon,
+  CodeIcon,
   Spacer,
   Tabs,
   Tag,
@@ -25,6 +25,7 @@ import { useDeleteAccessEndpointModal } from '../hooks/useDeleteAccessEndpointMo
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { EditVersionModal } from './EditVersionModal';
+import { AddToolsModal } from './AddToolsModal';
 import { useDeleteVersionModal } from '../hooks/useDeleteVersionModal';
 import Utils from '../../common/utils/Utils';
 
@@ -48,6 +49,8 @@ export const MCPServerVersionDetail = ({
   const { canUpdate, canDelete } = useServerState(server);
 
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
+  const [addToolsModalVisible, setAddToolsModalVisible] = useState(false);
+  const hasRemotes = (version?.server_json?.remotes ?? []).length > 0;
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
   const { DeleteVersionModal, openDeleteVersionModal } = useDeleteVersionModal({ serverName: server.name });
   const { AddAccessEndpointModal, openAddEndpoint } = useAddAccessEndpointModal({
@@ -131,17 +134,6 @@ export const MCPServerVersionDetail = ({
             )}
           </div>
         )}
-      </div>
-
-      <Spacer shrinks={false} />
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <McpIcon css={mcpIconStyles(theme)} />
-        <div css={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography.Text bold>{displayName}</Typography.Text>
-          <Typography.Text color="secondary" size="sm">
-            {server.name}
-          </Typography.Text>
-        </div>
       </div>
 
       <Spacer shrinks={false} />
@@ -269,11 +261,9 @@ export const MCPServerVersionDetail = ({
           <Tabs.Trigger value="connect">
             <FormattedMessage defaultMessage="Connect" description="MCP server version detail connect tab" />
           </Tabs.Trigger>
-          {version.tools && version.tools.length > 0 && (
-            <Tabs.Trigger value="tools">
-              <FormattedMessage defaultMessage="Tools" description="MCP server version detail tools tab" />
-            </Tabs.Trigger>
-          )}
+          <Tabs.Trigger value="tools">
+            <FormattedMessage defaultMessage="Tools" description="MCP server version detail tools tab" />
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content
@@ -291,13 +281,40 @@ export const MCPServerVersionDetail = ({
           <ServerJSONSection serverJson={version.server_json} server={server} version={version} />
         </Tabs.Content>
 
-        {version.tools && version.tools.length > 0 && (
-          <Tabs.Content value="tools" css={{ paddingTop: theme.spacing.md }}>
+        <Tabs.Content value="tools" css={{ paddingTop: theme.spacing.md }}>
+          {hasRemotes && canUpdate && (
+            <div css={{ marginBottom: theme.spacing.md }}>
+              <Button
+                componentId="mlflow.mcp_registry.detail.add_tools"
+                icon={<CodeIcon />}
+                onClick={() => setAddToolsModalVisible(true)}
+              >
+                <FormattedMessage
+                  defaultMessage="Auto-discover tools"
+                  description="MCP server auto-discover tools button"
+                />
+              </Button>
+            </div>
+          )}
+          {version.tools && version.tools.length > 0 ? (
             <ToolsSection tools={version.tools} />
-          </Tabs.Content>
-        )}
+          ) : (
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="No tools registered for this version."
+                description="MCP server tools tab empty state"
+              />
+            </Typography.Text>
+          )}
+        </Tabs.Content>
       </Tabs.Root>
 
+      <AddToolsModal
+        visible={addToolsModalVisible}
+        serverName={server.name}
+        version={version.version}
+        onClose={() => setAddToolsModalVisible(false)}
+      />
       <EditVersionModal
         visible={editVersionModalVisible}
         server={server}

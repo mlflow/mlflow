@@ -643,7 +643,7 @@ function buildNetworkPackage({
   }
 
   notes.push(`This package uses ${transport} transport. Start the server locally (step 1), then connect (step 2).`);
-  notes.push('The .mcp.json entry only covers step 2 — the server process from step 1 must be running.');
+  notes.push('The .mcp.json entry only covers step 2. The server process from step 1 must be running.');
 
   return {
     kind: 'package',
