@@ -8,20 +8,24 @@ from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 
 
-class AsyncIterator:
-    """Helper to mock async stdout iteration."""
+def _mock_process(stdout_lines=None, returncode=0, stderr=b"", killed=False):
+    """Create a mock SubprocessLineStream presenting the streaming surface."""
+    process = MagicMock()
+    process.pid = 12345
+    process.returncode = returncode
+    process.killed = killed
 
-    def __init__(self, items):
-        self.items = iter(items)
+    async def _lines():
+        for line in stdout_lines or []:
+            yield line
 
-    def __aiter__(self):
-        return self
+    process.lines = _lines
 
-    async def __anext__(self):
-        try:
-            return next(self.items)
-        except StopIteration:
-            raise StopAsyncIteration
+    process.wait = AsyncMock(return_value=returncode)
+    process.read_stderr = AsyncMock(return_value=stderr)
+    process.kill = MagicMock()
+
+    return process
 
 
 @pytest.fixture(autouse=True)
@@ -116,12 +120,7 @@ async def test_astream_yields_error_when_claude_not_found():
 async def test_astream_builds_correct_command(tmp_path, monkeypatch):
     monkeypatch.setenv("TEST_ENV_VAR", "test_value")
 
-    mock_process = MagicMock()
-    mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+    mock_process = _mock_process(stdout_lines=[b'{"type": "result"}\n'])
 
     with (
         patch(
@@ -129,37 +128,35 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
-        ) as mock_exec,
+        ) as mock_ctor,
     ):
         provider = ClaudeCodeProvider()
         _ = [
             e async for e in provider.astream("test prompt", "http://localhost:5000", cwd=tmp_path)
         ]
 
-    call_args = mock_exec.call_args[0]
-    assert "/usr/bin/claude" in call_args
-    assert "-p" in call_args
-    assert "test prompt" in call_args
-    assert "--output-format" in call_args
-    assert "stream-json" in call_args
-    assert "--verbose" in call_args
-    assert "--append-system-prompt" in call_args
+    cmd = mock_ctor.call_args[0][0]
+    assert "/usr/bin/claude" in cmd
+    assert "-p" in cmd
+    assert "test prompt" in cmd
+    assert "--output-format" in cmd
+    assert "stream-json" in cmd
+    assert "--verbose" in cmd
+    assert "--append-system-prompt" in cmd
 
     # Verify system prompt contains tracking URI
-    system_prompt_idx = call_args.index("--append-system-prompt") + 1
-    system_prompt = call_args[system_prompt_idx]
+    system_prompt_idx = cmd.index("--append-system-prompt") + 1
+    system_prompt = cmd[system_prompt_idx]
     assert "http://localhost:5000" in system_prompt
 
     # Verify Skill permission is granted by default
-    allowed_tools = [
-        call_args[i + 1] for i, arg in enumerate(call_args) if arg == "--allowed-tools"
-    ]
+    allowed_tools = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--allowed-tools"]
     assert "Skill" in allowed_tools
 
     # Verify cwd and tracking URI env var are passed correctly
-    call_kwargs = mock_exec.call_args[1]
+    call_kwargs = mock_ctor.call_args.kwargs
     assert call_kwargs["cwd"] == tmp_path
     assert call_kwargs["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
     assert call_kwargs["env"]["TEST_ENV_VAR"] == "test_value"
@@ -167,17 +164,12 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_streams_assistant_messages():
-    mock_stdout = AsyncIterator([
-        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
-        b'{"type": "result", "session_id": "session-123"}\n',
-    ])
-
-    mock_process = MagicMock()
-    mock_process.stdout = mock_stdout
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+    mock_process = _mock_process(
+        stdout_lines=[
+            b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
+            b'{"type": "result", "session_id": "session-123"}\n',
+        ]
+    )
 
     with (
         patch(
@@ -185,7 +177,7 @@ async def test_astream_streams_assistant_messages():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -201,19 +193,14 @@ async def test_astream_streams_assistant_messages():
 
 @pytest.mark.asyncio
 async def test_astream_emits_usage_event_before_done():
-    mock_stdout = AsyncIterator([
-        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
-        b'{"type": "result", "session_id": "session-123", "total_cost_usd": 0.1319, '
-        b'"usage": {"input_tokens": 2, "cache_creation_input_tokens": 35155, '
-        b'"cache_read_input_tokens": 100, "output_tokens": 5}}\n',
-    ])
-
-    mock_process = MagicMock()
-    mock_process.stdout = mock_stdout
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+    mock_process = _mock_process(
+        stdout_lines=[
+            b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
+            b'{"type": "result", "session_id": "session-123", "total_cost_usd": 0.1319, '
+            b'"usage": {"input_tokens": 2, "cache_creation_input_tokens": 35155, '
+            b'"cache_read_input_tokens": 100, "output_tokens": 5}}\n',
+        ]
+    )
 
     with (
         patch(
@@ -221,7 +208,7 @@ async def test_astream_emits_usage_event_before_done():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -295,12 +282,7 @@ def test_build_usage_event_sums_cache_tokens(usage, cost_usd, expected):
 
 @pytest.mark.asyncio
 async def test_astream_handles_process_error():
-    mock_process = MagicMock()
-    mock_process.stdout = AsyncIterator([])
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"Command failed")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 1
+    mock_process = _mock_process(returncode=1, stderr=b"Command failed")
 
     with (
         patch(
@@ -308,7 +290,7 @@ async def test_astream_handles_process_error():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -320,13 +302,8 @@ async def test_astream_handles_process_error():
 
 
 @pytest.mark.asyncio
-async def test_astream_passes_session_id_for_resume():
-    mock_process = MagicMock()
-    mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+async def test_astream_yields_interrupted_on_sigkill():
+    mock_process = _mock_process(returncode=-9)
 
     with (
         patch(
@@ -334,9 +311,53 @@ async def test_astream_passes_session_id_for_resume():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
-        ) as mock_exec,
+        ),
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    assert len(events) == 1
+    assert events[0].type == EventType.INTERRUPTED
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_interrupted_when_killed():
+    # On Windows a kill surfaces as a positive exit code, so classification
+    # relies on `killed` rather than the returncode.
+    mock_process = _mock_process(returncode=1, killed=True)
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
+            return_value=mock_process,
+        ),
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    assert len(events) == 1
+    assert events[0].type == EventType.INTERRUPTED
+
+
+@pytest.mark.asyncio
+async def test_astream_passes_session_id_for_resume():
+    mock_process = _mock_process(stdout_lines=[b'{"type": "result"}\n'])
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
+            return_value=mock_process,
+        ) as mock_ctor,
     ):
         provider = ClaudeCodeProvider()
         _ = [
@@ -346,24 +367,19 @@ async def test_astream_passes_session_id_for_resume():
             )
         ]
 
-    call_args = mock_exec.call_args[0]
-    assert "--resume" in call_args
-    assert "existing-session" in call_args
+    cmd = mock_ctor.call_args[0][0]
+    assert "--resume" in cmd
+    assert "existing-session" in cmd
 
 
 @pytest.mark.asyncio
 async def test_astream_handles_non_json_output():
-    mock_stdout = AsyncIterator([
-        b"Some plain text output\n",
-        b'{"type": "result"}\n',
-    ])
-
-    mock_process = MagicMock()
-    mock_process.stdout = mock_stdout
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+    mock_process = _mock_process(
+        stdout_lines=[
+            b"Some plain text output\n",
+            b'{"type": "result"}\n',
+        ]
+    )
 
     with (
         patch(
@@ -371,7 +387,7 @@ async def test_astream_handles_non_json_output():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -384,16 +400,11 @@ async def test_astream_handles_non_json_output():
 
 @pytest.mark.asyncio
 async def test_astream_handles_error_message_type():
-    mock_stdout = AsyncIterator([
-        b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
-    ])
-
-    mock_process = MagicMock()
-    mock_process.stdout = mock_stdout
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
+    mock_process = _mock_process(
+        stdout_lines=[
+            b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
+        ]
+    )
 
     with (
         patch(
@@ -401,7 +412,7 @@ async def test_astream_handles_error_message_type():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -414,19 +425,13 @@ async def test_astream_handles_error_message_type():
 
 @pytest.mark.asyncio
 async def test_astream_skips_rate_limit_event():
-    mock_stdout = AsyncIterator([
-        b'{"type": "rate_limit_event", "data": {"retry_after": 1.0}}\n',
-        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "hello"}]}}\n',
-        b'{"type": "result", "result": null, "session_id": "sess-123"}\n',
-    ])
-
-    mock_process = MagicMock()
-    mock_process.stdout = mock_stdout
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.read = AsyncMock(return_value=b"")
-    mock_process.wait = AsyncMock()
-    mock_process.returncode = 0
-    mock_process.pid = 12345
+    mock_process = _mock_process(
+        stdout_lines=[
+            b'{"type": "rate_limit_event", "data": {"retry_after": 1.0}}\n',
+            b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "hello"}]}}\n',
+            b'{"type": "result", "result": null, "session_id": "sess-123"}\n',
+        ]
+    )
 
     with (
         patch(
@@ -434,7 +439,7 @@ async def test_astream_skips_rate_limit_event():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -7,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
+from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -156,27 +156,17 @@ class CodexProvider(AssistantProvider):
         thread_id = ""
         process = None
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            process = SubprocessLineStream(
+                cmd,
                 cwd=cwd,
-                limit=100 * 1024 * 1024,
                 env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
+                input_bytes=user_message.encode("utf-8"),
             )
 
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
 
-            assert process.stdin is not None
-            assert process.stdout is not None
-            process.stdin.write(user_message.encode("utf-8"))
-            await process.stdin.drain()
-            process.stdin.close()
-            await process.stdin.wait_closed()
-
-            async for line in process.stdout:
+            async for line in process.lines():
                 line_str = line.decode("utf-8").strip()
                 if not line_str:
                     continue
@@ -203,13 +193,16 @@ class CodexProvider(AssistantProvider):
 
             await process.wait()
 
-            if process.returncode == -9:
+            # A kill we initiated is an interrupt, not an error. `killed` is the
+            # cross-platform signal: on Windows the process exits with a positive
+            # code indistinguishable from a genuine failure, while on POSIX a
+            # kill surfaces as SIGKILL (-9).
+            if process.killed or process.returncode == -9:
                 yield Event.from_interrupted()
                 return
 
             if process.returncode != 0:
-                assert process.stderr is not None
-                stderr_bytes = await process.stderr.read()
+                stderr_bytes = await process.read_stderr()
                 error_msg = (
                     stderr_bytes.decode("utf-8", errors="replace").strip()
                     or f"Process exited with code {process.returncode}"

@@ -5,7 +5,6 @@ This module provides the Claude Code integration for the assistant API,
 enabling AI-powered trace analysis through the Claude Code CLI.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -14,6 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
+from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -396,17 +396,11 @@ class ClaudeCodeProvider(AssistantProvider):
 
         process = None
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # NB: `env` does not merge with the parent process's environment, so
+            # we copy it explicitly to let the Claude Code CLI inherit it.
+            process = SubprocessLineStream(
+                cmd,
                 cwd=cwd,
-                # Increase buffer limit from default 64KB to handle large JSON responses
-                # from Claude Code CLI (e.g., tool results containing large file contents)
-                limit=100 * 1024 * 1024,  # 100 MB
-                # Specify tracking URI to let Claude Code CLI inherit it
-                # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
-                # environment so we need to copy the parent process's environment explicitly.
                 env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
@@ -415,10 +409,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 save_process_pid(mlflow_session_id, process.pid)
 
             try:
-                if process.stdout is None:
-                    raise RuntimeError("Claude CLI stdout pipe was not created")
-
-                async for line in process.stdout:
+                async for line in process.lines():
                     line_str = line.decode("utf-8").strip()
                     if not line_str:
                         continue
@@ -448,15 +439,16 @@ class ClaudeCodeProvider(AssistantProvider):
             # Wait for process to complete
             await process.wait()
 
-            # Check if killed by interrupt (SIGKILL = -9)
-            if process.returncode == -9:
+            # A kill we initiated is an interrupt, not an error. `killed` is the
+            # cross-platform signal: on Windows the process exits with a positive
+            # code indistinguishable from a genuine failure, while on POSIX a
+            # kill surfaces as SIGKILL (-9).
+            if process.killed or process.returncode == -9:
                 yield Event.from_interrupted()
                 return
 
             if process.returncode != 0:
-                stderr = b""
-                if process.stderr is not None:
-                    stderr = await process.stderr.read()
+                stderr = await process.read_stderr()
                 error_msg = (
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"

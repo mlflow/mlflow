@@ -99,14 +99,7 @@ def test_build_gunicorn_command():
     ]
 
 
-@pytest.fixture
-def non_windows(monkeypatch):
-    # Pin the platform so the base command assertions are deterministic; the
-    # Windows-only --loop injection is covered by its own tests below.
-    monkeypatch.setattr(server, "is_windows", lambda: False)
-
-
-def test_build_uvicorn_command(non_windows):
+def test_build_uvicorn_command():
     assert server._build_uvicorn_command(
         "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
     ) == [
@@ -164,32 +157,7 @@ def test_build_uvicorn_command(non_windows):
     ]
 
 
-def test_build_uvicorn_command_forces_proactor_loop_on_windows(monkeypatch):
-    monkeypatch.setattr(server, "is_windows", lambda: True)
-    cmd = server._build_uvicorn_command(
-        "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
-    )
-    assert "--loop" in cmd
-    assert cmd[cmd.index("--loop") + 1] == "mlflow.server._event_loop:proactor_loop_factory"
-
-
-def test_build_uvicorn_command_no_loop_override_off_windows(non_windows):
-    cmd = server._build_uvicorn_command(
-        "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
-    )
-    assert "--loop" not in cmd
-
-
-@pytest.mark.parametrize("user_opts", ["--loop uvloop", "--loop=uvloop"])
-def test_build_uvicorn_command_respects_user_loop_on_windows(monkeypatch, user_opts):
-    monkeypatch.setattr(server, "is_windows", lambda: True)
-    cmd = server._build_uvicorn_command(
-        user_opts, "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
-    )
-    assert "mlflow.server._event_loop:proactor_loop_factory" not in cmd
-
-
-def test_build_uvicorn_command_with_env_file(non_windows):
+def test_build_uvicorn_command_with_env_file():
     cmd = server._build_uvicorn_command(
         uvicorn_opts=None,
         host="localhost",
