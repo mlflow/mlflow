@@ -17,14 +17,15 @@ export const ModelAllowlistField = ({ provider, value, onChange, componentId }: 
   const { theme } = useDesignSystemTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleSelect = useCallback(
-    (model: ProviderModel) => {
-      if (!value.some((m) => m.model === model.model)) {
-        onChange([...value, model]);
-      }
+  const handleSelectMultiple = useCallback(
+    (models: ProviderModel[]) => {
+      // Dedupe by model name, preserving order.
+      const seen = new Set<string>();
+      const deduped = models.filter((m) => (seen.has(m.model) ? false : (seen.add(m.model), true)));
+      onChange(deduped);
       setIsModalOpen(false);
     },
-    [value, onChange],
+    [onChange],
   );
 
   const handleRemove = useCallback(
@@ -58,10 +59,17 @@ export const ModelAllowlistField = ({ provider, value, onChange, componentId }: 
           disabled={!provider}
           onClick={() => setIsModalOpen(true)}
         >
-          <FormattedMessage
-            defaultMessage="Add model"
-            description="Button to add a model to a connection's allowlist"
-          />
+          {value.length > 0 ? (
+            <FormattedMessage
+              defaultMessage="Edit models"
+              description="Button to edit the models in a connection's allowlist when some are already selected"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Select models"
+              description="Button to select models for a connection's allowlist"
+            />
+          )}
         </Button>
         {!provider && (
           <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
@@ -75,8 +83,10 @@ export const ModelAllowlistField = ({ provider, value, onChange, componentId }: 
       <ModelSelectorModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSelect={handleSelect}
+        onSelectMultiple={handleSelectMultiple}
         provider={provider}
+        multiSelect
+        initialSelected={value}
       />
     </div>
   );
