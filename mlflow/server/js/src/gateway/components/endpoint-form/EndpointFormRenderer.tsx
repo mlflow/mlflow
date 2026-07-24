@@ -12,6 +12,7 @@ import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/typ
 import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
+import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
 import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import { getModelCapabilities } from '../../utils/getModelCapabilities';
@@ -396,7 +397,7 @@ export const EndpointFormRenderer = ({
       </div>
 
       {/* Footer buttons */}
-      <div
+      <AssistantAwareActionBar
         css={{
           display: 'flex',
           justifyContent: 'flex-end',
@@ -424,7 +425,7 @@ export const EndpointFormRenderer = ({
             )}
           </Button>
         </Tooltip>
-      </div>
+      </AssistantAwareActionBar>
     </>
   );
 };
