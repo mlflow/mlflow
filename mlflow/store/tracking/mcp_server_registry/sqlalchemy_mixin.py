@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import replace
 from typing import Any
 
 import sqlalchemy as sa
@@ -50,6 +51,7 @@ from mlflow.utils.search_utils import (
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
+    _strip_mcp_icon_response_fields,
     _validate_mcp_icon_payloads,
     _validate_mcp_initial_status,
     _validate_mcp_tool_payloads,
@@ -64,6 +66,27 @@ def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
     # Keep validation aligned with schema-defined icon locations only. Extra free-form
     # metadata (for example under ``_meta``) must continue to round-trip untouched.
     _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+
+
+def _strip_server_json_icon_response_fields(server_json: dict[str, Any]) -> dict[str, Any]:
+    if "icons" not in server_json:
+        return server_json
+    return {
+        **server_json,
+        "icons": _strip_mcp_icon_response_fields(server_json.get("icons"), "server_json.icons"),
+    }
+
+
+def _strip_tool_icon_response_fields(tools: list[MCPTool] | None) -> list[MCPTool] | None:
+    if tools is None:
+        return None
+    return [
+        replace(
+            tool,
+            icons=_strip_mcp_icon_response_fields(tool.icons, f"tools[{idx}].icons"),
+        )
+        for idx, tool in enumerate(tools)
+    ]
 
 
 def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools") -> None:
@@ -95,6 +118,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPServer:
         validate_mcp_server_name(name)
+        icons = _strip_mcp_icon_response_fields(icons)
         _validate_mcp_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -206,6 +230,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         last_updated_by: str | None = None,
     ) -> MCPServer:
         if icons is not NOT_SET:
+            icons = _strip_mcp_icon_response_fields(icons)
             _validate_mcp_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
@@ -263,6 +288,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         validate_mcp_server_name(name)
+        server_json = _strip_server_json_icon_response_fields(server_json)
         _validate_server_json_icon_fields(server_json)
         parsed_version = parse_semver(version, param_name="server_json.version")
 
@@ -272,7 +298,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
         # Store/server create does not perform remote discovery. Omitted tools
         # are stored as null; client-side callers may resolve before create.
-        tools = None if tools is NOT_SET else tools
+        tools = None if tools is NOT_SET else _strip_tool_icon_response_fields(tools)
         _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
@@ -460,6 +486,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         last_updated_by: str | None = None,
     ) -> MCPServerVersion:
         if tools is not NOT_SET:
+            tools = _strip_tool_icon_response_fields(tools)
             _validate_tool_icons(tools)
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
