@@ -1,4 +1,4 @@
-import { Alert, FormUI, Input, Modal, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Input, Modal, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { SecretFormFields } from '../secrets';
 import { ModelAllowlistField } from '../model-selector/ModelAllowlistField';
@@ -141,14 +141,14 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>
             <FormattedMessage
-              defaultMessage="Allowed models"
-              description="Section label for the model allowlist in the edit API key modal"
+              defaultMessage="Allowed models (optional)"
+              description="Section label for the optional model allowlist in the edit API key modal"
             />
           </Typography.Text>
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage
-              defaultMessage="Choose which models this key can be used with. These appear as options wherever MLflow needs a model."
-              description="Helper text for the model allowlist in the edit API key modal"
+              defaultMessage="Choose which models this connection can be used with. Leave empty to allow all of the provider's models."
+              description="Helper text for the optional model allowlist in the edit API key modal"
             />
           </Typography.Text>
           <ModelAllowlistField
@@ -157,7 +157,6 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
             onChange={handleAllowlistedModelsChange}
             componentId="mlflow.gateway.edit-api-key-modal.allowlisted-models"
           />
-          {errors.allowlistedModels && <FormUI.Message type="error" message={errors.allowlistedModels} />}
         </div>
       </div>
     </Modal>

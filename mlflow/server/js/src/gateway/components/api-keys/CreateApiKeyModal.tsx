@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Alert, FormUI, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ProviderSelect } from '../create-endpoint';
 import { SecretFormFields, type SecretFormData } from '../secrets';
@@ -32,7 +32,6 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     name?: string;
     secretFields?: Record<string, string>;
     configFields?: Record<string, string>;
-    allowlistedModels?: string;
   }>({});
 
   const { mutateAsync: createSecret, isLoading, error: mutationError, reset: resetMutation } = useCreateSecret();
@@ -84,23 +83,12 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       newErrors.secretFields = {};
     }
 
-    if (allowlistedModels.length === 0) {
-      newErrors.allowlistedModels = intl.formatMessage({
-        defaultMessage: 'Select at least one model so this connection can be used.',
-        description: 'Error message when no allowlisted models are selected for a connection',
-      });
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [provider, formData.name, formData.secretFields, allowlistedModels, intl]);
+  }, [provider, formData.name, formData.secretFields, intl]);
 
   const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
     setAllowlistedModels(models);
-    setErrors((prev) => ({
-      ...prev,
-      allowlistedModels: models.length > 0 ? undefined : prev.allowlistedModels,
-    }));
   }, []);
 
   const handleClose = useCallback(() => {
@@ -179,10 +167,8 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     );
     if (!allRequiredConfigsProvided) return false;
 
-    if (allowlistedModels.length === 0) return false;
-
     return true;
-  }, [provider, formData.name, formData.secretFields, formData.configFields, allowlistedModels, selectedAuthMode]);
+  }, [provider, formData.name, formData.secretFields, formData.configFields, selectedAuthMode]);
 
   return (
     <Modal
@@ -246,14 +232,14 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <Typography.Text bold>
                 <FormattedMessage
-                  defaultMessage="Allowed models"
-                  description="Section label for the model allowlist in the add connection modal"
+                  defaultMessage="Allowed models (optional)"
+                  description="Section label for the optional model allowlist in the add connection modal"
                 />
               </Typography.Text>
               <Typography.Text color="secondary" size="sm">
                 <FormattedMessage
-                  defaultMessage="Choose which models this connection can be used with. These appear as options wherever MLflow needs a model."
-                  description="Helper text for the model allowlist in the add connection modal"
+                  defaultMessage="Choose which models this connection can be used with. Leave empty to allow all of the provider's models."
+                  description="Helper text for the optional model allowlist in the add connection modal"
                 />
               </Typography.Text>
             </div>
@@ -263,7 +249,6 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
               onChange={handleAllowlistedModelsChange}
               componentId="mlflow.gateway.create-api-key-modal.allowlisted-models"
             />
-            {errors.allowlistedModels && <FormUI.Message type="error" message={errors.allowlistedModels} />}
           </div>
         )}
 
