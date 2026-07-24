@@ -36,6 +36,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMCPServerVersionTag,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.telemetry.events import (
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -240,6 +245,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     # --- MCPServerVersion operations ---
 
+    @record_usage_event(McpRegistryCreateServerVersionEvent)
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
@@ -580,6 +586,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             )
         return target_sv
 
+    @record_usage_event(McpRegistryCreateAccessEndpointEvent)
     def create_mcp_access_endpoint(
         self,
         server_name: str,
