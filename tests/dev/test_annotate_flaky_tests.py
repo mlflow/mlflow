@@ -129,6 +129,18 @@ def test_report_includes_rationale(tmp_path, monkeypatch):
     assert "_Why:_ Load-induced timeout; passed on retry unchanged." in body
 
 
+def test_null_verdict_entry_is_skipped_not_crashed(tmp_path, monkeypatch):
+    # An explicitly-null `verdict` must be treated as "no annotation", not raise
+    # AttributeError — `.get("verdict", {})` bypasses the default on a null value.
+    repo = tmp_path
+    (repo / "tests").mkdir(parents=True)
+    classified = repo / "classified.json"
+    classified.write_text(json.dumps([{"test": "tests/test_sample.py::test_a", "verdict": None}]))
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["annotate_flaky_tests.py", "--in", str(classified)])
+    annotate_flaky_tests.main()  # must not raise
+
+
 def test_report_handles_null_rationale(tmp_path, monkeypatch):
     # A missing/null rationale must not raise or emit a `_Why:_` line.
     repo = tmp_path

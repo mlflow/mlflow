@@ -119,7 +119,9 @@ def annotate_file(
     path: Path, qualifiers: list[str], attempts: int, report_ref: str, rationale: str = ""
 ) -> Annotation:
     func = qualifiers[-1]
-    nodeid = f"{path}::{'::'.join(qualifiers)}"
+    # Use a posix path in the nodeid so it is stable across platforms (a Windows `Path`
+    # stringifies with backslashes) and renders as a clickable path in the PR body.
+    nodeid = f"{path.as_posix()}::{'::'.join(qualifiers)}"
     source = path.read_text()
     try:
         tree = ast.parse(source)
@@ -173,7 +175,9 @@ def main() -> None:
 
     results: list[Annotation] = []
     for entry in classified:
-        verdict = entry.get("verdict", {})
+        # `or {}` (not a dict default) so an explicitly-null `verdict` is handled too —
+        # `.get(..., {})` only substitutes when the key is absent, not when it is null.
+        verdict = entry.get("verdict") or {}
         if verdict.get("action") != "annotate" or not entry.get("test"):
             continue
         # The classifier's rationale is surfaced in the PR body so a reviewer sees *why*
