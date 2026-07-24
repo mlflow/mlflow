@@ -103,6 +103,13 @@ def test_scrub_pii_redacts_email_addresses():
     assert _scrub_pii("timeout after 20s; job PENDING") == "timeout after 20s; job PENDING"
 
 
+def test_scrub_pii_coerces_none_and_non_string():
+    # `rationale` may be absent (None) or non-string in `classified.json`; scrubbing must
+    # never raise and abort the annotate step.
+    assert _scrub_pii(None) == ""
+    assert _scrub_pii(42) == "42"
+
+
 def test_report_includes_scrubbed_rationale(tmp_path, monkeypatch):
     # The classifier's rationale must reach the PR-body report under each annotated test,
     # with any email-shaped PII redacted first.

@@ -32,8 +32,10 @@ from pathlib import Path
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
-def _scrub_pii(text: str) -> str:
-    return _EMAIL_RE.sub("[redacted-email]", text)
+def _scrub_pii(text: object) -> str:
+    # `rationale` may be missing, null, or otherwise non-string in `classified.json`;
+    # coerce to a string so `re.sub` can never raise and abort the annotate step.
+    return _EMAIL_RE.sub("[redacted-email]", str(text) if text else "")
 
 
 @dataclass
