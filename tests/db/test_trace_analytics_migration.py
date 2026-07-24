@@ -24,6 +24,9 @@ PREVIOUS_REVISION = "a8b9c0d1e2f3"
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
 
+_LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
+_LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _upgrade_external_db_to_head_after_suite():
@@ -117,7 +120,7 @@ def _seed_legacy_analytics_data(conn):
             {
                 "request_id": "trace-explicit",
                 "key": TraceTagKey.TRACE_NAME,
-                "value": "checkout-agent",
+                "value": _LONG_TRACE_NAME,
             }
         ],
     )
@@ -127,7 +130,7 @@ def _seed_legacy_analytics_data(conn):
             {
                 "request_id": "trace-explicit",
                 "key": TraceMetadataKey.TRACE_SESSION,
-                "value": "session-123",
+                "value": _LONG_SESSION_ID,
             },
             {
                 "request_id": "trace-explicit",
@@ -377,6 +380,15 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             "valid",
         ]
 
+        trace_columns = {column["name"]: column for column in inspector.get_columns("trace_info")}
+        for column_name in ("trace_name", "session_id"):
+            column_type = trace_columns[column_name]["type"]
+            if engine.dialect.name == "mysql":
+                assert isinstance(column_type, sa.Text)
+            else:
+                assert isinstance(column_type, sa.String)
+                assert column_type.length == 8000
+
         rollup_indexes = {
             "sql_trace_metric_daily_rollups": (
                 "idx_trace_rollups_lookup",
@@ -420,8 +432,8 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             assert traces == [
                 (
                     "trace-explicit",
-                    "checkout-agent",
-                    "session-123",
+                    _LONG_TRACE_NAME,
+                    _LONG_SESSION_ID,
                     12.0,
                     7.0,
                     18.0,

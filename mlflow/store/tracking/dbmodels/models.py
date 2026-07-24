@@ -785,11 +785,11 @@ class SqlTraceInfo(Base):
     DB-backed trace payload generation used for concurrency coordination.
     Defaults to 0.
     """
-    trace_name = Column(String(500), nullable=True)
+    trace_name = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
     """
     Denormalized trace name used by trace analytics queries.
     """
-    session_id = Column(String(500), nullable=True)
+    session_id = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
     """
     Denormalized session identifier used by trace analytics queries.
     """

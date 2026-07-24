@@ -72,8 +72,16 @@ def downgrade():
 
 def _add_analytics_columns():
     trace_columns = [
-        sa.Column("trace_name", sa.String(length=500), nullable=True),
-        sa.Column("session_id", sa.String(length=500), nullable=True),
+        sa.Column(
+            "trace_name",
+            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
+            nullable=True,
+        ),
+        sa.Column(
+            "session_id",
+            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
+            nullable=True,
+        ),
         sa.Column("input_tokens", sa.Float(precision=53), nullable=True),
         sa.Column("output_tokens", sa.Float(precision=53), nullable=True),
         sa.Column("total_tokens", sa.Float(precision=53), nullable=True),
