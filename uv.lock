@@ -1101,7 +1101,7 @@ wheels = [
 
 [[package]]
 name = "check-jsonschema"
-version = "0.37.2"
+version = "0.37.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1111,9 +1111,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/b5/2f4b66ac68e5dcf999f2df7d7d72d474b8f9d17ddd1ae2159ba81c55652a/check_jsonschema-0.37.2.tar.gz", hash = "sha256:2977f31ebbd3e4eb37325057b83b56c0041b2b520e12818ec84da1f6c7c60363", size = 414564, upload-time = "2026-05-03T03:41:48.453Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/dd/27b7f575586505c3d71b66b1fd60076feeba1ba7ffd1303fbf5a70cedad6/check_jsonschema-0.37.4.tar.gz", hash = "sha256:f933521f14cbeaaf113270751185b01379f453ac9ce9fb01d6190ce1352ccaa6", size = 428594, upload-time = "2026-06-29T21:10:23.726Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5f/89/0c8eebd5d9439abb38a79edca7a93c96e67e0d1e14ab1f6db016d27b15ad/check_jsonschema-0.37.2-py3-none-any.whl", hash = "sha256:0840dc56219922f7a34d4e4a4364f96bbf05983850dbb64149f4c6f17b3affd1", size = 399181, upload-time = "2026-05-03T03:41:46.81Z" },
+    { url = "https://files.pythonhosted.org/packages/92/82/6a929238ec352eadd4f4ce6e1be98c575fa8cbebe45b7c519f8016ad2860/check_jsonschema-0.37.4-py3-none-any.whl", hash = "sha256:e4d1647992674d6b1ed2ca46eee6697760d17a5cc0c167ba09c5b503b883d041", size = 412508, upload-time = "2026-06-29T21:10:22.041Z" },
 ]
 
 [[package]]
@@ -4343,7 +4343,7 @@ build = [
 dev = [
     { name = "aiohttp" },
     { name = "build" },
-    { name = "check-jsonschema", specifier = "==0.37.2" },
+    { name = "check-jsonschema", specifier = "==0.37.4" },
     { name = "clint", editable = "dev/clint" },
     { name = "flavors", editable = "dev/flavors" },
     { name = "mlflow-test-plugin", editable = "tests/resources/mlflow-test-plugin" },
@@ -4404,7 +4404,7 @@ docs = [
 ]
 lint = [
     { name = "aiohttp" },
-    { name = "check-jsonschema", specifier = "==0.37.2" },
+    { name = "check-jsonschema", specifier = "==0.37.4" },
     { name = "clint", editable = "dev/clint" },
     { name = "flavors", editable = "dev/flavors" },
     { name = "mypy", specifier = "==1.17.1" },

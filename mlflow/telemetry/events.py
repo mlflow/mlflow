@@ -445,12 +445,14 @@ class McpRegistryCreateServerVersionEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         server_json = arguments.get("server_json") or {}
+        # `tools` may be omitted (a NOT_SET sentinel), explicitly None, or a list.
+        # Only a real sequence has a meaningful count; anything else is "not provided".
         tools = arguments.get("tools")
         status = arguments.get("status") or MCPStatus.DRAFT
         return {
             "status": status.value if hasattr(status, "value") else status,
             "has_source": arguments.get("source") is not None,
-            "num_tools": len(tools) if tools is not None else None,
+            "num_tools": len(tools) if isinstance(tools, (list, tuple)) else None,
             "has_remotes": bool(server_json.get("remotes")),
         }
 
