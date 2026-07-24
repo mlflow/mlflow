@@ -303,6 +303,12 @@ def _build_uvicorn_command(
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
     if not any(o == "--log-config" or o.startswith("--log-config=") for o in opts):
         opts.extend(["--log-config", str(_UVICORN_LOG_CONFIG)])
+    # On Windows, uvicorn serves multi-worker / --reload on a SelectorEventLoop,
+    # which cannot spawn subprocesses -- breaking the in-app Assistant's CLI
+    # providers (issue #24405). Force a ProactorEventLoop via a custom loop
+    # factory unless the user pinned their own --loop.
+    if is_windows() and not any(o == "--loop" or o.startswith("--loop=") for o in opts):
+        opts.extend(["--loop", "mlflow.server._event_loop:proactor_loop_factory"])
     cmd = [
         sys.executable,
         "-m",
