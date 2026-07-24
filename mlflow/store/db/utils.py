@@ -32,6 +32,7 @@ from sqlalchemy.pool import (
 import mlflow.store.model_registry.dbmodels.models  # noqa: F401
 import mlflow.store.tracking.dbmodels.models  # noqa: F401
 import mlflow.store.workspace.dbmodels.models  # noqa: F401
+import mlflow.store.secrets.dbmodels.models  # noqa: F401
 from mlflow.environment_variables import (
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
