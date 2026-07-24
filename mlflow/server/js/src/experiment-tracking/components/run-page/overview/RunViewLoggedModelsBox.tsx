@@ -1,4 +1,5 @@
 import { ModelsIcon, Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { NoneCell } from '@databricks/web-shared/utils';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import type { RunInfoEntity } from '../../../types';
 import { type LoggedModelProto } from '../../../types';
@@ -45,6 +46,10 @@ export const RunViewLoggedModelsBox = ({
     const uniqueFlavors = new Set(flavors);
     return uniqueFlavors.size !== flavors.length;
   }, [loggedModels]);
+
+  if (loggedModels.length === 0 && loggedModelsV3.length === 0) {
+    return <NoneCell />;
+  }
 
   return (
     <Overflow>

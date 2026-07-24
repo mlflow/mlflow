@@ -1,3 +1,5 @@
+import { NoneCell } from '@databricks/web-shared/utils';
+
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import Routes from '../../../routes';
@@ -13,6 +15,9 @@ export const RunViewUserLinkBox = ({
   tags: Record<string, KeyValueEntity>;
 }) => {
   const user = Utils.getUser(runInfo, tags);
+  if (!user) {
+    return <NoneCell />;
+  }
   return (
     <Link
       componentId="mlflow.run_page.overview.user_link"
