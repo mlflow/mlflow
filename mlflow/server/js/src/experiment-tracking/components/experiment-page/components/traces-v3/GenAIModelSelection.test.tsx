@@ -253,7 +253,7 @@ describe('GenAIModelSelection', () => {
         getByText('No models available. Add a connection with allowed models to get started.'),
       ).toBeInTheDocument();
       fireEvent.click(getByText('Add a connection'));
-      expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('#llm-connections'));
+      expect(mockNavigate).toHaveBeenCalledWith('/settings/llm-connections');
 
       // With no pairs, the direct mode is invalid.
       await waitFor(() => {
@@ -268,7 +268,7 @@ describe('GenAIModelSelection', () => {
 
       // Footer link is rendered below the dropdown.
       fireEvent.click(getAllByText('Manage connections')[0]);
-      expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('#llm-connections'));
+      expect(mockNavigate).toHaveBeenCalledWith('/settings/llm-connections');
     });
   });
 });

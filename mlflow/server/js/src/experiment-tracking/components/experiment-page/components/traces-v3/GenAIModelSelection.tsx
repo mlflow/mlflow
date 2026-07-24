@@ -23,10 +23,10 @@ import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtil
 import type { Endpoint } from '../../../../../gateway/types';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
-import { SETTINGS_SECTION_GENERAL } from '../../../../../settings/settingsSectionConstants';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../../../settings/settingsSectionConstants';
 
-/** Deep-link to the LLM Connections section, now living within General settings. */
-const CONNECTIONS_ROUTE = `${Routes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}#llm-connections`;
+/** Deep-link to the dedicated LLM Connections settings tab. */
+const CONNECTIONS_ROUTE = Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS);
 
 type ModelConfigMode = 'endpoint' | 'direct';
 

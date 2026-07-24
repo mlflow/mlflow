@@ -439,6 +439,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
   },
+  "/qZCTk": {
+    "defaultMessage": "No connections found",
+    "description": "Empty state title when filter returns no results"
+  },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
     "description": "A title shown on the experiment page if the experiment is not found"
@@ -1790,10 +1794,6 @@
   "6BuryR": {
     "defaultMessage": "Add models",
     "description": "Affordance to add allowlisted models to a connection with none set"
-  },
-  "6HjFD0": {
-    "defaultMessage": "Key name",
-    "description": "API key name column header"
   },
   "6I8pKa": {
     "defaultMessage": "Auth Type:",
@@ -7943,6 +7943,10 @@
     "defaultMessage": "The response must be concise, professional, and friendly.",
     "description": "Placeholder text for guidelines textarea"
   },
+  "XDrxai": {
+    "defaultMessage": "Search connections",
+    "description": "Placeholder for LLM connections search filter"
+  },
   "XEcsei": {
     "defaultMessage": "Input tokens",
     "description": "Label for input token usage"
@@ -10938,6 +10942,10 @@
   "jULSKd": {
     "defaultMessage": "Output",
     "description": "Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page."
+  },
+  "jXVRkf": {
+    "defaultMessage": "Name",
+    "description": "LLM connection name column header"
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",

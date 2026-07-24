@@ -155,7 +155,7 @@ export const ApiKeysList = ({
         <Empty
           title={
             <FormattedMessage
-              defaultMessage="No API keys found"
+              defaultMessage="No connections found"
               description="Empty state title when filter returns no results"
             />
           }
@@ -192,8 +192,8 @@ export const ApiKeysList = ({
           componentId="mlflow.gateway.api-keys.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
-            defaultMessage: 'Search API Keys',
-            description: 'Placeholder for API key search filter',
+            defaultMessage: 'Search connections',
+            description: 'Placeholder for LLM connections search filter',
           })}
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
@@ -250,7 +250,7 @@ export const ApiKeysList = ({
             />
           </TableCell>
           <TableHeader componentId="mlflow.gateway.api-keys.name-header" css={{ flex: 2 }}>
-            <FormattedMessage defaultMessage="Key name" description="API key name column header" />
+            <FormattedMessage defaultMessage="Name" description="LLM connection name column header" />
           </TableHeader>
           {visibleColumns.includes(ApiKeysColumn.PROVIDER) && (
             <TableHeader componentId="mlflow.gateway.api-keys.provider-header" css={{ flex: 1 }}>

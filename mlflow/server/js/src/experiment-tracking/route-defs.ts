@@ -275,6 +275,8 @@ export const getRouteDefs = () => [
         switch (section) {
           case 'general':
             return 'Settings – General';
+          case 'llm-connections':
+            return 'Settings – LLM Connections';
           case 'webhooks':
             return 'Settings – Webhooks';
           default:

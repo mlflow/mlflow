@@ -218,7 +218,7 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    const searchInput = screen.getByPlaceholderText('Search API Keys');
+    const searchInput = screen.getByPlaceholderText('Search connections');
     await userEvent.type(searchInput, 'anthropic');
 
     expect(screen.getByText('anthropic-key')).toBeInTheDocument();
