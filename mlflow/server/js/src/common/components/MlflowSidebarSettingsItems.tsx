@@ -7,6 +7,7 @@ import { MlflowSidebarLink } from './MlflowSidebarLink';
 import {
   SETTINGS_RETURN_TO_PARAM,
   SETTINGS_SECTION_GENERAL,
+  SETTINGS_SECTION_LLM_CONNECTIONS,
   SETTINGS_SECTION_WEBHOOKS,
 } from '../../settings/settingsSectionConstants';
 
@@ -66,6 +67,15 @@ export const MlflowSidebarSettingsItems = ({ collapsed }: { collapsed: boolean }
         collapsed={collapsed}
       >
         <FormattedMessage defaultMessage="General" description="Sidebar link: Settings > General" />
+      </MlflowSidebarLink>
+      <MlflowSidebarLink
+        css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+        to={sectionTo(SETTINGS_SECTION_LLM_CONNECTIONS)}
+        componentId="mlflow.sidebar.settings_llm_connections_link"
+        isActive={matchSettingsSection(SETTINGS_SECTION_LLM_CONNECTIONS)}
+        collapsed={collapsed}
+      >
+        <FormattedMessage defaultMessage="LLM Connections" description="Sidebar link: Settings > LLM Connections" />
       </MlflowSidebarLink>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}

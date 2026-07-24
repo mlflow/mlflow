@@ -2173,6 +2173,7 @@ module.exports = {
   "mlflow.sidebar.prompts_tab_link": "",
   "mlflow.sidebar.settings_back_link": "",
   "mlflow.sidebar.settings_general_link": "",
+  "mlflow.sidebar.settings_llm_connections_link": "",
   "mlflow.sidebar.settings_tab_link": "",
   "mlflow.sidebar.settings_webhooks_link": "",
   "mlflow.sidebar.workflow_switch": "",

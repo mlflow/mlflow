@@ -427,6 +427,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
   },
+  "/qZCTk": {
+    "defaultMessage": "No connections found",
+    "description": "Empty state title when filter returns no results"
+  },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
     "description": "A title shown on the experiment page if the experiment is not found"
@@ -1703,10 +1707,6 @@
     "defaultMessage": "Add models",
     "description": "Affordance to add allowlisted models to a connection with none set"
   },
-  "6HjFD0": {
-    "defaultMessage": "Key name",
-    "description": "API key name column header"
-  },
   "6I8pKa": {
     "defaultMessage": "Auth Type:",
     "description": "Auth type label"
@@ -2238,10 +2238,6 @@
   "8ikgws": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Label for a single turn within an experiment chat session"
-  },
-  "8kU9Sc": {
-    "defaultMessage": "No API keys found",
-    "description": "Empty state title when filter returns no results"
   },
   "8mP5Mz": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
@@ -3570,6 +3566,10 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
+  },
+  "F39ONm": {
+    "defaultMessage": "LLM Connections",
+    "description": "Sidebar link: Settings > LLM Connections"
   },
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
@@ -5851,10 +5851,6 @@
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
   },
-  "QqbUt/": {
-    "defaultMessage": "Search API Keys",
-    "description": "Placeholder for API key search filter"
-  },
   "QqxiAM": {
     "defaultMessage": "The type of value the judge will return. Ensure this matches the output format specified in your instructions.",
     "description": "Hint text for output type selection with alignment warning"
@@ -7234,6 +7230,10 @@
   "XCy4xh": {
     "defaultMessage": "The response must be concise, professional, and friendly.",
     "description": "Placeholder text for guidelines textarea"
+  },
+  "XDrxai": {
+    "defaultMessage": "Search connections",
+    "description": "Placeholder for LLM connections search filter"
   },
   "XEcsei": {
     "defaultMessage": "Input tokens",
@@ -9962,6 +9962,10 @@
   "jULSKd": {
     "defaultMessage": "Output",
     "description": "Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page."
+  },
+  "jXVRkf": {
+    "defaultMessage": "Name",
+    "description": "LLM connection name column header"
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
