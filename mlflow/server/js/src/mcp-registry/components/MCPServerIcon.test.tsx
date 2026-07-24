@@ -100,6 +100,27 @@ describe('MCPServerIcon', () => {
     expect(getSvg(container)).toBeTruthy();
   });
 
+  it('falls back to fallbackIcons when primary icon fails to load', () => {
+    const { container } = renderIcon({
+      icons: [{ src: 'https://example.com/broken.svg' }],
+      fallbackIcons: [sjAny],
+    });
+    fireEvent.error(getImg(container)!);
+    expect(getImg(container)).toHaveAttribute('src', sjAny.src);
+  });
+
+  it('falls back to default when both primary and fallback fail to load', () => {
+    const { container } = renderIcon({
+      icons: [{ src: 'https://example.com/broken.svg' }],
+      fallbackIcons: [{ src: 'https://example.com/also-broken.svg' }],
+    });
+    fireEvent.error(getImg(container)!);
+    expect(getImg(container)).toHaveAttribute('src', 'https://example.com/also-broken.svg');
+    fireEvent.error(getImg(container)!);
+    expect(getImg(container)).toBeNull();
+    expect(getSvg(container)).toBeTruthy();
+  });
+
   it('uses fallbackIcons when primary icons have no match', () => {
     const { container } = renderIcon({ icons: [], fallbackIcons: [sjAny] });
     expect(getImg(container)).toHaveAttribute('src', sjAny.src);

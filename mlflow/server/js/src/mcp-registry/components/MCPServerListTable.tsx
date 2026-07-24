@@ -22,7 +22,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPServer } from '../types';
 
 import MCPRegistryRoutes from '../routes';
-import { useLatestMCPServerVersionQuery } from '../hooks/useMCPServerDetailQuery';
 import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -44,11 +43,10 @@ const getRowId = (row: MCPServer) => row.name;
 
 const MCPServerNameCell = ({ getValue, row }: CellContext<MCPServer, unknown>) => {
   const { theme } = useDesignSystemTheme();
-  const { data: latestVersion } = useLatestMCPServerVersionQuery(row.original.name, !row.original.icons?.length);
   const value = getValue() as string;
   return (
     <span css={flexRowStyles(theme)}>
-      <MCPServerIcon icons={row.original.icons} fallbackIcons={latestVersion?.server_json?.icons} name={value} />
+      <MCPServerIcon icons={row.original.icons} name={value} />
       <Link
         componentId="mlflow.mcp_registry.table.name_link"
         to={MCPRegistryRoutes.getMCPServerDetailRoute(row.original.name)}

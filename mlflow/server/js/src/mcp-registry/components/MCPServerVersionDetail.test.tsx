@@ -40,7 +40,6 @@ const mockPermissions = ({ canUpdate = false, canDelete = false } = {}) => {
     canDelete,
     canManage: false,
     isDimmed: false,
-    isUnavailable: false,
     showVisibilityControls: false,
     isAuthAvailable: true,
   });

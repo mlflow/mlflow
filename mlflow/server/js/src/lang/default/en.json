@@ -27,10 +27,6 @@
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
   },
-  "+5GzfZ": {
-    "defaultMessage": "Edit display name",
-    "description": "MCP server detail edit server display name action"
-  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
@@ -666,10 +662,6 @@
   "0uYJoi": {
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
-  },
-  "0ueLGI": {
-    "defaultMessage": "Edit display name",
-    "description": "MCP server update version display name modal title"
   },
   "0vwlO5": {
     "defaultMessage": "Each message has a role that tells the model who is speaking:",
@@ -1307,10 +1299,6 @@
     "defaultMessage": "Clear all demo data",
     "description": "Clear demo data button"
   },
-  "42ghQw": {
-    "defaultMessage": "Save",
-    "description": "MCP server update version display name modal confirm button"
-  },
   "43FXJM": {
     "defaultMessage": "Updating Assistant settings is not allowed for a remote MLflow server. Contact your server admin to update the settings.",
     "description": "Tooltip explaining that Assistant settings cannot be changed from a remote client"
@@ -1342,6 +1330,10 @@
   "460gm9": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
     "description": "Queue settings: questions field hint"
+  },
+  "46eBfs": {
+    "defaultMessage": "Edit server details",
+    "description": "MCP server edit modal title"
   },
   "46xd2Z": {
     "defaultMessage": "Compare",
@@ -2022,6 +2014,10 @@
   "7NadFN": {
     "defaultMessage": "Format",
     "description": "Button that pretty-prints the response format JSON schema in the playground"
+  },
+  "7NfBeq": {
+    "defaultMessage": "Display name and description could not be saved",
+    "description": "Error notification when updating MCP server display name fails"
   },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
@@ -2803,10 +2799,6 @@
     "defaultMessage": "Response from the endpoint after clicking Send request.",
     "description": "Response body tooltip"
   },
-  "AbkN3m": {
-    "defaultMessage": "Edit icon",
-    "description": "Edit icon modal title"
-  },
   "AeRhuI": {
     "defaultMessage": "Conversational guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation."
@@ -2974,10 +2966,6 @@
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for a quickstart guide on MLflow evaluation datasets"
-  },
-  "BNHY8/": {
-    "defaultMessage": "Edit icon",
-    "description": "MCP server detail edit icon action"
   },
   "BNc3Cn": {
     "defaultMessage": "Confirm new password",
@@ -4511,6 +4499,10 @@
     "defaultMessage": "Add variable",
     "description": "Button text for adding variables"
   },
+  "Ij7ej4": {
+    "defaultMessage": "Set icons or override icons from server.json. Use 'light' or 'dark' for theme-specific icons, or 'any' for one that works in both.",
+    "description": "Help text for icons in edit server modal"
+  },
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
@@ -4787,6 +4779,10 @@
     "defaultMessage": "MCP Server:",
     "description": "MCP registry endpoint modal server label"
   },
+  "K0BdF9": {
+    "defaultMessage": "Save",
+    "description": "Edit server modal save button"
+  },
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
@@ -5015,10 +5011,6 @@
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
   },
-  "L/5r8Q": {
-    "defaultMessage": "Server status is not active",
-    "description": "Tooltip for inactive status label on MCP server detail page"
-  },
   "L/U++H": {
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
@@ -5187,6 +5179,10 @@
     "defaultMessage": "— what the human is asking. This is the typical input.",
     "description": "Description of the user role in the playground role-selector help popover"
   },
+  "LxHBMo": {
+    "defaultMessage": "About icons",
+    "description": "Aria label for icons help popover in edit server modal"
+  },
   "LxUEVH": {
     "defaultMessage": "No resources connected to this endpoint",
     "description": "Gateway > Endpoint bindings drawer > Empty state"
@@ -5326,6 +5322,10 @@
   "MXsbcc": {
     "defaultMessage": "Supported formats: image, text, markdown, html, pdf, audio, video, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "MYcELD": {
+    "defaultMessage": "Enter display name",
+    "description": "Placeholder for server display name input"
   },
   "MZCW9F": {
     "defaultMessage": "Labeling schemas",
@@ -7027,6 +7027,10 @@
     "defaultMessage": "Select",
     "description": "Select button"
   },
+  "UITAEJ": {
+    "defaultMessage": "Icons",
+    "description": "Edit server icons label"
+  },
   "UIi6pp": {
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
@@ -7170,6 +7174,10 @@
   "UwpML4": {
     "defaultMessage": "Model registered successfully",
     "description": "Notification title for model registration succeeded on the logged model details page"
+  },
+  "UxY4Fm": {
+    "defaultMessage": "Icons could not be saved",
+    "description": "Error notification when updating MCP server icons fails"
   },
   "UzZf+2": {
     "defaultMessage": "Add chart",
@@ -7803,6 +7811,10 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
+  "XN0pQz": {
+    "defaultMessage": "Unavailable",
+    "description": "Label for MCP server that is not active"
+  },
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
@@ -7947,6 +7959,10 @@
     "defaultMessage": "See less",
     "description": "Button to collapse a long text field in the trace explorer summary field renderer"
   },
+  "Y5wVuI": {
+    "defaultMessage": "Edit",
+    "description": "MCP server detail edit server action"
+  },
   "Y6gWro": {
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
@@ -8038,6 +8054,10 @@
   "YV6xFB": {
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
+  },
+  "YYGGIr": {
+    "defaultMessage": "Tags could not be saved",
+    "description": "Error notification when saving MCP server tags fails"
   },
   "YYqxG3": {
     "defaultMessage": "No matching users",
@@ -8551,9 +8571,9 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "alUSB5": {
-    "defaultMessage": "Unavailable",
-    "description": "Label for MCP server with no access endpoints"
+  "alHtT0": {
+    "defaultMessage": "Set the server status to active to make it available",
+    "description": "Tooltip for unavailable label on MCP server detail page"
   },
   "an4yfn": {
     "defaultMessage": "Your changes will be lost if you leave this panel without saving.",
@@ -8738,10 +8758,6 @@
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
-  },
-  "bjH2oX": {
-    "defaultMessage": "Display name",
-    "description": "Aria label for display name input"
   },
   "bjoGjg": {
     "defaultMessage": "Last hour",
@@ -10719,10 +10735,6 @@
     "defaultMessage": "Function description",
     "description": "Label for the tool description input in the playground Tools card"
   },
-  "jfYJxe": {
-    "defaultMessage": "Save",
-    "description": "Edit icons modal save button"
-  },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
     "description": "Tooltip description for the Session column in the traces table"
@@ -10986,6 +10998,10 @@
   "klERxj": {
     "defaultMessage": "1. Configure experiment and tracking URI",
     "description": "Section title for configuring experiment and tracking URI before logging traces"
+  },
+  "km086Q": {
+    "defaultMessage": "Description",
+    "description": "Edit server description label"
   },
   "km8vtM": {
     "defaultMessage": "Logged models ({length})",
@@ -12351,6 +12367,10 @@
     "defaultMessage": "Selected guardrail model endpoint is unavailable. Please choose another endpoint.",
     "description": "Error shown when selected guardrail model endpoint is no longer available"
   },
+  "r0Q6X6": {
+    "defaultMessage": "Display name",
+    "description": "Edit server display name label"
+  },
   "r0mM8+": {
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
     "description": "Generic error message for API key creation"
@@ -12886,6 +12906,10 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
+  },
+  "tLTTEX": {
+    "defaultMessage": "Enter description",
+    "description": "Placeholder for server description input"
   },
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
@@ -13846,10 +13870,6 @@
   "y6KMoc": {
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
-  },
-  "y6rw0w": {
-    "defaultMessage": "No access endpoint available for the latest version",
-    "description": "Tooltip for unavailable label on MCP server detail page"
   },
   "y7+wS+": {
     "defaultMessage": "Relevance",

@@ -6,12 +6,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import { MCPServerCard } from './MCPServerCard';
-import {
-  createMockMCPServer,
-  createMockMCPServerVersion,
-  getMockedCurrentUserResponse,
-  getMockedGetLatestMCPServerVersionResponse,
-} from '../test-utils';
+import { createMockMCPServer, getMockedCurrentUserResponse } from '../test-utils';
 import { MCPStatus } from '../types';
 import type { MCPServer } from '../types';
 
@@ -88,41 +83,22 @@ describe('MCPServerCard', () => {
   });
 
   describe('icon fallback priority', () => {
-    const serverIcon = { src: 'https://example.com/server-icon.svg' };
-    const sjIcon = { src: 'https://example.com/sj-icon.svg' };
+    const serverIcon = { src: 'https://example.com/server-icon.svg', source: 'server' as const };
+    const sjIcon = { src: 'https://example.com/sj-icon.svg', source: 'version' as const };
 
-    const mswServer = setupServer(
-      getMockedCurrentUserResponse({ isAdmin: false }),
-      getMockedGetLatestMCPServerVersionResponse(
-        createMockMCPServerVersion({ server_json: { name: 'test', version: '1.0.0', icons: [sjIcon] } }),
-      ),
-    );
-
-    it('uses server.icons when present, ignoring server_json.icons', async () => {
-      const { container } = renderCard(createMockMCPServer({ icons: [serverIcon] }));
-      await waitFor(() => {
-        expect(container.querySelector('img')).toHaveAttribute('src', serverIcon.src);
-      });
+    it('uses server-source icons when present', () => {
+      const { container } = renderCard(createMockMCPServer({ icons: [serverIcon, sjIcon] }));
+      expect(container.querySelector('img')).toHaveAttribute('src', serverIcon.src);
     });
 
-    it('falls back to server_json.icons when server.icons is absent', async () => {
-      const { container } = renderCard(createMockMCPServer({ icons: undefined }));
-      await waitFor(() => {
-        expect(container.querySelector('img')).toHaveAttribute('src', sjIcon.src);
-      });
+    it('renders version-source icons when no server-source icons exist', () => {
+      const { container } = renderCard(createMockMCPServer({ icons: [sjIcon] }));
+      expect(container.querySelector('img')).toHaveAttribute('src', sjIcon.src);
     });
 
-    it('falls back to McpIcon when neither source has icons', async () => {
-      mswServer.use(
-        getMockedGetLatestMCPServerVersionResponse(
-          createMockMCPServerVersion({ server_json: { name: 'test', version: '1.0.0' } }),
-        ),
-      );
-
+    it('falls back to McpIcon when icons is absent', () => {
       const { container } = renderCard(createMockMCPServer({ icons: undefined }));
-      await waitFor(() => {
-        expect(container.querySelector('svg')).toBeTruthy();
-      });
+      expect(container.querySelector('svg')).toBeTruthy();
       expect(container.querySelector('img')).toBeNull();
     });
   });
@@ -130,7 +106,7 @@ describe('MCPServerCard', () => {
   describe('dimmed card with auth available', () => {
     setupServer(getMockedCurrentUserResponse({ isAdmin: false }));
 
-    it('renders with dimmed styling when server has no access_endpoints and status is active', async () => {
+    it('renders card without dimming when server is active but has no access_endpoints', async () => {
       renderCard(
         createMockMCPServer({
           name: 'io.github.test/dimmed',

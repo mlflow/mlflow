@@ -36,7 +36,7 @@ import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations
 import { useCreateMCPServerVersionModal } from '../hooks/useCreateMCPServerVersionModal';
 import { useUpdateMCPServerVersionMetadataModal } from '../hooks/useUpdateMCPServerVersionMetadataModal';
 import { useDeleteServerModal } from '../hooks/useDeleteServerModal';
-import { useEditDisplayNameModal } from '../hooks/useEditDisplayNameModal';
+import { useEditServerModal } from '../hooks/useEditServerModal';
 import { MCPServerVersionList } from '../components/MCPServerVersionList';
 import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
 import { MCPServerVersionCompare } from '../components/MCPServerVersionCompare';
@@ -48,7 +48,6 @@ import { LATEST_ALIAS, resolveDisplayName } from '../utils';
 import { lineClampStyles } from '../styles';
 import { useServerState } from '../hooks/useServerState';
 import { MCPServerIcon } from '../components/MCPServerIcon';
-import { useEditIconsModal } from '../hooks/useEditIconsModal';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -70,7 +69,7 @@ const MCPServerDetailPage = () => {
     serverName,
     onDeleted: () => navigate(MCPRegistryRoutes.mcpRegistryPageRoute),
   });
-  const { EditDisplayNameModal, openEditDisplayName } = useEditDisplayNameModal({ serverName });
+  const { EditServerModal, openEditServer } = useEditServerModal({ serverName });
   const { data: server, isLoading: serverLoading, error: serverError } = useMCPServerQuery(serverName);
   const {
     data: versions,
@@ -81,8 +80,7 @@ const MCPServerDetailPage = () => {
   const { data: latestVersion } = useLatestMCPServerVersionQuery(serverName);
   const { data: endpoints } = useMCPAccessEndpointsQuery(serverName);
 
-  const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
-  const { EditIconsModal, openEditIcons } = useEditIconsModal({ serverName });
+  const { canUpdate, canDelete, isDimmed } = useServerState(server);
 
   const { viewState, setPreviewMode, setCompareMode, setComparedVersion, switchSides } = useMCPServerDetailViewState(
     versions,
@@ -244,29 +242,18 @@ const MCPServerDetailPage = () => {
               <Tooltip
                 componentId="mlflow.mcp_registry.detail.unavailable_tooltip"
                 content={
-                  isUnavailable ? (
-                    <FormattedMessage
-                      defaultMessage="No access endpoint available for the latest version"
-                      description="Tooltip for unavailable label on MCP server detail page"
-                    />
-                  ) : (
-                    <FormattedMessage
-                      defaultMessage="Server status is not active"
-                      description="Tooltip for inactive status label on MCP server detail page"
-                    />
-                  )
+                  <FormattedMessage
+                    defaultMessage="Set the server status to active to make it available"
+                    description="Tooltip for unavailable label on MCP server detail page"
+                  />
                 }
               >
                 <span css={{ cursor: 'default' }}>
                   <Tag componentId="mlflow.mcp_registry.detail.unavailable_tag" color="coral">
-                    {isUnavailable ? (
-                      <FormattedMessage
-                        defaultMessage="Unavailable"
-                        description="Label for MCP server with no access endpoints"
-                      />
-                    ) : (
-                      server.status
-                    )}
+                    <FormattedMessage
+                      defaultMessage="Unavailable"
+                      description="Label for MCP server that is not active"
+                    />
                   </Tag>
                 </span>
               </Tooltip>
@@ -291,21 +278,10 @@ const MCPServerDetailPage = () => {
                   <DropdownMenu.Content>
                     {canUpdate && (
                       <DropdownMenu.Item
-                        componentId="mlflow.mcp_registry.detail.actions.edit_display_name"
-                        onClick={() => openEditDisplayName(server.display_name || '')}
+                        componentId="mlflow.mcp_registry.detail.actions.edit"
+                        onClick={() => openEditServer(server, latestVersion?.server_json?.icons)}
                       >
-                        <FormattedMessage
-                          defaultMessage="Edit display name"
-                          description="MCP server detail edit server display name action"
-                        />
-                      </DropdownMenu.Item>
-                    )}
-                    {canUpdate && (
-                      <DropdownMenu.Item
-                        componentId="mlflow.mcp_registry.detail.actions.edit_icons"
-                        onClick={() => openEditIcons(server?.icons ?? [], latestVersion?.server_json?.icons)}
-                      >
-                        <FormattedMessage defaultMessage="Edit icon" description="MCP server detail edit icon action" />
+                        <FormattedMessage defaultMessage="Edit" description="MCP server detail edit server action" />
                       </DropdownMenu.Item>
                     )}
                     {canDelete && (
@@ -433,9 +409,8 @@ const MCPServerDetailPage = () => {
       {EditAliasesModal}
       {EditMCPServerVersionMetadataModal}
       {CreateMCPServerVersionModal}
-      {EditDisplayNameModal}
+      {EditServerModal}
       {DeleteServerModal}
-      {EditIconsModal}
     </ScrollablePageWrapper>
   );
 };

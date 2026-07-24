@@ -289,21 +289,8 @@ describe('getServerPermissions', () => {
 });
 
 describe('isServerDimmed', () => {
-  it('returns false for active server with endpoints', () => {
-    expect(
-      isServerDimmed(
-        createMockMCPServer({
-          status: MCPStatus.ACTIVE,
-          access_endpoints: [
-            { id: '1', url: 'https://example.com', server_name: 'test', transport_type: TransportType.STREAMABLE_HTTP },
-          ],
-        }),
-      ),
-    ).toBe(false);
-  });
-
-  it('returns true for active server without endpoints', () => {
-    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE, access_endpoints: [] }))).toBe(true);
+  it('returns false for active server', () => {
+    expect(isServerDimmed(createMockMCPServer({ status: MCPStatus.ACTIVE }))).toBe(false);
   });
 
   it('returns true for draft server', () => {

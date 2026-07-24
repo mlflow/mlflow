@@ -18,11 +18,14 @@ export const AddToolsModal = ({
 }) => {
   const { theme } = useDesignSystemTheme();
 
+  const escapedName = serverName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const escapedVersion = version.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
   const discoverSnippet = `import mlflow
 
 server_version = mlflow.genai.refresh_mcp_server_version_tools(
-    name="${serverName}",
-    version="${version}",
+    name="${escapedName}",
+    version="${escapedVersion}",
 )`;
 
   if (!visible) return null;

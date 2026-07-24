@@ -3,7 +3,7 @@ import { MCPRegistryApi } from '../api';
 import type { ConnectOptionsMap, MCPStatus } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
 
-const useInvalidateServerQueries = () => {
+export const useInvalidateServerQueries = () => {
   const queryClient = useQueryClient();
   return (serverName: string) => {
     queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
@@ -68,17 +68,6 @@ export const useDeleteMCPServerVersion = (serverName: string) => {
     onSuccess: () => invalidate(serverName),
   });
 };
-
-export const useUpdateMCPServerDisplayName = (serverName: string) => {
-  const invalidate = useInvalidateServerQueries();
-
-  return useMutation<unknown, Error, string | null>({
-    mutationFn: (displayName: string | null) =>
-      MCPRegistryApi.updateMCPServer(serverName, { display_name: displayName }),
-    onSuccess: () => invalidate(serverName),
-  });
-};
-
 export const useDeleteMCPServer = () => {
   const queryClient = useQueryClient();
 

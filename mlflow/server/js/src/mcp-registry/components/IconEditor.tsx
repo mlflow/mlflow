@@ -16,7 +16,8 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPIcon } from '../types';
 import { previewRowStyles } from '../styles';
-import { resolveIcon } from '../utils';
+import { resolveIcon, sanitizeHref } from '../utils';
+import { useIconFallback } from '../hooks/useIconFallback';
 
 const PREVIEW_ICON_SIZE = 28;
 const PREVIEW_BOX_SIZE = 44;
@@ -61,24 +62,12 @@ const PreviewItem = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [primaryFailed, setPrimaryFailed] = useState(false);
-  const [fallbackFailed, setFallbackFailed] = useState(false);
+  const sanitizedPrimary = sanitizeHref(icon?.src);
+  const sanitizedFallback = sanitizeHref(fallbackIcon?.src);
+  const { activeSrc, onError: onIconError } = useIconFallback(sanitizedPrimary, sanitizedFallback);
 
-  useEffect(() => {
-    setPrimaryFailed(false);
-  }, [icon?.src]);
-
-  useEffect(() => {
-    setFallbackFailed(false);
-  }, [fallbackIcon?.src]);
-
-  const { activeSrc, source } = (() => {
-    if (icon?.src && !primaryFailed) return { activeSrc: icon.src, source: 'explicit' as IconSource };
-    if (fallbackIcon?.src && !fallbackFailed && fallbackIcon.src !== icon?.src) {
-      return { activeSrc: fallbackIcon.src, source: 'server-json' as IconSource };
-    }
-    return { activeSrc: '', source: 'default' as IconSource };
-  })();
+  const source: IconSource =
+    activeSrc === sanitizedPrimary ? 'explicit' : activeSrc === sanitizedFallback ? 'server-json' : 'default';
 
   const tooltipContent =
     source === 'explicit'
@@ -111,12 +100,10 @@ const PreviewItem = ({
           alt=""
           referrerPolicy="no-referrer"
           onError={() => {
-            if (icon?.src && !primaryFailed) {
-              setPrimaryFailed(true);
-              onLoadError?.(icon.src);
-            } else {
-              setFallbackFailed(true);
+            if (activeSrc === sanitizedPrimary) {
+              onLoadError?.(icon?.src ?? '');
             }
+            onIconError();
           }}
           css={{ width: PREVIEW_ICON_SIZE, height: PREVIEW_ICON_SIZE, objectFit: 'contain' }}
         />

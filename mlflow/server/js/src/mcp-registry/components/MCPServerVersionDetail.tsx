@@ -3,7 +3,7 @@ import { tagListStyles, textEllipsisStyles, noShrinkStyles, flexColumnGapStyles 
 import {
   Button,
   PencilIcon,
-  PlusIcon,
+  CodeIcon,
   Spacer,
   Tabs,
   Tag,
@@ -286,7 +286,7 @@ export const MCPServerVersionDetail = ({
             <div css={{ marginBottom: theme.spacing.md }}>
               <Button
                 componentId="mlflow.mcp_registry.detail.add_tools"
-                icon={<PlusIcon />}
+                icon={<CodeIcon />}
                 onClick={() => setAddToolsModalVisible(true)}
               >
                 <FormattedMessage

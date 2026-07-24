@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useIntl } from 'react-intl';
 import { MCPRegistryApi } from '../api';
 import type { ConnectOptionsMap, MCPIcon, MCPServerVersion, MCPStatus, MCPTool, ServerJSONPayload } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
@@ -18,6 +19,7 @@ type CreateMCPServerVersionPayload = {
 
 export const useCreateMCPServerVersionMutation = () => {
   const queryClient = useQueryClient();
+  const intl = useIntl();
 
   return useMutation<MCPServerVersion, Error, CreateMCPServerVersionPayload>({
     mutationFn: async ({
@@ -50,7 +52,12 @@ export const useCreateMCPServerVersionMutation = () => {
               description: serverJson.description || undefined,
             });
           } catch {
-            Utils.displayGlobalErrorNotification('Display name and description could not be saved');
+            Utils.displayGlobalErrorNotification(
+              intl.formatMessage({
+                defaultMessage: 'Display name and description could not be saved',
+                description: 'Error notification when updating MCP server display name fails',
+              }),
+            );
           }
         }
       }
@@ -59,7 +66,12 @@ export const useCreateMCPServerVersionMutation = () => {
         try {
           await MCPRegistryApi.updateMCPServer(name, { icons });
         } catch {
-          Utils.displayGlobalErrorNotification('Icons could not be saved');
+          Utils.displayGlobalErrorNotification(
+            intl.formatMessage({
+              defaultMessage: 'Icons could not be saved',
+              description: 'Error notification when updating MCP server icons fails',
+            }),
+          );
         }
       }
 
@@ -72,7 +84,12 @@ export const useCreateMCPServerVersionMutation = () => {
           await Promise.all(Object.entries(tags).map(([key, value]) => setTag(key, value)));
         }
       } catch {
-        Utils.displayGlobalErrorNotification('Tags could not be saved');
+        Utils.displayGlobalErrorNotification(
+          intl.formatMessage({
+            defaultMessage: 'Tags could not be saved',
+            description: 'Error notification when saving MCP server tags fails',
+          }),
+        );
       }
 
       return version;

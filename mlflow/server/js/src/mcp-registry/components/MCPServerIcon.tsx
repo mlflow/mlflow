@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
 import { McpIcon, useDesignSystemTheme } from '@databricks/design-system';
 import type { MCPIcon as MCPIconType } from '../types';
 import { mcpIconStyles } from '../styles';
-import { resolveIcon } from '../utils';
+import { resolveIcon, sanitizeHref } from '../utils';
+import { useIconFallback } from '../hooks/useIconFallback';
 
 const ICON_SIZE = 16;
 
@@ -24,20 +24,17 @@ export const MCPServerIcon = ({
   css?: Record<string, unknown>;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [imgFailed, setImgFailed] = useState(false);
-  const iconSrc = resolveIconSrc(icons, fallbackIcons, theme.isDarkMode);
+  const primarySrc = sanitizeHref(resolveIcon(icons, theme.isDarkMode)?.src);
+  const fallbackSrc = sanitizeHref(resolveIcon(fallbackIcons, theme.isDarkMode)?.src);
+  const { activeSrc, onError } = useIconFallback(primarySrc, fallbackSrc);
 
-  useEffect(() => {
-    setImgFailed(false);
-  }, [iconSrc]);
-
-  if (iconSrc && !imgFailed) {
+  if (activeSrc) {
     return (
       <img
-        src={iconSrc}
+        src={activeSrc}
         alt={name || ''}
         referrerPolicy="no-referrer"
-        onError={() => setImgFailed(true)}
+        onError={onError}
         css={{
           width: ICON_SIZE,
           height: ICON_SIZE,

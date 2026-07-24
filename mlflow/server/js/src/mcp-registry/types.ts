@@ -68,6 +68,7 @@ export interface MCPIcon {
   sizes?: string[];
   mimeType?: string;
   theme?: string;
+  source?: 'server' | 'version';
 }
 
 export interface MCPServerAlias {
