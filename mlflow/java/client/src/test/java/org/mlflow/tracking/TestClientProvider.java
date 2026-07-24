@@ -141,12 +141,17 @@ public class TestClientProvider {
     Thread drainThread = new Thread(threadName) {
       @Override
       public void run() {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inStream,
-          StandardCharsets.UTF_8));
-        try {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inStream,
+            StandardCharsets.UTF_8))) {
           reader.lines().forEach(outStream::println);
         } catch (UncheckedIOException e) {
-          // Expected when the server process is destroyed while this thread is mid-read
+          // The stream is closed asynchronously when the server process is destroyed during
+          // teardown; suppress only that expected error and surface anything else.
+          if (!"Stream closed".equals(e.getCause().getMessage())) {
+            throw e;
+          }
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
         }
         logger.info("Drain completed on " + threadName);
       }
