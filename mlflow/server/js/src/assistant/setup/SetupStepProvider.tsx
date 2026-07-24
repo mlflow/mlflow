@@ -2,51 +2,8 @@ import { useState } from 'react';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { toRGBA } from '@mlflow/mlflow/src/common/utils/toRGBA';
-import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
-import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
-import MLflowGatewayLogo from '@mlflow/mlflow/src/common/static/logos/mlflow-gateway.svg';
-import OllamaLogo from '@mlflow/mlflow/src/common/static/logos/ollama.png';
-
-interface Provider {
-  id: string;
-  name: string;
-  description: string;
-  logo: string;
-  available: boolean;
-}
-
-const PROVIDERS: Provider[] = [
-  {
-    id: 'claude_code',
-    name: 'Claude Code',
-    description: "AI assistant powered by Anthropic's Claude. Requires Claude Code CLI installed locally.",
-    logo: AnthropicLogo,
-    available: true,
-  },
-  {
-    id: 'mlflow_gateway',
-    name: 'MLflow AI Gateway',
-    description: 'AI assistant backed by an MLflow AI Gateway deployment. Routes to any configured chat endpoint.',
-    logo: MLflowGatewayLogo,
-    available: true,
-  },
-  {
-    id: 'ollama',
-    name: 'Ollama',
-    description: 'AI assistant using a locally running Ollama server. Requires Ollama installed and running.',
-    logo: OllamaLogo,
-    available: true,
-  },
-  {
-    id: 'codex',
-    name: 'OpenAI Codex',
-    description:
-      'AI assistant powered by OpenAI via the Codex CLI. Requires the codex CLI to be installed and authenticated.',
-    logo: OpenAiLogo,
-    available: true,
-  },
-];
+import { ASSISTANT_PROVIDERS as PROVIDERS, type AssistantProvider } from '../providerRegistry';
 
 const COMING_SOON_LOGOS = [GeminiLogo];
 
@@ -65,7 +22,7 @@ export const SetupStepProvider = ({ selectedProvider, onContinue }: SetupStepPro
     }
   };
 
-  const renderProviderCard = (provider: Provider) => (
+  const renderProviderCard = (provider: AssistantProvider) => (
     <div
       key={provider.id}
       onClick={() => provider.available && setSelected(provider.id)}

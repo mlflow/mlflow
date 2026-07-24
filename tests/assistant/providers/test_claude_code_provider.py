@@ -419,6 +419,7 @@ async def test_astream_emits_usage_event_before_done():
         "prompt_tokens": 35257,
         "completion_tokens": 5,
         "total_tokens": 35262,
+        "cache_read_tokens": 100,
         "total_cost_usd": 0.1319,
     }
     # The usage event must precede the DONE event, which closes the client stream.
@@ -437,6 +438,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 10,
                 "completion_tokens": 5,
                 "total_tokens": 15,
+                "cache_read_tokens": 0,
                 "total_cost_usd": 0.25,
             },
         ),
@@ -452,6 +454,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 152,
                 "completion_tokens": 5,
                 "total_tokens": 157,
+                "cache_read_tokens": 50,
                 "total_cost_usd": None,
             },
         ),
@@ -462,6 +465,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
+                "cache_read_tokens": 0,
                 "total_cost_usd": None,
             },
         ),
@@ -493,6 +497,29 @@ async def test_astream_handles_process_error():
 
     assert events[-1].type == EventType.ERROR
     assert "Command failed" in events[-1].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
 
 
 @pytest.mark.asyncio

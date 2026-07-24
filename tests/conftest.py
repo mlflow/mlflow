@@ -8,6 +8,7 @@ import posixpath
 import pstats
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,64 @@ if not IS_TRACING_SDK_ONLY:
 _logger = logging.getLogger(__name__)
 
 
+# Test files that are NOT safe to run under pytest-xdist and must run serially (`-n0`).
+# Each entry is a posix-style path prefix relative to the repo root; a test is treated as
+# serial if its file path starts with any of these. Verified xdist-hostile against a
+# green serial baseline (they pass serially but fail under `-n auto`):
+#   - tests/data/test_spark_dataset.py, test_spark_dataset_source.py,
+#     test_delta_dataset_source.py, test_pandas_dataset.py: all workers share one Spark/Delta
+#     JVM session and clobber the catalog config across processes. (The windows job already
+#     deselects the two spark/delta nodes in test_pandas_dataset.py for the same reason.)
+#   - tests/server/test_prometheus_exporter.py + test_handlers.py: both import the
+#     process-global Flask `app`; the conftest orders prometheus first, but under
+#     `--dist loadscope` they land on different workers and the ordering no longer holds
+#     (Flask forbids `before_request` after the first request).
+#   - tests/server/test_workspace_middleware.py: process-global server config leaks across
+#     workers.
+#   - tests/gateway/providers/test_databricks.py: mocks the global `databricks.sdk` module;
+#     import/mock state leaks across workers ("module 'databricks' has no attribute 'sdk'").
+#   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py,
+#     test_docker_projects.py: spawn real env-building / docker subprocesses that contend for
+#     CPU/disk, time out, race on the shared conda env list or docker daemon, and (for docker)
+#     write root-owned artifacts that can't be cleaned up under concurrency.
+#   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
+#   - tests/db/test_schema.py, tests/db/test_tracking_operations.py,
+#     tests/tracking/_model_registry/test_utils.py: assume a filesystem `./mlruns` store, but
+#     a sibling worker toggling `MLFLOW_ALLOW_FILE_STORE` (file-store "maintenance mode")
+#     leaks across the process and trips these.
+#   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
+#     which are perturbed by concurrent xdist workers.
+#   - tests/data/test_huggingface_dataset_and_source.py, tests/metrics/test_metric_definitions.py:
+#     download models/datasets from huggingface.co; 4 workers hitting HF at once trigger rate
+#     limiting / HTTP 504s. Running them serially keeps concurrent HF load down.
+_XDIST_SERIAL_PATHS = (
+    "tests/data/test_spark_dataset.py",
+    "tests/data/test_spark_dataset_source.py",
+    "tests/data/test_delta_dataset_source.py",
+    "tests/data/test_pandas_dataset.py",
+    "tests/data/test_huggingface_dataset_and_source.py",
+    "tests/metrics/test_metric_definitions.py",
+    "tests/server/test_prometheus_exporter.py",
+    "tests/server/test_handlers.py",
+    "tests/server/test_workspace_middleware.py",
+    "tests/gateway/providers/test_databricks.py",
+    "tests/projects/test_virtualenv_projects.py",
+    "tests/projects/test_projects_cli.py",
+    "tests/projects/test_docker_projects.py",
+    "tests/projects/test_projects.py",
+    "tests/server/jobs/",
+    "tests/db/test_schema.py",
+    "tests/db/test_tracking_operations.py",
+    "tests/tracking/_model_registry/test_utils.py",
+    "tests/tracing/export/test_async_export_queue.py",
+)
+
+
+def _is_serial_item(item) -> bool:
+    rel = os.path.relpath(str(item.path)).replace(os.sep, posixpath.sep)
+    return rel.startswith(_XDIST_SERIAL_PATHS)
+
+
 # Pytest hooks and configuration from root conftest.py
 def pytest_addoption(parser):
     parser.addoption(
@@ -95,6 +154,17 @@ def pytest_addoption(parser):
         action="store_true",
         default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
+    )
+    parser.addoption(
+        "--serial",
+        choices=["include", "only", "exclude"],
+        default="include",
+        help=(
+            "Select tests by their xdist-serial designation (see `_XDIST_SERIAL_PATHS`). "
+            "'include' (default) runs everything; 'exclude' drops the xdist-hostile tests so "
+            "the rest can run under `-n auto`; 'only' runs just the hostile tests (for a serial "
+            "`-n0` pass). Used by the two-pass `python` CI job."
+        ),
     )
     parser.addoption(
         "--profile",
@@ -603,6 +673,15 @@ def pytest_collection_modifyitems(session, config, items):
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
 
+    # Partition xdist-hostile tests (see `_XDIST_SERIAL_PATHS`) so the `python` CI job can
+    # run the bulk under `-n auto` (`--serial=exclude`) and the hostile tests in a serial
+    # `-n0` pass (`--serial=only`). Default `include` keeps every test.
+    serial_mode = config.getoption("--serial")
+    if serial_mode == "exclude":
+        items[:] = [item for item in items if not _is_serial_item(item)]
+    elif serial_mode == "only":
+        items[:] = [item for item in items if _is_serial_item(item)]
+
     # Select the tests to run based on the group and splits
     if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
         items[:] = items[(group - 1) :: splits]
@@ -1086,10 +1165,6 @@ def serve_wheel(request, tmp_path_factory):
         yield  # pytest expects a generator fixture to yield
         return
 
-    root = tmp_path_factory.mktemp("root")
-    mlflow_dir = root.joinpath("mlflow")
-    mlflow_dir.mkdir()
-    port = get_safe_port()
     try:
         repo_root = subprocess.check_output(
             [
@@ -1104,18 +1179,43 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "--wheel-dir",
-            mlflow_dir,
-            "--no-deps",
-            repo_root,
-        ],
-    )
+    def build_wheel(wheel_dir):
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "wheel",
+                "--wheel-dir",
+                wheel_dir,
+                "--no-deps",
+                repo_root,
+            ],
+        )
+
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
+        # Not running under pytest-xdist: build into this session's own tmp dir.
+        mlflow_dir = tmp_path_factory.mktemp("root").joinpath("mlflow")
+        mlflow_dir.mkdir()
+        build_wheel(mlflow_dir)
+    else:
+        # Under pytest-xdist every worker runs its own session and would otherwise
+        # each run `pip wheel` concurrently, racing on the in-tree `build/` directory
+        # and failing the wheel build. Build the wheel exactly once in a directory
+        # shared across workers (the parent of each worker's basetemp), guarded by a
+        # file lock; the remaining workers reuse the already-built wheel.
+        # `filelock` is imported lazily here (not at module top) because the skinny
+        # test suite doesn't install it and never runs under xdist.
+        from filelock import FileLock
+
+        shared_dir = tmp_path_factory.getbasetemp().parent
+        mlflow_dir = shared_dir.joinpath("mlflow-dev-wheel")
+        with FileLock(str(shared_dir.joinpath("mlflow-dev-wheel.lock"))):
+            if not (mlflow_dir.exists() and any(mlflow_dir.glob("*.whl"))):
+                mlflow_dir.mkdir(exist_ok=True)
+                build_wheel(mlflow_dir)
+
+    port = get_safe_port()
     with SimpleRepositoryServer(mlflow_dir, port) as server:
         index_url = (
             f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
@@ -1208,13 +1308,33 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def db_uri(cached_db: Path) -> Iterator[str]:
     """Returns a fresh SQLite URI for each test by copying the cached database."""
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+    # Managed manually (not `TemporaryDirectory`) so cleanup can never raise. Tests that
+    # spawn a root-owned writer into the artifact tree (e.g. docker projects) leave files
+    # the non-root runner cannot remove; `TemporaryDirectory`'s cleanup re-raises on those
+    # and surfaces as a teardown ERROR, whereas `rmtree(ignore_errors=True)` swallows it.
+    tmp_dir = tempfile.mkdtemp()
+    try:
         db_path = Path(tmp_dir) / "mlflow.db"
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
+            # `cached_db` is session-scoped, so the default experiment's
+            # `artifact_location` is baked in as an absolute path under the shared
+            # session dir. Copying only the DB would leave every test (and any
+            # `mlflow run` subprocess it spawns) writing artifacts into that one
+            # shared directory, which cross-contaminates and, once a subprocess
+            # leaves the tree read-only, fails later writes with EACCES. Repoint
+            # the artifact root at this test's own temp dir so each test is isolated.
+            artifact_root = Path(tmp_dir) / "artifacts"
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "UPDATE experiments SET artifact_location = ? WHERE experiment_id = 0",
+                    (artifact_root.joinpath("0").as_uri(),),
+                )
 
         yield f"sqlite:///{db_path}"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")

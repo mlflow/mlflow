@@ -7,6 +7,7 @@ import type {
   IssueReferenceAssessment,
   ModelTrace,
   ModelTraceLocation,
+  ModelTraceOtelAnyValue,
   ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
@@ -504,15 +505,73 @@ const getRetrievalAssessmentsByName = (
   return filteredResponseAssessmentsByName;
 };
 
+const OTEL_ANY_VALUE_KEYS = [
+  'string_value',
+  'bool_value',
+  'int_value',
+  'double_value',
+  'bytes_value',
+  'array_value',
+  'kvlist_value',
+] as const;
+
+/**
+ * Check whether a value looks like an OTLP AnyValue (typed attribute value
+ * returned by OTLP-based endpoints such as V3 traces/get and V4 batchGet).
+ */
+export const isOtelAnyValue = (value: unknown): value is ModelTraceOtelAnyValue =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  // an empty object is how OTLP represents null, so it is a valid AnyValue
+  (Object.keys(value).length === 0 || OTEL_ANY_VALUE_KEYS.some((key) => key in value));
+
+/**
+ * Decode an OTLP AnyValue into a plain JS value. Complex values (dicts and
+ * lists, e.g. `mlflow.spanInputs` / `mlflow.spanOutputs`) arrive as nested
+ * `kvlist_value` / `array_value` structures and are decoded recursively.
+ * An unset value (e.g. a kvlist entry for a null field) decodes to null.
+ */
+export const decodeOtelAnyValue = (value: ModelTraceOtelAnyValue | undefined | null): any => {
+  if (isNil(value)) {
+    return null;
+  }
+  if (!isNil(value.string_value)) {
+    return value.string_value;
+  }
+  if (!isNil(value.bool_value)) {
+    return value.bool_value;
+  }
+  if (!isNil(value.int_value)) {
+    if (typeof value.int_value !== 'string') {
+      return value.int_value;
+    }
+    // int64 values may be serialized as strings in proto3 JSON; keep the string
+    // when the value cannot be represented exactly as a JS number
+    const parsed = Number(value.int_value);
+    return Number.isSafeInteger(parsed) ? parsed : value.int_value;
+  }
+  if (!isNil(value.double_value)) {
+    return value.double_value;
+  }
+  if (!isNil(value.bytes_value)) {
+    return value.bytes_value;
+  }
+  if (value.array_value) {
+    return (value.array_value.values ?? []).map(decodeOtelAnyValue);
+  }
+  if (value.kvlist_value) {
+    return Object.fromEntries((value.kvlist_value.values ?? []).map((kv) => [kv.key, decodeOtelAnyValue(kv.value)]));
+  }
+  return null;
+};
+
 /**
  * Extract an attribute value from span attributes.
  * V3 traces have flat objects: { 'mlflow.spanInputs': '{"x": 10}' }
  * V4 traces have arrays: [{ key: 'mlflow.spanInputs', value: { string_value: '{"x":10}' } }]
  */
-export const getSpanAttribute = (
-  attributes: ModelTraceSpan['attributes'],
-  attributeKey: string,
-): string | undefined => {
+export const getSpanAttribute = (attributes: ModelTraceSpan['attributes'], attributeKey: string): any => {
   if (!attributes) {
     return undefined;
   }
@@ -528,8 +587,8 @@ export const getSpanAttribute = (
     return undefined;
   }
 
-  // V4 values are typed - return whichever type is present
-  return attribute.value.string_value ?? attribute.value.int_value ?? attribute.value.bool_value;
+  // V4 values are typed OTLP AnyValues - decode into a plain JS value
+  return decodeOtelAnyValue(attribute.value);
 };
 
 /**

@@ -115,6 +115,15 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: **Experimental** — subject to change or removal in a future release.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
+#: Remote access is still limited to providers that don't require local execution
+#: (e.g. the MLflow Gateway); this only opts into that check.
+#: (default: ``False``)
+MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
+)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
@@ -492,6 +501,16 @@ MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
 )
 
+#: Specifies whether to route Unity Catalog model-registry calls to the native
+#: ``/api/2.1/unity-catalog/*`` endpoints. When ``True``, the ``databricks-uc`` scheme instantiates
+#: the native store that issues requests against the native surface; when ``False`` (default), the
+#: legacy store using the ``/api/2.0/mlflow/unity-catalog/*`` endpoints is used. This is a static
+#: per-process choice read when the store is constructed, not an adaptive runtime fallback.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", False
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
@@ -612,6 +631,17 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: encounters a redirect response.
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
+
+#: Specifies whether client-side MCP tool auto-discovery is enabled.
+#: When ``True`` (default), omitting ``tools`` on MCP server version create
+#: allows Python client helpers to best-effort scrape the first usable
+#: ``server_json.remotes[]`` URL via ``mlflow[mcp]`` before sending the create
+#: request. When ``False``, omitted ``tools`` are sent/stored as null unless
+#: the caller provides an explicit tools value.
+#: (default: ``True``)
+MLFLOW_ENABLE_MCP_TOOL_DISCOVERY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MCP_TOOL_DISCOVERY", True
+)
 
 #: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
 #: This controls how long ONE individual predict/predict_stream request can take before timing out.
@@ -926,6 +956,25 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When ``True`` (and MLflow is in isolated tracer provider mode, i.e.
+#: ``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``), MLflow also propagates its active span into the
+#: process-global OpenTelemetry context. This lets pure-OpenTelemetry libraries (e.g.
+#: strands-agents, LangChain, LlamaIndex) that read the global OTel context via
+#: ``opentelemetry.trace.get_current_span()`` nest their spans under an MLflow span created with
+#: ``@mlflow.trace`` or ``mlflow.start_span()``.
+#:
+#: .. warning::
+#:     Enabling this makes MLflow's active span visible to *all* OpenTelemetry instrumentation
+#:     in the process (e.g. FastAPI, ``requests``), which reduces the isolation that isolated
+#:     tracer provider mode normally provides. Leave this disabled unless you need pure-OTel
+#:     libraries to nest under MLflow spans. It has no effect in unified mode
+#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``), where the global context is used already.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT", False
 )
 
 #: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
@@ -1362,6 +1411,26 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
+
+#: Allowed schemes for icon URLs.
+#: Defaults to ``https``. Set to ``http,https`` for local development.
+MLFLOW_ICON_URL_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether to allow icon URLs that target private or loopback hosts.
+#: Intended for local development and testing only.
+MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", False
+)
+
+#: Optional allowlist of domains that icon URLs may target.
+#: Supports exact hosts and wildcard patterns like ``*.example.com``.
+#: When unset, icon URLs may use any public host allowed by the scheme/private-IP
+#: policy.
+MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
 
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(

@@ -5,6 +5,9 @@ pytest-asyncio
 pytest-repeat
 pytest-cov
 pytest-timeout
+pytest-xdist
+# Used by the `serve_wheel` fixture to build the dev wheel once across xdist workers
+filelock
 httpx
 moto>=4.2.0,<5,!=4.2.5
 azure-storage-blob>=12.0.0

@@ -973,3 +973,61 @@ def test_validate_path_within_directory_allows_subdirectory_symlink(tmp_path):
     constructed_path = symlink_to_subdir / "file.txt"
     result = validate_path_within_directory(str(base_dir), str(constructed_path))
     assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_allows_nonexistent_file(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "not_yet_written.txt"
+    assert not constructed_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_allows_nonexistent_subdir(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "not_yet_created_subdir"
+    assert not constructed_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_dangling_symlink_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    external_target = tmp_path / "external" / "secret.txt"
+    symlink_path = base_dir / "dangling_leak"
+    os.symlink(str(external_target), str(symlink_path))
+    assert not symlink_path.exists()
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(symlink_path))
+
+
+def test_validate_path_within_directory_allows_dangling_symlink_inside(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    internal_target = base_dir / "not_yet_written.txt"
+    symlink_path = base_dir / "dangling_link"
+    os.symlink(str(internal_target), str(symlink_path))
+    assert not symlink_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(symlink_path))
+    assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_allows_multi_level_nonexistent_path(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / "b" / "c.txt"
+    assert not (base_dir / "a").exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_multi_level_dotdot_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / ".." / ".." / "evil.txt"
+    assert not (base_dir / "a").exists()
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))

@@ -12,9 +12,9 @@ export const DEFAULT_DATASETS_ORDER_BY = 'created_time DESC';
 
 /**
  * Every column the records table can surface. Order doubles as the canonical render order
- * — `usePersistedTableColumns` preserves it when toggling.
+ * — `usePersistedTablePreferences` preserves it when toggling.
  *
- * Adding a column id here is safe without bumping `COLUMN_STORAGE_VERSION`: the persistence
+ * Adding a column id here is safe without bumping the storage version: the persistence
  * hook filters unknown ids at read time, so older stored visibility sets keep working and
  * new ids are simply unselected until the user toggles them.
  */
