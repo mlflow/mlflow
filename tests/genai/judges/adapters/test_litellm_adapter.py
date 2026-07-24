@@ -4,7 +4,7 @@ import litellm
 import pytest
 from litellm import RetryPolicy
 from litellm.types.utils import ModelResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -18,6 +18,7 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _invoke_litellm,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.judges.tools.get_span_image import SpanImageResult
 from mlflow.genai.judges.utils.telemetry_utils import (
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
@@ -785,3 +786,199 @@ def test_record_failure_telemetry_without_databricks_agents():
 
         mock_logger.debug.assert_called_once()
         assert "databricks-agents needs to be installed" in str(mock_logger.debug.call_args)
+
+
+def test_litellm_image_turn_rewrap_is_accepted_and_preserves_multimodal_content(mock_trace):
+    """An image tool result must re-wrap into a litellm-acceptable message (a plain dict
+    with multimodal list content) rather than a litellm.Message (which rejects list content).
+    """
+
+    data_url = "data:image/png;base64,QUJD"
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_img",
+                            "function": {"name": "get_span_image", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+    final_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "red", "rationale": "saw it"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[tool_call_response, final_response],
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_span_image"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = SpanImageResult(
+            span_id="span-1", content_type="image/png", data_url=data_url
+        )
+
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        # Must not raise (the bug turned this into an MlflowException on every image fetch).
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Judge the image in the trace")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    assert output.response == '{"result": "red", "rationale": "saw it"}'
+    assert mock_litellm.call_count == 2
+
+    # The second completion call carries: original user, assistant tool-call, tool ack,
+    # and the injected image user-turn as a plain dict with multimodal list content.
+    second_call_messages = mock_litellm.call_args_list[1].kwargs["messages"]
+    image_turns = [
+        m
+        for m in second_call_messages
+        if isinstance(m, dict) and isinstance(m.get("content"), list)
+    ]
+    assert len(image_turns) == 1
+    image_turn = image_turns[0]
+    assert image_turn["role"] == "user"
+    assert image_turn["content"] == [
+        {"type": "text", "text": "Fetched image for span span-1:"},
+        {"type": "image_url", "image_url": {"url": data_url}},
+    ]
+
+    # Sanity: this multimodal content genuinely cannot go through the strict
+    # litellm.Message pydantic model (content: str) that caused the original bug,
+    # which is exactly why the image turn is emitted as a plain dict instead.
+    with pytest.raises(ValidationError, match="content"):
+        litellm.Message(role="user", content=image_turn["content"])
+
+
+def test_litellm_forwarded_messages_contain_no_internal_keys(mock_trace):
+    """Regression: no mlflow-internal key may leak into the messages forwarded to
+    litellm.completion. The image-turn ↔ tool_call association is tracked out-of-band
+    (an instance attribute), so strict OpenAI endpoints cannot 400 on an unknown key.
+    """
+
+    allowed_keys = {"role", "content", "tool_call_id", "name", "tool_calls"}
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_img",
+                            "function": {"name": "get_span_image", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+    final_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "red", "rationale": "ok"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[tool_call_response, final_response],
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_span_image"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = SpanImageResult(
+            span_id="span-1", content_type="image/png", data_url="data:image/png;base64,QUJD"
+        )
+
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Judge the image in the trace")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    forwarded = mock_litellm.call_args_list[1].kwargs["messages"]
+    # No message may carry the mlflow-internal pruning tag as a real key.
+    for msg in forwarded:
+        keys = set(msg.keys()) if isinstance(msg, dict) else set(msg.model_dump().keys())
+        assert "_mlflow_image_turn_tool_call_id" not in keys
+
+    # The dict image turn (the case that previously leaked) exposes ONLY OpenAI keys.
+    dict_turns = [m for m in forwarded if isinstance(m, dict)]
+    assert len(dict_turns) == 1
+    assert set(dict_turns[0].keys()) <= allowed_keys
+
+
+def test_remove_oldest_tool_call_pair_drops_litellm_image_dict_turn():
+    """The pruner must drop an injected image turn (the provider-safe _ImageTurnDict,
+    tagged out-of-band with its tool_call_id) along with its tool-call pair, and not
+    crash on untagged dict messages.
+    """
+    from mlflow.genai.judges.utils.tool_calling_utils import (
+        _ImageTurnDict,
+        _tag_image_turn,
+    )
+
+    image_turn = _ImageTurnDict(
+        role="user",
+        content=[
+            {"type": "text", "text": "Fetched image for span span-1:"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+        ],
+    )
+    _tag_image_turn(image_turn, "call_img")
+    # The out-of-band tag must not appear as a dict key (provider-payload safety).
+    assert set(image_turn.keys()) == {"role", "content"}
+
+    # An untagged plain dict message must survive and must not crash the pruner.
+    untagged_dict = {"role": "user", "content": "plain dict, no tag"}
+
+    messages = [
+        litellm.Message(role="user", content="analyze this trace"),
+        untagged_dict,
+        litellm.Message(
+            role="assistant",
+            content=None,
+            tool_calls=[
+                {"id": "call_img", "function": {"name": "get_span_image", "arguments": "{}"}}
+            ],
+        ),
+        litellm.Message(
+            role="tool", content="image fetched, see next message", tool_call_id="call_img"
+        ),
+        image_turn,
+        litellm.Message(role="assistant", content="final answer"),
+    ]
+
+    result = _remove_oldest_tool_call_pair(messages)
+
+    assert result is not None
+    # The assistant tool-call, its tool ack, AND the image dict turn are all removed.
+    assert image_turn not in result
+    assert all(not (isinstance(m, dict) and isinstance(m.get("content"), list)) for m in result)
+    assert all(getattr(m, "role", None) != "tool" for m in result if not isinstance(m, dict))
+    # Untagged dict + unrelated user/final assistant survive.
+    assert untagged_dict in result
+    roles = [m["role"] if isinstance(m, dict) else m.role for m in result]
+    assert roles == ["user", "user", "assistant"]
