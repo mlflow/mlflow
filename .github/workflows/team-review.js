@@ -7,7 +7,6 @@ const MEMBERS = [
   "PattaraS",
   "serena-ruan",
   "TomeHirata",
-  "WeichenXu123",
   "aaronteo-db",
 ];
 
