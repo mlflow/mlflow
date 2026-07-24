@@ -18,6 +18,7 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _invoke_litellm,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.judges.tools.get_span_image import SpanImageResult
 from mlflow.genai.judges.utils.telemetry_utils import (
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
@@ -791,7 +792,6 @@ def test_litellm_image_turn_rewrap_is_accepted_and_preserves_multimodal_content(
     """An image tool result must re-wrap into a litellm-acceptable message (a plain dict
     with multimodal list content) rather than a litellm.Message (which rejects list content).
     """
-    from mlflow.genai.judges.tools.get_span_image import SpanImageResult
 
     data_url = "data:image/png;base64,QUJD"
 
@@ -871,7 +871,6 @@ def test_litellm_forwarded_messages_contain_no_internal_keys(mock_trace):
     litellm.completion. The image-turn ↔ tool_call association is tracked out-of-band
     (an instance attribute), so strict OpenAI endpoints cannot 400 on an unknown key.
     """
-    from mlflow.genai.judges.tools.get_span_image import SpanImageResult
 
     allowed_keys = {"role", "content", "tool_call_id", "name", "tool_calls"}
 

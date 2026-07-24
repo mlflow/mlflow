@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.tracing.attachments import Attachment
@@ -97,19 +98,24 @@ class GetSpanImageTool(JudgeTool):
             A SpanImageResult with the base64 data URL on success, or a descriptive
             error string on any not-found / parse / non-image / out-of-range condition.
         """
+        trace_id = trace.info.trace_id if trace and trace.info else None
+
         if not trace or not trace.data or not trace.data.spans:
-            return "Error: trace has no spans"
+            return f"Error: trace '{trace_id}' has no spans"
 
         target = next((s for s in trace.data.spans if s.span_id == span_id), None)
         if target is None:
-            return f"Error: span '{span_id}' not found in trace"
+            return f"Error: span '{span_id}' not found in trace '{trace_id}'"
 
         # Autolog rewrites an inline image data URL to an mlflow-attachment:// token,
         # which survives only inside the serialized span, so scan that JSON for it.
         serialized = json.dumps(target.to_dict(), default=str)
         refs = _ATTACHMENT_REF_RE.findall(serialized)
         if not refs:
-            return f"Error: no mlflow-attachment:// image reference found in span '{span_id}'"
+            return (
+                f"Error: no mlflow-attachment:// image reference found in span '{span_id}' "
+                f"of trace '{trace_id}'"
+            )
 
         if attachment_index is None:
             # Default: pick the first image ref so a non-image attachment sitting before
@@ -124,22 +130,26 @@ class GetSpanImageTool(JudgeTool):
                 None,
             )
             if parsed is None:
-                return f"Error: no image attachment found in span '{span_id}'"
+                return f"Error: no image attachment found in span '{span_id}' of trace '{trace_id}'"
         else:
             if attachment_index < 0 or attachment_index >= len(refs):
                 return (
                     f"Error: attachment_index {attachment_index} is out of range for span "
-                    f"'{span_id}', which has {len(refs)} attachment reference(s)"
+                    f"'{span_id}' of trace '{trace_id}', which has {len(refs)} "
+                    f"attachment reference(s)"
                 )
 
             parsed = Attachment.parse_ref(refs[attachment_index])
             if parsed is None:
-                return f"Error: could not parse attachment reference in span '{span_id}'"
+                return (
+                    f"Error: could not parse attachment reference in span '{span_id}' "
+                    f"of trace '{trace_id}'"
+                )
 
             if not parsed["content_type"].startswith("image/"):
                 return (
-                    f"Error: attachment in span '{span_id}' is not an image "
-                    f"(content_type='{parsed['content_type']}')"
+                    f"Error: attachment in span '{span_id}' of trace '{trace_id}' is not an "
+                    f"image (content_type='{parsed['content_type']}')"
                 )
 
         content_type = parsed["content_type"]
@@ -150,6 +160,19 @@ class GetSpanImageTool(JudgeTool):
 
         repo = TracingClient()._get_artifact_repo_for_trace(trace.info)
         content_bytes = repo.download_trace_attachment(parsed["attachment_id"])
+
+        # Cap the inlined image so a large attachment can't blow up the judge's context.
+        # The ref's parsed size isn't reliably populated, so check the actual downloaded
+        # length. A partial image is worse than a clear error, so reject rather than truncate.
+        max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        size = len(content_bytes)
+        if max_size is not None and max_size > 0 and size > max_size:
+            return (
+                f"Error: image attachment in span '{span_id}' of trace '{trace_id}' is "
+                f"{size} bytes, exceeding the {max_size} byte limit "
+                f"(MLFLOW_TRACE_MAX_ATTACHMENT_SIZE)"
+            )
+
         b64 = base64.b64encode(content_bytes).decode()
         return SpanImageResult(
             span_id=span_id,

@@ -158,3 +158,45 @@ def test_get_span_image_invoke_attachment_index_out_of_range():
 
     assert isinstance(result, str)
     assert "out of range" in result
+
+
+def test_get_span_image_invoke_rejects_oversized_image(monkeypatch):
+    # Build the trace uncapped (the cap also applies at write time), then set a cap
+    # smaller than the image bytes -> the tool rejects at fetch rather than inlining it.
+    trace, span_id = _make_trace_with_attachments({
+        "image": Attachment(content_type="image/png", content_bytes=_IMAGE_BYTES)
+    })
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(_IMAGE_BYTES) - 1))
+
+    result = GetSpanImageTool().invoke(trace, span_id)
+
+    assert isinstance(result, str)
+    assert "exceeding" in result
+    assert str(len(_IMAGE_BYTES)) in result
+    assert "MLFLOW_TRACE_MAX_ATTACHMENT_SIZE" in result
+
+
+def test_get_span_image_invoke_under_limit_returns_image(monkeypatch):
+    # Cap larger than the image -> normal success, cap not triggered.
+    trace, span_id = _make_trace_with_attachments({
+        "image": Attachment(content_type="image/png", content_bytes=_IMAGE_BYTES)
+    })
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(_IMAGE_BYTES) + 1000))
+
+    result = GetSpanImageTool().invoke(trace, span_id)
+
+    assert isinstance(result, SpanImageResult)
+    assert base64.b64decode(result.data_url.split(",", 1)[1]) == _IMAGE_BYTES
+
+
+def test_get_span_image_invoke_no_limit_returns_image(monkeypatch):
+    # Unset (default None) -> no cap, existing behavior preserved.
+    monkeypatch.delenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", raising=False)
+    trace, span_id = _make_trace_with_attachments({
+        "image": Attachment(content_type="image/png", content_bytes=_IMAGE_BYTES)
+    })
+
+    result = GetSpanImageTool().invoke(trace, span_id)
+
+    assert isinstance(result, SpanImageResult)
+    assert base64.b64decode(result.data_url.split(",", 1)[1]) == _IMAGE_BYTES
