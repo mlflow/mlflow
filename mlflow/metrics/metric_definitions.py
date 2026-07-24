@@ -426,39 +426,30 @@ def _expand_duplicate_retrieved_docs(predictions, targets):
     return expanded_predictions, expanded_targets
 
 
-def _prepare_row_for_ndcg(predictions, targets):
-    """Prepare data one row from predictions and targets to y_score, y_true for ndcg calculation.
+def _binary_ndcg_at_k(retrieved, ground_truth, k):
+    """Compute binary NDCG@k for one prediction/target row.
 
-    Args:
-        predictions: A list of strings of at most k doc IDs retrieved.
-        targets: A list of strings of ground-truth doc IDs.
-
-    Returns:
-        y_true : ndarray of shape (1, n_docs) Representing the ground-truth relevant docs.
-            n_docs is the number of unique docs in union of predictions and targets.
-        y_score : ndarray of shape (1, n_docs) Representing the retrieved docs.
-            n_docs is the number of unique docs in union of predictions and targets.
+    Only the ranked retrieved documents contribute to DCG. IDCG is built from
+    up to ``min(|ground_truth|, k)`` ideal relevant hits so that short retrieval
+    lists are penalized (sklearn.metrics.ndcg_score cannot express this when
+    unretrieved relevant docs still have positive labels).
     """
-    # sklearn does an internal sort of y_score, so to preserve the order of our retrieved
-    # docs, we need to modify the relevance value slightly
-    eps = 1e-6
+    retrieved = list(retrieved[:k])
+    targets = set(ground_truth)
+    # Expand duplicate retrieved IDs the same way as before so repeated hits
+    # against a ground-truth ID still count as distinct ranked positions.
+    retrieved, targets = _expand_duplicate_retrieved_docs(retrieved, targets)
 
-    # support predictions containing duplicate doc ID
-    targets = set(targets)
-    predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
+    dcg = 0.0
+    for i, doc_id in enumerate(retrieved):
+        if doc_id in targets:
+            dcg += 1.0 / np.log2(i + 2)
 
-    all_docs = targets.union(predictions)
-    doc_id_to_index = {doc_id: i for i, doc_id in enumerate(all_docs)}
-    n_labels = max(len(doc_id_to_index), 2)  # sklearn.metrics.ndcg_score requires at least 2 labels
-    y_true = np.zeros((1, n_labels), dtype=np.float32)
-    y_score = np.zeros((1, n_labels), dtype=np.float32)
-    for i, doc_id in enumerate(predictions):
-        # "1 - i * eps" means we assign higher score to docs that are ranked higher,
-        # but all scores are still approximately 1.
-        y_score[0, doc_id_to_index[doc_id]] = 1 - i * eps
-    for doc_id in targets:
-        y_true[0, doc_id_to_index[doc_id]] = 1
-    return y_score, y_true
+    ideal_hits = min(len(targets), k)
+    if ideal_hits == 0:
+        return 0.0
+    idcg = sum(1.0 / np.log2(i + 2) for i in range(ideal_hits))
+    return float(dcg / idcg)
 
 
 def _ndcg_at_k_eval_fn(k):
@@ -470,8 +461,6 @@ def _ndcg_at_k_eval_fn(k):
         return noop
 
     def _fn(predictions, targets):
-        from sklearn.metrics import ndcg_score
-
         if not _validate_array_like_id_data(
             predictions, "ndcg_at_k", predictions_col_specifier
         ) or not _validate_array_like_id_data(targets, "ndcg_at_k", targets_col_specifier):
@@ -492,10 +481,7 @@ def _ndcg_at_k_eval_fn(k):
                 scores.append(0)
                 continue
 
-            # only include the top k retrieved chunks
-            y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth)
-            score = ndcg_score(y_true, y_score, k=len(retrieved[:k]), ignore_ties=True)
-            scores.append(score)
+            scores.append(_binary_ndcg_at_k(retrieved, ground_truth, k))
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
