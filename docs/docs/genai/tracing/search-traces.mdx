@@ -437,3 +437,30 @@ print(f"Found {len(all_traces)} total traces")
   - Full text search with `trace.text`
   - Optimized performance with proper indexing on timestamp
 - **Local File Store**: Limited search capabilities. May be slower with large datasets. Not recommended, only suitable for storing small number of traces.
+
+## Retrieving a Single Trace by ID
+
+Use <APILink fn="mlflow.get_trace" /> to fetch one trace by its ID.
+
+```python
+import mlflow
+
+trace = mlflow.get_trace(trace_id="tr-abc123")
+```
+
+:::warning Unity Catalog traces require a full location URI
+If MLflow is configured to store traces in Unity Catalog, `mlflow.get_trace()` requires the full `trace:/` location URI. Passing a plain trace ID returns `None` with a "Failed to get trace" warning and no indication that a different format is needed.
+
+Use the `trace:/` URI format, which encodes the UC catalog, schema, and experiment name:
+
+```python
+import mlflow
+
+# Format: trace:/{catalog}.{schema}.{experiment_name}/{trace_id}
+trace = mlflow.get_trace(
+    trace_id="trace:/my_catalog.my_schema.my_experiment/tr-abc123"
+)
+```
+
+Replace `my_catalog`, `my_schema`, and `my_experiment` with the catalog name, schema name, and experiment name where your traces are stored.
+:::
