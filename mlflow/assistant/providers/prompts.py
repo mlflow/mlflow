@@ -244,22 +244,6 @@ mlflow experiments search --max-results 50
 # Get experiment details
 mlflow experiments get --experiment-id <ID>
 mlflow experiments get --experiment-name "my-experiment" --output json
-
-# Export all runs as CSV
-mlflow experiments csv --experiment-id <ID>
-```
-
-### Artifacts
-
-```
-# List artifacts for a run
-mlflow artifacts list --run-id <RUN_ID>
-
-# Download artifacts
-mlflow artifacts download --run-id <RUN_ID> --artifact-path <PATH>
-
-# Log a local file as artifact
-mlflow artifacts log-artifact --local-file /path/to/file --run-id <RUN_ID>
 ```
 
 ### Datasets and Scorers
