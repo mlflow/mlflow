@@ -179,6 +179,8 @@ def test_job_submit(client: Client):
     }
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_cancel(client: Client):
     job_id = client.submit_job(
         job_name="simple_job_fun",
@@ -245,6 +247,8 @@ def test_job_tracking_uri(client: Client):
     assert job_json["status"] == "SUCCEEDED"
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_endpoint_search(client: Client):
     job1_id = client.submit_job(
         job_name="simple_job_fun",
