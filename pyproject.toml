@@ -564,6 +564,8 @@ filterwarnings = [
   "ignore:The filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
   # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
   "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
+  # Prevent usage of features that will be removed in pytest 10
+  "error::pytest.PytestRemovedIn10Warning",
 ]
 # Use string for pytest-timeout compatibility (https://github.com/pytest-dev/pytest-timeout/issues/194)
 timeout = "1200"
