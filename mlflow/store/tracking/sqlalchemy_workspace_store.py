@@ -17,6 +17,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
@@ -492,7 +493,15 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return
 
         with workspace_context.WorkspaceContext(default_workspace.name):
-            if self.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
+            # Look up the default experiment by ID rather than by name: the default experiment
+            # (ID 0) may have been renamed away from "Default", and a name-based check would then
+            # miss it and attempt to re-insert ID 0, colliding on the primary key. This mirrors
+            # the base store's ID-based guard in ``_initialize_store_state``.
+            try:
+                self.get_experiment(str(self.DEFAULT_EXPERIMENT_ID))
+            except MlflowException as exc:
+                if exc.error_code and exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
                 with self.ManagedSessionMaker(read_only=False) as session:
                     self._create_default_experiment(
                         session, workspace_override=default_workspace.name
@@ -506,7 +515,32 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             # in case the default workspace was a workspace override. It's important to keep the
             # default workspace experiment ID as 0 to allow a user to disable workspaces later.
             with workspace_context.WorkspaceContext(workspace):
-                return super()._create_default_experiment(session)
+                try:
+                    return super()._create_default_experiment(session)
+                except IntegrityError as exc:
+                    session.rollback()
+                    # Only swallow the error if experiment 0 now exists, i.e. another worker
+                    # won the race to create it (an expected experiment_pk collision). Any other
+                    # integrity failure (e.g. a different experiment already occupies the
+                    # (workspace, name) slot while ID 0 is genuinely missing) must be re-raised,
+                    # otherwise startup would proceed without the required default experiment.
+                    default_experiment_exists = (
+                        session
+                        .query(SqlExperiment.experiment_id)
+                        .filter(
+                            SqlExperiment.experiment_id == int(self.DEFAULT_EXPERIMENT_ID),
+                            SqlExperiment.workspace == workspace,
+                        )
+                        .first()
+                    )
+                    if default_experiment_exists is None:
+                        raise
+                    _logger.debug(
+                        "Default experiment already exists in the default workspace; another "
+                        "worker likely created it. Swallowing IntegrityError: %s",
+                        exc,
+                    )
+                    return
 
         creation_time = get_current_time_millis()
         existing = (
