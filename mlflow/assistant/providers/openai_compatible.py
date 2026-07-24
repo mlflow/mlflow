@@ -19,6 +19,7 @@ from typing import Any, AsyncGenerator
 import aiohttp
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     NotAuthenticatedError,
@@ -290,11 +291,11 @@ class OpenAICompatibleProvider(AssistantProvider):
     def is_available(self) -> bool:
         return True
 
-    def _load_config(self):
+    def _load_config(self) -> AssistantProviderConfig:
         try:
             return load_config(self.name)
         except RuntimeError:
-            return None
+            return AssistantProviderConfig()
 
     def _resolve_base_url(self, override: str | None = None) -> str | None:
         if override:
@@ -330,7 +331,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         if echo:
             echo(f"Connecting to {self._display_name} at {base_url}...")
         config = self._load_config()
-        api_key = getattr(config, "api_key", None) if config else None
+        api_key = getattr(config, "api_key", None)
         try:
             self._list_models_fn(base_url, api_key)
         except Exception as e:
@@ -350,7 +351,7 @@ class OpenAICompatibleProvider(AssistantProvider):
             raise ProviderNotConfiguredError(f"{self._display_name} base URL is not configured.")
         if api_key is None:
             config = self._load_config()
-            api_key = getattr(config, "api_key", None) if config else None
+            api_key = getattr(config, "api_key", None)
         try:
             return self._list_models_fn(resolved, api_key)
         except Exception as e:
@@ -371,11 +372,6 @@ class OpenAICompatibleProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
-        if config is None:
-            yield Event.from_error(
-                f"{self._display_name} is not configured. {self._connection_hint}"
-            )
-            return
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:
@@ -388,17 +384,16 @@ class OpenAICompatibleProvider(AssistantProvider):
         api_key = getattr(config, "api_key", None)
 
         if model is None:
-            if self._list_models_fn is None or not base_url:
+            try:
+                available = self.list_models(base_url, api_key)
+            except NotImplementedError:
                 yield Event.from_error(
                     f"No model selected for {self._display_name}. {self._connection_hint}"
                 )
                 return
-            try:
-                available = self._list_models_fn(base_url, api_key)
-            except Exception as e:
+            except ProviderNotConfiguredError as e:
                 yield Event.from_error(
-                    f"Cannot connect to {self._display_name} at {base_url}: {e}. "
-                    f"{self._connection_hint}"
+                    f"Cannot connect to {self._display_name}: {e}. {self._connection_hint}"
                 )
                 return
             if not available:

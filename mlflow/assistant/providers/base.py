@@ -20,6 +20,13 @@ def clear_config_cache() -> None:
     load_config.cache_clear()
 
 
+def load_config_or_default(name: str) -> ProviderConfig:
+    try:
+        return load_config(name)
+    except RuntimeError:
+        return ProviderConfig()
+
+
 class ProviderNotConfiguredError(Exception):
     """Raised when a provider is not properly configured."""
 

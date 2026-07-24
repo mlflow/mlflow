@@ -180,6 +180,26 @@ def test_stream_returns_sse_events(client):
     assert "Hello from mock" in content
 
 
+def test_stream_uses_default_provider_when_none_selected():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        client = TestClient(app)
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        session_id = r.json()["session_id"]
+
+        response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    assert response.status_code == 200
+    assert "Hello from mock" in response.text
+
+
 def test_health_check_returns_ok_when_healthy(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
     assert response.status_code == 200
@@ -623,6 +643,7 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _DeferredProvider()
 
     # First turn: the stream completes immediately at the prompt (no await).
@@ -681,6 +702,7 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
 
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
@@ -705,6 +727,7 @@ async def test_stream_forwards_tool_decision_when_no_pending_message():
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
 
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):

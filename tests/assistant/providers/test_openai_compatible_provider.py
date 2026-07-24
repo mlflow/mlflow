@@ -373,6 +373,35 @@ async def test_astream_uses_api_key_header(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_astream_uses_first_model_when_unconfigured(tmp_path):
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"providers": {}}))
+    clear_config_cache()
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=_list_models_stub,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+    lines = [_sse(_delta(content="ok")), b"data: [DONE]\n"]
+    session, calls = _make_aiohttp_session([lines])
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", cfg),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert calls[0]["url"] == "http://localhost:9999/v1/chat/completions"
+    assert calls[0]["json"]["model"] == "model-a"
+    clear_config_cache()
+
+
+@pytest.mark.asyncio
 async def test_astream_uses_tracking_uri_via_custom_chat_url_builder(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(json.dumps({"providers": {"gw_test": {"model": "ep-1"}}}))

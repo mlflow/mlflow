@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
@@ -17,14 +19,38 @@ def test_provider_identity():
     # GATEWAY_PROVIDER_ID, so changing it would break backwards compatibility.
     assert p.name == "mlflow_gateway"
     assert p.display_name == "MLflow AI Gateway"
-    assert p.is_available() is True
 
 
-def test_list_models_is_not_implemented():
-    # Listing is handled on the frontend via the existing gateway ajax API,
-    # so the assistant backend exposes no listing strategy for this preset.
-    with pytest.raises(NotImplementedError, match="Model listing is not supported"):
-        _gateway_provider().list_models()
+def test_list_models_reads_gateway_endpoint_names():
+    endpoint = mock.MagicMock()
+    endpoint.name = "chat-endpoint"
+    store = mock.MagicMock()
+    store.list_gateway_endpoints.return_value = [endpoint]
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        assert _gateway_provider().list_models() == ["chat-endpoint"]
+
+    store.list_gateway_endpoints.assert_called_once()
+
+
+def test_list_models_empty_without_gateway_store_support():
+    store = mock.MagicMock()
+    store.list_gateway_endpoints.side_effect = NotImplementedError("FileStore")
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        assert _gateway_provider().list_models() == []
+
+
+@pytest.mark.parametrize(
+    ("endpoint_names", "expected"),
+    [
+        (["chat-endpoint"], True),
+        ([], False),
+    ],
+)
+def test_is_available_reflects_gateway_endpoints(endpoint_names, expected):
+    with mock.patch.object(MlflowGatewayProvider, "list_models", return_value=endpoint_names):
+        assert _gateway_provider().is_available() is expected
 
 
 def test_check_connection_raises_when_no_backend_probe():

@@ -11,7 +11,7 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
-    load_config,
+    load_config_or_default,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
@@ -121,7 +121,7 @@ class CodexProvider(AssistantProvider):
             )
             return
 
-        config = load_config(self.name)
+        config = load_config_or_default(self.name)
 
         if context:
             user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"

@@ -13,7 +13,7 @@ from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
-from mlflow.assistant.providers import list_providers
+from mlflow.assistant.providers import list_providers, resolve_default_provider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -41,6 +41,17 @@ def _get_selected_provider(config: AssistantConfig | None = None):
         if provider_config.selected:
             return _get_provider(provider_name)
     return None
+
+
+def _resolve_provider(
+    config: AssistantConfig | None = None, remote: bool = False
+) -> AssistantProvider | None:
+    selected = _get_selected_provider(config)
+    if selected is not None:
+        if remote and not selected.allows_remote_access:
+            return None
+        return selected
+    return resolve_default_provider(remote=remote)
 
 
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
@@ -100,7 +111,7 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 def _get_route_provider(request: Request) -> AssistantProvider | None:
     if provider_name := request.path_params.get("provider"):
         return _get_provider(provider_name)
-    return _get_selected_provider()
+    return _resolve_provider(remote=not _is_localhost(request))
 
 
 class _AssistantAPIRoute(APIRoute):
@@ -264,10 +275,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = str(request.base_url).rstrip("/")
+    is_remote = not _is_localhost(request)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
-        provider = _get_selected_provider()
+        provider = _resolve_provider(remote=is_remote)
         if provider is None:
             from mlflow.assistant.types import Event
 
@@ -409,7 +421,9 @@ async def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects=projects,
-        remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        remote_access_allowed=_provider_allows_remote_access(
+            _resolve_provider(config, remote=not _is_localhost(request))
+        ),
     )
 
 
