@@ -164,11 +164,19 @@ export function ModelTraceExplorerCodeSnippetBody({
       {renderMode === 'markdown' ? (
         <div
           css={{
+            position: 'relative',
             padding: theme.spacing.md,
             backgroundColor: theme.colors.backgroundSecondary,
             marginBottom: -theme.spacing.md,
           }}
         >
+          <SnippetCopyAction
+            key="copy-snippet"
+            componentId="shared.model-trace-explorer.copy-snippet-markdown"
+            copyText={data}
+            size="small"
+            css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+          />
           <GenAIMarkdownRenderer>{displayedData}</GenAIMarkdownRenderer>
         </div>
       ) : (
