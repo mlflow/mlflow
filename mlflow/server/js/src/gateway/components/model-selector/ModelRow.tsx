@@ -1,5 +1,5 @@
 import { useIntl } from 'react-intl';
-import { Radio, Tooltip, Typography, useDesignSystemTheme, WarningFillIcon } from '@databricks/design-system';
+import { Checkbox, Radio, Tooltip, Typography, useDesignSystemTheme, WarningFillIcon } from '@databricks/design-system';
 import { CostIndicator } from './CostIndicator';
 import { formatTokens } from '../../utils/formatters';
 import type { ProviderModel } from '../../types';
@@ -9,9 +9,11 @@ interface ModelRowProps {
   model: ProviderModel;
   isSelected: boolean;
   onSelect: (modelId: string) => void;
+  /** When true, render a checkbox instead of a radio (multi-select mode). */
+  multiSelect?: boolean;
 }
 
-export const ModelRow = ({ model, isSelected, onSelect }: ModelRowProps) => {
+export const ModelRow = ({ model, isSelected, onSelect, multiSelect }: ModelRowProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const contextWindow = formatTokens(model.max_input_tokens);
@@ -39,7 +41,16 @@ export const ModelRow = ({ model, isSelected, onSelect }: ModelRowProps) => {
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'center' }}>
-        <Radio value={model.model} css={{ margin: 0 }} />
+        {multiSelect ? (
+          <Checkbox
+            componentId="mlflow.gateway.model-selector-modal.checkbox"
+            isChecked={isSelected}
+            onChange={() => onSelect(model.model)}
+            css={{ margin: 0 }}
+          />
+        ) : (
+          <Radio value={model.model} css={{ margin: 0 }} />
+        )}
       </div>
       <div css={{ minWidth: 0 }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>

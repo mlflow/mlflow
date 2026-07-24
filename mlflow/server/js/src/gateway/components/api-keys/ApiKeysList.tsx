@@ -168,12 +168,15 @@ export const ApiKeysList = ({
         <Empty
           image={<KeyIcon />}
           title={
-            <FormattedMessage defaultMessage="No API keys created" description="Empty state title for API keys list" />
+            <FormattedMessage
+              defaultMessage="No connections yet"
+              description="Empty state title for LLM connections list"
+            />
           }
           description={
             <FormattedMessage
-              defaultMessage='Use "Create API key" button to create a new API key'
-              description="Empty state message for API keys list explaining how to create"
+              defaultMessage="Add a provider key so features like Detect Issues can call an LLM."
+              description="Empty state message for LLM connections list explaining how to add one"
             />
           }
         />
@@ -201,7 +204,10 @@ export const ApiKeysList = ({
         <ApiKeysColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
         <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
           <Button componentId="mlflow.gateway.api-keys.create-button" type="primary" onClick={onCreateClick}>
-            <FormattedMessage defaultMessage="Create" description="Gateway > API keys list > Create button" />
+            <FormattedMessage
+              defaultMessage="Add connection"
+              description="Gateway > LLM connections list > Add connection button"
+            />
           </Button>
           <Button
             componentId="mlflow.gateway.api-keys.bulk-delete-button"

@@ -86,7 +86,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
 
     if (allowlistedModels.length === 0) {
       newErrors.allowlistedModels = intl.formatMessage({
-        defaultMessage: 'Add at least one model so this key can be used.',
+        defaultMessage: 'Select at least one model so this connection can be used.',
         description: 'Error message when no allowlisted models are selected for a connection',
       });
     }
@@ -188,15 +188,15 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     <Modal
       componentId="mlflow.gateway.create-api-key-modal"
       title={intl.formatMessage({
-        defaultMessage: 'Create API Key',
-        description: 'Title for create API key modal',
+        defaultMessage: 'Add connection',
+        description: 'Title for the add LLM connection modal',
       })}
       visible={open}
       onCancel={handleClose}
       onOk={handleSubmit}
       okText={intl.formatMessage({
-        defaultMessage: 'Create API Key',
-        description: 'Create API key button text',
+        defaultMessage: 'Add connection',
+        description: 'Add LLM connection confirm button text',
       })}
       cancelText={intl.formatMessage({
         defaultMessage: 'Cancel',
@@ -234,19 +234,29 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
         )}
 
         {provider && (
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Typography.Text bold>
-              <FormattedMessage
-                defaultMessage="Allowed models"
-                description="Section label for the model allowlist in the create API key modal"
-              />
-            </Typography.Text>
-            <Typography.Text color="secondary" size="sm">
-              <FormattedMessage
-                defaultMessage="Choose which models this key can be used with. These appear as options wherever MLflow needs a model."
-                description="Helper text for the model allowlist in the create API key modal"
-              />
-            </Typography.Text>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.md,
+              borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            }}
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Allowed models"
+                  description="Section label for the model allowlist in the add connection modal"
+                />
+              </Typography.Text>
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="Choose which models this connection can be used with. These appear as options wherever MLflow needs a model."
+                  description="Helper text for the model allowlist in the add connection modal"
+                />
+              </Typography.Text>
+            </div>
             <ModelAllowlistField
               provider={provider}
               value={allowlistedModels}

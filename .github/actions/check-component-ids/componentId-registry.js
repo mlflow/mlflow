@@ -1625,6 +1625,7 @@ module.exports = {
   "mlflow.gateway.model-select.capability": "",
   "mlflow.gateway.model-selector-modal": "",
   "mlflow.gateway.model-selector-modal.cancel": "",
+  "mlflow.gateway.model-selector-modal.checkbox": "",
   "mlflow.gateway.model-selector-modal.confirm": "",
   "mlflow.gateway.model-selector-modal.custom-model": "",
   "mlflow.gateway.model-selector-modal.deprecation-tooltip": "",
