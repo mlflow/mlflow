@@ -449,18 +449,18 @@ trace = mlflow.get_trace(trace_id="tr-abc123")
 ```
 
 :::warning Unity Catalog traces require a full location URI
-If MLflow is configured to store traces in Unity Catalog, `mlflow.get_trace()` requires the full `trace:/` location URI. Passing a plain trace ID returns `None` with a "Failed to get trace" warning and no indication that a different format is needed.
+If MLflow is configured to store traces in Unity Catalog, `mlflow.get_trace()` requires the full `trace:/` location URI. Passing a plain trace ID raises a NOT_FOUND error (`NOT_FOUND: Trace '<id>' not found.`) with no hint that a different format is needed.
 
-Use the `trace:/` URI format, which encodes the UC catalog, schema, and experiment name:
+Use the `trace:/` URI format, which encodes the UC catalog, schema, and table prefix:
 
 ```python
 import mlflow
 
-# Format: trace:/{catalog}.{schema}.{experiment_name}/{trace_id}
+# Format: trace:/{catalog}.{schema}.{table_prefix}/{trace_id}
 trace = mlflow.get_trace(
-    trace_id="trace:/my_catalog.my_schema.my_experiment/tr-abc123"
+    trace_id="trace:/my_catalog.my_schema.my_table_prefix/tr-abc123"
 )
 ```
 
-Replace `my_catalog`, `my_schema`, and `my_experiment` with the catalog name, schema name, and experiment name where your traces are stored.
+Replace `my_catalog`, `my_schema`, and `my_table_prefix` with the catalog, schema, and table prefix used when the UC-backed experiment was created.
 :::

@@ -10,7 +10,7 @@ Deleting a trace cannot be undone. Ensure that the parameters provided to the `d
 :::
 
 :::warning Not supported for Unity Catalog traces
-`delete_traces()` does not support traces stored in Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying Unity Catalog table using SQL.
+`delete_traces()` does not support traces stored in Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying Unity Catalog table using SQL. Target the base OTel spans table (for example `<prefix>_otel_spans`), not `_trace_metadata` or `_trace_unified`, which are views and cannot be deleted from.
 :::
 
 ## Deleting traces from MLflow UI
