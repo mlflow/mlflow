@@ -76,6 +76,7 @@ import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AddToReviewQueueDropdown } from '../../../../pages/experiment-review-queue/AddToReviewQueueDropdown';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import {
@@ -83,6 +84,7 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
+import { useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
@@ -184,6 +186,7 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -318,6 +321,21 @@ const TracesV3LogsImpl = React.memo(
       disabled: isQueryDisabled,
     });
 
+    useEffect(() => {
+      if (searchParams.get('detectIssues') !== 'true' || disableActions || traceInfosLoading) {
+        return;
+      }
+      setIsIssueDetectionModalOpen(true);
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete('detectIssues');
+          return next;
+        },
+        { replace: true },
+      );
+    }, [searchParams, setSearchParams, disableActions, traceInfosLoading]);
+
     const deleteTracesMutation = useDeleteTracesMutation();
 
     // Local, legacy version of trace tag editing modal
@@ -336,6 +354,7 @@ const TracesV3LogsImpl = React.memo(
     const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
+    const renderCustomAddToReviewQueueDropdown = AddToReviewQueueDropdown;
 
     const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
 
@@ -349,6 +368,7 @@ const TracesV3LogsImpl = React.memo(
       return {
         deleteTracesAction,
         exportToEvals: true,
+        addToReviewQueue: true,
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -565,6 +585,7 @@ const TracesV3LogsImpl = React.memo(
     const tableContent = (
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        renderAddToReviewQueueDropdown={renderCustomAddToReviewQueueDropdown}
         DrawerComponent={AssistantAwareDrawer}
         drawerWidth={drawerWidth}
       >
@@ -613,6 +634,7 @@ const TracesV3LogsImpl = React.memo(
           </div>
           {!disableActions && isIssueDetectionModalOpen && (
             <IssueDetectionModal
+              key={singleExperimentId}
               onClose={() => setIsIssueDetectionModalOpen(false)}
               experimentId={singleExperimentId}
               initialSelectedTraceIds={Object.entries(rowSelection)

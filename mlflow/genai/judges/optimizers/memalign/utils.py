@@ -1,5 +1,7 @@
+import copy
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
@@ -144,13 +146,60 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     return truncated
 
 
+# These models describe the structured-output ``response_format`` for guideline distillation.
+# ``extra="forbid"`` and the absence of field defaults are load-bearing: see
+# ``_build_strict_response_format`` for the full set of schema constraints Databricks enforces.
 class Guideline(BaseModel):
+    model_config = {"extra": "forbid"}
+
     guideline_text: str
-    source_trace_ids: list[str | int] | None = None
+    # No default: a default drops the field from the schema's ``required`` list, which the
+    # strict endpoint rejects. Stays nullable via ``| None`` so ``None`` remains valid.
+    source_trace_ids: list[str | int] | None
 
 
 class Guidelines(BaseModel):
+    model_config = {"extra": "forbid"}
+
     guidelines: list[Guideline]
+
+
+def _build_strict_response_format(model: type[BaseModel]) -> dict[str, Any]:
+    """Build an OpenAI-strict ``json_schema`` response_format from a pydantic model.
+
+    Databricks' structured-output endpoint enforces the strict-schema rules on every object
+    and, unlike the OpenAI API, does not resolve ``$ref``/``$defs`` indirection ("reference
+    can only point to definitions defined at the top level of the schema"). Pydantic's
+    ``model_json_schema()`` emits nested models as ``$ref`` into ``$defs`` and omits
+    ``additionalProperties``/full ``required``. This inlines every ``$ref`` and enforces
+    ``additionalProperties: false`` plus a complete ``required`` list on each object, so the
+    resulting schema is accepted regardless of whether the litellm version normalizes it.
+    """
+    schema = model.model_json_schema()
+    defs = schema.pop("$defs", {})
+
+    def resolve(node: Any) -> Any:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                name = node["$ref"].split("/")[-1]
+                resolved = resolve(copy.deepcopy(defs[name]))
+                # Merge any sibling keys (e.g. description) over the resolved definition.
+                resolved.update({k: resolve(v) for k, v in node.items() if k != "$ref"})
+                return resolved
+            node = {k: resolve(v) for k, v in node.items()}
+            if node.get("type") == "object" or "properties" in node:
+                node["additionalProperties"] = False
+                if "properties" in node:
+                    node["required"] = list(node["properties"].keys())
+            return node
+        if isinstance(node, list):
+            return [resolve(item) for item in node]
+        return node
+
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": model.__name__, "schema": resolve(schema), "strict": True},
+    }
 
 
 def get_default_embedding_model() -> str:
@@ -246,22 +295,49 @@ def _create_batches(
     return batches
 
 
+def _extract_json_object(response: str | dict[str, Any]) -> str:
+    """Extract the JSON object from an LLM response.
+
+    Structured-output (``response_format``) responses are raw JSON, but the unstructured
+    fallback relies on the prompt to elicit JSON and models often wrap it in a
+    ```` ```json ... ``` ```` fence and/or surround it with prose. Strips a fence when
+    present, then narrows to the outermost ``{...}`` so leading/trailing text does not
+    break parsing. Returns the original (stripped) string when no object is found, so the
+    caller's ``json.loads`` raises a meaningful error.
+
+    Reasoning models (e.g. ``gpt-oss``) make DSPy return the completion as a
+    ``{"text": ..., "reasoning_content": ...}`` dict rather than a plain string, so pull the
+    ``text`` field out first.
+    """
+    if isinstance(response, dict):
+        response = response.get("text", "")
+    stripped = response.strip()
+    if match := re.match(r"^```(?:json)?\s*\n?(.*?)\n?```$", stripped, re.DOTALL):
+        stripped = match.group(1).strip()
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        return stripped[start : end + 1]
+    return stripped
+
+
 def _parse_batch_response(
-    response: str,
+    response: str | dict[str, Any],
     index_to_trace_id: dict[int, str],
     existing_guideline_texts: set[str],
 ) -> list[Guideline]:
     """Parse LM response and convert to Guideline objects, filtering duplicates.
 
     Args:
-        response: LM response in JSON format
+        response: LM response as a JSON string, or a DSPy ``{"text": ...}`` dict for
+            reasoning models
         index_to_trace_id: Mapping from example indices to trace IDs
         existing_guideline_texts: Set of already existing guideline texts to avoid duplicates
 
     Returns:
         List of Guideline objects parsed from the response, excluding duplicates
     """
-    response_data = json.loads(response)
+    response_data = json.loads(_extract_json_object(response))
     guidelines = []
     trace_ids_set = set(index_to_trace_id.values())
 
@@ -395,11 +471,24 @@ def distill_guidelines(
             len=len,
         )
 
+        messages = [{"role": "user", "content": prompt}]
         try:
-            response = distillation_lm(
-                messages=[{"role": "user", "content": prompt}],
-                response_format=Guidelines,
-            )[0]
+            try:
+                response = distillation_lm(
+                    messages=messages, response_format=_build_strict_response_format(Guidelines)
+                )[0]
+            except Exception as e:
+                # Some models (e.g. some Databricks-served endpoints) reject or error on
+                # structured-output requests. The prompt already specifies the exact JSON
+                # format, so fall back to an unstructured request rather than dropping the
+                # batch. Mirrors the judge adapter's response_format fallback (see
+                # mlflow/genai/judges/adapters/litellm_adapter.py).
+                _logger.debug(
+                    f"Structured-output distillation failed for batch {batch_indices}; "
+                    f"retrying without response_format. Error: {e}",
+                    exc_info=True,
+                )
+                response = distillation_lm(messages=messages)[0]
 
             return _parse_batch_response(
                 response=response,

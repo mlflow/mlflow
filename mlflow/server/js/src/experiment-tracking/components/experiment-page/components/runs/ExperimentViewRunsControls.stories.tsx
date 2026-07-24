@@ -50,7 +50,7 @@ const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
           <ExperimentViewRunsControls
             runsData={MOCK_RUNS_DATA}
             searchFacetsState={searchFacetsState}
-            experimentId="123"
+            experimentId="123456789"
             viewState={viewState}
             updateViewState={() => {}}
             requestError={null}
@@ -60,6 +60,7 @@ const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
             uiState={createExperimentPageUIState()}
             isLoading={false}
             isComparingExperiments={false}
+            onResetColumns={() => {}}
           />
           <div
             css={{

@@ -49,6 +49,8 @@ export interface EndpointSelectorProps {
   onEndpointNotFound?: () => void;
   /** Endpoint IDs to exclude from the list (e.g., the guarded endpoint itself) */
   excludeEndpointIds?: string[];
+  /** Optional max width for the trigger; long endpoint labels truncate with ellipsis when this is set. */
+  triggerMaxWidth?: number | string;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -62,6 +64,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   autoSelectFirstEndpoint = false,
   onEndpointNotFound,
   excludeEndpointIds,
+  triggerMaxWidth,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -165,6 +168,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
           withInlineLabel={false}
           allowClear={false}
           disabled={disabled}
+          maxWidth={triggerMaxWidth}
           placeholder={placeholder || defaultPlaceholder}
           renderDisplayedValue={() => {
             // Endpoint not found in list - may have been deleted

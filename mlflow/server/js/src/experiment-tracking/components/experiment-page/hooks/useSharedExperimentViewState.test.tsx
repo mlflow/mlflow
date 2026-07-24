@@ -1,5 +1,5 @@
 import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { NavigateFunction } from '../../../../common/utils/RoutingUtils';
 import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
@@ -12,6 +12,7 @@ import { isNil, omitBy } from 'lodash';
 import { IntlProvider } from 'react-intl';
 import { shouldUseCompressedExperimentViewSharedState } from '../../../../common/utils/FeatureUtils';
 import { textCompressDeflate } from '../../../../common/utils/StringUtils';
+import { encodeSavedViewEnvelope } from '../utils/savedViewEnvelope';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
@@ -158,6 +159,343 @@ describe('useSharedExperimentViewState', () => {
         // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         jest.mocked(console.error).mockRestore();
       });
+    });
+
+    it('does not apply or clear view state when the legacy share key has no matching tag', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${testSerializedStateHash}`), jest.fn()]);
+
+      // Bare-hash key routes to the legacy branch; the experiment has no matching tag.
+      const experimentWithoutTag = { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() =>
+        useSharedExperimentViewState(uiStateSetterMock, experimentWithoutTag),
+      );
+
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).not.toHaveBeenCalled();
+        expect(uiStateSetterMock).not.toHaveBeenCalled();
+        expect(result.current.sharedStateError).toMatch(/does not exist/);
+      });
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+      jest.mocked(console.error).mockRestore();
+    });
+  });
+
+  describe('saved-view tags (viewStateShareKey references an envelope-encoded tag by id)', () => {
+    const savedViewId = 'saved-view-id-1';
+
+    it.each([true, false])(
+      'applies search facets and ui state from a %s-compressed saved-view envelope tag',
+      async (isCompressed) => {
+        jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+
+        const compressedState = isCompressed
+          ? await textCompressDeflate(testSerializedShareViewState)
+          : testSerializedShareViewState;
+        const envelopeValue = encodeSavedViewEnvelope('My saved view', compressedState, 1770000000000);
+        const experimentWithEnvelopeTag = {
+          experimentId: 'experiment_1',
+          tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: envelopeValue }],
+        } as ExperimentEntity;
+
+        jest
+          .mocked(useSearchParams)
+          .mockReturnValue([new URLSearchParams(`viewStateShareKey=${savedViewId}`), jest.fn()]);
+
+        const { result } = renderHookWithIntl(() =>
+          useSharedExperimentViewState(uiStateSetterMock, experimentWithEnvelopeTag),
+        );
+
+        const expectedFacetsState = omitBy(testFacetsState, isNil);
+        const expectedUiState = omitBy(testUIState, isNil);
+
+        await waitFor(() => {
+          expect(updateSearchFacetsMock).toHaveBeenCalledWith(expect.objectContaining(expectedFacetsState), {
+            replace: true,
+          });
+          expect(uiStateSetterMock).toHaveBeenCalledWith(expect.objectContaining(expectedUiState));
+          expect(result.current.sharedStateError).toBeNull();
+        });
+      },
+    );
+
+    it('falls back to the legacy raw-JSON parse for a pre-envelope tag value', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+
+      // A pre-#24152-era tag stores the raw serialized view state directly (no {name,createdAt,state}
+      // wrapper). The envelope decode must fail and the reader must fall back to the raw parse.
+      const legacyExperiment = {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: testSerializedShareViewState }],
+      } as ExperimentEntity;
+
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${savedViewId}`), jest.fn()]);
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, legacyExperiment));
+
+      const expectedFacetsState = omitBy(testFacetsState, isNil);
+      const expectedUiState = omitBy(testUIState, isNil);
+
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).toHaveBeenCalledWith(expect.objectContaining(expectedFacetsState), {
+          replace: true,
+        });
+        expect(uiStateSetterMock).toHaveBeenCalledWith(expect.objectContaining(expectedUiState));
+        expect(result.current.sharedStateError).toBeNull();
+      });
+    });
+
+    it('drops smuggled non-shareable per-run fields from an envelope tag and resets them to defaults', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+
+      // A hand-crafted envelope whose state smuggles per-run fields keyed by run UUIDs that don't
+      // exist for the recipient, plus a legitimate shareable field. The reader must apply the legit
+      // field while dropping the smuggled ones back to defaults — the same protection the
+      // url-embedded path gets — since both paths share applyParsedState.
+      const smuggledState = JSON.stringify({
+        viewMaximized: true,
+        runsHidden: ['someone-elses-run'],
+        runsPinned: ['another-run'],
+        runsVisibilityMap: { 'a-run': true },
+        runsExpanded: { 'a-run': true },
+        autoRefreshEnabled: false,
+      });
+      const envelopeValue = encodeSavedViewEnvelope('Smuggler', smuggledState, 1770000000000);
+      const experimentWithEnvelopeTag = {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: envelopeValue }],
+      } as ExperimentEntity;
+
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${savedViewId}`), jest.fn()]);
+
+      const defaults = createExperimentPageUIState();
+      const { result } = renderHookWithIntl(() =>
+        useSharedExperimentViewState(uiStateSetterMock, experimentWithEnvelopeTag),
+      );
+
+      await waitFor(() => {
+        expect(uiStateSetterMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            viewMaximized: true,
+            runsHidden: defaults.runsHidden,
+            runsPinned: defaults.runsPinned,
+            runsVisibilityMap: defaults.runsVisibilityMap,
+            runsExpanded: defaults.runsExpanded,
+            autoRefreshEnabled: defaults.autoRefreshEnabled,
+          }),
+        );
+        expect(result.current.sharedStateError).toBeNull();
+      });
+    });
+
+    it('reports an error when neither envelope nor raw parse succeeds', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${savedViewId}`), jest.fn()]);
+
+      const garbageExperiment = {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: 'not json at all' }],
+      } as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, garbageExperiment));
+
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).not.toHaveBeenCalled();
+        expect(uiStateSetterMock).not.toHaveBeenCalled();
+        expect(result.current.sharedStateError).toMatch(/Error loading shared view state: share key is invalid/);
+      });
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+      jest.mocked(console.error).mockRestore();
+    });
+  });
+
+  // The read-only latch / sticky-persistence / re-apply machinery is shared by every share path
+  // (applyParsedState is common), so these exercise it through a saved-view envelope tag now that
+  // the URL-embedded blob path is gone.
+  describe('shared-view read-only latch and re-apply behavior', () => {
+    const savedViewId = 'latch-view-id';
+
+    const experimentWithSharedView = async (): Promise<ExperimentEntity> => {
+      const compressedState = await textCompressDeflate(testSerializedShareViewState);
+      const envelopeValue = encodeSavedViewEnvelope('Latched view', compressedState, 1770000000000);
+      return {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: envelopeValue }],
+      } as ExperimentEntity;
+    };
+
+    beforeEach(() => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams({ viewStateShareKey: savedViewId }), jest.fn()]);
+    });
+
+    it('applies the tag only once when the experiment reference changes', async () => {
+      const experiment = await experimentWithSharedView();
+
+      // `experiment` (passed as first(experiments)) loads async and later mutates on tag edits. The
+      // hook must not re-apply the shared view over the user's edits each time that ref changes.
+      const { rerender } = renderHook(
+        ({ experiment }: { experiment?: ExperimentEntity }) =>
+          useSharedExperimentViewState(uiStateSetterMock, experiment),
+        {
+          initialProps: { experiment: undefined as ExperimentEntity | undefined },
+          wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+        },
+      );
+
+      // No experiment yet → nothing applied (the tag can't be resolved).
+      rerender({ experiment });
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1);
+        expect(uiStateSetterMock).toHaveBeenCalledTimes(1);
+      });
+
+      // A tag edit refetches the experiment (new ref, same tag) — must not re-apply.
+      rerender({ experiment: { ...experiment } as ExperimentEntity });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1);
+      expect(uiStateSetterMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks the shared view active after a successful apply and clears it on exitSharedView', async () => {
+      const experiment = await experimentWithSharedView();
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, experiment));
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      act(() => result.current.exitSharedView());
+      expect(result.current.sharedViewActive).toBe(false);
+    });
+
+    it('keeps the shared view active after the share key leaves the URL (sticky read-only)', async () => {
+      const experiment = await experimentWithSharedView();
+      const { result, rerender } = renderHookWithIntl(() =>
+        useSharedExperimentViewState(uiStateSetterMock, experiment),
+      );
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      // Simulate navigating to a keyless route (e.g. the Runs tab): the key is gone, but the session
+      // must stay read-only so the shared view isn't auto-persisted over the user's own saved view.
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
+      rerender();
+
+      expect(result.current.isViewStateShared).toBe(false);
+      expect(result.current.sharedViewActive).toBe(true);
+    });
+
+    it('clears the shared view when navigating to a different experiment', async () => {
+      const experiment = await experimentWithSharedView();
+      const { result, rerender } = renderHook(
+        ({ experiment }: { experiment?: ExperimentEntity }) =>
+          useSharedExperimentViewState(uiStateSetterMock, experiment),
+        {
+          initialProps: { experiment },
+          wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+        },
+      );
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      // The view isn't remounted on an experiment switch, so the latch must reset itself — otherwise
+      // it would keep local-storage persistence disabled for the next experiment too.
+      rerender({ experiment: { experimentId: 'experiment_2', tags: [] } as unknown as ExperimentEntity });
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(false));
+    });
+
+    it('does not clear the shared view when the experiment resolves from undefined for the same link', async () => {
+      const experiment = await experimentWithSharedView();
+
+      // The undefined -> resolved transition must NOT be mistaken for an experiment switch.
+      const { result, rerender } = renderHook(
+        ({ experiment }: { experiment?: ExperimentEntity }) =>
+          useSharedExperimentViewState(uiStateSetterMock, experiment),
+        {
+          initialProps: { experiment: undefined as ExperimentEntity | undefined },
+          wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+        },
+      );
+
+      rerender({ experiment });
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      rerender({ experiment: { ...experiment } as ExperimentEntity });
+
+      expect(result.current.sharedViewActive).toBe(true);
+    });
+
+    it('does not activate the shared view when the tag value is invalid', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      const brokenExperiment = {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${savedViewId}`, value: 'not json at all' }],
+      } as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, brokenExperiment));
+
+      await waitFor(() => expect(result.current.sharedStateError).toMatch(/share key is invalid/));
+      expect(result.current.sharedViewActive).toBe(false);
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+      jest.mocked(console.error).mockRestore();
+    });
+
+    it('re-applies a shared link after navigating away and back instead of hanging', async () => {
+      const experiment = await experimentWithSharedView();
+      const { rerender } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, experiment));
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1));
+
+      // Navigate to a keyless route (client-side, no remount): the apply-once guard must reset.
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
+      rerender();
+
+      // Navigate back to the same shared link: it must re-apply rather than hang on a stale guard
+      // (otherwise searchFacets never repopulate and the view stays on the loading skeleton).
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams({ viewStateShareKey: savedViewId }), jest.fn()]);
+      rerender();
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(2));
+    });
+
+    it('re-applies when the facet params are wiped while the share key stays (re-pasting the bare link)', async () => {
+      const experiment = await experimentWithSharedView();
+
+      // Initial arrival: key present, no facet params yet → applies (which writes the facets).
+      const { rerender } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, experiment));
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1));
+
+      // Facets now present in the URL (apply landed) → must NOT re-apply (no stomp, no re-fire spam).
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([
+          new URLSearchParams({ viewStateShareKey: savedViewId, orderByKey: 'metrics.m1' }),
+          jest.fn(),
+        ]);
+      rerender();
+      expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1);
+
+      // Re-paste the bare link: facet params wiped, key unchanged → must re-apply, not hang on the
+      // skeleton (the bug). The previous guard skipped this because the key hadn't changed.
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams({ viewStateShareKey: savedViewId }), jest.fn()]);
+      rerender();
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(2));
     });
   });
 

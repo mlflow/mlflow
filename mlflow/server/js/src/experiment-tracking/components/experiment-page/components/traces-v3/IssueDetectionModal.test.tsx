@@ -4,17 +4,10 @@ import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/u
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
-import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('./hooks/useInvokeIssueDetection');
-jest.mock('../../../../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
-    '../../../../../common/utils/RoutingUtils',
-  ),
-  useNavigate: jest.fn(),
-  useLocation: jest.fn(),
-}));
 let mockModelSelectionValues: {
   mode: 'direct' | 'endpoint';
   provider: string;
@@ -162,13 +155,10 @@ describe('IssueDetectionModal', () => {
   let mockResetCreateSecret: jest.Mock;
   let mockInvokeIssueDetection: jest.Mock;
   let mockResetIssueDetection: jest.Mock;
-  let mockNavigate: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockNavigate = jest.fn();
-    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
-    jest.mocked(useLocation).mockReturnValue({ search: '', pathname: '/', hash: '', state: null, key: 'default' });
+    clearSubmittedIssueDetectionJob();
     // Reset mock values
     mockModelSelectionValues = {
       mode: 'direct',
@@ -390,7 +380,7 @@ describe('IssueDetectionModal', () => {
     expect(mockCreateSecret).not.toHaveBeenCalled();
   });
 
-  test('navigates to run details page when form is submitted', async () => {
+  test('records submitted background job when form is submitted', async () => {
     const onClose = jest.fn();
 
     renderWithDesignSystem(
@@ -405,38 +395,14 @@ describe('IssueDetectionModal', () => {
 
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
-      expect(mockNavigate).toHaveBeenCalledWith({
-        pathname: '/experiments/exp-123/evaluation-runs/run-456',
-        search: undefined,
-      });
-    });
-  });
-
-  test('preserves only time range query params when navigating to run details', async () => {
-    const onClose = jest.fn();
-    jest.mocked(useLocation).mockReturnValue({
-      search: '?startTimeLabel=LAST_7_DAYS&someOtherParam=foo',
-      pathname: '/',
-      hash: '',
-      state: null,
-      key: 'default',
     });
 
-    renderWithDesignSystem(
-      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
-    );
-
-    await navigateToStep2();
-    await userEvent.click(screen.getByTestId('set-valid-existing-key'));
-
-    const submitButton = screen.getByText('Run Analysis').closest('button')!;
-    await userEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith({
-        pathname: '/experiments/exp-123/evaluation-runs/run-456',
-        search: '?startTimeLabel=LAST_7_DAYS',
-      });
+    expect(getSubmittedIssueDetectionJob()).toEqual({
+      experimentId: 'exp-123',
+      jobId: 'job-123',
+      runId: 'run-456',
+      traceCount: 1,
+      submittedAtMs: expect.any(Number),
     });
   });
 

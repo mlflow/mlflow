@@ -1,7 +1,3 @@
-"""Tests for scorer telemetry behavior, specifically testing that nested scorer calls
-skip telemetry recording while top-level calls record telemetry correctly.
-"""
-
 import asyncio
 import json
 import threading

@@ -23,6 +23,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -1189,6 +1190,106 @@ def test_calculate_trace_filter_correlation_zero_counts(store):
     assert result.filter2_count == 5
     assert result.joint_count == 0
     assert math.isnan(result.npmi)
+
+
+def test_calculate_trace_filter_correlation_span_filters_deduplicate_traces(store):
+    exp_id = _create_experiments(store, "span_filter_dedup_correlation")
+
+    trace_id_1 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_1,
+                name="tool_match_1",
+                span_id=111,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            ),
+            create_test_span(
+                trace_id_1,
+                name="tool_match_2",
+                span_id=112,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            ),
+        ],
+    )
+
+    trace_id_2 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_2,
+                name="tool_match_3",
+                span_id=221,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            )
+        ],
+    )
+
+    trace_id_3 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_3,
+                name="llm_no_match",
+                span_id=331,
+                span_type="LLM",
+                status=trace_api.StatusCode.ERROR,
+            )
+        ],
+    )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='span.type = "TOOL"',
+        filter_string2='span.status = "OK"',
+    )
+
+    assert result.total_count == 3
+    assert result.filter1_count == 2
+    assert result.filter2_count == 2
+    assert result.joint_count == 2
+
+
+def test_calculate_trace_filter_correlation_run_id_filter_matches_linked_traces(store):
+    exp_id = _create_experiments(store, "run_id_filter_correlation")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    timestamp_ms = time.time_ns() // 1_000_000
+    direct_trace_id = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=direct_trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={TraceMetadataKey.SOURCE_RUN: run_id},
+        )
+    )
+
+    linked_trace_id = _create_trace_for_correlation(store, exp_id)
+    store.link_traces_to_run([linked_trace_id], run_id)
+
+    _create_trace_for_correlation(store, exp_id)
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1=f'run_id = "{run_id}"',
+        filter_string2='status = "OK"',
+    )
+
+    assert result.total_count == 3
+    assert result.filter1_count == 2
+    assert result.filter2_count == 3
+    assert result.joint_count == 2
 
 
 def test_calculate_trace_filter_correlation_multiple_experiments(store):

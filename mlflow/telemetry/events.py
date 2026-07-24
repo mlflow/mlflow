@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
+from mlflow.entities.mcp_server import MCPStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
@@ -43,6 +44,30 @@ def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
 
         if isinstance(scorer, RagasScorer):
             return f"Ragas:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.guardrails import GuardrailsScorer
+
+        if isinstance(scorer, GuardrailsScorer):
+            return f"Guardrails:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.phoenix import PhoenixScorer
+
+        if isinstance(scorer, PhoenixScorer):
+            return f"Phoenix:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.trulens import TruLensScorer
+
+        if isinstance(scorer, TruLensScorer):
+            return f"TruLens:{scorer.name}"
     except ImportError:
         pass
 
@@ -409,6 +434,70 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+# MCP Server Registry Events
+class McpRegistryCreateServerVersionEvent(Event):
+    """Tracked on the store (server-side), so this fires for creations via UI,
+    REST API, and SDK — including the inner create from register_mcp_server_from_url.
+    """
+
+    name: str = "mcp_registry_create_server_version"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        server_json = arguments.get("server_json") or {}
+        tools = arguments.get("tools")
+        status = arguments.get("status") or MCPStatus.DRAFT
+        return {
+            "status": status.value if hasattr(status, "value") else status,
+            "has_source": arguments.get("source") is not None,
+            "num_tools": len(tools) if tools is not None else None,
+            "has_remotes": bool(server_json.get("remotes")),
+        }
+
+
+class McpRegistryRegisterServerFromUrlEvent(Event):
+    """SDK-only: fires from register_mcp_server_from_url, not UI/REST creations.
+
+    Successful URL registration also triggers McpRegistryCreateServerVersionEvent
+    from the inner store call; analytics consumers should expect both events
+    per successful register_mcp_server_from_url invocation.
+    """
+
+    name: str = "mcp_registry_register_server_from_url"
+
+    _KNOWN_SCHEMES = {"http", "https", "file", "ftp", "ftps", "s3", "gs", "abfss"}
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        url = arguments.get("url") or ""
+        scheme = urlparse(url).scheme.lower()
+        if scheme in cls._KNOWN_SCHEMES:
+            url_scheme = scheme
+        elif not scheme or len(scheme) == 1:
+            url_scheme = "file"
+        else:
+            url_scheme = "other"
+        return {
+            "url_scheme": url_scheme,
+        }
+
+
+class McpRegistryCreateAccessEndpointEvent(Event):
+    name: str = "mcp_registry_create_access_endpoint"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        transport_type = arguments.get("transport_type")
+        return {
+            "transport_type": transport_type.value
+            if hasattr(transport_type, "value")
+            else str(transport_type)
+            if transport_type
+            else None,
+            "uses_alias": arguments.get("server_alias") is not None,
+        }
+
+
 class TrackingServerStartEvent(Event):
     name: str = "tracking_server_start"
 
@@ -610,6 +699,14 @@ class GatewayInvocationEvent(Event):
 
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
+
+
+class MlflowTestEvent(Event):
+    name: str = "mlflow_test"
 
 
 class TracingContextPropagation(Event):

@@ -1,8 +1,3 @@
-"""
-Integration test which starts a local Tracking Server on an ephemeral port,
-and ensures we can use the tracking API to communicate with it.
-"""
-
 import json
 import logging
 import math
@@ -1337,6 +1332,41 @@ def test_get_metric_history_with_page_token(mlflow_client):
     assert "INVALID_PARAMETER_VALUE" in response_data.get("error_code", "")
 
 
+def test_get_metric_history_without_max_results_returns_full_history(mlflow_client):
+    # Regression test: an unset proto2 `max_results` reads as 0, which previously became
+    # a `LIMIT 1` query that returned an empty page with a never-advancing next_page_token
+    experiment_id = mlflow_client.create_experiment("test no max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    for i in range(10):
+        mlflow_client.log_metric(run_id, key="test_metric", value=float(i), step=i)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["metrics"]) == 10
+    assert data.get("next_page_token") is None
+
+
+@pytest.mark.parametrize("max_results", [0, -5])
+def test_get_metric_history_rejects_non_positive_max_results(mlflow_client, max_results):
+    experiment_id = mlflow_client.create_experiment(f"test max_results {max_results}")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+    mlflow_client.log_metric(run_id, key="test_metric", value=1.0, step=0)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": max_results},
+    )
+    assert response.status_code == 400
+    assert "max_results" in response.text
+
+
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400
@@ -1422,7 +1452,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_steps = [0, 2, 4, 6, 9]
     expected_metrics = [
         {**metric, "run_id": run_id1}
         for metric in metric_history
@@ -1461,7 +1491,12 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
             "max_results": 5,
         },
     )
-    expected_steps = [0, 4, 8, 9, 12, 16, 19]
+    # Each run is sampled independently to ~max_results points spanning its own full range
+    # (the final/maximum point is always preserved), so the two runs need not share steps.
+    expected_steps_by_run = {
+        run_id1: [0, 2, 4, 6, 9],
+        run_id2: [0, 4, 8, 12, 19],
+    }
     expected_metrics = []
     for run_id, metric_history in [
         (run_id1, metric_history),
@@ -1470,11 +1505,13 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         expected_metrics.extend([
             {**metric, "run_id": run_id}
             for metric in metric_history
-            if metric["step"] in expected_steps
+            if metric["step"] in expected_steps_by_run[run_id]
         ])
     assert response_limited.json().get("metrics") == expected_metrics
 
-    # test metrics with same steps
+    # Multiple values logged at the same step (here two timestamps per step) are sampled by row,
+    # not by step, so the response stays bounded by max_results instead of returning every row
+    # for each sampled step. The final (max-step, latest-timestamp) point is always preserved.
     metric_history_timestamp2 = [
         {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
     ]
@@ -1486,11 +1523,12 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
     expected_metrics = [
-        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
-        for i in expected_steps
-        for j in [1, 2]
+        {"key": "metricA", "timestamp": 1, "step": 0, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 4, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 6, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 2, "step": 9, "value": 10.0, "run_id": run_id1},
     ]
     assert response_limited.json().get("metrics") == expected_metrics
 
@@ -2335,6 +2373,17 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
         },
     )
     assert_response(response, "Request must specify data.")
+
+    large_data = b"x" * (10 * 1024 * 1024 + 1)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data=large_data,
+    )
+    assert_response(response, "Artifact size is too large")
 
 
 def test_upload_artifact_handler(mlflow_client):

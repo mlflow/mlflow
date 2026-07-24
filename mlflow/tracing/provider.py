@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
@@ -33,6 +34,7 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
     MLFLOW_USE_BATCH_SPAN_PROCESSOR,
@@ -148,7 +150,38 @@ class _TracerProviderWrapper:
             return self._isolated_tracer_provider
         return trace.get_tracer_provider()
 
+    def _retire_current_batch_processors(self) -> None:
+        """Flush and shut down the outgoing provider's MLflow batch processors.
+
+        Dropping a provider without this leaks its BatchSpanProcessor daemon
+        thread (#24209). Retires both MLflow-owned kinds that carry one:
+        ``BaseMlflowSpanProcessor`` (async MLflow export) and ``OtelSpanProcessor``
+        (OTLP export). External processors on a shared global provider are left
+        untouched.
+        """
+        from mlflow.tracing.processor.base_mlflow import (
+            BaseMlflowSpanProcessor,
+            retire_batch_processor,
+        )
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        current = self.get()
+        if not isinstance(current, TracerProvider):
+            return
+        active = getattr(current, "_active_span_processor", None)
+        for processor in list(getattr(active, "_span_processors", ())):
+            if isinstance(processor, BaseMlflowSpanProcessor):
+                retire_batch_processor(processor)
+            elif isinstance(processor, OtelSpanProcessor):
+                # Flush before shutdown so queued spans are exported, not dropped.
+                try:
+                    processor.force_flush()
+                    processor.shutdown()
+                except Exception:
+                    _logger.debug(f"Failed to retire OtelSpanProcessor {processor}", exc_info=True)
+
     def set(self, tracer_provider: TracerProvider):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
@@ -162,6 +195,7 @@ class _TracerProviderWrapper:
         return self.get().get_tracer(module_name)
 
     def reset(self):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = None
             self._isolated_tracer_provider_once._done = False
@@ -169,9 +203,33 @@ class _TracerProviderWrapper:
             trace._TRACER_PROVIDER = None
             self._global_provider_init_once._done = False
 
+    def _swap_raw(self, tracer_provider: TracerProvider) -> TracerProvider:
+        """Install ``tracer_provider`` and return the previous one, without retiring it.
+
+        Unlike ``set()``, the outgoing provider is left running so ``trace_disabled``
+        can restore it after hiding it behind a NoOp, without rebuilding its
+        BatchSpanProcessor thread. Contract: a concurrent global mutation
+        (``enable()``/``set_destination()`` from another thread) during the window
+        can be overwritten by the restore; mutating global tracing state from
+        multiple threads at once is unsupported.
+        """
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            old = self._isolated_tracer_provider
+            self._isolated_tracer_provider = tracer_provider
+            return old
+        old = trace._TRACER_PROVIDER
+        trace._TRACER_PROVIDER = tracer_provider
+        return old
+
 
 provider = _TracerProviderWrapper()
 mlflow_runtime_context = ContextVarsRuntimeContext()
+
+# Serialize trace_disabled's swap/restore and count active frames so nested and
+# concurrent calls swap only on the outermost entry and restore on the outermost
+# exit; otherwise overlapping frames can leave a NoOp installed permanently (#24209).
+_trace_disabled_lock = threading.Lock()
+_trace_disabled_state: dict[str, Any] = {"depth": 0, "saved_provider": None, "saved_once": None}
 
 
 def get_context_api():
@@ -218,7 +276,9 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     span = _get_tracer(__name__).start_span(
-        name, attributes=attributes, context=get_current_context()
+        name,
+        attributes=attributes,
+        context=get_current_context(),
     )
 
     if experiment_id and getattr(span, "_parent", None):
@@ -285,7 +345,12 @@ def start_detached_span(
         attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+    span = tracer.start_span(
+        name,
+        context=context,
+        attributes=attributes,
+        start_time=start_time_ns,
+    )
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -324,7 +389,13 @@ def safe_set_span_in_context(span: "Span"):
         detach_span_from_context(token)
 
 
-def set_span_in_context(span: "Span") -> contextvars.Token:
+# Token(s) required to later detach a span from the context. In isolated tracer provider mode a
+# tuple of (MLflow runtime token, optional global OTel token) is returned; otherwise a single
+# OpenTelemetry context token is returned.
+SpanContextToken = contextvars.Token | tuple[contextvars.Token, contextvars.Token | None]
+
+
+def set_span_in_context(span: "Span") -> SpanContextToken:
     """
     Set the given OpenTelemetry span as the active span in the current context.
 
@@ -336,23 +407,46 @@ def set_span_in_context(span: "Span") -> contextvars.Token:
     """
     context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        # When using the default tracer provider, attach to MLflow's runtime context so that span
-        # will not get mixed with the native OpenTelemetry runtime context.
-        token = mlflow_runtime_context.attach(context)
+        # Read the opt-in flag before attaching so that a malformed env var value raises here,
+        # rather than after `mlflow_runtime_context.attach` (which would orphan the token).
+        propagate_to_otel_context = MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get()
+        # In isolated tracer provider mode, attach to MLflow's runtime context so the span does
+        # not get mixed with the native OpenTelemetry runtime context.
+        mlflow_token = mlflow_runtime_context.attach(context)
+        # Optionally also propagate the span into the process-global OTel context so pure-OTel
+        # libraries (e.g. strands-agents, LangChain) that read
+        # `opentelemetry.trace.get_current_span()` can nest their spans under the MLflow span.
+        # This is opt-in because it exposes the MLflow span to all OTel instrumentation in the
+        # process (e.g. FastAPI, requests), reducing the isolation this mode normally provides.
+        if propagate_to_otel_context:
+            # Build the new context from the current global OTel context so that other entries
+            # (e.g. baggage) set by unrelated OTel instrumentation are preserved while the MLflow
+            # span is active.
+            otel_context = trace.set_span_in_context(span._span, context=context_api.get_current())
+            otel_token = context_api.attach(otel_context)
+            return (mlflow_token, otel_token)
+        return (mlflow_token, None)
     else:
-        token = context_api.attach(context)
-    return token
+        return context_api.attach(context)
 
 
-def detach_span_from_context(token: contextvars.Token):
+def detach_span_from_context(token: SpanContextToken):
     """
     Remove the active span from the current context.
 
     Args:
-        token: The token returned by `_set_span_to_active` function.
+        token: The token returned by `set_span_in_context` function.
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        mlflow_runtime_context.detach(token)
+        mlflow_token, otel_token = token
+        try:
+            # Detach the global OTel context first (reverse order of attach) if it was set.
+            if otel_token is not None:
+                context_api.detach(otel_token)
+        finally:
+            # Always detach MLflow's runtime context, even if the global detach above fails,
+            # so the isolated runtime context is not leaked.
+            mlflow_runtime_context.detach(mlflow_token)
     else:
         context_api.detach(token)
 
@@ -446,6 +540,37 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _initialize_tracer_provider()
+
+
+def get_bridged_tracer_provider() -> TracerProvider:
+    """
+    Return the OpenTelemetry ``TracerProvider`` that MLflow uses to generate traces.
+
+    This is intended for bridging pure-OpenTelemetry instrumentation libraries into MLflow's
+    tracing pipeline. Many OpenTelemetry instrumentors accept a ``tracer_provider=`` argument
+    (e.g. ``SomeInstrumentor().instrument(tracer_provider=...)``); passing the provider returned
+    by this function makes the spans they create flow through MLflow's span processors, so they
+    receive the correct trace ID and are exported to the configured MLflow destination.
+
+    In the default isolated tracer provider mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``) this returns MLflow's isolated provider, so
+    the bridged spans do not depend on the process-global OpenTelemetry provider pipeline and
+    the isolation of unrelated OpenTelemetry instrumentation is preserved. In unified mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``) this returns the shared global provider.
+
+    .. note::
+        This bridges where spans are *exported*. For the bridged spans to nest under an active
+        ``@mlflow.trace`` / ``mlflow.start_span`` span, the instrumentor must also read MLflow's
+        active span as the parent. Instrumentors that read the process-global OpenTelemetry
+        context can be enabled to do so by setting
+        ``MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True``.
+
+    Returns:
+        The ``TracerProvider`` instance used by MLflow, initializing it if necessary.
+    """
+    # Ensure the provider is initialized before handing it out to external instrumentors.
+    _get_tracer(__name__)
+    return provider.get()
 
 
 def _get_tracer(module_name: str) -> trace.Tracer:
@@ -881,35 +1006,44 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        is_func_called = False
-        result = None
+        # Hide the real provider behind a NoOp for the call and restore the same
+        # object after, instead of disable()+enable() which rebuilt (and leaked)
+        # a BatchSpanProcessor thread every call (#24209).
+        entered = False
         try:
-            if is_tracing_enabled():
-                disable()
-                try:
-                    is_func_called = True
-                    result = f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                is_func_called = True
-                result = f(*args, **kwargs)
-        # We should only catch the exception from disable() and enable()
-        # and let other exceptions propagate.
+            with _trace_disabled_lock:
+                if _trace_disabled_state["depth"] == 0:
+                    if not is_tracing_enabled():
+                        return f(*args, **kwargs)
+                    # Pin `once` on so a lazy get_or_init_tracer() in f() can't
+                    # re-initialize over the NoOp.
+                    _trace_disabled_state["saved_once"] = provider.once._done
+                    _trace_disabled_state["saved_provider"] = provider._swap_raw(
+                        trace.NoOpTracerProvider()
+                    )
+                    provider.once._done = True
+                _trace_disabled_state["depth"] += 1
+                entered = True
         except MlflowTracingException as e:
             _logger.warning(
-                f"An error occurred while disabling or re-enabling tracing: {e} "
-                "The original function will still be executed, but the tracing "
-                "state may not be as expected. For full traceback, set "
-                "logging level to debug.",
+                f"An error occurred while disabling tracing: {e} The original "
+                "function will still be executed, but the tracing state may not be "
+                "as expected. For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            # If the exception is raised before the original function
-            # is called, we should call the original function
-            if not is_func_called:
-                result = f(*args, **kwargs)
+            return f(*args, **kwargs)
 
-        return result
+        try:
+            return f(*args, **kwargs)
+        finally:
+            if entered:
+                with _trace_disabled_lock:
+                    _trace_disabled_state["depth"] -= 1
+                    if _trace_disabled_state["depth"] == 0:
+                        provider._swap_raw(_trace_disabled_state["saved_provider"])
+                        provider.once._done = _trace_disabled_state["saved_once"]
+                        _trace_disabled_state["saved_provider"] = None
+                        _trace_disabled_state["saved_once"] = None
 
     return wrapper
 

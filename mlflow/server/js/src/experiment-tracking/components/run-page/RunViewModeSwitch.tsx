@@ -3,7 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
-import { getTimeRangeQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
+import { getPreservedQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
@@ -83,7 +83,7 @@ export const RunViewModeSwitch = ({
 
     setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
 
-    const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+    const timeRangeSearch = getPreservedQueryString(searchParams.toString());
     const withSearchParams = (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route);
 
     if (newTabKey === RunPageTabName.OVERVIEW) {

@@ -30,6 +30,7 @@ import { getExperimentApi, setExperimentTagApi, updateExperimentApi } from '../.
 import { getExperimentNameValidator } from '../../../../common/forms/validations';
 import { useInvalidateExperimentList } from '../hooks/useExperimentListQuery';
 import { canModifyExperiment, canRenameExperiment } from '../utils/experimentPage.common-utils';
+import { useHeaderVisibility } from '../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import { useTraceArchivalEnabled } from '../../../hooks/useServerInfo';
 import {
   DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
@@ -186,6 +187,7 @@ export const ExperimentViewMetadataEditor = ({
 
   const dispatch = useDispatch<ThunkDispatch>();
   const invalidateExperimentList = useInvalidateExperimentList();
+  const { headerActionsHidden } = useHeaderVisibility();
   const canEditMetadata = canModifyExperiment(experiment);
   const canRename = canRenameExperiment(experiment);
   const traceArchivalEnabled = useTraceArchivalEnabled();
@@ -420,7 +422,7 @@ export const ExperimentViewMetadataEditor = ({
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
           </div>
-          {canEditMetadata && (
+          {canEditMetadata && !headerActionsHidden && (
             <Button
               componentId="mlflow.experiment.metadata_editor.edit_button"
               data-testid="experiment-metadata-editor-edit-button"

@@ -1,12 +1,18 @@
 import pytest
 
-from mlflow import MlflowClient, get_experiment_by_name, set_experiment
+import mlflow
+from mlflow import get_experiment_by_name, set_experiment
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.generators.traces import (
+    _PROVIDER_TO_LLM_SPAN_NAME,
+    DEMO_SESSION_TURN_TAG,
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
+from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 
 @pytest.fixture
@@ -17,10 +23,39 @@ def traces_generator():
     TracesDemoGenerator.version = original_version
 
 
+@pytest.fixture(scope="module")
+def generated_traces(tmp_path_factory):
+    """Generate the demo once per module and return the materialized list of traces.
+
+    Used by read-only structural tests so we don't re-generate the full demo per test.
+    The fixture controls its own tracking URI (the autouse function-scoped
+    tracking_uri_mock in the parent conftest doesn't apply at module setup time),
+    and the returned traces are in-memory Python objects so consuming tests don't
+    need the URI still set when they run. `flush=True` ensures the async trace
+    export queue is drained before we read.
+
+    Uses `_use_tracking_uri` (not get/set around `get_tracking_uri()`) so that the
+    pre-fixture state — typically `_tracking_uri = None` falling back to the default
+    — is restored exactly. Calling `set_tracking_uri(get_tracking_uri())` would
+    materialise the default's absolute path and leave it stuck in `_tracking_uri`,
+    poisoning later tests that opt out of the autouse fixture.
+    """
+    db_path = tmp_path_factory.mktemp("demo_shared") / "mlflow.db"
+    with _use_tracking_uri(f"sqlite:///{db_path}"):
+        TracesDemoGenerator().generate()
+        experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        return mlflow.search_traces(
+            locations=[experiment.experiment_id],
+            max_results=100,
+            return_type="list",
+            flush=True,
+        )
+
+
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
-    assert generator.version == 2
+    assert generator.version == 3
 
 
 def test_data_exists_false_when_no_experiment():
@@ -72,18 +107,11 @@ def test_delete_demo_removes_traces():
     assert generator._data_exists() is False
 
 
-def test_traces_have_expected_structure():
-    generator = TracesDemoGenerator()
-    generator.generate()
-
-    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
-
-    assert len(traces) > 0
+def test_traces_have_expected_structure(generated_traces):
+    assert len(generated_traces) > 0
 
     all_span_names = set()
-    for trace in traces:
+    for trace in generated_traces:
         all_span_names.update(span.name for span in trace.data.spans)
 
     assert "rag_pipeline" in all_span_names
@@ -93,41 +121,33 @@ def test_traces_have_expected_structure():
     assert "render_prompt" in all_span_names
     assert "embed_query" in all_span_names
     assert "retrieve_docs" in all_span_names
-    assert "generate_response" in all_span_names
+    assert "chat.completions.create" in all_span_names  # OpenAI
+    assert "messages.create" in all_span_names  # Anthropic
+    assert "generate_content" in all_span_names  # Google
 
 
-def test_traces_have_version_metadata():
-    generator = TracesDemoGenerator()
-    generator.generate()
-
-    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
-
-    v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
-    v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
+def test_traces_have_version_metadata(generated_traces):
+    v1_traces = [t for t in generated_traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
+    v2_traces = [t for t in generated_traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
     # 2 RAG + 2 agent + 6 prompt + 4 multimodal + 7 session = 21 per version
     assert len(v1_traces) == 21
     assert len(v2_traces) == 21
-    assert len(traces) == 42
+    assert len(generated_traces) == 42
 
 
-def test_traces_have_type_metadata():
-    generator = TracesDemoGenerator()
-    generator.generate()
-
-    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=50)
-
-    rag_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "rag"]
-    agent_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"]
+def test_traces_have_type_metadata(generated_traces):
+    rag_traces = [
+        t for t in generated_traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "rag"
+    ]
+    agent_traces = [
+        t for t in generated_traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"
+    ]
     prompt_traces = [
-        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "prompt"
+        t for t in generated_traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "prompt"
     ]
     session_traces = [
-        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
+        t for t in generated_traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
     ]
 
     # 2 RAG per version = 4 total
@@ -148,3 +168,125 @@ def test_is_generated_checks_version(traces_generator):
 
     TracesDemoGenerator.version = 99
     assert traces_generator.is_generated() is False
+
+
+def _is_chat_message(obj):
+    """
+    chat-utils/openai.ts has a normalizeOpenAIChatInput function
+    that asserts a chat-renderable message for inputs
+    """
+    return isinstance(obj, dict) and "role" in obj and "content" in obj
+
+
+def _has_openai_choices_shape(outputs):
+    """
+    ModalTraceExplorer.utils.tsx has a fallback which tries to
+    normalise responses if they are OpenAI-shaped
+    """
+    if not isinstance(outputs, dict):
+        return False
+    choices = outputs.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return False
+    return all(_is_chat_message(c.get("message")) for c in choices)
+
+
+def test_root_span_inputs_are_chat_renderable(generated_traces):
+    for trace in generated_traces:
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        inputs = root.inputs
+        assert isinstance(inputs, dict), f"Root span {root.name} inputs is not a dict"
+        messages = inputs.get("messages")
+        assert isinstance(messages, list), f"Root span {root.name} inputs missing 'messages' list"
+        assert messages, f"Root span {root.name} inputs has empty 'messages' list"
+        assert all(_is_chat_message(m) for m in messages), (
+            f"Root span {root.name} has malformed message in inputs"
+        )
+
+
+def test_llm_span_outputs_are_chat_renderable(generated_traces):
+    for trace in generated_traces:
+        for span in trace.data.spans:
+            if span.span_type != SpanType.LLM:
+                continue
+            assert _has_openai_choices_shape(span.outputs), (
+                f"LLM span {span.name} in trace {trace.info.trace_id} "
+                f"does not have OpenAI choices output shape"
+            )
+
+
+def test_root_span_outputs_are_chat_renderable(generated_traces):
+    for trace in generated_traces:
+        # Multimodal traces use the OpenAI Images / Audio API response shapes,
+        # not ChatCompletions; both render in the UI but via different normalizers.
+        if trace.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "multimodal":
+            continue
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        assert _has_openai_choices_shape(root.outputs), (
+            f"Root span {root.name} does not have OpenAI choices output shape"
+        )
+
+
+def test_trace_with_tools_has_react_shape(generated_traces):
+    for trace in generated_traces:
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        children = [s for s in trace.data.spans if s.parent_id == root.span_id]
+        tool_count = sum(1 for s in children if s.span_type == SpanType.TOOL)
+        if tool_count == 0:
+            continue
+        assert len(children) == 2 * tool_count + 1
+        ordered = sorted(children, key=lambda s: s.start_time_ns)
+        # Assert ordering now
+        expected = [SpanType.LLM, SpanType.TOOL] * tool_count + [SpanType.LLM]
+        assert [s.span_type for s in ordered] == expected
+
+
+def test_final_llm_span_emits_content(generated_traces):
+    for trace in generated_traces:
+        llm_spans = [s for s in trace.data.spans if s.span_type == SpanType.LLM]
+        if not llm_spans:
+            continue
+        last_llm = max(llm_spans, key=lambda s: s.start_time_ns)
+        choices = last_llm.outputs.get("choices", [])
+        content = choices[0].get("message", {}).get("content") if choices else None
+        assert isinstance(content, str)
+        assert content
+
+
+def test_span_name_matches_provider(generated_traces):
+    for trace in generated_traces:
+        for span in trace.data.spans:
+            # Multimodal traces use SpanType.CHAT_MODEL and are skipped by the LLM check below.
+            if span.span_type != SpanType.LLM:
+                continue
+            provider = span.attributes.get(SpanAttributeKey.MODEL_PROVIDER)
+            assert span.name == _PROVIDER_TO_LLM_SPAN_NAME[provider]
+
+
+def test_session_turns_thread_prior_history(generated_traces):
+    session_traces = [
+        t for t in generated_traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
+    ]
+    by_session: dict[str, list[object]] = {}
+    for trace in session_traces:
+        sid = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        by_session.setdefault(sid, []).append(trace)
+
+    multi_turn_sessions = [ts for ts in by_session.values() if len(ts) > 1]
+    assert multi_turn_sessions, "expected at least one session with multiple turns"
+
+    for turns in multi_turn_sessions:
+        turns.sort(key=lambda t: int(t.info.trace_metadata[DEMO_SESSION_TURN_TAG]))
+        prior_queries: list[str] = []
+        for turn in turns:
+            root = next(s for s in turn.data.spans if s.parent_id is None)
+            first_llm = min(
+                (s for s in turn.data.spans if s.parent_id == root.span_id),
+                key=lambda s: s.start_time_ns,
+            )
+            user_messages = [m for m in first_llm.inputs["messages"] if m.get("role") == "user"]
+            assert [m["content"] for m in user_messages] == [
+                *prior_queries,
+                root.inputs["messages"][0]["content"],
+            ]
+            prior_queries.append(root.inputs["messages"][0]["content"])

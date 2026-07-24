@@ -200,6 +200,104 @@ async def test_astream_streams_assistant_messages():
 
 
 @pytest.mark.asyncio
+async def test_astream_emits_usage_event_before_done():
+    mock_stdout = AsyncIterator([
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
+        b'{"type": "result", "session_id": "session-123", "total_cost_usd": 0.1319, '
+        b'"usage": {"input_tokens": 2, "cache_creation_input_tokens": 35155, '
+        b'"cache_read_input_tokens": 100, "output_tokens": 5}}\n',
+    ])
+
+    mock_process = MagicMock()
+    mock_process.stdout = mock_stdout
+    mock_process.stderr = MagicMock()
+    mock_process.stderr.read = AsyncMock(return_value=b"")
+    mock_process.wait = AsyncMock()
+    mock_process.returncode = 0
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ),
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    usage_events = [
+        e
+        for e in events
+        if e.type == EventType.STREAM_EVENT and e.data["event"].get("type") == "usage"
+    ]
+    assert len(usage_events) == 1
+    assert usage_events[0].data["event"]["usage"] == {
+        "prompt_tokens": 35257,
+        "completion_tokens": 5,
+        "total_tokens": 35262,
+        "cache_read_tokens": 100,
+        "total_cost_usd": 0.1319,
+    }
+    # The usage event must precede the DONE event, which closes the client stream.
+    assert events.index(usage_events[0]) < next(
+        i for i, e in enumerate(events) if e.type == EventType.DONE
+    )
+
+
+@pytest.mark.parametrize(
+    ("usage", "cost_usd", "expected"),
+    [
+        (
+            {"input_tokens": 10, "output_tokens": 5},
+            0.25,
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "cache_read_tokens": 0,
+                "total_cost_usd": 0.25,
+            },
+        ),
+        (
+            {
+                "input_tokens": 2,
+                "cache_creation_input_tokens": 100,
+                "cache_read_input_tokens": 50,
+                "output_tokens": 5,
+            },
+            None,
+            {
+                "prompt_tokens": 152,
+                "completion_tokens": 5,
+                "total_tokens": 157,
+                "cache_read_tokens": 50,
+                "total_cost_usd": None,
+            },
+        ),
+        (
+            {},
+            None,
+            {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "cache_read_tokens": 0,
+                "total_cost_usd": None,
+            },
+        ),
+    ],
+)
+def test_build_usage_event_sums_cache_tokens(usage, cost_usd, expected):
+    event = ClaudeCodeProvider._build_usage_event(usage, cost_usd)
+    assert event.type == EventType.STREAM_EVENT
+    assert event.data["event"]["type"] == "usage"
+    assert event.data["event"]["usage"] == expected
+
+
+@pytest.mark.asyncio
 async def test_astream_handles_process_error():
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([])
@@ -223,6 +321,29 @@ async def test_astream_handles_process_error():
 
     assert events[-1].type == EventType.ERROR
     assert "Command failed" in events[-1].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
 
 
 @pytest.mark.asyncio

@@ -4,10 +4,11 @@ from contextvars import ContextVar
 from typing import Any, AsyncGenerator
 from urllib.parse import urlparse, urlunparse
 
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
-)
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 from mlflow.utils.uri import append_to_uri_path
+
+_STRIPPED_HEADERS = frozenset({"accept-encoding", MLFLOW_GATEWAY_AUTH_HEADER.lower()})
 
 # Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
 # request context. Reset to 0.0 at the start of each request by the gateway timing middleware
@@ -25,11 +26,16 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
 
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
-    request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
+    # Also drop X-MLflow-Authorization (MLflow's own RBAC credential on gateway routes) so
+    # it is never forwarded to the upstream provider. This is the single egress choke point
+    # all proxy/passthrough paths funnel through.
+    request_headers = {k: v for k, v in headers.items() if k.lower() not in _STRIPPED_HEADERS}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
-    async with aiohttp.ClientSession(headers=request_headers) as session:
-        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
+    # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines
+    # emitted by some providers during streaming responses.
+    async with aiohttp.ClientSession(headers=request_headers, read_bufsize=2**20) as session:
+        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
         async with session.post(url, json=payload, timeout=timeout) as response:
             yield response
 

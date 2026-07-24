@@ -14,7 +14,10 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.time import get_current_time_millis
+
+from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -544,3 +547,51 @@ def test_start_trace_with_assessments_missing_trace_id(store):
     assert len(result.assessments) == 1
     assert result.assessments[0].trace_id == trace_id
     assert result.assessments[0].name == "test_feedback"
+
+
+def test_create_assessment_for_deleted_trace_returns_not_found(store):
+    # The actual repro: a trace that exists is deleted (e.g. while still attached to a
+    # review queue), then a review is submitted for it. The assessment insert trips the
+    # trace_id foreign key; the store must surface a clean "not found" rather than the raw
+    # SQL error. Runs in both fixture modes: workspace mode raises in
+    # `_validate_trace_accessible`; single-tenant mode hits the IntegrityError fallback.
+    exp_id = store.create_experiment("assess_deleted_trace")
+    _create_trace(store, "tr-doomed", experiment_id=exp_id)
+    store.delete_traces(exp_id, trace_ids=["tr-doomed"])
+
+    feedback = Feedback(
+        trace_id="tr-doomed",
+        name="quality",
+        value="looks good",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer"),
+    )
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.create_assessment(feedback)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    message = str(exc.value)
+    assert "IntegrityError" not in message
+    assert "INSERT INTO" not in message
+
+
+def test_create_assessment_constraint_violation_is_not_reported_as_missing_trace(
+    store_and_trace_info,
+):
+    # An IntegrityError unrelated to the trace foreign key (here a duplicate
+    # assessment_id primary key, on a trace that exists) must not be mislabeled as
+    # "trace not found". It should raise a generic, non-SQL-leaking error instead.
+    store, trace_info = store_and_trace_info
+    source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer")
+
+    first = Feedback(trace_id=trace_info.request_id, name="quality", value="a", source=source)
+    first.assessment_id = "a-duplicate-id"
+    store.create_assessment(first)
+
+    second = Feedback(trace_id=trace_info.request_id, name="quality", value="b", source=source)
+    second.assessment_id = "a-duplicate-id"
+    with pytest.raises(MlflowException, match="constraint violation") as exc:
+        store.create_assessment(second)
+    assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+    message = str(exc.value)
+    assert "not found" not in message
+    assert "IntegrityError" not in message
+    assert "INSERT INTO" not in message

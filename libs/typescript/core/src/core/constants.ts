@@ -118,9 +118,27 @@ export const TraceTagKey = {
 export const TRACE_SCHEMA_VERSION = '3';
 
 /**
- * The prefix for MLflow trace IDs
+ * The prefix for MLflow trace IDs (V3 schema).
  */
 export const TRACE_ID_PREFIX = 'tr-';
+
+/**
+ * The prefix for V4 schema trace IDs (Databricks Unity Catalog backed
+ * traces). Full format: `trace:/<location>/<hex_trace_id>`.
+ */
+export const TRACE_ID_V4_PREFIX = 'trace:/';
+
+/**
+ * HTTP header used to route OTLP span uploads to a specific Databricks
+ * Unity Catalog table when sending to /api/2.0/otel/v1/traces.
+ */
+export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
+
+/**
+ * HTTP header used to associate OTLP span uploads with an MLflow experiment
+ * when sending to the OSS tracking server's /v1/traces endpoint.
+ */
+export const MLFLOW_EXPERIMENT_ID_HEADER = 'x-mlflow-experiment-id';
 
 /**
  * The default name for spans if the name is not provided when starting a span

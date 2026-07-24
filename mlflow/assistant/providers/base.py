@@ -54,6 +54,11 @@ class AssistantProvider(ABC):
     def is_available(self) -> bool:
         """Check if the provider is available and ready to use."""
 
+    @property
+    def allows_remote_access(self) -> bool:
+        """Whether this provider can serve requests from remote clients."""
+        return False
+
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
@@ -77,7 +82,7 @@ class AssistantProvider(ABC):
             Resolved absolute path for skills installation.
         """
 
-    def list_models(self, base_url: str | None = None) -> list[str]:
+    def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
         raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
 
     @abstractmethod

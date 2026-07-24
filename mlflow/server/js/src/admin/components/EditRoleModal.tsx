@@ -12,6 +12,7 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
+import { ConfirmationModal } from '../ConfirmationModal';
 import {
   useAddPermission,
   useAssignRole,
@@ -22,6 +23,7 @@ import {
   useUpdateRole,
   useUsersQuery,
 } from '../hooks';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
@@ -76,6 +78,12 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const currentName = roleData?.role?.name ?? '';
   const currentDescription = roleData?.role?.description ?? '';
   const currentWorkspace = roleData?.role?.workspace ?? '';
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // to the resource picker so the ``X-MLFLOW-WORKSPACE`` header is omitted
+  // (the server rejects any workspace header, including ``default``, when
+  // workspaces are disabled).
+  const resourcePickerWorkspace = workspacesEnabled ? currentWorkspace : undefined;
 
   const currentPermissions = useMemo<StagedRolePermission[]>(() => {
     return (roleData?.role?.permissions ?? []).map((p) => ({
@@ -105,6 +113,11 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const [usernames, setUsernames] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reported by ``RolePermissionsSection`` whenever the in-progress draft
+  // is dirty. Drives a discard-confirm dialog on ``Review changes`` so the
+  // admin can't silently abandon a partially-filled permission.
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading;
 
@@ -121,6 +134,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     setStep('edit');
     setSubmitting(false);
     setError(null);
+    // ``hasUnsavedDraft`` isn't reset here — the ``key={String(open)}`` on
+    // ``RolePermissionsSection`` below remounts the section on every open.
+    setShowDiscardConfirm(false);
     prefilledRef.current = false;
   }, [open]);
 
@@ -290,7 +306,15 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             <Button
               componentId="admin.edit_role_modal.review"
               type="primary"
+              // Submit isn't blocked on an unsaved draft — instead we gate
+              // on it via a discard-confirm dialog so the admin can either
+              // go back and click Add, or knowingly drop the draft and
+              // proceed to the review step.
               onClick={() => {
+                if (hasUnsavedDraft) {
+                  setShowDiscardConfirm(true);
+                  return;
+                }
                 setError(null);
                 setStep('review');
               }}
@@ -395,11 +419,16 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Current permissions are pre-filled. Remove a row to revoke; use the form below to add more.
                 </Typography.Text>
+                {/* ``key={String(open)}`` forces a fresh mount on every
+                    reopen so the section's internal ``draft`` can't bleed
+                    across close → reopen. */}
                 <RolePermissionsSection
+                  key={String(open)}
                   value={permissions}
                   onChange={setPermissions}
-                  workspace={currentWorkspace}
+                  workspace={resourcePickerWorkspace}
                   disabled={submitting}
+                  onUnsavedDraftChange={setHasUnsavedDraft}
                 />
               </LongFormSection>
               <LongFormSection title="Assigned users" hideDivider>
@@ -414,6 +443,21 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       ) : (
         <ReviewSummary diff={diff} permissionByIdLabel={permissionByIdLabel} />
       )}
+      <ConfirmationModal
+        componentId="admin.edit_role_modal.discard_unsaved_draft"
+        title="Discard unsaved role permission?"
+        visible={showDiscardConfirm}
+        message="You started adding a permission to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        okText="Continue"
+        cancelText="Back"
+        danger={false}
+        onCancel={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          setError(null);
+          setStep('review');
+        }}
+      />
     </Modal>
   );
 };

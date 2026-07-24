@@ -1,7 +1,7 @@
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     Assessment,
@@ -28,6 +28,8 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
+    from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -40,12 +42,12 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
@@ -55,7 +57,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore(GatewayStoreMixin):
+class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -918,8 +920,27 @@ class AbstractStore(GatewayStoreMixin):
             for metric in metrics_for_run
         ]
 
+    @staticmethod
+    def _evenly_spaced_indices(total: int, max_results: int) -> list[int]:
+        """Return at most ``max_results`` evenly spaced indices into a sequence of ``total`` items,
+        always including the first and last index.
+        """
+        if total <= 0:
+            return []
+        if total <= max_results:
+            return list(range(total))
+        if max_results == 1:
+            return [total - 1]
+        step = (total - 1) / (max_results - 1)
+        return sorted({round(i * step) for i in range(max_results)})
+
     def get_metric_history_bulk_interval(
-        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int | None,
+        end_step: int | None,
     ) -> list[MetricWithRunId]:
         """
         Return a list of metric objects for a given metric across multiple runs,
@@ -929,13 +950,17 @@ class AbstractStore(GatewayStoreMixin):
         to limit the result size, and returns metrics for the sampled steps. The
         sampling preserves min/max steps to maintain data boundaries.
 
+        Each run is sampled independently, so runs with differing history lengths may return
+        different steps. Consumers should align runs by step value rather than by index.
+
         Args:
             run_ids: List of unique identifiers for runs.
             metric_key: Metric name to retrieve across runs.
             max_results: Maximum number of steps to sample from the step range.
-            start_step: Starting step of the range (inclusive). If None, starts from 0.
-            end_step: Ending step of the range (inclusive). If None, uses the maximum
-                step found across all runs.
+            start_step: Starting step of the range (inclusive). Must be provided together with
+                end_step; if both are None the full range is used (starting from 0).
+            end_step: Ending step of the range (inclusive). Must be provided together with
+                start_step; if both are None the full range is used (up to the maximum step).
 
         Returns:
             A list of `MetricWithRunId` objects containing metric data for the sampled
@@ -945,6 +970,12 @@ class AbstractStore(GatewayStoreMixin):
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
+        if (start_step is None) != (end_step is None):
+            raise MlflowException.invalid_parameter_value(
+                "Both start_step and end_step must be provided together, "
+                "or neither should be provided."
+            )
+        max_results = max(1, max_results)
         all_runs = [
             [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
         ]
@@ -982,15 +1013,24 @@ class AbstractStore(GatewayStoreMixin):
             sampled_steps.add(all_steps[end_idx - 1])
 
         steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        # Bound the rows returned per run to roughly the requested sample size. ``steps`` already
+        # holds at most ~``max_results`` distinct steps, so ``len(steps)`` is the expected result
+        # size when one value is logged per step. Capping here keeps the response bounded when many
+        # values share a single step (e.g. the default ``step=0``), which would otherwise return
+        # up to ``MAX_RESULTS_GET_METRIC_HISTORY`` rows for that step and cause large memory spikes.
+        # The rows are sampled evenly across the run's full ordered history rather than truncated,
+        # so steps at the end of the range are not crowded out by steps holding many values.
+        per_run_max_results = max(max_results, len(steps))
+        step_set = set(steps)
         metrics_with_run_ids = []
         for run_id in run_ids:
+            run_metrics = sorted(
+                (m for m in self.get_metric_history(run_id, metric_key) if m.step in step_set),
+                key=lambda metric: (metric.step, metric.timestamp),
+            )
             metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                )
+                MetricWithRunId(run_id=run_id, metric=run_metrics[i])
+                for i in self._evenly_spaced_indices(len(run_metrics), per_run_max_results)
             )
         return metrics_with_run_ids
 
@@ -1732,5 +1772,353 @@ class AbstractStore(GatewayStoreMixin):
         Returns:
             List of OnlineScorer entities with serialized_scorer, sample_rate,
             and filter_string fields populated.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Label schemas: UI rendering hints attached to an experiment.
+    # See mlflow/genai/label_schemas/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: Literal["feedback", "expectation"],
+        input: "InputType",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name, unique within the experiment. Shown to
+                reviewers as the label prompt and used as the assessment key.
+            type: Schema type (``"feedback"`` or ``"expectation"``).
+            input: One of ``InputPassFail`` / ``InputCategorical`` /
+                ``InputNumeric`` / ``InputText``.
+            instruction: Optional supplementary guidance shown to reviewers.
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema(self, schema_id: str) -> "LabelSchema":
+        """Fetch a label schema by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        """Fetch a label schema by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> PagedList["LabelSchema"]:
+        """List label schemas for an experiment, ordered by creation time descending."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputType | None" = None,
+    ) -> "LabelSchema":
+        """Sparse update on a label schema.
+
+        ``type`` is immutable post-create and is not accepted as a parameter.
+        Renames are supported (set ``name`` to the new value); existing
+        assessment rows are not migrated.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if schema_id doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on rename collision.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_label_schema(self, schema_id: str) -> None:
+        """Hard-delete a label schema. No-op if it doesn't exist.
+
+        Assessments whose ``name`` matches this schema retain their data
+        but render as free-form values in the UI after deletion.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Review queues: named bundles of attached items + questions (label
+    # schemas) + assigned users, scoped to an experiment. See
+    # mlflow/genai/review_queues/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: Literal["user", "custom"],
+        created_by: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        """Create a review queue scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Queue name, unique within the experiment. For a user
+                queue this is the user identifier; ``"default"``/``"Default"``
+                are reserved and rejected for custom queues.
+            queue_type: ``"user"`` (exactly one assigned user equal to
+                ``name``, inherits all of the experiment's schemas) or
+                ``"custom"`` (0..N users, an explicit schema subset).
+            created_by: User who created the queue (audit).
+            users: Assigned users. For a user queue this must be ``[name]``
+                or omitted (derived); for a custom queue, 0..N users.
+            schema_ids: Attached label-schema ids. Must be empty/omitted for
+                a user queue (resolves to all schemas at read time); the
+                chosen subset for a custom queue.
+
+        Returns:
+            The created :py:class:`ReviewQueue` with backend-generated
+            ``queue_id`` and its hydrated ``users`` / ``schema_ids``.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_or_create_user_queue(
+        self,
+        experiment_id: str,
+        *,
+        user: str,
+    ) -> "ReviewQueue":
+        """Return the user's personal queue for an experiment, creating it
+        if absent.
+
+        The queue is owned by its user (``created_by`` is set to ``user``),
+        so there is no caller-supplied owner. Atomic and idempotent:
+        concurrent callers converge on the single ``(experiment_id, name=user)``
+        user queue. This is the backbone of "assign these traces to this
+        person" — get-or-create then attach.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        """Fetch a review queue by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue_by_name(self, experiment_id: str, *, name: str) -> "ReviewQueue":
+        """Fetch a review queue by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        item_id: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueue"]:
+        """List an experiment's review queues, newest first.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            user: If set, restrict to queues this user is assigned to (their
+                user queue plus any custom queue they belong to).
+            item_id: If set, restrict to queues that already contain this item
+                (a trace id), so callers can see which queues it is a member of.
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+        name: str | None = None,
+        new_owner: str | None = None,
+    ) -> "ReviewQueue":
+        """Edit a custom queue's name, assigned users, attached schemas, and/or owner.
+
+        ``None`` leaves that field untouched; a value (a list, possibly empty,
+        for the association sets; a string for ``name`` / ``new_owner``) replaces
+        it wholesale. ``queue_type`` is immutable and user queues reject this
+        call (their name, user, schemas, and owner are fixed). ``name`` is
+        validated as a custom queue name (non-empty, non-reserved) and must be
+        unique within the experiment. ``new_owner`` reassigns ownership
+        (``created_by``); it is stored case-preserved (matching is
+        case-insensitive). Authorization differs per field — owner reassignment
+        is MANAGE-only while the other edits are allowed to an owning EDIT user —
+        but that gate lives at the handler layer, not here.
+
+        ``schema_ids`` (the questions) are frozen once the queue has any
+        attached items: changing them after reviewers start would strand
+        answers or leave completed items with never-seen questions. Detach
+        the items first to edit questions. Assigned users, name, and owner stay
+        editable.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(RESOURCE_ALREADY_EXISTS): if ``name`` collides with
+                another queue in the experiment.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
+                when called against a user queue, or when changing
+                ``schema_ids`` on a queue that already has items.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_review_queue(self, queue_id: str) -> None:
+        """Hard-delete a queue and its user / item / schema associations.
+
+        No-op if the queue doesn't exist. Assessments written by reviewers
+        against the queue's items are unaffected.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_items_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        item_ids: list[str],
+        item_type: Literal["trace"] = "trace",
+    ) -> list["ReviewQueueItem"]:
+        """Attach items to a queue, returning the resulting queue items.
+
+        Idempotent per item: re-attaching an already-attached item is a
+        no-op that preserves its existing status. Newly-attached items
+        start ``pending``. The returned list covers every requested
+        ``item_id`` (newly-added and already-present), in the requested
+        order, except that an item removed concurrently (between its insert
+        and the read-back) is omitted — callers should reconcile the
+        returned items against their requested ``item_ids`` rather than
+        assume a 1:1 result.
+
+        ``item_ids`` are stored as soft references — this store method
+        validates only their shape, NOT that each is a real trace in the
+        queue's experiment/workspace. Trace existence and workspace
+        membership are enforced at the handler/API layer that fronts this
+        method (the proto/REST stack), keeping attachment resilient to
+        archived traces.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        """Detach items from a queue. No-op for items not attached.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queue_items(
+        self,
+        queue_id: str,
+        *,
+        status: Literal["pending", "complete", "declined"] | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueueItem"]:
+        """List a queue's attached items, newest-attached first.
+
+        Args:
+            queue_id: The queue to list.
+            status: Optional filter on shared-pool status.
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_review_queue_item_status(
+        self,
+        queue_id: str,
+        *,
+        item_id: str,
+        status: Literal["pending", "complete", "declined"],
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        """Set the shared-pool status of an attached item.
+
+        Moving to ``complete`` / ``declined`` records ``completed_by`` and a
+        completion timestamp; moving back to ``pending`` (reopen) clears
+        both. ``completed_by`` is required for the terminal states and
+        rejected for ``pending``. This is an explicit reviewer action and is
+        never triggered by writing an assessment.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue or the
+                attached item doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)

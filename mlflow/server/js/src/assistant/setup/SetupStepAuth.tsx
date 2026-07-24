@@ -1,6 +1,7 @@
 import type { AuthState } from '../types';
 import { ClaudeCodeAuth } from './ClaudeCodeAuth';
 import { CodexAuth } from './CodexAuth';
+import { MLflowGatewayAuth } from './MLflowGatewayAuth';
 import { OllamaAuth } from './OllamaAuth';
 
 interface SetupStepAuthProps {
@@ -38,6 +39,13 @@ export const SetupStepAuth = ({
         onContinue={onContinue}
       />
     );
+  }
+
+  if (provider === 'mlflow_gateway') {
+    // MLflowGatewayAuth has no auth status to cache — the gateway lives
+    // in the same MLflow server, so we drop the cachedAuthStatus /
+    // onAuthStatusChange props that the other Auth components consume.
+    return <MLflowGatewayAuth onBack={onBack} onContinue={onContinue} />;
   }
 
   return (

@@ -1,9 +1,10 @@
-"""Rule to detect redundant docstrings in test functions and classes.
+"""Rule to detect redundant docstrings in test files.
 
-This rule flags ALL single-line docstrings in test functions and classes.
-Single-line docstrings in tests rarely provide meaningful context and are
-typically redundant. Multi-line docstrings are always allowed as they
-generally provide meaningful context.
+This rule flags:
+- ALL single-line docstrings in test functions and classes (multi-line
+  function/class docstrings are allowed since they generally provide
+  meaningful context).
+- ALL module-level docstrings in test files (single- or multi-line).
 """
 
 import ast
@@ -46,26 +47,18 @@ class RedundantTestDocstring(Rule):
 
     @staticmethod
     def check_module(module: ast.Module, path_name: str) -> ast.Constant | None:
-        """Check if module-level docstring is redundant."""
         if not (path_name.startswith("test_") or path_name.endswith("_test.py")):
             return None
 
-        # Check raw docstring for multiline detection
         if (
             module.body
             and isinstance(module.body[0], ast.Expr)
             and isinstance(module.body[0].value, ast.Constant)
             and isinstance(module.body[0].value.value, str)
         ):
-            raw_docstring = module.body[0].value.value
-            # Only flag single-line module docstrings
-            if "\n" not in raw_docstring:
-                return module.body[0].value
+            return module.body[0].value
 
         return None
 
     def _message(self) -> str:
-        return (
-            "Single-line docstrings in tests rarely provide meaningful context. "
-            "Consider removing it."
-        )
+        return "Docstrings in test files rarely provide meaningful context. Consider removing it."
