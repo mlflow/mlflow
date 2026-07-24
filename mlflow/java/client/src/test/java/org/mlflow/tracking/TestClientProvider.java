@@ -143,7 +143,11 @@ public class TestClientProvider {
       public void run() {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inStream,
           StandardCharsets.UTF_8));
-        reader.lines().forEach(outStream::println);
+        try {
+          reader.lines().forEach(outStream::println);
+        } catch (UncheckedIOException e) {
+          // Expected when the server process is destroyed while this thread is mid-read
+        }
         logger.info("Drain completed on " + threadName);
       }
     };
