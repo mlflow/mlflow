@@ -81,3 +81,7 @@ div.mlflow-artifact-view {
   max-width: 160px;
   text-overflow: ellipsis;
 }
+.mlflow-artifact-right img {
+  max-width: 100%;
+  height: auto;
+}
