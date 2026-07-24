@@ -2,6 +2,7 @@ import type { TagProps } from '@databricks/design-system';
 import type {
   ConnectOptionKey,
   MCPAccessEndpoint,
+  MCPIcon,
   MCPServer,
   MCPRemoteTransportType,
   MCPTool,
@@ -10,6 +11,12 @@ import type {
   ServerJSONPayload,
 } from './types';
 import { MCPStatus, MCPServerAction } from './types';
+
+export const resolveIcon = (icons?: MCPIcon[], isDarkMode?: boolean): MCPIcon | undefined => {
+  if (!icons?.length) return undefined;
+  const preferred = isDarkMode ? 'dark' : 'light';
+  return icons.find((i) => i.theme === preferred) ?? icons.find((i) => !i.theme);
+};
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
   if (!url) return undefined;

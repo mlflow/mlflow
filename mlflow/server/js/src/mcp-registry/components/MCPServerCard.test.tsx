@@ -82,10 +82,31 @@ describe('MCPServerCard', () => {
     expect(screen.queryByText(/:/)).not.toBeInTheDocument();
   });
 
+  describe('icon fallback priority', () => {
+    const serverIcon = { src: 'https://example.com/server-icon.svg', source: 'server' as const };
+    const sjIcon = { src: 'https://example.com/sj-icon.svg', source: 'version' as const };
+
+    it('uses server-source icons when present', () => {
+      const { container } = renderCard(createMockMCPServer({ icons: [serverIcon, sjIcon] }));
+      expect(container.querySelector('img')).toHaveAttribute('src', serverIcon.src);
+    });
+
+    it('renders version-source icons when no server-source icons exist', () => {
+      const { container } = renderCard(createMockMCPServer({ icons: [sjIcon] }));
+      expect(container.querySelector('img')).toHaveAttribute('src', sjIcon.src);
+    });
+
+    it('falls back to McpIcon when icons is absent', () => {
+      const { container } = renderCard(createMockMCPServer({ icons: undefined }));
+      expect(container.querySelector('svg')).toBeTruthy();
+      expect(container.querySelector('img')).toBeNull();
+    });
+  });
+
   describe('dimmed card with auth available', () => {
     setupServer(getMockedCurrentUserResponse({ isAdmin: false }));
 
-    it('renders with dimmed styling when server has no access_endpoints and status is active', async () => {
+    it('renders card without dimming when server is active but has no access_endpoints', async () => {
       renderCard(
         createMockMCPServer({
           name: 'io.github.test/dimmed',

@@ -58,7 +58,7 @@ export const EditVersionModal = ({
     }
 
     updateVersionMutation.mutate(payload, {
-      onSuccess: onClose,
+      onSuccess: () => onClose(),
     });
   };
 

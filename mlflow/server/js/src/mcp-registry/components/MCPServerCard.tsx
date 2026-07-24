@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPServer } from '../types';
 import MCPRegistryRoutes from '../routes';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
-import { resolveDisplayName } from '../utils';
+import { findLatestEndpoint, resolveDisplayName } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -22,7 +22,8 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
     : undefined;
-  const { isDimmed, isUnavailable } = useServerState(server);
+  const { isDimmed } = useServerState(server);
+  const hasEndpoint = findLatestEndpoint(server) !== undefined;
   const hasTags = Object.keys(server.tags || {}).length > 0;
 
   return (
@@ -71,7 +72,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
                 {timestamp}
               </Typography.Text>
             )}
-            {!isUnavailable && (
+            {hasEndpoint && (
               <Button
                 componentId="mlflow.mcp_registry.card.connect"
                 type="tertiary"
@@ -85,7 +86,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
                 css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
               />
             )}
-            {isUnavailable && (
+            {!hasEndpoint && (
               <Tooltip
                 componentId="mlflow.mcp_registry.card.endpoints_tooltip"
                 content={
