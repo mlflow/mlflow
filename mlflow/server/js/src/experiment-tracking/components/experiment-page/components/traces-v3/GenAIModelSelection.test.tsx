@@ -278,5 +278,32 @@ describe('GenAIModelSelection', () => {
       fireEvent.click(getAllByText('Manage connections')[0]);
       expect(mockNavigate).toHaveBeenCalledWith('/settings/llm-connections');
     });
+
+    test('"Enter model details manually" link opens the manual configuration modal', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const { getByText, queryByText } = renderGenAIModelSelection(
+        <GenAIModelSelection {...defaultProps} showConfigureDirectly />,
+      );
+
+      expect(queryByText('Configure model manually')).not.toBeInTheDocument();
+      fireEvent.click(getByText('Enter model details manually'));
+      await waitFor(() => {
+        expect(getByText('Configure model manually')).toBeInTheDocument();
+      });
+    });
+
+    test('the manual configuration modal exposes a disabled "Use this model" primary action until valid', async () => {
+      mockSecretsQueryResult([SECRET_WITH_MODELS]);
+
+      const { getByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
+
+      fireEvent.click(getByText('Enter model details manually'));
+      await waitFor(() => {
+        expect(getByText('Configure model manually')).toBeInTheDocument();
+      });
+      // No API key entered yet, so the primary action is disabled.
+      expect(getByText('Use this model').closest('button')).toBeDisabled();
+    });
   });
 });
