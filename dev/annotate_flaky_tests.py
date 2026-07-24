@@ -21,21 +21,8 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
-
-# The classifier's rationale is LLM-generated text that ends up in a public PR body.
-# It is derived only from the test nodeid, flake count, and error message (none of which
-# carry PII in CI), but as defense-in-depth we redact anything email-shaped before
-# publishing it — an error message could in principle assert on a fixture email address.
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-
-
-def _scrub_pii(text: object) -> str:
-    # `rationale` may be missing, null, or otherwise non-string in `classified.json`;
-    # coerce to a string so `re.sub` can never raise and abort the annotate step.
-    return _EMAIL_RE.sub("[redacted-email]", str(text) if text else "")
 
 
 @dataclass
@@ -190,9 +177,9 @@ def main() -> None:
         if verdict.get("action") != "annotate" or not entry.get("test"):
             continue
         # The classifier's rationale is surfaced in the PR body so a reviewer sees *why*
-        # each test was judged a retry-safe flake. Scrub any email-shaped PII from the
-        # model's free-form text before it is published.
-        rationale = _scrub_pii(verdict.get("rationale", ""))
+        # each test was judged a retry-safe flake. It may be missing or null in
+        # `classified.json`; coerce to a string so the report builder never sees None.
+        rationale = str(verdict.get("rationale") or "")
         split = _split_nodeid(entry["test"])
         if split is None:
             results.append(

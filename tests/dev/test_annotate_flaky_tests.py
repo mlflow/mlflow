@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
 import annotate_flaky_tests
-from annotate_flaky_tests import _scrub_pii, _split_nodeid, annotate_file
+from annotate_flaky_tests import _split_nodeid, annotate_file
 
 
 def _annotate(tmp_path: Path, source: str, nodeid_suffix: str, attempts: int = 3):
@@ -95,24 +95,8 @@ def test_unparsable_file_is_handled_gracefully(tmp_path: Path):
     assert result.note == "file did not parse"
 
 
-def test_scrub_pii_redacts_email_addresses():
-    assert _scrub_pii("failed for user alice@example.com in setup") == (
-        "failed for user [redacted-email] in setup"
-    )
-    # Non-email text (including nodeids and error categories) is left intact.
-    assert _scrub_pii("timeout after 20s; job PENDING") == "timeout after 20s; job PENDING"
-
-
-def test_scrub_pii_coerces_none_and_non_string():
-    # `rationale` may be absent (None) or non-string in `classified.json`; scrubbing must
-    # never raise and abort the annotate step.
-    assert _scrub_pii(None) == ""
-    assert _scrub_pii(42) == "42"
-
-
-def test_report_includes_scrubbed_rationale(tmp_path, monkeypatch):
-    # The classifier's rationale must reach the PR-body report under each annotated test,
-    # with any email-shaped PII redacted first.
+def test_report_includes_rationale(tmp_path, monkeypatch):
+    # The classifier's rationale must reach the PR-body report under each annotated test.
     repo = tmp_path
     test_file = repo / "tests" / "test_sample.py"
     test_file.parent.mkdir(parents=True)
@@ -126,7 +110,7 @@ def test_report_includes_scrubbed_rationale(tmp_path, monkeypatch):
                 "verdict": {
                     "action": "annotate",
                     "attempts": 2,
-                    "rationale": "Load-induced timeout reported by bob@example.com; safe to retry.",
+                    "rationale": "Load-induced timeout; passed on retry unchanged.",
                 },
             }
         ])
@@ -142,8 +126,37 @@ def test_report_includes_scrubbed_rationale(tmp_path, monkeypatch):
 
     body = report.read_text()
     assert "- `tests/test_sample.py::test_a` — `attempts=2`" in body
-    assert "_Why:_ Load-induced timeout reported by [redacted-email]; safe to retry." in body
-    assert "bob@example.com" not in body
+    assert "_Why:_ Load-induced timeout; passed on retry unchanged." in body
+
+
+def test_report_handles_null_rationale(tmp_path, monkeypatch):
+    # A missing/null rationale must not raise or emit a `_Why:_` line.
+    repo = tmp_path
+    test_file = repo / "tests" / "test_sample.py"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text("import pytest\n\n\ndef test_a():\n    assert True\n")
+
+    classified = repo / "classified.json"
+    classified.write_text(
+        json.dumps([
+            {
+                "test": "tests/test_sample.py::test_a",
+                "verdict": {"action": "annotate", "attempts": 2, "rationale": None},
+            }
+        ])
+    )
+    report = repo / "annotated.md"
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["annotate_flaky_tests.py", "--in", str(classified), "--report", str(report)],
+    )
+    annotate_flaky_tests.main()
+
+    body = report.read_text()
+    assert "- `tests/test_sample.py::test_a` — `attempts=2`" in body
+    assert "_Why:_" not in body
 
 
 def test_nodeid_escaping_repo_is_rejected(tmp_path, monkeypatch, capsys):
