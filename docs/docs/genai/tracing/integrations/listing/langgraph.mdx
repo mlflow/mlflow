@@ -162,7 +162,7 @@ def get_weather(city: Literal["nyc", "sf"]):
 # Replace the model name with your Databricks serving endpoint.
 # See the Databricks integration page for endpoint setup:
 # /genai/tracing/integrations/listing/databricks
-llm = ChatDatabricks(model="databricks-claude-opus-4")
+llm = ChatDatabricks(endpoint="databricks-claude-opus-4")
 tools = [get_weather]
 graph = create_react_agent(llm, tools)
 
@@ -305,6 +305,7 @@ with mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
 
 # Avoid: a count leaves nothing to debug
 with mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
+    span.set_inputs({"query": query})
     docs = retriever.invoke(query)
     span.set_outputs({"count": len(docs)})
 ```
