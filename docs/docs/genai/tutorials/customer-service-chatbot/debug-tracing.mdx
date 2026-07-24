@@ -1,0 +1,919 @@
+# Tutorial: Prototype and Debug AI Agents with MLflow Tracing
+
+import { APILink } from "@site/src/components/APILink";
+
+This is the first part of a tutorial series on developing and iterating on AI agents using MLflow.
+
+There are several unique challenges associated with AI agents and agent systems:
+
+- Different combinations of models, prompts, tools, and inference parameters can have huge impacts on an agent's performance. Keeping track of tests and experiments comparing performance across different combinations of these elements is challenging.
+- It can be difficult to define what makes an agent's responses "good" or "bad," making it challenging to evaluate agent performance.
+- Identifying sources of errors or breakdowns in application logic is very difficult when dealing with complex agent systems that include a mix of AI models calls, tool calls, handoffs, human input, and other complex interactions.
+
+MLflow helps to solve these problems by providing a suite of tools for tracing and visualizing all of your AI agent calls, evaluating your models and applications, building application logic into custom models, tracking and versioning your models, and deploying your models to production.
+
+## Use Case: Building a Food Delivery Support Chat Agent
+
+In this tutorial, we will be building a food delivery support chat agent that can help customers with their orders. We will build tools enabling the agent to search for the status of an order, to cancel an order, and to escalate the order to a human agent. This is a simple but highly representative use case for an AI agent: it handles human input, retrieves data, and takes actions on behalf of users.
+
+It's also a use case where mistakes can be costly and can lead to customer churn, so iterating on the agent's quality is critical. It should be friendly and polite when interacting with customers; the information it provides must be accurate; and escalations should be handled gracefully. This is where MLflow comes in: it will help us iterate on the agent's quality during prototyping with MLflow tracing, define our evaluation criteria with MLflow scorers, and compare different agent configurations with MLflow evaluation.
+
+### Simplifying Assumptions
+
+The goal of this tutorial is to show you how to use MLflow to prototype, debug, evaluate, and iterate on your AI agents; _not_ to build a complete production-ready system. To that end, we will make a number of simplifications for the sake of brevity and clarity:
+
+- We will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve order statuses from a database or API.
+- We will not implement an authentication system to ensure that the agent only returns information about orders that are associated with the user. In a real-world application, it would be important to ensure that the agent can only access information about orders that are associated with the logged-in user.
+- Tool calls that are intended to take an action on behalf of the user, such as canceling an order, will only trigger simulated API calls and responses.
+
+## Setup
+
+Before we build our agent, let's install the dependencies we'll need and prepare our dataset of order statuses.
+
+### Install Dependencies
+
+For this tutorial, we will need to install the latest version of MLflow. We will be defining our agent using LlamaIndex, so we will also need to install the `llama-index` and `LlamaIndex-LLMs-OpenAI` packages.
+
+You can install the dependencies using the following command:
+
+```bash
+pip install mlflow llama-index llama-index-llms-openai pandas python-dotenv rich
+```
+
+### Set up MLflow
+
+This tutorial uses the open-source version of MLflow. To follow along, you need to start the MLflow Tracking Server. Open a new terminal, navigate to your working directory, and run the following command:
+
+```bash
+mlflow ui
+```
+
+This will start the server and print the URL where you can access the MLflow UI (by default, `http://127.0.0.1:5000`)
+
+Next, we will create an MLflow experiment for this tutorial. [MLflow experiments](https://mlflow.org/docs/latest/genai/data-model/experiments/) serve as the top-level container for all of your AI agent experiments, providing a single place to store and compare models, traces, datasets, evaluations, and other MLflow entities.
+
+```python
+import mlflow
+mlflow.set_experiment("caspers-support-chatbot")
+```
+
+### Prepare the Data
+
+Next, we will load a dataset of order statuses for our delivery service. For demonstration purposes, we will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve order statuses from a database or API.
+
+Each order has a unique ID, a customer name, a brand, a list of items, an order total, a timestamp for when the order was placed, a timestamp for when the order was estimated to be delivered, a current status, a driver location, and a timestamp for when the order was last updated.
+
+The diverse statuses and driver locations are designed to simulate the real-world complexity of a delivery service. They will enable us to test the agent's ability to handle different scenarios, such as orders that are running late, orders that were recently placed and not yet being prepared, already-delivered orders, and orders that are in transit.
+
+<details>
+<summary>Show full code for loading the order statuses (click to expand)</summary>
+
+```python
+orders_data = [
+    {
+        "order_id": "ORD-001",
+        "customer_name": "Sarah Chen",
+        "brand": "McDoodles",
+        "items": ["Big Stack", "Famous Frites"],
+        "order_total": 11.18,
+        "placed_at": "2025-05-21T09:00:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.3 miles away",
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-002",
+        "customer_name": "Mike Johnson",
+        "brand": "ChipoLot",
+        "items": ["Chicken Burrito", "Chips & Guac"],
+        "order_total": 14.43,
+        "placed_at": "2025-05-21T09:10:00Z",
+        "estimated_delivery": "2025-05-21T09:45:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:15:00Z",
+    },
+    {
+        "order_id": "ORD-003",
+        "customer_name": "Lisa Park",
+        "brand": "Pando Dash",
+        "items": ["Orange Chickadee", "Fried Rice"],
+        "order_total": 10.39,
+        "placed_at": "2025-05-21T08:45:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-004",
+        "customer_name": "David Kim",
+        "brand": "Yo! Sushii",
+        "items": ["California Roll", "Spicy Tuna Roll", "Miso Soup"],
+        "order_total": 22.68,
+        "placed_at": "2025-05-21T08:30:00Z",
+        "estimated_delivery": "2025-05-21T09:15:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:12:00Z",
+    },
+    {
+        "order_id": "ORD-005",
+        "customer_name": "Emma Wilson",
+        "brand": "GreenSprout",
+        "items": ["Harvest Bowl"],
+        "order_total": 10.18,
+        "placed_at": "2025-05-21T09:15:00Z",
+        "estimated_delivery": "2025-05-21T09:50:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:20:00Z",
+    },
+    {
+        "order_id": "ORD-006",
+        "customer_name": "Carlos Rodriguez",
+        "brand": "Taco Ring",
+        "items": ["Doritos Locos Taco x2", "Baja Blast"],
+        "order_total": 20.68,
+        "placed_at": "2025-05-21T09:05:00Z",
+        "estimated_delivery": "2025-05-21T09:40:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.8 miles away",
+        "last_updated": "2025-05-21T09:28:00Z",
+    },
+    {
+        "order_id": "ORD-007",
+        "customer_name": "Jennifer Lee",
+        "brand": "Shack Stack",
+        "items": ["ShackBurger Double", "Vanilla Shake"],
+        "order_total": 13.62,
+        "placed_at": "2025-05-21T08:50:00Z",
+        "estimated_delivery": "2025-05-21T09:25:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-008",
+        "customer_name": "Robert Taylor",
+        "brand": "Jinya Noodle Bar",
+        "items": ["Tonkotsu Ramen", "Pork Gyoza"],
+        "order_total": 22.43,
+        "placed_at": "2025-05-21T09:20:00Z",
+        "estimated_delivery": "2025-05-21T09:55:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-009",
+        "customer_name": "Ashley Davis",
+        "brand": "Starbrews",
+        "items": ["Caramel Frappuccino", "Plain Bagel"],
+        "order_total": 11.01,
+        "placed_at": "2025-05-21T09:25:00Z",
+        "estimated_delivery": "2025-05-21T10:00:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-010",
+        "customer_name": "Kevin Zhang",
+        "brand": "Five Gals",
+        "items": ["Bacon Cheeseburger", "Cajun Fries"],
+        "order_total": 9.21,
+        "placed_at": "2025-05-21T08:40:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-011",
+        "customer_name": "Maria Gonzalez",
+        "brand": "Pho House",
+        "items": ["Pho Combo", "Vietnamese Iced Coffee"],
+        "order_total": 16.13,
+        "placed_at": "2025-05-21T09:12:00Z",
+        "estimated_delivery": "2025-05-21T09:47:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.5 miles away",
+        "last_updated": "2025-05-21T09:30:00Z",
+    },
+    {
+        "order_id": "ORD-012",
+        "customer_name": "James Brown",
+        "brand": "Dominni Pizza",
+        "items": ["MeatZZa Pizza", "Coke"],
+        "order_total": 16.57,
+        "placed_at": "2025-05-21T09:18:00Z",
+        "estimated_delivery": "2025-05-21T09:53:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-013",
+        "customer_name": "Amanda Clark",
+        "brand": "PokeCraft",
+        "items": ["Spicy Ahi Bowl"],
+        "order_total": 10.68,
+        "placed_at": "2025-05-21T09:22:00Z",
+        "estimated_delivery": "2025-05-21T09:57:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-014",
+        "customer_name": "Ryan O'Connor",
+        "brand": "Kava Kitchen",
+        "items": ["Falafel Crunch Bowl", "Hot Harissa Chips"],
+        "order_total": 14.10,
+        "placed_at": "2025-05-21T08:55:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "1.2 miles away",
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-015",
+        "customer_name": "Nicole Torres",
+        "brand": "MaruNoodle",
+        "items": ["Chicken Katsu Udon", "Sweet Potato Tempura"],
+        "order_total": 17.60,
+        "placed_at": "2025-05-21T09:08:00Z",
+        "estimated_delivery": "2025-05-21T09:43:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-016",
+        "customer_name": "Steven Adams",
+        "brand": "ChipoLot",
+        "items": ["Steak Burrito", "Barbacoa Burrito"],
+        "order_total": 16.71,
+        "placed_at": "2025-05-21T09:13:00Z",
+        "estimated_delivery": "2025-05-21T09:48:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-017",
+        "customer_name": "Rachel Martinez",
+        "brand": "McDoodles",
+        "items": ["McChicklet", "Apple Slice Bites", "Iced Brew"],
+        "order_total": 10.99,
+        "placed_at": "2025-05-21T09:26:00Z",
+        "estimated_delivery": "2025-05-21T10:01:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:26:00Z",
+    },
+    {
+        "order_id": "ORD-018",
+        "customer_name": "Alex Thompson",
+        "brand": "GreenSprout",
+        "items": ["Kale Caesar", "Hummus & Focaccia"],
+        "order_total": 12.21,
+        "placed_at": "2025-05-21T08:35:00Z",
+        "estimated_delivery": "2025-05-21T09:10:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-019",
+        "customer_name": "Samantha Lopez",
+        "brand": "Yo! Sushii",
+        "items": ["Salmon Nigiri x2", "Tuna Sashimi"],
+        "order_total": 20.50,
+        "placed_at": "2025-05-21T09:17:00Z",
+        "estimated_delivery": "2025-05-21T09:52:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-020",
+        "customer_name": "Marcus Johnson",
+        "brand": "Shack Stack",
+        "items": ["Chicken Shack", "Crinkle Fries", "Chocolate Shake"],
+        "order_total": 16.56,
+        "placed_at": "2025-05-21T08:25:00Z",
+        "estimated_delivery": "2025-05-21T09:00:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T08:58:00Z",
+    },
+]
+```
+
+</details>
+
+```python
+import pandas as pd
+
+orders_df = pd.DataFrame(orders_data)
+
+orders_df
+```
+
+Here are the first few rows of our order statuses table:
+
+<div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+
+| order_id | customer_name | brand      | items                              | order_total | placed_at            | estimated_delivery   | current_status   | driver_location | last_updated         |
+| -------- | ------------- | ---------- | ---------------------------------- | ----------- | -------------------- | -------------------- | ---------------- | --------------- | -------------------- |
+| ORD-001  | Sarah Chen    | McDoodles  | ["Big Stack","Famous Frites"]      | 11.18       | 2025-05-21T09:00:00Z | 2025-05-21T09:30:00Z | Out for Delivery | 0.3 miles away  | 2025-05-21T09:22:00Z |
+| ORD-002  | Mike Johnson  | ChipoLot   | ["Chicken Burrito","Chips & Guac"] | 14.43       | 2025-05-21T09:10:00Z | 2025-05-21T09:45:00Z | Being Prepared   | null            | 2025-05-21T09:15:00Z |
+| ORD-003  | Lisa Park     | Pando Dash | ["Orange Chickadee","Fried Rice"]  | 10.39       | 2025-05-21T08:45:00Z | 2025-05-21T09:20:00Z | Delivered        | null            | 2025-05-21T09:18:00Z |
+
+</div>
+
+## Prototyping a simple order status agent
+
+The very first step in building an agent is often interactive prototyping in a notebook environment. We want to quickly experiment with different prompts and tools, and iterate in an unstructured and informal way on the agent's behavior.
+
+We might not be particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
+
+We will start by building a very simple agent that can answer questions about the status of an order. We will use the OpenAI Python SDK with some simple tools to retrieve order statuses and cancel orders. Later, we will use LlamaIndex to build a more sophisticated agent that can handle more complex tasks.
+
+### Configure the OpenAI Client
+
+First, we will configure the OpenAI client. Make sure to set your OpenAI API key, either as an environment variable or in a `.env` file. In this case, we saved our API key in a `.env` file with a single line: `OPENAI_API_KEY=sk-...`. We then load the API key from the `.env` file using the `dotenv` package, as shown below.
+
+```python
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+```
+
+### Define the Order Status Tool
+
+Next, we will define a simple tool that can retrieve the status of an order based on the order ID. Following OpenAI's [function calling documentation](https://platform.openai.com/docs/guides/function-calling), we will write a function that takes an order ID as input and returns the order status. We will also define a schema for the function, which tells the model what the function does and what arguments it takes.
+
+In a production application, we would likely access the order statuses from a database or API. For this tutorial, we simply obtain them from a pandas DataFrame.
+
+```python
+def get_order_by_id(order_id: str):
+    """
+    Retrieves a single order by its unique order ID.
+    Useful when a user asks for a specific order by its ID.
+    """
+    result = orders_df[orders_df['order_id'] == order_id]
+    if not result.empty:
+        return result.iloc[0].to_dict()
+    return None
+
+get_order_by_id_schema = schema = {
+    "type": "function",
+    "function": {
+        "name": "get_order_by_id",
+        "description": "Retrieves a single order by its unique order ID. Useful when a user asks for a specific order by its ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string",
+                    "description": "The unique identifier for the order"
+                }
+            },
+            "required": ["order_id"]
+        }
+    }
+}
+```
+
+### Manually Define a Simple Tool Calling Agent
+
+With most LLM providers, tool calling works as follows:
+
+1. The user asks a question that requires the use of a tool.
+2. The model's response includes a `tool_calls` field that includes the name of the function to call and the arguments to pass to the function.
+3. The application—_not_ the model itself—calls the function with the arguments and, optionally, passes the result back to the model as a new message with the `role` set to `tool`.
+
+In the code sample below, we define a simple function that implements this process. It takes a single query from the user, calls the model, and then calls the function with the arguments. It then appends the result of the function call to the message history and calls the model again with the updated message history, enabling the model to provide a final response that includes the result of the function call.
+
+```python
+import json
+from rich import print
+
+user_query = [{"role": "user", "content": "Hello tell me about order ORD-018"}]
+tools = [get_order_by_id_schema]
+
+def request_order_status(client, messages, tools):
+    message_history = messages.copy()
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=message_history,
+        tools=tools
+    )
+
+    tool_call = completion.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+
+    order_info = get_order_by_id(args["order_id"])
+
+    message_history.append(completion.choices[0].message)
+    message_history.append({
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "content": str(order_info)
+    })
+
+    final_completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=message_history,
+        tools=tools,
+    )
+
+    return final_completion
+
+print(request_order_status(client, user_query, tools).choices[0].message.content)
+```
+
+Which returns:
+
+> Order **ORD-018** details are as follows:
+>
+> - **Customer Name**: Alex Thompson
+> - **Brand**: GreenSprout
+> - **Items Ordered**:
+>   - Kale Caesar
+>   - Hummus & Focaccia
+> - **Order Total**: $12.21
+> - **Placed At**: May 21, 2025, 08:35 AM (UTC)
+> - **Estimated Delivery**: May 21, 2025, 09:10 AM (UTC)
+> - **Current Status**: Delivered
+> - **Last Updated**: May 21, 2025, 09:18 AM (UTC)
+>
+> If you have any more questions or need further information, feel free to ask.
+
+Even in this simple example, we begin to see the complexity of building an agent. We need to manage the message history, invoke the AI model API multiple times, call on the tool based on the model's response, and manage the flow of control between the model and the tool. Furthermore, this isn't even close to the kind of response would want to provide to the user. We will ultimately want it to respond in a friendly and personal tone. At present, we do not have an obvious way to identify any points of failure or opportunities for improvement.
+
+This is where MLflow tracing comes in.
+
+## MLflow Tracing: Observability with One Line of Code
+
+MLflow tracing provides a record of every call within an application, including the inputs, outputs, errors, and other information. Tracing makes it much easier to:
+
+- Debug issues with your model calls
+- Build datasets for downstream tasks like evaluation and model training
+- Understand every execution step in your agent system
+
+Enabling tracing requires just one line of code: `mlflow.<provider>.autolog()`. In this case, we are using OpenAI, so we will use `mlflow.openai.autolog()`. Let's see how it works.
+
+```python
+import mlflow
+mlflow.openai.autolog()
+
+request_order_status(client, user_query, tools)
+```
+
+:::tip View Traces in Jupyter Notebooks
+
+You can view traces right in a Jupyter notebook.
+
+To view traces in Jupyter notebooks, make sure you have started the tracking server with `mlflow ui` and set the tracking URI to the URL of the tracking server with `mlflow.set_tracking_uri("<URL>")` (`http://localhost:5000` by default).
+
+:::
+
+Now, whenever we call the `request_order_status` function or otherwise call a model using the OpenAI client, MLflow will automatically log the trace, keeping a complete record of every model call. You can find the trace in the MLflow UI by clicking on the "Traces" tab in your experiment.
+
+![MLflow Traces](/images/genai-tutorials/customer-service-chatbot/1_openai_trace.png)
+
+This is very useful throughout AI agent development. At this early phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. MLflow's autologging and tracing features make it very straightforward to record all of our experiments.
+
+### Associating Traces with Models
+
+It's easy to lose track of all of the different traces associated with and experiments run on a given model, especially if all of the information we've recorded is spread across many different runs and mixed in with traces of other models. To that end, MLflow provides a way to create a [`LoggedModel`](https://mlflow.org/docs/latest/genai/data-model/logged-model/) object we can use to manage the whole lifecycle of a model.
+
+We will first create an _external model_, which enables us to associate traces, metrics, and other information with a model without storing model artifacts. When we create an external model with <APILink fn="mlflow.create_external_model" />, we can specify the model type, tags, and other metadata.
+
+Here, we set the model type to `agent` (`model_type` is a user-defined string that we can use to search and compare related models). We also create a `version` tag we can use to track the model's version.
+
+```python
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_1",
+    model_type="agent",
+    tags={"version": "0.1"},
+)
+```
+
+Now, we set the model we just created as the active model.
+
+```python
+mlflow.set_active_model(model_id=model.model_id)
+```
+
+Note that we could have just used `mlflow.set_active_model` without first creating the external model. But using the `create_external_model` method enables us to set metadata we can later use to search and compare models.
+
+Now, when we log a trace, metrics, evaluations, and other information, it will be associated with the model. You can find your model in the MLflow UI by clicking on the "Models" tab in your experiment. Let's give it a try.
+
+```python
+request_order_status(client, user_query, tools)
+```
+
+![Traces and Models](/images/genai-tutorials/customer-service-chatbot/2_traces_model.png)
+
+The trace resulting from the above call is now associated with the model we just created.
+
+### Manual Tracing: Add Tracing to our Agent's Tool
+
+One thing you might notice if you investigate the trace we generated above is that our agent workflow actually resulted in _two_ traces: one for the initial model call (where the model responded with the tool call parameters) and one for the final output from the model. There are two key issues here:
+
+1. These two calls are part of the same workflow, so we would like them to be recorded as one trace.
+2. The execution of `get_order_by_id` was _not_ traced, leaving out a critical step in our workflow.
+
+We can manually configure our workflow to record the trace exactly as we want it. Autologging is a great way to start with tracing, but MLflow also provides a rich set of tracing tools that can be used to fine-tune the tracing behavior.
+
+First, we will use the `@mlflow.trace` decorator to manually trace the execution of our tool:
+
+```python
+@mlflow.trace(span_type="TOOL")
+def get_order_by_id(order_id: str):
+    """
+    Retrieves a single order by its unique order ID.
+    Useful when a user asks for a specific order by its ID.
+    """
+    result = orders_df[orders_df['order_id'] == order_id]
+    if not result.empty:
+        return result.iloc[0].to_dict()
+    return None
+```
+
+Now, whenever this function is called, MLflow will automatically log a trace—tracing is not just limited to AI model calls!
+
+Next, we will modify our `request_order_status` function to nest the model and tool calls under the `with mlflow.start_span(span_type="CHAT_MODEL") as span:` context manager. Different span types are used for different GenAI operations and have specialized data structures to capture the operations appropriately. The `CHAT_MODEL` span type is for conversational models that may also include tool calls. There are several other span types, including `RETRIEVER` spans for capturing structured document search operations; `EMBEDDING` spans for text embeddings; and `AGENT` spans for autonomous agent workflows. You can learn more about span types [here](/genai/data-model/traces#specialized-span-types-for-genai).
+
+```python
+def request_order_status(client, messages, tools):
+    message_history = messages.copy()
+
+    with mlflow.start_span(span_type="CHAT_MODEL") as span:
+        span.set_inputs(inputs=message_history)
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=message_history,
+            tools=tools
+        )
+
+        tool_call = completion.choices[0].message.tool_calls[0]
+        args = json.loads(tool_call.function.arguments)
+
+        order_info = get_order_by_id(args["order_id"])
+
+        message_history.append(completion.choices[0].message)
+        message_history.append({
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": str(order_info)
+        })
+
+        final_completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=message_history,
+            tools=tools,
+        )
+
+        span.set_outputs(outputs=final_completion)
+
+        return final_completion
+```
+
+Since we have updated our model code, we might want to create a new model version. There are no hard-and-fast rules for when to create a new model version, but it's a good idea to do so when you have made significant changes to the model's behavior or when you want to compare the performance of different versions of the model. So before we run our agent, let's create a new model version.
+
+```python
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_2",
+    model_type="agent",
+    tags={"version": "0.2"},
+)
+
+mlflow.set_active_model(model_id=model.model_id)
+```
+
+Now, we run the order status agent again:
+
+```python
+request_order_status(client, user_query, tools)
+```
+
+![Manual Tracing](/images/genai-tutorials/customer-service-chatbot/3_manual_trace.png)
+
+Now we can see the _entire_ execution flow in a single trace, including tool calls and their inputs and outputs. This also shows how we can combine automatic and manual tracing: the model calls are still automatically traced; we just nested them under a parent span and added tracing to the tool call.
+
+### Using Tracing to Debug Errors
+
+Complex agents may involve dozens of different tool calls, retrieval steps, model calls, and more, not to mention all of the orchestration logic that ties it all together. When something goes wrong, it's not always obvious where the problem lies. MLflow tracing helps with this as well. Errors are logged in the "Events" tab of a trace and clearly marked in the trace breakdown. Suppose, for instance, we had a bug in our tool call and tried to get data from `order_df` instead of `orders_df`:
+
+![Trace with Error](/images/genai-tutorials/customer-service-chatbot/4_error.png)
+
+The trace makes the error clear and obvious immediately and records all of the relevant information in the Events tab of the trace.
+
+## Using and Tracing an Agent Framework
+
+After experimenting with different prompts and tools, we might decide that it is time to build a more complete agent by adding additional tools, further iterating on our prompt, and so on. We could certainly continue to build on our simple agent, but we might decide instead to use an existing agent authoring framework. These frameworks, such as [LlamaIndex](https://docs.llamaindex.ai/en/stable/), [LangGraph](https://langchain-ai.github.io/langgraph/concepts/why-langgraph/), and the [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) provide a lot of the scaffolding we need to build a complete agent without having to start from scratch.
+
+In the rest of this tutorial, we will build a [LlamaIndex agent](https://docs.llamaindex.ai/en/stable/module_guides/deploying/agents/) with some additional tools and trace it with MLflow. We will use this agent in the rest of this tutorial series.
+
+### Convert our Simple Agent to LlamaIndex
+
+First, let's replicate our existing agent—with one tool—with a LlamaIndex `FunctionAgent`.
+
+```python
+from llama_index.core.agent.workflow import FunctionAgent
+from llama_index.core.tools import FunctionTool
+from llama_index.llms.openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def get_order_by_id(order_id: str):
+    """
+    Retrieves a single order by its unique order ID.
+    Useful when a user asks for a specific order by its ID.
+    """
+    result = orders_df[orders_df['order_id'] == order_id]
+    if not result.empty:
+        return result.iloc[0].to_dict()
+    return None
+
+llm = OpenAI(model="gpt-4o-mini")
+
+tool = FunctionTool.from_defaults(
+    get_order_by_id,
+)
+```
+
+This is very similar to our previous approach, except that we did not need to manually define a tool schema or orchestrate the model and tool calling logic.
+
+### Define and Register a System Prompt
+
+So far, we have relied on the model to infer the intent of the user's message and to determine which tool to call. We will have much more control over the agent's behavior by providing a system prompt that tells the model exactly what we want it to do and how to use the tools it has available.
+
+Prompts are a significant tool that we will likely refine over time, so it is a good idea to track and version them. The [MLflow Prompt Registry](/genai/prompt-registry/) helps you to create, store, version, and evaluate prompts. Let's create a system prompt for our agent and register it with MLflow. The prompt details how the model should respond to user messages and what tools it can call on to get information. Note that we also specify the "current time" (in this case, May 21, 2025, 09:40 AM, which corresponds to the times in the sample data) so the agent can, for example, reason about whether orders are running late.
+
+```python
+CURRENT_DATETIME = "2025-05-21T09:40:00Z"
+
+system_prompt = f"""You are a helpful customer service agent for a food delivery platform. Your goal is to efficiently resolve customer inquiries while maintaining a positive experience.
+
+The current date and time is {CURRENT_DATETIME}.
+
+## Communication Style
+- Be friendly, clear, and direct. Avoid overly formal or robotic responses
+- Keep responses concise unless more detail is specifically requested
+- Use natural, conversational language
+- Reply in the language used by the customer
+
+## Order Status Inquiries
+- Focus on delivery timing and current status when customers ask about their orders
+- Only mention order contents if explicitly asked ("what did I order?")
+- Prioritize the information customers care most about: "when will it arrive?" and "where is it now?"
+
+## Tool Usage
+- Use get_order_by_id for any order-related inquiries
+
+Focus on being helpful and efficient while maintaining a human touch in your responses.
+"""
+
+mlflow.genai.register_prompt(
+    name="caspers_chatbot_system",
+    template=system_prompt,
+    commit_message="Initial Commit",
+    tags = {
+        "author": "daniel@example.com"
+    })
+```
+
+We can view the registered prompt in the "Prompts" tab of the MLflow UI:
+
+![Registered Prompt](/images/genai-tutorials/customer-service-chatbot/5_reg_prompt.png)
+
+Now let's define our new `FunctionAgent`, passing our registered prompt as the system prompt.
+
+```python
+agent = FunctionAgent(
+    tools=[get_order_by_id],
+    llm=llm,
+    system_prompt=mlflow.genai.load_prompt(
+        "prompts:/caspers_chatbot_system/1"
+    ).template,
+)
+```
+
+### Enable Tracing and Query the Agent
+
+MLflow supports autologging for LlamaIndex agents, so we can enable tracing with just one line of code. This is also a good time to set a new active model.
+
+```python
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_3",
+    model_type="agent",
+    tags={"version": "0.3", "framework": "llama_index"},
+)
+
+mlflow.set_active_model(model_id=model.model_id)
+
+mlflow.llama_index.autolog()
+
+response = await agent.run("Hello tell me about order ORD-018")
+print(response.response)
+```
+
+This returns:
+
+```text
+ChatMessage(
+    role=<MessageRole.ASSISTANT: 'assistant'>,
+    additional_kwargs={},
+    blocks=[
+        TextBlock(
+            block_type='text',
+            text='Your order (ORD-018) from GreenSprout has been delivered! You placed it at 08:35 AM, and it was
+estimated to arrive by 09:10 AM. \n\nIf you need anything else, feel free to ask!'
+        )
+    ]
+)
+```
+
+And, as before, we can view the trace in the MLflow UI:
+
+![LlamaIndex Trace](/images/genai-tutorials/customer-service-chatbot/6_llamaindex_trace.png)
+
+:::info Async Agents
+
+LlamaIndex agents are asynchronous by default, so we use the `await` keyword to wait for the agent to complete and get the results of the `run` method. If you are new to asynchronous programming, you can read more about it in the context of LlamaIndex [here](https://docs.llamaindex.ai/en/stable/getting_started/async_python/).
+
+:::
+
+### Add Funcionality to the Agent
+
+Now that we have a framework and tracing, we are in a great place to iterate on our prototype agent. Tracing provides instant feedback and a record of our experiments, and the LlamaIndex framework provides easy-to-use abstractions for adding tools and updating the agent's behavior.
+
+First, let's add a couple of new tools: one to escalate the chat to a human agent and one to cancel an order. In both cases, the tools will simulate an API call and response with further information the agent can use to respond to the user. The `escalate_to_human` tool tells the agent how long it will take to get back to the user and the `cancel_order` tool will tell the agent whether it was possible to cancel the order based on the order's status.
+
+```python
+from datetime import datetime
+
+def escalate_to_human(issue_summary: str) -> str:
+    """
+    Escalate the issue to a human agent. This triggers (simulated) backend API calls to create
+    a support ticket and notify human agents.
+
+    Args:
+        issue_summary: Brief summary of the customer's issue
+    """
+
+    # Create the API payload
+    escalation_payload = {
+        "timestamp": datetime.now().isoformat(),
+        "customer_id": "CUST-12345",
+        "issue_summary": issue_summary,
+        "source": "chatbot_escalation",
+        "requires_human": True
+    }
+
+    # simulate API call
+    def send_api_request(payload):
+        ticket_id = f"ESCALATION-{hash(payload['issue_summary']) % 10000:04d}"
+        return {
+            "status": "success",
+            "ticket_id": ticket_id,
+            "estimated_response_time_minutes": 15,
+            "assigned_agent_id": "AGENT-456"
+        }
+
+    api_response = send_api_request(escalation_payload)
+    # Return natural description for the LLM to work with
+    return str(api_response)
+
+
+def cancel_order(order_id: str, reason: str = "customer_request") -> str:
+    """
+    Cancel a food delivery order if possible.
+
+    Args:
+        order_id: The order ID to cancel (e.g., ORD-009)
+        reason: Reason for cancellation
+    """
+
+    # Check order status in the dataframe
+    order_row = orders_df[orders_df['order_id'] == order_id]
+
+    if order_row.empty:
+        return f"Order {order_id} not found."
+
+    order_status = order_row['current_status'].iloc[0]
+    order_total = order_row['order_total'].iloc[0]
+
+    if order_status != "Order Received":
+        return f"Cannot cancel - order status is '{order_status}'"
+
+    # Simulate cancellation API call
+    cancellation_id = f"CANCEL-{hash(order_id) % 10000:04d}"
+
+    return f"Cancellation successful. ID: {cancellation_id}, Refund: ${order_total}, ETA: 3 business days"
+```
+
+We will also update the system prompt now that the agent can do more than just retrieve information about the orders. The updated prompt details the new tools and how to use them. We will also register this new version of the prompt.
+
+```python
+CURRENT_DATETIME = "2025-05-21T09:40:00Z"
+
+system_prompt = f"""You are a helpful customer service agent for a food delivery platform. Your goal is to efficiently resolve customer inquiries while maintaining a positive experience.
+
+The current date and time is {CURRENT_DATETIME}.
+
+## Communication Style
+- Be friendly, clear, and direct. Avoid overly formal or robotic responses
+- Keep responses concise unless more detail is specifically requested
+- Use natural, conversational language
+- Reply in the language used by the customer
+
+## Order Status Inquiries
+- Focus on delivery timing and current status when customers ask about their orders
+- Only mention order contents if explicitly asked ("what did I order?")
+- Prioritize the information customers care most about: "when will it arrive?" and "where is it now?"
+
+## Escalation Guidelines
+- Only escalate to human agents when customers express genuine frustration, anger, or dissatisfaction
+- Do NOT escalate for simple questions, normal delays, or routine requests
+- Escalate when customers use words like "furious," "terrible," "awful," demand refunds angrily, or express they want to speak to a manager
+- Mild disappointment or concern does not require escalation
+
+## Tool Usage
+- Use get_order_by_id for any order-related inquiries
+- Use cancel_order only when customers explicitly request cancellation
+- Use escalate_to_human only when customers are genuinely upset or dissatisfied
+
+## Problem Solving
+- Try to resolve issues directly using available tools before considering escalation
+- Provide clear next steps and realistic timelines
+- Acknowledge concerns without over-apologizing
+
+Focus on being helpful and efficient while maintaining a human touch in your responses.
+"""
+
+# register a new version of the prompt
+mlflow.genai.register_prompt(
+    name="caspers_chatbot_system",
+    template=system_prompt,
+    commit_message="Updated with new tools",
+    tags = {
+        "author": "daniel@example.com"
+    })
+```
+
+MLflow's prompt registry allows us to compare prompt versions and track changes. You can view the diff between versions in the "Prompts" tab of the MLflow UI.
+
+![Compare Prompts](/images/genai-tutorials/customer-service-chatbot/7_compare_prompt.png)
+
+Now we initialize the agent with the updated tools and prompt:
+
+```python
+tools = [get_order_by_id,
+         escalate_to_human,
+         cancel_order,
+]
+
+agent = FunctionAgent(llm=llm, tools=tools, system_prompt=mlflow.genai.load_prompt(
+        "prompts:/caspers_chatbot_system/2"
+    ).template)
+
+await agent.run("I would like to cancel order ORD-008.")
+```
+
+The agent responds with:
+
+> It looks like I can't cancel order ORD-008 because it's currently being prepared. If you need help with anything else regarding this order, just let me know!
+
+Looking at the trace shows that the agent called the `cancel_order` tool, which returned a message indicating that the order could not be canceled because the order was already being prepared.
+
+![Trace with Error](/images/genai-tutorials/customer-service-chatbot/8_trace_tool.png)
+
+There is some room for improvement in the agent's final response. It provided the correct information, but in a tone that was a bit too brusque and did not provide any additional context or information. Now that we have a framework and a set of tools, we can start to define the key quality criteria for our agent and use MLflow to evaluate and iterate on it. That will be the focus of the next tutorial.
+
+## Conclusion and Next Steps
+
+In this tutorial, we have seen how MLflow tracing can be used to debug and iterate on AI agents. We experimented with a simple agent, instrumented it with tracing, and then built a more complete agent using LlamaIndex. We saw how autologging offers one-line agent observability for a range of LLM providers and frameworks, how tracing can be used to understand and debug the whole agent execution flow, and how to use the prompt registry to version and compare prompts.
+
+In the next tutorial, we will use MLflow to define and evaluate the critical quality criteria for our agent, and how to use MLflow evaluation to iterate on the agent's behavior during development.
+
+Before moving on to the next tutorial, here are a few suggested next steps to help you get the most out of this tutorial:
+
+- Try to replicate and trace the agent we built in this tutorial using a different LLM provider (like Anthropic) or framework (like LangGraph).
+- Add more tools to the agent and see how they are captured in the trace.
+- Use some of the insights gathered through tracing to try to improve the agent's response.
+
+We'll see you in the next tutorial!
