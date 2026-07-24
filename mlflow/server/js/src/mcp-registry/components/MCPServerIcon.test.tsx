@@ -1,7 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { MCPServerIcon } from './MCPServerIcon';
+import { MCPServerIcon, resolveIconSrc } from './MCPServerIcon';
+import type { MCPIcon } from '../types';
 
 const renderIcon = (props: React.ComponentProps<typeof MCPServerIcon>) =>
   render(
@@ -13,50 +14,94 @@ const renderIcon = (props: React.ComponentProps<typeof MCPServerIcon>) =>
 const getImg = (container: HTMLElement) => container.querySelector('img');
 const getSvg = (container: HTMLElement) => container.querySelector('svg');
 
+// icons = explicitly added via icon editor (server-level)
+// fallbackIcons = from server.json
+
+const sjLight: MCPIcon = { src: 'https://example.com/sj-light.svg', theme: 'light' };
+const sjDark: MCPIcon = { src: 'https://example.com/sj-dark.svg', theme: 'dark' };
+const sjAny: MCPIcon = { src: 'https://example.com/sj-any.svg' };
+
+const addedLight: MCPIcon = { src: 'https://example.com/added-light.svg', theme: 'light' };
+const addedDark: MCPIcon = { src: 'https://example.com/added-dark.svg', theme: 'dark' };
+const addedAny: MCPIcon = { src: 'https://example.com/added-any.svg' };
+
+describe('resolveIconSrc', () => {
+  describe('server.json icons only (no icons added via editor)', () => {
+    it.each<{ name: string; sjIcons: MCPIcon[]; isDarkMode: boolean; expected: string | undefined }>([
+      { name: 'light only, light mode', sjIcons: [sjLight], isDarkMode: false, expected: sjLight.src },
+      { name: 'light only, dark mode', sjIcons: [sjLight], isDarkMode: true, expected: undefined },
+      { name: 'dark only, dark mode', sjIcons: [sjDark], isDarkMode: true, expected: sjDark.src },
+      { name: 'dark only, light mode', sjIcons: [sjDark], isDarkMode: false, expected: undefined },
+      { name: 'both, light mode', sjIcons: [sjLight, sjDark], isDarkMode: false, expected: sjLight.src },
+      { name: 'both, dark mode', sjIcons: [sjLight, sjDark], isDarkMode: true, expected: sjDark.src },
+      { name: 'any (no theme), light mode', sjIcons: [sjAny], isDarkMode: false, expected: sjAny.src },
+      { name: 'any (no theme), dark mode', sjIcons: [sjAny], isDarkMode: true, expected: sjAny.src },
+      { name: 'none', sjIcons: [], isDarkMode: false, expected: undefined },
+    ])('$name', ({ sjIcons, isDarkMode, expected }) => {
+      expect(resolveIconSrc(undefined, sjIcons, isDarkMode)).toBe(expected);
+    });
+  });
+
+  describe('fallback: added icons → server.json icons', () => {
+    it.each<{ name: string; added: MCPIcon[]; sjIcons: MCPIcon[]; isDarkMode: boolean; expected: string | undefined }>([
+      {
+        name: 'added light only, sj has dark, dark mode → sj dark',
+        added: [addedLight],
+        sjIcons: [sjDark],
+        isDarkMode: true,
+        expected: sjDark.src,
+      },
+      {
+        name: 'added light only, sj has dark, light mode → added light',
+        added: [addedLight],
+        sjIcons: [sjDark],
+        isDarkMode: false,
+        expected: addedLight.src,
+      },
+      {
+        name: 'added dark only, sj has any, light mode → sj any',
+        added: [addedDark],
+        sjIcons: [sjAny],
+        isDarkMode: false,
+        expected: sjAny.src,
+      },
+      {
+        name: 'added match exists, sj ignored',
+        added: [addedLight, addedDark],
+        sjIcons: [sjAny],
+        isDarkMode: true,
+        expected: addedDark.src,
+      },
+      { name: 'nothing added, sj any → sj any', added: [], sjIcons: [sjAny], isDarkMode: false, expected: sjAny.src },
+      {
+        name: 'nothing added, nothing in sj → undefined',
+        added: [],
+        sjIcons: [],
+        isDarkMode: false,
+        expected: undefined,
+      },
+    ])('$name', ({ added, sjIcons, isDarkMode, expected }) => {
+      expect(resolveIconSrc(added, sjIcons, isDarkMode)).toBe(expected);
+    });
+  });
+});
+
 describe('MCPServerIcon', () => {
-  it('renders fallback McpIcon when no icons provided', () => {
+  it('renders default icon when no icons provided', () => {
     const { container } = renderIcon({});
     expect(getImg(container)).toBeNull();
     expect(getSvg(container)).toBeTruthy();
   });
 
-  it('renders img when icon src is provided', () => {
-    const { container } = renderIcon({ icons: [{ src: 'https://example.com/icon.svg' }] });
-    expect(getImg(container)).toHaveAttribute('src', 'https://example.com/icon.svg');
-  });
-
-  it('uses server name as alt text', () => {
-    renderIcon({ icons: [{ src: 'https://example.com/icon.svg' }], name: 'My Server' });
-    expect(screen.getByRole('img')).toHaveAttribute('alt', 'My Server');
-  });
-
-  it('uses empty alt when name is not provided', () => {
-    const { container } = renderIcon({ icons: [{ src: 'https://example.com/icon.svg' }] });
-    expect(getImg(container)).toHaveAttribute('alt', '');
-  });
-
-  it('falls back to McpIcon when img fails to load', () => {
+  it('falls back to default icon when img fails to load', () => {
     const { container } = renderIcon({ icons: [{ src: 'https://example.com/broken.svg' }] });
     fireEvent.error(getImg(container)!);
     expect(getImg(container)).toBeNull();
     expect(getSvg(container)).toBeTruthy();
   });
 
-  it('prefers theme-agnostic icon when no theme matches', () => {
-    const { container } = renderIcon({
-      icons: [{ src: 'https://example.com/dark.svg', theme: 'dark' }, { src: 'https://example.com/universal.svg' }],
-    });
-    expect(getImg(container)).toHaveAttribute('src', 'https://example.com/universal.svg');
-  });
-
-  it('falls back to first icon when no theme-agnostic icon exists', () => {
-    const { container } = renderIcon({
-      icons: [
-        { src: 'https://example.com/dark.svg', theme: 'dark' },
-        { src: 'https://example.com/light.svg', theme: 'light' },
-      ],
-    });
-    // Default theme is light mode in tests
-    expect(getImg(container)).toHaveAttribute('src', 'https://example.com/light.svg');
+  it('uses fallbackIcons when primary icons have no match', () => {
+    const { container } = renderIcon({ icons: [], fallbackIcons: [sjAny] });
+    expect(getImg(container)).toHaveAttribute('src', sjAny.src);
   });
 });

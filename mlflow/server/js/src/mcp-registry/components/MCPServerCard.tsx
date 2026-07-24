@@ -6,6 +6,7 @@ import type { MCPServer } from '../types';
 import MCPRegistryRoutes from '../routes';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
 import { resolveDisplayName } from '../utils';
+import { useLatestMCPServerVersionQuery } from '../hooks/useMCPServerDetailQuery';
 import { useServerState } from '../hooks/useServerState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -22,6 +23,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
     : undefined;
+  const { data: latestVersion } = useLatestMCPServerVersionQuery(server.name, !server.icons?.length);
   const { isDimmed, isUnavailable } = useServerState(server);
   const hasTags = Object.keys(server.tags || {}).length > 0;
 
@@ -49,7 +51,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
       >
         <div css={{ ...cardBodyStyles(theme), opacity: isDimmed ? 0.5 : 1 }}>
           <div css={cardHeaderRowStyles(theme)}>
-            <MCPServerIcon icons={server.icons} name={server.name} />
+            <MCPServerIcon icons={server.icons} fallbackIcons={latestVersion?.server_json?.icons} name={server.name} />
             <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
               {resolveDisplayName(server)}
             </Typography.Text>

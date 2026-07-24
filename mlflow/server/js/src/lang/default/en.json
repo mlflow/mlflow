@@ -1095,6 +1095,10 @@
     "defaultMessage": "LLM-as-a-judge (Optimized)",
     "description": "Label for memory-augmented LLM scorer type"
   },
+  "2o9Wfp": {
+    "defaultMessage": "Auto-discover tools",
+    "description": "Add tools modal title"
+  },
   "2oFAO4": {
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
@@ -1286,6 +1290,10 @@
   "4+RPaz": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
+  },
+  "4/bsMk": {
+    "defaultMessage": "Add icon",
+    "description": "Tooltip for add icon button in MCP server icon editor"
   },
   "40TLJk": {
     "defaultMessage": "Structured output:",
@@ -1479,6 +1487,10 @@
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
   },
+  "4hE4IF": {
+    "defaultMessage": "default",
+    "description": "Tooltip for default fallback icon"
+  },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
     "description": "Empty state description for users table"
@@ -1658,6 +1670,10 @@
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
+  },
+  "5eAD8n": {
+    "defaultMessage": "https://example.com/icon.svg",
+    "description": "Placeholder for icon URL input in MCP server icon editor"
   },
   "5iPi6b": {
     "defaultMessage": "No permissions",
@@ -2315,6 +2331,10 @@
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
   },
+  "8l62sW": {
+    "defaultMessage": "Set icons or override icons from server.json. Use 'light' or 'dark' for theme-specific icons, or 'any' for one that works in both.",
+    "description": "Help text for icons in create MCP server modal"
+  },
   "8mP5Mz": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
     "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
@@ -2675,6 +2695,10 @@
     "defaultMessage": "Failed",
     "description": "Fail status pill in the regression-test detail"
   },
+  "A8PsVy": {
+    "defaultMessage": "Remove icon",
+    "description": "Aria label for remove icon button in MCP server icon editor"
+  },
   "AAdQxU": {
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
@@ -2779,6 +2803,10 @@
     "defaultMessage": "Response from the endpoint after clicking Send request.",
     "description": "Response body tooltip"
   },
+  "AbkN3m": {
+    "defaultMessage": "Edit icon",
+    "description": "Edit icon modal title"
+  },
   "AeRhuI": {
     "defaultMessage": "Conversational guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation."
@@ -2806,6 +2834,10 @@
   "AiESnf": {
     "defaultMessage": "This view is too large to save. Try hiding some columns or charts, then save again.",
     "description": "Error shown when a saved experiment view exceeds the experiment-tag size limit"
+  },
+  "Aj5dMu": {
+    "defaultMessage": "Icons",
+    "description": "Label for icons field in create MCP server modal"
   },
   "AmLGSf": {
     "defaultMessage": "Apply filters",
@@ -2942,6 +2974,10 @@
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for a quickstart guide on MLflow evaluation datasets"
+  },
+  "BNHY8/": {
+    "defaultMessage": "Edit icon",
+    "description": "MCP server detail edit icon action"
   },
   "BNc3Cn": {
     "defaultMessage": "Confirm new password",
@@ -3331,10 +3367,6 @@
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
   },
-  "CzXzL8": {
-    "defaultMessage": "Tools:",
-    "description": "Label for tools field in create MCP server modal"
-  },
   "D+UN8o": {
     "defaultMessage": "No metric charts",
     "description": "Experiment page > compare runs > no metric charts"
@@ -3522,6 +3554,10 @@
   "E/HEEL": {
     "defaultMessage": "Title",
     "description": "MCP compare title heading"
+  },
+  "E2V1sV": {
+    "defaultMessage": "Light",
+    "description": "Light mode icon option"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -4611,6 +4647,10 @@
     "defaultMessage": "Record ID",
     "description": "Header for the dataset record id column"
   },
+  "JM3sti": {
+    "defaultMessage": "Auto-discover tools",
+    "description": "MCP server auto-discover tools button"
+  },
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
@@ -4930,6 +4970,10 @@
   "KqjuRt": {
     "defaultMessage": "No questions defined for this experiment yet.",
     "description": "Add to review queue: user queue disabled reason"
+  },
+  "KrVZER": {
+    "defaultMessage": "No tools registered for this version.",
+    "description": "MCP server tools tab empty state"
   },
   "KsYAUn": {
     "defaultMessage": "{count, plural, one {Session} other {{count} sessions}} deleted successfully",
@@ -5466,6 +5510,10 @@
   "NKj5Xb": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}",
     "description": "Description of the empty state for the evaluation runs page"
+  },
+  "NMZBYc": {
+    "defaultMessage": "From server.json: {url}",
+    "description": "Tooltip for server.json icon"
   },
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
@@ -6151,6 +6199,10 @@
     "defaultMessage": "Add an option",
     "description": "Categorical options: add-option input placeholder"
   },
+  "QRBRG1": {
+    "defaultMessage": "Preview",
+    "description": "Preview label in MCP server icon editor"
+  },
   "QRnRh3": {
     "defaultMessage": "No experiments found",
     "description": "Label for the empty state in the experiments table when no experiments are found"
@@ -6603,6 +6655,10 @@
     "defaultMessage": "Input type",
     "description": "Review question input variant selector"
   },
+  "SW4qfw": {
+    "defaultMessage": "{label} theme",
+    "description": "Preview item theme label"
+  },
   "SYa+JC": {
     "defaultMessage": "Select a prompt",
     "description": "Placeholder for the prompt picker on the playground prompt-registry modal"
@@ -6702,6 +6758,10 @@
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
+  },
+  "SymYki": {
+    "defaultMessage": "About icons",
+    "description": "Aria label for icons help popover in create MCP server modal"
   },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
@@ -7807,6 +7867,10 @@
     "defaultMessage": "Select a queue to get started",
     "description": "Review queue: empty state title when no queue selected"
   },
+  "XpksEQ": {
+    "defaultMessage": "Icon URL",
+    "description": "Column header for icon URL"
+  },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
@@ -8815,6 +8879,10 @@
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
   },
+  "cCMnlB": {
+    "defaultMessage": "Dark",
+    "description": "Dark mode icon option"
+  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
@@ -8998,6 +9066,10 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
+  },
+  "d/dx+q": {
+    "defaultMessage": "Add icon",
+    "description": "Aria label for add icon button in MCP server icon editor"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -9751,6 +9823,10 @@
     "defaultMessage": "Delete",
     "description": "Manage review questions: confirm delete"
   },
+  "gDwgKT": {
+    "defaultMessage": "Image failed to load",
+    "description": "Error message when icon URL fails to load in preview"
+  },
   "gF1WQp": {
     "defaultMessage": "Add message",
     "description": "Label for the button that appends a new chat message on the playground page"
@@ -10158,6 +10234,10 @@
   "hm9IM7": {
     "defaultMessage": "Requested resource does not exist",
     "description": "Error message displayed when a requested run does not exist while fetching sampled metric data"
+  },
+  "hnZLV7": {
+    "defaultMessage": "Auto-discover tools by connecting to the server's official endpoint. Discovered tools will replace any existing tool definitions on this version.",
+    "description": "Add tools modal description"
   },
   "hnhCDT": {
     "defaultMessage": "Error occurred",
@@ -10639,6 +10719,10 @@
     "defaultMessage": "Function description",
     "description": "Label for the tool description input in the playground Tools card"
   },
+  "jfYJxe": {
+    "defaultMessage": "Save",
+    "description": "Edit icons modal save button"
+  },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
     "description": "Tooltip description for the Session column in the traces table"
@@ -10838,6 +10922,10 @@
   "kSrJQC": {
     "defaultMessage": "Agent responds within acceptable time bounds",
     "description": "Issue category description for latency"
+  },
+  "kSuq8Q": {
+    "defaultMessage": "Any",
+    "description": "Theme-agnostic icon option"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
@@ -11482,6 +11570,10 @@
   "nPHUYN": {
     "defaultMessage": "https://example.com/webhook",
     "description": "Webhook URL placeholder"
+  },
+  "nPKNLt": {
+    "defaultMessage": "Theme",
+    "description": "Column header for icon theme"
   },
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
@@ -12418,10 +12510,6 @@
   "rdrvCs": {
     "defaultMessage": "Created",
     "description": "Secret created label"
-  },
-  "rfuLyA": {
-    "defaultMessage": "Tools JSON editor",
-    "description": "Aria label for tools JSON editor"
   },
   "rgSaFx": {
     "defaultMessage": "Span type",
@@ -13575,10 +13663,6 @@
     "defaultMessage": "Chat",
     "description": "Label for chat prompt type in the prompt creation modal"
   },
-  "xLBSJC": {
-    "defaultMessage": "Icon:",
-    "description": "MCP compare metadata icon label"
-  },
   "xMNoOG": {
     "defaultMessage": "{version}",
     "description": "MCP server version item label"
@@ -13707,6 +13791,10 @@
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
   },
+  "xnBJe0": {
+    "defaultMessage": "Remove icon",
+    "description": "Tooltip for remove icon button in MCP server icon editor"
+  },
   "xnr5KT": {
     "defaultMessage": "No events found",
     "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
@@ -13834,6 +13922,10 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
+  },
+  "yTtneR": {
+    "defaultMessage": "Enter a valid URL",
+    "description": "Error message when icon URL is empty"
   },
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",

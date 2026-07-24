@@ -2,6 +2,7 @@ import type { TagProps } from '@databricks/design-system';
 import type {
   ConnectOptionKey,
   MCPAccessEndpoint,
+  MCPIcon,
   MCPServer,
   MCPRemoteTransportType,
   MCPTool,
@@ -10,6 +11,12 @@ import type {
   ServerJSONPayload,
 } from './types';
 import { MCPStatus, MCPServerAction } from './types';
+
+export const resolveIcon = (icons?: MCPIcon[], isDarkMode?: boolean): MCPIcon | undefined => {
+  if (!icons?.length) return undefined;
+  const preferred = isDarkMode ? 'dark' : 'light';
+  return icons.find((i) => i.theme === preferred) ?? icons.find((i) => !i.theme);
+};
 
 export const sanitizeHref = (url: string | undefined): string | undefined => {
   if (!url) return undefined;
@@ -98,7 +105,8 @@ export const findLatestEndpoint = (server: MCPServer): MCPAccessEndpoint | undef
     ? (server.access_endpoints ?? []).find((e) => e.resolved_version?.version === server.latest_version)
     : server.access_endpoints?.[0];
 
-export const isServerDimmed = (server: MCPServer): boolean => server.status !== MCPStatus.ACTIVE;
+export const isServerDimmed = (server: MCPServer): boolean =>
+  server.status !== MCPStatus.ACTIVE || !(server.access_endpoints?.length ?? 0);
 
 export const formatEndpointTarget = (endpoint: Pick<MCPAccessEndpoint, 'server_alias' | 'server_version'>): string =>
   endpoint.server_alias ? `@${endpoint.server_alias}` : endpoint.server_version || '—';

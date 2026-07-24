@@ -2,27 +2,30 @@ import { useEffect, useState } from 'react';
 import { McpIcon, useDesignSystemTheme } from '@databricks/design-system';
 import type { MCPIcon as MCPIconType } from '../types';
 import { mcpIconStyles } from '../styles';
+import { resolveIcon } from '../utils';
 
 const ICON_SIZE = 16;
 
-const resolveIconSrc = (icons?: MCPIconType[], isDarkMode?: boolean): string | undefined => {
-  if (!icons?.length) return undefined;
-  const preferred = isDarkMode ? 'dark' : 'light';
-  return icons.find((i) => i.theme === preferred)?.src ?? icons.find((i) => !i.theme)?.src ?? icons[0]?.src;
-};
+export const resolveIconSrc = (
+  icons?: MCPIconType[],
+  fallbackIcons?: MCPIconType[],
+  isDarkMode?: boolean,
+): string | undefined => resolveIcon(icons, isDarkMode)?.src ?? resolveIcon(fallbackIcons, isDarkMode)?.src;
 
 export const MCPServerIcon = ({
   icons,
+  fallbackIcons,
   name,
   css: cssProp,
 }: {
   icons?: MCPIconType[];
+  fallbackIcons?: MCPIconType[];
   name?: string;
   css?: Record<string, unknown>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [imgFailed, setImgFailed] = useState(false);
-  const iconSrc = resolveIconSrc(icons, theme.isDarkMode);
+  const iconSrc = resolveIconSrc(icons, fallbackIcons, theme.isDarkMode);
 
   useEffect(() => {
     setImgFailed(false);

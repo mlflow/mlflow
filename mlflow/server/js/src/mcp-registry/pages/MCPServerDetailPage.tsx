@@ -47,6 +47,8 @@ import { useSelectedMCPServerVersion } from '../hooks/useSelectedMCPServerVersio
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
 import { lineClampStyles } from '../styles';
 import { useServerState } from '../hooks/useServerState';
+import { MCPServerIcon } from '../components/MCPServerIcon';
+import { useEditIconsModal } from '../hooks/useEditIconsModal';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -80,6 +82,7 @@ const MCPServerDetailPage = () => {
   const { data: endpoints } = useMCPAccessEndpointsQuery(serverName);
 
   const { canUpdate, canDelete, isDimmed, isUnavailable } = useServerState(server);
+  const { EditIconsModal, openEditIcons } = useEditIconsModal({ serverName });
 
   const { viewState, setPreviewMode, setCompareMode, setComparedVersion, switchSides } = useMCPServerDetailViewState(
     versions,
@@ -141,6 +144,7 @@ const MCPServerDetailPage = () => {
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
     serverName: serverName,
+    server,
     latestVersion,
     onSuccess: ({ version }) => {
       setSelectedVersion(version);
@@ -229,6 +233,12 @@ const MCPServerDetailPage = () => {
         breadcrumbs={breadcrumbs}
         title={
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <MCPServerIcon
+              icons={server?.icons}
+              fallbackIcons={latestVersion?.server_json?.icons}
+              name={serverName}
+              css={{ width: 24, height: 24 }}
+            />
             {displayName}
             {isDimmed && (
               <Tooltip
@@ -288,6 +298,14 @@ const MCPServerDetailPage = () => {
                           defaultMessage="Edit display name"
                           description="MCP server detail edit server display name action"
                         />
+                      </DropdownMenu.Item>
+                    )}
+                    {canUpdate && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.mcp_registry.detail.actions.edit_icons"
+                        onClick={() => openEditIcons(server?.icons ?? [], latestVersion?.server_json?.icons)}
+                      >
+                        <FormattedMessage defaultMessage="Edit icon" description="MCP server detail edit icon action" />
                       </DropdownMenu.Item>
                     )}
                     {canDelete && (
@@ -417,6 +435,7 @@ const MCPServerDetailPage = () => {
       {CreateMCPServerVersionModal}
       {EditDisplayNameModal}
       {DeleteServerModal}
+      {EditIconsModal}
     </ScrollablePageWrapper>
   );
 };

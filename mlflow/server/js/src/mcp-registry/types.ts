@@ -187,6 +187,7 @@ export interface ServerJSONPayload {
   version: string;
   title?: string;
   description?: string;
+  icons?: MCPIcon[];
   packages?: ServerJSONPackage[];
   remotes?: ServerJSONTransport[];
   repository?: ServerJSONRepository;
