@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.entities.mcp_server import MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
@@ -588,7 +589,7 @@ def test_create_version_invalid_package_shape_returns_mlflow_error(client):
     assert "server_json.packages.0.registryType" in r.json()["message"]
 
 
-def test_create_version_invalid_server_name_rejected(client):
+def test_create_version_rejects_non_namespaced_server_name(client):
     r = client.post(
         PREFIX + "/my-server/versions",
         json={"server_json": {"name": "my-server", "version": "1.0.0"}},
@@ -713,6 +714,78 @@ def test_create_version_rejects_risky_server_json_icon_urls(client):
     assert "Icon URL" in r.text
 
 
+def test_create_version_accepts_registry_server_json_envelope(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/enveloped-server')}/versions",
+        json={
+            "server_json": {
+                "server": {
+                    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+                    "name": "com.example/enveloped-server",
+                    "version": "1.0.0",
+                    "description": "Server copied from a registry API response",
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/publisher-provided": {
+                            "copied_from": "registry response"
+                        }
+                    },
+                },
+                "_meta": {
+                    "io.modelcontextprotocol.registry/official": {
+                        "status": "active",
+                        "publishedAt": "2025-10-06T19:14:32.797821Z",
+                        "isLatest": False,
+                    }
+                },
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"] == {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+        "name": "com.example/enveloped-server",
+        "version": "1.0.0",
+        "description": "Server copied from a registry API response",
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "copied_from": "registry response"
+            }
+        },
+    }
+
+
+def test_create_version_rejects_registry_server_json_envelope_with_non_object_server(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/bad-envelope')}/versions",
+        json={"server_json": {"server": "not-an-object"}},
+    )
+    assert r.status_code == 400
+    assert "server_json.server" in r.json()["message"]
+
+
+def test_create_version_prefers_top_level_server_json_shape_over_nested_server_key(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/raw-wins')}/versions",
+        json={
+            "server_json": {
+                "name": "com.example/raw-wins",
+                "version": "1.0.0",
+                "description": "Raw server_json shape should win",
+                "server": {"name": "com.example/nested", "version": "9.9.9"},
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "com.example/raw-wins"
+    assert r.json()["version"] == "1.0.0"
+    assert r.json()["server_json"]["server"] == {
+        "name": "com.example/nested",
+        "version": "9.9.9",
+    }
+
+
 def test_create_version_accepts_remote_with_null_type(client):
     sj = _server_json(
         "com.example/null-remote-type",
@@ -721,7 +794,7 @@ def test_create_version_accepts_remote_with_null_type(client):
     )
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/null-remote-type')}/versions",
-        json={"server_json": sj, "status": "active"},
+        json={"server_json": sj, "status": "active", "tools": None},
     )
     assert r.status_code == 200
     assert r.json()["server_json"]["remotes"][0]["type"] is None
@@ -764,6 +837,82 @@ def test_create_version_preserves_empty_tools_list(client):
     )
     assert r.status_code == 200
     assert r.json()["tools"] == []
+
+
+def test_create_version_omitted_tools_stores_null_without_discovery(client):
+    sj = _server_json(
+        "com.example/omit-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/api"}],
+    )
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="api_search")],
+    ) as mock_discover:
+        omit_r = client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/omit-discover')}/versions",
+            json={"server_json": sj, "status": "active"},
+        )
+    assert omit_r.status_code == 200
+    mock_discover.assert_not_called()
+    assert omit_r.json()["tools"] == []
+
+
+def test_create_version_explicit_null_tools_skips_discovery(client):
+    sj = _server_json(
+        "com.example/null-tools",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
+    )
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        null_r = client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/null-tools')}/versions",
+            json={"server_json": sj, "status": "active", "tools": None},
+        )
+    assert null_r.status_code == 200
+    mock_discover.assert_not_called()
+    assert null_r.json()["tools"] == []
+
+
+def test_update_version_omitted_tools_leaves_unchanged(client):
+    sj = _server_json("com.example/uv-omit-tools", "1.0.0")
+    create_r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-omit-tools')}/versions",
+        json={
+            "server_json": sj,
+            "status": "active",
+            "tools": [{"name": "search", "description": "Search"}],
+        },
+    )
+    assert create_r.status_code == 200
+    assert create_r.json()["tools"][0]["name"] == "search"
+
+    # PATCH without tools must leave tools unchanged (model_fields_set / NOT_SET path).
+    patch_r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-omit-tools')}/versions/1.0.0",
+        json={"display_name": "kept"},
+    )
+    assert patch_r.status_code == 200
+    assert patch_r.json()["display_name"] == "kept"
+    assert patch_r.json()["tools"][0]["name"] == "search"
+
+
+def test_update_version_tools_null_clears_tools(client):
+    sj = _server_json("com.example/uv-clear-tools", "1.0.0")
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-clear-tools')}/versions",
+        json={
+            "server_json": sj,
+            "status": "active",
+            "tools": [{"name": "search"}],
+        },
+    )
+    patch_r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-clear-tools')}/versions/1.0.0",
+        json={"tools": None},
+    )
+    assert patch_r.status_code == 200
+    assert patch_r.json()["tools"] == []
 
 
 def test_create_version_accepts_repository_object(client):

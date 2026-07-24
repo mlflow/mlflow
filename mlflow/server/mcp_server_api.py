@@ -204,8 +204,44 @@ class CreateMCPServerVersionRequest(BaseModel):
     status: str = "draft"
     source: str | None = None
     tools: list[MCPToolRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
+        default=None,
+        max_length=_MAX_MCP_TOOLS_PER_LIST,
+        description=(
+            "Optional tool definitions for this version. Omitting the field "
+            "(Python NOT_SET) stores null tools unless a client-side caller "
+            "resolved omitted tools before create. Explicit JSON null also "
+            "stores no tools. Pass [] for an empty list, or a tool list."
+        ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_registry_server_json_envelope(cls, value):
+        """Accept either raw server.json or a registry response envelope."""
+        if not isinstance(value, dict):
+            return value
+
+        server_json = value.get("server_json")
+        if not isinstance(server_json, dict):
+            return value
+
+        # Prefer the canonical raw server.json shape when both are present.
+        if "name" in server_json and "version" in server_json:
+            return value
+
+        if "server" not in server_json:
+            return value
+
+        envelope_server = server_json.get("server")
+        if not isinstance(envelope_server, dict):
+            raise ValueError("server_json.server: Input should be a valid dictionary")
+
+        if "name" not in envelope_server or "version" not in envelope_server:
+            return value
+
+        normalized = dict(value)
+        normalized["server_json"] = envelope_server
+        return normalized
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
@@ -667,7 +703,12 @@ def create_mcp_server_version(
         )
     username = getattr(request.state, "username", None)
     status = _parse_status(body.status)
-    tools = _tool_payloads_to_entities(body.tools)
+    from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
+
+    # Same value space as update: omitted → NOT_SET; present null → None; list → list.
+    # On create, NOT_SET stores null tools unless a client-side caller already
+    # resolved omitted tools before calling the server.
+    tools = _tool_payloads_to_entities(body.tools) if "tools" in body.model_fields_set else NOT_SET
     server_json = body.server_json.model_dump(by_alias=True, exclude_unset=True)
     store = _get_tracking_store()
     _ensure_version_create_parent_access(store, name, username, request)

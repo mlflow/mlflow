@@ -84,6 +84,7 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
+import { useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
@@ -185,6 +186,7 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -318,6 +320,21 @@ const TracesV3LogsImpl = React.memo(
       tableSort,
       disabled: isQueryDisabled,
     });
+
+    useEffect(() => {
+      if (searchParams.get('detectIssues') !== 'true' || disableActions || traceInfosLoading) {
+        return;
+      }
+      setIsIssueDetectionModalOpen(true);
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete('detectIssues');
+          return next;
+        },
+        { replace: true },
+      );
+    }, [searchParams, setSearchParams, disableActions, traceInfosLoading]);
 
     const deleteTracesMutation = useDeleteTracesMutation();
 
@@ -617,6 +634,7 @@ const TracesV3LogsImpl = React.memo(
           </div>
           {!disableActions && isIssueDetectionModalOpen && (
             <IssueDetectionModal
+              key={singleExperimentId}
               onClose={() => setIsIssueDetectionModalOpen(false)}
               experimentId={singleExperimentId}
               initialSelectedTraceIds={Object.entries(rowSelection)

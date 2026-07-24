@@ -36,6 +36,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMCPServerVersionTag,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.telemetry.events import (
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -240,13 +245,14 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     # --- MCPServerVersion operations ---
 
+    @record_usage_event(McpRegistryCreateServerVersionEvent)
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
         display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
@@ -263,6 +269,10 @@ class SqlAlchemyMCPServerRegistryMixin:
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
         _validate_mcp_initial_status(status)
+
+        # Store/server create does not perform remote discovery. Omitted tools
+        # are stored as null; client-side callers may resolve before create.
+        tools = None if tools is NOT_SET else tools
         _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
@@ -576,6 +586,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             )
         return target_sv
 
+    @record_usage_event(McpRegistryCreateAccessEndpointEvent)
     def create_mcp_access_endpoint(
         self,
         server_name: str,
@@ -586,6 +597,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPAccessEndpoint:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
+        _validate_mcp_access_endpoint_url(url)
 
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -777,6 +789,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                         "MCP access endpoint url cannot be None",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                _validate_mcp_access_endpoint_url(url)
                 endpoint.url = url
             if transport_type is not NOT_SET and transport_type is not None:
                 endpoint.transport_type = transport_type.value
@@ -1008,6 +1021,14 @@ def _validate_exactly_one(
     if (param1_value is None) == (param2_value is None):
         raise MlflowException(
             f"Exactly one of {param1_name} or {param2_name} must be provided",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_mcp_access_endpoint_url(url: str) -> None:
+    if not isinstance(url, str) or not url.strip():
+        raise MlflowException(
+            f"MCP access endpoint url cannot be empty or just whitespace: {url!r}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

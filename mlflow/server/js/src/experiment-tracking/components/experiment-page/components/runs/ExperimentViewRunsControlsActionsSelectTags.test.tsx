@@ -177,4 +177,19 @@ describe('ExperimentViewRunsControlsActionsSelectTags', () => {
       ],
     );
   });
+
+  it('renders tags in alphabetical order in the dropdown', async () => {
+    renderComponent();
+
+    // Click on the trigger to open the dropdown
+    await userEvent.click(screen.getByTestId('runs-tag-multiselect-trigger'));
+
+    // Get all rendered options
+    const options = screen.getAllByRole('option');
+    const optionNames = options.map((option) => option.getAttribute('value'));
+
+    // Assert that the options are in alphabetical order
+    const sorted = [...optionNames].sort();
+    expect(optionNames).toEqual(sorted);
+  });
 });

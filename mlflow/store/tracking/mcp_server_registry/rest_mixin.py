@@ -129,7 +129,7 @@ class RestMCPServerRegistryMixin:
         display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
@@ -145,8 +145,10 @@ class RestMCPServerRegistryMixin:
             body["source"] = source
         if status is not None:
             body["status"] = str(status)
-        if tools is not None:
-            body["tools"] = [t.to_dict() for t in tools]
+        # Mirror update: NOT_SET → omit field (store null, no discovery);
+        # None → JSON null (store null, no discovery); list/[] → as-is.
+        if tools is not NOT_SET:
+            body["tools"] = None if tools is None else [t.to_dict() for t in tools]
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
         return MCPServerVersion.from_dict(data)
 
@@ -268,7 +270,14 @@ class RestMCPServerRegistryMixin:
             params["server_version"] = server_version
         if server_alias is not None:
             params["server_alias"] = server_alias
-        path = f"{_server_path(server_name)}/endpoints" if server_name else "/endpoints"
+        if server_name is None:
+            path = "/endpoints"
+        elif isinstance(server_name, str) and server_name.strip():
+            path = f"{_server_path(server_name)}/endpoints"
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "server_name must be a non-empty string when provided"
+            )
         data = self._mcp_request("GET", path, params=params)
         try:
             if not isinstance(data, dict):

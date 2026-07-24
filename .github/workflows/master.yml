@@ -343,9 +343,13 @@ jobs:
           # unpinned install backtracks to the ancient 0.1.8 (imports the
           # removed openai.error). Restore it once upstream lifts the pins.
           # https://github.com/guardrails-ai/guardrails/issues/1505
+          # Avoid google-adk[gcp] here: its OTel GCP deps include prereleases,
+          # and UV_EXCLUDE_NEWER=P7D can make uv backtrack to google-adk==0.0.1
+          # when a new stable OTel GCP release is still cooldown-excluded. These
+          # tests need google-adk plus vertexai imports from google-cloud-aiplatform.
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm google-adk google-cloud-aiplatform
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |

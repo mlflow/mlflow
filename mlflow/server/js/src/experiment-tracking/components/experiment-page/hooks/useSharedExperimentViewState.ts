@@ -20,6 +20,10 @@ import {
 } from '../../../constants';
 import Routes from '../../../routes';
 import { isTextCompressedDeflate, textDecompressDeflate } from '../../../../common/utils/StringUtils';
+import {
+  decodeSavedViewEnvelope,
+  deserializePersistedState as deserializeEnvelopeState,
+} from '../utils/savedViewEnvelope';
 
 const deserializePersistedState = async (state: string) => {
   if (isTextCompressedDeflate(state)) {
@@ -27,14 +31,6 @@ const deserializePersistedState = async (state: string) => {
   }
   return JSON.parse(state);
 };
-
-/**
- * URL-embedded shared links carry the (optionally compressed) view-state blob directly in the
- * viewStateShareKey URL param. Legacy links instead store a hash that points to an experiment
- * tag. A compressed blob carries the deflate header; an uncompressed blob is a JSON object
- * literal — both are distinguishable from a bare hash.
- */
-const isUrlEmbeddedShareState = (value: string) => isTextCompressedDeflate(value) || value.trimStart().startsWith('{');
 
 /**
  * Hook that handles loading shared view state from URL and updating the search facets/UI state accordingly
@@ -147,33 +143,8 @@ export const useSharedExperimentViewState = (
       );
     };
 
-    // URL-embedded shared link: the view state is carried directly in the viewStateShareKey param
-    if (isUrlEmbeddedShareState(viewStateShareKey)) {
-      // Mark as acted-on synchronously so a fast re-run can't slip past the pending async parse.
-      appliedShareKeyRef.current = viewStateShareKey;
-      const parseUrlEmbeddedShareState = async () => {
-        try {
-          const parsedSharedViewState = await deserializePersistedState(viewStateShareKey);
-          // Must be a plain object: arrays are typeof 'object' but pick()ing them yields {},
-          // which would silently reset the recipient's view to defaults instead of erroring.
-          if (
-            !parsedSharedViewState ||
-            typeof parsedSharedViewState !== 'object' ||
-            Array.isArray(parsedSharedViewState)
-          ) {
-            reportInvalidShareState();
-            return;
-          }
-          applyParsedState(parsedSharedViewState);
-        } catch (e) {
-          reportInvalidShareState();
-        }
-      };
-      parseUrlEmbeddedShareState();
-      return;
-    }
-
-    // Legacy shared link: the param is a hash pointing to an experiment tag.
+    // The share key references an experiment tag by id: a saved-view envelope tag, or a legacy
+    // pre-#24152 tag storing the raw serialized state. Resolving it requires the experiment.
     if (!experiment) {
       return;
     }
@@ -188,6 +159,18 @@ export const useSharedExperimentViewState = (
     appliedShareKeyRef.current = viewStateShareKey;
 
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
+      // A saved-view tag stores a {name, createdAt, state} envelope (state is the compressed
+      // view-state blob); a legacy pre-#24152 tag stores the raw serialized view state directly.
+      // Try the envelope first (all new writes use it); fall back to the raw parse so any
+      // straggler legacy tag still resolves. Only if both fail do we report an invalid share key.
+      try {
+        const envelope = decodeSavedViewEnvelope(shareViewTag.value);
+        const parsedSharedViewState = await deserializeEnvelopeState(envelope);
+        applyParsedState(parsedSharedViewState);
+        return;
+      } catch {
+        // Not an envelope — fall through to the legacy raw parse below.
+      }
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
         applyParsedState(parsedSharedViewState);
