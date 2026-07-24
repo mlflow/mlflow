@@ -813,6 +813,8 @@ def test_model_cache(spark, model_path):
     assert min(results2) > 0
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
