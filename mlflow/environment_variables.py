@@ -876,6 +876,13 @@ MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
 
+#: Base URL for the judge model endpoint used by the ``sap-ai-core:/`` provider.
+#: Supports both ``http://`` (for egress-gateway routing) and ``https://``.
+#: Aligns with the ``base_url`` parameter on ``mlflow.genai.make_judge``.
+#: Example: ``http://egress-gw.cluster.local/v2/inference/deployments/<id>/chat/completions``
+#: Required when using ``sap-ai-core:/<model>`` as the judge model URI. (default: unset)
+MLFLOW_GENAI_JUDGE_BASE_URL = _EnvironmentVariable("MLFLOW_GENAI_JUDGE_BASE_URL", str, None)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace

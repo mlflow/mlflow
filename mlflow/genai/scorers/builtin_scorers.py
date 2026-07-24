@@ -320,6 +320,7 @@ class BuiltInScorer(Judge):
     name: str
     required_columns: set[str] = set()
     inference_params: dict[str, Any] | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     @abstractmethod
@@ -522,6 +523,7 @@ class RetrievalRelevance(BuiltInScorer):
                     prompt,
                     assessment_name=self.name,
                     inference_params=self.inference_params,
+                    extra_headers=self.extra_headers,
                 )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
@@ -676,6 +678,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_facts=expected_facts,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -783,6 +786,7 @@ class RetrievalGroundedness(BuiltInScorer):
                 context=context,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -867,6 +871,7 @@ class ToolCallEfficiency(BuiltInScorer):
             available_tools=available_tools,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1117,6 +1122,7 @@ class ToolCallCorrectness(BuiltInScorer):
                 check_order=self.should_consider_ordering,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
 
         # Only compare arguments if all expected calls have arguments specified
@@ -1149,6 +1155,7 @@ class ToolCallCorrectness(BuiltInScorer):
             check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1297,6 +1304,7 @@ class Guidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1462,6 +1470,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1584,7 +1593,11 @@ class RelevanceToQuery(BuiltInScorer):
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=fields.outputs, name=self.name, model=self.model
+            request=request,
+            context=fields.outputs,
+            name=self.name,
+            model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1691,6 +1704,7 @@ class Safety(BuiltInScorer):
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1887,6 +1901,7 @@ class Correctness(BuiltInScorer):
             expected_facts=expected_facts,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1952,6 +1967,7 @@ class Fluency(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -2164,7 +2180,11 @@ class Equivalence(BuiltInScorer):
             expected_output=expectations_str,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, inference_params=self.inference_params
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
         return _sanitize_feedback(feedback)
@@ -2327,6 +2347,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2406,6 +2427,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2487,6 +2509,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2565,6 +2588,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2642,6 +2666,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2733,6 +2758,7 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2760,6 +2786,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
 
     name: str = "last_turn_knowledge_retention"
     model: str | None = None
+    extra_headers: dict[str, str] | None = None
     description: str = (
         "Evaluate whether the last AI response in a conversation correctly retains information "
         "provided by users in earlier conversation turns."
@@ -2777,6 +2804,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2847,12 +2875,18 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        if self.model is not None or self.inference_params is not None:
+        if (
+            self.model is not None
+            or self.inference_params is not None
+            or self.extra_headers is not None
+        ):
             self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
             if self.model is not None:
                 self.last_turn_scorer.model = self.model
             if self.inference_params is not None:
                 self.last_turn_scorer.inference_params = self.inference_params
+            if self.extra_headers is not None:
+                self.last_turn_scorer.extra_headers = self.extra_headers
 
     def _create_judge(self) -> Judge:
         """
@@ -3040,6 +3074,7 @@ class Completeness(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -3146,6 +3181,7 @@ class Summarization(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 

@@ -512,6 +512,14 @@ def _get_provider_instance(
         )
         return VertexAIProvider(_get_route_config(config))
 
+    elif provider == Provider.SAP_AI_CORE:
+        from mlflow.gateway.providers.sap_ai_core import SapAiCoreConfig, SapAiCoreProvider
+
+        # SapAiCoreProvider reads MLFLOW_GENAI_JUDGE_BASE_URL at request time.
+        # Auth is handled by the egress gateway; no API key is stored.
+        config = SapAiCoreConfig()
+        return SapAiCoreProvider(_get_route_config(config))
+
     raise MlflowException(
         f"Provider '{provider}' is not supported for evaluation.",
         error_code=INVALID_PARAMETER_VALUE,
