@@ -43,6 +43,11 @@ LangGraph.js tracing is supported via the OpenTelemetry ingestion. See the [Gett
 </Tabs>
 </TabsWrapper>
 
+:::warning Use `mlflow.langchain.autolog()` for LangGraph, not `mlflow.openai.autolog()`
+
+`mlflow.openai.autolog()` captures only raw LLM call spans. It cannot see LangGraph node boundaries, conditional edges, or graph state. All graph node spans will be missing from the trace. Call `mlflow.langchain.autolog()` to capture the full graph execution.
+:::
+
 ## Getting Started
 
 MLflow support tracing for LangGraph in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.
@@ -115,6 +120,58 @@ result = graph.invoke({"messages": [{"role": "user", "content": "what is the wea
 ### 5. View the trace in the MLflow UI
 
 Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
+
+  </TabItem>
+  <TabItem value="databricks" label="Databricks (ChatDatabricks)">
+
+### 1. Start MLflow
+
+Use [Databricks managed MLflow](https://docs.databricks.com/aws/en/mlflow3/genai/) or start a local MLflow server following the [Self-Hosting Guide](/self-hosting).
+
+### 2. Install dependencies
+
+```bash
+pip install langgraph databricks-langchain mlflow
+```
+
+### 3. Enable tracing and build the agent
+
+```python
+import mlflow
+from databricks_langchain import ChatDatabricks
+from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+from typing import Literal
+
+# mlflow.langchain.autolog() captures all LangGraph node spans.
+# Do not use mlflow.openai.autolog() here. It misses graph structure.
+mlflow.langchain.autolog()
+
+mlflow.set_experiment("LangGraph-Databricks")
+
+
+@tool
+def get_weather(city: Literal["nyc", "sf"]):
+    """Use this to get weather information."""
+    if city == "nyc":
+        return "It might be cloudy in nyc"
+    elif city == "sf":
+        return "It's always sunny in sf"
+
+
+# Replace the model name with your Databricks serving endpoint.
+# See the Databricks integration page for endpoint setup:
+# /genai/tracing/integrations/listing/databricks
+llm = ChatDatabricks(model="databricks-claude-opus-4")
+tools = [get_weather]
+graph = create_react_agent(llm, tools)
+
+result = graph.invoke({"messages": [{"role": "user", "content": "what is the weather in sf?"}]})
+```
+
+### 4. View the trace in the MLflow UI
+
+Open the MLflow UI to see the full graph trace, including all node spans and LLM call spans.
 
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
@@ -235,7 +292,22 @@ def code_check(state: GraphState):
     }
 ```
 
-This way, the span for the `check_code` node will have child spans, which record whether the each validation fails or not, with their exception details.
+This way, the span for the `check_code` node will have child spans, which record whether each validation fails or not, with their exception details.
+
+When a node or tool returns retrieved content such as documents, search results, or messages, record the actual content on the span rather than a count. A count like `{"matches": 20}` shows how many results arrived but does not reveal why the answer was wrong. The trace store accepts large string attributes, so full content is the default and makes traces debuggable.
+
+```python
+# Prefer: record the content
+with mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
+    span.set_inputs({"query": query})
+    docs = retriever.invoke(query)
+    span.set_outputs({"documents": [{"id": d.id, "text": d.page_content} for d in docs]})
+
+# Avoid: a count leaves nothing to debug
+with mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
+    docs = retriever.invoke(query)
+    span.set_outputs({"count": len(docs)})
+```
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
 
