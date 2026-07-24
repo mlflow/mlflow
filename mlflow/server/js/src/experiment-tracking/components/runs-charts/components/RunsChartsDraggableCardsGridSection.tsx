@@ -17,6 +17,7 @@ import { RunsChartsDraggablePreview } from './RunsChartsDraggablePreview';
 import { DRAGGABLE_CARD_TRANSITION_NAME, type RunsChartCardSetFullscreenFn } from './cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 const rowHeightSuggestions = [300, 330, 360, 400, 500];
 
@@ -27,6 +28,49 @@ const getColumnSuggestions = (containerWidth: number, gapSize = 8) =>
   }));
 
 const PlaceholderSymbol = Symbol('placeholder');
+
+/**
+ * Threshold for the number of chart cards above which:
+ * 1. Virtualization is enabled (only visible rows are rendered to the DOM)
+ * 2. The "hide empty charts" filter is skipped to avoid expensive per-card predicate scans
+ */
+const VIRTUALIZATION_THRESHOLD = 50;
+
+/**
+ * Helper to find the nearest scrollable ancestor element for an element.
+ */
+const getScrollParent = (node: HTMLElement | null): HTMLElement | window | null => {
+  if (!node) {
+    return null;
+  }
+  let parent = node.parentElement;
+  while (parent) {
+    const { overflowY } = window.getComputedStyle(parent);
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return window;
+};
+
+/**
+ * Helper to calculate the top offset (scrollMargin) of the grid relative to its scroll parent.
+ */
+const getScrollMargin = (gridEl: HTMLElement | null, scrollEl: HTMLElement | window | null): number => {
+  if (!gridEl || !scrollEl || scrollEl === window) {
+    if (gridEl && scrollEl === window) {
+      const rect = gridEl.getBoundingClientRect();
+      return Math.max(0, rect.top + (window.scrollY || window.pageYOffset || 0));
+    }
+    return 0;
+  }
+  const scrollElement = scrollEl as HTMLElement;
+  const gridRect = gridEl.getBoundingClientRect();
+  const scrollRect = scrollElement.getBoundingClientRect();
+  const margin = gridRect.top - scrollRect.top + scrollElement.scrollTop;
+  return Math.max(0, margin);
+};
 
 interface RunsChartsDraggableCardsGridProps {
   onRemoveChart: (chart: RunsChartsCardConfig) => void;
@@ -159,13 +203,15 @@ export const RunsChartsDraggableCardsGridSection = memo(
     );
 
     const cardsToRender = useMemo(() => {
+      // Skip the expensive empty-chart filtering when the card count exceeds
+      // the virtualization threshold. At that scale the per-card predicate scan
+      // (which walks every visible run's metric data) becomes a major bottleneck
+      // and compounds the rendering cost.
+      if (!hideEmptyCharts || cardsConfig.length > VIRTUALIZATION_THRESHOLD) {
+        return cardsConfig;
+      }
       const isEmptyChartCard = createEmptyChartCardPredicate(chartRunData);
-      return cardsConfig.filter((cardConfig) => {
-        if (!hideEmptyCharts) {
-          return true;
-        }
-        return !isEmptyChartCard(cardConfig);
-      });
+      return cardsConfig.filter((cardConfig) => !isEmptyChartCard(cardConfig));
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
 
     // Calculate the transforms for each card based on the dragged card and its position.
@@ -309,6 +355,169 @@ export const RunsChartsDraggableCardsGridSection = memo(
       [columnSuggestions],
     );
 
+    // Determine whether virtualization should be active. Virtualization is
+    // enabled when the card count exceeds the threshold AND no drag/resize
+    // operation is in progress (drag-and-drop requires all cards to be in the
+    // DOM so that position calculations and reorder references remain correct).
+    const isLargeGrid = cardsToRender.length > VIRTUALIZATION_THRESHOLD;
+    const shouldVirtualize = isLargeGrid && !draggedCardUuid && !resizePreview;
+
+    // Group the flat cards list into rows for the virtualizer.
+    // Only perform the O(N) partitioning if we are in the large grid path.
+    const rows = useMemo(() => {
+      if (!isLargeGrid) {
+        return [];
+      }
+      const result: RunsChartsCardConfig[][] = [];
+      for (let i = 0; i < cardsToRender.length; i += columns) {
+        result.push(cardsToRender.slice(i, i + columns));
+      }
+      return result;
+    }, [cardsToRender, columns, isLargeGrid]);
+
+    const gapSize = theme.spacing.sm;
+
+    const getScrollEl = useCallback(() => getScrollParent(gridBoxRef.current), []);
+
+    const rowVirtualizer = useVirtualizer({
+      count: isLargeGrid ? rows.length : 0,
+      getScrollElement: getScrollEl,
+      estimateSize: () => cardHeight + gapSize,
+      overscan: 3,
+      // Only enable when virtualization is active
+      enabled: shouldVirtualize,
+      scrollMargin: gridBoxRef.current ? getScrollMargin(gridBoxRef.current, getScrollParent(gridBoxRef.current)) : 0,
+    });
+
+    // Shared card rendering function used by both virtualized and
+    // non-virtualized paths. `globalIndex` is the card's position in the
+    // flat `cardsToRender` array so that drag-and-drop neighbour references
+    // remain correct.
+    const renderCard = useCallback(
+      (cardConfig: RunsChartsCardConfig, globalIndex: number) => (
+        <RunsChartsDraggableCard
+          key={cardConfig.uuid}
+          uuid={cardConfig.uuid ?? ''}
+          translateBy={cardTransforms[cardConfig.uuid ?? '']}
+          onResizeStart={onResizeStart}
+          onResizeStop={onResizeStop}
+          onResize={onResize}
+          cardConfig={cardConfig}
+          chartRunData={chartRunData}
+          onReorderWith={onSwapCards}
+          index={globalIndex}
+          height={cardHeight}
+          canMoveDown={Boolean(cardsToRender[globalIndex + 1])}
+          canMoveUp={Boolean(cardsToRender[globalIndex - 1])}
+          canMoveToTop={globalIndex > 0}
+          canMoveToBottom={globalIndex < cardsToRender.length - 1}
+          previousChartUuid={cardsToRender[globalIndex - 1]?.uuid}
+          nextChartUuid={cardsToRender[globalIndex + 1]?.uuid}
+          hideEmptyCharts={hideEmptyCharts}
+          firstChartUuid={cardsToRender[0]?.uuid}
+          lastChartUuid={cardsToRender[cardsToRender.length - 1]?.uuid}
+          {...cardProps}
+        />
+      ),
+      [
+        cardTransforms,
+        onResizeStart,
+        onResizeStop,
+        onResize,
+        chartRunData,
+        onSwapCards,
+        cardHeight,
+        cardsToRender,
+        hideEmptyCharts,
+        cardProps,
+      ],
+    );
+
+    // ── Large grid rendering path (with optional virtualization) ────────
+    if (isLargeGrid) {
+      return (
+        <div
+          ref={gridBoxRef}
+          css={{ position: 'relative' }}
+          style={{
+            // Total height of all rows so the scrollbar of the parent container reflects the full grid size
+            height: rows.length * (cardHeight + gapSize),
+            ...(draggedCardUuid && {
+              [DRAGGABLE_CARD_TRANSITION_NAME]: 'transform 0.1s',
+            }),
+          }}
+          data-testid="virtualized-chart-cards-scroll-container"
+          onMouseMove={mouseMove}
+          onMouseLeave={() => {
+            setPositionInSection(null);
+          }}
+        >
+          {(draggedCardUuid || resizePreview) && (
+            <Global
+              styles={{
+                'body, :host': {
+                  userSelect: 'none',
+                },
+              }}
+            />
+          )}
+          {shouldVirtualize
+            ? rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const rowCards = rows[virtualRow.index];
+                const rowStartIndex = virtualRow.index * columns;
+                return (
+                  <div
+                    key={virtualRow.index}
+                    data-testid="virtualized-chart-row"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: virtualRow.size,
+                      transform: `translateY(${virtualRow.start - (rowVirtualizer.options.scrollMargin ?? 0)}px)`,
+                    }}
+                    css={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                      gap: gapSize,
+                    }}
+                  >
+                    {rowCards.map((cardConfig, colIndex) => renderCard(cardConfig, rowStartIndex + colIndex))}
+                  </div>
+                );
+              })
+            : rows.map((rowCards, rowIndex) => {
+                const rowStartIndex = rowIndex * columns;
+                return (
+                  <div
+                    key={rowIndex}
+                    data-testid="virtualized-chart-row"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: cardHeight + gapSize,
+                      transform: `translateY(${rowIndex * (cardHeight + gapSize)}px)`,
+                    }}
+                    css={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                      gap: gapSize,
+                    }}
+                  >
+                    {rowCards.map((cardConfig, colIndex) => renderCard(cardConfig, rowStartIndex + colIndex))}
+                  </div>
+                );
+              })}
+          {dragPreview && <RunsChartsDraggablePreview {...dragPreview} />}
+          {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
+        </div>
+      );
+    }
+
+    // ── Small grid rendering path (original behavior) ───────────────────
     return (
       <div
         ref={gridBoxRef}
@@ -358,33 +567,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
             />
           </div>
         )}
-        {cardsToRender.map((cardConfig, index, array) => {
-          return (
-            <RunsChartsDraggableCard
-              key={cardConfig.uuid}
-              uuid={cardConfig.uuid ?? ''}
-              translateBy={cardTransforms[cardConfig.uuid ?? '']}
-              onResizeStart={onResizeStart}
-              onResizeStop={onResizeStop}
-              onResize={onResize}
-              cardConfig={cardConfig}
-              chartRunData={chartRunData}
-              onReorderWith={onSwapCards}
-              index={index}
-              height={cardHeight}
-              canMoveDown={Boolean(array[index + 1])}
-              canMoveUp={Boolean(array[index - 1])}
-              canMoveToTop={index > 0}
-              canMoveToBottom={index < array.length - 1}
-              previousChartUuid={array[index - 1]?.uuid}
-              nextChartUuid={array[index + 1]?.uuid}
-              hideEmptyCharts={hideEmptyCharts}
-              firstChartUuid={array[0]?.uuid}
-              lastChartUuid={array[array.length - 1]?.uuid}
-              {...cardProps}
-            />
-          );
-        })}
+        {cardsToRender.map((cardConfig, index) => renderCard(cardConfig, index))}
         {dragPreview && <RunsChartsDraggablePreview {...dragPreview} />}
         {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
       </div>
