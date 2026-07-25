@@ -97,7 +97,6 @@ export interface MCPServerVersion {
   name: string;
   version: string;
   server_json: ServerJSONPayload;
-  display_name?: string;
   status: MCPStatus;
   tools?: MCPTool[];
   aliases: string[];
@@ -214,7 +213,6 @@ export interface UpdateMCPServerRequest {
 
 export interface CreateMCPServerVersionRequest {
   server_json: ServerJSONPayload;
-  display_name?: string;
   status?: MCPStatus;
   source?: string;
   tools?: MCPTool[];
@@ -222,7 +220,6 @@ export interface CreateMCPServerVersionRequest {
 }
 
 export interface UpdateMCPServerVersionRequest {
-  display_name?: string | null;
   status?: MCPStatus | null;
   tools?: MCPTool[] | null;
   connect_options?: ConnectOptionsMap | null;

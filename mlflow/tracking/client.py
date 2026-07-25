@@ -6821,7 +6821,6 @@ class MlflowClient:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
@@ -6832,7 +6831,6 @@ class MlflowClient:
         resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
         return self._tracking_client.store.create_mcp_server_version(
             server_json=server_json,
-            display_name=display_name,
             source=source,
             status=status,
             tools=resolved_tools,
@@ -6868,7 +6866,6 @@ class MlflowClient:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
@@ -6876,7 +6873,6 @@ class MlflowClient:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
             version=version,
-            display_name=display_name,
             status=status,
             tools=tools,
             connect_options=connect_options,

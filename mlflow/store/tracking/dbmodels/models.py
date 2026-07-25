@@ -4010,7 +4010,6 @@ class SqlMCPServerVersion(Base):
     version_patch = Column(Integer, nullable=False)
     version_prerelease_sort_key = Column(String(512), nullable=False)
     server_json = Column(JSON, nullable=False)
-    display_name = Column(String(256), nullable=True)
     status = Column(
         String(20),
         nullable=False,
@@ -4074,7 +4073,6 @@ class SqlMCPServerVersion(Base):
             name=self.name,
             version=self.version,
             server_json=server_json,
-            display_name=self.display_name,
             status=MCPStatus(self.status),
             tools=tools,
             aliases=alias_names,

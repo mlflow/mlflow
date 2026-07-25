@@ -65,15 +65,15 @@ export const resolveDisplayName = (server: { display_name?: string; name: string
 };
 
 const resolveVersionDisplayName = (
-  version: { display_name?: string; server_json?: { title?: string } } | null | undefined,
+  version: { server_json?: { title?: string } } | null | undefined,
   fallback: string,
 ): string => {
-  return version?.display_name || version?.server_json?.title || fallback;
+  return version?.server_json?.title || fallback;
 };
 
 export const resolveEndpointDisplayName = (endpoint: {
   server_name: string;
-  resolved_version?: { display_name?: string; server_json?: { title?: string } } | null;
+  resolved_version?: { server_json?: { title?: string } } | null;
 }): string => {
   return resolveVersionDisplayName(endpoint.resolved_version, endpoint.server_name);
 };

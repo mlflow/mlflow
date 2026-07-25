@@ -21,7 +21,6 @@ class MCPServerVersion:
     name: str
     version: str
     server_json: dict[str, Any]
-    display_name: str | None = None
     status: MCPStatus = MCPStatus.DRAFT
     tools: list[MCPTool] | None = None
     aliases: list[str] = field(default_factory=list)
@@ -53,7 +52,6 @@ class MCPServerVersion:
                 name=data["name"],
                 version=data["version"],
                 server_json=data["server_json"],
-                display_name=data.get("display_name"),
                 status=MCPStatus(data["status"]) if data.get("status") else MCPStatus.DRAFT,
                 tools=tools,
                 aliases=data.get("aliases") or [],

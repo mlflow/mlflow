@@ -22,7 +22,6 @@ const renderModal = (props: Partial<React.ComponentProps<typeof EditVersionModal
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const mockServer = createMockMCPServer();
   const mockVersion = createMockMCPServerVersion({
-    display_name: 'Test Display Name',
     status: MCPStatus.DRAFT,
     tools: [{ name: 'test_tool', description: 'A test tool' }],
   });
@@ -49,10 +48,12 @@ const renderModal = (props: Partial<React.ComponentProps<typeof EditVersionModal
 };
 
 describe('EditVersionModal', () => {
-  it('renders with pre-populated fields', () => {
+  it('renders with status and aliases fields', () => {
     renderModal();
     expect(screen.getByText('Edit version details')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Test Display Name')).toBeInTheDocument();
+    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.getByText('Aliases')).toBeInTheDocument();
+    expect(screen.queryByText('Display name')).not.toBeInTheDocument();
   });
 
   it('renders status selector with current status', () => {
@@ -66,13 +67,10 @@ describe('EditVersionModal', () => {
   });
 
   it('submits successfully and calls onClose', async () => {
-    const updatedVersion = createMockMCPServerVersion({ display_name: 'Updated Name', status: MCPStatus.ACTIVE });
+    const updatedVersion = createMockMCPServerVersion({ status: MCPStatus.ACTIVE });
     server.use(getMockedUpdateMCPServerVersionResponse(updatedVersion));
 
     const { onClose } = renderModal();
-    const nameInput = screen.getByDisplayValue('Test Display Name');
-    await userEvent.clear(nameInput);
-    await userEvent.type(nameInput, 'Updated Name');
     await userEvent.click(screen.getByText('Save'));
 
     await waitFor(() => {

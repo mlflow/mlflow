@@ -128,7 +128,6 @@ class MCPServerRegistryMixin:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
@@ -151,7 +150,6 @@ class MCPServerRegistryMixin:
 
         Args:
             server_json: The server.json payload (must contain "name" and "version").
-            display_name: Human-readable display name.
             source: Origin URL or identifier for this version.
             status: Initial status (defaults to DRAFT).
             tools: ``NOT_SET`` or ``None`` to store null, ``[]`` / a list to
@@ -233,7 +231,6 @@ class MCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
@@ -244,7 +241,6 @@ class MCPServerRegistryMixin:
         Args:
             name: Server name.
             version: Version string.
-            display_name: New display name. Omit to leave unchanged; pass None to set null.
             status: New status. Omit to leave unchanged; non-null values update the status.
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
