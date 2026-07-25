@@ -247,11 +247,6 @@ const TextDiffPanel = ({
 
 const DIFF_CONFIGS: { key: string; label: React.ReactNode; diffMode?: DiffMode }[] = [
   {
-    key: '_displayName',
-    diffMode: 'words',
-    label: <FormattedMessage defaultMessage="Display name" description="MCP compare display name heading" />,
-  },
-  {
     key: '_source',
     diffMode: 'chars',
     label: <FormattedMessage defaultMessage="Source" description="MCP compare source heading" />,
@@ -336,8 +331,6 @@ export const MCPServerVersionCompare = ({
       const version = side === 'baseline' ? baselineVersion : comparedVersion;
       const endpoints = side === 'baseline' ? baselineEndpoints : comparedEndpoints;
       switch (key) {
-        case '_displayName':
-          return version?.display_name ?? '';
         case '_source':
           return version?.source ?? '';
         case '_endpoints':

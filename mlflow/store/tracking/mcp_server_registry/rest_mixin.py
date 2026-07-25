@@ -127,7 +127,6 @@ class RestMCPServerRegistryMixin:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
@@ -141,8 +140,6 @@ class RestMCPServerRegistryMixin:
                 "server_json must contain 'name' and 'version' keys"
             )
         body: dict[str, Any] = {"server_json": server_json}
-        if display_name is not None:
-            body["display_name"] = display_name
         if source is not None:
             body["source"] = source
         if status is not None:
@@ -205,15 +202,12 @@ class RestMCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
         connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         body: dict[str, Any] = {}
-        if display_name is not NOT_SET:
-            body["display_name"] = display_name
         if status is not NOT_SET:
             body["status"] = str(status) if status is not None else None
         if tools is not NOT_SET:

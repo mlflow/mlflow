@@ -209,7 +209,6 @@ class UpdateMCPServerRequest(BaseModel):
 
 class CreateMCPServerVersionRequest(BaseModel):
     server_json: ServerJSONPayload
-    display_name: str | None = None
     status: str = "draft"
     source: str | None = None
     tools: list[MCPToolRequestPayload] | None = Field(
@@ -255,7 +254,6 @@ class CreateMCPServerVersionRequest(BaseModel):
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
-    display_name: str | None = None
     status: str | None = None
     tools: list[MCPToolRequestPayload] | None = Field(
         default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
@@ -370,7 +368,6 @@ class MCPServerVersionResponse(BaseModel):
     name: str
     version: str
     server_json: dict[str, Any]
-    display_name: str | None = None
     workspace: str | None = None
     status: str = "draft"
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
@@ -389,7 +386,6 @@ class MCPServerVersionResponse(BaseModel):
             name=entity.name,
             version=entity.version,
             server_json=entity.server_json,
-            display_name=entity.display_name,
             workspace=entity.workspace,
             status=str(entity.status),
             # Normalize unset tools to [] so clients can iterate without null guards.
@@ -536,8 +532,6 @@ def _update_mcp_server_version_kwargs(
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name, "version": version}
     provided_fields = body.model_fields_set
-    if "display_name" in provided_fields:
-        kwargs["display_name"] = body.display_name
     if "status" in provided_fields:
         if body.status is None:
             raise MlflowException.invalid_parameter_value(
@@ -729,7 +723,6 @@ def create_mcp_server_version(
     _ensure_version_create_parent_access(store, name, username, request)
     ver = store.create_mcp_server_version(
         server_json=server_json,
-        display_name=body.display_name,
         source=body.source,
         status=status,
         tools=tools,

@@ -46,8 +46,8 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
   const { serverDisplayName, aliasesByVersion } = meta as MCPServerVersionListMeta;
   const aliases = aliasesByVersion[original.version] || [];
 
-  const rawDisplayName = original.display_name || original.server_json?.title;
-  const versionDisplayName = rawDisplayName && rawDisplayName !== serverDisplayName ? rawDisplayName : undefined;
+  const rawTitle = original.server_json?.title;
+  const versionTitle = rawTitle && rawTitle !== serverDisplayName ? rawTitle : undefined;
 
   return (
     <div css={flexColumnGapStyles(theme)}>
@@ -64,9 +64,9 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
         </Tag>
         <MCPServerAliasesCell aliases={aliases} />
       </div>
-      {versionDisplayName && (
-        <Typography.Text size="sm" color="secondary" css={textEllipsisStyles} title={versionDisplayName}>
-          {versionDisplayName}
+      {versionTitle && (
+        <Typography.Text size="sm" color="secondary" css={textEllipsisStyles} title={versionTitle}>
+          {versionTitle}
         </Typography.Text>
       )}
       {original.creation_timestamp && (

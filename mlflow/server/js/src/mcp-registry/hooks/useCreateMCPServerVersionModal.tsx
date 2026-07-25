@@ -206,23 +206,27 @@ export const useCreateMCPServerVersionModal = ({
           <Spacer />
         </>
       )}
-      <FormUI.Label htmlFor="mlflow.mcp_registry.create.display_name">
-        <FormattedMessage
-          defaultMessage="Display name:"
-          description="Label for display name field in create MCP server modal"
-        />
-      </FormUI.Label>
-      <Input
-        componentId="mlflow.mcp_registry.create.display_name"
-        id="mlflow.mcp_registry.create.display_name"
-        value={formState.displayName}
-        onChange={(e) => handleFieldChange('displayName', e.target.value)}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Human-readable label for this server',
-          description: 'Placeholder for display name in create MCP server modal',
-        })}
-      />
-      <Spacer />
+      {!isVersionMode && (
+        <>
+          <FormUI.Label htmlFor="mlflow.mcp_registry.create.display_name">
+            <FormattedMessage
+              defaultMessage="Display name:"
+              description="Label for display name field in create MCP server modal"
+            />
+          </FormUI.Label>
+          <Input
+            componentId="mlflow.mcp_registry.create.display_name"
+            id="mlflow.mcp_registry.create.display_name"
+            value={formState.displayName}
+            onChange={(e) => handleFieldChange('displayName', e.target.value)}
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Human-readable label for this server',
+              description: 'Placeholder for display name in create MCP server modal',
+            })}
+          />
+          <Spacer />
+        </>
+      )}
       <FormUI.Label htmlFor="mlflow.mcp_registry.create.server_json">
         <FormattedMessage
           defaultMessage="server.json:"

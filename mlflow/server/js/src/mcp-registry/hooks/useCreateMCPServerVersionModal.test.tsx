@@ -346,5 +346,6 @@ describe('useCreateMCPServerVersionModal', () => {
     });
 
     expect(screen.queryByText('Icons')).not.toBeInTheDocument();
+    expect(screen.queryByText('Display name:')).not.toBeInTheDocument();
   });
 });

@@ -10503,10 +10503,6 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
   },
-  "iaICjw": {
-    "defaultMessage": "Display name",
-    "description": "MCP compare display name heading"
-  },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
@@ -10626,10 +10622,6 @@
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
-  },
-  "j5t9Sd": {
-    "defaultMessage": "Enter display name",
-    "description": "Placeholder for version display name input"
   },
   "j6ijji": {
     "defaultMessage": "Are you sure you want to delete this access endpoint? This action cannot be undone.",
@@ -11886,10 +11878,6 @@
   "ogHYBU": {
     "defaultMessage": "PII Detection",
     "description": "PII guardrail type name"
-  },
-  "oj/VFA": {
-    "defaultMessage": "Display name",
-    "description": "Version edit display name label"
   },
   "ojLGIx": {
     "defaultMessage": "Enter a feedback name",
