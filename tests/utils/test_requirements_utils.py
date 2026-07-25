@@ -289,7 +289,28 @@ def test_infer_requirements_excludes_mlflow():
         assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
 
 
-def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
+@pytest.fixture
+def _restore_databricks_modules():
+    """Restore the real `databricks*` entries in `sys.modules` after the test.
+
+    The test below deletes `databricks` from `sys.modules` (a manual `del`, which
+    `monkeypatch` does not track) and imports a fake `databricks` package from `tmp_path`.
+    Without restoration the fake module — and the `databricks.*` submodules imported after
+    it — leak into the interpreter; under pytest-xdist a later test on the same worker then
+    sees the stale fake and fails with `module 'databricks' has no attribute 'sdk'`.
+    """
+    saved = {
+        k: v for k, v in sys.modules.items() if k == "databricks" or k.startswith("databricks.")
+    }
+    yield
+    for key in [k for k in sys.modules if k == "databricks" or k.startswith("databricks.")]:
+        del sys.modules[key]
+    sys.modules.update(saved)
+
+
+def test_capture_imported_modules_scopes_databricks_imports(
+    monkeypatch, tmp_path, _restore_databricks_modules
+):
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     monkeypatch.chdir(tmp_path)
