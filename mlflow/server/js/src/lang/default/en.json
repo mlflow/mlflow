@@ -5851,6 +5851,10 @@
     "defaultMessage": "Running session level scorers is not yet supported",
     "description": "Tooltip message when scorer is session-level"
   },
+  "R36wuk": {
+    "defaultMessage": "Tool calls: {status}",
+    "description": "Accessible label for the expandable summary row of a run of assistant tool calls"
+  },
   "R3Lb6z": {
     "defaultMessage": "The requested resource was not found.",
     "description": "Resource not found (HTTP STATUS 404) generic error message"
@@ -10190,10 +10194,6 @@
   "l119W9": {
     "defaultMessage": "No matching questions",
     "description": "Review queue: no questions match the search"
-  },
-  "l427IF": {
-    "defaultMessage": "Tool calls",
-    "description": "Accessible label for the expandable summary row of a run of assistant tool calls"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
