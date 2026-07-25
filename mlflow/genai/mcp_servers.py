@@ -82,7 +82,6 @@ def _validate_endpoint_remotes(
 @experimental(version="3.15.0")
 def register_mcp_server(
     server_json: dict[str, Any],
-    display_name: str | None = None,
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = NOT_SET,
@@ -118,7 +117,6 @@ def register_mcp_server(
     Args:
         server_json: The canonical MCP ``server.json`` payload. Must contain ``name``
             and ``version`` at the top level.
-        display_name: Human-readable label for the version.
         source: Provenance URI (e.g., a git repository URL).
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
@@ -202,7 +200,6 @@ def register_mcp_server(
 
     version = client.create_mcp_server_version(
         server_json=server_json,
-        display_name=display_name,
         source=source,
         status=parsed_status,
         tools=resolved_tools,
@@ -279,7 +276,6 @@ def _read_server_json_remote(url: str) -> dict[str, Any]:
 @experimental(version="3.15.0")
 def register_mcp_server_from_url(
     url: str,
-    display_name: str | None = None,
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = NOT_SET,
@@ -297,7 +293,6 @@ def register_mcp_server_from_url(
     Args:
         url: HTTP/HTTPS URL or local file path (absolute path or ``file://`` URI)
             pointing to a ``server.json`` document.
-        display_name: Human-readable label for the version.
         source: Provenance URI; defaults to ``url`` when not provided.
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
@@ -328,7 +323,6 @@ def register_mcp_server_from_url(
 
     return register_mcp_server(
         server_json=server_json,
-        display_name=display_name,
         source=source or _sanitize_url(url),
         status=status,
         tools=tools,
@@ -519,7 +513,6 @@ def search_mcp_server_versions(
 def update_mcp_server_version(
     name: str,
     version: str,
-    display_name: str | None = NOT_SET,
     status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
     tools: list[MCPTool] | None = NOT_SET,
     connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
@@ -533,7 +526,6 @@ def update_mcp_server_version(
     Args:
         name: Server name.
         version: Version string.
-        display_name: New display name. Pass ``None`` to clear.
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
             ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear. Does not
@@ -547,7 +539,6 @@ def update_mcp_server_version(
     return MlflowClient().update_mcp_server_version(
         name=name,
         version=version,
-        display_name=display_name,
         status=_parse_enum(status, MCPStatus, "status"),
         tools=tools,
         connect_options=connect_options,

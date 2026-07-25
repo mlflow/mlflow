@@ -307,16 +307,7 @@ describe('isServerDimmed', () => {
 });
 
 describe('resolveEndpointDisplayName', () => {
-  it('returns display_name from resolved_version when set', () => {
-    expect(
-      resolveEndpointDisplayName({
-        server_name: 'io.test/server',
-        resolved_version: { display_name: 'My Display Name', server_json: { title: 'Title' } },
-      }),
-    ).toBe('My Display Name');
-  });
-
-  it('falls back to server_json title when display_name is missing', () => {
+  it('returns server_json title from resolved_version when set', () => {
     expect(
       resolveEndpointDisplayName({
         server_name: 'io.test/server',
@@ -325,7 +316,7 @@ describe('resolveEndpointDisplayName', () => {
     ).toBe('Server Title');
   });
 
-  it('falls back to server_name when resolved_version has no display info', () => {
+  it('falls back to server_name when resolved_version has no title', () => {
     expect(
       resolveEndpointDisplayName({
         server_name: 'io.test/server',

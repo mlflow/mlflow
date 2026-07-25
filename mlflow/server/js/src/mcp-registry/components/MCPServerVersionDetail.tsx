@@ -87,8 +87,8 @@ export const MCPServerVersionDetail = ({
   }
 
   const displayName = resolveDisplayName(server);
-  const versionDisplayName = version.display_name || version.server_json?.title;
-  const showVersionDisplayName = versionDisplayName && versionDisplayName !== displayName;
+  const versionTitle = version.server_json?.title;
+  const showVersionTitle = versionTitle && versionTitle !== displayName;
 
   return (
     <div css={{ flex: 1, padding: theme.spacing.md, overflow: 'auto' }}>
@@ -101,9 +101,9 @@ export const MCPServerVersionDetail = ({
               values={{ version: version.version }}
             />
           </Typography.Title>
-          {showVersionDisplayName && (
-            <Typography.Text color="secondary" css={textEllipsisStyles} title={versionDisplayName}>
-              {versionDisplayName}
+          {showVersionTitle && (
+            <Typography.Text color="secondary" css={textEllipsisStyles} title={versionTitle}>
+              {versionTitle}
             </Typography.Text>
           )}
           {version.server_json?.description && (

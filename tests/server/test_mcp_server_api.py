@@ -1067,10 +1067,10 @@ def test_update_version_omitted_tools_leaves_unchanged(client):
     # PATCH without tools must leave tools unchanged (model_fields_set / NOT_SET path).
     patch_r = client.patch(
         f"{PREFIX}/{_encode_path_param('com.example/uv-omit-tools')}/versions/1.0.0",
-        json={"display_name": "kept"},
+        json={"status": "deprecated"},
     )
     assert patch_r.status_code == 200
-    assert patch_r.json()["display_name"] == "kept"
+    assert patch_r.json()["status"] == "deprecated"
     assert patch_r.json()["tools"][0]["name"] == "search"
 
 

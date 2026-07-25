@@ -68,11 +68,15 @@ describe('MCPServerVersionList', () => {
     expect(selectedRow).toBeInTheDocument();
   });
 
-  it('renders version display name when different from server name', () => {
+  it('renders version title when different from server name', () => {
     const versions = [
       createMockMCPServerVersion({
         version: '1.0.0',
-        display_name: 'Custom Name',
+        server_json: {
+          name: 'io.github.test/server',
+          version: '1.0.0',
+          title: 'Custom Name',
+        },
       }),
     ];
     renderVersionList({ versions, serverDisplayName: 'Server Name' });

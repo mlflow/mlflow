@@ -1945,7 +1945,6 @@ module.exports = {
   "mlflow.mcp_registry.detail.unavailable_tag": "",
   "mlflow.mcp_registry.detail.unavailable_tooltip": "",
   "mlflow.mcp_registry.detail.version.add_metadata": "",
-  "mlflow.mcp_registry.detail.version.edit_display_name_input": "",
   "mlflow.mcp_registry.detail.version.edit_metadata": "",
   "mlflow.mcp_registry.detail.version.edit_status_select": "",
   "mlflow.mcp_registry.detail.version.edit_version_error": "",

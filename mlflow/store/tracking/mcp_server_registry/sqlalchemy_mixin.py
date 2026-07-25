@@ -274,7 +274,6 @@ class SqlAlchemyMCPServerRegistryMixin:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = NOT_SET,
@@ -342,7 +341,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                         version_patch=parsed_version.patch,
                         version_prerelease_sort_key=encode_prerelease_sort_key(parsed_version),
                         server_json=server_json,
-                        display_name=display_name,
                         status=status.value,
                         tools=tools_json,
                         source=source,
@@ -486,7 +484,6 @@ class SqlAlchemyMCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
@@ -505,8 +502,6 @@ class SqlAlchemyMCPServerRegistryMixin:
             if status is not NOT_SET:
                 _validate_status_transition(MCPStatus(sv.status), status)
                 sv.status = status.value
-            if display_name is not NOT_SET:
-                sv.display_name = display_name
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
             if connect_options is not NOT_SET:

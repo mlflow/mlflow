@@ -11,7 +11,6 @@ import { MCPStatus, TransportType } from '../types';
 const v1 = createMockMCPServerVersion({
   version: '1',
   status: MCPStatus.ACTIVE,
-  display_name: 'Alpha Server',
   source: 'https://github.com/org/alpha',
   server_json: {
     name: 'test',
@@ -27,7 +26,6 @@ const v1 = createMockMCPServerVersion({
 const v2 = createMockMCPServerVersion({
   version: '2',
   status: MCPStatus.DRAFT,
-  display_name: 'Beta Server',
   source: 'https://github.com/org/beta',
   server_json: {
     name: 'test',
@@ -74,7 +72,7 @@ describe('MCPServerVersionCompare', () => {
 
   it('renders diff panels for changed fields', () => {
     renderCompare();
-    expect(screen.getByText('Display name')).toBeInTheDocument();
+    expect(screen.getByText('Title')).toBeInTheDocument();
     expect(screen.getByText('Source')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
     expect(screen.getByText('Official endpoints')).toBeInTheDocument();
@@ -97,13 +95,11 @@ describe('MCPServerVersionCompare', () => {
   it('collapses identical fields into a label list', () => {
     const same = createMockMCPServerVersion({
       version: '1',
-      display_name: 'Same Name',
       source: 'https://same.example.com',
       server_json: { name: 'test', version: '1.0', title: 'Same', description: 'Same desc' },
     });
     const sameV2 = createMockMCPServerVersion({
       version: '2',
-      display_name: 'Same Name',
       source: 'https://same.example.com',
       server_json: { name: 'test', version: '1.0', title: 'Same', description: 'Same desc' },
     });

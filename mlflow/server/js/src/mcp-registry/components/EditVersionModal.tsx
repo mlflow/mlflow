@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import {
   Alert,
-  Input,
   Modal,
   SimpleSelect,
   SimpleSelectOption,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 
 import type { MCPServer, MCPServerVersion } from '../types';
 import { MCPStatus } from '../types';
@@ -31,22 +30,16 @@ export const EditVersionModal = ({
   onClose: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
 
-  const initialDisplayName = version.display_name || version.server_json?.title || '';
   const existingAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
 
-  const [displayName, setDisplayName] = useState(initialDisplayName);
   const [status, setStatus] = useState<MCPStatus>(version.status);
   const [aliases, setAliases] = useState<string[]>(existingAliases);
 
   const handleSave = () => {
     const payload: Parameters<typeof updateVersionMutation.mutate>[0] = { version: version.version };
 
-    if (displayName !== initialDisplayName) {
-      payload.displayName = displayName;
-    }
     if (status !== version.status) {
       payload.status = status;
     }
@@ -99,20 +92,6 @@ export const EditVersionModal = ({
         />
       )}
       <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
-        <div>
-          <Typography.Text bold css={blockLabelStyles(theme)}>
-            <FormattedMessage defaultMessage="Display name" description="Version edit display name label" />
-          </Typography.Text>
-          <Input
-            componentId="mlflow.mcp_registry.detail.version.edit_display_name_input"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Enter display name',
-              description: 'Placeholder for version display name input',
-            })}
-          />
-        </div>
         <div>
           <Typography.Text bold css={blockLabelStyles(theme)}>
             <FormattedMessage defaultMessage="Status" description="Version edit status label" />
