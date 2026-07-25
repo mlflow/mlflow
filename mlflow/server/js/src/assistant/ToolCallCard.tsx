@@ -41,7 +41,7 @@ const toolInputSummary = (part: ToolCallPart): string => {
 
 // Fixed-size badge box so done/error/running all occupy identical space and
 // keep every tool-call row's columns aligned.
-const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
+const StatusBadge = ({ status, ariaHidden }: { status: ToolCallPart['status']; ariaHidden?: boolean }) => {
   const { theme } = useDesignSystemTheme();
   const icon =
     status === ToolCallStatus.Done ? (
@@ -54,6 +54,7 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
   return (
     <span
       data-testid={`tool-call-status-${status ?? ToolCallStatus.Running}`}
+      aria-hidden={ariaHidden}
       css={{
         width: 16,
         height: 16,
@@ -182,10 +183,9 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
         )}
         <span
           data-testid={`tool-group-status-${status}`}
-          aria-label={statusLabel}
           css={{ flexShrink: 0, marginLeft: 'auto', display: 'inline-flex' }}
         >
-          <StatusBadge status={status} />
+          <StatusBadge status={status} ariaHidden />
         </span>
       </div>
 
