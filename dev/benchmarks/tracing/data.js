@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784928285099,
+  "lastUpdate": 1785089855109,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16469,6 +16469,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.369683799998938,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "80279913+alkispoly-db@users.noreply.github.com",
+            "name": "Alkis Polyzotis",
+            "username": "alkispoly-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e680541b931f246dcb9a425ae2c8a96db067649",
+          "message": "Let `{{ trace }}` judges see images in traces via `get_span_image` (#24590)\n\nSigned-off-by: Alkis Polyzotis <alkis.polyzotis@databricks.com>",
+          "timestamp": "2026-07-26T18:14:16Z",
+          "tree_id": "bcfe15c4c72519feadcf52a239c5e460a9e30c4d",
+          "url": "https://github.com/mlflow/mlflow/commit/8e680541b931f246dcb9a425ae2c8a96db067649"
+        },
+        "date": 1785089852730,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.425064950000376,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 15.048674888889638,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 16.478770736111297,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 16.569196919353924,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 17.40176898437462,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.910481799999957,
             "unit": "ms"
           }
         ]
