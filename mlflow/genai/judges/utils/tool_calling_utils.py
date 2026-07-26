@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+
+_logger = logging.getLogger(__name__)
 
 # Attribute used to tag an injected multimodal user-turn with the tool_call_id that
 # produced it, so context-window pruning can drop it together with its tool-call pair.
@@ -172,7 +175,14 @@ def _tag_image_turn(message: Any, tool_call_id: str) -> None:
     try:
         object.__setattr__(message, IMAGE_TURN_TOOL_CALL_ID_ATTR, tool_call_id)
     except (AttributeError, TypeError):
-        pass
+        # Don't crash judging over a tagging failure, but surface it: an untagged image
+        # turn won't be pruned with its tool-call pair and could orphan on overflow.
+        _logger.debug(
+            "Could not tag image turn with tool_call_id %s on %s; it will not be pruned "
+            "with its tool-call pair.",
+            tool_call_id,
+            type(message).__name__,
+        )
 
 
 def _to_litellm_image_turn(message: Any) -> _ImageTurnDict:

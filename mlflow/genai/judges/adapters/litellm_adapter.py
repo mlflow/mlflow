@@ -262,7 +262,21 @@ def _invoke_litellm_and_handle_tools(
 
     from mlflow.genai.judges.tools import list_judge_tools
 
-    messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+    # litellm.Message types content as str and rejects a multimodal list, so an initial
+    # message with list content is sent as a plain dict instead (dormant today since
+    # initial prompts are text-only, but ChatMessage.content may now be a list).
+    converted_messages: list[_LiteLLMMessage] = []
+    for msg in messages:
+        if isinstance(msg.content, list):
+            turn: dict[str, Any] = {"role": msg.role, "content": msg.content}
+            if msg.tool_call_id is not None:
+                turn["tool_call_id"] = msg.tool_call_id
+            if msg.name is not None:
+                turn["name"] = msg.name
+            converted_messages.append(turn)
+        else:
+            converted_messages.append(litellm.Message(role=msg.role, content=msg.content))
+    messages = converted_messages
 
     # Construct model URI and gateway params
     if provider == "gateway":

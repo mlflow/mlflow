@@ -982,3 +982,36 @@ def test_remove_oldest_tool_call_pair_drops_litellm_image_dict_turn():
     assert untagged_dict in result
     roles = [m["role"] if isinstance(m, dict) else m.role for m in result]
     assert roles == ["user", "user", "assistant"]
+
+
+def test_initial_message_with_list_content_is_forwarded_as_dict():
+    # ChatMessage.content may be a multimodal list; the initial-message conversion must
+    # send such a message as a plain dict rather than constructing litellm.Message (which
+    # rejects list content) and raising.
+    from mlflow.types.llm import ChatMessage
+
+    content = [
+        {"type": "text", "text": "look"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+    ]
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "ok", "rationale": "done"}'}}]
+    )
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        # Must not raise (previously litellm.Message(content=<list>) raised ValidationError).
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content=content)],
+            trace=None,
+            num_retries=1,
+        )
+
+    assert output.response == '{"result": "ok", "rationale": "done"}'
+    forwarded = mock_litellm.call_args.kwargs["messages"]
+    assert len(forwarded) == 1
+    assert isinstance(forwarded[0], dict)
+    assert forwarded[0] == {"role": "user", "content": content}

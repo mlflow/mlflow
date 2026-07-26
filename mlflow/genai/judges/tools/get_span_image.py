@@ -25,6 +25,11 @@ from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsS
 
 _ATTACHMENT_REF_RE = re.compile(r"mlflow-attachment://[^\s\"'\\]+")
 
+# Unlike the write-time env var (MLFLOW_TRACE_MAX_ATTACHMENT_SIZE, unset by default), this
+# read path is ALWAYS capped: an oversized image inlined into the judge's context would
+# blow up the prompt. The env var, when set > 0, overrides this default.
+_DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
 
 @dataclass
 class SpanImageResult:
@@ -154,6 +159,20 @@ class GetSpanImageTool(JudgeTool):
 
         content_type = parsed["content_type"]
 
+        # The read path is always capped so a large attachment can't blow up the judge's
+        # context; an explicit env-var limit (> 0) overrides the finite default.
+        env_limit = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        limit = env_limit if env_limit is not None and env_limit > 0 else _DEFAULT_MAX_IMAGE_BYTES
+
+        # Short-circuit before downloading when the ref advertises a size, so a huge
+        # attachment is never read into memory. parse_ref returns size=None when the ref
+        # has no (positive) size, in which case we fall back to the post-download check.
+        if (ref_size := parsed["size"]) is not None and ref_size > limit:
+            return (
+                f"Error: image attachment in span '{span_id}' of trace '{trace_id}' is "
+                f"{ref_size} bytes, exceeding the {limit} byte limit"
+            )
+
         # NB: _get_artifact_repo_for_trace / download_trace_attachment is the current
         # internal accessor for trace attachment bytes; there is no public API for it yet.
         from mlflow.tracing.client import TracingClient
@@ -161,16 +180,13 @@ class GetSpanImageTool(JudgeTool):
         repo = TracingClient()._get_artifact_repo_for_trace(trace.info)
         content_bytes = repo.download_trace_attachment(parsed["attachment_id"])
 
-        # Cap the inlined image so a large attachment can't blow up the judge's context.
-        # The ref's parsed size isn't reliably populated, so check the actual downloaded
-        # length. A partial image is worse than a clear error, so reject rather than truncate.
-        max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
+        # Backstop for refs without an advertised size: reject after download rather than
+        # inline a partial image (truncation is worse than a clear error).
         size = len(content_bytes)
-        if max_size is not None and max_size > 0 and size > max_size:
+        if size > limit:
             return (
                 f"Error: image attachment in span '{span_id}' of trace '{trace_id}' is "
-                f"{size} bytes, exceeding the {max_size} byte limit "
-                f"(MLFLOW_TRACE_MAX_ATTACHMENT_SIZE)"
+                f"{size} bytes, exceeding the {limit} byte limit"
             )
 
         b64 = base64.b64encode(content_bytes).decode()
