@@ -25,11 +25,19 @@ import collections
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 from typing import Any
 
 DEFAULT_MODEL = os.environ.get("FLAKY_CLASSIFIER_MODEL", "claude-sonnet-4-6")
 BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
+
+# Network tuning, overridable via env so a slow/loaded internal gateway can be given
+# more headroom without a code change.
+REQUEST_TIMEOUT = float(os.environ.get("FLAKY_CLASSIFIER_TIMEOUT", "60"))
+MAX_RETRIES = int(os.environ.get("FLAKY_CLASSIFIER_MAX_RETRIES", "3"))
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
 PROMPT_TEMPLATE = """\
 You are triaging a flaky test in the MLflow CI suite. A "flake" here is a test that \
@@ -95,6 +103,18 @@ _SCHEMA = {
     "additionalProperties": False,
 }
 
+# Verdict used when a test can't be classified at all — either it has no test-level
+# nodeid (shard/infra flake) or the API call exhausted its retries. Keeping this in one
+# place ensures the report always has a uniform shape for downstream consumers.
+def _fallback_verdict(rationale: str) -> dict[str, Any]:
+    return {
+        "category": "unknown",
+        "action": "investigate",
+        "attempts": None,
+        "confidence": "low",
+        "rationale": rationale,
+    }
+
 
 def _auth_headers() -> dict[str, str]:
     headers = {
@@ -108,6 +128,82 @@ def _auth_headers() -> dict[str, str]:
     else:
         headers["x-api-key"] = os.environ["ANTHROPIC_API_KEY"]
     return headers
+
+
+def _post_with_retries(req: urllib.request.Request) -> dict[str, Any]:
+    """POST with a hard socket timeout and bounded retries on transient failures.
+
+    Retries on rate limits and 5xx (honoring Retry-After when the server sends one) and
+    on connection-level failures/timeouts, which urllib raises as URLError/TimeoutError
+    rather than HTTPError. Anything else (4xx auth/validation errors) fails immediately
+    since retrying won't help.
+    """
+    last_err: BaseException | None = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            if e.code in RETRYABLE_STATUSES and attempt < MAX_RETRIES:
+                delay = float(e.headers.get("Retry-After", 2 ** attempt))
+                print(
+                    f"  API {e.code} on attempt {attempt}/{MAX_RETRIES}, "
+                    f"retrying in {delay:.0f}s: {body[:300]}",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                last_err = e
+                continue
+            print(f"  API Error {e.code}: {body[:500]}", file=sys.stderr)
+            raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            # Bare TimeoutError is what urlopen raises when `timeout=` is exceeded on a
+            # socket read; URLError covers DNS/connection failures.
+            if attempt < MAX_RETRIES:
+                delay = 2 ** attempt
+                print(
+                    f"  Network error on attempt {attempt}/{MAX_RETRIES} "
+                    f"({e}), retrying in {delay}s",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                last_err = e
+                continue
+            print(f"  Network error, retries exhausted: {e}", file=sys.stderr)
+            raise
+    raise RuntimeError("Exhausted retries") from last_err
+
+
+def _extract_verdict(response: dict[str, Any], nodeid: str) -> dict[str, Any]:
+    """Pull the schema-constrained verdict out of the Messages API envelope.
+
+    Raises a descriptive RuntimeError instead of a bare KeyError/IndexError if the
+    response doesn't have the shape we expect, so failures are debuggable from CI logs
+    without reproducing locally.
+    """
+    if "error" in response:
+        raise RuntimeError(
+            f"API returned an error payload for {nodeid!r}: {response['error']}"
+        )
+    content = response.get("content")
+    if not content or not isinstance(content, list):
+        raise RuntimeError(
+            f"Unexpected response shape for {nodeid!r} (no `content` list): "
+            f"{json.dumps(response)[:500]}"
+        )
+    text = content[0].get("text")
+    if text is None:
+        raise RuntimeError(
+            f"Unexpected response shape for {nodeid!r} (first content block has no "
+            f"`text`, got keys {list(content[0].keys())}): {json.dumps(response)[:500]}"
+        )
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            f"Verdict text for {nodeid!r} was not valid JSON: {text[:500]}"
+        ) from e
 
 
 def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
@@ -129,18 +225,28 @@ def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
         data=json.dumps(request_body).encode(),
         headers=_auth_headers(),
     )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            response = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        # Surface the API error body (rate limit, auth, bad request) before re-raising;
-        # there is no per-test fallback, so a failed call aborts the classify step.
-        print(f"API Error {e.code}: {e.read().decode()}", file=sys.stderr)
-        raise
-    # Two-level decode: the outer envelope is the Messages API response; the schema-
-    # constrained verdict is itself a JSON string in the first content block's `text`.
-    verdict: dict[str, Any] = json.loads(response["content"][0]["text"])
-    return verdict
+    response = _post_with_retries(req)
+    return _extract_verdict(response, nodeid)
+
+
+def _most_common_error(evs: list[dict[str, Any]]) -> str | None:
+    """Pick the error message that recurred most often across a test's flake events.
+
+    A test can flake for more than one reason (e.g. mostly a timeout, but once a real
+    assertion failure), and the first event isn't necessarily representative. Using the
+    mode gives the classifier the failure mode that's actually characteristic of the
+    flake, while ties fall back to encounter order so the result stays deterministic.
+    Events with no error message are excluded from the vote.
+    """
+    counts = collections.Counter(e["error"] for e in evs if e.get("error"))
+    if not counts:
+        return None
+    top_count = max(counts.values())
+    for e in evs:
+        err = e.get("error")
+        if err and counts[err] == top_count:
+            return err
+    return None  # unreachable, but keeps the type checker happy
 
 
 def _aggregate(flakes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -155,7 +261,7 @@ def _aggregate(flakes: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "test": e0.get("test"),
             "shard": e0["shard"],
             "count": len(evs),
-            "error": e0.get("error"),
+            "error": _most_common_error(evs),
         })
     return sorted(tests, key=lambda t: t["count"], reverse=True)
 
@@ -170,18 +276,23 @@ def main() -> None:
         flakes = json.load(f)
 
     results = []
+    failures = 0
     for t in _aggregate(flakes):
         # Only test-level entries can be annotated; shard-level ones lack a nodeid.
         if not t["test"]:
-            verdict = {
-                "category": "unknown",
-                "action": "investigate",
-                "attempts": None,
-                "confidence": "low",
-                "rationale": "No test-level nodeid recovered (shard/infra flake).",
-            }
+            verdict = _fallback_verdict("No test-level nodeid recovered (shard/infra flake).")
         else:
-            verdict = classify(t["test"], t["count"], t["error"] or "")
+            try:
+                verdict = classify(t["test"], t["count"], t["error"] or "")
+            except Exception as e:
+                # Fault isolation: one test that exhausts its retries or gets a
+                # malformed response shouldn't take down classification for every other
+                # test in the run. Record it as low-confidence "investigate" so a human
+                # sees it flagged in the report rather than the whole step aborting and
+                # discarding everything classified so far.
+                print(f"  giving up on {t['test']!r}: {e}", file=sys.stderr)
+                verdict = _fallback_verdict(f"Classification failed after retries: {e}")
+                failures += 1
         results.append({**t, "verdict": verdict})
         label = t["test"] or t["shard"]
         v = verdict
@@ -193,6 +304,16 @@ def main() -> None:
     if args.out:
         with open(args.out, "w") as f:
             json.dump(results, f, indent=2)
+
+    if failures:
+        print(
+            f"\n{failures} test(s) could not be classified after retries; "
+            f"they were recorded as 'investigate' with low confidence. See stderr above.",
+            file=sys.stderr,
+        )
+        # Non-zero exit so CI surfaces this as a degraded (not silently swallowed) run,
+        # while `--out` still has every test that *did* classify successfully.
+        sys.exit(1)
 
 
 if __name__ == "__main__":
