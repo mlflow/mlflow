@@ -58,14 +58,18 @@ def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
     A string becomes a single text part (unchanged behavior). A multimodal list has each
     part translated: text -> ``{"text": ...}``, ``image_url`` base64 data URL ->
     ``{"inlineData": {"mimeType": ..., "data": ...}}``. Non-base64 image URLs fall back to
-    a text note since the judge image tool only ever emits base64 data URLs.
+    a text note since the judge image tool only ever emits base64 data URLs. Any other part
+    type is passed through unchanged rather than coerced to empty text, so a non-text part
+    (e.g. ``input_audio``) isn't silently dropped.
     """
     if not isinstance(content, list):
         return [{"text": content}]
 
     parts: list[dict[str, Any]] = []
     for part in content:
-        if part.get("type") == "image_url":
+        if part.get("type") == "text":
+            parts.append({"text": part.get("text", "")})
+        elif part.get("type") == "image_url":
             url = part.get("image_url", {}).get("url", "")
             if parsed := parse_base64_data_url(url):
                 mime, data = parsed
@@ -73,7 +77,7 @@ def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
             else:
                 parts.append({"text": f"[unsupported image reference: {url}]"})
         else:
-            parts.append({"text": part.get("text", "")})
+            parts.append(part)
     return parts
 
 

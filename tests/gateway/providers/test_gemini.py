@@ -1681,3 +1681,18 @@ def test_chat_to_model_string_content_unchanged():
     result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["contents"] == [{"role": "user", "parts": [{"text": "just text"}]}]
+
+
+def test_chat_to_model_unknown_content_part_passed_through():
+    # A non-text, non-image_url part (e.g. input_audio) must be preserved, not coerced to
+    # an empty {"text": ""} part which would silently drop its content.
+    audio_part = {"type": "input_audio", "input_audio": {"data": "QUJD", "format": "wav"}}
+    payload = {
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": "transcribe"}, audio_part]}
+        ]
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
