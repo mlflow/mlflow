@@ -1090,6 +1090,39 @@ def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
         _validate_mcp_icon_mime_type(icon.get("mimeType"))
 
 
+def _strip_mcp_icon_response_fields(
+    icons: list[dict[str, Any]] | None,
+    field_name: str = "icons",
+) -> list[dict[str, Any]] | None:
+    """Sanitize response-only icon fields before persisting write payloads.
+
+    ``source="server"`` is ignored (stripped) so clients can echo resolved server
+    icons on update. ``source="version"`` is rejected because writing it would
+    persist a version-resolved icon as an explicit server override.
+    """
+    if icons is None:
+        return None
+
+    sanitized: list[dict[str, Any]] = []
+    for idx, icon in enumerate(icons):
+        if not isinstance(icon, dict):
+            sanitized.append(icon)
+            continue
+
+        source = icon.get("source")
+        if source == "version":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {field_name}[{idx}].source: 'version' is response-only and "
+                "cannot be written. Writing it would persist a version-resolved icon "
+                "as a server override. Omit source, or send source='server' when "
+                "echoing a server icon."
+            )
+
+        # Ignore response-only source="server" (and drop any other source key).
+        sanitized.append({key: value for key, value in icon.items() if key != "source"})
+    return sanitized
+
+
 def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
     if tools is None:
         return

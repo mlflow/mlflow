@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXI
 from mlflow.utils.validation import (
     _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
+    _strip_mcp_icon_response_fields,
     _validate_mcp_icon_mime_type,
     _validate_mcp_icon_url,
 )
@@ -74,6 +75,8 @@ class _BaseMCPIconPayload(BaseModel):
             icon["mimeType"] = self.mimeType
         if self.theme is not None:
             icon["theme"] = self.theme
+        if getattr(self, "source", None) is not None:
+            icon["source"] = self.source
         return icon
 
 
@@ -92,7 +95,13 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
 
 
 class MCPIconResponsePayload(_BaseMCPIconPayload):
-    pass
+    """Icon payload used by nested surfaces such as tool icons."""
+
+
+class MCPServerIconResponsePayload(_BaseMCPIconPayload):
+    """Resolved server icon, including response-only provenance."""
+
+    source: Literal["server", "version"] | None = None
 
 
 class ServerJSONRepositoryPayload(BaseModel):
@@ -321,7 +330,7 @@ class MCPServerResponse(BaseModel):
     name: str
     display_name: str | None = None
     description: str | None = None
-    icons: list[MCPIconResponsePayload] | None = None
+    icons: list[MCPServerIconResponsePayload] | None = None
     workspace: str | None = None
     status: str | None = None
     access_endpoints: list[MCPAccessEndpointSummaryResponse] = Field(default_factory=list)
@@ -502,7 +511,7 @@ def _icon_payloads_to_entities(
 ) -> list[MCPIcon] | None:
     if icons is None:
         return None
-    return [icon.model_dump(exclude_none=True) for icon in icons]
+    return _strip_mcp_icon_response_fields([icon.model_dump(exclude_none=True) for icon in icons])
 
 
 def _update_mcp_server_kwargs(name: str, body: UpdateMCPServerRequest) -> dict[str, Any]:

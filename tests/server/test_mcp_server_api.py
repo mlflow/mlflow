@@ -19,6 +19,7 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_api_route_prefixes,
     mcp_server_router,
 )
+from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
@@ -109,7 +110,7 @@ def test_create_server_with_icons(client):
     icons = [{"src": "https://example.com/icon.png", "sizes": ["32x32"]}]
     r = client.post(PREFIX, json={"name": "com.example/icon-server", "icons": icons})
     assert r.status_code == 200
-    assert r.json()["icons"] == icons
+    assert r.json()["icons"] == [{**icons[0], "source": "server"}]
 
 
 def test_create_server_rejects_too_many_icons(client):
@@ -132,7 +133,41 @@ def test_create_server_with_icons_preserves_extra_fields(client):
         json={"name": "com.example/icon-extra-server", "icons": icons},
     )
     assert r.status_code == 200
-    assert r.json()["icons"] == icons
+    assert r.json()["icons"] == [{**icons[0], "source": "server"}]
+
+
+def test_create_server_ignores_server_icon_source_on_write(client, store):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-source-server",
+            "icons": [{"src": "https://example.com/icon.png", "source": "server"}],
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"] == [{"src": "https://example.com/icon.png", "source": "server"}]
+
+    with store.ManagedSessionMaker() as session:
+        persisted = (
+            session
+            .query(SqlMCPServer)
+            .filter(SqlMCPServer.name == "com.example/icon-source-server")
+            .one()
+        )
+        assert persisted.icons == [{"src": "https://example.com/icon.png"}]
+
+
+def test_create_server_rejects_version_icon_source_on_write(client):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-version-source",
+            "icons": [{"src": "https://example.com/icon.png", "source": "version"}],
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
 
 
 @pytest.mark.parametrize(
@@ -350,6 +385,22 @@ def test_search_servers(client):
     assert len(r2.json()["mcp_servers"]) == 1
 
 
+def test_search_servers_returns_resolved_icon_source(client):
+    _create_version(
+        client,
+        "com.example/icon-search",
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png"}],
+    )
+
+    r = client.get(PREFIX, params={"filter_string": "name = 'com.example/icon-search'"})
+    assert r.status_code == 200
+    assert r.json()["mcp_servers"][0]["icons"] == [
+        {"src": "https://example.com/version.png", "source": "version"}
+    ]
+
+
 def test_server_responses_include_nested_endpoint_server_name(client):
     sj = _server_json("com.example/nested-bind-srv", "1.0.0")
     client.post(
@@ -395,6 +446,132 @@ def test_update_server_rejects_risky_icon_urls(client):
     )
     assert r.status_code == 400
     assert "Icon URL" in r.text
+
+
+def test_update_server_ignores_server_icon_source_on_write(client, store):
+    client.post(PREFIX, json={"name": "com.example/upd-icons-source"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-icons-source')}",
+        json={"icons": [{"src": "https://example.com/icon.png", "source": "server"}]},
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"] == [{"src": "https://example.com/icon.png", "source": "server"}]
+
+    with store.ManagedSessionMaker() as session:
+        persisted = (
+            session
+            .query(SqlMCPServer)
+            .filter(SqlMCPServer.name == "com.example/upd-icons-source")
+            .one()
+        )
+        assert persisted.icons == [{"src": "https://example.com/icon.png"}]
+
+
+def test_update_server_rejects_version_icon_source_on_write(client):
+    client.post(PREFIX, json={"name": "com.example/upd-icons-version"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-icons-version')}",
+        json={"icons": [{"src": "https://example.com/icon.png", "source": "version"}]},
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_create_version_ignores_server_icon_source_on_write(client):
+    name = "com.example/icon-version-source"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(
+                name,
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "server"}],
+            ),
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "server"}],
+                }
+            ],
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["server_json"]["icons"] == [{"src": "https://example.com/icon.png"}]
+    assert r.json()["tools"][0]["icons"] == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_version_rejects_version_icon_source_on_write(client):
+    name = "com.example/icon-version-rejected"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(
+                name,
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+            ),
+            "status": "active",
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_create_version_rejects_tool_version_icon_source_on_write(client):
+    name = "com.example/icon-tool-version-rejected"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(name, "1.0.0"),
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "version"}],
+                }
+            ],
+            "status": "active",
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_update_version_ignores_server_tool_icon_source_on_write(client):
+    name = "com.example/icon-tool-source"
+    _create_version(client, name, "1.0.0", status="draft")
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param(name)}/versions/1.0.0",
+        json={
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "server"}],
+                }
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["tools"][0]["icons"] == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_server_empty_icons_do_not_fall_back_to_version(client):
+    name = "com.example/empty-icons"
+    client.post(PREFIX, json={"name": name, "icons": []})
+    _create_version(
+        client,
+        name,
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png"}],
+    )
+
+    r = client.get(f"{PREFIX}/{_encode_path_param(name)}")
+    assert r.status_code == 200
+    assert r.json()["icons"] == []
 
 
 def test_update_server_rejects_latest_version_field(client):
@@ -1724,6 +1901,25 @@ def test_server_response_includes_endpoint_resolved_version(client):
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}").json()
     assert len(server["access_endpoints"]) == 1
     assert server["access_endpoints"][0]["resolved_version"]["version"] == "1.0.0"
+
+
+def test_server_response_resolves_icon_source_from_latest_version(client):
+    _create_version(
+        client,
+        "com.example/icon-get",
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png", "theme": "dark"}],
+    )
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/icon-get')}").json()
+    assert server["icons"] == [
+        {
+            "src": "https://example.com/version.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
 
 
 def test_server_json_extra_fields_preserved(client):

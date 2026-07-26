@@ -1,6 +1,6 @@
 ## Dependencies required to run tests
 ## Test-only dependencies
-pytest==9.0.2
+pytest==9.1.1
 pytest-asyncio
 pytest-repeat
 pytest-cov
