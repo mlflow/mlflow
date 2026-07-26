@@ -34,6 +34,7 @@ from mlflow.entities import (
     FileInfo,
     GatewayEndpointModelConfig,
     GatewayEndpointTag,
+    GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
     IssueSeverity,
@@ -301,6 +302,9 @@ from mlflow.protos.service_pb2 import (
     UpdateRun,
     UpdateWorkspace,
     UpsertDatasetRecords,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayModelLinkageType as ProtoGatewayModelLinkageType,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import (
@@ -5869,6 +5873,24 @@ def _list_gateway_secrets():
 # =============================================================================
 
 
+def _assert_linkage_type_specified(model_config, index: int | None = None) -> None:
+    """
+    Reject model configs that leave ``linkage_type`` unspecified.
+
+    The proto marks ``linkage_type`` as optional and ``GatewayModelLinkageType.from_proto``
+    maps ``LINKAGE_TYPE_UNSPECIFIED`` to ``None``, which the store would later dereference as
+    ``config.linkage_type.value``. Failing here keeps that from surfacing as a 500.
+    """
+    if model_config.linkage_type != ProtoGatewayModelLinkageType.LINKAGE_TYPE_UNSPECIFIED:
+        return
+    location = "model_config" if index is None else f"model_configs[{index}]"
+    valid = ", ".join(t.value for t in GatewayModelLinkageType)
+    raise MlflowException.invalid_parameter_value(
+        f"Missing value for required parameter 'linkage_type' in {location}. "
+        f"Must be one of: {valid}."
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_gateway_endpoint():
@@ -5897,6 +5919,9 @@ def _create_gateway_endpoint():
             if request_message.fallback_config.HasField("max_attempts")
             else None,
         )
+
+    for index, config in enumerate(request_message.model_configs):
+        _assert_linkage_type_specified(config, index)
 
     model_configs = [
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
@@ -5977,6 +6002,9 @@ def _update_gateway_endpoint():
     # Convert proto model_configs to entity GatewayEndpointModelConfig list
     model_configs = None
     if request_message.model_configs:
+        for index, config in enumerate(request_message.model_configs):
+            _assert_linkage_type_specified(config, index)
+
         model_configs = [
             GatewayEndpointModelConfig.from_proto(config)
             for config in request_message.model_configs
@@ -6161,6 +6189,8 @@ def _attach_model_to_gateway_endpoint():
             "created_by": [_assert_string],
         },
     )
+
+    _assert_linkage_type_specified(request_message.model_config)
 
     model_config = GatewayEndpointModelConfig.from_proto(request_message.model_config)
 

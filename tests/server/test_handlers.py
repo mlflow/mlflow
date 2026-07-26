@@ -138,6 +138,9 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     TraceLocation,
 )
+from mlflow.protos.service_pb2 import (
+    GatewayModelLinkageType as ProtoGatewayModelLinkageType,
+)
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
@@ -4041,6 +4044,118 @@ def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, 
     response_data = json.loads(response.get_data())
     assert "Invalid endpoint name" in response_data["message"]
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("explicitly_unspecified", [False, True])
+def test_create_gateway_endpoint_rejects_unspecified_linkage_type(
+    mock_get_request_message, mock_tracking_store, explicitly_unspecified
+):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = "valid-name"
+    config = request_msg.model_configs.add()
+    config.model_definition_id = "d-123"
+    if explicitly_unspecified:
+        config.linkage_type = ProtoGatewayModelLinkageType.LINKAGE_TYPE_UNSPECIFIED
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "'linkage_type' in model_configs[0]" in response_data["message"]
+    assert "PRIMARY, FALLBACK" in response_data["message"]
+    mock_tracking_store.create_gateway_endpoint.assert_not_called()
+
+
+def test_create_gateway_endpoint_reports_offending_model_config_index(
+    mock_get_request_message, mock_tracking_store
+):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = "valid-name"
+    primary = request_msg.model_configs.add()
+    primary.model_definition_id = "d-123"
+    primary.linkage_type = ProtoGatewayModelLinkageType.PRIMARY
+    missing = request_msg.model_configs.add()
+    missing.model_definition_id = "d-456"
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "model_configs[1]" in response_data["message"]
+    mock_tracking_store.create_gateway_endpoint.assert_not_called()
+
+
+def test_create_gateway_endpoint_accepts_specified_linkage_type(
+    mock_get_request_message, mock_tracking_store
+):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = "valid-name"
+    config = request_msg.model_configs.add()
+    config.model_definition_id = "d-123"
+    config.linkage_type = ProtoGatewayModelLinkageType.PRIMARY
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-123")
+    mock_tracking_store.create_gateway_endpoint.return_value = mock_endpoint
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 200
+    mock_tracking_store.create_gateway_endpoint.assert_called_once()
+
+
+def test_update_gateway_endpoint_rejects_unspecified_linkage_type(
+    mock_get_request_message, mock_tracking_store
+):
+    from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
+    from mlflow.server.handlers import _update_gateway_endpoint
+
+    request_msg = UpdateGatewayEndpoint()
+    request_msg.endpoint_id = "ep-123"
+    config = request_msg.model_configs.add()
+    config.model_definition_id = "d-123"
+    mock_get_request_message.return_value = request_msg
+
+    response = _update_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "'linkage_type' in model_configs[0]" in response_data["message"]
+    mock_tracking_store.update_gateway_endpoint.assert_not_called()
+
+
+def test_attach_model_to_gateway_endpoint_rejects_unspecified_linkage_type(
+    mock_get_request_message, mock_tracking_store
+):
+    from mlflow.protos.service_pb2 import AttachModelToGatewayEndpoint
+    from mlflow.server.handlers import _attach_model_to_gateway_endpoint
+
+    request_msg = AttachModelToGatewayEndpoint()
+    request_msg.endpoint_id = "ep-123"
+    request_msg.model_config.model_definition_id = "d-123"
+    mock_get_request_message.return_value = request_msg
+
+    response = _attach_model_to_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "'linkage_type' in model_config" in response_data["message"]
+    mock_tracking_store.attach_model_to_endpoint.assert_not_called()
 
 
 @pytest.mark.parametrize(
