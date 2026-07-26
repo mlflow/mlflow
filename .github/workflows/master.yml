@@ -109,13 +109,22 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
+          # Two passes: the bulk of the suite runs in parallel across cores with
+          # pytest-xdist (`--serial=exclude -n auto`), and the xdist-hostile tests
+          # (shared Spark session, process-global Flask app / server config,
+          # env-building subprocesses; see `_XDIST_SERIAL_PATHS` in tests/conftest.py)
+          # run serially afterward (`--serial=only`, no `-n`).
+          COMMON_ARGS=(
+            --splits="$SPLITS" --group="$GROUP"
+            --quiet --requires-ssh --ignore-flavors
+            --ignore=tests/examples
+            --ignore=tests/evaluate
+            --ignore=tests/genai
+            --ignore=tests/docker
             tests
+          )
+          uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
 
       - name: Run databricks-connect related tests
         run: |

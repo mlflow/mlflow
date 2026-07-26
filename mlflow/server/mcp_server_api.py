@@ -214,6 +214,35 @@ class CreateMCPServerVersionRequest(BaseModel):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_registry_server_json_envelope(cls, value):
+        """Accept either raw server.json or a registry response envelope."""
+        if not isinstance(value, dict):
+            return value
+
+        server_json = value.get("server_json")
+        if not isinstance(server_json, dict):
+            return value
+
+        # Prefer the canonical raw server.json shape when both are present.
+        if "name" in server_json and "version" in server_json:
+            return value
+
+        if "server" not in server_json:
+            return value
+
+        envelope_server = server_json.get("server")
+        if not isinstance(envelope_server, dict):
+            raise ValueError("server_json.server: Input should be a valid dictionary")
+
+        if "name" not in envelope_server or "version" not in envelope_server:
+            return value
+
+        normalized = dict(value)
+        normalized["server_json"] = envelope_server
+        return normalized
+
 
 class UpdateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None

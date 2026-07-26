@@ -714,6 +714,78 @@ def test_create_version_rejects_risky_server_json_icon_urls(client):
     assert "Icon URL" in r.text
 
 
+def test_create_version_accepts_registry_server_json_envelope(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/enveloped-server')}/versions",
+        json={
+            "server_json": {
+                "server": {
+                    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+                    "name": "com.example/enveloped-server",
+                    "version": "1.0.0",
+                    "description": "Server copied from a registry API response",
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/publisher-provided": {
+                            "copied_from": "registry response"
+                        }
+                    },
+                },
+                "_meta": {
+                    "io.modelcontextprotocol.registry/official": {
+                        "status": "active",
+                        "publishedAt": "2025-10-06T19:14:32.797821Z",
+                        "isLatest": False,
+                    }
+                },
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"] == {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+        "name": "com.example/enveloped-server",
+        "version": "1.0.0",
+        "description": "Server copied from a registry API response",
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "copied_from": "registry response"
+            }
+        },
+    }
+
+
+def test_create_version_rejects_registry_server_json_envelope_with_non_object_server(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/bad-envelope')}/versions",
+        json={"server_json": {"server": "not-an-object"}},
+    )
+    assert r.status_code == 400
+    assert "server_json.server" in r.json()["message"]
+
+
+def test_create_version_prefers_top_level_server_json_shape_over_nested_server_key(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/raw-wins')}/versions",
+        json={
+            "server_json": {
+                "name": "com.example/raw-wins",
+                "version": "1.0.0",
+                "description": "Raw server_json shape should win",
+                "server": {"name": "com.example/nested", "version": "9.9.9"},
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "com.example/raw-wins"
+    assert r.json()["version"] == "1.0.0"
+    assert r.json()["server_json"]["server"] == {
+        "name": "com.example/nested",
+        "version": "9.9.9",
+    }
+
+
 def test_create_version_accepts_remote_with_null_type(client):
     sj = _server_json(
         "com.example/null-remote-type",
