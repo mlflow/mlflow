@@ -154,7 +154,7 @@ describe('Auto-discover tools button', () => {
 describe('Status editor', () => {
   it('keeps optimistic status until the selected version status refetches', async () => {
     mockPermissions({ canUpdate: true });
-    const mutate = jest.fn((_payload, options: { onSuccess?: () => void }) => {
+    const mutate = jest.fn((_payload, options: { onSuccess?: () => void; onError?: () => void }) => {
       options.onSuccess?.();
     });
     mockUpdateVersionMutation({ mutate });
