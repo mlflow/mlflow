@@ -548,8 +548,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             if default_experiment_exists is None:
                 raise
             _logger.debug(
-                "Default experiment (ID 0) already exists."
-                "Swallowing IntegrityError: %s",
+                "Default experiment (ID 0) already exists. Swallowing IntegrityError: %s",
                 e,
             )
         finally:
