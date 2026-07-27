@@ -2,6 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from datetime import date
+from importlib import import_module
 
 import pytest
 import sqlalchemy as sa
@@ -23,6 +24,10 @@ REVISION = "75868b020152"
 PREVIOUS_REVISION = "a8b9c0d1e2f3"
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
+
+MIGRATION_MODULE = import_module(
+    "mlflow.store.db_migrations.versions.75868b020152_add_sql_trace_analytics_schema"
+)
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
@@ -151,6 +156,16 @@ def _seed_legacy_analytics_data(conn):
                     CostKey.TOTAL_COST: 3.75,
                 }),
             },
+            {
+                "request_id": "trace-fallback",
+                "key": TraceMetadataKey.TOKEN_USAGE,
+                "value": "not-json",
+            },
+            {
+                "request_id": "trace-fallback",
+                "key": TraceMetadataKey.COST,
+                "value": json.dumps({CostKey.TOTAL_COST: "not-a-number"}),
+            },
         ],
     )
     conn.execute(
@@ -196,7 +211,10 @@ def _seed_legacy_analytics_data(conn):
                 "start_time_unix_nano": 300,
                 "end_time_unix_nano": 500,
                 "content": "{}",
-                "dimension_attributes": None,
+                "dimension_attributes": json.dumps({
+                    SpanAttributeKey.MODEL: 123,
+                    SpanAttributeKey.MODEL_PROVIDER: ["provider"],
+                }),
             },
             {
                 "trace_id": "trace-fallback",
@@ -476,7 +494,7 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_tags")).scalar_one() == 1
             assert (
                 conn.execute(sa.text("SELECT COUNT(*) FROM trace_request_metadata")).scalar_one()
-                == 3
+                == 5
             )
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 2
             assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 5
@@ -581,7 +599,7 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_tags")).scalar_one() == 1
             assert (
                 conn.execute(sa.text("SELECT COUNT(*) FROM trace_request_metadata")).scalar_one()
-                == 3
+                == 5
             )
             assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 5
             assert conn.execute(
@@ -819,3 +837,15 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
         assert "sql_trace_metric_daily_rollups" not in inspector.get_table_names()
     finally:
         engine.dispose()
+
+
+def test_trace_analytics_backfill_batch_validation_rejects_mismatched_values():
+    with pytest.raises(
+        RuntimeError,
+        match="trace backfill validation failed for 'trace-1': mismatched columns input_tokens",
+    ):
+        MIGRATION_MODULE._validate_backfill_batch(
+            "trace",
+            {"trace-1": {"input_tokens": 10.0, "total_cost": None}},
+            {"trace-1": {"input_tokens": None, "total_cost": None}},
+        )
