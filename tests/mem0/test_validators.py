@@ -96,6 +96,30 @@ def test_all_tied_ids_selected_is_valid():
     assert validators.classify(case) == "valid"
 
 
+def test_backward_revision_update_stays_stale():
+    case = CASES_BY_ID["stale_after_backward_revision_update"]
+    assert validators.detect_stale_memory(case) is True
+    assert validators.classify(case) == "stale_memory_used"
+
+
+def test_dangling_reference_with_no_reads_detected():
+    case = CASES_BY_ID["dangling_reference_no_reads"]
+    assert validators.detect_dangling_reference(case) is True
+    assert validators.classify(case) == "dangling_memory_reference"
+
+
+def test_dangling_reference_alongside_valid_ref_detected():
+    case = CASES_BY_ID["dangling_reference_partial"]
+    assert validators.detect_dangling_reference(case) is True
+    assert validators.classify(case) == "dangling_memory_reference"
+
+
+def test_unused_tie_bucket_is_not_raw_payload():
+    case = CASES_BY_ID["tie_with_unused_second_bucket"]
+    assert validators.requires_raw_payload(case) is False
+    assert validators.classify(case) == "valid"
+
+
 def test_no_case_carries_a_raw_memory_body():
     # The privacy boundary, made executable: the fixture stores ids/hashes/counts
     # only. A raw ``"memory"`` field (the extracted fact Mem0 returns) must never

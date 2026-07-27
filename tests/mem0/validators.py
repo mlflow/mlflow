@@ -97,9 +97,11 @@ def detect_stale_memory(case):
     ``revision``; a decision is stale only when the read it joined to holds an
     older revision than the memory's current one. A *fresh* read after an update
     re-establishes the current revision, so ``update -> fresh read -> use`` is
-    not stale. Revision knowledge is monotonic — a later read reporting an older
-    revision never overwrites a newer one learned from a write, so
-    ``update(rev=2) -> stale read@rev1 -> use`` stays stale.
+    not stale. Revision knowledge is monotonic for both reads *and* writes — a
+    later read or a backward ``update`` reporting an older revision never
+    overwrites a newer one already learned, so ``update(rev=2) -> stale
+    read@rev1 -> use`` and ``update(rev=3) -> update(rev=2) -> read@rev2 ->
+    use`` both stay stale.
     """
     current_rev = {}
     deleted = set()
@@ -114,7 +116,7 @@ def detect_stale_memory(case):
                     current_rev[mid] = _max_revision(current_rev.get(mid), rev)
             elif operation == "update":
                 for mid in event.get("target_memory_ids", []):
-                    current_rev[mid] = event.get("revision")
+                    current_rev[mid] = _max_revision(current_rev.get(mid), event.get("revision"))
             elif operation == "delete":
                 deleted.update(event.get("target_memory_ids", []))
         elif event["kind"] == "llm.request":
@@ -180,6 +182,25 @@ def detect_unjoinable(case):
     return False
 
 
+def detect_dangling_reference(case):
+    """A decision references a ``used_memory_operation_id`` that does not resolve
+    to an *earlier* read.
+
+    A causal reference that points at no preceding read op — a typo, a missing
+    op, or a read that only appears later — cannot be validated from metadata and
+    must not certify as valid by being silently ignored.
+    """
+    read_ops = set()
+    for event in case["events"]:  # events are ordered
+        if _is_read(event):
+            read_ops.add(event["memory_operation_id"])
+        elif event["kind"] == "llm.request":
+            for op_id in event.get("used_memory_operation_ids", []):
+                if op_id not in read_ops:
+                    return True
+    return False
+
+
 def requires_raw_payload(case):
     """True when a decision joins a read but metadata cannot identify which memory
     it used: the read has >=2 results tied on all available metadata (scope +
@@ -187,9 +208,12 @@ def requires_raw_payload(case):
     ``used_memory_ids``.
 
     A tie alone is not enough — ``used_memory_ids`` is plural, so naming any of
-    the tied results (one, several, or all of them) is a complete metadata
-    selection and needs no raw text. The join is only genuinely ambiguous when
-    the decision points at none of the tied members.
+    the joined read's results (one, several, or all of them) is a complete
+    metadata selection and needs no raw text. Ambiguity is judged against the
+    claimed selection, not per tie bucket: an unrelated tie among *unused*
+    results does not require raw text when the decision already identified which
+    result it used. The join is only genuinely ambiguous when the read carries a
+    tie and the decision selects none of that read's results.
     """
     reads_by_op = {}
     for event in case["events"]:  # events are ordered
@@ -201,14 +225,15 @@ def requires_raw_payload(case):
                 results = reads_by_op.get(op_id)
                 if not results:
                     continue
+                if used & {r["memory_id"] for r in results}:
+                    continue
                 buckets = {}
                 for result in results:
                     buckets.setdefault((result["scope_hash"], result["score"]), []).append(
                         result["memory_id"]
                     )
-                for members in buckets.values():
-                    if len(members) >= 2 and not (used & set(members)):
-                        return True
+                if any(len(members) >= 2 for members in buckets.values()):
+                    return True
     return False
 
 
@@ -222,6 +247,8 @@ def classify(case):
         return "unreturned_memory_used"
     if detect_unjoinable(case):
         return "unjoinable_memory"
+    if detect_dangling_reference(case):
+        return "dangling_memory_reference"
     if requires_raw_payload(case):
         return "raw_payload_required"
     return "valid"
