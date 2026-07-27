@@ -317,15 +317,6 @@ def store(tmp_path: Path, db_uri: str):
     return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 ```
 
-For multiple databases (e.g. a write primary plus a read replica), depend on `cached_db` and copy it to each path:
-
-```python
-@pytest.fixture
-def write_db_uri(tmp_path: Path, cached_db: Path) -> str:
-    shutil.copy(cached_db, tmp_path / "write.db")
-    return f"sqlite:///{tmp_path / 'write.db'}"
-```
-
 ## Preserve function metadata and type information in decorators
 
 When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's type information for accurate type checking and autocompletion in IDEs.
