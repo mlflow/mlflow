@@ -252,10 +252,6 @@ from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
-from mlflow.store.artifact.mlflow_artifacts_repo import (
-    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
-    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
-)
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
@@ -271,6 +267,13 @@ from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.server_info import (
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_STORE_TYPE,
+    SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_WORKSPACES_ENABLED,
+)
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -428,9 +431,9 @@ def test_server_info():
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["store_type"] == "SqlStore"
-        assert data["workspaces_enabled"] is False
-        assert data["trace_archival_enabled"] is False
+        assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
+        assert data[SERVER_INFO_WORKSPACES_ENABLED] is False
+        assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
 
 
 def test_server_info_trace_archival_enabled(monkeypatch):
@@ -444,7 +447,7 @@ def test_server_info_trace_archival_enabled(monkeypatch):
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["trace_archival_enabled"] is True
+        assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is True
 
 
 def test_server_info_handles_invalid_trace_archival_config(monkeypatch):
@@ -459,7 +462,7 @@ def test_server_info_handles_invalid_trace_archival_config(monkeypatch):
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["trace_archival_enabled"] is False
+        assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
 
 
 def test_server_info_handles_unexpected_trace_archival_config_error(monkeypatch):
@@ -472,7 +475,7 @@ def test_server_info_handles_unexpected_trace_archival_config_error(monkeypatch)
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["trace_archival_enabled"] is False
+        assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
 
 
 def test_server_info_multipart_capabilities_disabled_by_default():

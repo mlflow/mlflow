@@ -35,25 +35,19 @@ from mlflow.telemetry.utils import (
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
+from mlflow.utils.server_info import SERVER_INFO_STORE_TYPE, fetch_server_info
 
 _DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 
 
-# Cache per tracking URI; 16 is more than enough for any realistic number of
-# distinct tracking URIs within a single process.
 @lru_cache(maxsize=16)
 def _fetch_server_info(tracking_uri: str) -> dict[str, Any] | None:
+    # Telemetry intentionally caches failures so its background consumer does not repeatedly
+    # block on an unavailable server. Other callers should use the shared helper directly.
     try:
-        response = http_request(
-            host_creds=get_default_host_creds(tracking_uri),
-            endpoint="/api/3.0/mlflow/server-info",
-            method="GET",
-            timeout=3,
-            max_retries=0,
-            raise_on_status=False,
-        )
+        response = fetch_server_info(get_default_host_creds(tracking_uri))
         if response.status_code == 200:
-            return response.json()
+            return response.data
     except Exception:
         pass
     return None
@@ -475,7 +469,7 @@ class TelemetryClient:
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
         server_info = _fetch_server_info(get_tracking_uri())
-        store_type = server_info.get("store_type") if server_info else None
+        store_type = server_info.get(SERVER_INFO_STORE_TYPE) if server_info else None
         return _enrich_http_scheme(scheme, store_type)
 
     def _update_backend_store(self):
