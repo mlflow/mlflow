@@ -170,7 +170,11 @@ describe('createAuthProvider', () => {
     });
 
     it('kubernetes: throws when token file is missing and no kubeconfig', async () => {
-      const provider = createKubernetesAuth('http://mlflow:5000', DISABLE_WORKSPACES, nonExistentTokenPath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        DISABLE_WORKSPACES,
+        nonExistentTokenPath,
+      );
 
       await expect(provider.getHeadersProvider()()).rejects.toThrow(
         'Could not determine Kubernetes credentials',
@@ -232,7 +236,11 @@ describe('createAuthProvider', () => {
 
       // namespacePath is undefined — irrelevant because enableWorkspaces is false
       const provider = createKubernetesAuth(
-        'http://mlflow:5000', DISABLE_WORKSPACES, tokenPath, undefined, 'options-namespace',
+        'http://mlflow:5000',
+        DISABLE_WORKSPACES,
+        tokenPath,
+        undefined,
+        'options-namespace',
       );
       const headers = await provider.getHeadersProvider()();
 
@@ -257,7 +265,12 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(tokenPath, 'sa-token-abc123');
       fs.writeFileSync(namespacePath, 'my-namespace');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['Authorization']).toBe('Bearer sa-token-abc123');
@@ -268,7 +281,12 @@ describe('createAuthProvider', () => {
       const tokenPath = path.join(tmpDir, 'token');
       fs.writeFileSync(tokenPath, 'sa-token-abc123');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, nonExistentNamespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        nonExistentNamespacePath,
+      );
 
       await expect(provider.getHeadersProvider()()).rejects.toThrow(
         'Could not determine Kubernetes namespace',
@@ -281,7 +299,12 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(tokenPath, 'sa-token');
       fs.writeFileSync(namespacePath, '  my-ns  \n');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['X-MLFLOW-WORKSPACE']).toBe('my-ns');
@@ -294,7 +317,12 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(namespacePath, 'auto-namespace');
       process.env.MLFLOW_WORKSPACE = 'explicit-namespace';
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['X-MLFLOW-WORKSPACE']).toBe('explicit-namespace');
@@ -327,7 +355,8 @@ describe('createAuthProvider', () => {
     });
 
     it('kubernetes-namespaced: picks up kubeconfig context changes after TTL', async () => {
-      const mockLoader = jest.fn()
+      const mockLoader = jest
+        .fn()
         .mockResolvedValueOnce({ token: 'token-a', namespace: 'namespace-a' })
         .mockResolvedValueOnce({ token: 'token-b', namespace: 'namespace-b' });
 
@@ -430,6 +459,55 @@ describe('createAuthProvider', () => {
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['Authorization']).toBe('Bearer code-token');
+    });
+
+    it('kubernetes-namespaced + explicit token: uses token but still auto-discovers workspace', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mlflow-auth-prec-'));
+      try {
+        const namespacePath = path.join(tmpDir, 'namespace');
+        fs.writeFileSync(namespacePath, 'discovered-ns');
+
+        const provider = createKubernetesAuth(
+          'http://mlflow:5000',
+          true,
+          path.join(tmpDir, 'no-token'),
+          namespacePath,
+          undefined,
+          async () => null,
+          'Bearer explicit-token',
+        );
+        const headers = await provider.getHeadersProvider()();
+
+        expect(headers['Authorization']).toBe('Bearer explicit-token');
+        expect(headers['X-MLFLOW-WORKSPACE']).toBe('discovered-ns');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('kubernetes-namespaced + username/password: uses Basic auth but still auto-discovers workspace', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mlflow-auth-prec-'));
+      try {
+        const namespacePath = path.join(tmpDir, 'namespace');
+        fs.writeFileSync(namespacePath, 'discovered-ns');
+
+        const encoded = Buffer.from('admin:secret').toString('base64');
+        const provider = createKubernetesAuth(
+          'http://mlflow:5000',
+          true,
+          path.join(tmpDir, 'no-token'),
+          namespacePath,
+          undefined,
+          async () => null,
+          `Basic ${encoded}`,
+        );
+        const headers = await provider.getHeadersProvider()();
+
+        expect(headers['Authorization']).toBe(`Basic ${encoded}`);
+        expect(headers['X-MLFLOW-WORKSPACE']).toBe('discovered-ns');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
     });
   });
 });

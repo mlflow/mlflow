@@ -285,11 +285,21 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
 /**
  * Create authentication for self-hosted (OSS) MLflow.
  *
- * Resolution order (explicit credentials win over MLFLOW_TRACKING_AUTH):
- * 1. Basic Auth (username/password from options or MLFLOW_TRACKING_USERNAME/PASSWORD)
- * 2. Bearer Token (token from options or MLFLOW_TRACKING_TOKEN)
- * 3. Kubernetes auth (MLFLOW_TRACKING_AUTH=kubernetes or kubernetes-namespaced)
+ * Authorization header resolution:
+ * 1. Basic Auth (MLFLOW_TRACKING_USERNAME/PASSWORD or programmatic options)
+ * 2. Bearer Token (MLFLOW_TRACKING_TOKEN or programmatic options)
+ * 3. MLFLOW_TRACKING_AUTH=kubernetes|kubernetes-namespaced → resolve from
+ *    Pod ServiceAccount mount or kubeconfig
  * 4. No authentication
+ *
+ * Workspace header (X-MLFLOW-WORKSPACE) resolution:
+ * 1. Explicit MLFLOW_WORKSPACE env var or programmatic `workspace` option
+ * 2. MLFLOW_TRACKING_AUTH=kubernetes-namespaced → auto-discover from
+ *    Pod namespace file or kubeconfig active context
+ *
+ * Authorization and workspace are resolved independently: kubernetes-namespaced
+ * still auto-discovers the workspace even when explicit credentials (token or
+ * username/password) supply the Authorization header.
  */
 function createOssAuth(options: AuthOptions): AuthProvider {
   const host = options.trackingUri;
@@ -299,22 +309,35 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   const password = options.trackingServerPassword || process.env.MLFLOW_TRACKING_PASSWORD;
   const token = options.trackingServerToken || process.env.MLFLOW_TRACKING_TOKEN;
 
-  // Explicit credentials take precedence over MLFLOW_TRACKING_AUTH,
-  // matching Python SDK where KubernetesAuth skips if Authorization
-  // header is already set by username/password or token.
-  const hasExplicitCredentials = (username && password) || token;
   const trackingAuth = process.env.MLFLOW_TRACKING_AUTH;
-  if (
-    (trackingAuth === 'kubernetes' || trackingAuth === 'kubernetes-namespaced') &&
-    !hasExplicitCredentials
-  ) {
-    return createKubernetesAuth(
-      host,
-      trackingAuth === 'kubernetes-namespaced',
-      SA_TOKEN_PATH,
-      SA_NAMESPACE_PATH,
-      options.workspace,
-    );
+  if (trackingAuth === 'kubernetes' || trackingAuth === 'kubernetes-namespaced') {
+    const isNamespaced = trackingAuth === 'kubernetes-namespaced';
+
+    let explicitAuthHeader: string | undefined;
+    if (username && password) {
+      const encoded = Buffer.from(`${username}:${password}`).toString('base64');
+      explicitAuthHeader = `Basic ${encoded}`;
+    } else if (token) {
+      explicitAuthHeader = `Bearer ${token}`;
+    }
+
+    // When to enter the k8s auth path:
+    //   - No explicit creds: always (resolve token from Pod SA mount / kubeconfig)
+    //   - Explicit creds + kubernetes-namespaced: still needed for workspace
+    //     auto-discovery (token comes from explicit creds, namespace from k8s)
+    // NOTE : if  Explicit creds + plain kubernetes: since k8s only adds a token,
+    //     and we prioritize token from explicit creds. so the k8s path is skipped.
+    if (isNamespaced || !explicitAuthHeader) {
+      return createKubernetesAuth(
+        host,
+        isNamespaced,
+        SA_TOKEN_PATH,
+        SA_NAMESPACE_PATH,
+        options.workspace,
+        loadFromKubeconfig,
+        explicitAuthHeader,
+      );
+    }
   }
 
   // Pre-compute auth header since credentials don't change
@@ -386,7 +409,7 @@ async function loadFromKubeconfig(): Promise<{ token?: string; namespace?: strin
 
     return {
       token,
-      namespace: context?.namespace || undefined,
+      namespace: context?.namespace?.trim() || undefined,
     };
   } catch {
     return null;
@@ -411,12 +434,14 @@ export function createKubernetesAuth(
   tokenPath: string = SA_TOKEN_PATH,
   namespacePath: string = SA_NAMESPACE_PATH,
   workspace?: string,
-  kubeconfigLoader: () => Promise<{ token?: string; namespace?: string } | null> = loadFromKubeconfig,
+  kubeconfigLoader: () => Promise<{
+    token?: string;
+    namespace?: string;
+  } | null> = loadFromKubeconfig,
+  explicitAuthHeader?: string,
 ): AuthProvider {
   const getTokenFromFile = createCachedFileReader(tokenPath);
-  const getNamespaceFromFile = enableWorkspaces
-    ? createCachedFileReader(namespacePath)
-    : undefined;
+  const getNamespaceFromFile = enableWorkspaces ? createCachedFileReader(namespacePath) : undefined;
 
   // Kubeconfig result cached with TTL to pick up context switches and token rotation
   let kubeconfigResult: { token?: string; namespace?: string } | null | undefined;
@@ -433,19 +458,25 @@ export function createKubernetesAuth(
   const headersProvider: HeadersProvider = async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-    // Token: try SA file first, then kubeconfig, otherwise throw error
-    let token = getTokenFromFile();
-    if (!token) {
-      token = (await getKubeconfig())?.token;
+    // Authorization: use explicit header if provided (mirrors Python where
+    // rest_utils.py pre-sets Authorization and KubernetesAuth.__call__ skips
+    // re-setting it). Otherwise resolve from SA file / kubeconfig.
+    if (explicitAuthHeader) {
+      headers['Authorization'] = explicitAuthHeader;
+    } else {
+      let token = getTokenFromFile();
+      if (!token) {
+        token = (await getKubeconfig())?.token;
+      }
+      if (!token) {
+        throw new Error(
+          'Could not determine Kubernetes credentials. ' +
+            'Ensure you are running in a Kubernetes pod with a service account ' +
+            'or have a valid kubeconfig with credentials set.',
+        );
+      }
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    if (!token) {
-      throw new Error(
-        'Could not determine Kubernetes credentials. ' +
-          'Ensure you are running in a Kubernetes pod with a service account ' +
-          'or have a valid kubeconfig with credentials set.',
-      );
-    }
-    headers['Authorization'] = `Bearer ${token}`;
 
     // Workspace: explicit MLFLOW_WORKSPACE if provided will take precedence.
     // For kubernetes-namespaced, also auto-discover from SA file or kubeconfig.
