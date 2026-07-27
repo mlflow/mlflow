@@ -12,6 +12,7 @@ import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   GearIcon,
+  InfoTooltip,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -24,13 +25,16 @@ import {
   WrenchSparkleIcon,
   Spinner,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
+import { getAssistantProvider } from './providerRegistry';
+import type { SelectedProvider } from './types';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
-import type { ChatMessage, ToolUseInfo } from './types';
+import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
+import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
@@ -53,18 +57,161 @@ const DOTS_ANIMATION = {
   '100%': { content: '"..."' },
 };
 
+// Abbreviate token counts for the compact usage footer (e.g. 45257 -> "45.3K").
+// Formats through react-intl's locale so numbers match the surrounding FormattedMessage text.
+const formatCompactTokens = (intl: IntlShape, n: number): string =>
+  intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 });
+
+// Sub-dollar estimates need more precision than cents (e.g. "$0.0045").
+const formatCostUsd = (intl: IntlShape, cost: number): string =>
+  intl.formatNumber(cost, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: cost < 1 ? 4 : 2,
+  });
+
+/**
+ * Read-only indicator of the provider/model backing the session. Shows the provider's brand
+ * logo + name, with the model name in a tooltip. Display-only — there is intentionally no
+ * affordance to change the provider from the composer (that lives in Settings).
+ */
+const ProviderIndicator = ({ provider }: { provider: SelectedProvider }) => {
+  const { theme } = useDesignSystemTheme();
+  const meta = getAssistantProvider(provider.id);
+  const label = meta?.name ?? provider.id;
+  return (
+    <Tooltip
+      componentId="mlflow.assistant.chat_panel.provider_info.tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Model: {model}"
+          description="Tooltip on the assistant composer showing the active provider's configured model name"
+          values={{ model: provider.model }}
+        />
+      }
+    >
+      <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
+        {meta?.logo && (
+          <img src={meta.logo} alt="" aria-hidden css={{ width: 14, height: 14, flexShrink: 0, borderRadius: 2 }} />
+        )}
+        <Typography.Text
+          size="sm"
+          color="secondary"
+          css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+        >
+          {label}
+        </Typography.Text>
+      </div>
+    </Tooltip>
+  );
+};
+
+export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
+
+/**
+ * Coalesces an ordered part list into render groups, collapsing each maximal run of
+ * adjacent tool calls into a single `tools` group while preserving interleaving order.
+ */
+export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ kind: 'text', text: part.text });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'tools') {
+      groups[groups.length - 1] = { kind: 'tools', calls: [...last.calls, part] };
+    } else {
+      groups.push({ kind: 'tools', calls: [part] });
+    }
+  }
+  return groups;
+};
+
+/**
+ * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
+ * `content` for messages that predate the parts model.
+ */
+export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const { theme } = useDesignSystemTheme();
+  const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  // The markdown renderer leaves `---` as a default <hr> and headings with tight margins,
+  // so model-generated section breaks read cramped. Give rules and headings room to breathe.
+  const markdownSpacing = {
+    '& hr': {
+      margin: `${theme.spacing.lg}px 0`,
+      border: 'none',
+      borderTop: `1px solid ${theme.colors.border}`,
+    },
+    '& h1, & h2, & h3, & h4': { marginTop: theme.spacing.md },
+  };
+  return (
+    <>
+      {groupParts(parts).map((group, i) =>
+        group.kind === 'text' ? (
+          group.text ? (
+            // Assumption: Parts are append only, so this ID construction is stable and safe
+            <div key={`text-${i}`} css={markdownSpacing}>
+              <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
+            </div>
+          ) : null
+        ) : (
+          <ToolCallGroup key={group.calls[0].toolUseId} parts={group.calls} />
+        ),
+      )}
+    </>
+  );
+};
+
+/** Animated "working" indicator shown while the assistant streams a turn. */
+const StreamingIndicator = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <SparkleIcon
+        color="ai"
+        css={{ fontSize: 16, animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': PULSE_ANIMATION }}
+      />
+      <span
+        css={{
+          fontSize: theme.typography.fontSizeBase,
+          color: theme.colors.textSecondary,
+          '&::after': {
+            content: '"..."',
+            animation: 'dots 1.5s steps(3, end) infinite',
+            display: 'inline-block',
+            width: '1.2em',
+          },
+          '@keyframes dots': DOTS_ANIMATION,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Processing"
+          description="Processing indicator while Assistant is streaming a response"
+        />
+      </span>
+    </div>
+  );
+};
+
 /**
  * Single chat message bubble.
  */
 const ChatMessageBubble = ({
   message,
   isLastMessage,
-  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
-  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -101,7 +248,7 @@ const ChatMessageBubble = ({
         {isUser ? (
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
-          <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+          <AssistantMessageBody message={message} />
         )}
         {/* Interrupted indicator */}
         {message.isInterrupted && (
@@ -118,42 +265,7 @@ const ChatMessageBubble = ({
           </span>
         )}
         {/* Loading indicator */}
-        {message.isStreaming && (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.sm,
-            }}
-          >
-            <SparkleIcon
-              color="ai"
-              css={{
-                fontSize: 16,
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': PULSE_ANIMATION,
-              }}
-            />
-            <span
-              css={{
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textSecondary,
-                '&::after': {
-                  content: '"..."',
-                  animation: 'dots 1.5s steps(3, end) infinite',
-                  display: 'inline-block',
-                  width: '1.2em',
-                },
-                '@keyframes dots': DOTS_ANIMATION,
-              }}
-            >
-              {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? `Tool: ${activeTools[0].description}`
-                : 'Processing'}
-            </span>
-          </div>
-        )}
+        {message.isStreaming && <StreamingIndicator />}
       </div>
 
       {/* Action buttons for assistant messages */}
@@ -265,14 +377,16 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const {
     messages,
     isStreaming,
     error,
-    activeTools,
     sendMessage,
     regenerateLastMessage,
     cancelSession,
+    tokenUsage,
+    selectedProvider,
     pendingPrompt,
     clearPendingPrompt,
     pendingPermission,
@@ -374,7 +488,6 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
-              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
@@ -401,37 +514,105 @@ const ChatPanelContent = () => {
             backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
-          <div css={{ display: 'flex', alignItems: 'flex-end' }}>
-            <textarea
-              ref={textareaRef}
-              placeholder="Ask a question..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              css={{
-                flex: 1,
+          <AssistantContextTags />
+          <textarea
+            ref={textareaRef}
+            placeholder="Ask a question..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            css={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              fontSize: theme.typography.fontSizeBase,
+              color: theme.colors.textPrimary,
+              padding: theme.spacing.xs,
+              resize: 'none',
+              overflowX: 'hidden',
+              overflowY: 'auto',
+              fontFamily: 'inherit',
+              lineHeight: 'inherit',
+              maxHeight: 150,
+              '&::placeholder': {
+                color: theme.colors.textPlaceholder,
+              },
+              '&:focus': {
                 border: 'none',
                 outline: 'none',
-                backgroundColor: 'transparent',
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textPrimary,
-                padding: theme.spacing.xs,
-                resize: 'none',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                fontFamily: 'inherit',
-                lineHeight: 'inherit',
-                maxHeight: 150,
-                '&::placeholder': {
-                  color: theme.colors.textPlaceholder,
-                },
-                '&:focus': {
-                  border: 'none',
-                  outline: 'none',
-                },
-              }}
-            />
+              },
+            }}
+          />
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.sm,
+              marginTop: theme.spacing.xs,
+              borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            }}
+          >
+            {selectedProvider && <ProviderIndicator provider={selectedProvider} />}
+            <div css={{ flex: 1 }} />
+            {tokenUsage.totalTokens > 0 && (
+              <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Typography.Text size="sm" color="secondary" css={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCompactTokens(intl, tokenUsage.totalTokens)}
+                </Typography.Text>
+                <InfoTooltip
+                  componentId="mlflow.assistant.chat_panel.usage_info"
+                  content={
+                    <div
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: theme.spacing.xs,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      <span>
+                        <FormattedMessage
+                          defaultMessage="Input {input} · Output {output} tokens"
+                          description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
+                          values={{
+                            input: intl.formatNumber(tokenUsage.promptTokens - tokenUsage.cacheReadTokens),
+                            output: intl.formatNumber(tokenUsage.completionTokens),
+                          }}
+                        />
+                      </span>
+                      {tokenUsage.cacheReadTokens > 0 && (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cached {cached} tokens, reused conversation context billed at a reduced rate"
+                            description="Portion of input tokens re-read from the provider's prompt cache across turns"
+                            values={{ cached: intl.formatNumber(tokenUsage.cacheReadTokens) }}
+                          />
+                        </span>
+                      )}
+                      {tokenUsage.costUsd != null ? (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Estimated cost ~{cost}, from public model pricing; actual may vary (provider and cache rates)."
+                            description="Estimated session cost with a disclaimer that it is approximate"
+                            values={{ cost: formatCostUsd(intl, tokenUsage.costUsd) }}
+                          />
+                        </span>
+                      ) : (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cost estimate unavailable for this model."
+                            description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+                          />
+                        </span>
+                      )}
+                    </div>
+                  }
+                />
+              </div>
+            )}
             <Button
               componentId="mlflow.assistant.chat_panel.send"
               onClick={isStreaming ? cancelSession : handleSend}
@@ -440,7 +621,6 @@ const ChatPanelContent = () => {
               aria-label="Send message"
             />
           </div>
-          <AssistantContextTags />
         </div>
       </div>
     </div>
@@ -471,8 +651,8 @@ const SetupLoadingState = () => {
 };
 
 /**
- * Message shown when server is not running locally.
- * Assistant only works with local MLflow servers.
+ * Message shown when this client is not allowed to use the Assistant,
+ * e.g. a remote client when the server's remote-access settings don't permit it.
  */
 const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -496,7 +676,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
       <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
         <FormattedMessage
           defaultMessage="Assistant Not Available"
-          description="Title shown when Assistant is not available for remote servers"
+          description="Title shown when Assistant is not available for this client"
         />
       </Typography.Title>
 
@@ -509,8 +689,8 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
         }}
       >
         <FormattedMessage
-          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
-          description="Message explaining that Assistant only works with local servers"
+          defaultMessage="MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely."
+          description="Message explaining that the Assistant is blocked by the server's remote-access settings"
         />
       </Typography.Text>
 
@@ -556,7 +736,9 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
+  const intl = useIntl();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -588,8 +770,9 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const renderContent = () => {
-    // Show message for remote servers - Assistant only works locally
-    if (!isLocalServer) {
+    // Show message when this client isn't allowed to use the Assistant
+    // (e.g. a remote client and the server's remote-access settings don't permit it)
+    if (!canUseAssistant) {
       return <RemoteServerMessage onClose={handleClose} />;
     }
 
@@ -668,13 +851,30 @@ export const AssistantChatPanel = () => {
                   aria-label="New Chat"
                 />
               </Tooltip>
-              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+              <Tooltip
+                componentId="mlflow.assistant.chat_panel.settings.tooltip"
+                content={
+                  isLocalServer
+                    ? intl.formatMessage({
+                        defaultMessage: 'Settings',
+                        description: 'Tooltip for the Assistant settings button',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage:
+                          'Updating Assistant settings is not allowed for a remote MLflow server. ' +
+                          'Contact your server admin to update the settings.',
+                        description:
+                          'Tooltip explaining that Assistant settings cannot be changed from a remote client',
+                      })
+                }
+              >
                 <Button
                   componentId="mlflow.assistant.chat_panel.settings"
                   size="small"
                   icon={<GearIcon />}
                   onClick={handleOpenSettings}
                   aria-label="Settings"
+                  disabled={!isLocalServer}
                 />
               </Tooltip>
             </>

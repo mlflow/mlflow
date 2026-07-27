@@ -1,0 +1,609 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_generate_equals_and_hash = true;
+option java_package = "com.databricks.api.proto.managedcatalog";
+option (scalapb.options) = {flat_package: true};
+
+// Registered Model Management API
+message RegisteredModelInfo {
+  // Input fields:
+
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+
+  // Output-only fields:
+
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
+  // [Create,Update:IGN] Full name of Model, in form of <catalog_name>.<schema_name>.<model_name>
+  optional string full_name = 9;
+  // [Create,Update:IGN] Time at which this Model was created, in epoch milliseconds.
+  optional int64 created_at = 11;
+  // [Create,Update:IGN] Username of Model creator.
+  optional string created_by = 12;
+  // [Create,Update:IGN] Time at which this Model was last modified, in epoch milliseconds.
+  optional int64 updated_at = 13;
+  // [Create,Update:IGN] Username of user who last modified the Model.
+  optional string updated_by = 14;
+  // [Create,Update:IGN] ID of the securable that can be used in paging tokens
+  optional string id = 18;
+  // [Create,Update:IGN] Indicate if current model info contains only browsable metadata
+  optional bool browse_only = 21;
+  // [Create,Update:IGN] Encryption options to use when accessing cloud storage.
+  //  optional EncryptionDetails encryption_details = 22;
+
+  // ---- Fields below are only populated by the Databricks (databricks-uc) backend, which enriches
+  // the governance response with model-registry metadata. The open-source UC backend leaves them
+  // unset. ----
+  // [Create,Update:IGN] The identifier of the user who owns the registered model.
+  optional string owner = 4;
+  // [Create,Update:IGN] Unique identifier of the parent metastore.
+  optional string metastore_id = 7;
+  // [Create,Update:IGN] Registered-model aliases on this model.
+  repeated RegisteredModelAliasInfo aliases = 19;
+  // [Create,Update:IGN] Tags associated with this model.
+  repeated TagKeyValue tags = 20;
+  // [Create,Update:IGN] Deployment job id for this model.
+  optional string deployment_job_id = 27;
+  // [Create,Update:IGN] Deployment job connection state for this model.
+  optional DeploymentJobConnection.State deployment_job_state = 28;
+}
+
+message CreateRegisteredModel {
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Tags to set on the registered model at creation time.
+  repeated TagKeyValue tags = 20;
+  // Deployment job id to associate with the registered model.
+  optional string deployment_job_id = 30;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message DeleteRegisteredModel {
+  // Required. Full name of the model.
+  optional string full_name = 1;
+  // Optional. Force deletion even if the registered model is not empty. Default is false.
+  optional bool force = 2;
+
+  message Response {}
+}
+
+message GetRegisteredModel {
+  // Required. Full name of the Model.
+  optional string full_name = 1 [(validate_required) = true];
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Whether to include registered-model aliases in the response.
+  optional bool include_aliases = 2;
+  // Whether to include models the caller can only browse.
+  optional bool include_browse = 3;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message UpdateRegisteredModel {
+  // Required. Full name of the Model.
+  optional string full_name = 1;
+
+  // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
+  optional string new_name = 3;
+
+  // Optional. New comment for registered model. (replaces registered_model_info.comment).
+  optional string comment = 2;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Deployment job id to associate with the registered model.
+  optional string deployment_job_id = 30;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message ListRegisteredModels {
+  // Optional. Name of parent catalog for models of interest.
+  optional string catalog_name = 1;
+  // Optional. Parent schema of models.
+  optional string schema_name = 2;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Whether to include models the caller can only browse.
+  optional bool include_browse = 3;
+
+  // If catalog and schema are unspecified, max_results must be specified.
+  // If max_results is unspecified, we return all results, starting from the page specified by page_token
+  // Maximum number of models to return (page length).
+  optional int64 max_results = 5;
+
+  // If page_token is unspecified, results begin from the first page of db results
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 6;
+
+  message Response {
+    repeated RegisteredModelInfo registered_models = 1;
+    // Optional. Opaque token for pagination.
+    optional string next_page_token = 2;
+  }
+}
+
+message ModelVersionInfo {
+  // [Create:REQ Update:IGN] Name of parent model, relative to parent Schema.
+  optional string model_name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create:REQ Update:IGN] URI indicating the location of the source model artifacts, used
+  // when creating ``model_version``
+  optional string source = 5;
+
+  // OPTIONAL input fields (for Create and/or Update):
+
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 4;
+  // [Create:OPT Update:IGN] MLflow run ID used when creating ``model_version``, if ``source``
+  // was generated by an experiment run stored in MLflow tracking server.
+  optional string run_id = 6;
+  // [Create:OPT Update:IGN] ID of the workspace containing the MLflow run that
+  // generated this model version
+
+  // Output-only fields:
+
+  // [Create,Update:IGN] Current status of ``model_version``
+  optional ModelVersionStatus status = 8;
+  // [Create,Update:IGN] Numeric model version Id
+  optional int64 version = 9;
+  // [Create,Update:IGN] Storage root URL for model version
+  optional string storage_location = 10;
+  // [Create,Update:IGN] Unique identifier of parent Metastore.
+  optional int64 created_at = 12;
+  // [Create,Update:IGN] Username of model version creator.
+  optional string created_by = 13;
+  // [Create,Update:IGN] Time at which this model version was last modified, in epoch milliseconds.
+  optional int64 updated_at = 14;
+  // [Create,Update:IGN] Username of user who last modified the model version.
+  optional string updated_by = 15;
+  // [Create,Update:IGN] Unique identifier of model version.
+  optional string id = 16;
+
+  // ---- Fields below are only populated by the Databricks (databricks-uc) backend, which enriches
+  // the governance response with model-registry metadata. The open-source UC backend leaves them
+  // unset. ----
+  // [Create,Update:IGN] ID of the workspace containing the MLflow run that generated this version.
+  optional int64 run_workspace_id = 7;
+  // [Create,Update:IGN] Unique identifier of the parent metastore.
+  optional string metastore_id = 11;
+  // [Create,Update:IGN] Registered-model aliases on this model version.
+  repeated RegisteredModelAliasInfo aliases = 17;
+  // [Create,Update:IGN] Tags associated with this model version.
+  repeated TagKeyValue tags = 18;
+  // [Create,Update:IGN] Model-version dependencies (tables / functions / connections).
+  optional DependencyList model_version_dependencies = 19;
+  // [Create,Update:IGN] `model_id` linking the version to the source logged model.
+  optional string model_id = 21;
+  // [Create,Update:IGN] Parameters logged with the model.
+  repeated ModelParam model_params = 22;
+  // [Create,Update:IGN] Metrics logged with the model.
+  repeated ModelMetric model_metrics = 23;
+  // [Create,Update:IGN] Deployment job state for this model version.
+  optional ModelVersionDeploymentJobState deployment_job_state = 24;
+}
+
+message CreateModelVersion {
+  // Name of Model, relative to parent Schema.
+  optional string model_name = 1;
+  // Name of parent Catalog.
+  optional string catalog_name = 2;
+  // Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // URI indicating the location of the source model artifacts, used
+  // when creating ``model_version``
+  optional string source = 4;
+  // MLflow run ID used when creating ``model_version``, if ``source``
+  // was generated by an experiment run stored in MLflow tracking server.
+  optional string run_id = 5;
+  // User-provided free-form text description.
+  optional string comment = 6;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Tags to set on the model version at creation time.
+  repeated TagKeyValue tags = 18;
+  // Model-version dependencies (tables / functions / connections).
+  optional DependencyList model_version_dependencies = 19;
+  // `model_id` linking the version to the source logged model.
+  optional string model_id = 30;
+  // Serialized feature dependencies for the model version.
+  optional string feature_deps = 31;
+  // Tracking-server id (e.g. Databricks workspace id) of the source run.
+  optional string run_tracking_server_id = 32;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message DeleteModelVersion {
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {}
+}
+
+message FinalizeModelVersion {
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message GetModelVersion {
+  // Required. Full name of the parent registered model (from URL)..
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Whether to include registered-model aliases in the response.
+  optional bool include_aliases = 3;
+  // Whether to include versions the caller can only browse.
+  optional bool include_browse = 4;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message UpdateModelVersion {
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  // Required. Partial ModelVersionInfo with fields to change.
+  optional string comment = 3;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message ListModelVersions {
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Maximum number of model versions to return (i.e., the page length). Defaults to 100.
+  // Maximum allowed value is 1000.
+  optional int64 max_results = 4;
+
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 5;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Whether to include versions the caller can only browse.
+  optional bool include_browse = 6;
+
+  message Response {
+    repeated ModelVersionInfo model_versions = 1;
+    // Opaque token for pagination.
+    optional string next_page_token = 2;
+  }
+}
+
+enum ModelVersionStatus {
+  MODEL_VERSION_STATUS_UNKNOWN = 0;
+  // Request to register a new model version is pending as client uploads model files.
+  PENDING_REGISTRATION = 1;
+  // Request to register a new model version has failed.
+  FAILED_REGISTRATION = 2;
+  // Model version is ready for use.
+  READY = 3;
+}
+
+// Credentials Related Protos
+
+message TemporaryCredentials {
+  // Exactly one cloud-provider credential is populated per response. Kept as a `oneof` so the
+  // shared UC artifact-repo dispatch (WhichOneof("credentials")) selects the right cloud backend;
+  // it is wire-compatible with the equivalently-numbered optional fields.
+  oneof credentials {
+    AwsCredentials aws_temp_credentials = 2;
+    AzureUserDelegationSAS azure_user_delegation_sas = 3;
+    GcpOauthToken gcp_oauth_token = 4;
+    // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+    // Cloudflare R2 temporary credentials.
+    R2Credentials r2_temp_credentials = 5;
+  }
+
+  // Server time when the credential will expire, in epoch milliseconds.
+  // The API client is advised to cache the credential given this expiration time.
+  optional int64 expiration_time = 1;
+
+  // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+  // Storage mode of the model-version location (customer-hosted vs default storage).
+  optional StorageMode storage_mode = 6;
+  // Encryption options to use when accessing cloud storage.
+  optional EncryptionDetails encryption_details = 7;
+}
+
+// AWS temporary credentials for API authentication.
+// Read more at https://docs.aws.amazon.com/STS/latest/APIReference/API_Credentials.html.
+message AwsCredentials {
+  // The access key ID that identifies the temporary credentials.
+  optional string access_key_id = 1;
+
+  // The secret access key that can be used to sign AWS API requests.
+  optional string secret_access_key = 2;
+
+  // The token that users must pass to AWS API to use the temporary credentials.
+  optional string session_token = 3;
+}
+
+// Azure temporary credentials for API authentication.
+// Read more at https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
+message AzureUserDelegationSAS {
+  // The signed URI (SAS Token) used to access blob services for a given path
+  optional string sas_token = 1;
+}
+
+// GCP temporary credentials for API authentication.
+// Read more at https://developers.google.com/identity/protocols/oauth2/service-account
+message GcpOauthToken {
+  optional string oauth_token = 1;
+}
+
+message GenerateTemporaryModelVersionCredential {
+  // Required. Name of parent catalog for model version of interest.
+  optional string catalog_name = 1;
+  // Required. Name of parent schema of model version.
+  optional string schema_name = 2;
+  // Required. Name of parent registered model of model version.
+  optional string model_name = 3;
+  // Required. Numeric model version Id
+  optional int64 version = 4;
+
+  // Required. Type of operation (read or write) to perform on the model version
+  // Note that model version files can only be written at creation time
+  optional ModelVersionOperation operation = 5;
+
+  message Response {
+    // Temporary credentials for model version read/write
+    optional TemporaryCredentials credentials = 1;
+  }
+}
+
+enum ModelVersionOperation {
+  UNKNOWN_MODEL_VERSION_OPERATION = 0;
+  READ_MODEL_VERSION = 1;
+  READ_WRITE_MODEL_VERSION = 2;
+}
+
+// ===========================================================================
+// Databricks (databricks-uc) enrichment + governance types.
+//
+// The types and RPCs below extend the shared UC governance surface with the
+// MLflow enrichment the Databricks-hosted UC backend returns (deployment jobs,
+// model params/metrics, dependency lineage) and the governance operations the
+// Databricks backend serves (registered-model aliases and securable/subentity
+// tag assignments). The open-source UC backend does not populate these fields
+// or serve these RPCs; they are additive and safely ignored there.
+// ===========================================================================
+
+// Tag on a securable / subentity (governance wire shape: {key, value}).
+message TagKeyValue {
+  optional string key = 1;
+  optional string value = 2;
+}
+
+// Registered-model alias (governance names: alias_name / version_num).
+message RegisteredModelAliasInfo {
+  optional string alias_name = 1;
+  optional int64 version_num = 2;
+  optional string id = 3;
+  optional string model_name = 4;
+  optional string catalog_name = 5;
+  optional string schema_name = 6;
+}
+
+message TableDependency {
+  optional string table_full_name = 1;
+}
+
+message FunctionDependency {
+  optional string function_full_name = 1;
+}
+
+message ConnectionDependency {
+  optional string connection_name = 1;
+}
+
+message ModelVersionDependency {
+  oneof value {
+    TableDependency table = 1;
+    FunctionDependency function = 2;
+    ConnectionDependency connection = 3;
+  }
+}
+
+message DependencyList {
+  repeated ModelVersionDependency dependencies = 1;
+}
+
+// Params set at logging time of a model. Stored alongside the model in the registry.
+message ModelParam {
+  optional string name = 1;
+  optional string value = 2;
+}
+
+// Metric associated with a model version, represented as a key-value pair.
+message ModelMetric {
+  optional string key = 1;
+  optional double value = 2;
+  optional int64 timestamp = 3;
+  optional int64 step = 4 [default = 0];
+  optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
+  optional string dataset_digest = 6 [(visibility) = PUBLIC_UNDOCUMENTED];
+  optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
+  optional string run_id = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
+}
+
+message DeploymentJobConnection {
+  enum State {
+    DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 0;
+    // default state
+    NOT_SET_UP = 1;
+    // connected job: job exists, owner has ACLs, and required job parameters are present
+    CONNECTED = 2;
+    // job was deleted OR owner had job ACLs removed
+    NOT_FOUND = 3;
+    // required job parameters were changed
+    REQUIRED_PARAMETERS_CHANGED = 4;
+  }
+}
+
+message ModelVersionDeploymentJobState {
+  enum DeploymentJobRunState {
+    DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 0;
+    NO_VALID_DEPLOYMENT_JOB_FOUND = 1;
+    RUNNING = 2;
+    SUCCEEDED = 3;
+    FAILED = 4;
+    PENDING = 5;
+    APPROVAL = 6;
+  }
+  optional string job_id = 1;
+  optional string run_id = 2;
+  optional DeploymentJobConnection.State job_state = 3;
+  optional DeploymentJobRunState run_state = 4;
+  optional string current_task_name = 5;
+}
+
+enum StorageMode {
+  STORAGE_MODE_UNSPECIFIED = 0;
+  // The storage resources of the workspace are hosted by customers.
+  CUSTOMER_HOSTED = 1;
+  // Default storage
+  DEFAULT_STORAGE = 2;
+}
+
+enum SseEncryptionAlgorithm {
+  SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
+  AWS_SSE_S3 = 1; // "AES256" in 'x-amz-server-side-encryption' header
+  AWS_SSE_KMS = 2; // "aws:kms" in 'x-amz-server-side-encryption' header
+}
+
+message SseEncryptionDetails {
+  optional SseEncryptionAlgorithm algorithm = 1;
+  // Optional. The ARN of the SSE-KMS key used with the S3 location, when algorithm = "SSE-KMS".
+  optional string aws_kms_key_arn = 2;
+}
+
+message EncryptionDetails {
+  oneof encryption_details_type {
+    SseEncryptionDetails sse_encryption_details = 1;
+  }
+}
+
+// Cloudflare R2 temporary credentials for API authentication.
+message R2Credentials {
+  optional string access_key_id = 1;
+  optional string secret_access_key = 2;
+  optional string session_token = 3;
+}
+
+// ----- Governance operations served by the Databricks backend. -----
+
+message GetModelVersionByAlias {
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1 [(validate_required) = true];
+  // Required. Alias name (from URL).
+  optional string alias = 2 [(validate_required) = true];
+  optional bool include_aliases = 3;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message SetRegisteredModelAlias {
+  // Required. Full name of the registered model (from URL).
+  optional string full_name = 1;
+  // Required. Alias name (from URL).
+  optional string alias = 2;
+  // Required. Model version the alias should point to.
+  optional int64 version_num = 3;
+
+  message Response {}
+}
+
+message DeleteRegisteredModelAlias {
+  // Required. Full name of the registered model (from URL).
+  optional string full_name = 1;
+  // Required. Alias name (from URL).
+  optional string alias = 2;
+
+  message Response {}
+}
+
+// Generic UC tag assignment change (securable / subentity).
+message TagAssignmentsChange {
+  repeated string remove = 3;
+  repeated TagKeyValue add_tags = 4;
+}
+
+message UpdateTagSecurableAssignments {
+  optional TagAssignmentsChange changes = 1;
+  // Securable type path segment (from URL), e.g. "FUNCTION".
+  optional string securable_type = 2;
+  // Securable full name path segment (from URL).
+  optional string securable_full_name = 3;
+
+  message Response {}
+}
+
+message UpdateTagSubentityAssignments {
+  optional TagAssignmentsChange changes = 1;
+  // Securable type path segment (from URL), e.g. "FUNCTION".
+  optional string securable_type = 2;
+  // Securable full name path segment (from URL).
+  optional string securable_full_name = 3;
+  // Subentity name path segment (from URL), e.g. the model version.
+  optional string subentity_name = 4;
+
+  message Response {}
+}

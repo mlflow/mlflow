@@ -1047,6 +1047,133 @@ def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemySt
     assert {t.request_id for t in traces} == {trace1_id, trace2_id}
 
 
+def test_search_traces_span_filters_deduplicate_matching_spans(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_filter_dedup")
+    trace_id = "trace1"
+    _create_trace(store, trace_id, exp_id)
+
+    span1 = create_test_span_with_content(
+        trace_id,
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span2 = create_test_span_with_content(
+        trace_id,
+        name="second_match",
+        span_id=222,
+        custom_attributes={"response": "needle again"},
+    )
+
+    store.log_spans(exp_id, [span1, span2])
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert [t.request_id for t in traces] == [trace_id]
+
+
+def test_search_traces_span_filters_remain_experiment_scoped(store: SqlAlchemyStore):
+    target_exp_id = store.create_experiment("target_exp")
+    other_exp_id = store.create_experiment("other_exp")
+
+    _create_trace(store, "target-trace", target_exp_id, request_time=1000)
+    _create_trace(store, "other-trace", other_exp_id, request_time=1000)
+
+    matching_span = create_test_span_with_content(
+        "other-trace",
+        name="other_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    store.log_spans(other_exp_id, [matching_span])
+
+    traces, _ = store.search_traces([target_exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert traces == []
+
+
+def test_search_traces_span_filters_respect_trace_time_window(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_time_window")
+    early_trace_id = "trace-early"
+    late_trace_id = "trace-late"
+
+    _create_trace(store, early_trace_id, exp_id, request_time=1000)
+    _create_trace(store, late_trace_id, exp_id, request_time=2000)
+
+    early_matching_span = create_test_span_with_content(
+        early_trace_id,
+        name="early_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    late_non_matching_span = create_test_span_with_content(
+        late_trace_id,
+        name="late_non_match",
+        span_id=222,
+        custom_attributes={"prompt": "different"},
+    )
+    store.log_spans(exp_id, [early_matching_span])
+    store.log_spans(exp_id, [late_non_matching_span])
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='timestamp >= 1500 AND timestamp < 2500 AND trace.text ILIKE "%needle%"',
+    )
+    assert traces == []
+
+
+def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_correlated_exists")
+
+    with store.ManagedSessionMaker() as session:
+        cases_orderby, parsed_orderby, sorting_joins = (
+            sqlalchemy_store_module._get_orderby_clauses_for_search_traces([], session)
+        )
+        stmt = store._trace_query(session)
+        if cases_orderby:
+            stmt = stmt.add_columns(*cases_orderby)
+
+        (
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        ) = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            (
+                "timestamp >= 20000 AND timestamp > 25000 AND timestamp < 30000 "
+                'AND trace.text ILIKE "%needle%"'
+            ),
+            session,
+            store._get_dialect(),
+        )
+        stmt = store._apply_trace_filter_clauses(
+            stmt,
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        )
+
+        for join_target in sorting_joins:
+            stmt = stmt.outerjoin(join_target)
+
+        stmt = stmt.filter(SqlTraceInfo.experiment_id.in_([int(exp_id)])).order_by(*parsed_orderby)
+        compiled_sql = str(
+            stmt.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+    assert "exists (select *" in compiled_sql
+    assert "spans.trace_id = trace_info.request_id" in compiled_sql
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled_sql
+    assert "spans.start_time_unix_nano >= 15000000000" in compiled_sql
+    assert "spans.start_time_unix_nano <" not in compiled_sql
+    assert "join spans" not in compiled_sql
+    assert "select distinct spans.trace_id as request_id" not in compiled_sql
+
+
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_no_results")
 
@@ -4486,6 +4613,267 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["total_cost"] == 0.045
 
 
+def _rollup_trace_spans(trace_id: str) -> tuple[Span, list[Span]]:
+    """Span tree shaped like rollup autologgers (pydantic_ai, agno, dspy): the parent
+    AGENT span carries the cumulative usage of its LLM children.
+    """
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 120,
+                "output_tokens": 15,
+                "total_tokens": 135,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                }
+            },
+        )
+        for i in range(3)
+    ]
+    return parent, children
+
+
+def test_log_spans_token_usage_dedups_rollup_parent(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    store.log_spans(experiment_id, [parent, *children])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+@pytest.mark.parametrize("parent_first", [True, False])
+def test_log_spans_token_usage_dedups_rollup_parent_across_batches(
+    store: SqlAlchemyStore, parent_first: bool
+) -> None:
+    experiment_id = store.create_experiment(
+        f"test_log_spans_token_usage_dedup_batches_{parent_first}"
+    )
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    batches = [[parent], children] if parent_first else [children, [parent]]
+    for batch in batches:
+        store.log_spans(experiment_id, batch)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+def test_log_spans_token_usage_dedups_nested_rollup_chain(store: SqlAlchemyStore) -> None:
+    # pydantic_ai emits Agent.run_sync wrapping Agent.run, both carrying the same cumulative
+    # usage as the LLM leaf. Only the topmost value must be counted.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup_chain")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    usage = {"input_tokens": 150, "output_tokens": 27, "total_tokens": 177}
+
+    spans = [
+        create_test_span(
+            trace_id,
+            name=name,
+            span_id=span_id,
+            parent_id=parent_id,
+            span_type=span_type,
+            attributes={SpanAttributeKey.CHAT_USAGE: usage},
+        )
+        for name, span_id, parent_id, span_type in [
+            ("Agent.run_sync", 1, None, "AGENT"),
+            ("Agent.run", 2, 1, "AGENT"),
+            ("chat_completion", 3, 2, "LLM"),
+        ]
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == usage
+
+
+@pytest.mark.parametrize("single_batch", [True, False])
+def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batch: bool) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_cost_dedup_{single_batch}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": 0.02,
+                "output_cost": 0.01,
+                "total_cost": 0.03,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.005,
+                    "total_cost": 0.015,
+                }
+            },
+        )
+        for i in range(2)
+    ]
+
+    if single_batch:
+        store.log_spans(experiment_id, [parent, *children])
+    else:
+        store.log_spans(experiment_id, children)
+        store.log_spans(experiment_id, [parent])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.02,
+        "output_cost": 0.01,
+        "total_cost": 0.03,
+    }
+
+
+def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
+    # A span chain deeper than Python's recursion limit (default 1000) must not blow up
+    # the tree-aware aggregation (see #24344 for the client-side counterpart).
+    experiment_id = store.create_experiment("test_log_spans_token_usage_deep_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    depth = 1200
+
+    spans = [create_test_span(trace_id, name="root", span_id=1, parent_id=None)]
+    spans.extend(
+        create_test_span(trace_id, name=f"level_{i}", span_id=i, parent_id=i - 1)
+        for i in range(2, depth + 1)
+    )
+    spans.append(
+        create_test_span(
+            trace_id,
+            name="leaf_llm",
+            span_id=depth + 1,
+            parent_id=depth,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                }
+            },
+        )
+    )
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+
+
+def test_log_spans_token_usage_redelivered_span_not_double_counted(
+    store: SqlAlchemyStore,
+) -> None:
+    # A span re-sent in a later batch (same span_id, upserted content) must be counted from its
+    # batch version only, not once from the stored row and once from the batch.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_redelivery")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                    }
+                },
+            )
+        ],
+    )
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 150
+
+    # Re-deliver the same span with updated usage alongside a new sibling span.
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 300,
+                        "output_tokens": 100,
+                        "total_tokens": 400,
+                    }
+                },
+            ),
+            create_test_span(
+                trace_id,
+                name="llm_2",
+                span_id=2,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 20,
+                        "output_tokens": 10,
+                        "total_tokens": 30,
+                    }
+                },
+            ),
+        ],
+    )
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 320,
+        "output_tokens": 110,
+        "total_tokens": 430,
+    }
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
@@ -5716,6 +6104,52 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_find_completed_sessions_with_span_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions_with_span_filter")
+
+    # Session A should match, and duplicate matching spans on the first trace
+    # should not duplicate the returned session.
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    span_a1 = create_test_span_with_content(
+        "trace_a1",
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span_a2 = create_test_span_with_content(
+        "trace_a1",
+        name="second_match",
+        span_id=112,
+        custom_attributes={"response": "needle again"},
+    )
+    store.log_spans(exp_id, [span_a1, span_a2])
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string='trace.text ILIKE "%needle%"',
+    )
+
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
 
 
 def _archive_traces(
