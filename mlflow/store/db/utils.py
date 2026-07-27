@@ -74,6 +74,18 @@ def _all_tables_exist(engine):
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }
+    # Only check subset if we haven't already run migrations; otherwise, the DB is
+    # already managed and _all_tables_exist should not be used to decide initialization.
+    # Use Alembic version to determine if initialization is needed.
+    try:
+        with engine.connect() as conn:
+            context = MigrationContext.configure(conn)
+            current_rev = context.get_current_revision()
+        if current_rev is not None:
+            # DB has been migrated before, assume all needed tables exist or will be created by Alembic
+            return True
+    except Exception:
+        pass
     return expected_tables.issubset(actual_tables)
 
 
