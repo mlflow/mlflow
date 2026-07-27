@@ -2,7 +2,6 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { renderWithDesignSystem } from '../../../../../common/utils/TestUtils.react18';
-import { QueryClient, QueryClientProvider } from '../../../../../common/utils/reactQueryHooks';
 import { GenAIModelSelection } from './GenAIModelSelection';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
@@ -38,11 +37,6 @@ const mockSecretsQueryResult = (secrets: any[], isLoading = false) =>
     refetch: jest.fn(),
   } as any);
 
-// GenAIModelSelection uses useAllowlistedModelPairs, which fans out with useQueries and therefore
-// needs a QueryClient in context.
-const renderGenAIModelSelection = (ui: React.ReactElement) =>
-  renderWithDesignSystem(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
-
 // A secret carrying two allowlisted models -> two selectable pairs.
 const SECRET_WITH_MODELS = {
   secret_id: 'secret-1',
@@ -75,7 +69,7 @@ describe('GenAIModelSelection', () => {
     ]);
 
     const ref = React.createRef<any>();
-    renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().mode).toBe('endpoint');
@@ -86,7 +80,7 @@ describe('GenAIModelSelection', () => {
     mockEndpointQueryResult([]);
 
     const ref = React.createRef<any>();
-    renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().mode).toBe('direct');
@@ -96,7 +90,7 @@ describe('GenAIModelSelection', () => {
   test('shows loading state while fetching endpoints', async () => {
     mockEndpointQueryResult([], true);
 
-    const { getByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(getByText('Loading endpoints...')).toBeInTheDocument();
   });
@@ -106,7 +100,7 @@ describe('GenAIModelSelection', () => {
       { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
-    const { getByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(getByText('test-endpoint')).toBeInTheDocument();
   });
@@ -118,7 +112,7 @@ describe('GenAIModelSelection', () => {
     ]);
 
     const ref = React.createRef<any>();
-    renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} ref={ref} />);
+    renderWithDesignSystem(<GenAIModelSelection {...defaultProps} ref={ref} />);
 
     await waitFor(() => {
       expect(ref.current?.getValues().endpointName).toBe('first-endpoint');
@@ -128,7 +122,7 @@ describe('GenAIModelSelection', () => {
   test('hides endpoint dropdown when no endpoints exist', () => {
     mockEndpointQueryResult([]);
 
-    const { queryByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} />);
+    const { queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     expect(queryByText('Select endpoint')).not.toBeInTheDocument();
   });
@@ -140,7 +134,7 @@ describe('GenAIModelSelection', () => {
     ]);
 
     const ref = React.createRef<any>();
-    renderGenAIModelSelection(
+    renderWithDesignSystem(
       <GenAIModelSelection {...defaultProps} ref={ref} initialValues={{ endpointName: 'specific-endpoint' }} />,
     );
 
@@ -156,7 +150,7 @@ describe('GenAIModelSelection', () => {
       { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
-    const { getByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
 
     fireEvent.click(getByText('test-endpoint'));
     expect(getByText('Configure model directly')).toBeInTheDocument();
@@ -167,7 +161,7 @@ describe('GenAIModelSelection', () => {
       { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
-    const { getByText, queryByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} />);
+    const { getByText, queryByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} />);
 
     fireEvent.click(getByText('test-endpoint'));
     expect(queryByText('Configure model directly')).not.toBeInTheDocument();
@@ -178,7 +172,7 @@ describe('GenAIModelSelection', () => {
       { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
-    const { getByText } = renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} showCreateEndpoint />);
+    const { getByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showCreateEndpoint />);
 
     fireEvent.click(getByText('test-endpoint'));
     expect(getByText('Create Gateway endpoint')).toBeInTheDocument();
@@ -189,7 +183,7 @@ describe('GenAIModelSelection', () => {
       { endpoint_id: 'ep-1', name: 'test-endpoint', model_mappings: [], created_at: 0, last_updated_at: 0 },
     ]);
 
-    const { getByText, queryByTestId } = renderGenAIModelSelection(
+    const { getByText, queryByTestId } = renderWithDesignSystem(
       <GenAIModelSelection {...defaultProps} showCreateEndpoint />,
     );
 
@@ -209,7 +203,7 @@ describe('GenAIModelSelection', () => {
       mockSecretsQueryResult([SECRET_WITH_MODELS]);
 
       const ref = React.createRef<any>();
-      renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
+      renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
 
       await waitFor(() => {
         const values = ref.current?.getValues();
@@ -227,7 +221,7 @@ describe('GenAIModelSelection', () => {
       mockSecretsQueryResult([SECRET_WITH_MODELS]);
 
       const ref = React.createRef<any>();
-      renderGenAIModelSelection(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
+      renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />);
 
       await waitFor(() => {
         expect(ref.current?.isValid).toBe(true);
@@ -237,7 +231,7 @@ describe('GenAIModelSelection', () => {
     test('renders each allowlisted pair as an option', async () => {
       mockSecretsQueryResult([SECRET_WITH_MODELS]);
 
-      const { getByText, getAllByText } = renderGenAIModelSelection(
+      const { getByText, getAllByText } = renderWithDesignSystem(
         <GenAIModelSelection {...defaultProps} showConfigureDirectly />,
       );
 
@@ -250,7 +244,7 @@ describe('GenAIModelSelection', () => {
       mockSecretsQueryResult([]);
 
       const ref = React.createRef<any>();
-      const { getByText } = renderGenAIModelSelection(
+      const { getByText } = renderWithDesignSystem(
         <GenAIModelSelection {...defaultProps} showConfigureDirectly ref={ref} />,
       );
 
@@ -270,9 +264,7 @@ describe('GenAIModelSelection', () => {
     test('"Manage connections" footer link navigates to the connections settings', async () => {
       mockSecretsQueryResult([SECRET_WITH_MODELS]);
 
-      const { getAllByText } = renderGenAIModelSelection(
-        <GenAIModelSelection {...defaultProps} showConfigureDirectly />,
-      );
+      const { getAllByText } = renderWithDesignSystem(<GenAIModelSelection {...defaultProps} showConfigureDirectly />);
 
       // Footer link is rendered below the dropdown.
       fireEvent.click(getAllByText('Manage connections')[0]);

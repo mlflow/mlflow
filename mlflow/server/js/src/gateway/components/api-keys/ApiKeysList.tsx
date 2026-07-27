@@ -6,6 +6,7 @@ import {
   Input,
   KeyIcon,
   LinkIcon,
+  PlusIcon,
   SearchIcon,
   Spinner,
   Tag,
@@ -341,12 +342,18 @@ export const ApiKeysList = ({
                       ))}
                     </div>
                   ) : (
-                    <Typography.Text color="secondary">
+                    <Button
+                      componentId="mlflow.gateway.api-keys.add-models-button"
+                      type="tertiary"
+                      size="small"
+                      icon={<PlusIcon />}
+                      onClick={() => onKeyClick?.(secret)}
+                    >
                       <FormattedMessage
-                        defaultMessage="All models"
-                        description="Indicates a connection with an empty allowlist can be used with all of the provider's models"
+                        defaultMessage="Add models"
+                        description="Affordance to add allowlisted models to a connection with none set"
                       />
-                    </Typography.Text>
+                    </Button>
                   )}
                 </TableCell>
               )}
