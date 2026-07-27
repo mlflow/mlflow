@@ -5,5 +5,19 @@ runs:
   steps:
     - shell: bash
       run: |
-        # Run in background to save time
-        sudo rm -rf /usr/local/lib/android &
+        echo "Disk usage before cleanup:"
+        df -h /
+        # Remove large pre-installed toolchains that MLflow jobs never use so that
+        # disk-heavy steps (e.g. Docker image builds) have enough headroom. The
+        # deletions run in parallel to save time, but we `wait` for them to finish
+        # so subsequent steps observe the reclaimed space. Cleanup is best-effort:
+        # `|| true` keeps a failed removal from failing the job (GitHub Actions runs
+        # `shell: bash` with `-e`).
+        sudo rm -rf /usr/local/lib/android || true &
+        sudo rm -rf /usr/share/dotnet || true &
+        sudo rm -rf /opt/ghc /usr/local/.ghcup || true &
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true &
+        sudo rm -rf /usr/local/share/boost || true &
+        wait
+        echo "Disk usage after cleanup:"
+        df -h /

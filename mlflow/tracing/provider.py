@@ -34,6 +34,7 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
     MLFLOW_USE_BATCH_SPAN_PROCESSOR,
@@ -388,7 +389,13 @@ def safe_set_span_in_context(span: "Span"):
         detach_span_from_context(token)
 
 
-def set_span_in_context(span: "Span") -> contextvars.Token:
+# Token(s) required to later detach a span from the context. In isolated tracer provider mode a
+# tuple of (MLflow runtime token, optional global OTel token) is returned; otherwise a single
+# OpenTelemetry context token is returned.
+SpanContextToken = contextvars.Token | tuple[contextvars.Token, contextvars.Token | None]
+
+
+def set_span_in_context(span: "Span") -> SpanContextToken:
     """
     Set the given OpenTelemetry span as the active span in the current context.
 
@@ -400,23 +407,46 @@ def set_span_in_context(span: "Span") -> contextvars.Token:
     """
     context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        # When using the default tracer provider, attach to MLflow's runtime context so that span
-        # will not get mixed with the native OpenTelemetry runtime context.
-        token = mlflow_runtime_context.attach(context)
+        # Read the opt-in flag before attaching so that a malformed env var value raises here,
+        # rather than after `mlflow_runtime_context.attach` (which would orphan the token).
+        propagate_to_otel_context = MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get()
+        # In isolated tracer provider mode, attach to MLflow's runtime context so the span does
+        # not get mixed with the native OpenTelemetry runtime context.
+        mlflow_token = mlflow_runtime_context.attach(context)
+        # Optionally also propagate the span into the process-global OTel context so pure-OTel
+        # libraries (e.g. strands-agents, LangChain) that read
+        # `opentelemetry.trace.get_current_span()` can nest their spans under the MLflow span.
+        # This is opt-in because it exposes the MLflow span to all OTel instrumentation in the
+        # process (e.g. FastAPI, requests), reducing the isolation this mode normally provides.
+        if propagate_to_otel_context:
+            # Build the new context from the current global OTel context so that other entries
+            # (e.g. baggage) set by unrelated OTel instrumentation are preserved while the MLflow
+            # span is active.
+            otel_context = trace.set_span_in_context(span._span, context=context_api.get_current())
+            otel_token = context_api.attach(otel_context)
+            return (mlflow_token, otel_token)
+        return (mlflow_token, None)
     else:
-        token = context_api.attach(context)
-    return token
+        return context_api.attach(context)
 
 
-def detach_span_from_context(token: contextvars.Token):
+def detach_span_from_context(token: SpanContextToken):
     """
     Remove the active span from the current context.
 
     Args:
-        token: The token returned by `_set_span_to_active` function.
+        token: The token returned by `set_span_in_context` function.
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        mlflow_runtime_context.detach(token)
+        mlflow_token, otel_token = token
+        try:
+            # Detach the global OTel context first (reverse order of attach) if it was set.
+            if otel_token is not None:
+                context_api.detach(otel_token)
+        finally:
+            # Always detach MLflow's runtime context, even if the global detach above fails,
+            # so the isolated runtime context is not leaked.
+            mlflow_runtime_context.detach(mlflow_token)
     else:
         context_api.detach(token)
 
@@ -510,6 +540,37 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _initialize_tracer_provider()
+
+
+def get_bridged_tracer_provider() -> TracerProvider:
+    """
+    Return the OpenTelemetry ``TracerProvider`` that MLflow uses to generate traces.
+
+    This is intended for bridging pure-OpenTelemetry instrumentation libraries into MLflow's
+    tracing pipeline. Many OpenTelemetry instrumentors accept a ``tracer_provider=`` argument
+    (e.g. ``SomeInstrumentor().instrument(tracer_provider=...)``); passing the provider returned
+    by this function makes the spans they create flow through MLflow's span processors, so they
+    receive the correct trace ID and are exported to the configured MLflow destination.
+
+    In the default isolated tracer provider mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``) this returns MLflow's isolated provider, so
+    the bridged spans do not depend on the process-global OpenTelemetry provider pipeline and
+    the isolation of unrelated OpenTelemetry instrumentation is preserved. In unified mode
+    (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``) this returns the shared global provider.
+
+    .. note::
+        This bridges where spans are *exported*. For the bridged spans to nest under an active
+        ``@mlflow.trace`` / ``mlflow.start_span`` span, the instrumentor must also read MLflow's
+        active span as the parent. Instrumentors that read the process-global OpenTelemetry
+        context can be enabled to do so by setting
+        ``MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True``.
+
+    Returns:
+        The ``TracerProvider`` instance used by MLflow, initializing it if necessary.
+    """
+    # Ensure the provider is initialized before handing it out to external instrumentors.
+    _get_tracer(__name__)
+    return provider.get()
 
 
 def _get_tracer(module_name: str) -> trace.Tracer:

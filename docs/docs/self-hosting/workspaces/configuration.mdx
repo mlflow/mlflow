@@ -24,6 +24,29 @@ mlflow server \
 
 Disable by restarting without `--enable-workspaces` after moving all resources into the `default` workspace.
 
+### Artifacts-only servers
+
+An artifact-serving-only deployment can validate and isolate artifact requests by workspace without
+enabling tracking APIs. The artifact server must explicitly use the same logical workspace provider
+as the tracking server:
+
+```bash
+mlflow server \
+  --artifacts-only \
+  --enable-workspaces \
+  --workspace-store-uri postgresql://user:pass@localhost/mlflow \
+  --artifacts-destination s3://mlflow-artifacts
+```
+
+`MLFLOW_WORKSPACE_STORE_URI` can be used instead of `--workspace-store-uri`. MLflow requires one of
+these explicit settings in this mode because an artifact-only server has no tracking backend from
+which to infer the workspace provider. The server initializes only the workspace provider; tracking,
+model registry, workspace-management, and other non-artifact APIs remain disabled.
+
+Artifact requests continue to use `X-MLFLOW-WORKSPACE`. The provider validates an explicit workspace
+or resolves its default when the header is absent. Unknown workspaces and requests without a
+resolvable default are rejected before accessing artifact storage.
+
 ### Admin Utility: migrate to default workspace
 
 To move all workspace-scoped resources into `default` to disable workspaces, use:
@@ -93,8 +116,11 @@ Clients send `X-MLFLOW-WORKSPACE` on REST calls; UI AJAX routes remain the same 
 
 ## Startup Validation (when `--enable-workspaces`)
 
-- Tracking and registry stores must report `supports_workspaces() == True`
+- Tracking and registry stores must report `supports_workspaces() == True` unless the server is
+  running in `--artifacts-only` mode, where those stores are not initialized.
 - Workspace provider resolved (defaults to SQL-backed provider if none given)
+- With `--artifacts-only`, the workspace provider must be configured explicitly through
+  `--workspace-store-uri` or `MLFLOW_WORKSPACE_STORE_URI`.
 - Reserved `default` workspace exists (created by migration)
 - With `--serve-artifacts`, proxied artifact paths for non-default workspaces must include `workspaces/<workspace>/...`; legacy unprefixed paths remain valid for `default`.
 
