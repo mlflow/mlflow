@@ -77,12 +77,22 @@ export const MCPServerVersionDetail = ({
   const { DeleteAccessEndpointModal, openDeleteEndpoint } = useDeleteAccessEndpointModal({ serverName: server.name });
   const isEditingStatus = editingStatusVersion === version?.version;
   const versionNumber = version?.version;
+  const versionStatus = version?.status;
 
   useEffect(() => {
     setEditingStatusVersion(undefined);
     setPendingStatus(undefined);
     updateVersionMutation.reset();
   }, [versionNumber]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
+
+  useEffect(() => {
+    setPendingStatus((current) => {
+      if (current && current.version === versionNumber && current.status === versionStatus) {
+        return undefined;
+      }
+      return current;
+    });
+  }, [versionNumber, versionStatus]);
 
   if (!version) {
     return (
@@ -126,7 +136,6 @@ export const MCPServerVersionDetail = ({
     updateVersionMutation.mutate(
       { version: version.version, status: nextStatus },
       {
-        onSuccess: clearPendingStatus,
         onError: clearPendingStatus,
       },
     );
@@ -232,6 +241,7 @@ export const MCPServerVersionDetail = ({
                 withInlineLabel={false}
                 renderDisplayedValue={(status) => formatStatusLabel(status as MCPStatus)}
                 disabled={updateVersionMutation.isLoading}
+                allowClear={false}
                 width={160}
               />
               <DialogComboboxContent
