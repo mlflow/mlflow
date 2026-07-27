@@ -536,6 +536,28 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session.execute(
                 sql.text(f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({values});")
             )
+        except IntegrityError as e:
+            # Tolerate experiment 0 already existing so this method is idempotent and safe to call
+            # on every startup (e.g. concurrent bootstrap workers racing to create it, or a restart
+            # where the default experiment was renamed away from "Default"). Verify by the global
+            # primary key (``experiment_id == 0``) rather than by name or workspace so the check is
+            # correct regardless of the active workspace. Any other integrity failure (e.g. the
+            # "Default" name slot is taken while experiment 0 is genuinely missing) must surface,
+            # otherwise startup would proceed without the required default experiment.
+            session.rollback()
+            default_experiment_exists = (
+                session
+                .query(SqlExperiment.experiment_id)
+                .filter(SqlExperiment.experiment_id == int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID))
+                .first()
+            )
+            if default_experiment_exists is None:
+                raise
+            _logger.debug(
+                "Default experiment (ID 0) already exists; another worker likely created it. "
+                "Swallowing IntegrityError: %s",
+                e,
+            )
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
 

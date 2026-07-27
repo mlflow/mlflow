@@ -102,6 +102,56 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
                 session.commit()
 
 
+def test_create_default_experiment_is_idempotent(store: SqlAlchemyStore):
+    # The default experiment (ID 0) is created during store initialization. Renaming it away from
+    # "Default" and re-running the bootstrap (simulating a server restart) must not collide on the
+    # primary key: the insert should tolerate ID 0 already existing and preserve the renamed row.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlExperiment).filter(
+            SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID)
+        ).update({SqlExperiment.name: "renamed-default"})
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store._create_default_experiment(session)
+
+    default_experiment = store.get_experiment(store.DEFAULT_EXPERIMENT_ID)
+    assert default_experiment.experiment_id == store.DEFAULT_EXPERIMENT_ID
+    assert default_experiment.name == "renamed-default"
+
+
+def test_create_default_experiment_reraises_when_name_slot_taken_and_id_zero_missing(
+    store: SqlAlchemyStore,
+):
+    # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
+    # occupies the "Default" name slot in the default workspace. Re-creating experiment 0 then
+    # trips the (workspace, name) unique constraint rather than the primary-key race, so the store
+    # must surface the error instead of silently swallowing it.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        default_experiment = (
+            session
+            .query(SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID))
+            .one()
+        )
+        workspace = default_experiment.workspace
+        session.delete(default_experiment)
+        session.flush()
+        session.add(
+            SqlExperiment(
+                experiment_id=123,
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                workspace=workspace,
+                lifecycle_stage=entities.LifecycleStage.ACTIVE,
+                creation_time=get_current_time_millis(),
+                last_update_time=get_current_time_millis(),
+            )
+        )
+
+    with pytest.raises(MlflowException, match="IntegrityError"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store._create_default_experiment(session)
+
+
 def test_single_tenant_store_detects_workspace_scoped_experiments(
     tmp_path, db_uri, workspaces_enabled
 ):
