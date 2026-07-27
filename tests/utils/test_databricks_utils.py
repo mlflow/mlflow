@@ -760,9 +760,17 @@ def test_get_databricks_runtime_major_minor_version(
     assert dbr_version.minor == minor
 
 
-def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
-    # minor version is not allowed to be a string
+def test_get_dbr_major_minor_version_uncut_minor(monkeypatch):
+    # '{major}.x' is the latest uncut minor of that major, not an error.
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    dbr_version = get_databricks_runtime_major_minor_version()
+    assert dbr_version.major == 12
+    assert dbr_version.minor == databricks_utils._UNCUT_MINOR
+
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
+    # A malformed minor (not numeric, not the uncut 'x' marker) is still an error.
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.yyy")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
         get_databricks_runtime_major_minor_version()
 
@@ -848,6 +856,24 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch, dbr_version, expecte
 )
 def test_parse_dbr_runtime_major_minor(dbr_version, expected):
     assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
+
+
+@pytest.mark.parametrize(
+    "dbr_version",
+    [
+        "17.yyy",
+        "18.foo-bar",
+        # Non-ASCII digits (superscript '²', Thai '๓') satisfy str.isdigit() but are not valid
+        # DBR minors and must raise rather than be treated as numeric.
+        "15.²",
+        "15.๓",
+    ],
+)
+def test_parse_dbr_runtime_major_minor_malformed(dbr_version):
+    # A malformed minor (not ASCII-numeric and not the uncut 'x' marker) must raise, not silently
+    # degrade to the uncut sentinel.
+    with pytest.raises(ValueError, match="Unrecognized Databricks runtime minor version token"):
+        databricks_utils.parse_dbr_runtime_major_minor(dbr_version)
 
 
 def test_parse_dbr_runtime_uncut_minor_sorts_above_concrete_minor():
@@ -976,6 +1002,11 @@ def test_print_databricks_deployment_job_url():
         ("client.10.0-gpu", True, 10, 0, True),
         ("14.3-gpu", False, 14, 3, True),
         ("15.1-gpu", False, 15, 1, True),
+        # Newer uncut images have a non-numeric minor -> latest uncut minor of that major.
+        ("18.x-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-aarch64-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("client.5.x", True, 5, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-gpu", False, 18, databricks_utils._UNCUT_MINOR, True),
     ],
 )
 def test_databricks_runtime_version_parse(
@@ -1084,6 +1115,10 @@ def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
         "client",
         "client.invalid",
         "13",
+        # A malformed minor (not numeric, not the uncut 'x' marker) must still raise.
+        "17.yyy",
+        "18.foo-bar",
+        "client.5.yyy",
     ],
 )
 def test_databricks_runtime_version_parse_invalid(invalid_version):

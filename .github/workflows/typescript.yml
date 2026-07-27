@@ -83,3 +83,32 @@ jobs:
 
       - name: Run tests for integrations
         run: npm run test:integrations
+
+  # Guards against the mlflow#24167 class of bug: an integration importing an
+  # @mlflow/* symbol that exists in the workspace source but not in the published
+  # version its package.json declares as a floor. Every other gate resolves
+  # @mlflow/core through the workspace symlink (always latest), so only this job
+  # -- which type-checks each integration against the published floor -- can see
+  # it. Runs separately from typescript-sdk so it never gates the main matrix.
+  min-version-check:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm ci
+      - name: Check integrations against published @mlflow/* floors
+        run: bash scripts/check-min-mlflow-deps.sh

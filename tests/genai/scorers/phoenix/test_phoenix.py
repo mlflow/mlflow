@@ -7,7 +7,8 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import Scorer, ScorerKind
-from mlflow.genai.scorers.phoenix import Hallucination
+from mlflow.genai.scorers.phoenix import QA, Hallucination, Relevance, Summarization, Toxicity
+from mlflow.telemetry.events import _get_scorer_class_name_for_tracking
 
 
 @pytest.fixture
@@ -184,3 +185,20 @@ def test_phoenix_scorer_register_blocked_on_databricks(mock_model):
         with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
             with pytest.raises(MlflowException, match="Third-party scorer registration"):
                 scorer.register(name="hallucination")
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expected_class"),
+    [
+        (Hallucination, "Phoenix:Hallucination"),
+        (Relevance, "Phoenix:Relevance"),
+        (Toxicity, "Phoenix:Toxicity"),
+        (QA, "Phoenix:QA"),
+        (Summarization, "Phoenix:Summarization"),
+    ],
+)
+def test_phoenix_scorer_tracking_class_name(mock_model, scorer_class, expected_class):
+    with patch("mlflow.genai.scorers.phoenix.create_phoenix_model", return_value=mock_model):
+        scorer = scorer_class(model="openai:/gpt-4")
+
+    assert _get_scorer_class_name_for_tracking(scorer) == expected_class

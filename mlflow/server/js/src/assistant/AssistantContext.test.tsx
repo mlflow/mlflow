@@ -7,6 +7,8 @@ import { buildStorageKey } from '@databricks/web-shared/hooks/useLocalStorage';
 import {
   AssistantProvider,
   useAssistant,
+  upsertToolCalls,
+  applyToolResult,
   reviveMessages,
   trimForStorage,
   CHAT_STORAGE_KEY_BASE,
@@ -15,7 +17,9 @@ import {
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
 import { GatewayApi } from '../gateway/api';
-import type { AssistantConfig, ChatMessage, ProviderConfig } from './types';
+import type { AssistantConfig, ProviderConfig, AssistantPart, ChatMessage } from './types';
+
+const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
 
 const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
 
@@ -290,6 +294,55 @@ describe('AssistantContext — pendingPrompt seed', () => {
   });
 });
 
+describe('upsertToolCalls', () => {
+  test('appends a new tool call with running status', () => {
+    const result = upsertToolCalls([], [{ id: 't1', name: 'Bash', input: { command: 'ls' } }]);
+    expect(result).toEqual([
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+    ]);
+  });
+
+  test('keeps a tool call after any text part', () => {
+    const parts: AssistantPart[] = [{ type: 'text', text: 'working' }];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: {} }]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ type: 'text', text: 'working' });
+    expect(result[1]).toMatchObject({ type: 'toolCall', toolUseId: 't1', status: 'running' });
+  });
+
+  test('re-upserting an existing call does not clobber a resolved status/result', () => {
+    const parts: AssistantPart[] = [
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'done', result: 'out' },
+    ];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: { command: 'ls -a' } }]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ status: 'done', result: 'out', input: { command: 'ls -a' } });
+  });
+});
+
+describe('applyToolResult', () => {
+  const parts: AssistantPart[] = [
+    { type: 'text', text: 'let me check' },
+    { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+  ];
+
+  test('resolves the matching tool call to done with its result', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'output', isError: false });
+    expect(result[1]).toMatchObject({ toolUseId: 't1', status: 'done', result: 'output' });
+    expect(result[0]).toEqual({ type: 'text', text: 'let me check' });
+  });
+
+  test('marks the tool call as error when isError is true', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'boom', isError: true });
+    expect(result[1]).toMatchObject({ status: 'error', result: 'boom' });
+  });
+
+  test('leaves parts untouched when no toolUseId matches', () => {
+    const result = applyToolResult(parts, { toolUseId: 'other', content: 'x', isError: false });
+    expect(result).toEqual(parts);
+  });
+});
+
 const providerConfig = (overrides: Partial<ProviderConfig>): ProviderConfig => ({
   model: 'default',
   selected: false,
@@ -454,13 +507,25 @@ describe('trimForStorage', () => {
     const messages = [makeMessage({ id: 'only', content: 'x'.repeat(1000) })];
     expect(trimForStorage(messages, 10)).toEqual(messages);
   });
+
+  it('keeps as many recent messages as fit the byte budget', () => {
+    const messages = [makeMessage({ id: 'm1' }), makeMessage({ id: 'm2' }), makeMessage({ id: 'm3' })];
+    // trimForStorage tracks a running size that ignores separator commas, so it can over-count by up
+    // to one char per dropped message; give the budget that headroom so the last two still fit.
+    const budgetForLastTwo = JSON.stringify(messages.slice(1)).length + messages.length;
+    const trimmed = trimForStorage(messages, budgetForLastTwo);
+    expect(trimmed.map((m) => m.id)).toEqual(['m2', 'm3']);
+  });
 });
 
 describe('AssistantContext — localStorage chat persistence', () => {
   it('restores messages from localStorage on mount', async () => {
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify({ messages: [makeMessage({ id: 'restored', content: 'from storage' })] }),
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored', content: 'from storage' })],
+        tokenUsage: EMPTY_TOKEN_USAGE,
+      }),
     );
 
     const { result } = await renderAssistant();
@@ -487,10 +552,19 @@ describe('AssistantContext — localStorage chat persistence', () => {
   });
 
   it('clears persisted messages when reset() is called', async () => {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'restored' })] }));
+    // Seed a non-empty tokenUsage so the assertion below actually exercises the reset
+    // path rather than passing vacuously against a pre-zeroed value.
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored' })],
+        tokenUsage: { ...EMPTY_TOKEN_USAGE, promptTokens: 40, completionTokens: 60, totalTokens: 100 },
+      }),
+    );
 
     const { result } = await renderAssistant();
     expect(result.current.messages).toHaveLength(1);
+    expect(result.current.tokenUsage.totalTokens).toBe(100);
 
     act(() => {
       result.current.reset();
@@ -499,6 +573,50 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(result.current.messages).toHaveLength(0);
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
     expect(stored.messages).toEqual([]);
+    expect(stored.tokenUsage).toEqual(EMPTY_TOKEN_USAGE);
+  });
+
+  it('accumulates per-turn usage deltas, tracking cached tokens separately', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('turn one');
+    });
+    // Turn 1: fresh context, nothing cached yet.
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        cache_read_tokens: 0,
+        total_cost_usd: 0.01,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    // Turn 2: a genuine second turn — its delta lands during a live stream, and the
+    // resent history shows up as cache reads folded into prompt_tokens.
+    await act(async () => {
+      result.current.sendMessage('turn two');
+    });
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 200,
+        completion_tokens: 30,
+        total_tokens: 230,
+        cache_read_tokens: 120,
+        total_cost_usd: 0.02,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    expect(result.current.tokenUsage).toEqual({
+      promptTokens: 300,
+      completionTokens: 50,
+      totalTokens: 350,
+      cacheReadTokens: 120,
+      costUsd: 0.03,
+    });
   });
 
   it('persists the interrupted turn when a stream is cancelled mid-stream', async () => {
@@ -555,5 +673,30 @@ describe('AssistantContext — localStorage chat persistence', () => {
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{"messages":[]}');
     expect(stored.messages.some((m: ChatMessage) => m.content === 'still streaming')).toBe(false);
     expect(result.current.isStreaming).toBe(true);
+  });
+});
+
+describe('AssistantContext — buffered text survives a tool call', () => {
+  it('commits unflushed streamed text as a text part before the tool call', async () => {
+    // renderAssistant's rAF mock no-ops, so the streamed token stays buffered in the ref and is
+    // never flushed before the tool call arrives. addToolCalls must snapshot that buffer
+    // synchronously — reading the ref inside the deferred setMessages updater (after the clear)
+    // would drop the text.
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('go');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-tool');
+      capturedCallbacks?.onMessage('Looking into it. ');
+      capturedCallbacks?.onToolUse?.([{ id: 'tool-1', name: 'Bash', input: { command: 'ls' } }]);
+    });
+
+    const assistant = result.current.messages.find((m) => m.role === 'assistant');
+    expect(assistant?.parts).toEqual([
+      { type: 'text', text: 'Looking into it. ' },
+      expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
+    ]);
   });
 });

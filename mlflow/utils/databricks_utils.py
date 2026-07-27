@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import platform
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -333,6 +334,29 @@ _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 # minor above any real cut minor while keeping the parsed version a plain `tuple[int, int]`.
 _UNCUT_MINOR = 999
 
+# ASCII-only decimal digits; `str.isdigit()`/`isdecimal()` also accept non-ASCII digits.
+_ASCII_DIGITS = re.compile(r"[0-9]+")
+
+
+def _parse_minor_token(minor_token: str) -> int:
+    """
+    Parse a Databricks runtime minor-version token into a comparable int.
+
+    A numeric token (``'4'``) parses as-is. In DBR, an ``x`` (or ``x-<suffix>`` such as
+    ``x-photon-scala2``) minor denotes the latest *uncut* minor of a major, which is always ahead
+    of any already-released minor, so it maps to ``_UNCUT_MINOR`` (a ceiling) — ensuring
+    ``{major}.x`` sorts above every concrete minor. Any other token (e.g. ``'yyy'``) is malformed
+    and raises ``ValueError`` so callers surface it rather than silently treating it as uncut.
+
+    Matching uses an explicit ASCII-digit regex rather than ``str.isdigit()``, which also accepts
+    non-ASCII digits (e.g. superscripts, other scripts) that DBR version strings never contain.
+    """
+    if _ASCII_DIGITS.fullmatch(minor_token):
+        return int(minor_token)
+    if minor_token == "x" or minor_token.startswith("x-"):
+        return _UNCUT_MINOR
+    raise ValueError(f"Unrecognized Databricks runtime minor version token: {minor_token!r}")
+
 
 def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     """
@@ -348,10 +372,16 @@ def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     In DBR, ``{major}.x`` denotes the latest *uncut* minor of that major, which is always ahead
     of any already-released minor. So a non-numeric minor (e.g. ``'x'``) maps to ``_UNCUT_MINOR``
     (a ceiling), ensuring ``{major}.x`` compares greater than any concrete ``{major}.{minor}``.
+
+    Note: the SQL ``dbr_version`` string always carries a minor (or ``.x``), so a bare major
+    (``'18'``) is not expected here and is tolerated as uncut. This differs from
+    ``DatabricksRuntimeVersion.parse``, whose env-var input treats a bare major as malformed and
+    raises — the two entry points parse different-shaped inputs, so the contracts intentionally
+    differ.
     """
     parts = dbr_version.split(".")
     major = int(parts[0])
-    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else _UNCUT_MINOR
+    minor = _parse_minor_token(parts[1]) if len(parts) > 1 else _UNCUT_MINOR
     return major, minor
 
 
@@ -1404,14 +1434,19 @@ class DatabricksRuntimeVersion(NamedTuple):
             if dbr_version_splits[0] == "client":
                 is_client_image = True
                 major = int(dbr_version_splits[1])
-                minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
+                has_minor = len(dbr_version_splits) > 2
+                minor = _parse_minor_token(dbr_version_splits[2]) if has_minor else 0
             else:
                 is_client_image = False
                 major = int(dbr_version_splits[0])
-                minor = int(dbr_version_splits[1])
+                # A missing minor (e.g. bare "13") is still an error; a present but non-numeric
+                # minor (e.g. "18.x-photon-scala2") is the latest uncut minor of that major.
+                minor = _parse_minor_token(dbr_version_splits[1])
             return cls(is_client_image, major, minor, is_gpu_image)
-        except Exception:
-            raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to parse databricks runtime version '{dbr_version}'."
+            ) from e
 
 
 def get_databricks_runtime_major_minor_version():

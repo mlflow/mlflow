@@ -16,6 +16,7 @@ from mlflow.gateway.providers.base import (
     _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import (
+    parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
@@ -28,6 +29,30 @@ from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
+
+
+def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
+    """Translate OpenAI-format multimodal content parts to Anthropic's shape.
+
+    ``image_url`` base64 data URLs become Anthropic ``image`` blocks with a base64
+    ``source``; text parts pass through. Non-base64 image URLs are left as a text note
+    since the judge image tool only ever emits base64 data URLs.
+    """
+    parts: list[dict[str, Any]] = []
+    for part in content:
+        if part.get("type") == "image_url":
+            url = part.get("image_url", {}).get("url", "")
+            if parsed := parse_base64_data_url(url):
+                mime, data = parsed
+                parts.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": mime, "data": data},
+                })
+            else:
+                parts.append({"type": "text", "text": f"[unsupported image reference: {url}]"})
+        else:
+            parts.append(part)
+    return parts
 
 
 def _normalize_anthropic_input_tokens(
@@ -132,6 +157,10 @@ class AnthropicAdapter(ProviderAdapter):
             if m["role"] == "system":
                 continue
             elif m["role"] == "user":
+                # Translate multimodal list content (e.g. an image_url part) to Anthropic's
+                # native blocks; string content passes through unchanged.
+                if isinstance(m.get("content"), list):
+                    m = {**m, "content": _to_anthropic_content_parts(m["content"])}
                 converted_messages.append(m)
             elif m["role"] == "assistant":
                 if m.get("tool_calls") is not None:

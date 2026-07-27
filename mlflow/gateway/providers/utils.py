@@ -1,3 +1,4 @@
+import re
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -7,6 +8,21 @@ from urllib.parse import urlparse, urlunparse
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 from mlflow.utils.uri import append_to_uri_path
+
+# data:<mime>;base64,<payload> — the only image_url form the judge image tool emits.
+_DATA_URL_RE = re.compile(r"^data:(?P<mime>[^;]+);base64,(?P<data>.*)$", re.DOTALL)
+
+
+def parse_base64_data_url(url: str) -> tuple[str, str] | None:
+    """Parse a ``data:<mime>;base64,<payload>`` URL into ``(mime, base64_payload)``.
+
+    Returns None for any non-base64-data-url (e.g. a remote http URL), so callers can
+    decide how to handle non-base64 references.
+    """
+    if match := _DATA_URL_RE.match(url):
+        return match.group("mime"), match.group("data")
+    return None
+
 
 _STRIPPED_HEADERS = frozenset({"accept-encoding", MLFLOW_GATEWAY_AUTH_HEADER.lower()})
 

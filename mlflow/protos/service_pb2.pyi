@@ -656,6 +656,32 @@ class CreatePresignedUploadUrl(_message.Message):
     expiration: int
     def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ...) -> None: ...
 
+class CreatePresignedDownloadUrl(_message.Message):
+    __slots__ = ("run_id", "path", "expiration")
+    class Response(_message.Message):
+        __slots__ = ("presigned_url", "headers", "file_size")
+        class HeadersEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        PRESIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+        HEADERS_FIELD_NUMBER: _ClassVar[int]
+        FILE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        presigned_url: str
+        headers: _containers.ScalarMap[str, str]
+        file_size: int
+        def __init__(self, presigned_url: _Optional[str] = ..., headers: _Optional[_Mapping[str, str]] = ..., file_size: _Optional[int] = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    path: str
+    expiration: int
+    def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ...) -> None: ...
+
 class FileInfo(_message.Message):
     __slots__ = ("path", "is_dir", "file_size")
     PATH_FIELD_NUMBER: _ClassVar[int]
