@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785089855109,
+  "lastUpdate": 1785132904495,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16523,6 +16523,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.910481799999957,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shivamagarwal36029@gmail.com",
+            "name": "Shivam Agarwal",
+            "username": "shivamxtech"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "315d174b63b8d43e4b82ce4ff56c71ca6537f21c",
+          "message": "Add `sap-ai-core:/` provider for SAP AI Core Orchestration v2 with `extra_headers` support (#24356)\n\nSigned-off-by: Shivam Agarwal <shivamagarwal36029@gmail.com>",
+          "timestamp": "2026-07-26T23:13:40-07:00",
+          "tree_id": "697a018e93ad9122c01ec0c752376354646ae76d",
+          "url": "https://github.com/mlflow/mlflow/commit/315d174b63b8d43e4b82ce4ff56c71ca6537f21c"
+        },
+        "date": 1785132903075,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.29601409999964,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 17.848198166667828,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.82330464912321,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.08576697777869,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 27.65221031914859,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.051593200000752,
             "unit": "ms"
           }
         ]
