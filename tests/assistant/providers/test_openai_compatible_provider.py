@@ -336,7 +336,7 @@ async def test_astream_strips_think_blocks_from_stream(provider):
 
 
 @pytest.mark.asyncio
-async def test_astream_uses_api_key_header(tmp_path):
+async def test_astream_ignores_config_stored_api_key(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(
         json.dumps({
@@ -368,7 +368,7 @@ async def test_astream_uses_api_key_header(tmp_path):
     ):
         _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
     assert calls[0]["url"] == "http://gateway.example/v1/chat/completions"
-    assert calls[0]["headers"] == {"Authorization": "Bearer sk-abc"}
+    assert calls[0]["headers"] == {}
     clear_config_cache()
 
 

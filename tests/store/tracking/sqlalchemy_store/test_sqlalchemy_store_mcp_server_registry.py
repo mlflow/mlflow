@@ -128,7 +128,7 @@ def test_create_mcp_server_accepts_upstream_name_shapes(store, name):
 def test_create_mcp_server_with_icons(store):
     icons = [{"src": "https://example.com/icon.png", "sizes": "32x32"}]
     server = store.create_mcp_server("io.github.test/servererver", icons=icons)
-    assert server.icons == icons
+    assert server.icons == [{**icons[0], "source": "server"}]
 
 
 def test_create_mcp_server_rejects_risky_icons(store):
@@ -404,10 +404,165 @@ def test_get_mcp_server_description_falls_back_to_highest_non_deleted_version(st
     assert server.latest_version == "2.0.0"
 
 
+def test_get_mcp_server_icons_fall_back_to_highest_active_semver(store):
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/active.png", "theme": "dark"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        icons=[{"src": "https://example.com/deprecated.png", "theme": "dark"}],
+        status=MCPStatus.DEPRECATED,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/active.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
+
+
+def test_get_mcp_server_icons_fall_back_to_highest_non_deleted_version(store):
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        icons=[{"src": "https://example.com/deprecated.png", "theme": "dark"}],
+        status=MCPStatus.DEPRECATED,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/deprecated.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
+
+
+def test_get_mcp_server_icons_merge_server_and_version_by_theme(store):
+    store.create_mcp_server(
+        "io.github.test/server",
+        icons=[{"src": "https://example.com/server-dark.png", "theme": "dark"}],
+    )
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[
+                {"src": "https://example.com/version-dark.png", "theme": "dark"},
+                {"src": "https://example.com/version-light.png", "theme": "light"},
+            ],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/server-dark.png",
+            "theme": "dark",
+            "source": "server",
+        },
+        {
+            "src": "https://example.com/version-light.png",
+            "theme": "light",
+            "source": "version",
+        },
+    ]
+
+
+def test_get_mcp_server_empty_icons_do_not_fall_back_to_version(store):
+    store.create_mcp_server(
+        "io.github.test/server",
+        icons=[],
+    )
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/version.png", "theme": "dark"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == []
+
+
+def test_get_mcp_server_empty_icons_remain_empty_without_version(store):
+    store.create_mcp_server("io.github.test/server", icons=[])
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == []
+
+
+def test_create_mcp_server_version_ignores_server_icon_source(store):
+    version = store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/icon.png", "source": "server"}],
+        ),
+        tools=[
+            MCPTool(
+                name="search",
+                icons=[{"src": "https://example.com/tool.png", "source": "server"}],
+            )
+        ],
+        status=MCPStatus.ACTIVE,
+    )
+    assert version.server_json["icons"] == [{"src": "https://example.com/icon.png"}]
+    assert version.tools[0].icons == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_mcp_server_version_rejects_version_icon_source(store):
+    with pytest.raises(MlflowException, match="source.*version"):
+        store.create_mcp_server_version(
+            _server_json(
+                "io.github.test/server",
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+            ),
+            status=MCPStatus.ACTIVE,
+        )
+
+
+def test_create_mcp_server_rejects_version_icon_source(store):
+    with pytest.raises(MlflowException, match="source.*version"):
+        store.create_mcp_server(
+            "io.github.test/server",
+            icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+        )
+
+
 def test_get_mcp_server_resolved_status_no_versions(store):
     store.create_mcp_server("io.github.test/server")
     server = store.get_mcp_server("io.github.test/server")
     assert server.status is None
+
+
+def test_search_mcp_servers_resolves_icons_from_latest_version(store):
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/icon.png"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    servers = store.search_mcp_servers()
+    assert servers[0].icons == [{"src": "https://example.com/icon.png", "source": "version"}]
 
 
 def test_delete_mcp_server(store):
