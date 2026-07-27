@@ -67,10 +67,10 @@ def _create_registry_fastapi_app(route_prefixes=None):
 
 
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture
