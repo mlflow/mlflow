@@ -9183,6 +9183,10 @@
     "defaultMessage": "Delete dataset",
     "description": "Delete evaluation dataset menu item"
   },
+  "cNNJnG": {
+    "defaultMessage": "No matching models",
+    "description": "Empty state when the model search matches no allowlisted models"
+  },
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"

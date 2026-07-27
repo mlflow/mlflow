@@ -8,6 +8,7 @@ import {
   DialogComboboxContent,
   DialogComboboxTrigger,
   DialogComboboxOptionList,
+  DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
   DialogComboboxHintRow,
   DialogComboboxSeparator,
@@ -134,6 +135,16 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       () => allowlistedPairs.find((p) => pairKey(p) === selectedPairKey),
       [allowlistedPairs, selectedPairKey, pairKey],
     );
+
+    // Free-text search over the allowlisted "provider · model" pairs.
+    const [pairSearch, setPairSearch] = useState('');
+    const filteredPairs = useMemo(() => {
+      const query = pairSearch.trim().toLowerCase();
+      if (!query) return allowlistedPairs;
+      return allowlistedPairs.filter((p) =>
+        [p.label, p.provider, p.model, p.secretName].some((field) => field?.toLowerCase().includes(query)),
+      );
+    }, [allowlistedPairs, pairSearch]);
 
     // Auto-select the first available pair once loaded, if nothing is selected yet.
     useEffect(() => {
@@ -438,22 +449,39 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
                       <DialogComboboxOptionList>
                         {allowlistedPairs.length > 0 ? (
                           <>
-                            <div css={{ maxHeight: 200, overflowY: 'auto', width: '100%', alignSelf: 'stretch' }}>
-                              {allowlistedPairs.map((pair) => {
-                                const key = pairKey(pair);
-                                return (
-                                  <DialogComboboxOptionListSelectItem
-                                    key={key}
-                                    value={key}
-                                    onChange={() => setSelectedPairKey(key)}
-                                    checked={selectedPairKey === key}
-                                  >
-                                    {pair.label}
-                                    <DialogComboboxHintRow>{pair.secretName}</DialogComboboxHintRow>
-                                  </DialogComboboxOptionListSelectItem>
-                                );
-                              })}
-                            </div>
+                            <DialogComboboxOptionListSearch
+                              controlledValue={pairSearch}
+                              setControlledValue={setPairSearch}
+                            >
+                              {filteredPairs.length > 0 ? (
+                                filteredPairs.map((pair) => {
+                                  const key = pairKey(pair);
+                                  return (
+                                    <DialogComboboxOptionListSelectItem
+                                      key={key}
+                                      value={key}
+                                      onChange={() => setSelectedPairKey(key)}
+                                      checked={selectedPairKey === key}
+                                    >
+                                      {pair.label}
+                                      <DialogComboboxHintRow>{pair.secretName}</DialogComboboxHintRow>
+                                    </DialogComboboxOptionListSelectItem>
+                                  );
+                                })
+                              ) : (
+                                <DialogComboboxOptionListSelectItem
+                                  value=""
+                                  onChange={() => {}}
+                                  checked={false}
+                                  disabled
+                                >
+                                  <FormattedMessage
+                                    defaultMessage="No matching models"
+                                    description="Empty state when the model search matches no allowlisted models"
+                                  />
+                                </DialogComboboxOptionListSelectItem>
+                              )}
+                            </DialogComboboxOptionListSearch>
                             <DialogComboboxSeparator />
                             <button
                               type="button"

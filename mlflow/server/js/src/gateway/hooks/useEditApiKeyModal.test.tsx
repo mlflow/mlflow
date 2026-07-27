@@ -22,6 +22,7 @@ const mockSecret: SecretInfo = {
   created_at: 1000,
   last_updated_at: 1000,
   auth_config: { auth_mode: 'api_key', base_url: 'https://api.openai.com' },
+  allowlisted_models: [{ model: 'gpt-4o', provider: 'openai', supports_function_calling: true }],
 };
 
 function createWrapper() {
