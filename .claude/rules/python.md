@@ -298,9 +298,7 @@ def test_list_items():
 
 ## Use the `db_uri` Fixture Instead of Creating a SQLite Database
 
-Any test that needs a SQLite-backed MLflow database should take the `db_uri` fixture from `tests/conftest.py` rather than building its own path. Pointing anything at a brand-new SQLite file runs the full alembic migration chain, and in a function-scoped fixture that cost is paid by _every_ test in the file. It is slow everywhere and crippling on the Windows CI runners (~8s per test). `db_uri` copies a session-cached, pre-migrated database, so each test still gets an isolated database without re-running migrations.
-
-This applies however the database is reached: directly, or through a store, a client, or a server fixture. For example:
+A brand-new SQLite file runs the full alembic migration chain, so a function-scoped fixture pays that cost on every test (~8s each on Windows CI). The `db_uri` fixture in `tests/conftest.py` copies a session-cached, pre-migrated database, keeping tests isolated without re-running migrations.
 
 ```python
 # Bad
@@ -319,7 +317,7 @@ def store(tmp_path: Path, db_uri: str):
     return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 ```
 
-When a test needs more than one database (for example a write primary plus a read replica), depend on the `cached_db` fixture and copy it to each path yourself:
+For multiple databases (e.g. a write primary plus a read replica), depend on `cached_db` and copy it to each path:
 
 ```python
 @pytest.fixture
@@ -327,8 +325,6 @@ def write_db_uri(tmp_path: Path, cached_db: Path) -> str:
     shutil.copy(cached_db, tmp_path / "write.db")
     return f"sqlite:///{tmp_path / 'write.db'}"
 ```
-
-Note that `tests/store/tracking/conftest.py` defines its own module-scoped `cached_db` that shadows the session-scoped one, so tests under that directory rebuild the database once per module.
 
 ## Preserve function metadata and type information in decorators
 
