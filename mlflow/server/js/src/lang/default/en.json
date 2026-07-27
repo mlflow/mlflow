@@ -47,10 +47,6 @@
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
   },
-  "+9/TNn": {
-    "defaultMessage": "Allowed models",
-    "description": "Allowed models column header"
-  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -1959,6 +1955,10 @@
     "defaultMessage": "Illustration of traces being analyzed for issues",
     "description": "Alt text for the issue detection illustration"
   },
+  "7/1VVu": {
+    "defaultMessage": "Available in MLflow",
+    "description": "Section label for the model allowlist in the edit API key modal"
+  },
   "7/urtn": {
     "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
@@ -3747,10 +3747,6 @@
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
   },
-  "EaKP0g": {
-    "defaultMessage": "Allowed models",
-    "description": "Section label for the model allowlist in the edit API key modal"
-  },
   "EbJub1": {
     "defaultMessage": "Test",
     "description": "Column label for the regression test name column"
@@ -4518,6 +4514,10 @@
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
+  },
+  "IEqEAt": {
+    "defaultMessage": "Available in MLflow",
+    "description": "Section label for the model allowlist in the add connection modal"
   },
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
@@ -7287,6 +7287,10 @@
     "defaultMessage": "Unsaved changes",
     "description": "Status text shown when the dataset record drawer has unsaved edits"
   },
+  "UXWxLl": {
+    "defaultMessage": "Available in MLflow",
+    "description": "Column header for the models a connection makes available to MLflow features (the curation allowlist)"
+  },
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
@@ -7894,10 +7898,6 @@
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
-  },
-  "WvyeuK": {
-    "defaultMessage": "Allowed models",
-    "description": "Section label for the model allowlist in the edit connection drawer"
   },
   "WwFre9": {
     "defaultMessage": "New queue",
@@ -12619,10 +12619,6 @@
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
   },
-  "qXYKf7": {
-    "defaultMessage": "Allowed models",
-    "description": "Section label for the model allowlist in the add connection modal"
-  },
   "qZKsz+": {
     "defaultMessage": "Cancel",
     "description": "Cancel webhook form button"
@@ -12782,6 +12778,10 @@
   "r7aGM3": {
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
+  },
+  "r8L8UM": {
+    "defaultMessage": "Available in MLflow",
+    "description": "Section label for the model allowlist in the edit connection drawer"
   },
   "r91Gz/": {
     "defaultMessage": "Duplicate",

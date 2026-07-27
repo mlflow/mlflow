@@ -261,7 +261,10 @@ export const ApiKeysList = ({
           )}
           {visibleColumns.includes(ApiKeysColumn.ALLOWED_MODELS) && (
             <TableHeader componentId="mlflow.gateway.api-keys.allowed-models-header" css={{ flex: 2 }}>
-              <FormattedMessage defaultMessage="Allowed models" description="Allowed models column header" />
+              <FormattedMessage
+                defaultMessage="Available in MLflow"
+                description="Column header for the models a connection makes available to MLflow features (the curation allowlist)"
+              />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.ENDPOINTS) && (

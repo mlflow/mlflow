@@ -25,7 +25,7 @@ export type ToggleableApiKeysColumn = Exclude<ApiKeysColumn, ApiKeysColumn.KEY_N
 
 const COLUMN_LABELS: Record<ToggleableApiKeysColumn, string> = {
   [ApiKeysColumn.PROVIDER]: 'Provider',
-  [ApiKeysColumn.ALLOWED_MODELS]: 'Allowed models',
+  [ApiKeysColumn.ALLOWED_MODELS]: 'Available in MLflow',
   [ApiKeysColumn.ENDPOINTS]: 'Endpoints',
   [ApiKeysColumn.USED_BY]: 'Used by',
   [ApiKeysColumn.LAST_UPDATED]: 'Last updated',

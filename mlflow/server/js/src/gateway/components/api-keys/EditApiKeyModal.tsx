@@ -141,7 +141,7 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>
             <FormattedMessage
-              defaultMessage="Allowed models"
+              defaultMessage="Available in MLflow"
               description="Section label for the model allowlist in the edit API key modal"
             />
           </Typography.Text>

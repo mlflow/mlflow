@@ -246,7 +246,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <Typography.Text bold>
                 <FormattedMessage
-                  defaultMessage="Allowed models"
+                  defaultMessage="Available in MLflow"
                   description="Section label for the model allowlist in the add connection modal"
                 />
               </Typography.Text>
