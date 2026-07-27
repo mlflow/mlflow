@@ -37,9 +37,9 @@ describe('RunViewUserLinkBox', () => {
     expect(screen.getByRole('link', { name: 'alice' })).toBeInTheDocument();
   });
 
-  it('renders a "None" placeholder when the user is absent', () => {
+  it('renders a "—" placeholder when the user is absent', () => {
     renderTestComponent(baseRunInfo, {});
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByText('None')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });

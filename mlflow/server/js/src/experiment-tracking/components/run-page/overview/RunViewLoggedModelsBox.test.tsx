@@ -30,24 +30,24 @@ describe('RunViewLoggedModelsBox', () => {
       ),
     });
 
-  it('renders a "None" placeholder when there are no logged models', () => {
+  it('renders a "—" placeholder when there are no logged models', () => {
     renderTestComponent();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.getByText('None')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('renders logged model links when models are present', () => {
     renderTestComponent({
       loggedModels: [{ artifactPath: 'model', flavors: ['sklearn'], utcTimeCreated: 0 }],
     });
-    expect(screen.queryByText('None')).not.toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.getByText('sklearn')).toBeInTheDocument();
   });
 
   it('renders logged model V3 links when models are present', () => {
     const loggedModelsV3: LoggedModelProto[] = [{ info: { model_id: 'm-1', name: 'my-model' } }];
     renderTestComponent({ loggedModelsV3 });
-    expect(screen.queryByText('None')).not.toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.getByText('my-model')).toBeInTheDocument();
   });
 });
