@@ -5,7 +5,7 @@ import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { ExperimentPageTabName } from '../../constants';
 
-const HIGH_TRACE_COUNT_THRESHOLD = 50;
+const LOW_TRACE_COUNT_WARNING_THRESHOLD = 30;
 const USER_FEEDBACK_DOCS_URL = 'https://mlflow.org/docs/latest/genai/tracing/collect-user-feedback/';
 
 interface IssueDetectionLowResultsCalloutProps {
@@ -25,7 +25,7 @@ export const IssueDetectionLowResultsCallout = ({
   const navigate = useNavigate();
   const { experimentId } = useParams<{ experimentId: string }>();
 
-  const suggestMoreTraces = tracesAnalyzed === undefined || tracesAnalyzed < HIGH_TRACE_COUNT_THRESHOLD;
+  const suggestMoreTraces = tracesAnalyzed === undefined || tracesAnalyzed < LOW_TRACE_COUNT_WARNING_THRESHOLD;
 
   return (
     <Alert
@@ -123,8 +123,8 @@ export const IssueDetectionLowResultsCallout = ({
             }}
           >
             <FormattedMessage
-              defaultMessage="Run detection again"
-              description="Button to re-run issue detection from the low-results callout"
+              defaultMessage="Adjust and run again"
+              description="Button to adjust issue detection settings and run from the low-results callout"
             />
           </Button>
         </div>

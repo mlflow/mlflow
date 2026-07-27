@@ -4692,8 +4692,8 @@
     "description": "Error message when creating an assessment fails"
   },
   "L5/mUT": {
-    "defaultMessage": "Run detection again",
-    "description": "Button to re-run issue detection from the low-results callout"
+    "defaultMessage": "Adjust and run again",
+    "description": "Button to adjust issue detection settings and run from the low-results callout"
   },
   "L71uzj": {
     "defaultMessage": "Provider",

@@ -173,7 +173,7 @@ describe('IssueDetectionProgress low-result callout', () => {
   });
 
   test('omits the add-more-traces suggestion for large runs', async () => {
-    await renderProgress(JobStatus.SUCCEEDED, [], 100);
+    await renderProgress(JobStatus.SUCCEEDED, [], 41);
 
     expect(screen.getByText("0 issues doesn't always mean all clear")).toBeInTheDocument();
     expect(screen.queryByText(/traces were analyzed/)).not.toBeInTheDocument();
