@@ -298,7 +298,7 @@ def test_list_items():
 
 ## Use the `db_uri` Fixture Instead of Creating a SQLite Database
 
-A brand-new SQLite file runs the full alembic migration chain, so a function-scoped fixture pays that cost on every test (~8s each on Windows CI). The `db_uri` fixture in `tests/conftest.py` copies a session-cached, pre-migrated database, keeping tests isolated without re-running migrations.
+A brand-new SQLite file runs the full migration, so a function-scoped fixture pays that cost on every test (~8s each on Windows CI). The `db_uri` fixture in `tests/conftest.py` copies a session-cached, pre-migrated database, keeping tests isolated without re-running migrations.
 
 ```python
 # Bad
