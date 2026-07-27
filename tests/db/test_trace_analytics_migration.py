@@ -357,7 +357,7 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
         truncation_logs = [
             record.getMessage()
             for record in caplog.records
-            if record.message.startswith("Truncated span analytics dimensions")
+            if record.getMessage().startswith("Truncated span analytics dimensions")
         ]
         assert truncation_logs == [
             "Truncated span analytics dimensions to 500 characters during backfill: "
@@ -765,7 +765,7 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
         truncation_logs = [
             record.getMessage()
             for record in caplog.records
-            if record.message.startswith("Truncated span analytics dimensions")
+            if record.getMessage().startswith("Truncated span analytics dimensions")
         ]
         assert truncation_logs == [
             "Truncated span analytics dimensions to 500 characters during backfill: "

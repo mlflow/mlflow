@@ -26,8 +26,8 @@ EXPERIMENT_WORKSPACE_CHILD_TABLES = [
     "sql_trace_rollup_rebuild_queue",
 ]
 
-# Tables that carry a workspace column but belong to non-model root resources.
-# They must also be migrated explicitly during workspace operations.
+# Tables that carry a workspace column but are not covered by the main resource-table updates.
+# They must be migrated explicitly during workspace operations.
 OTHER_WORKSPACE_CHILD_TABLES = [
     "guardrail_configs",
     "mcp_server_versions",
