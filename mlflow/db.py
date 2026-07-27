@@ -111,6 +111,15 @@ def _parse_tag(value: str) -> tuple[str, str]:
     return key, val
 
 
+def _echo_retargets(result) -> None:
+    if result.retarget_plans:
+        click.echo("Artifact roots to retarget:")
+        for plan in result.retarget_plans:
+            click.echo(f"  {plan.experiment_name!r}: {plan.old_root} -> {plan.new_root}")
+    for skip in result.skipped_retargets:
+        click.echo(f"  {skip.experiment_name!r}: kept at {skip.artifact_location} ({skip.reason})")
+
+
 @commands.command("move-resources")
 @click.argument("url")
 @click.option(
@@ -150,6 +159,25 @@ def _parse_tag(value: str) -> tuple[str, str]:
     help="Show what would be moved without making changes.",
 )
 @click.option(
+    "--artifact-policy",
+    type=click.Choice(["preserve", "retarget"]),
+    default="preserve",
+    show_default=True,
+    help=(
+        "How to handle experiment artifact locations (experiments only). 'preserve' keeps "
+        "them unchanged. 'retarget' repoints experiments still on the layout derived from "
+        "--default-artifact-root to the target workspace's artifact root. Artifact objects "
+        "and stored run, logged model and trace URIs are not modified."
+    ),
+)
+@click.option(
+    "--default-artifact-root",
+    default=None,
+    help=(
+        "Artifact root the tracking server is started with. Required by --artifact-policy retarget."
+    ),
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
@@ -164,7 +192,17 @@ def _parse_tag(value: str) -> tuple[str, str]:
     help="Skip the confirmation prompt.",
 )
 def move_resources(
-    url, source_workspace, target_workspace, resource_type, name, tag, dry_run, verbose, yes
+    url,
+    source_workspace,
+    target_workspace,
+    resource_type,
+    name,
+    tag,
+    dry_run,
+    artifact_policy,
+    default_artifact_root,
+    verbose,
+    yes,
 ):
     """
     Move resources from one workspace to another.
@@ -193,6 +231,22 @@ def move_resources(
       # Move all registered models from one workspace to another
       mlflow db move-resources sqlite:///mlflow.db \\
         --from default --to team-a --resource-type registered_models
+      # Move experiments and repoint their artifact roots to the target
+      # workspace's artifact root (new runs land there, existing artifact
+      # URIs are not modified)
+      mlflow db move-resources sqlite:///mlflow.db \\
+        --from default --to team-a --resource-type experiments \\
+        --name training-v1 --artifact-policy retarget \\
+        --default-artifact-root s3://mlflow-artifacts
+
+    With --artifact-policy retarget (experiments only), experiments whose
+    artifact_location still matches the layout derived from
+    --default-artifact-root are repointed to the artifact root resolved for the
+    target workspace, in the same transaction as the move. Artifact objects are
+    not copied or deleted, and stored run, logged model and trace URIs are left
+    unchanged, so everything already logged keeps resolving at its current
+    location while new runs land under the new root. Experiments on custom
+    artifact locations are reported and left unchanged.
 
     **IMPORTANT**: Always take a backup of your database before running this command.
     """
@@ -226,6 +280,8 @@ def move_resources(
             tags=parsed_tags,
             dry_run=dry_run or needs_confirmation,
             verbose=verbose,
+            artifact_policy=artifact_policy,
+            default_artifact_root=default_artifact_root,
         )
 
         if not result.names:
@@ -249,6 +305,7 @@ def move_resources(
             )
             for note in extra_notes:
                 click.echo(note)
+            _echo_retargets(result)
             return
 
         if needs_confirmation:
@@ -258,6 +315,7 @@ def move_resources(
             )
             for note in extra_notes:
                 click.echo(note)
+            _echo_retargets(result)
             click.confirm("Proceed with move?", default=False, abort=True)
             # Re-run the full move (including conflict detection) in a new
             # transaction. The preview counts above may differ from the
@@ -272,12 +330,19 @@ def move_resources(
                 tags=parsed_tags,
                 dry_run=False,
                 verbose=verbose,
+                artifact_policy=artifact_policy,
+                default_artifact_root=default_artifact_root,
             )
 
         click.echo(
             f"Moved {result.row_count} {resource_type} row(s) "
             f"from {source_workspace!r} to {target_workspace!r}."
         )
+        if result.retarget_plans or result.skipped_retargets:
+            click.echo(
+                f"Retargeted {len(result.retarget_plans)} experiment artifact root(s), "
+                f"{len(result.skipped_retargets)} kept unchanged."
+            )
     except RuntimeError as e:
         raise click.ClickException(str(e)) from e
     except sqlalchemy.exc.SQLAlchemyError as e:
