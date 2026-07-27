@@ -761,10 +761,14 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                     for i, trace_id in enumerate(trace_ids)
                 ],
             )
+            assessment_count = conn.execute(
+                sa.select(sa.func.count()).select_from(assessments)
+            ).scalar_one()
 
         trace_dimension_updates = []
+        assessment_updates = []
 
-        def capture_trace_dimension_updates(
+        def capture_analytics_updates(
             _conn, _cursor, statement, _parameters, _context, executemany
         ):
             normalized_statement = " ".join(statement.upper().split())
@@ -772,14 +776,16 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 column in normalized_statement for column in ("TRACE_NAME", "SESSION_ID")
             ):
                 trace_dimension_updates.append((normalized_statement, executemany))
+            elif normalized_statement.startswith("UPDATE ASSESSMENTS"):
+                assessment_updates.append((normalized_statement, executemany))
 
         with engine.connect() as connection:
             config.attributes["connection"] = connection
-            event.listen(engine, "before_cursor_execute", capture_trace_dimension_updates)
+            event.listen(engine, "before_cursor_execute", capture_analytics_updates)
             try:
                 command.upgrade(config, REVISION)
             finally:
-                event.remove(engine, "before_cursor_execute", capture_trace_dimension_updates)
+                event.remove(engine, "before_cursor_execute", capture_analytics_updates)
                 config.attributes.pop("connection")
 
         trace_count = _PAGINATION_ROW_COUNT + 2
@@ -791,6 +797,23 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             assert " WHERE " in statement
             assert " IN (" in statement
             assert executemany is False
+
+        expected_assessment_page_count = (
+            assessment_count + MIGRATION_MODULE._BATCH_SIZE - 1
+        ) // MIGRATION_MODULE._BATCH_SIZE
+        assert len(assessment_updates) == expected_assessment_page_count
+        for statement, executemany in assessment_updates:
+            assert " WHERE " in statement
+            assert all(
+                column in statement
+                for column in (
+                    "EXPERIMENT_ID",
+                    "TRACE_TIMESTAMP_MS",
+                    "AGGREGATE_VALUE",
+                    "IS_NUMERIC_VALUE",
+                )
+            )
+            assert executemany is True
 
         truncation_logs = [
             record.getMessage()
@@ -852,7 +875,7 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                     sa.select(sa.func.count()).where(
                         assessments.c.assessment_id.like("assessment-page-%"),
                         assessments.c.experiment_id == 1,
-                        assessments.c.is_numeric_value.is_(True),
+                        assessments.c.is_numeric_value == sa.true(),
                     )
                 ).scalar_one()
                 == _PAGINATION_ROW_COUNT

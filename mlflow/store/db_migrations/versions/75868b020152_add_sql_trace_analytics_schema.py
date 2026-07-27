@@ -628,32 +628,13 @@ def _backfill_assessment_analytics():
     trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
     assessments = sa.Table("assessments", metadata, autoload_with=bind)
 
-    experiment_id = (
-        sa
-        .select(trace_info.c.experiment_id)
-        .where(trace_info.c.request_id == assessments.c.trace_id)
-        .correlate(assessments)
-        .scalar_subquery()
-    )
-    trace_timestamp_ms = (
-        sa
-        .select(trace_info.c.timestamp_ms)
-        .where(trace_info.c.request_id == assessments.c.trace_id)
-        .correlate(assessments)
-        .scalar_subquery()
-    )
-    bind.execute(
-        assessments.update().values(
-            experiment_id=experiment_id,
-            trace_timestamp_ms=trace_timestamp_ms,
-        )
-    )
-
     update_stmt = (
         assessments
         .update()
         .where(assessments.c.assessment_id == sa.bindparam("assessment_id_param"))
         .values(
+            experiment_id=sa.bindparam("experiment_id"),
+            trace_timestamp_ms=sa.bindparam("trace_timestamp_ms"),
             aggregate_value=sa.bindparam("aggregate_value"),
             is_numeric_value=sa.bindparam("is_numeric_value"),
         )
@@ -683,6 +664,8 @@ def _backfill_assessment_analytics():
             aggregate_value, is_numeric_value = _assessment_aggregate(row.value)
             updates.append({
                 "assessment_id_param": row.assessment_id,
+                "experiment_id": row.source_experiment_id,
+                "trace_timestamp_ms": row.source_trace_timestamp_ms,
                 "aggregate_value": aggregate_value,
                 "is_numeric_value": is_numeric_value,
             })
