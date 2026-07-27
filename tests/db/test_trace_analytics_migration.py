@@ -7,6 +7,7 @@ from importlib import import_module
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from sqlalchemy import event
 
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.db.workspace_migration import migrate_to_default_workspace
@@ -33,7 +34,7 @@ _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
 _MODEL_NAME_AT_LIMIT = "m" * 500
 _MODEL_NAME_OVER_LIMIT = "n" * 501
-_MODEL_PROVIDER_OVER_LIMIT = "供" * 501
+_MODEL_PROVIDER_OVER_LIMIT = "é" * 501
 _PAGINATION_ROW_COUNT = 2_501
 
 
@@ -774,11 +775,11 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
 
         with engine.connect() as connection:
             config.attributes["connection"] = connection
-            sa.event.listen(engine, "before_cursor_execute", capture_trace_dimension_updates)
+            event.listen(engine, "before_cursor_execute", capture_trace_dimension_updates)
             try:
                 command.upgrade(config, REVISION)
             finally:
-                sa.event.remove(engine, "before_cursor_execute", capture_trace_dimension_updates)
+                event.remove(engine, "before_cursor_execute", capture_trace_dimension_updates)
                 config.attributes.pop("connection")
 
         trace_count = _PAGINATION_ROW_COUNT + 2
