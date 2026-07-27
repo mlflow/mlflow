@@ -8,7 +8,7 @@ import threading
 from contextlib import ContextDecorator
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 import pydantic
 
@@ -59,6 +59,87 @@ def disable_litellm_rate_limit_retries() -> Iterator[None]:
 
 def is_litellm_rate_limit_retries_disabled() -> bool:
     return _DISABLE_RATE_LIMIT_RETRIES.get()
+
+
+# ---------------------------------------------------------------------------
+# RetryAdapter registry
+#
+# Each integration that has its own internal 429-retry mechanism registers a
+# RetryAdapter here. eval_retry_context() in rate_limiter.py iterates this
+# registry and disables only the adapters whose matches() returns True,
+# allowing 429s to propagate up to MLflow's own call_with_retry / AIMD logic.
+#
+# To register a new adapter:
+#   from mlflow.genai.judges.adapters.litellm_adapter import register_retry_adapter, RetryAdapter
+#   register_retry_adapter(RetryAdapter(name="myprovider", matches=..., disable_internal_retries=...))
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RetryAdapter:
+    """Descriptor for a provider that has its own internal 429-retry mechanism.
+
+    Attributes:
+        name: Human-readable identifier (used in debug logging).
+        matches: Zero-argument callable returning True when this adapter is
+            active in the current environment (e.g. package installed and the
+            active tracking URI targets that provider).
+        disable_internal_retries: Context manager that suppresses the
+            provider's own retry loop for the duration of the ``with`` block.
+    """
+
+    name: str
+    matches: Callable[[], bool]
+    disable_internal_retries: Callable[[], contextlib.AbstractContextManager]
+
+
+_RETRY_ADAPTER_REGISTRY: list[RetryAdapter] = []
+
+
+def register_retry_adapter(adapter: RetryAdapter) -> None:
+    """Register a RetryAdapter so eval_retry_context() can disable it."""
+    _RETRY_ADAPTER_REGISTRY.append(adapter)
+
+
+def get_retry_adapters() -> list[RetryAdapter]:
+    """Return the registered RetryAdapters (read-only view for callers)."""
+    return list(_RETRY_ADAPTER_REGISTRY)
+
+
+def _is_databricks_tracking_uri() -> bool:
+    try:
+        import mlflow
+
+        return mlflow.get_tracking_uri().startswith("databricks")
+    except Exception:
+        return False
+
+
+@contextlib.contextmanager
+def _disable_databricks_429_retry() -> Iterator[None]:
+    from mlflow.utils.rest_utils import disable_429_retry
+
+    with disable_429_retry():
+        yield
+
+
+# --- Built-in registrations ---
+
+register_retry_adapter(
+    RetryAdapter(
+        name="litellm",
+        matches=lambda: _is_litellm_available(),
+        disable_internal_retries=disable_litellm_rate_limit_retries,
+    )
+)
+
+register_retry_adapter(
+    RetryAdapter(
+        name="databricks-sdk",
+        matches=lambda: _is_databricks_tracking_uri(),
+        disable_internal_retries=_disable_databricks_429_retry,
+    )
+)
 
 
 # Global cache to track model capabilities across function calls

@@ -16,15 +16,19 @@ _logger = logging.getLogger(__name__)
 def eval_retry_context():
     """Disable downstream 429 retries so errors bubble up to call_with_retry().
 
-    Sets flags on both the HTTP-layer retry (rest_utils) and the litellm
-    adapter so that rate-limit errors propagate to the evaluate pipeline's
-    own retry/AIMD logic.
+    Iterates the RetryAdapter registry in litellm_adapter.py and disables
+    internal retry loops for every active provider, so that rate-limit errors
+    propagate to the evaluate pipeline's own retry/AIMD logic.
     """
-    # Lazy imports to avoid circular dependency: genai.evaluation → genai.judges/utils.
-    from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
-    from mlflow.utils.rest_utils import disable_429_retry
+    from mlflow.genai.judges.adapters.litellm_adapter import get_retry_adapters
 
-    with disable_litellm_rate_limit_retries(), disable_429_retry():
+    active_adapters = [a for a in get_retry_adapters() if a.matches()]
+    _logger.debug(
+        f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}"
+    )
+    with contextlib.ExitStack() as stack:
+        for adapter in active_adapters:
+            stack.enter_context(adapter.disable_internal_retries())
         yield
 
 
