@@ -13011,6 +13011,10 @@
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
     "description": "Subtitle for the empty state when no traces are recorded"
   },
+  "yYLKl8": {
+    "defaultMessage": "Please select at least 1 run to delete",
+    "description": "Tooltip for disabled delete action in evaluation runs table actions"
+  },
   "yd6Poj": {
     "defaultMessage": "No traces to analyze. Log traces to this experiment first.",
     "description": "Tooltip on the disabled Run button when the experiment has no traces"
