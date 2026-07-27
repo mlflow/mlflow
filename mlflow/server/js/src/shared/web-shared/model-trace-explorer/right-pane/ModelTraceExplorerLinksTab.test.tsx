@@ -12,9 +12,8 @@ import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { MOCK_LINKS_SPAN, MOCK_SPAN_LINKS } from '../ModelTraceExplorer.test-utils';
 
-const mockUseSpanLinkHref = jest.fn(
-  (traceId: string | undefined) =>
-    traceId ? `/experiments/1/traces?selectedEvaluationId=${traceId}` : undefined,
+const mockUseSpanLinkHref = jest.fn((traceId: string | undefined) =>
+  traceId ? `/experiments/1/traces?selectedEvaluationId=${traceId}` : undefined,
 );
 
 jest.mock('../hooks/useSpanLinkHref', () => ({
