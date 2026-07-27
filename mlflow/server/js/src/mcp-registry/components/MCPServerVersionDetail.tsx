@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { tagListStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
-import type { SimpleSelectChangeEventType } from '@databricks/design-system';
 import {
   Alert,
   Button,
   PencilIcon,
   CodeIcon,
-  SimpleSelect,
-  SimpleSelectOption,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxTrigger,
   Spacer,
   Tabs,
   Tag,
@@ -57,10 +59,8 @@ export const MCPServerVersionDetail = ({
 
   const [addToolsModalVisible, setAddToolsModalVisible] = useState(false);
   const [editingStatusVersion, setEditingStatusVersion] = useState<string>();
-  const [shouldOpenStatusSelect, setShouldOpenStatusSelect] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<{ version: string; status: MCPStatus }>();
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
-  const statusControlRef = useRef<HTMLSpanElement>(null);
   const hasRemotes = (version?.server_json?.remotes ?? []).length > 0;
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
   const { DeleteVersionModal, openDeleteVersionModal } = useDeleteVersionModal({ serverName: server.name });
@@ -76,15 +76,13 @@ export const MCPServerVersionDetail = ({
   });
   const { DeleteAccessEndpointModal, openDeleteEndpoint } = useDeleteAccessEndpointModal({ serverName: server.name });
   const isEditingStatus = editingStatusVersion === version?.version;
+  const versionNumber = version?.version;
 
   useEffect(() => {
-    if (!isEditingStatus || !shouldOpenStatusSelect) {
-      return;
-    }
-
-    statusControlRef.current?.querySelector<HTMLButtonElement>('[role="combobox"]')?.click();
-    setShouldOpenStatusSelect(false);
-  }, [isEditingStatus, shouldOpenStatusSelect]);
+    setEditingStatusVersion(undefined);
+    setPendingStatus(undefined);
+    updateVersionMutation.reset();
+  }, [versionNumber]); // eslint-disable-line react-hooks/exhaustive-deps -- reset() creates new ref
 
   if (!version) {
     return (
@@ -108,18 +106,28 @@ export const MCPServerVersionDetail = ({
   }
 
   const displayedStatus = pendingStatus?.version === version.version ? pendingStatus.status : version.status;
-  const handleStatusChange = ({ target }: SimpleSelectChangeEventType) => {
-    const nextStatus = target.value as MCPStatus;
+  const statusSelectLabel = intl.formatMessage({
+    defaultMessage: 'Version status',
+    description: 'Aria label for MCP server version status selector',
+  });
+  const handleStatusChange = (nextStatus: MCPStatus) => {
     setEditingStatusVersion(undefined);
     if (nextStatus === displayedStatus) {
       return;
     }
 
+    const clearPendingStatus = () => {
+      setPendingStatus((current) =>
+        current?.version === version.version && current.status === nextStatus ? undefined : current,
+      );
+    };
+
     setPendingStatus({ version: version.version, status: nextStatus });
     updateVersionMutation.mutate(
       { version: version.version, status: nextStatus },
       {
-        onError: () => setPendingStatus(undefined),
+        onSuccess: clearPendingStatus,
+        onError: clearPendingStatus,
       },
     );
   };
@@ -150,17 +158,15 @@ export const MCPServerVersionDetail = ({
         </div>
         {canDelete && (
           <div css={{ display: 'flex', gap: theme.spacing.sm, ...noShrinkStyles }}>
-            {canDelete && (
-              <Button
-                componentId="mlflow.mcp_registry.detail.delete_version"
-                icon={<TrashIcon />}
-                type="primary"
-                danger
-                onClick={() => openDeleteVersionModal(version.version)}
-              >
-                <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
-              </Button>
-            )}
+            <Button
+              componentId="mlflow.mcp_registry.detail.delete_version"
+              icon={<TrashIcon />}
+              type="primary"
+              danger
+              onClick={() => openDeleteVersionModal(version.version)}
+            >
+              <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
+            </Button>
           </div>
         )}
       </div>
@@ -212,29 +218,42 @@ export const MCPServerVersionDetail = ({
         <Typography.Text bold>
           <FormattedMessage defaultMessage="Status:" description="MCP server version detail status label" />
         </Typography.Text>
-        <span ref={statusControlRef} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+        <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
           {isEditingStatus ? (
-            <SimpleSelect
+            <DialogCombobox
               id="mcp-registry-version-status"
               componentId="mlflow.mcp_registry.detail.version.status_select"
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Version status',
-                description: 'Aria label for MCP server version status selector',
-              })}
-              value={displayedStatus}
-              onChange={handleStatusChange}
-              disabled={updateVersionMutation.isLoading}
+              label={statusSelectLabel}
+              value={[displayedStatus]}
+              open
             >
-              {STATUS_OPTIONS.map((status) => (
-                <SimpleSelectOption
-                  key={status}
-                  value={status}
-                  disabled={status !== displayedStatus && !STATUS_TRANSITIONS[displayedStatus]?.includes(status)}
-                >
-                  {formatStatusLabel(status)}
-                </SimpleSelectOption>
-              ))}
-            </SimpleSelect>
+              <DialogComboboxTrigger
+                aria-label={statusSelectLabel}
+                withInlineLabel={false}
+                renderDisplayedValue={(status) => formatStatusLabel(status as MCPStatus)}
+                disabled={updateVersionMutation.isLoading}
+                width={160}
+              />
+              <DialogComboboxContent
+                matchTriggerWidth
+                onEscapeKeyDown={() => setEditingStatusVersion(undefined)}
+                onPointerDownOutside={() => setEditingStatusVersion(undefined)}
+              >
+                <DialogComboboxOptionList>
+                  {STATUS_OPTIONS.map((status) => (
+                    <DialogComboboxOptionListSelectItem
+                      key={status}
+                      value={status}
+                      checked={status === displayedStatus}
+                      disabled={status !== displayedStatus && !STATUS_TRANSITIONS[displayedStatus]?.includes(status)}
+                      onChange={(nextStatus) => handleStatusChange(nextStatus as MCPStatus)}
+                    >
+                      {formatStatusLabel(status)}
+                    </DialogComboboxOptionListSelectItem>
+                  ))}
+                </DialogComboboxOptionList>
+              </DialogComboboxContent>
+            </DialogCombobox>
           ) : (
             <>
               <Tag componentId="mlflow.mcp_registry.detail.version_status" color={STATUS_TAG_COLOR[displayedStatus]}>
@@ -252,7 +271,6 @@ export const MCPServerVersionDetail = ({
                   disabled={updateVersionMutation.isLoading}
                   onClick={() => {
                     setEditingStatusVersion(version.version);
-                    setShouldOpenStatusSelect(true);
                   }}
                 />
               )}

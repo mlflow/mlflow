@@ -238,16 +238,14 @@ describe('MCPServerDetailPage', () => {
     await userEvent.click(screen.getByLabelText('Edit version status'));
 
     const statusSelect = screen.getByRole('combobox', { name: 'Version status' });
-    expect(statusSelect).toHaveAttribute('value', MCPStatus.ACTIVE);
+    expect(statusSelect).toHaveTextContent('Active');
     await userEvent.click(await screen.findByRole('option', { name: 'Deprecated' }));
 
     await waitFor(() => {
       expect(screen.queryByRole('combobox', { name: 'Version status' })).not.toBeInTheDocument();
       expect(screen.getAllByText(MCPStatus.DEPRECATED).length).toBeGreaterThanOrEqual(1);
     });
-    expect(
-      document.querySelector('[data-component-id="mlflow.mcp_registry.detail.edit_version"]'),
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
   });
 
   it('selects different version when multiple exist', async () => {
@@ -376,7 +374,7 @@ describe('MCPServerDetailPage', () => {
     await userEvent.click(screen.getByLabelText('Edit version status'));
 
     const statusSelect = screen.getByRole('combobox', { name: 'Version status' });
-    expect(statusSelect).toHaveAttribute('value', MCPStatus.DELETED);
+    expect(statusSelect).toHaveTextContent('Deleted');
 
     const options = within(await screen.findByRole('listbox')).getAllByRole('option');
     expect(
@@ -481,9 +479,6 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
       expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
-      expect(
-        document.querySelector('[data-component-id="mlflow.mcp_registry.detail.edit_version"]'),
-      ).not.toBeInTheDocument();
       expect(screen.getByLabelText('More actions')).toBeInTheDocument();
       expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
     });
@@ -500,9 +495,6 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
       expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
-      expect(
-        document.querySelector('[data-component-id="mlflow.mcp_registry.detail.edit_version"]'),
-      ).not.toBeInTheDocument();
       expect(screen.getByText('Delete version')).toBeInTheDocument();
       expect(screen.getByLabelText('More actions')).toBeInTheDocument();
     });
@@ -514,9 +506,6 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
       expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
-      expect(
-        document.querySelector('[data-component-id="mlflow.mcp_registry.detail.edit_version"]'),
-      ).not.toBeInTheDocument();
       expect(screen.getByText('Delete version')).toBeInTheDocument();
     });
 

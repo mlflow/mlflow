@@ -71,6 +71,14 @@ const versionWithoutRemotes = createMockMCPServerVersion({
   },
 });
 
+const versionTwo = createMockMCPServerVersion({
+  version: '2',
+  server_json: {
+    name: 'io.github.test/server',
+    version: '2.0.0',
+  },
+});
+
 const renderDetail = (props: Partial<React.ComponentProps<typeof MCPServerVersionDetail>> = {}) =>
   render(
     <Wrapper>
@@ -114,5 +122,24 @@ describe('Auto-discover tools button', () => {
     renderDetail({ version: versionWithoutRemotes });
     await clickToolsTab();
     expect(screen.queryByText('Auto-discover tools')).toBeNull();
+  });
+});
+
+describe('Status editor', () => {
+  it('closes when the selected version changes', async () => {
+    mockPermissions({ canUpdate: true });
+    const { rerender } = renderDetail();
+
+    await userEvent.click(screen.getByLabelText('Edit version status'));
+    expect(screen.getByRole('combobox', { name: 'Version status' })).toBeInTheDocument();
+
+    rerender(
+      <Wrapper>
+        <MCPServerVersionDetail server={serverWithRemotes} version={versionTwo} aliasesByVersion={{}} />
+      </Wrapper>,
+    );
+
+    expect(screen.queryByRole('combobox', { name: 'Version status' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
   });
 });
