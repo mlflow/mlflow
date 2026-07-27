@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 
 from mlflow.store.db.workspace_utils import (
+    EXPERIMENT_WORKSPACE_CHILD_TABLES,
     MODEL_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
@@ -45,6 +46,8 @@ class _ResourceSpec:
     # For experiments the tag table joins via experiment_id, not workspace+name.
     tag_join_column: str | None = None
     child_tables: tuple[str | tuple[str, str], ...] = ()
+    # Child table and shared parent/child key for resources not linked by name.
+    keyed_child_tables: tuple[tuple[str, str], ...] = ()
     child_name_column: str = "name"
     has_unique_name: bool = True
 
@@ -72,6 +75,10 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
         name_column=SqlExperiment.name.key,
         tag_model=SqlExperimentTag,
         tag_join_column=SqlExperimentTag.experiment_id.key,
+        keyed_child_tables=tuple(
+            (table_name, SqlExperiment.experiment_id.key)
+            for table_name in EXPERIMENT_WORKSPACE_CHILD_TABLES
+        ),
     ),
     SqlRegisteredModel: _ResourceSpec(
         model=SqlRegisteredModel,
@@ -306,6 +313,24 @@ def move_resources(
         ).scalar()
 
         if not dry_run:
+            for child_table_name, key_column_name in spec.keyed_child_tables:
+                child = get_workspace_table(conn, child_table_name)
+                parent_keys = _filtered(
+                    sa.select(table.c[key_column_name]).where(
+                        table.c.workspace == source_workspace
+                    ),
+                    name_col,
+                )
+                conn.execute(
+                    child
+                    .update()
+                    .where(
+                        child.c.workspace == source_workspace,
+                        child.c[key_column_name].in_(parent_keys),
+                    )
+                    .values(workspace=target_workspace)
+                )
+
             conn.execute(
                 _filtered(
                     table
