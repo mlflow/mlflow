@@ -318,7 +318,6 @@ CREATE TABLE mcp_server_versions (
 	version_patch INTEGER NOT NULL,
 	version_prerelease_sort_key VARCHAR(512) NOT NULL,
 	server_json JSON NOT NULL,
-	display_name VARCHAR(256),
 	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
 	tools JSON,
 	source VARCHAR(512),

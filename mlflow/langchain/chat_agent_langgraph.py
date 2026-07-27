@@ -41,6 +41,30 @@ from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
 
 
+def _normalize_content_for_chat_agent(content: Any) -> str | None:
+    """
+    Coerce ChatMessage content into the string schema required by ChatAgentMessage.
+
+    ``ChatMessage`` (post-#24176) may carry multimodal / reasoning content parts, but
+    ``ChatAgentMessage.content`` is ``str | None``. For list content we keep only
+    ``type="text"`` parts (joined with newlines) and drop reasoning / other parts so
+    LangGraph ChatAgent serving stays compatible with FMAPI reasoning models.
+    """
+    if content is None or isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                texts.append(part)
+            elif isinstance(part, dict) and part.get("type") == "text":
+                text = part.get("text")
+                if isinstance(text, str):
+                    texts.append(text)
+        return "\n".join(texts)
+    return str(content)
+
+
 def _add_agent_messages(
     left: dict[str, Any] | list[dict[str, Any]],
     right: dict[str, Any] | list[dict[str, Any]],
@@ -281,6 +305,11 @@ def parse_message(
     chat_message_dict["attachments"] = attachments
     chat_message_dict["name"] = msg.name or name
     chat_message_dict["id"] = msg.id
+    # ChatAgentMessage requires string content; ChatMessage may return content parts
+    # (e.g. reasoning + text from FMAPI models). Normalize at this boundary only.
+    chat_message_dict["content"] = _normalize_content_for_chat_agent(
+        chat_message_dict.get("content")
+    )
     # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
     if not chat_message_dict.get("content"):
         chat_message_dict["content"] = ""
