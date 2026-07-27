@@ -403,6 +403,72 @@ def test_update_config_sets_provider(client):
     assert data["providers"]["claude_code"]["selected"] is True
 
 
+def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(client, isolated_config):
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        return_value="mlflow-assistant-openai",
+    ) as mock_connect:
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret-123",
+                        "selected": True,
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 200
+    mock_connect.assert_called_once_with("openai", "sk-secret-123")
+    data = response.json()
+    assert data["providers"]["mlflow_gateway"]["selected"] is True
+    assert data["providers"]["mlflow_gateway"]["model"] == "mlflow-assistant-openai"
+    assert "sk-secret-123" not in (isolated_config / "config.json").read_text()
+
+
+@pytest.mark.parametrize(
+    "provider_data",
+    [
+        {"api_key": "sk-nope"},
+        {"gateway_vendor": "openai", "api_key": "sk-nope"},
+    ],
+)
+def test_update_config_rejects_api_key_outside_gateway_connection(client, provider_data):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": provider_data}},
+    )
+
+    assert response.status_code == 400
+    assert "LLM Connections" in response.json()["detail"]
+
+
+def test_update_config_gateway_connection_unsupported_returns_400(client):
+    from mlflow.assistant.gateway_connection import GatewayUnsupportedError
+
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        side_effect=GatewayUnsupportedError("no gateway on this backend"),
+    ):
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret",
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "no gateway on this backend"
+
+
 def test_update_config_sets_project(client, tmp_path):
     project_dir = tmp_path / "my_project"
     project_dir.mkdir()

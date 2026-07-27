@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from typing_extensions import NotRequired
 
@@ -14,12 +14,18 @@ NOT_SET = object()
 
 
 class MCPIcon(TypedDict):
-    """Icon following the upstream MCP server.json icon schema."""
+    """Icon following the upstream MCP server.json icon schema.
+
+    The read path may also annotate resolved server icons with a response-only
+    ``source`` field indicating whether the icon came from the server override
+    or the resolved latest version.
+    """
 
     src: str
     sizes: NotRequired[list[str]]
     mimeType: NotRequired[str]
     theme: NotRequired[str]
+    source: NotRequired[Literal["server", "version"]]
 
 
 class MCPServerRegistryMixin:
