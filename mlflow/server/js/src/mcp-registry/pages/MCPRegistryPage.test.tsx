@@ -52,7 +52,7 @@ describe('MCPRegistryPage', () => {
   it('renders empty state when no servers exist', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+      expect(screen.getByText('Register and catalog MCP servers for your organization.')).toBeInTheDocument();
     });
   });
 
@@ -87,7 +87,7 @@ describe('MCPRegistryPage', () => {
   it('does not show header create button in empty state', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+      expect(screen.getByText('Register and catalog MCP servers for your organization.')).toBeInTheDocument();
     });
     // The empty state has a title and a CTA button both saying "Create MCP server" (2 elements).
     // The header create button is a third one that should NOT exist in empty state.
@@ -104,7 +104,7 @@ describe('MCPRegistryPage', () => {
     await userEvent.click(screen.getByLabelText('List view'));
 
     await waitFor(() => {
-      expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+      expect(screen.getByText('Register and catalog MCP servers for your organization.')).toBeInTheDocument();
     });
   });
 
@@ -125,7 +125,7 @@ describe('MCPRegistryPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Search MCP servers by name'), 'github');
 
     await waitFor(() => {
-      expect(capturedFilter).toBe("name ILIKE '%github%' AND status = 'active' AND has_access_endpoints = 'true'");
+      expect(capturedFilter).toBe("name ILIKE '%github%'");
     });
   });
 
@@ -155,7 +155,7 @@ describe('MCPRegistryPage', () => {
     });
   });
 
-  describe('Available/All toggle visibility', () => {
+  describe('Filter checkbox visibility', () => {
     const activeServer = (overrides: Partial<ReturnType<typeof createMockMCPServer>> = {}) =>
       createMockMCPServer({
         name: 'server-1',
@@ -171,7 +171,7 @@ describe('MCPRegistryPage', () => {
         ...overrides,
       });
 
-    it('always shows the availability toggle', async () => {
+    it('always shows the filter checkboxes', async () => {
       server.use(
         getMockedSearchMCPServersResponse([activeServer({ allowed_actions: [] })]),
         getMockedCurrentUserResponse({ isAdmin: false }),
@@ -180,10 +180,11 @@ describe('MCPRegistryPage', () => {
       await waitFor(() => {
         expect(screen.getByText('server-1')).toBeInTheDocument();
       });
-      expect(screen.getByTestId('mcp-registry-availability-filter')).toBeVisible();
+      expect(screen.getByText('Active')).toBeVisible();
+      expect(screen.getByText('Has access endpoint')).toBeVisible();
     });
 
-    it('shows dimmed servers in All mode regardless of permissions', async () => {
+    it('shows all servers by default when filters are off', async () => {
       const managedServer = activeServer({
         name: 'my-server',
         allowed_actions: [MCPServerAction.USE, MCPServerAction.UPDATE, MCPServerAction.DELETE, MCPServerAction.MANAGE],
@@ -201,13 +202,43 @@ describe('MCPRegistryPage', () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('my-server')).toBeInTheDocument();
+        expect(screen.getByText('other-server')).toBeInTheDocument();
+      });
+    });
+
+    it('sends filter clauses when filters are toggled on', async () => {
+      let capturedFilter: string | null = null;
+      server.use(
+        rest.get(getAjaxUrl('ajax-api/3.0/mlflow/mcp-servers'), (req, res, ctx) => {
+          capturedFilter = req.url.searchParams.get('filter_string');
+          return res(ctx.json({ mcp_servers: [activeServer()], next_page_token: undefined }));
+        }),
+        getMockedCurrentUserResponse({ isAdmin: false }),
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('server-1')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('All'));
+      await userEvent.click(screen.getByText('Active'));
+      await userEvent.click(screen.getByText('Has access endpoint'));
 
       await waitFor(() => {
-        expect(screen.getByText('my-server')).toBeInTheDocument();
-        expect(screen.getByText('other-server')).toBeInTheDocument();
+        expect(capturedFilter).toBe("status = 'active' AND has_access_endpoints = 'true'");
+      });
+    });
+
+    it('shows filtered empty state when filters are on and no results match', async () => {
+      server.use(getMockedSearchMCPServersResponse([]), getMockedCurrentUserResponse({ isAdmin: false }));
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText('MCP Registry')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Active'));
+
+      await waitFor(() => {
+        expect(screen.getByText('No servers found')).toBeInTheDocument();
       });
     });
   });

@@ -24,6 +24,7 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import MCPRegistryRoutes from '../../mcp-registry/routes';
+import { MCPRegistryBetaTag } from '../../mcp-registry/components/MCPRegistryBetaTag';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
@@ -220,7 +221,12 @@ export function MlflowSidebar({
                 to: MCPRegistryRoutes.mcpRegistryPageRoute,
                 isActive: isMCPRegistryActive,
                 children: (
-                  <FormattedMessage defaultMessage="MCP registry" description="Sidebar link for MCP registry page" />
+                  <>
+                    <FormattedMessage defaultMessage="MCP registry" description="Sidebar link for MCP registry page" />
+                    <span css={{ marginLeft: 'auto' }}>
+                      <MCPRegistryBetaTag />
+                    </span>
+                  </>
                 ),
               },
               componentId: 'mlflow.sidebar.mcp_registry_tab_link',

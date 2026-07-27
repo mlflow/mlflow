@@ -4,6 +4,7 @@ import { FormattedMessage } from 'react-intl';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { overlayButtonStyles } from '../styles';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 export const AddToolsModal = ({
   visible,
@@ -17,11 +18,17 @@ export const AddToolsModal = ({
   onClose: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const workspace = useActiveWorkspace();
 
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const trackingUri = `http://${hostname}:<port>`;
   const escapedName = serverName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const escapedVersion = version.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const workspaceLine = workspace ? `\nmlflow.set_workspace("${workspace}")` : '';
 
   const discoverSnippet = `import mlflow
+
+mlflow.set_tracking_uri("${trackingUri}")${workspaceLine}
 
 server_version = mlflow.genai.refresh_mcp_server_version_tools(
     name="${escapedName}",
