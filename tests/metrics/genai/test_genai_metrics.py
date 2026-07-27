@@ -636,6 +636,8 @@ def test_extract_score_and_justification():
         '{"justification": "This is a justification"}',
         '{"score": null, "justification": "This is a justification"}',
         '{"score": "high", "justification": "This is a justification"}',
+        '"not an object"',
+        '[{"score": 4, "justification": "This is a justification"}]',
     ):
         score, justification = _extract_score_and_justification(text=malformed_score_output)
         assert score is None

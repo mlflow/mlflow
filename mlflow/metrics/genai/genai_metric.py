@@ -82,6 +82,8 @@ def _extract_score_and_justification(text):
         # Attempt to parse JSON
         try:
             data = json.loads(text)
+            if not isinstance(data, dict):
+                raise TypeError
             score = int(data.get("score"))
             justification = data.get("justification")
         except (json.JSONDecodeError, TypeError, ValueError):
