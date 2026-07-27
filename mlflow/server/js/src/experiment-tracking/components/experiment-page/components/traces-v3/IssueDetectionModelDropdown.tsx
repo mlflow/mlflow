@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -66,6 +66,25 @@ export const ISSUE_DETECTION_PROVIDERS: ProviderOption[] = [
 ];
 
 export const GATEWAY_LOGO = MLflowGatewayLogo;
+
+/**
+ * Providers whose connection Detect Issues can run in direct mode (no AI Gateway endpoint) on ANY
+ * MLflow install. Two backend steps must both support the provider: credential injection
+ * (`_CORE_PROVIDER_ENV_VARS` in mlflow/utils/providers.py) AND the actual call. When LiteLLM is not
+ * installed, the call falls back to MLflow's own provider adapters (`_get_provider_instance` in
+ * mlflow/metrics/genai/model_utils.py), which cover only this set. Providers that need LiteLLM to
+ * call (e.g. groq, deepseek, xai, openrouter) are excluded so a connection can't be picked into a
+ * run that would fail on a LiteLLM-less server. Anything else must go through an AI Gateway endpoint.
+ */
+export const ISSUE_DETECTION_DIRECT_PROVIDERS = new Set([
+  'openai',
+  'azure',
+  'anthropic',
+  'bedrock',
+  'gemini',
+  'mistral',
+  'togetherai',
+]);
 
 export const ProviderLogo = ({ src, srcDark }: { src: string; srcDark?: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -286,10 +305,17 @@ export const IssueDetectionModelDropdown = ({
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  // Only connections whose provider Detect Issues can resolve in direct mode are selectable here.
+  // A non-core provider can only be reached through an AI Gateway endpoint (see the constant above).
+  const directPairs = useMemo(
+    () => pairs.filter((pair) => ISSUE_DETECTION_DIRECT_PROVIDERS.has(pair.provider.toLowerCase())),
+    [pairs],
+  );
+
   // The currently-selected registered connection (if any), used to label the trigger "name · model".
   const selectedConnectionName =
     value.mode === 'direct' && value.secretId
-      ? pairs.find((p) => p.secretId === value.secretId && p.model === value.model)?.secretName
+      ? directPairs.find((p) => p.secretId === value.secretId && p.model === value.model)?.secretName
       : undefined;
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -372,9 +398,9 @@ export const IssueDetectionModelDropdown = ({
             paddingBottom: theme.spacing.xs,
           }}
         >
-          {pairs.length > 0 && (
+          {directPairs.length > 0 && (
             <ConnectionsGroup
-              pairs={pairs}
+              pairs={directPairs}
               isExpanded={expandedGroup === 'connections'}
               selectedSecretId={value.mode === 'direct' ? value.secretId : undefined}
               selectedModel={value.mode === 'direct' ? value.model : undefined}

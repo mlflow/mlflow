@@ -184,6 +184,69 @@ describe('IssueDetectionModelDropdown', () => {
     expect(screen.queryByTestId('model-group-connections')).not.toBeInTheDocument();
   });
 
+  test('filters out connections whose provider is not resolvable in direct mode', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [
+        {
+          secret_id: 'sec-core',
+          secret_name: 'my-openai',
+          provider: 'openai',
+          allowlisted_models: [{ provider: 'openai', model: 'gpt-5.6-sol' }],
+        },
+        {
+          // databricks has no MLflow provider adapter, so it can only run via a Gateway endpoint
+          // and must not appear as a direct-mode connection option.
+          secret_id: 'sec-noncore',
+          secret_name: 'my-databricks',
+          provider: 'databricks',
+          allowlisted_models: [{ provider: 'databricks', model: 'databricks-claude' }],
+        },
+        {
+          // groq is credential-injectable but only callable when LiteLLM is installed; excluded so
+          // the option can't be picked into a run that would fail on a LiteLLM-less server.
+          secret_id: 'sec-litellmonly',
+          secret_name: 'my-groq',
+          provider: 'groq',
+          allowlisted_models: [{ provider: 'groq', model: 'llama-3.3-70b' }],
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={jest.fn()} />,
+    );
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('model-group-connections'));
+
+    expect(screen.getByTestId('model-option-connection-sec-core-gpt-5.6-sol')).toBeInTheDocument();
+    expect(screen.queryByTestId('model-option-connection-sec-noncore-databricks-claude')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('model-option-connection-sec-litellmonly-llama-3.3-70b')).not.toBeInTheDocument();
+  });
+
+  test('omits Existing connections group entirely when every connection is a non-core provider', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [
+        {
+          secret_id: 'sec-noncore',
+          secret_name: 'my-databricks',
+          provider: 'databricks',
+          allowlisted_models: [{ provider: 'databricks', model: 'databricks-claude' }],
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={jest.fn()} />,
+    );
+    await openDropdown();
+
+    expect(screen.queryByTestId('model-group-connections')).not.toBeInTheDocument();
+  });
+
   test('expands Existing connections to "model · name" and selecting one carries its secretId', async () => {
     const onChange = jest.fn();
     jest.mocked(useSecretsQuery).mockReturnValue({
