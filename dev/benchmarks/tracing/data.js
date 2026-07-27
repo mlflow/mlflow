@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785132904495,
+  "lastUpdate": 1785143697051,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16577,6 +16577,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.051593200000752,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84731421+iyashk@users.noreply.github.com",
+            "name": "Yashwanth Kiran",
+            "username": "iyashk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "289b29836c55b6b31ac6c2c09b38de43f5502023",
+          "message": "Normalize reasoning content parts for `ChatAgentMessage` in `parse_message` (#24642)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>",
+          "timestamp": "2026-07-27T09:11:14Z",
+          "tree_id": "e35ab7b47da2959cdd9857bf594d1752a073ad18",
+          "url": "https://github.com/mlflow/mlflow/commit/289b29836c55b6b31ac6c2c09b38de43f5502023"
+        },
+        "date": 1785143695735,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.02687650000041,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 18.253413714278718,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.646604677420644,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.216102754384792,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.351126816665555,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 12.451384600007032,
             "unit": "ms"
           }
         ]
