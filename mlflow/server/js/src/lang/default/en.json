@@ -4715,6 +4715,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in tag assignment modal"
   },
+  "J5jGkH": {
+    "defaultMessage": "via Gateway",
+    "description": "Label indicating the listed models are derived from AI Gateway endpoints"
+  },
   "J75ziY": {
     "defaultMessage": "No roles",
     "description": "Empty-state title for the roles table on the account page"
@@ -6406,6 +6410,10 @@
   "QXLV8h": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in the MLflow experiment chat sessions page"
+  },
+  "QZWxJ4": {
+    "defaultMessage": "This connection has no allowlist. These models come from the AI Gateway endpoints that use it.",
+    "description": "Tooltip explaining that the listed models are derived from AI Gateway endpoints"
   },
   "QZXOSm": {
     "defaultMessage": "Frequency Penalty",

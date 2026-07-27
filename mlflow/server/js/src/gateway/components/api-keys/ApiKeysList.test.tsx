@@ -254,6 +254,62 @@ describe('ApiKeysList', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
   });
 
+  test('shows Gateway-derived models for an empty-allowlist connection used by an endpoint', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
+      data: mockModelDefinitions,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    // The secret has no explicit allowlist, so its endpoint's model is surfaced as a Gateway hint.
+    expect(screen.getByText('gpt-4')).toBeInTheDocument();
+    expect(screen.getByText('via Gateway')).toBeInTheDocument();
+    expect(screen.queryByText('Add models')).not.toBeInTheDocument();
+  });
+
+  test('shows "Add models" when a connection has no allowlist and no Gateway usage', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Add models')).toBeInTheDocument();
+    expect(screen.queryByText('via Gateway')).not.toBeInTheDocument();
+  });
+
   test('calls onKeyClick when secret name is clicked', async () => {
     const onKeyClick = jest.fn();
 

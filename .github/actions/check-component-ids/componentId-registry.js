@@ -1446,6 +1446,8 @@ module.exports = {
   "mlflow.gateway.api-keys.endpoints-header": "",
   "mlflow.gateway.api-keys.error": "",
   "mlflow.gateway.api-keys.filter": "",
+  "mlflow.gateway.api-keys.gateway-model-tag": "",
+  "mlflow.gateway.api-keys.gateway-models-tooltip": "",
   "mlflow.gateway.api-keys.list.endpoints-link": "",
   "mlflow.gateway.api-keys.list.row": "",
   "mlflow.gateway.api-keys.list.used-by-link": "",
