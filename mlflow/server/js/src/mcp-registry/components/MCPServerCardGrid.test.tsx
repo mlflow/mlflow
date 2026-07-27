@@ -49,7 +49,7 @@ describe('MCPServerCardGrid', () => {
 
   it('renders empty state when no servers and not filtered', () => {
     renderGrid({ ...defaultPaginationProps, servers: [] });
-    expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+    expect(screen.getByText('Register and catalog MCP servers for your organization.')).toBeInTheDocument();
   });
 
   it('renders a card for each server', () => {

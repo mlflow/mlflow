@@ -80,6 +80,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     rawResponse: queryResult.data,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
+    isFetching: queryResult.isFetching,
     hasNextPage: Boolean(queryResult.data?.next_page_token),
     hasPreviousPage: Boolean(currentPageToken),
     onNextPage,

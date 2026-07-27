@@ -24,16 +24,17 @@ import { MCPServerListTable } from '../components/MCPServerListTable';
 import { MCPServerListFilters } from '../components/MCPServerListFilters';
 import MCPRegistryRoutes from '../routes';
 import { flexColumnContainerStyles, headerIconStyles } from '../styles';
+import { MCPRegistryBetaTag } from '../components/MCPRegistryBetaTag';
 import { useDebounce } from 'use-debounce';
 
 type ViewMode = 'list' | 'grid';
-type FilterMode = 'available' | 'all';
 
 const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [filterMode, setFilterMode] = useState<FilterMode>('available');
+  const [filterActive, setFilterActive] = useState(false);
+  const [filterHasEndpoints, setFilterHasEndpoints] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
   const navigate = useNavigate();
@@ -47,16 +48,19 @@ const MCPRegistryPage = () => {
     onNextPage,
     onPreviousPage,
     pageSizeSelect,
+    isFetching,
   } = useMCPServersListQuery({
     searchFilter: debouncedSearchFilter,
-    availableOnly: filterMode === 'available',
+    filterActive,
+    filterHasEndpoints,
   });
 
   const { CreateMCPServerVersionModal, openModal } = useCreateMCPServerVersionModal({
     onSuccess: ({ name }) => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(name)),
   });
 
-  const isServersEmpty = !isLoading && !error && !servers?.length && !debouncedSearchFilter;
+  const hasActiveFilters = Boolean(debouncedSearchFilter) || filterActive || filterHasEndpoints;
+  const isServersEmpty = !isLoading && !isFetching && !error && !servers?.length && !hasActiveFilters;
   const createButton = !isServersEmpty ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
       <FormattedMessage defaultMessage="Create MCP server" description="Button to create a new MCP server" />
@@ -74,6 +78,7 @@ const MCPRegistryPage = () => {
                 <McpIcon />
               </span>
               <FormattedMessage defaultMessage="MCP Registry" description="MCP Registry page title" />
+              <MCPRegistryBetaTag />
             </span>
           }
           buttons={createButton}
@@ -92,23 +97,13 @@ const MCPRegistryPage = () => {
               <MCPServerListFilters
                 searchFilter={searchFilter}
                 onSearchFilterChange={setSearchFilter}
+                filterActive={filterActive}
+                onFilterActiveChange={setFilterActive}
+                filterHasEndpoints={filterHasEndpoints}
+                onFilterHasEndpointsChange={setFilterHasEndpoints}
                 componentId="mlflow.mcp_registry.search"
               />
             </div>
-            <SegmentedControlGroup
-              name="mcp-registry-filter-mode"
-              value={filterMode}
-              onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-              componentId="mlflow.mcp_registry.filter_toggle"
-              data-testid="mcp-registry-availability-filter"
-            >
-              <SegmentedControlButton value="available">
-                <FormattedMessage defaultMessage="Available" description="Filter to show only available servers" />
-              </SegmentedControlButton>
-              <SegmentedControlButton value="all">
-                <FormattedMessage defaultMessage="All" description="Filter to show all servers" />
-              </SegmentedControlButton>
-            </SegmentedControlGroup>
             <SegmentedControlGroup
               name="mcp-registry-view-mode"
               value={viewMode}
@@ -147,7 +142,7 @@ const MCPRegistryPage = () => {
               <MCPServerCardGrid
                 servers={servers}
                 isLoading={isLoading}
-                isFiltered={Boolean(debouncedSearchFilter)}
+                isFiltered={hasActiveFilters}
                 hasNextPage={hasNextPage}
                 hasPreviousPage={hasPreviousPage}
                 onNextPage={onNextPage}
@@ -161,7 +156,7 @@ const MCPRegistryPage = () => {
                 hasNextPage={hasNextPage}
                 hasPreviousPage={hasPreviousPage}
                 isLoading={isLoading}
-                isFiltered={Boolean(debouncedSearchFilter)}
+                isFiltered={hasActiveFilters}
                 onNextPage={onNextPage}
                 onPreviousPage={onPreviousPage}
                 pageSizeSelect={pageSizeSelect}
