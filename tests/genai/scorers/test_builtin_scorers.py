@@ -116,6 +116,7 @@ def test_retrieval_groundedness(sample_rag_trace):
                 ],
                 name="retrieval_groundedness",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -123,6 +124,7 @@ def test_retrieval_groundedness(sample_rag_trace):
                 context=[{"content": "content_3"}],
                 name="retrieval_groundedness",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -284,6 +286,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -292,6 +295,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -315,6 +319,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
         custom_scorer = RetrievalSufficiency(
             name="custom_sufficiency",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         result = custom_scorer(trace=sample_rag_trace)
 
@@ -330,6 +335,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="custom_sufficiency",
                 model="openai:/gpt-4.1-mini",
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -338,6 +344,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="custom_sufficiency",
                 model="openai:/gpt-4.1-mini",
+                extra_headers=None,
             ),
         ],
     )
@@ -367,6 +374,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                 expected_response="expected answer",
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -375,6 +383,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                 expected_response="expected answer",
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -415,6 +424,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="expectations_guidelines",
         model=None,
+        extra_headers=None,
     )
 
     # 2. Called with global guidelines
@@ -423,6 +433,7 @@ def test_guidelines():
             name="is_english",
             guidelines=["The response should be in English."],
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         is_english(inputs={"question": "query"}, outputs="answer")
 
@@ -431,6 +442,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_english",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
     # 3. Test with string input (should wrap in list)
@@ -439,6 +451,7 @@ def test_guidelines():
             name="is_polite",
             guidelines="Be polite and respectful.",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         is_polite(inputs={"question": "query"}, outputs="answer")
 
@@ -447,6 +460,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_polite",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
 
@@ -463,6 +477,7 @@ def test_relevance_to_query():
         context="answer",
         name="relevance_to_query",
         model=None,
+        extra_headers=None,
     )
 
     # 2. Test with custom model parameter
@@ -470,6 +485,7 @@ def test_relevance_to_query():
         relevance_custom = RelevanceToQuery(
             name="custom_relevance",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         relevance_custom(inputs={"question": "query"}, outputs="answer")
 
@@ -478,6 +494,7 @@ def test_relevance_to_query():
         context="answer",
         name="custom_relevance",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
 
@@ -564,12 +581,14 @@ def test_correctness():
         expected_response=None,
         name="correctness",
         model=None,
+        extra_headers=None,
     )
 
     with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
         correctness_custom = Correctness(
             name="custom_correctness",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         correctness_custom(
             inputs={"question": "query"},
@@ -584,6 +603,7 @@ def test_correctness():
         expected_response="expected answer",
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
 

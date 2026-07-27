@@ -99,7 +99,7 @@ keras:
 
   models:
     minimum: "3.4.0"
-    maximum: "3.14.1"
+    maximum: "3.15.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -109,7 +109,7 @@ keras:
 
   autologging:
     minimum: "3.4.0"
-    maximum: "3.14.1"
+    maximum: "3.15.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -959,10 +959,10 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.2.19"
-    # TODO: Bump past 1.94.0 once the tracing tests patch the right model request
-    # entrypoint. pydantic-ai >= 1.96 no longer routes through
-    # `InstrumentedModel.request`, so the mock is bypassed and tests hit the real API.
-    maximum: "1.94.0"
+    # 1.107.0 is the newest 1.x release. pydantic-ai 2.0 dropped the `Agent(instrument=...)`
+    # kwarg and removed `pydantic_ai.mcp.MCPServer`, so 2.x needs separate autologging work
+    # before the cap can move past it.
+    maximum: "1.107.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai

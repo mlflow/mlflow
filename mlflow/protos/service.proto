@@ -537,6 +537,27 @@ service MlflowService {
     };
   }
 
+  // Generate a presigned URL for downloading an artifact directly from cloud storage.
+  // The server uses its own credentials to sign the URL, enabling clients (including the
+  // MLflow UI) to download artifacts without needing direct cloud storage read permissions
+  // and without streaming bytes through the tracking server.
+  rpc createPresignedDownloadUrl(CreatePresignedDownloadUrl) returns (CreatePresignedDownloadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/presigned-download-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Presigned Download URL"
+    };
+  }
+
   // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory(GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -3699,6 +3720,31 @@ message CreatePresignedUploadUrl {
 
     // Required headers for the upload request (e.g. Content-Type).
     map<string, string> headers = 2;
+  }
+}
+
+message CreatePresignedDownloadUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ID that owns the artifact. Must be provided.
+  optional string run_id = 1;
+
+  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
+  // Must be provided.
+  optional string path = 2;
+
+  // URL expiration time in seconds (default: 300).
+  optional int64 expiration = 3;
+
+  message Response {
+    // Presigned URL for direct artifact download.
+    optional string presigned_url = 1;
+
+    // Optional headers for the download request (empty for standard S3 GET).
+    map<string, string> headers = 2;
+
+    // Size of the artifact in bytes, when available.
+    optional int64 file_size = 3;
   }
 }
 
