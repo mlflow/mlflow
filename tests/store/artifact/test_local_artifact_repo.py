@@ -261,6 +261,25 @@ def test_log_artifact_from_stream_writes_file_atomically(local_artifact_repo):
     assert list(artifact_dir.glob(".artifact.uploading.*")) == []
 
 
+@pytest.mark.asyncio
+async def test_log_artifact_from_async_stream_writes_file_atomically(local_artifact_repo):
+    artifact_contents = b"hello world!"
+
+    async def chunk_stream():
+        yield artifact_contents[:5]
+        yield artifact_contents[5:]
+
+    await local_artifact_repo.log_artifact_from_async_stream(
+        chunk_stream(),
+        "test.txt",
+        artifact_path="nested",
+    )
+
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir) / "nested"
+    assert (artifact_dir / "test.txt").read_bytes() == artifact_contents
+    assert list(artifact_dir.glob(".artifact.uploading.*")) == []
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX-only permission semantics")
 def test_log_artifact_from_stream_preserves_default_file_mode(local_artifact_repo):
     artifact_contents = b"hello world!"
@@ -275,6 +294,34 @@ def test_log_artifact_from_stream_preserves_default_file_mode(local_artifact_rep
 
     local_artifact_repo.log_artifact_from_stream(
         io.BytesIO(artifact_contents),
+        "test.txt",
+        artifact_path="nested",
+    )
+
+    final_path = artifact_dir / "test.txt"
+    assert stat.S_IMODE(final_path.stat().st_mode) == expected_mode
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.name == "nt", reason="POSIX-only permission semantics")
+async def test_log_artifact_from_async_stream_preserves_default_file_mode(
+    local_artifact_repo,
+):
+    artifact_contents = b"hello world!"
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir) / "nested"
+    artifact_dir.mkdir()
+
+    reference_path = artifact_dir / "reference.txt"
+    with open(reference_path, "wb"):
+        pass
+    expected_mode = stat.S_IMODE(reference_path.stat().st_mode)
+    reference_path.unlink()
+
+    async def chunk_stream():
+        yield artifact_contents
+
+    await local_artifact_repo.log_artifact_from_async_stream(
+        chunk_stream(),
         "test.txt",
         artifact_path="nested",
     )
@@ -310,6 +357,30 @@ def test_log_artifact_from_stream_cleans_up_temp_file_on_failure(local_artifact_
     assert list(artifact_dir.glob(".artifact.uploading.*")) == []
 
 
+@pytest.mark.asyncio
+async def test_log_artifact_from_async_stream_cleans_up_temp_file_on_failure(
+    local_artifact_repo,
+):
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir) / "nested"
+    artifact_dir.mkdir()
+    final_path = artifact_dir / "test.txt"
+    final_path.write_bytes(b"existing-content")
+
+    async def failing_chunk_stream():
+        yield b"new-content"
+        raise RuntimeError("stream failed")
+
+    with pytest.raises(RuntimeError, match="stream failed"):
+        await local_artifact_repo.log_artifact_from_async_stream(
+            failing_chunk_stream(),
+            "test.txt",
+            artifact_path="nested",
+        )
+
+    assert final_path.read_bytes() == b"existing-content"
+    assert list(artifact_dir.glob(".artifact.uploading.*")) == []
+
+
 def test_log_artifact_from_stream_closes_fd_when_fdopen_fails(local_artifact_repo):
     artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir) / "nested"
     artifact_dir.mkdir()
@@ -331,6 +402,39 @@ def test_log_artifact_from_stream_closes_fd_when_fdopen_fails(local_artifact_rep
         with pytest.raises(OSError, match="fdopen failed"):
             local_artifact_repo.log_artifact_from_stream(
                 io.BytesIO(b"hello world!"),
+                "test.txt",
+                artifact_path="nested",
+            )
+
+    close_mock.assert_called_once_with(123)
+    remove_mock.assert_called_once_with(str(temp_artifact_path))
+
+
+@pytest.mark.asyncio
+async def test_log_artifact_from_async_stream_closes_fd_when_fdopen_fails(local_artifact_repo):
+    artifact_dir = pathlib.Path(local_artifact_repo.artifact_dir) / "nested"
+    artifact_dir.mkdir()
+    temp_artifact_path = artifact_dir / ".artifact.uploading.mock"
+    temp_artifact_path.touch()
+
+    async def chunk_stream():
+        yield b"hello world!"
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.local_artifact_repo.tempfile.mkstemp",
+            return_value=(123, str(temp_artifact_path)),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.local_artifact_repo.os.fdopen",
+            side_effect=OSError("fdopen failed"),
+        ),
+        mock.patch("mlflow.store.artifact.local_artifact_repo.os.close") as close_mock,
+        mock.patch("mlflow.store.artifact.local_artifact_repo.os.remove") as remove_mock,
+    ):
+        with pytest.raises(OSError, match="fdopen failed"):
+            await local_artifact_repo.log_artifact_from_async_stream(
+                chunk_stream(),
                 "test.txt",
                 artifact_path="nested",
             )
