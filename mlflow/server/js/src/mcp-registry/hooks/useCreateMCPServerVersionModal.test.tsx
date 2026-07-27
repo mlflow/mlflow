@@ -330,6 +330,46 @@ describe('useCreateMCPServerVersionModal', () => {
     expect(screen.getByText('Preview')).toBeInTheDocument();
   });
 
+  it('shows SDK tab and hides Create button when SDK tab is active', async () => {
+    renderModal();
+    await openModal();
+
+    expect(screen.getByText('Form')).toBeInTheDocument();
+    expect(screen.getByText('Python')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Python'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Use the MLflow Python client to register an MCP server from a URL:'),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/register_mcp_server_from_url/)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument();
+  });
+
+  it('restores Create button when switching back to Form tab', async () => {
+    renderModal();
+    await openModal();
+
+    await userEvent.click(screen.getByText('Python'));
+    await userEvent.click(screen.getByText('Form'));
+
+    expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
+  });
+
+  it('does not show SDK tab in version mode', async () => {
+    const latestVersion = createMockMCPServerVersion({});
+    renderModal({ serverName: latestVersion.name, latestVersion });
+    await userEvent.click(screen.getByText('Open'));
+    await waitFor(() => {
+      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Python')).not.toBeInTheDocument();
+  });
+
   it('hides Icons section in version mode', async () => {
     const latestVersion = createMockMCPServerVersion({
       server_json: {

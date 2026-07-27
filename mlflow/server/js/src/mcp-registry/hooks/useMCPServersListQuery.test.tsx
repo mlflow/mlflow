@@ -217,9 +217,10 @@ describe('useMCPServersListQuery', () => {
       }),
     );
 
-    const { result } = renderHook(() => useMCPServersListQuery({ searchFilter: 'github' }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useMCPServersListQuery({ searchFilter: 'github', filterActive: false, filterHasEndpoints: false }),
+      { wrapper: createWrapper() },
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -237,9 +238,15 @@ describe('useMCPServersListQuery', () => {
       }),
     );
 
-    const { result } = renderHook(() => useMCPServersListQuery({ searchFilter: "tags.env = 'production'" }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () =>
+        useMCPServersListQuery({
+          searchFilter: "tags.env = 'production'",
+          filterActive: false,
+          filterHasEndpoints: false,
+        }),
+      { wrapper: createWrapper() },
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -257,9 +264,10 @@ describe('useMCPServersListQuery', () => {
       }),
     );
 
-    const { result } = renderHook(() => useMCPServersListQuery({ searchFilter: 'my_server%' }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useMCPServersListQuery({ searchFilter: 'my_server%', filterActive: false, filterHasEndpoints: false }),
+      { wrapper: createWrapper() },
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -318,9 +326,10 @@ describe('useMCPServersListQuery', () => {
       }),
     );
 
-    const { result } = renderHook(() => useMCPServersListQuery({ searchFilter: "O'Brien" }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useMCPServersListQuery({ searchFilter: "O'Brien", filterActive: false, filterHasEndpoints: false }),
+      { wrapper: createWrapper() },
+    );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -369,5 +378,85 @@ describe('useMCPServersListQuery', () => {
 
     // Should still be on page 2 (onPreviousPage was ignored)
     expect(result.current.hasPreviousPage).toBe(true);
+  });
+
+  it('includes active status filter when filterActive is true', async () => {
+    let capturedFilter: string | null = null;
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+
+    const { result } = renderHook(() => useMCPServersListQuery({ filterActive: true, filterHasEndpoints: false }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(capturedFilter).toBe("status = 'active'");
+  });
+
+  it('includes endpoint filter when filterHasEndpoints is true', async () => {
+    let capturedFilter: string | null = null;
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+
+    const { result } = renderHook(() => useMCPServersListQuery({ filterActive: false, filterHasEndpoints: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(capturedFilter).toBe("has_access_endpoints = 'true'");
+  });
+
+  it('combines both filters when both are true', async () => {
+    let capturedFilter: string | null = null;
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+
+    const { result } = renderHook(() => useMCPServersListQuery({ filterActive: true, filterHasEndpoints: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(capturedFilter).toBe("status = 'active' AND has_access_endpoints = 'true'");
+  });
+
+  it('sends no filter when both filters are off and no search', async () => {
+    let capturedFilter: string | null = null;
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+
+    const { result } = renderHook(() => useMCPServersListQuery({ filterActive: false, filterHasEndpoints: false }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(capturedFilter).toBeNull();
   });
 });

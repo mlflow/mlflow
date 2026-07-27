@@ -3515,6 +3515,10 @@
     "defaultMessage": "Search to find more queues",
     "description": "Add to review queue: hint that more custom queues are searchable"
   },
+  "Dv+/Xk": {
+    "defaultMessage": "Register and catalog MCP servers for your organization.",
+    "description": "Empty state description for MCP servers"
+  },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
@@ -3823,6 +3827,10 @@
     "defaultMessage": "{action} endpoint {url}",
     "description": "Aria label for expanding/collapsing an access endpoint row"
   },
+  "FT/Zcy": {
+    "defaultMessage": "Filter by access endpoint availability",
+    "description": "Aria label for access endpoint filter toggle"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -4094,6 +4102,10 @@
   "Gk9Z7W": {
     "defaultMessage": "Created by",
     "description": "Header for the dataset created-by column"
+  },
+  "Gkp1LK": {
+    "defaultMessage": "Has access endpoint",
+    "description": "Filter toggle for MCP servers with access endpoints"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -7059,10 +7071,6 @@
     "defaultMessage": "Preview how the questions will appear for the human reviewer.",
     "description": "Queue settings: question preview section hint"
   },
-  "UQI3dY": {
-    "defaultMessage": "All",
-    "description": "Filter to show all servers"
-  },
   "UQhorr": {
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
@@ -7782,10 +7790,6 @@
   "XCy4xh": {
     "defaultMessage": "The response must be concise, professional, and friendly.",
     "description": "Placeholder text for guidelines textarea"
-  },
-  "XDFG6S": {
-    "defaultMessage": "Available",
-    "description": "Filter to show only available servers"
   },
   "XEcsei": {
     "defaultMessage": "Input tokens",
@@ -9859,6 +9863,10 @@
     "defaultMessage": "Image failed to load",
     "description": "Error message when icon URL fails to load in preview"
   },
+  "gEKaYI": {
+    "defaultMessage": "Use the MLflow Python client to register an MCP server from a URL:",
+    "description": "Instruction text for Python-based MCP server registration"
+  },
   "gF1WQp": {
     "defaultMessage": "Add message",
     "description": "Label for the button that appends a new chat message on the playground page"
@@ -9950,6 +9958,10 @@
   "gVz/1j": {
     "defaultMessage": "An endpoint with this name already exists",
     "description": "Error message when endpoint name already exists"
+  },
+  "gXCZjg": {
+    "defaultMessage": "Active",
+    "description": "Filter toggle for active MCP servers"
   },
   "gXb1Ab": {
     "defaultMessage": "Create new workspace",
@@ -10367,6 +10379,10 @@
     "defaultMessage": "Fit to view",
     "description": "Tooltip for the button that fits the graph to the viewport"
   },
+  "i6rkWm": {
+    "defaultMessage": "Beta",
+    "description": "MCP Registry beta feature tag"
+  },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -10434,6 +10450,10 @@
   "iPzSgc": {
     "defaultMessage": "Create model",
     "description": "Create button to register a new model"
+  },
+  "iQ2LFO": {
+    "defaultMessage": "Python",
+    "description": "Create MCP server via Python code tab"
   },
   "iQAdpx": {
     "defaultMessage": "Advanced",
@@ -10522,10 +10542,6 @@
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
-  },
-  "ig+A10": {
-    "defaultMessage": "Create and manage MCP servers using MLflow.",
-    "description": "Empty state description for MCP servers"
   },
   "igK5Su": {
     "defaultMessage": "Error",
@@ -11374,6 +11390,10 @@
   "mY6f0y": {
     "defaultMessage": "Params",
     "description": "Header for parameter columns in the evaluation runs table column configuration"
+  },
+  "mYNpri": {
+    "defaultMessage": "Filter by active status",
+    "description": "Aria label for active status filter toggle"
   },
   "mYcueV": {
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
@@ -12634,6 +12654,10 @@
   "s8a93+": {
     "defaultMessage": "Traces",
     "description": "Run details page > tab selector > Traces tab"
+  },
+  "sAp/J2": {
+    "defaultMessage": "Form",
+    "description": "Create MCP server via form tab"
   },
   "sAtY9h": {
     "defaultMessage": "Track and compare versions of your models",

@@ -48,7 +48,7 @@ export const MCPServersEmptyState = ({
       title={<FormattedMessage defaultMessage="Create MCP server" description="Empty state title for MCP servers" />}
       description={
         <FormattedMessage
-          defaultMessage="Create and manage MCP servers using MLflow."
+          defaultMessage="Register and catalog MCP servers for your organization."
           description="Empty state description for MCP servers"
         />
       }
