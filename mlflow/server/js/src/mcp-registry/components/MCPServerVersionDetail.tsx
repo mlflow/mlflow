@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react';
-import { tagListStyles, textEllipsisStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { tagListStyles, noShrinkStyles, flexColumnGapStyles } from '../styles';
+import type { SimpleSelectChangeEventType } from '@databricks/design-system';
 import {
+  Alert,
   Button,
   PencilIcon,
   CodeIcon,
+  SimpleSelect,
+  SimpleSelectOption,
   Spacer,
   Tabs,
   Tag,
@@ -14,7 +18,8 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPAccessEndpoint, MCPServer, MCPServerVersion } from '../types';
-import { STATUS_TAG_COLOR, resolveDisplayName, sanitizeHref } from '../utils';
+import { MCPStatus } from '../types';
+import { STATUS_TAG_COLOR, STATUS_TRANSITIONS, sanitizeHref } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 import { deriveClientName } from '../installInstructions';
 import { AccessEndpointsSubsection } from './AccessEndpointsSubsection';
@@ -24,10 +29,12 @@ import { useEditAccessEndpointModal } from '../hooks/useEditAccessEndpointModal'
 import { useDeleteAccessEndpointModal } from '../hooks/useDeleteAccessEndpointModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
-import { EditVersionModal } from './EditVersionModal';
 import { AddToolsModal } from './AddToolsModal';
 import { useDeleteVersionModal } from '../hooks/useDeleteVersionModal';
+import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import Utils from '../../common/utils/Utils';
+
+const STATUS_OPTIONS = [MCPStatus.DRAFT, MCPStatus.ACTIVE, MCPStatus.DEPRECATED, MCPStatus.DELETED];
 
 export const MCPServerVersionDetail = ({
   server,
@@ -48,8 +55,12 @@ export const MCPServerVersionDetail = ({
   const intl = useIntl();
   const { canUpdate, canDelete } = useServerState(server);
 
-  const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const [addToolsModalVisible, setAddToolsModalVisible] = useState(false);
+  const [editingStatusVersion, setEditingStatusVersion] = useState<string>();
+  const [shouldOpenStatusSelect, setShouldOpenStatusSelect] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<{ version: string; status: MCPStatus }>();
+  const updateVersionMutation = useUpdateMCPServerVersion(server.name);
+  const statusControlRef = useRef<HTMLSpanElement>(null);
   const hasRemotes = (version?.server_json?.remotes ?? []).length > 0;
   const derivedName = useMemo(() => deriveClientName(server.name), [server.name]);
   const { DeleteVersionModal, openDeleteVersionModal } = useDeleteVersionModal({ serverName: server.name });
@@ -64,6 +75,16 @@ export const MCPServerVersionDetail = ({
     scopedAliases: version ? aliasesByVersion[version.version] : undefined,
   });
   const { DeleteAccessEndpointModal, openDeleteEndpoint } = useDeleteAccessEndpointModal({ serverName: server.name });
+  const isEditingStatus = editingStatusVersion === version?.version;
+
+  useEffect(() => {
+    if (!isEditingStatus || !shouldOpenStatusSelect) {
+      return;
+    }
+
+    statusControlRef.current?.querySelector<HTMLButtonElement>('[role="combobox"]')?.click();
+    setShouldOpenStatusSelect(false);
+  }, [isEditingStatus, shouldOpenStatusSelect]);
 
   if (!version) {
     return (
@@ -86,12 +107,34 @@ export const MCPServerVersionDetail = ({
     );
   }
 
-  const displayName = resolveDisplayName(server);
-  const versionTitle = version.server_json?.title;
-  const showVersionTitle = versionTitle && versionTitle !== displayName;
+  const displayedStatus = pendingStatus?.version === version.version ? pendingStatus.status : version.status;
+  const handleStatusChange = ({ target }: SimpleSelectChangeEventType) => {
+    const nextStatus = target.value as MCPStatus;
+    setEditingStatusVersion(undefined);
+    if (nextStatus === displayedStatus) {
+      return;
+    }
+
+    setPendingStatus({ version: version.version, status: nextStatus });
+    updateVersionMutation.mutate(
+      { version: version.version, status: nextStatus },
+      {
+        onError: () => setPendingStatus(undefined),
+      },
+    );
+  };
 
   return (
-    <div css={{ flex: 1, padding: theme.spacing.md, overflow: 'auto' }}>
+    <div
+      css={{
+        flex: 1,
+        paddingTop: theme.spacing.md,
+        paddingRight: 0,
+        paddingBottom: theme.spacing.md,
+        paddingLeft: theme.spacing.md,
+        overflow: 'auto',
+      }}
+    >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: theme.spacing.sm }}>
         <div css={{ minWidth: 0, flex: 1 }}>
           <Typography.Title level={3} withoutMargins>
@@ -101,26 +144,12 @@ export const MCPServerVersionDetail = ({
               values={{ version: version.version }}
             />
           </Typography.Title>
-          {showVersionTitle && (
-            <Typography.Text color="secondary" css={textEllipsisStyles} title={versionTitle}>
-              {versionTitle}
-            </Typography.Text>
-          )}
           {version.server_json?.description && (
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>{version.server_json.description}</Typography.Hint>
           )}
         </div>
-        {(canUpdate || canDelete) && (
+        {canDelete && (
           <div css={{ display: 'flex', gap: theme.spacing.sm, ...noShrinkStyles }}>
-            {canUpdate && (
-              <Button
-                componentId="mlflow.mcp_registry.detail.edit_version"
-                icon={<PencilIcon />}
-                onClick={() => setEditVersionModalVisible(true)}
-              >
-                <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
-              </Button>
-            )}
             {canDelete && (
               <Button
                 componentId="mlflow.mcp_registry.detail.delete_version"
@@ -137,6 +166,20 @@ export const MCPServerVersionDetail = ({
       </div>
 
       <Spacer shrinks={false} />
+      {updateVersionMutation.error && (
+        <Alert
+          componentId="mlflow.mcp_registry.detail.version.status_update_error"
+          type="error"
+          closable
+          onClose={() => updateVersionMutation.reset()}
+          message={
+            updateVersionMutation.error instanceof Error
+              ? updateVersionMutation.error.message
+              : String(updateVersionMutation.error)
+          }
+          css={{ marginBottom: theme.spacing.sm }}
+        />
+      )}
       <div
         css={{
           display: 'grid',
@@ -169,10 +212,52 @@ export const MCPServerVersionDetail = ({
         <Typography.Text bold>
           <FormattedMessage defaultMessage="Status:" description="MCP server version detail status label" />
         </Typography.Text>
-        <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Tag componentId="mlflow.mcp_registry.detail.version_status" color={STATUS_TAG_COLOR[version.status]}>
-            {version.status}
-          </Tag>
+        <span ref={statusControlRef} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          {isEditingStatus ? (
+            <SimpleSelect
+              id="mcp-registry-version-status"
+              componentId="mlflow.mcp_registry.detail.version.status_select"
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Version status',
+                description: 'Aria label for MCP server version status selector',
+              })}
+              value={displayedStatus}
+              onChange={handleStatusChange}
+              disabled={updateVersionMutation.isLoading}
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <SimpleSelectOption
+                  key={status}
+                  value={status}
+                  disabled={status !== displayedStatus && !STATUS_TRANSITIONS[displayedStatus]?.includes(status)}
+                >
+                  {formatStatusLabel(status)}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          ) : (
+            <>
+              <Tag componentId="mlflow.mcp_registry.detail.version_status" color={STATUS_TAG_COLOR[displayedStatus]}>
+                {displayedStatus}
+              </Tag>
+              {canUpdate && (
+                <Button
+                  componentId="mlflow.mcp_registry.detail.version.edit_status"
+                  size="small"
+                  icon={<PencilIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Edit version status',
+                    description: 'Aria label for edit MCP server version status button',
+                  })}
+                  disabled={updateVersionMutation.isLoading}
+                  onClick={() => {
+                    setEditingStatusVersion(version.version);
+                    setShouldOpenStatusSelect(true);
+                  }}
+                />
+              )}
+            </>
+          )}
         </span>
 
         {sanitizeHref(version.server_json?.websiteUrl) && (
@@ -266,10 +351,7 @@ export const MCPServerVersionDetail = ({
           </Tabs.Trigger>
         </Tabs.List>
 
-        <Tabs.Content
-          value="connect"
-          css={{ paddingTop: theme.spacing.md, ...flexColumnGapStyles(theme, theme.spacing.md) }}
-        >
+        <Tabs.Content value="connect" css={{ ...flexColumnGapStyles(theme, theme.spacing.md) }}>
           <AccessEndpointsSubsection
             endpoints={endpoints ?? []}
             derivedName={derivedName}
@@ -315,13 +397,6 @@ export const MCPServerVersionDetail = ({
         version={version.version}
         onClose={() => setAddToolsModalVisible(false)}
       />
-      <EditVersionModal
-        visible={editVersionModalVisible}
-        server={server}
-        version={version}
-        aliasesByVersion={aliasesByVersion}
-        onClose={() => setEditVersionModalVisible(false)}
-      />
       {DeleteVersionModal}
       {AddAccessEndpointModal}
       {EditAccessEndpointModal}
@@ -329,3 +404,5 @@ export const MCPServerVersionDetail = ({
     </div>
   );
 };
+
+const formatStatusLabel = (status: MCPStatus) => status.charAt(0).toUpperCase() + status.slice(1);
