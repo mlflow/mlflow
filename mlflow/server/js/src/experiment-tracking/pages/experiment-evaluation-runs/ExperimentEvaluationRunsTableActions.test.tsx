@@ -7,26 +7,35 @@ import userEvent from '@testing-library/user-event';
 import { ExperimentEvaluationRunsTableActions } from './ExperimentEvaluationRunsTableActions';
 
 const mockDeleteMutate = jest.fn();
+// Capture the options passed to useDeleteRuns so tests can drive its onSuccess callback.
+const mockDeleteRunsOptions: { onSuccess?: () => void } = {};
 jest.mock('../../components/experiment-page/hooks/useDeleteRuns', () => ({
   __esModule: true,
-  useDeleteRuns: () => ({ mutate: mockDeleteMutate, isLoading: false }),
+  useDeleteRuns: ({ onSuccess }: { onSuccess: () => void }) => {
+    mockDeleteRunsOptions.onSuccess = onSuccess;
+    return { mutate: mockDeleteMutate, isLoading: false };
+  },
 }));
 
 // The Actions Button renders a native `disabled` attribute; disable userEvent's
 // pointer-events check so we can still fire clicks against it and assert the menu stays closed.
 const setupUserEvent = () => userEvent.setup({ pointerEventsCheck: 0 });
 
-const renderActions = (rowSelection: RowSelectionState) =>
+const renderActions = (rowSelection: RowSelectionState) => {
+  const setRowSelection = jest.fn();
+  const refetchRuns = jest.fn();
   renderWithIntl(
     <DesignSystemProvider>
       <ExperimentEvaluationRunsTableActions
         rowSelection={rowSelection}
-        setRowSelection={jest.fn()}
-        refetchRuns={jest.fn()}
+        setRowSelection={setRowSelection}
+        refetchRuns={refetchRuns}
         onCompare={jest.fn()}
       />
     </DesignSystemProvider>,
   );
+  return { setRowSelection, refetchRuns };
+};
 
 const getActionsButton = () => screen.getByRole('button', { name: 'Actions' });
 
@@ -35,7 +44,12 @@ describe('ExperimentEvaluationRunsTableActions', () => {
 
   beforeEach(() => {
     user = setupUserEvent();
+    mockDeleteRunsOptions.onSuccess = undefined;
     mockDeleteMutate.mockReset();
+    // Simulate a successful delete by invoking the hook's onSuccess callback.
+    mockDeleteMutate.mockImplementation(() => {
+      mockDeleteRunsOptions.onSuccess?.();
+    });
   });
 
   afterEach(() => {
@@ -79,8 +93,8 @@ describe('ExperimentEvaluationRunsTableActions', () => {
     expect(mockDeleteMutate).not.toHaveBeenCalled();
   });
 
-  it('deletes the selected runs when the modal is confirmed', async () => {
-    renderActions({ 'run-1': true, 'run-2': true });
+  it('deletes the selected runs and clears the selection when the modal is confirmed', async () => {
+    const { setRowSelection, refetchRuns } = renderActions({ 'run-1': true, 'run-2': true });
 
     await user.click(getActionsButton());
     await user.click(await screen.findByText('Delete runs'));
@@ -91,5 +105,9 @@ describe('ExperimentEvaluationRunsTableActions', () => {
     await waitFor(() => {
       expect(mockDeleteMutate).toHaveBeenCalledWith({ runUuids: ['run-1', 'run-2'] });
     });
+
+    // On success the component refetches and clears the row selection.
+    expect(refetchRuns).toHaveBeenCalledTimes(1);
+    expect(setRowSelection).toHaveBeenCalledWith({});
   });
 });
