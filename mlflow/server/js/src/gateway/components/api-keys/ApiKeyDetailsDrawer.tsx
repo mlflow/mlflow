@@ -14,6 +14,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { SecretDetails } from '../secrets';
 import { SecretFormFields } from '../secrets';
+import { ModelAllowlistField } from '../model-selector/ModelAllowlistField';
 import { useEditApiKeyModal } from '../../hooks/useEditApiKeyModal';
 import { formatProviderName } from '../../utils/providerUtils';
 import type { SecretInfo } from '../../types';
@@ -41,6 +42,7 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
 
   const {
     formData,
+    allowlistedModels,
     errors,
     isLoading: isSaving,
     errorMessage,
@@ -48,6 +50,7 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
     isDirty,
     provider,
     handleFormDataChange,
+    handleAllowlistedModelsChange,
     handleSubmit,
     resetForm,
   } = useEditApiKeyModal({ secret, onClose: handleCloseEdit, onSuccess: handleSaveSuccess });
@@ -186,6 +189,34 @@ export const ApiKeyDetailsDrawer = ({ open, secret, onClose, onEditSuccess }: Ap
               hideNameField
               secretPlaceholders={secret.masked_values}
             />
+
+            {provider && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold>
+                  <FormattedMessage
+                    defaultMessage="Allowed models"
+                    description="Section label for the model allowlist in the edit connection drawer"
+                  />
+                </Typography.Text>
+                <Typography.Text color="secondary" size="sm">
+                  <FormattedMessage
+                    defaultMessage="Choose which models this connection can be used with. These appear as options wherever MLflow needs a model."
+                    description="Helper text for the model allowlist in the edit connection drawer"
+                  />
+                </Typography.Text>
+                <ModelAllowlistField
+                  provider={provider}
+                  value={allowlistedModels}
+                  onChange={handleAllowlistedModelsChange}
+                  componentId="mlflow.gateway.api-key-details.drawer.allowlisted-models"
+                />
+                {errors.allowlistedModels && (
+                  <Typography.Text color="error" size="sm">
+                    {errors.allowlistedModels}
+                  </Typography.Text>
+                )}
+              </div>
+            )}
 
             <div css={{ display: 'flex', gap: theme.spacing.sm }}>
               <Button

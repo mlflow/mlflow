@@ -1607,6 +1607,10 @@
     "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
     "description": "Introduction of the guidance callout on low-result issue detection runs"
   },
+  "5DgdzK": {
+    "defaultMessage": "Choose which models this connection can be used with. These appear as options wherever MLflow needs a model.",
+    "description": "Helper text for the model allowlist in the edit connection drawer"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -7882,6 +7886,10 @@
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
+  },
+  "WvyeuK": {
+    "defaultMessage": "Allowed models",
+    "description": "Section label for the model allowlist in the edit connection drawer"
   },
   "WwFre9": {
     "defaultMessage": "New queue",

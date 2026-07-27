@@ -1425,6 +1425,7 @@ module.exports = {
 
   // -- mlflow.gateway --
   "mlflow.gateway.api-key-details.drawer": "",
+  "mlflow.gateway.api-key-details.drawer.allowlisted-models": "",
   "mlflow.gateway.api-key-details.drawer.cancel-button": "",
   "mlflow.gateway.api-key-details.drawer.edit": "",
   "mlflow.gateway.api-key-details.drawer.edit-button": "",
