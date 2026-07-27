@@ -339,6 +339,7 @@ def _build_endpoint_config(
         Provider.XAI,
         Provider.OPENROUTER,
         Provider.OLLAMA,
+        Provider.CRUSOE,
     }:
         provider_config = _build_openai_compatible_config(model_config)
     elif model_config.provider == Provider.PORTKEY:
