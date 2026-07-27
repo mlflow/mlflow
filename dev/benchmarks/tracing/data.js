@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785172468943,
+  "lastUpdate": 1785174173808,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16739,6 +16739,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.27778419998981,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47610280+NeriCarcasci@users.noreply.github.com",
+            "name": "Neri Carcasci",
+            "username": "NeriCarcasci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e67441d536a5cf958056dc590a7155d978378d2",
+          "message": "feat: Add native FastAPI artifact upload/download endpoints with streaming support (#24340)\n\nSigned-off-by: Neri Carcasci <nericarcasci@gmail.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+          "timestamp": "2026-07-27T17:39:28Z",
+          "tree_id": "57210f3f002cd15b8ea5de1930aa61be56167d2a",
+          "url": "https://github.com/mlflow/mlflow/commit/8e67441d536a5cf958056dc590a7155d978378d2"
+        },
+        "date": 1785174172485,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.09442920000146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 17.04323900000304,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.965820790322436,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.96303262264395,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.53666935087467,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.02966919999335,
             "unit": "ms"
           }
         ]
