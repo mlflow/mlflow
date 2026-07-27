@@ -250,14 +250,14 @@ const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): Se
 
   const matches: SearchMatch[] = [];
   links.forEach((link, index) => {
-    const fields: Record<string, string> = {
-      span_id: JSON.stringify(link.span_id),
+    const fields = [
+      { field: 'span_id', value: JSON.stringify(link.span_id) },
       ...(link.attributes && Object.keys(link.attributes).length > 0
-        ? { attributes: JSON.stringify(link.attributes, null, 2) }
-        : {}),
-    };
+        ? [{ field: 'attributes', value: JSON.stringify(link.attributes, null, 2) }]
+        : []),
+    ];
 
-    Object.entries(fields).forEach(([field, value]) => {
+    fields.forEach(({ field, value }) => {
       const key = getLinkFieldKey(index, field);
       const numValueMatches = value.toLowerCase().split(searchFilter).length - 1;
       for (let i = 0; i < numValueMatches; i++) {
