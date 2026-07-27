@@ -77,6 +77,13 @@ _logger = logging.getLogger(__name__)
 #     workers.
 #   - tests/gateway/providers/test_databricks.py: mocks the global `databricks.sdk` module;
 #     import/mock state leaks across workers ("module 'databricks' has no attribute 'sdk'").
+#   - tests/utils/test_requirements_utils.py: `test_capture_imported_modules_scopes_databricks
+#     _imports` deletes `databricks` from `sys.modules` (a manual `del`, untracked by
+#     monkeypatch) and imports a fake `databricks` package from tmp_path. The fake leaks onto
+#     the worker, so a later victim (e.g. tests/store/artifact/test_databricks_sdk_models
+#     _artifact_repo.py) then hits "module 'databricks' has no attribute 'sdk'". Quarantining
+#     the *polluter* here removes the leak source for every victim; a source-level sys.modules
+#     restoration is the eventual fix.
 #   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py,
 #     test_docker_projects.py: spawn real env-building / docker subprocesses that contend for
 #     CPU/disk, time out, race on the shared conda env list or docker daemon, and (for docker)
@@ -102,6 +109,7 @@ _XDIST_SERIAL_PATHS = (
     "tests/server/test_handlers.py",
     "tests/server/test_workspace_middleware.py",
     "tests/gateway/providers/test_databricks.py",
+    "tests/utils/test_requirements_utils.py",
     "tests/projects/test_virtualenv_projects.py",
     "tests/projects/test_projects_cli.py",
     "tests/projects/test_docker_projects.py",

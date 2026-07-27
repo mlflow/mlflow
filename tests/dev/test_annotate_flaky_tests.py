@@ -95,6 +95,82 @@ def test_unparsable_file_is_handled_gracefully(tmp_path: Path):
     assert result.note == "file did not parse"
 
 
+def test_report_includes_rationale(tmp_path, monkeypatch):
+    # The classifier's rationale must reach the PR-body report under each annotated test.
+    repo = tmp_path
+    test_file = repo / "tests" / "test_sample.py"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text("import pytest\n\n\ndef test_a():\n    assert True\n")
+
+    classified = repo / "classified.json"
+    classified.write_text(
+        json.dumps([
+            {
+                "test": "tests/test_sample.py::test_a",
+                "verdict": {
+                    "action": "annotate",
+                    "attempts": 2,
+                    "rationale": "Load-induced timeout; passed on retry unchanged.",
+                },
+            }
+        ])
+    )
+    report = repo / "annotated.md"
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["annotate_flaky_tests.py", "--in", str(classified), "--report", str(report)],
+    )
+    annotate_flaky_tests.main()
+
+    body = report.read_text()
+    assert "- `tests/test_sample.py::test_a` — `attempts=2`" in body
+    assert "_Why:_ Load-induced timeout; passed on retry unchanged." in body
+
+
+def test_null_verdict_entry_is_skipped_not_crashed(tmp_path, monkeypatch):
+    # An explicitly-null `verdict` must be treated as "no annotation", not raise
+    # AttributeError — `.get("verdict", {})` bypasses the default on a null value.
+    repo = tmp_path
+    (repo / "tests").mkdir(parents=True)
+    classified = repo / "classified.json"
+    classified.write_text(json.dumps([{"test": "tests/test_sample.py::test_a", "verdict": None}]))
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["annotate_flaky_tests.py", "--in", str(classified)])
+    annotate_flaky_tests.main()  # must not raise
+
+
+def test_report_handles_null_rationale(tmp_path, monkeypatch):
+    # A missing/null rationale must not raise or emit a `_Why:_` line.
+    repo = tmp_path
+    test_file = repo / "tests" / "test_sample.py"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text("import pytest\n\n\ndef test_a():\n    assert True\n")
+
+    classified = repo / "classified.json"
+    classified.write_text(
+        json.dumps([
+            {
+                "test": "tests/test_sample.py::test_a",
+                "verdict": {"action": "annotate", "attempts": 2, "rationale": None},
+            }
+        ])
+    )
+    report = repo / "annotated.md"
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["annotate_flaky_tests.py", "--in", str(classified), "--report", str(report)],
+    )
+    annotate_flaky_tests.main()
+
+    body = report.read_text()
+    assert "- `tests/test_sample.py::test_a` — `attempts=2`" in body
+    assert "_Why:_" not in body
+
+
 def test_nodeid_escaping_repo_is_rejected(tmp_path, monkeypatch, capsys):
     # A path-traversal nodeid must be refused before the file is touched, even if a file
     # exists at the escaped location. Lay a real target OUTSIDE the repo root and point a
