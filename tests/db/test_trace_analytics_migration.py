@@ -31,6 +31,9 @@ MIGRATION_MODULE = import_module(
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
+_MODEL_NAME_AT_LIMIT = "m" * 500
+_MODEL_NAME_OVER_LIMIT = "n" * 501
+_MODEL_PROVIDER_OVER_LIMIT = "供" * 501
 _PAGINATION_ROW_COUNT = 2_501
 
 
@@ -197,8 +200,8 @@ def _seed_legacy_analytics_data(conn):
                 "end_time_unix_nano": 200,
                 "content": "{}",
                 "dimension_attributes": json.dumps({
-                    SpanAttributeKey.MODEL: "gpt-test",
-                    SpanAttributeKey.MODEL_PROVIDER: "test-provider",
+                    SpanAttributeKey.MODEL: _MODEL_NAME_OVER_LIMIT,
+                    SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER_OVER_LIMIT,
                 }),
             },
             {
@@ -226,7 +229,9 @@ def _seed_legacy_analytics_data(conn):
                 "start_time_unix_nano": 600,
                 "end_time_unix_nano": 900,
                 "content": "{}",
-                "dimension_attributes": None,
+                "dimension_attributes": json.dumps({
+                    SpanAttributeKey.MODEL: _MODEL_NAME_AT_LIMIT,
+                }),
             },
         ],
     )
@@ -342,13 +347,22 @@ def _index_columns(inspector, table_name):
     return {index["name"]: index["column_names"] for index in inspector.get_indexes(table_name)}
 
 
-def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tmp_path):
+def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tmp_path, caplog):
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
             _seed_legacy_analytics_data(conn)
 
         command.upgrade(config, REVISION)
+        truncation_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.message.startswith("Truncated span analytics dimensions")
+        ]
+        assert truncation_logs == [
+            "Truncated span analytics dimensions to 500 characters during backfill: "
+            "model_name=1, model_provider=1"
+        ]
         inspector = sa.inspect(engine)
 
         assert {
@@ -471,9 +485,16 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
                 )
             ).fetchall()
             assert spans == [
-                ("span-explicit", 99.0, None, None, "gpt-test", "test-provider"),
+                (
+                    "span-explicit",
+                    99.0,
+                    None,
+                    None,
+                    _MODEL_NAME_OVER_LIMIT[:500],
+                    _MODEL_PROVIDER_OVER_LIMIT[:500],
+                ),
                 ("span-fallback-1", 0.5, None, 1.5, None, None),
-                ("span-fallback-2", 1.0, None, 2.0, None, None),
+                ("span-fallback-2", 1.0, None, 2.0, _MODEL_NAME_AT_LIMIT, None),
             ]
 
             assessments = conn.execute(
@@ -618,7 +639,7 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
         engine.dispose()
 
 
-def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path):
+def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, caplog):
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
@@ -695,8 +716,16 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path):
                         "end_time_unix_nano": i + 1,
                         "content": "{}",
                         "dimension_attributes": json.dumps({
-                            SpanAttributeKey.MODEL: f"model-{i}",
-                            SpanAttributeKey.MODEL_PROVIDER: f"provider-{i}",
+                            SpanAttributeKey.MODEL: (
+                                _MODEL_NAME_OVER_LIMIT
+                                if i in {0, _PAGINATION_ROW_COUNT - 1}
+                                else f"model-{i}"
+                            ),
+                            SpanAttributeKey.MODEL_PROVIDER: (
+                                _MODEL_PROVIDER_OVER_LIMIT
+                                if i == MIGRATION_MODULE._BATCH_SIZE
+                                else f"provider-{i}"
+                            ),
                         }),
                     }
                     for i, span_id in enumerate(span_ids)
@@ -733,6 +762,15 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path):
             )
 
         command.upgrade(config, REVISION)
+        truncation_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.message.startswith("Truncated span analytics dimensions")
+        ]
+        assert truncation_logs == [
+            "Truncated span analytics dimensions to 500 characters during backfill: "
+            "model_name=3, model_provider=2"
+        ]
 
         with engine.connect() as conn:
             trace_info = _table(conn, "trace_info")
@@ -773,7 +811,7 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path):
                 )
             ).one()
             assert last_span == (
-                f"model-{_PAGINATION_ROW_COUNT - 1}",
+                _MODEL_NAME_OVER_LIMIT[:500],
                 f"provider-{_PAGINATION_ROW_COUNT - 1}",
                 float(_PAGINATION_ROW_COUNT - 1),
             )

@@ -7,6 +7,7 @@ Create Date: 2026-07-22 00:00:00.000000
 """
 
 import json
+import logging
 import math
 
 import sqlalchemy as sa
@@ -25,7 +26,10 @@ down_revision = "a8b9c0d1e2f3"
 branch_labels = None
 depends_on = None
 
+_logger = logging.getLogger(__name__)
+
 _BATCH_SIZE = 250
+_MODEL_DIMENSION_MAX_LENGTH = 500
 _TOKEN_COLUMNS = {
     TokenUsageKey.INPUT_TOKENS: "input_tokens",
     TokenUsageKey.OUTPUT_TOKENS: "output_tokens",
@@ -100,8 +104,8 @@ def _add_analytics_columns():
         sa.Column("input_cost", sa.Float(precision=53), nullable=True),
         sa.Column("output_cost", sa.Float(precision=53), nullable=True),
         sa.Column("total_cost", sa.Float(precision=53), nullable=True),
-        sa.Column("model_name", sa.String(length=500), nullable=True),
-        sa.Column("model_provider", sa.String(length=500), nullable=True),
+        sa.Column("model_name", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
+        sa.Column("model_provider", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
     ]
 
     if op.get_bind().dialect.name == "sqlite":
@@ -221,8 +225,8 @@ def _create_rollup_tables():
         sa.Column("rollup_day", sa.Date(), nullable=False),
         sa.Column("metric_name", sa.String(length=250), nullable=False),
         sa.Column("grouping_set", sa.String(length=50), nullable=False),
-        sa.Column("model_name", sa.String(length=500), nullable=True),
-        sa.Column("model_provider", sa.String(length=500), nullable=True),
+        sa.Column("model_name", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
+        sa.Column("model_provider", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
         sa.Column("sample_count", sa.BigInteger(), nullable=False),
         sa.Column("sum_value", sa.Float(precision=53), nullable=True),
         sa.Column("min_value", sa.Float(precision=53), nullable=True),
@@ -511,6 +515,7 @@ def _backfill_span_analytics():
             model_provider=sa.bindparam("model_provider"),
         )
     )
+    truncation_counts = {"model_name": 0, "model_provider": 0}
     last_span_key = None
     while True:
         page_stmt = sa.select(
@@ -559,12 +564,20 @@ def _backfill_span_analytics():
         for row in batch:
             dimensions = _json_object(row.dimension_attributes)
             costs = metrics_by_span[(row.trace_id, row.span_id)]
+            model_name, model_name_truncated = _bounded_string_or_none(
+                dimensions.get(SpanAttributeKey.MODEL), _MODEL_DIMENSION_MAX_LENGTH
+            )
+            model_provider, model_provider_truncated = _bounded_string_or_none(
+                dimensions.get(SpanAttributeKey.MODEL_PROVIDER), _MODEL_DIMENSION_MAX_LENGTH
+            )
+            truncation_counts["model_name"] += model_name_truncated
+            truncation_counts["model_provider"] += model_provider_truncated
             update = {
                 "trace_id_param": row.trace_id,
                 "span_id_param": row.span_id,
                 **{column: costs.get(column) for column in _COST_COLUMNS.values()},
-                "model_name": _string_or_none(dimensions.get(SpanAttributeKey.MODEL)),
-                "model_provider": _string_or_none(dimensions.get(SpanAttributeKey.MODEL_PROVIDER)),
+                "model_name": model_name,
+                "model_provider": model_provider,
             }
             updates.append(update)
             expected[(row.trace_id, row.span_id)] = {
@@ -592,6 +605,15 @@ def _backfill_span_analytics():
         }
         _validate_backfill_batch("span", expected, actual)
         last_span_key = span_keys[-1]
+
+    if sum(truncation_counts.values()):
+        _logger.warning(
+            "Truncated span analytics dimensions to %d characters during backfill: "
+            "model_name=%d, model_provider=%d",
+            _MODEL_DIMENSION_MAX_LENGTH,
+            truncation_counts["model_name"],
+            truncation_counts["model_provider"],
+        )
 
 
 def _backfill_assessment_analytics():
@@ -772,5 +794,7 @@ def _finite_float_or_none(value):
     return value if math.isfinite(value) else None
 
 
-def _string_or_none(value):
-    return value if isinstance(value, str) else None
+def _bounded_string_or_none(value, max_length):
+    if not isinstance(value, str):
+        return None, False
+    return value[:max_length], len(value) > max_length
