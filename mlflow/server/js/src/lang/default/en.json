@@ -7003,6 +7003,10 @@
     "defaultMessage": "Used by",
     "description": "Used by column header"
   },
+  "T3Gko8": {
+    "defaultMessage": "Existing connections",
+    "description": "Model dropdown group for models from registered LLM connections"
+  },
   "T3RjOb": {
     "defaultMessage": "Go to the run",
     "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"

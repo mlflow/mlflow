@@ -4,12 +4,16 @@ import { renderWithDesignSystem, screen } from '../../../../../common/utils/Test
 import { IssueDetectionModelDropdown, type IssueDetectionModelSelection } from './IssueDetectionModelDropdown';
 import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
 
 jest.mock('../../../../../gateway/hooks/useModelsQuery', () => ({
   useModelsQuery: jest.fn(),
 }));
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
+}));
+jest.mock('../../../../../gateway/hooks/useSecretsQuery', () => ({
+  useSecretsQuery: jest.fn(),
 }));
 jest.mock('../../../../../gateway/components/endpoint-form', () => ({
   CreateEndpointModal: ({ open, onSuccess }: { open: boolean; onSuccess: (e: { name: string }) => void }) =>
@@ -44,6 +48,7 @@ describe('IssueDetectionModelDropdown', () => {
         }) as any,
     );
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
+    jest.mocked(useSecretsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
   });
 
   const openDropdown = async () => userEvent.click(screen.getByTestId('model-dropdown-trigger'));
@@ -133,5 +138,73 @@ describe('IssueDetectionModelDropdown', () => {
     expect(screen.getByTestId('model-provider-openai')).toBeInTheDocument();
     expect(screen.queryByTestId('model-option-openai-gpt-5.6-sol')).not.toBeInTheDocument();
     expect(screen.queryByTestId('model-create-endpoint')).not.toBeInTheDocument();
+  });
+
+  const CONNECTIONS_SECRET = {
+    secret_id: 'sec-1',
+    secret_name: 'my-openai',
+    provider: 'openai',
+    allowlisted_models: [{ provider: 'openai', model: 'gpt-5.6-sol' }],
+  };
+
+  test('shows five top-level groups: Existing connections, AI Gateway, then the three providers', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [CONNECTIONS_SECRET],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={jest.fn()} />,
+    );
+    await openDropdown();
+
+    const groups = screen
+      .getAllByTestId(/^(model-group-connections|model-group-gateway|model-provider-)/)
+      .map((el) => el.getAttribute('data-testid'));
+    expect(groups).toEqual([
+      'model-group-connections',
+      'model-group-gateway',
+      'model-provider-openai',
+      'model-provider-anthropic',
+      'model-provider-gemini',
+    ]);
+    // Connection models are hidden until the group is expanded.
+    expect(screen.queryByTestId('model-option-connection-sec-1-gpt-5.6-sol')).not.toBeInTheDocument();
+  });
+
+  test('omits Existing connections group when there are no allowlisted connection models', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
+
+    renderWithDesignSystem(
+      <IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={jest.fn()} />,
+    );
+    await openDropdown();
+
+    expect(screen.queryByTestId('model-group-connections')).not.toBeInTheDocument();
+  });
+
+  test('expands Existing connections to "model · name" and selecting one carries its secretId', async () => {
+    const onChange = jest.fn();
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [CONNECTIONS_SECRET],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={onChange} />);
+    await openDropdown();
+
+    await userEvent.click(screen.getByTestId('model-group-connections'));
+    const option = screen.getByTestId('model-option-connection-sec-1-gpt-5.6-sol');
+    expect(option).toHaveTextContent('gpt-5.6-sol · my-openai');
+
+    await userEvent.click(option);
+    expect(onChange).toHaveBeenCalledWith({
+      mode: 'direct',
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-1',
+    });
   });
 });

@@ -131,7 +131,10 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         categories: ALL_ISSUE_CATEGORIES,
         provider: selection.provider,
         model: selection.model,
-        secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
+        secret_id:
+          selection.mode === 'direct'
+            ? (secretIdOverride ?? selection.secretId ?? existingSecrets[0]?.secret_id)
+            : undefined,
         endpoint_name: selection.mode === 'endpoint' ? selection.endpointName : undefined,
       },
       {

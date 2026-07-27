@@ -3,6 +3,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  KeyIcon,
   PlusIcon,
   Popover,
   Spinner,
@@ -12,6 +13,10 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import {
+  useAllowlistedModelPairs,
+  type AllowlistedModelPair,
+} from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
 import { sortModelsByDate } from '../../../../../gateway/utils/formatters';
 import type { Endpoint } from '../../../../../gateway/types';
@@ -27,6 +32,11 @@ export interface IssueDetectionModelSelection {
   endpointName?: string;
   provider: string;
   model: string;
+  /**
+   * The connection (secret) backing a `direct` selection, when the user picked a model from a
+   * registered LLM connection. Lets the submit path use that connection's key rather than guessing.
+   */
+  secretId?: string;
 }
 
 export interface ProviderOption {
@@ -151,6 +161,61 @@ const GatewayGroup = ({
   );
 };
 
+const ConnectionsGroup = ({
+  pairs,
+  isExpanded,
+  selectedSecretId,
+  selectedModel,
+  onToggle,
+  onSelectPair,
+}: {
+  pairs: AllowlistedModelPair[];
+  isExpanded: boolean;
+  selectedSecretId?: string;
+  selectedModel?: string;
+  onToggle: () => void;
+  onSelectPair: (pair: AllowlistedModelPair) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        css={optionRowCss(theme)}
+        aria-expanded={isExpanded}
+        data-testid="model-group-connections"
+      >
+        {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        <KeyIcon css={{ color: theme.colors.textSecondary }} />
+        <Typography.Text css={{ flex: 1 }}>
+          <FormattedMessage
+            defaultMessage="Existing connections"
+            description="Model dropdown group for models from registered LLM connections"
+          />
+        </Typography.Text>
+      </button>
+      {isExpanded &&
+        pairs.map((pair) => (
+          <button
+            key={`${pair.secretId}::${pair.model}`}
+            type="button"
+            onClick={() => onSelectPair(pair)}
+            css={{ ...optionRowCss(theme), paddingLeft: 44 }}
+            data-testid={`model-option-connection-${pair.secretId}-${pair.model}`}
+          >
+            <Typography.Text css={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {pair.model} · {pair.secretName}
+            </Typography.Text>
+            {selectedSecretId === pair.secretId && selectedModel === pair.model && (
+              <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />
+            )}
+          </button>
+        ))}
+    </div>
+  );
+};
+
 const ProviderGroup = ({
   provider,
   isExpanded,
@@ -216,9 +281,16 @@ export const IssueDetectionModelDropdown = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchEndpoints } = useEndpointsQuery();
+  const { pairs } = useAllowlistedModelPairs();
   const [open, setOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // The currently-selected registered connection (if any), used to label the trigger "name · model".
+  const selectedConnectionName =
+    value.mode === 'direct' && value.secretId
+      ? pairs.find((p) => p.secretId === value.secretId && p.model === value.model)?.secretName
+      : undefined;
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -243,7 +315,9 @@ export const IssueDetectionModelDropdown = ({
   const selectedProvider = ISSUE_DETECTION_PROVIDERS.find((p) => p.id === value.provider);
   const triggerLogo = isEndpoint ? GATEWAY_LOGO : selectedProvider?.logo;
   const triggerLogoDark = isEndpoint ? undefined : selectedProvider?.logoDark;
-  const triggerLabel = isEndpoint ? value.endpointName : (selectedProvider?.name ?? value.provider);
+  const triggerLabel = isEndpoint
+    ? value.endpointName
+    : (selectedConnectionName ?? selectedProvider?.name ?? value.provider);
 
   return (
     <Popover.Root
@@ -298,19 +372,19 @@ export const IssueDetectionModelDropdown = ({
             paddingBottom: theme.spacing.xs,
           }}
         >
-          {ISSUE_DETECTION_PROVIDERS.map((provider) => (
-            <ProviderGroup
-              key={provider.id}
-              provider={provider}
-              isExpanded={expandedGroup === provider.id}
-              selectedModel={value.mode === 'direct' && value.provider === provider.id ? value.model : undefined}
-              onToggle={() => toggleGroup(provider.id)}
-              onSelectModel={(model) => {
-                onChange({ mode: 'direct', provider: provider.id, model });
+          {pairs.length > 0 && (
+            <ConnectionsGroup
+              pairs={pairs}
+              isExpanded={expandedGroup === 'connections'}
+              selectedSecretId={value.mode === 'direct' ? value.secretId : undefined}
+              selectedModel={value.mode === 'direct' ? value.model : undefined}
+              onToggle={() => toggleGroup('connections')}
+              onSelectPair={(pair) => {
+                onChange({ mode: 'direct', provider: pair.provider, model: pair.model, secretId: pair.secretId });
                 setOpen(false);
               }}
             />
-          ))}
+          )}
           <GatewayGroup
             endpoints={endpoints}
             isExpanded={expandedGroup === 'gateway'}
@@ -319,6 +393,21 @@ export const IssueDetectionModelDropdown = ({
             onSelectEndpoint={selectEndpoint}
             onCreateEndpoint={() => setIsCreateModalOpen(true)}
           />
+          {ISSUE_DETECTION_PROVIDERS.map((provider) => (
+            <ProviderGroup
+              key={provider.id}
+              provider={provider}
+              isExpanded={expandedGroup === provider.id}
+              selectedModel={
+                value.mode === 'direct' && !value.secretId && value.provider === provider.id ? value.model : undefined
+              }
+              onToggle={() => toggleGroup(provider.id)}
+              onSelectModel={(model) => {
+                onChange({ mode: 'direct', provider: provider.id, model });
+                setOpen(false);
+              }}
+            />
+          ))}
         </div>
       </Popover.Content>
       {isCreateModalOpen && (

@@ -7,6 +7,7 @@ import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from '
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
+import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 
 jest.mock('./hooks/useInvokeIssueDetection');
@@ -16,6 +17,9 @@ jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
 }));
 jest.mock('../../../../../gateway/hooks/useModelsQuery', () => ({
   useModelsQuery: jest.fn(),
+}));
+jest.mock('../../../../../gateway/hooks/useSecretsQuery', () => ({
+  useSecretsQuery: jest.fn(),
 }));
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
   useApiKeyConfiguration: jest.fn(),
@@ -62,6 +66,7 @@ describe('IssueDetectionModal', () => {
     jest.clearAllMocks();
     clearSubmittedIssueDetectionJob();
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
+    jest.mocked(useSecretsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useModelsQuery).mockImplementation(
       ({ provider } = {}) =>
         ({
