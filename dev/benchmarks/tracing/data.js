@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785174173808,
+  "lastUpdate": 1785182868644,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -16793,6 +16793,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.02966919999335,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37624318+DaoDaoNoCode@users.noreply.github.com",
+            "name": "Juntao Wang",
+            "username": "DaoDaoNoCode"
+          },
+          "committer": {
+            "email": "31463517+B-Step62@users.noreply.github.com",
+            "name": "Yuki Watanabe",
+            "username": "B-Step62"
+          },
+          "distinct": true,
+          "id": "6135259c681e4d01cdd55923db8c51a967576148",
+          "message": "Add MCP Registry UI follow-up improvements (#24657)\n\nSigned-off-by: Juntao Wang <37624318+DaoDaoNoCode@users.noreply.github.com>",
+          "timestamp": "2026-07-27T13:06:27-07:00",
+          "tree_id": "5c7a2b25288a0bbeefd0f32738a77b2596b3c459",
+          "url": "https://github.com/mlflow/mlflow/commit/6135259c681e4d01cdd55923db8c51a967576148"
+        },
+        "date": 1785182867122,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.0445366999985,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 16.707917571425565,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.869775360656146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.63522766037555,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 26.162425068966595,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 54.32980119999797,
             "unit": "ms"
           }
         ]
