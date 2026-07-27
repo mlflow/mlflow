@@ -42,6 +42,9 @@ describe('providerUtils', () => {
       expect(formatCredentialFieldName('aws_access_key_id')).toBe('AWS Access Key ID');
       expect(formatCredentialFieldName('aws_secret_access_key')).toBe('AWS Secret Access Key');
       expect(formatCredentialFieldName('vertex_project')).toBe('Project ID');
+      expect(formatCredentialFieldName('portkey_provider')).toBe('Provider Slug');
+      expect(formatCredentialFieldName('portkey_config')).toBe('Config ID or JSON');
+      expect(formatCredentialFieldName('provider_api_key')).toBe('Provider API Key');
     });
 
     it('formats unknown credential fields with title case', () => {
@@ -77,6 +80,24 @@ describe('providerUtils', () => {
       ];
       const sorted = sortFieldsByProvider(fields, 'databricks');
       expect(sorted.map((f) => f.name)).toEqual(['client_id', 'api_base', 'unknown_field']);
+    });
+
+    it('sorts Portkey fields in the defined order', () => {
+      const fields = [
+        { name: 'api_base', value: '' },
+        { name: 'portkey_config', value: '' },
+        { name: 'provider_api_key', value: '' },
+        { name: 'api_key', value: '' },
+        { name: 'portkey_provider', value: '' },
+      ];
+      const sorted = sortFieldsByProvider(fields, 'portkey');
+      expect(sorted.map((f) => f.name)).toEqual([
+        'api_key',
+        'portkey_provider',
+        'provider_api_key',
+        'portkey_config',
+        'api_base',
+      ]);
     });
 
     it('handles empty fields array', () => {

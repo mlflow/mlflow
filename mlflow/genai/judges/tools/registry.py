@@ -130,6 +130,7 @@ def list_judge_tools() -> list[JudgeTool]:
 # the registry is fully defined before tools attempt to register themselves.
 from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool
 from mlflow.genai.judges.tools.get_span import GetSpanTool
+from mlflow.genai.judges.tools.get_span_image import GetSpanImageTool
 from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
     GetSpanPerformanceAndTimingReportTool,
 )
@@ -140,6 +141,7 @@ from mlflow.genai.judges.tools.search_trace_regex import SearchTraceRegexTool
 _judge_tool_registry.register(GetTraceInfoTool())
 _judge_tool_registry.register(GetRootSpanTool())
 _judge_tool_registry.register(GetSpanTool())
+_judge_tool_registry.register(GetSpanImageTool())
 _judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())

@@ -32,6 +32,7 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _get_span_processor,
     _get_tracer,
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
@@ -383,7 +384,21 @@ def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
 
 
 def _count_batch_processor_threads() -> int:
-    return sum("OtelBatchSpanRecordProcessor" in t.name for t in threading.enumerate())
+    # Match the "OtelBatchSpan" prefix rather than the full worker-thread name:
+    # OTel SDK versions name this daemon thread differently ("OtelBatchSpanProcessor"
+    # on older releases, "OtelBatchSpanRecordProcessor" on current ones), and the
+    # protobuf cross-version CI job exercises both.
+    return sum("OtelBatchSpan" in t.name for t in threading.enumerate())
+
+
+def _assert_batch_path_active() -> None:
+    # Guard against a vacuous pass: the async BatchSpanProcessor path must actually
+    # be active before we measure the baseline thread count. Assert on the active
+    # processor's batch delegate directly so the guard does not depend on OTel's
+    # worker-thread name (which varies across SDK versions).
+    processor = _get_span_processor()
+    assert processor is not None
+    assert processor._batch_delegate is not None
 
 
 @pytest.fixture
@@ -400,10 +415,15 @@ def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_process
     def f():
         return 0
 
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
     # Prime a real BatchSpanProcessor (and its daemon thread).
     f()
+    _assert_batch_path_active()
     baseline = _count_batch_processor_threads()
-    # Guard against a vacuous pass: the batch path must actually be active.
     assert baseline >= 1
 
     # Each enable() used to build a fresh provider + BatchSpanProcessor without
@@ -424,7 +444,13 @@ def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_process
     def wrapped():
         return 0
 
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
     f()
+    _assert_batch_path_active()
     baseline = _count_batch_processor_threads()
     assert baseline >= 1
 

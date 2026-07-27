@@ -32,6 +32,7 @@ import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/uti
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
+import { ModelsNextUIPromoModalAuto } from './ModelsNextUIPromoModalAuto';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 
@@ -194,6 +195,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
 
     return (
       <>
+        {shouldShowModelsNextUI() && <ModelsNextUIPromoModalAuto />}
         <Spacer shrinks={false} />
         <PageHeader title={<ModelListPageTitle />} spacerSize="xs">
           {showCreationButtons && <CreateModelButton />}

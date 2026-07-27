@@ -1076,6 +1076,28 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store):
         assert results[0].trace_id == trace_id_b
 
 
+def test_search_traces_without_locations_is_workspace_scoped_for_span_filters(
+    workspace_tracking_store,
+):
+    with WorkspaceContext("team-search-no-locations-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-search-no-locations-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a)
+        span_a = create_test_span(trace_id="trace-a", name="shared_span", span_id=111)
+        workspace_tracking_store.log_spans(exp_a, [span_a])
+
+    with WorkspaceContext("team-search-no-locations-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-search-no-locations-b")
+        _create_trace(workspace_tracking_store, "trace-b", exp_b)
+        span_b = create_test_span(trace_id="trace-b", name="shared_span", span_id=222)
+        workspace_tracking_store.log_spans(exp_b, [span_b])
+
+        results, _ = workspace_tracking_store.search_traces(
+            filter_string='span.name = "shared_span"'
+        )
+        assert len(results) == 1
+        assert results[0].trace_id == "trace-b"
+
+
 def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
     workspace_tracking_store,
 ):

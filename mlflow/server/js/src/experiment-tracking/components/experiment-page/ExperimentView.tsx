@@ -211,8 +211,6 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
       <>
         <ExperimentViewHeader
           experiment={firstExperiment}
-          searchFacetsState={searchFacets || undefined}
-          uiState={uiState}
           setEditing={setEditing}
           experimentKindSelector={
             !enableWorkflowBasedNavigation && !isComparingExperiments && firstExperimentId ? (

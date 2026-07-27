@@ -1637,3 +1637,47 @@ def test_anthropic_adapter_build_chat_usage_without_cached_tokens():
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
     assert not hasattr(usage, "cache_creation_input_tokens")
+
+
+def test_chat_to_model_translates_multimodal_image_content():
+    # A user message with OpenAI-format multimodal content (text + an image_url base64
+    # data URL) must be translated to Anthropic's native image block; the gateway path
+    # is how native anthropic:/ judge URIs reach the model.
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what color?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,QUJD"},
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what color?"},
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": "QUJD"},
+                },
+            ],
+        }
+    ]
+
+
+def test_chat_to_model_string_content_unchanged():
+    # String content must remain a no-op (shared with non-judge gateway traffic).
+    payload = {"messages": [{"role": "user", "content": "just text"}]}
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [{"role": "user", "content": "just text"}]

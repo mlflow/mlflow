@@ -1189,6 +1189,8 @@ describe('convertOtelAttributesToMap', () => {
         { key: 'bool_attr', value: { bool_value: true } },
         { key: 'int_attr', value: { int_value: 42 } },
         { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
       ],
     } as any;
 
@@ -1202,6 +1204,65 @@ describe('convertOtelAttributesToMap', () => {
         bool_attr: true,
         int_attr: 42,
         double_attr: 3.14,
+        null_attr: null,
+      },
+    });
+  });
+
+  it('should recursively decode kvlist and array values', () => {
+    // shape returned by OTLP-based endpoints (e.g. V3 traces/get) for
+    // dict-valued attributes like mlflow.spanInputs / mlflow.spanOutputs
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'mlflow.spanInputs',
+          value: {
+            kvlist_value: {
+              values: [
+                {
+                  key: 'messages',
+                  value: {
+                    array_value: {
+                      values: [
+                        {
+                          kvlist_value: {
+                            values: [
+                              { key: 'role', value: { string_value: 'user' } },
+                              { key: 'content', value: { string_value: 'How are you?' } },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                { key: 'n', value: { int_value: 1 } },
+                // null fields are serialized as kvlist entries without a value
+                { key: 'stop' },
+              ],
+            },
+          },
+        },
+        { key: 'empty_kvlist', value: { kvlist_value: {} } },
+        { key: 'empty_array', value: { array_value: {} } },
+        { key: 'int64_as_string', value: { int_value: '1783916154' } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        'mlflow.spanInputs': {
+          messages: [{ role: 'user', content: 'How are you?' }],
+          n: 1,
+          stop: null,
+        },
+        empty_kvlist: {},
+        empty_array: [],
+        int64_as_string: 1783916154,
       },
     });
   });
