@@ -761,7 +761,36 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 ],
             )
 
-        command.upgrade(config, REVISION)
+        trace_dimension_updates = []
+
+        def capture_trace_dimension_updates(
+            _conn, _cursor, statement, _parameters, _context, executemany
+        ):
+            normalized_statement = " ".join(statement.upper().split())
+            if normalized_statement.startswith("UPDATE TRACE_INFO") and all(
+                column in normalized_statement for column in ("TRACE_NAME", "SESSION_ID")
+            ):
+                trace_dimension_updates.append((normalized_statement, executemany))
+
+        with engine.connect() as connection:
+            config.attributes["connection"] = connection
+            sa.event.listen(engine, "before_cursor_execute", capture_trace_dimension_updates)
+            try:
+                command.upgrade(config, REVISION)
+            finally:
+                sa.event.remove(engine, "before_cursor_execute", capture_trace_dimension_updates)
+                config.attributes.pop("connection")
+
+        trace_count = _PAGINATION_ROW_COUNT + 2
+        expected_page_count = (trace_count + MIGRATION_MODULE._BATCH_SIZE - 1) // (
+            MIGRATION_MODULE._BATCH_SIZE
+        )
+        assert len(trace_dimension_updates) == expected_page_count
+        for statement, executemany in trace_dimension_updates:
+            assert " WHERE " in statement
+            assert " IN (" in statement
+            assert executemany is False
+
         truncation_logs = [
             record.getMessage()
             for record in caplog.records

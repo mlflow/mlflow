@@ -386,7 +386,6 @@ def _backfill_trace_analytics():
         .correlate(trace_info)
         .scalar_subquery()
     )
-    bind.execute(trace_info.update().values(trace_name=trace_name, session_id=session_id))
 
     update_stmt = (
         trace_info
@@ -413,6 +412,13 @@ def _backfill_trace_analytics():
             break
 
         batch_ids = [row.request_id for row in batch]
+        # Keep large strings out of the numeric executemany while bounding the set-based update.
+        bind.execute(
+            trace_info
+            .update()
+            .where(trace_info.c.request_id.in_(batch_ids))
+            .values(trace_name=trace_name, session_id=session_id)
+        )
         trace_names = dict.fromkeys(batch_ids)
         for row in bind.execute(
             sa.select(trace_tags.c.request_id, trace_tags.c.value).where(
