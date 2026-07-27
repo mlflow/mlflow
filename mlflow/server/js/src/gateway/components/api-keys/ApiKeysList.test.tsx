@@ -254,7 +254,7 @@ describe('ApiKeysList', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
   });
 
-  test('shows Gateway-derived models for an empty-allowlist connection used by an endpoint', () => {
+  test('shows "Gateway configured" for an empty-allowlist connection used by an endpoint', () => {
     jest.mocked(useSecretsQuery).mockReturnValue({
       data: mockSecrets,
       isLoading: false,
@@ -280,9 +280,8 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    // The secret has no explicit allowlist, so its endpoint's model is surfaced as a Gateway hint.
-    expect(screen.getByText('gpt-4')).toBeInTheDocument();
-    expect(screen.getByText('via Gateway')).toBeInTheDocument();
+    // The secret has no explicit allowlist but is wired up through an endpoint, so it reads as Gateway configured.
+    expect(screen.getByText('Gateway configured')).toBeInTheDocument();
     expect(screen.queryByText('Add models')).not.toBeInTheDocument();
   });
 
@@ -307,7 +306,7 @@ describe('ApiKeysList', () => {
     );
 
     expect(screen.getByText('Add models')).toBeInTheDocument();
-    expect(screen.queryByText('via Gateway')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gateway configured')).not.toBeInTheDocument();
   });
 
   test('calls onKeyClick when secret name is clicked', async () => {

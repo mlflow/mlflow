@@ -291,14 +291,10 @@ export const ApiKeysList = ({
         {filteredSecrets.map((secret) => {
           const endpointCount = getEndpointCount(secret.secret_id);
           const bindingCount = getBindingCount(secret.secret_id);
-          // Models this key is used with via AI Gateway endpoints (endpoint -> model definition ->
-          // secret_id). Surfaced as a hint when the user hasn't set an explicit allowlist.
-          const gatewayModelNames = Array.from(
-            new Set(
-              getModelDefinitionsForSecret(secret.secret_id)
-                .map((def) => def.model_name)
-                .filter((name): name is string => Boolean(name)),
-            ),
+          // A connection with no explicit allowlist may still be wired up through AI Gateway endpoints
+          // (endpoint -> model definition -> secret_id). Surface that as "Gateway configured".
+          const isGatewayConfigured = getModelDefinitionsForSecret(secret.secret_id).some((def) =>
+            Boolean(def.model_name),
           );
 
           return (
@@ -355,32 +351,21 @@ export const ApiKeysList = ({
                         </Tag>
                       ))}
                     </div>
-                  ) : gatewayModelNames.length > 0 ? (
+                  ) : isGatewayConfigured ? (
                     <Tooltip
                       componentId="mlflow.gateway.api-keys.gateway-models-tooltip"
                       content={formatMessage({
                         defaultMessage:
-                          'This connection has no allowlist. These models come from the AI Gateway endpoints that use it.',
-                        description: 'Tooltip explaining that the listed models are derived from AI Gateway endpoints',
+                          'This connection has no allowlist. It is configured through the AI Gateway endpoints that use it.',
+                        description: 'Tooltip explaining that a connection is configured via AI Gateway endpoints',
                       })}
                     >
-                      <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, alignItems: 'center' }}>
-                        {gatewayModelNames.map((modelName) => (
-                          <Tag
-                            key={modelName}
-                            componentId="mlflow.gateway.api-keys.gateway-model-tag"
-                            css={{ margin: 0 }}
-                          >
-                            {modelName}
-                          </Tag>
-                        ))}
-                        <Typography.Text color="secondary" size="sm">
-                          <FormattedMessage
-                            defaultMessage="via Gateway"
-                            description="Label indicating the listed models are derived from AI Gateway endpoints"
-                          />
-                        </Typography.Text>
-                      </div>
+                      <Typography.Text color="secondary">
+                        <FormattedMessage
+                          defaultMessage="Gateway configured"
+                          description="Label indicating a connection is configured through AI Gateway endpoints rather than an explicit allowlist"
+                        />
+                      </Typography.Text>
                     </Tooltip>
                   ) : (
                     <Button
