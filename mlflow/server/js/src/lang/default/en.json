@@ -1747,6 +1747,10 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
+  "5yjgeu": {
+    "defaultMessage": "This key will be saved for reuse.",
+    "description": "Text indicating API key will be saved for reuse"
+  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -3051,6 +3055,10 @@
     "defaultMessage": "One-line setup",
     "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
+  "BWH8UR": {
+    "defaultMessage": "API key name:",
+    "description": "Label for API key name input"
+  },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
@@ -3462,6 +3470,10 @@
   "DLZwqO": {
     "defaultMessage": "All models",
     "description": "Label for selector when all models are selected"
+  },
+  "DMDoI5": {
+    "defaultMessage": "Edit",
+    "description": "Link to edit the manually configured model in issue detection"
   },
   "DMEY+O": {
     "defaultMessage": "Select value type",
@@ -5899,6 +5911,10 @@
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
   },
+  "OMyvg6": {
+    "defaultMessage": "Select provider",
+    "description": "Placeholder for provider selector"
+  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -6058,6 +6074,10 @@
   "P5OG6u": {
     "defaultMessage": "Select field",
     "description": "Usage overview > filter row > field column placeholder"
+  },
+  "P8T2ix": {
+    "defaultMessage": "Configure model manually",
+    "description": "Title of the manual model configuration modal in issue detection"
   },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
@@ -6562,6 +6582,10 @@
   "RPlL7/": {
     "defaultMessage": "List view",
     "description": "Aria label for list view toggle"
+  },
+  "ROWJ1y": {
+    "defaultMessage": "Using manually configured model: {provider} · {model}",
+    "description": "Summary of the manually configured model, overriding the allowlisted model dropdown"
   },
   "RQ80MZ": {
     "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
@@ -7346,6 +7370,10 @@
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
+  },
+  "V0/5Oy": {
+    "defaultMessage": "Model: {model}",
+    "description": "Display of default model for selected provider"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -8819,6 +8847,10 @@
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
   },
+  "b9J0Ux": {
+    "defaultMessage": "Provider",
+    "description": "Label for the provider selector in the manual model configuration modal"
+  },
   "b9zfzK": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
     "description": "Try it description in starter code modal"
@@ -8850,6 +8882,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bO0wxq": {
+    "defaultMessage": "Advanced settings",
+    "description": "Collapsible section for advanced settings"
   },
   "bO1IlR": {
     "defaultMessage": "Select all",
@@ -9367,6 +9403,10 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
+  "dQ3JME": {
+    "defaultMessage": "API key name",
+    "description": "Placeholder for API key name input"
+  },
   "dQawRm": {
     "defaultMessage": "Passthrough APIs",
     "description": "Passthrough APIs tab title"
@@ -9378,6 +9418,10 @@
   "dSaI6E": {
     "defaultMessage": "Failed to load audio attachment",
     "description": "Error message when trace audio attachment fails to load"
+  },
+  "dTHmzd": {
+    "defaultMessage": "Saved API keys can be managed in LLM Connections under Settings.",
+    "description": "Tooltip explaining where saved API keys can be found (LLM Connections section under Settings)"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -10499,6 +10543,10 @@
     "defaultMessage": "Created by:",
     "description": "Label for created by"
   },
+  "hr2v8O": {
+    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
+    "description": "Hint explaining how to use other providers via Gateway"
+  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -11014,6 +11062,10 @@
   "js4/Y8": {
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
+  },
+  "juAy14": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in the manual model configuration modal"
   },
   "jwALGI": {
     "defaultMessage": "Cancel",
@@ -11779,6 +11831,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "n7+6xG": {
+    "defaultMessage": "Clear",
+    "description": "Link to clear the manually configured model and return to the allowlisted model dropdown"
+  },
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
@@ -12383,6 +12439,10 @@
     "defaultMessage": "Are you sure you want to delete this assessment?",
     "description": "Delete assessments modal confirmation text"
   },
+  "pvLtsr": {
+    "defaultMessage": "Enter model details manually",
+    "description": "Link below the model selector that opens a modal to configure a model manually"
+  },
   "pvjUFP": {
     "defaultMessage": "e.g., gpt-5.2, claude-4.5-opus",
     "description": "Placeholder for model name input"
@@ -12434,6 +12494,10 @@
   "q90jVU": {
     "defaultMessage": "End:",
     "description": "Label for the end time of a span"
+  },
+  "qAEGTP": {
+    "defaultMessage": "Use this model",
+    "description": "Primary button that confirms the manually configured model in issue detection"
   },
   "qAdWdK": {
     "defaultMessage": "Error",

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import {
   useDesignSystemTheme,
+  Button,
   Typography,
   Tooltip,
   DialogCombobox,
@@ -16,6 +17,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
+import { ManualModelConfigModal } from './ManualModelConfigModal';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useAllowlistedModelPairs } from '../../../../../gateway/hooks/useAllowlistedModelPairs';
@@ -89,6 +91,10 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
     const { pairs: allowlistedPairs, isLoading: isLoadingPairs } = useAllowlistedModelPairs();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const hasEndpoints = endpoints.length > 0;
+
+    // Manual entry escape hatch: when set, these values override the allowlisted-pair selection.
+    const [manualValues, setManualValues] = useState<ModelSelectionValues | null>(null);
+    const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
     // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints.
     // If initialValues provides a mode, use it directly and skip the endpoint-loading effect.
@@ -206,35 +212,36 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       setMode(hasEndpoints ? 'endpoint' : 'direct');
       setSelectedEndpointName(undefined);
       setSelectedPairKey(undefined);
+      setManualValues(null);
+      setIsManualModalOpen(false);
     }, [hasEndpoints]);
 
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
     const isDirectModeValid = mode === 'direct' && Boolean(selectedPair);
-    const isValid = isEndpointModeValid || isDirectModeValid;
+    const isValid = isEndpointModeValid || Boolean(manualValues) || isDirectModeValid;
+
+    // When the user has entered a model manually, those values take precedence over the pair selection.
+    const currentValues = useMemo<ModelSelectionValues>(
+      () => manualValues ?? { mode, endpointName: selectedEndpointName, provider, model, apiKeyConfig, saveKey },
+      [manualValues, mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey],
+    );
 
     useEffect(() => {
       onValidityChange(isValid);
     }, [isValid, onValidityChange]);
 
     useEffect(() => {
-      onSelectionChange?.({ mode, endpointName: selectedEndpointName, provider, model, apiKeyConfig, saveKey });
-    }, [mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey, onSelectionChange]);
+      onSelectionChange?.(currentValues);
+    }, [currentValues, onSelectionChange]);
 
     useImperativeHandle(
       ref,
       () => ({
-        getValues: () => ({
-          mode,
-          endpointName: selectedEndpointName,
-          provider,
-          model,
-          apiKeyConfig,
-          saveKey,
-        }),
+        getValues: () => currentValues,
         isValid,
         reset,
       }),
-      [mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey, isValid, reset],
+      [currentValues, isValid, reset],
     );
 
     return (
@@ -356,139 +363,196 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
           {/* Direct mode: single dropdown of pre-allowlisted "provider · model" pairs. */}
           {mode === 'direct' && showConfigureDirectly && (
             <>
-              {isLoadingPairs ? (
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <Spinner size="small" />
+              {manualValues && (
+                <div
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: theme.spacing.sm,
+                  }}
+                >
                   <Typography.Text color="secondary">
                     <FormattedMessage
-                      defaultMessage="Loading models..."
-                      description="Loading state while fetching allowlisted models for issue detection"
+                      defaultMessage="Using manually configured model: {provider} · {model}"
+                      description="Summary of the manually configured model, overriding the allowlisted model dropdown"
+                      values={{ provider: manualValues.provider, model: manualValues.model }}
                     />
                   </Typography.Text>
+                  <Button
+                    componentId={`${componentId}.manual.edit`}
+                    type="link"
+                    size="small"
+                    onClick={() => setIsManualModalOpen(true)}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Edit"
+                      description="Link to edit the manually configured model in issue detection"
+                    />
+                  </Button>
+                  <Button
+                    componentId={`${componentId}.manual.clear`}
+                    type="link"
+                    size="small"
+                    onClick={() => setManualValues(null)}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Clear"
+                      description="Link to clear the manually configured model and return to the allowlisted model dropdown"
+                    />
+                  </Button>
                 </div>
-              ) : (
-                <DialogCombobox
-                  componentId={`${componentId}.model-pair`}
-                  id={`${componentId}.model-pair`}
-                  label={intl.formatMessage({
-                    defaultMessage: 'Model',
-                    description: 'Label for the allowlisted provider/model pair selector',
-                  })}
-                  value={selectedPair ? [pairKey(selectedPair)] : []}
-                >
-                  <DialogComboboxTrigger
-                    withInlineLabel={false}
-                    allowClear={false}
-                    disabled={readOnly}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Select a model',
-                      description: 'Placeholder for the allowlisted provider/model pair selector',
-                    })}
-                    renderDisplayedValue={() => (selectedPair ? <span>{selectedPair.label}</span> : null)}
-                  />
-                  <DialogComboboxContent>
-                    <DialogComboboxOptionList>
-                      {allowlistedPairs.length > 0 ? (
-                        <>
-                          <div css={{ maxHeight: 200, overflowY: 'auto', width: '100%', alignSelf: 'stretch' }}>
-                            {allowlistedPairs.map((pair) => {
-                              const key = pairKey(pair);
-                              return (
-                                <DialogComboboxOptionListSelectItem
-                                  key={key}
-                                  value={key}
-                                  onChange={() => setSelectedPairKey(key)}
-                                  checked={selectedPairKey === key}
-                                >
-                                  {pair.label}
-                                  <DialogComboboxHintRow>{pair.secretName}</DialogComboboxHintRow>
-                                </DialogComboboxOptionListSelectItem>
-                              );
-                            })}
-                          </div>
-                          <DialogComboboxSeparator />
-                          <button
-                            type="button"
-                            css={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: theme.spacing.xs,
-                              width: '100%',
-                              padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              color: theme.colors.actionPrimaryBackgroundDefault,
-                            }}
-                            onClick={() => navigate(CONNECTIONS_ROUTE)}
-                          >
-                            <PlusIcon />
-                            <FormattedMessage
-                              defaultMessage="Manage connections"
-                              description="Footer link in the model dropdown that navigates to the LLM Connections settings"
-                            />
-                          </button>
-                        </>
-                      ) : (
-                        <div
-                          css={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: theme.spacing.sm,
-                            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                          }}
-                        >
-                          <Typography.Text color="secondary">
-                            <FormattedMessage
-                              defaultMessage="No models available. Add a connection with allowed models to get started."
-                              description="Empty state shown in the model dropdown when no allowlisted models exist"
-                            />
-                          </Typography.Text>
-                          <button
-                            type="button"
-                            css={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: theme.spacing.xs,
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: 0,
-                              color: theme.colors.actionPrimaryBackgroundDefault,
-                            }}
-                            onClick={() => navigate(CONNECTIONS_ROUTE)}
-                          >
-                            <PlusIcon />
-                            <FormattedMessage
-                              defaultMessage="Add a connection"
-                              description="Action in the empty model dropdown that navigates to the LLM Connections settings"
-                            />
-                          </button>
-                        </div>
-                      )}
-                    </DialogComboboxOptionList>
-                  </DialogComboboxContent>
-                </DialogCombobox>
               )}
-              <a
-                css={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.xs,
-                  alignSelf: 'flex-start',
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(CONNECTIONS_ROUTE);
-                }}
-                href={CONNECTIONS_ROUTE}
-              >
-                <FormattedMessage
-                  defaultMessage="Manage connections"
-                  description="Footer link below the model selector navigating to LLM Connections settings"
-                />
-              </a>
+              {!manualValues &&
+                (isLoadingPairs ? (
+                  <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                    <Spinner size="small" />
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="Loading models..."
+                        description="Loading state while fetching allowlisted models for issue detection"
+                      />
+                    </Typography.Text>
+                  </div>
+                ) : (
+                  <DialogCombobox
+                    componentId={`${componentId}.model-pair`}
+                    id={`${componentId}.model-pair`}
+                    label={intl.formatMessage({
+                      defaultMessage: 'Model',
+                      description: 'Label for the allowlisted provider/model pair selector',
+                    })}
+                    value={selectedPair ? [pairKey(selectedPair)] : []}
+                  >
+                    <DialogComboboxTrigger
+                      withInlineLabel={false}
+                      allowClear={false}
+                      disabled={readOnly}
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'Select a model',
+                        description: 'Placeholder for the allowlisted provider/model pair selector',
+                      })}
+                      renderDisplayedValue={() => (selectedPair ? <span>{selectedPair.label}</span> : null)}
+                    />
+                    <DialogComboboxContent>
+                      <DialogComboboxOptionList>
+                        {allowlistedPairs.length > 0 ? (
+                          <>
+                            <div css={{ maxHeight: 200, overflowY: 'auto', width: '100%', alignSelf: 'stretch' }}>
+                              {allowlistedPairs.map((pair) => {
+                                const key = pairKey(pair);
+                                return (
+                                  <DialogComboboxOptionListSelectItem
+                                    key={key}
+                                    value={key}
+                                    onChange={() => setSelectedPairKey(key)}
+                                    checked={selectedPairKey === key}
+                                  >
+                                    {pair.label}
+                                    <DialogComboboxHintRow>{pair.secretName}</DialogComboboxHintRow>
+                                  </DialogComboboxOptionListSelectItem>
+                                );
+                              })}
+                            </div>
+                            <DialogComboboxSeparator />
+                            <button
+                              type="button"
+                              css={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: theme.spacing.xs,
+                                width: '100%',
+                                padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                color: theme.colors.actionPrimaryBackgroundDefault,
+                              }}
+                              onClick={() => navigate(CONNECTIONS_ROUTE)}
+                            >
+                              <PlusIcon />
+                              <FormattedMessage
+                                defaultMessage="Manage connections"
+                                description="Footer link in the model dropdown that navigates to the LLM Connections settings"
+                              />
+                            </button>
+                          </>
+                        ) : (
+                          <div
+                            css={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: theme.spacing.sm,
+                              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                            }}
+                          >
+                            <Typography.Text color="secondary">
+                              <FormattedMessage
+                                defaultMessage="No models available. Add a connection with allowed models to get started."
+                                description="Empty state shown in the model dropdown when no allowlisted models exist"
+                              />
+                            </Typography.Text>
+                            <button
+                              type="button"
+                              css={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: theme.spacing.xs,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                color: theme.colors.actionPrimaryBackgroundDefault,
+                              }}
+                              onClick={() => navigate(CONNECTIONS_ROUTE)}
+                            >
+                              <PlusIcon />
+                              <FormattedMessage
+                                defaultMessage="Add a connection"
+                                description="Action in the empty model dropdown that navigates to the LLM Connections settings"
+                              />
+                            </button>
+                          </div>
+                        )}
+                      </DialogComboboxOptionList>
+                    </DialogComboboxContent>
+                  </DialogCombobox>
+                ))}
+              {!manualValues && (
+                <a
+                  css={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    alignSelf: 'flex-start',
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(CONNECTIONS_ROUTE);
+                  }}
+                  href={CONNECTIONS_ROUTE}
+                >
+                  <FormattedMessage
+                    defaultMessage="Manage connections"
+                    description="Footer link below the model selector navigating to LLM Connections settings"
+                  />
+                </a>
+              )}
+              {!manualValues && (
+                <Button
+                  componentId={`${componentId}.manual.open`}
+                  type="link"
+                  size="small"
+                  css={{ alignSelf: 'flex-start' }}
+                  onClick={() => setIsManualModalOpen(true)}
+                >
+                  <FormattedMessage
+                    defaultMessage="Enter model details manually"
+                    description="Link below the model selector that opens a modal to configure a model manually"
+                  />
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -500,6 +564,14 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
             onSuccess={handleCreateEndpointSuccess}
           />
         )}
+
+        <ManualModelConfigModal
+          open={isManualModalOpen}
+          onClose={() => setIsManualModalOpen(false)}
+          onSave={(v) => setManualValues(v)}
+          initialValues={manualValues}
+          componentId={`${componentId}.manual`}
+        />
       </div>
     );
   },
