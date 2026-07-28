@@ -5,8 +5,9 @@
  * payload uses (see `GATEWAY_PROVIDER_ID` and the server-side provider names).
  */
 import type { ElementType } from 'react';
-import { CodeIcon, TerminalIcon } from '@databricks/design-system';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
+import ClaudeCodeLogo from '@mlflow/mlflow/src/common/static/logos/claude-code.svg';
+import CodexLogo from '@mlflow/mlflow/src/common/static/logos/codex-color.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
 import MLflowGatewayLogo from '@mlflow/mlflow/src/common/static/logos/mlflow-gateway.svg';
@@ -27,7 +28,7 @@ export const ASSISTANT_PROVIDERS: AssistantProvider[] = [
     id: 'claude_code',
     name: 'Claude Code',
     description: 'AI assistant powered by the Claude Code CLI. Requires Claude Code CLI installed locally.',
-    icon: TerminalIcon,
+    logo: ClaudeCodeLogo,
     available: true,
   },
   {
@@ -48,7 +49,7 @@ export const ASSISTANT_PROVIDERS: AssistantProvider[] = [
     id: 'codex',
     name: 'Codex',
     description: 'AI assistant powered by the Codex CLI. Requires the codex CLI to be installed and authenticated.',
-    icon: CodeIcon,
+    logo: CodexLogo,
     available: true,
   },
 ];

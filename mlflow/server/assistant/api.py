@@ -265,8 +265,7 @@ def _resolved_provider_info(
         has_api_key=False,
     )
     if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
-        vendor = _gateway_vendor_from_managed_endpoint(model)
-        if vendor:
+        if vendor := _gateway_vendor_from_managed_endpoint(model):
             provider_model = _GATEWAY_VENDOR_MODELS[vendor]
             resolved.model_provider = vendor
             resolved.model_options = [provider_model]

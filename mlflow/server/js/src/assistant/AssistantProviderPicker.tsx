@@ -17,14 +17,14 @@ import type { Endpoint } from '../gateway/types';
 
 const GATEWAY_VENDOR_ORDER = ['openai', 'anthropic', 'gemini'];
 const GATEWAY_VENDOR_MENU_LABELS = {
-  openai: 'OpenAI API',
-  anthropic: 'Anthropic API',
-  gemini: 'Gemini API',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Gemini',
 } satisfies Record<string, string>;
 const LOCAL_PROVIDER_MENU_LABELS = {
-  claude_code: 'Claude Code (local)',
-  codex: 'Codex CLI (local)',
-  ollama: 'Ollama (local)',
+  claude_code: 'Claude Code',
+  codex: 'Codex CLI',
+  ollama: 'Ollama',
 } satisfies Record<string, string>;
 const PROVIDER_SELECTION_KIND = {
   Provider: 'provider',

@@ -98,15 +98,15 @@ describe('AssistantProviderPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
 
     expect(await screen.findByText('API providers')).toBeInTheDocument();
-    expect(screen.getByText('OpenAI API')).toBeInTheDocument();
-    expect(screen.getByText('Anthropic API')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('Anthropic')).toBeInTheDocument();
     expect(screen.getByText('Local providers')).toBeInTheDocument();
-    expect(screen.getByText('Codex CLI (local)')).toBeInTheDocument();
+    expect(screen.getByText('Codex CLI')).toBeInTheDocument();
     expect(screen.getByText('Gateway endpoints')).toBeInTheDocument();
     expect(screen.getByText('MLflow AI Gateway')).toBeInTheDocument();
     expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('OpenAI API'));
+    await user.click(screen.getByText('OpenAI'));
     expect(onSelect).toHaveBeenCalledWith({
       kind: 'gateway',
       endpointName: 'mlflow-assistant-openai',
@@ -127,7 +127,7 @@ describe('AssistantProviderPicker', () => {
     renderPicker({ gatewayVendorOptions: { anthropic: ['claude-3-5-sonnet'] } });
 
     await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
-    expect(await screen.findByText('Anthropic API')).toBeInTheDocument();
+    expect(await screen.findByText('Anthropic')).toBeInTheDocument();
 
     await user.hover(screen.getByText('MLflow AI Gateway'));
     expect(await screen.findByText('custom-anthropic-endpoint')).toBeInTheDocument();
@@ -164,7 +164,7 @@ describe('AssistantProviderPicker', () => {
   });
 
   test.each([
-    ['openai', 'OpenAI API'],
+    ['openai', 'OpenAI'],
     ['xai', 'MLflow AI Gateway'],
   ])('shows %s gateway endpoint as %s', (modelProvider, label) => {
     renderPicker({
