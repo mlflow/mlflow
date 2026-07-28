@@ -4,6 +4,7 @@ import uuid
 from unittest.mock import Mock, patch
 
 import pytest
+from databricks.sdk.service.sql import StatementState
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
@@ -642,8 +643,14 @@ def test_tracing_client_get_trace_error_handling():
         client.get_trace(trace_id)
 
 
-def _uc_experiment(location):
-    return Mock(trace_location=location)
+def _uc_experiment(location, tags=None):
+    return Mock(trace_location=location, tags=tags or {})
+
+
+def _uc_location(spans_table="cat.sch.tbl_otel_spans"):
+    location = UnityCatalog("cat", "sch", "tbl")
+    location._otel_spans_table_name = spans_table
+    return location
 
 
 def test_resolve_uc_trace_location_returns_full_table_prefix():
@@ -686,28 +693,98 @@ def test_resolve_uc_trace_location_handles_missing_experiment_id():
     mock_store.get_experiment.assert_not_called()
 
 
-def test_delete_traces_qualifies_plain_ids_for_uc_experiment():
-    mock_store = Mock()
-    mock_store.get_experiment.return_value = _uc_experiment(UnityCatalog("cat", "sch", "tbl"))
-    mock_store.delete_traces.return_value = 2
-
-    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
-        client = TracingClient(tracking_uri="databricks")
-        # A plain ID is qualified with the UC location; an already-qualified ID is left as-is.
-        deleted = client.delete_traces(
-            "123", trace_ids=["tr-abc", "trace:/cat.sch.tbl/tr-def"]
-        )
-
-    assert deleted == 2
-    mock_store.delete_traces.assert_called_once_with(
-        experiment_id="123",
-        max_timestamp_millis=None,
-        max_traces=None,
-        trace_ids=["trace:/cat.sch.tbl/tr-abc", "trace:/cat.sch.tbl/tr-def"],
+def _mock_delete_response(rows_deleted):
+    """Build a Mock StatementResponse whose single-cell result carries the affected-row count."""
+    return Mock(
+        status=Mock(state=StatementState.SUCCEEDED),
+        result=Mock(data_array=[[rows_deleted]]),
     )
 
 
-def test_delete_traces_leaves_plain_ids_for_non_uc_experiment():
+def test_delete_traces_uc_experiment_deletes_via_sql(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "wh-123")
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _uc_experiment(_uc_location())
+
+    mock_execute = Mock(return_value=_mock_delete_response(2))
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.utils.databricks_sql_warehouse.execute_sql_statement", mock_execute),
+    ):
+        client = TracingClient(tracking_uri="databricks")
+        # Plain and fully-qualified IDs are both normalized to the bare OTel hex id.
+        deleted = client.delete_traces("123", trace_ids=["tr-abc", "trace:/cat.sch.tbl/tr-def"])
+
+    assert deleted == 2
+    # The store's (V3) delete RPC must NOT be used for UC traces.
+    mock_store.delete_traces.assert_not_called()
+
+    warehouse_id, statement = mock_execute.call_args.args[0], mock_execute.call_args.args[1]
+    parameters = mock_execute.call_args.args[2]
+    assert warehouse_id == "wh-123"
+    assert "DELETE FROM cat.sch.tbl_otel_spans WHERE trace_id IN (:id_0, :id_1)" in statement
+    assert [(p.name, p.value) for p in parameters] == [("id_0", "tr-abc"), ("id_1", "tr-def")]
+
+
+def test_delete_traces_uc_experiment_resolves_warehouse_from_tag(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", raising=False)
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _uc_experiment(
+        _uc_location(), tags={"mlflow.monitoring.sqlWarehouseId": "wh-from-tag"}
+    )
+
+    mock_execute = Mock(return_value=_mock_delete_response(1))
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.utils.databricks_sql_warehouse.execute_sql_statement", mock_execute),
+    ):
+        client = TracingClient(tracking_uri="databricks")
+        client.delete_traces("123", trace_ids=["tr-abc"])
+
+    assert mock_execute.call_args.args[0] == "wh-from-tag"
+
+
+def test_delete_traces_uc_experiment_without_warehouse_raises(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", raising=False)
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _uc_experiment(_uc_location())
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient(tracking_uri="databricks")
+        with pytest.raises(MlflowException, match="SQL warehouse is required"):
+            client.delete_traces("123", trace_ids=["tr-abc"])
+
+
+def test_delete_traces_uc_experiment_without_spans_table_raises(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "wh-123")
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _uc_experiment(_uc_location(spans_table=None))
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient(tracking_uri="databricks")
+        with pytest.raises(MlflowException, match="does not expose an OTel spans table"):
+            client.delete_traces("123", trace_ids=["tr-abc"])
+
+
+def test_delete_traces_uc_experiment_missing_row_count_raises(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "wh-123")
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _uc_experiment(_uc_location())
+
+    no_count_response = Mock(status=Mock(state=StatementState.SUCCEEDED), result=Mock(data_array=[]))
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch(
+            "mlflow.utils.databricks_sql_warehouse.execute_sql_statement",
+            return_value=no_count_response,
+        ),
+    ):
+        client = TracingClient(tracking_uri="databricks")
+        with pytest.raises(MlflowException, match="did not report an affected-row count"):
+            client.delete_traces("123", trace_ids=["tr-abc"])
+
+
+def test_delete_traces_leaves_non_uc_experiment_on_store_rpc():
     mock_store = Mock()
     mock_store.get_experiment.return_value = _uc_experiment(None)
     mock_store.delete_traces.return_value = 1
