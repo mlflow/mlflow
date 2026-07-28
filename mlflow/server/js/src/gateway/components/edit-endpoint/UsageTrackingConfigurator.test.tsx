@@ -21,9 +21,9 @@ describe('UsageTrackingConfigurator', () => {
 
     renderWithDesignSystem(<UsageTrackingConfigurator mode="off" onChange={onChange} />);
 
-    expect(screen.getByRole('radio', { name: 'Tracing off' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Off' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Redact message content' })).not.toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Full tracing' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Full' })).not.toBeChecked();
     expect(screen.getByText(/prompts, messages, and model responses are redacted/i)).toBeInTheDocument();
     expect(screen.getByText(/complete request and response content/i)).toBeInTheDocument();
   });
@@ -44,7 +44,7 @@ describe('UsageTrackingConfigurator', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Redact message content' }));
     expect(onChange).toHaveBeenCalledWith('metadata_only');
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Full tracing' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Full' }));
     expect(onChange).toHaveBeenCalledWith('full');
   });
 
@@ -53,7 +53,7 @@ describe('UsageTrackingConfigurator', () => {
 
     renderWithDesignSystem(<UsageTrackingConfigurator mode="full" onChange={onChange} compact />);
 
-    expect(screen.getByRole('radio', { name: 'Full tracing' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Full' })).toBeChecked();
     expect(screen.queryByText(/complete request and response content/i)).not.toBeInTheDocument();
   });
 });

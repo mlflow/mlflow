@@ -57,7 +57,7 @@ export const UsageTrackingConfigurator = ({
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: compact ? 0 : theme.spacing.sm }}>
         <div>
-          <Radio value="off" aria-label="Tracing off">
+          <Radio value="off">
             <FormattedMessage defaultMessage="Off" description="Usage tracking mode: tracing disabled" />
           </Radio>
           {renderDescription(
@@ -68,7 +68,7 @@ export const UsageTrackingConfigurator = ({
           )}
         </div>
         <div>
-          <Radio value="metadata_only" aria-label="Redact message content">
+          <Radio value="metadata_only">
             <FormattedMessage
               defaultMessage="Redact message content"
               description="Usage tracking mode: message content redacted"
@@ -82,7 +82,7 @@ export const UsageTrackingConfigurator = ({
           )}
         </div>
         <div>
-          <Radio value="full" aria-label="Full tracing">
+          <Radio value="full">
             <FormattedMessage defaultMessage="Full" description="Usage tracking mode: full tracing" />
           </Radio>
           {renderDescription(
