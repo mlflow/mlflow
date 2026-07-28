@@ -228,6 +228,28 @@ describe('AssistantProviderPicker', () => {
     });
   });
 
+  test('does not show an interactive model picker when only one model is available', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderPicker({
+      provider: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'mlflow-assistant-openai',
+        auto_selected: false,
+        model_provider: 'openai',
+        provider_model: 'gpt-5.5',
+        model_options: ['gpt-5.5'],
+      }),
+    });
+
+    const modelButton = screen.getByRole('button', { name: 'Assistant model' });
+    expect(modelButton).toBeDisabled();
+    expect(modelButton.querySelector('svg')).not.toBeInTheDocument();
+
+    await user.click(modelButton);
+    expect(screen.queryByRole('menuitem', { name: 'gpt-5.5' })).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   test.each([
     ['openai', 'OpenAI'],
     ['xai', 'MLflow AI Gateway'],

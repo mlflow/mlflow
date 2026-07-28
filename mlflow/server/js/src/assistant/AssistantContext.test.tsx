@@ -570,6 +570,17 @@ describe('AssistantProvider setup state from provider discovery', () => {
     expect(result.current.error).toBe('could not save provider');
     expect(failedAssistantTurn).toMatchObject({ role: 'assistant', isStreaming: false });
     expect(failedAssistantTurn.content).toContain('Error: could not save provider');
+
+    await waitFor(() => expect(result.current.activeProvider?.name).toBe('claude_code'));
+
+    mockUpdateConfig.mockClear();
+    mockSendMessageStream.mockClear();
+    await act(async () => {
+      result.current.sendMessage('third');
+    });
+
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
   });
 
   test('discovery failure => setup treated as incomplete', async () => {

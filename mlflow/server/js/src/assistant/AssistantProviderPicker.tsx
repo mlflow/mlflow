@@ -370,11 +370,12 @@ const ModelPicker = ({
   }
 
   const selectedModel = model && model !== 'default' && options.includes(model) ? model : options[0];
+  const canChangeModel = !disabled && options.length > 1;
   const trigger = (
     <button
       type="button"
-      disabled={disabled}
-      aria-label="Change assistant model"
+      disabled={!canChangeModel}
+      aria-label={canChangeModel ? 'Change assistant model' : 'Assistant model'}
       css={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -384,7 +385,7 @@ const ModelPicker = ({
         border: 'none',
         background: 'transparent',
         padding: 0,
-        cursor: disabled ? 'default' : 'pointer',
+        cursor: canChangeModel ? 'pointer' : 'default',
       }}
     >
       <Typography.Text
@@ -394,11 +395,11 @@ const ModelPicker = ({
       >
         {selectedModel}
       </Typography.Text>
-      {!disabled && <ChevronDownIcon css={{ fontSize: 12, color: theme.colors.textSecondary }} />}
+      {canChangeModel && <ChevronDownIcon css={{ fontSize: 12, color: theme.colors.textSecondary }} />}
     </button>
   );
 
-  if (disabled || options.length === 1) {
+  if (!canChangeModel) {
     return trigger;
   }
 

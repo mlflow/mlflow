@@ -546,14 +546,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     } else if (pending.model && pending.model !== 'default') {
       providerUpdate.model = pending.model;
     }
-    await updateConfig({ providers: { [providerName]: providerUpdate } });
+    try {
+      await updateConfig({ providers: { [providerName]: providerUpdate } });
+    } catch (err) {
+      if (pendingProviderSelectionRef.current === pending) {
+        pendingProviderSelectionRef.current = null;
+        void refreshConfig({ silent: true });
+      }
+      throw err;
+    }
     if (pendingProviderSelectionRef.current === pending) {
       pendingProviderSelectionRef.current = null;
     }
     // Sync the resolved provider in the background (fills the gateway endpoint's
     // model vendor, clears needsApiKey after a key save). Not awaited so it
     // never delays the stream.
-    void refreshConfig();
+    void refreshConfig({ silent: true });
   }, [refreshConfig]);
 
   const completeSetup = useCallback(() => {
