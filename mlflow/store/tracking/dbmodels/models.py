@@ -36,6 +36,7 @@ from mlflow.entities import (
     Assessment,
     AssessmentError,
     AssessmentSource,
+    ConnectOptionSettings,
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
@@ -4009,7 +4010,6 @@ class SqlMCPServerVersion(Base):
     version_patch = Column(Integer, nullable=False)
     version_prerelease_sort_key = Column(String(512), nullable=False)
     server_json = Column(JSON, nullable=False)
-    display_name = Column(String(256), nullable=True)
     status = Column(
         String(20),
         nullable=False,
@@ -4018,6 +4018,7 @@ class SqlMCPServerVersion(Base):
     )
     tools = Column(JSON, nullable=True)
     source = Column(String(512), nullable=True)
+    connect_options = Column(JSON, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
@@ -4072,11 +4073,13 @@ class SqlMCPServerVersion(Base):
             name=self.name,
             version=self.version,
             server_json=server_json,
-            display_name=self.display_name,
             status=MCPStatus(self.status),
             tools=tools,
             aliases=alias_names,
             tags=tags,
+            connect_options={
+                k: ConnectOptionSettings(**v) for k, v in (self.connect_options or {}).items()
+            },
             source=self.source,
             workspace=self.workspace,
             created_by=self.created_by,
