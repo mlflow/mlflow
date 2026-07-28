@@ -33,6 +33,13 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -1076,6 +1083,28 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store):
         assert results[0].trace_id == trace_id_b
 
 
+def test_search_traces_without_locations_is_workspace_scoped_for_span_filters(
+    workspace_tracking_store,
+):
+    with WorkspaceContext("team-search-no-locations-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-search-no-locations-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a)
+        span_a = create_test_span(trace_id="trace-a", name="shared_span", span_id=111)
+        workspace_tracking_store.log_spans(exp_a, [span_a])
+
+    with WorkspaceContext("team-search-no-locations-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-search-no-locations-b")
+        _create_trace(workspace_tracking_store, "trace-b", exp_b)
+        span_b = create_test_span(trace_id="trace-b", name="shared_span", span_id=222)
+        workspace_tracking_store.log_spans(exp_b, [span_b])
+
+        results, _ = workspace_tracking_store.search_traces(
+            filter_string='span.name = "shared_span"'
+        )
+        assert len(results) == 1
+        assert results[0].trace_id == "trace-b"
+
+
 def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
     workspace_tracking_store,
 ):
@@ -1673,6 +1702,62 @@ def test_endpoints_are_workspace_scoped(gateway_workspace_store):
         endpoints = gateway_workspace_store.list_gateway_endpoints()
         assert len(endpoints) == 1
         assert endpoints[0].endpoint_id == endpoint_a.endpoint_id
+
+
+def test_budget_policies_are_workspace_scoped(gateway_workspace_store):
+    store = gateway_workspace_store
+    with WorkspaceContext("team-budget-a"):
+        secret = store.create_gateway_secret(
+            secret_name="budget-secret-a", secret_value={"api_key": "val-a"}
+        )
+        model_def = store.create_gateway_model_definition(
+            name="budget-def-a",
+            secret_id=secret.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint = store.create_gateway_endpoint(
+            name="budget-endpoint-a",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=model_def.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+        policy_a = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.ENDPOINT,
+            budget_action=BudgetAction.REJECT,
+            target_value=endpoint.endpoint_id,
+        )
+
+    with WorkspaceContext("team-budget-b"):
+        assert len(store.list_budget_policies()) == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_budget_policy(budget_policy_id=policy_a.budget_policy_id)
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_budget_policy(
+                budget_policy_id=policy_a.budget_policy_id, budget_amount=1.0
+            )
+        # Another workspace's endpoint cannot be referenced by a new policy.
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=50.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.ENDPOINT,
+                budget_action=BudgetAction.REJECT,
+                target_value=endpoint.endpoint_id,
+            )
+
+    with WorkspaceContext("team-budget-a"):
+        policies = store.list_budget_policies()
+        assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
+        assert policies[0].target_value == endpoint.endpoint_id
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):

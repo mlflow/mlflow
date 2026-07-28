@@ -1967,7 +1967,7 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
         versions or different platform machines. As such, if you connect to a different cluster
         that is running a different runtime version on Databricks, you will need to execute this
         API in a notebook and retrieve the generated archive to your local machine. Each
-        environment snapshot is unique to the the model, the runtime version of your remote
+        environment snapshot is unique to the model, the runtime version of your remote
         Databricks cluster, and the specification of the udf execution environment.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
         whether the spark UDF sandbox environment matches the prebuilt env requirements and will

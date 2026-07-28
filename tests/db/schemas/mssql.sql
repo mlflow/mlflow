@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	target_value VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
@@ -316,7 +317,6 @@ CREATE TABLE mcp_server_versions (
 	version_patch INTEGER NOT NULL,
 	version_prerelease_sort_key VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	server_json NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	display_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('draft') NOT NULL,
 	tools NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS",
