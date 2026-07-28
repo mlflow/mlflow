@@ -1310,6 +1310,29 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'MCP Registry',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp-registry/register-mcp-servers',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/connect-to-servers',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'mcp-registry/index',
+      },
+    },
+    {
+      type: 'category',
       label: 'Agent Serving',
       className: 'sidebar-top-level-category',
       items: [
