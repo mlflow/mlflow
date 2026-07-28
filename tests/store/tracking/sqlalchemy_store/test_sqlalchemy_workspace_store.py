@@ -33,6 +33,13 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -923,6 +930,76 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
+def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db_uri, monkeypatch):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        store.rename_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, "renamed-default")
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # Re-initializing the store (simulating a server restart) must not crash on the renamed
+    # default experiment. The by-ID bootstrap guard should find experiment 0 and skip re-creating
+    # it, rather than colliding on the primary key.
+    restarted_store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    try:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            default_experiment = restarted_store.get_experiment(
+                SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+            )
+        assert default_experiment.name == "renamed-default"
+        assert default_experiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+    finally:
+        restarted_store._dispose_engine()
+        SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
+def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
+    tmp_path, db_uri, monkeypatch
+):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
+    # occupies the (default workspace, "Default") slot. Re-creating experiment 0 will then trip
+    # the (workspace, name) unique constraint rather than the primary-key race, so the store must
+    # surface the error instead of silently starting up without a default experiment.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        default_experiment = (
+            session
+            .query(SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID))
+            .one()
+        )
+        session.delete(default_experiment)
+        session.flush()
+        session.add(
+            SqlExperiment(
+                experiment_id=123,
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                workspace=DEFAULT_WORKSPACE_NAME,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+                creation_time=_now_ms(),
+                last_update_time=_now_ms(),
+            )
+        )
+        session.flush()
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # The wrapped message is the driver's error string, whose class name is dialect-specific:
+    # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
+    with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
+        tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
 def test_single_tenant_startup_rejects_non_default_workspace_experiments(
     tmp_path, db_uri, monkeypatch
 ):
@@ -1695,6 +1772,62 @@ def test_endpoints_are_workspace_scoped(gateway_workspace_store):
         endpoints = gateway_workspace_store.list_gateway_endpoints()
         assert len(endpoints) == 1
         assert endpoints[0].endpoint_id == endpoint_a.endpoint_id
+
+
+def test_budget_policies_are_workspace_scoped(gateway_workspace_store):
+    store = gateway_workspace_store
+    with WorkspaceContext("team-budget-a"):
+        secret = store.create_gateway_secret(
+            secret_name="budget-secret-a", secret_value={"api_key": "val-a"}
+        )
+        model_def = store.create_gateway_model_definition(
+            name="budget-def-a",
+            secret_id=secret.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        endpoint = store.create_gateway_endpoint(
+            name="budget-endpoint-a",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=model_def.model_definition_id,
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                )
+            ],
+        )
+        policy_a = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.ENDPOINT,
+            budget_action=BudgetAction.REJECT,
+            target_value=endpoint.endpoint_id,
+        )
+
+    with WorkspaceContext("team-budget-b"):
+        assert len(store.list_budget_policies()) == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_budget_policy(budget_policy_id=policy_a.budget_policy_id)
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_budget_policy(
+                budget_policy_id=policy_a.budget_policy_id, budget_amount=1.0
+            )
+        # Another workspace's endpoint cannot be referenced by a new policy.
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=50.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.ENDPOINT,
+                budget_action=BudgetAction.REJECT,
+                target_value=endpoint.endpoint_id,
+            )
+
+    with WorkspaceContext("team-budget-a"):
+        policies = store.list_budget_policies()
+        assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
+        assert policies[0].target_value == endpoint.endpoint_id
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):

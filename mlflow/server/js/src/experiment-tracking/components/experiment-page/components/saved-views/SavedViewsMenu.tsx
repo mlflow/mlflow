@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
@@ -44,6 +44,10 @@ export const SavedViewsMenu = ({
   onCopyLink,
   onRequestDelete,
   onSaveCurrent,
+  sharedViewActive,
+  onOverrideActive,
+  onDiscardActive,
+  overrideLabel,
 }: {
   componentId: string;
   testIdPrefix: string;
@@ -56,10 +60,20 @@ export const SavedViewsMenu = ({
   onCopyLink: (view: SavedViewMenuItem) => void;
   onRequestDelete: (view: SavedViewMenuItem) => void;
   onSaveCurrent: () => void;
+  // When a shared/previewed view is applied, the menu hosts the persistent Override / Discard
+  // actions (so they survive dismissing the banner). Rendered only when `sharedViewActive` is true
+  // AND both handlers are provided; consumers that pass none get the menu exactly as before.
+  sharedViewActive?: boolean;
+  onOverrideActive?: () => void;
+  onDiscardActive?: () => void;
+  // Per-tab wording for the override entry ("Override my view" on traces, "Override saved view" on
+  // runs). Falls back to a generic label when omitted.
+  overrideLabel?: ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
+  const showSharedViewActions = Boolean(sharedViewActive && onOverrideActive && onDiscardActive);
 
   const copyLinkLabel = intl.formatMessage({
     defaultMessage: 'Copy share link',
@@ -88,6 +102,39 @@ export const SavedViewsMenu = ({
           autoFocus
         />
       </div>
+      {showSharedViewActions && (
+        <>
+          <DropdownMenu.Label css={{ color: theme.colors.textSecondary }}>
+            <FormattedMessage
+              defaultMessage="You're viewing a shared view"
+              description="Heading above the override/discard actions in the saved views menu, shown while a shared view is applied"
+            />
+          </DropdownMenu.Label>
+          <DropdownMenu.Item
+            componentId={`${componentId}.override_active`}
+            data-testid={`${testIdPrefix}-override-active`}
+            onClick={onOverrideActive}
+          >
+            {overrideLabel ?? (
+              <FormattedMessage
+                defaultMessage="Override my view"
+                description="Menu item that adopts the currently-applied shared view into the user's own view"
+              />
+            )}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            componentId={`${componentId}.discard_active`}
+            data-testid={`${testIdPrefix}-discard-active`}
+            onClick={onDiscardActive}
+          >
+            <FormattedMessage
+              defaultMessage="Discard shared view"
+              description="Menu item that discards the currently-applied shared view and restores the user's own view"
+            />
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+        </>
+      )}
       <div css={{ maxHeight: 320, overflowY: 'auto' }}>
         {filtered.length === 0 ? (
           <div css={{ padding: theme.spacing.md, textAlign: 'center' }}>

@@ -1,3 +1,4 @@
+import asyncio
 import enum
 import ipaddress
 import uuid
@@ -13,12 +14,17 @@ from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.gateway_connection import (
     _GATEWAY_VENDOR_MODELS,
     GatewayUnsupportedError,
     ensure_gateway_connection,
 )
-from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
+from mlflow.assistant.providers import (
+    MlflowGatewayProvider,
+    list_providers,
+    resolve_default_provider,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -40,12 +46,25 @@ def _get_provider(name: str):
 
 
 def _get_selected_provider(config: AssistantConfig | None = None):
+    """Return only the provider explicitly selected in Assistant config."""
     if config is None:
         config = AssistantConfig.load()
     for provider_name, provider_config in config.providers.items():
         if provider_config.selected:
             return _get_provider(provider_name)
     return None
+
+
+def _resolve_provider(
+    config: AssistantConfig | None = None, remote: bool = False
+) -> AssistantProvider | None:
+    """Return the explicit provider, or a runtime default for chat routes."""
+    selected = _get_selected_provider(config)
+    if selected is not None:
+        if remote and not selected.allows_remote_access:
+            return None
+        return selected
+    return resolve_default_provider(remote=remote)
 
 
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
@@ -105,7 +124,7 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 def _get_route_provider(request: Request) -> AssistantProvider | None:
     if provider_name := request.path_params.get("provider"):
         return _get_provider(provider_name)
-    return _get_selected_provider()
+    return _resolve_provider(remote=not _is_localhost(request))
 
 
 class _AssistantAPIRoute(APIRoute):
@@ -336,7 +355,7 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
     return MessageResponse(
         session_id=session_id,
-        stream_url=f"/ajax-api/3.0/mlflow/assistant/stream/{session_id}",
+        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
     )
 
 
@@ -382,10 +401,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = str(request.base_url).rstrip("/")
+    is_remote = not _is_localhost(request)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
-        provider = _get_selected_provider()
+        provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
         if provider is None:
             from mlflow.assistant.types import Event
 
@@ -543,6 +563,16 @@ async def get_config(request: Request) -> ConfigResponse:
     """
     config = AssistantConfig.load()
     providers = {name: p.model_dump() for name, p in config.providers.items()}
+    is_remote = not _is_localhost(request)
+    selected_provider = _get_selected_provider(config)
+    provider = selected_provider or resolve_default_provider(
+        remote=is_remote, include_gateway=False
+    )
+    if selected_provider is None and provider is not None:
+        provider_config = config.providers.get(provider.name) or AssistantProviderConfig()
+        provider_data = provider_config.model_dump()
+        provider_data["selected"] = True
+        providers[provider.name] = provider_data
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
@@ -554,7 +584,7 @@ async def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects=projects,
-        remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        remote_access_allowed=_provider_allows_remote_access(provider),
     )
 
 
@@ -665,6 +695,8 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
             )
         project_path = Path(project_location)
 
+    # Skills installation has side effects, so it requires an explicit provider
+    # selection instead of using _resolve_provider()'s runtime default.
     provider = _get_selected_provider()
     if provider is None:
         raise HTTPException(

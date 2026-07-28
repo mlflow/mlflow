@@ -23,7 +23,10 @@ const mockSendMessage = jest.fn();
 const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
-const mockRefreshConfig = jest.fn(() => Promise.resolve());
+const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
+  void options;
+  return Promise.resolve();
+});
 const mockRespondToPermission = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
@@ -91,6 +94,19 @@ jest.mock('./AssistantContext', () => ({
     pendingPermission: null,
     respondToPermission: mockRespondToPermission,
   }),
+}));
+
+// Stub the setup wizard so the settings view exposes its onBack handler directly,
+// without depending on the wizard's internal steps.
+jest.mock('./setup', () => ({
+  AssistantSetupWizard: ({ onBack }: { onBack?: () => void }) =>
+    onBack ? (
+      <button type="button" onClick={onBack}>
+        Back from settings
+      </button>
+    ) : (
+      <div>Setup wizard</div>
+    ),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -313,6 +329,21 @@ describe('AssistantChatPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Open Settings' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Set API key' })).not.toBeInTheDocument();
+  });
+
+  test('returning from settings refreshes config so the provider indicator is not stale', async () => {
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    // Opening settings alone should not refetch config.
+    await user.click(screen.getByLabelText('Settings'));
+    expect(mockRefreshConfig).not.toHaveBeenCalled();
+
+    // Going back re-reads the config, so a provider changed in settings is reflected immediately.
+    // The refresh is silent so it doesn't flash the loading state over the already-open chat.
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+    expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
   });
 
   test('token footer shows a compact total and an info trigger when usage is present', () => {

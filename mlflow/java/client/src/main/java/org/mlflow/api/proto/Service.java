@@ -1581,6 +1581,14 @@ public final class Service {
      * <code>WORKSPACE = 2;</code>
      */
     WORKSPACE(2),
+    /**
+     * <pre>
+     * Applies only to requests routed to a specific gateway endpoint
+     * </pre>
+     *
+     * <code>ENDPOINT = 3;</code>
+     */
+    ENDPOINT(3),
     ;
 
     /**
@@ -1595,6 +1603,14 @@ public final class Service {
      * <code>WORKSPACE = 2;</code>
      */
     public static final int WORKSPACE_VALUE = 2;
+    /**
+     * <pre>
+     * Applies only to requests routed to a specific gateway endpoint
+     * </pre>
+     *
+     * <code>ENDPOINT = 3;</code>
+     */
+    public static final int ENDPOINT_VALUE = 3;
 
 
     public final int getNumber() {
@@ -1620,6 +1636,7 @@ public final class Service {
         case 0: return TARGET_SCOPE_UNSPECIFIED;
         case 1: return GLOBAL;
         case 2: return WORKSPACE;
+        case 3: return ENDPOINT;
         default: return null;
       }
     }
@@ -260685,7 +260702,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Scope of the budget (GLOBAL or WORKSPACE)
+     * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -260694,7 +260711,7 @@ public final class Service {
     boolean hasTargetScope();
     /**
      * <pre>
-     * Scope of the budget (GLOBAL or WORKSPACE)
+     * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -260816,6 +260833,38 @@ public final class Service {
      * @return The lastUpdatedAt.
      */
     long getLastUpdatedAt();
+
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return Whether the targetValue field is set.
+     */
+    boolean hasTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return The targetValue.
+     */
+    java.lang.String getTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return The bytes for targetValue.
+     */
+    com.google.protobuf.ByteString
+        getTargetValueBytes();
   }
   /**
    * <pre>
@@ -260840,6 +260889,7 @@ public final class Service {
       budgetAction_ = 0;
       createdBy_ = "";
       lastUpdatedBy_ = "";
+      targetValue_ = "";
     }
 
     @java.lang.Override
@@ -260953,6 +261003,12 @@ public final class Service {
             case 80: {
               bitField0_ |= 0x00000200;
               lastUpdatedAt_ = input.readInt64();
+              break;
+            }
+            case 90: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000400;
+              targetValue_ = bs;
               break;
             }
             default: {
@@ -261144,7 +261200,7 @@ public final class Service {
     private int targetScope_;
     /**
      * <pre>
-     * Scope of the budget (GLOBAL or WORKSPACE)
+     * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -261155,7 +261211,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Scope of the budget (GLOBAL or WORKSPACE)
+     * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -261368,6 +261424,69 @@ public final class Service {
       return lastUpdatedAt_;
     }
 
+    public static final int TARGET_VALUE_FIELD_NUMBER = 11;
+    private volatile java.lang.Object targetValue_;
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return Whether the targetValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasTargetValue() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return The targetValue.
+     */
+    @java.lang.Override
+    public java.lang.String getTargetValue() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          targetValue_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+     * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+     * </pre>
+     *
+     * <code>optional string target_value = 11;</code>
+     * @return The bytes for targetValue.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getTargetValueBytes() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        targetValue_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -261411,6 +261530,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000200) != 0)) {
         output.writeInt64(10, lastUpdatedAt_);
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, targetValue_);
       }
       unknownFields.writeTo(output);
     }
@@ -261457,6 +261579,9 @@ public final class Service {
       if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(10, lastUpdatedAt_);
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, targetValue_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -261521,6 +261646,11 @@ public final class Service {
         if (getLastUpdatedAt()
             != other.getLastUpdatedAt()) return false;
       }
+      if (hasTargetValue() != other.hasTargetValue()) return false;
+      if (hasTargetValue()) {
+        if (!getTargetValue()
+            .equals(other.getTargetValue())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -261574,6 +261704,10 @@ public final class Service {
         hash = (37 * hash) + LAST_UPDATED_AT_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getLastUpdatedAt());
+      }
+      if (hasTargetValue()) {
+        hash = (37 * hash) + TARGET_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getTargetValue().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -261737,6 +261871,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000100);
         lastUpdatedAt_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000200);
+        targetValue_ = "";
+        bitField0_ = (bitField0_ & ~0x00000400);
         return this;
       }
 
@@ -261809,6 +261945,10 @@ public final class Service {
           result.lastUpdatedAt_ = lastUpdatedAt_;
           to_bitField0_ |= 0x00000200;
         }
+        if (((from_bitField0_ & 0x00000400) != 0)) {
+          to_bitField0_ |= 0x00000400;
+        }
+        result.targetValue_ = targetValue_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -261893,6 +262033,11 @@ public final class Service {
         }
         if (other.hasLastUpdatedAt()) {
           setLastUpdatedAt(other.getLastUpdatedAt());
+        }
+        if (other.hasTargetValue()) {
+          bitField0_ |= 0x00000400;
+          targetValue_ = other.targetValue_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -262305,7 +262450,7 @@ public final class Service {
       private int targetScope_ = 0;
       /**
        * <pre>
-       * Scope of the budget (GLOBAL or WORKSPACE)
+       * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262316,7 +262461,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL or WORKSPACE)
+       * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262330,7 +262475,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL or WORKSPACE)
+       * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262348,7 +262493,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL or WORKSPACE)
+       * Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262745,6 +262890,120 @@ public final class Service {
         onChanged();
         return this;
       }
+
+      private java.lang.Object targetValue_ = "";
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @return Whether the targetValue field is set.
+       */
+      public boolean hasTargetValue() {
+        return ((bitField0_ & 0x00000400) != 0);
+      }
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @return The targetValue.
+       */
+      public java.lang.String getTargetValue() {
+        java.lang.Object ref = targetValue_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            targetValue_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @return The bytes for targetValue.
+       */
+      public com.google.protobuf.ByteString
+          getTargetValueBytes() {
+        java.lang.Object ref = targetValue_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          targetValue_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @param value The targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValue(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000400;
+        targetValue_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTargetValue() {
+        bitField0_ = (bitField0_ & ~0x00000400);
+        targetValue_ = getDefaultInstance().getTargetValue();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+       * for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+       * </pre>
+       *
+       * <code>optional string target_value = 11;</code>
+       * @param value The bytes for targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000400;
+        targetValue_ = value;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -262877,6 +263136,38 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getCreatedByBytes();
+
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return Whether the targetValue field is set.
+     */
+    boolean hasTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return The targetValue.
+     */
+    java.lang.String getTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return The bytes for targetValue.
+     */
+    com.google.protobuf.ByteString
+        getTargetValueBytes();
   }
   /**
    * Protobuf type {@code mlflow.CreateGatewayBudgetPolicy}
@@ -262895,6 +263186,7 @@ public final class Service {
       targetScope_ = 0;
       budgetAction_ = 0;
       createdBy_ = "";
+      targetValue_ = "";
     }
 
     @java.lang.Override
@@ -262986,6 +263278,12 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000020;
               createdBy_ = bs;
+              break;
+            }
+            case 58: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000040;
+              targetValue_ = bs;
               break;
             }
             default: {
@@ -263803,6 +264101,69 @@ public final class Service {
       }
     }
 
+    public static final int TARGET_VALUE_FIELD_NUMBER = 7;
+    private volatile java.lang.Object targetValue_;
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return Whether the targetValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasTargetValue() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return The targetValue.
+     */
+    @java.lang.Override
+    public java.lang.String getTargetValue() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          targetValue_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 7;</code>
+     * @return The bytes for targetValue.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getTargetValueBytes() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        targetValue_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -263835,6 +264196,9 @@ public final class Service {
       if (((bitField0_ & 0x00000020) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, createdBy_);
       }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, targetValue_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -263866,6 +264230,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, createdBy_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, targetValue_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -263910,6 +264277,11 @@ public final class Service {
         if (!getCreatedBy()
             .equals(other.getCreatedBy())) return false;
       }
+      if (hasTargetValue() != other.hasTargetValue()) return false;
+      if (hasTargetValue()) {
+        if (!getTargetValue()
+            .equals(other.getTargetValue())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -263945,6 +264317,10 @@ public final class Service {
       if (hasCreatedBy()) {
         hash = (37 * hash) + CREATED_BY_FIELD_NUMBER;
         hash = (53 * hash) + getCreatedBy().hashCode();
+      }
+      if (hasTargetValue()) {
+        hash = (37 * hash) + TARGET_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getTargetValue().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -264096,6 +264472,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000010);
         createdBy_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
+        targetValue_ = "";
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -264152,6 +264530,10 @@ public final class Service {
           to_bitField0_ |= 0x00000020;
         }
         result.createdBy_ = createdBy_;
+        if (((from_bitField0_ & 0x00000040) != 0)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        result.targetValue_ = targetValue_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -264219,6 +264601,11 @@ public final class Service {
         if (other.hasCreatedBy()) {
           bitField0_ |= 0x00000020;
           createdBy_ = other.createdBy_;
+          onChanged();
+        }
+        if (other.hasTargetValue()) {
+          bitField0_ |= 0x00000040;
+          targetValue_ = other.targetValue_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -264619,6 +265006,120 @@ public final class Service {
   }
   bitField0_ |= 0x00000020;
         createdBy_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object targetValue_ = "";
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @return Whether the targetValue field is set.
+       */
+      public boolean hasTargetValue() {
+        return ((bitField0_ & 0x00000040) != 0);
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @return The targetValue.
+       */
+      public java.lang.String getTargetValue() {
+        java.lang.Object ref = targetValue_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            targetValue_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @return The bytes for targetValue.
+       */
+      public com.google.protobuf.ByteString
+          getTargetValueBytes() {
+        java.lang.Object ref = targetValue_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          targetValue_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @param value The targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValue(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        targetValue_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTargetValue() {
+        bitField0_ = (bitField0_ & ~0x00000040);
+        targetValue_ = getDefaultInstance().getTargetValue();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 7;</code>
+       * @param value The bytes for targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        targetValue_ = value;
         onChanged();
         return this;
       }
@@ -266009,6 +266510,38 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getUpdatedByBytes();
+
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return Whether the targetValue field is set.
+     */
+    boolean hasTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return The targetValue.
+     */
+    java.lang.String getTargetValue();
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return The bytes for targetValue.
+     */
+    com.google.protobuf.ByteString
+        getTargetValueBytes();
   }
   /**
    * Protobuf type {@code mlflow.UpdateGatewayBudgetPolicy}
@@ -266028,6 +266561,7 @@ public final class Service {
       targetScope_ = 0;
       budgetAction_ = 0;
       updatedBy_ = "";
+      targetValue_ = "";
     }
 
     @java.lang.Override
@@ -266125,6 +266659,12 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000040;
               updatedBy_ = bs;
+              break;
+            }
+            case 66: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000080;
+              targetValue_ = bs;
               break;
             }
             default: {
@@ -266990,6 +267530,69 @@ public final class Service {
       }
     }
 
+    public static final int TARGET_VALUE_FIELD_NUMBER = 8;
+    private volatile java.lang.Object targetValue_;
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return Whether the targetValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasTargetValue() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return The targetValue.
+     */
+    @java.lang.Override
+    public java.lang.String getTargetValue() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          targetValue_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+     * scope.
+     * </pre>
+     *
+     * <code>optional string target_value = 8;</code>
+     * @return The bytes for targetValue.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getTargetValueBytes() {
+      java.lang.Object ref = targetValue_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        targetValue_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -267025,6 +267628,9 @@ public final class Service {
       if (((bitField0_ & 0x00000040) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 7, updatedBy_);
       }
+      if (((bitField0_ & 0x00000080) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, targetValue_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -267059,6 +267665,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000040) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, updatedBy_);
+      }
+      if (((bitField0_ & 0x00000080) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, targetValue_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -267108,6 +267717,11 @@ public final class Service {
         if (!getUpdatedBy()
             .equals(other.getUpdatedBy())) return false;
       }
+      if (hasTargetValue() != other.hasTargetValue()) return false;
+      if (hasTargetValue()) {
+        if (!getTargetValue()
+            .equals(other.getTargetValue())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -267147,6 +267761,10 @@ public final class Service {
       if (hasUpdatedBy()) {
         hash = (37 * hash) + UPDATED_BY_FIELD_NUMBER;
         hash = (53 * hash) + getUpdatedBy().hashCode();
+      }
+      if (hasTargetValue()) {
+        hash = (37 * hash) + TARGET_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getTargetValue().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -267300,6 +267918,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000020);
         updatedBy_ = "";
         bitField0_ = (bitField0_ & ~0x00000040);
+        targetValue_ = "";
+        bitField0_ = (bitField0_ & ~0x00000080);
         return this;
       }
 
@@ -267360,6 +267980,10 @@ public final class Service {
           to_bitField0_ |= 0x00000040;
         }
         result.updatedBy_ = updatedBy_;
+        if (((from_bitField0_ & 0x00000080) != 0)) {
+          to_bitField0_ |= 0x00000080;
+        }
+        result.targetValue_ = targetValue_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -267432,6 +268056,11 @@ public final class Service {
         if (other.hasUpdatedBy()) {
           bitField0_ |= 0x00000040;
           updatedBy_ = other.updatedBy_;
+          onChanged();
+        }
+        if (other.hasTargetValue()) {
+          bitField0_ |= 0x00000080;
+          targetValue_ = other.targetValue_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -267916,6 +268545,120 @@ public final class Service {
   }
   bitField0_ |= 0x00000040;
         updatedBy_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object targetValue_ = "";
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @return Whether the targetValue field is set.
+       */
+      public boolean hasTargetValue() {
+        return ((bitField0_ & 0x00000080) != 0);
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @return The targetValue.
+       */
+      public java.lang.String getTargetValue() {
+        java.lang.Object ref = targetValue_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            targetValue_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @return The bytes for targetValue.
+       */
+      public com.google.protobuf.ByteString
+          getTargetValueBytes() {
+        java.lang.Object ref = targetValue_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          targetValue_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @param value The targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValue(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000080;
+        targetValue_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTargetValue() {
+        bitField0_ = (bitField0_ & ~0x00000080);
+        targetValue_ = getDefaultInstance().getTargetValue();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+       * scope.
+       * </pre>
+       *
+       * <code>optional string target_value = 8;</code>
+       * @param value The bytes for targetValue to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTargetValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000080;
+        targetValue_ = value;
         onChanged();
         return this;
       }
@@ -309028,7 +309771,7 @@ public final class Service {
       "ointTag\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n\003key\030\002 \001(" +
       "\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Response\"H\n\030DeleteGa" +
       "tewayEndpointTag\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n" +
-      "\003key\030\002 \001(\t\032\n\n\010Response\"\321\002\n\023GatewayBudget" +
+      "\003key\030\002 \001(\t\032\n\n\010Response\"\347\002\n\023GatewayBudget" +
       "Policy\022\030\n\020budget_policy_id\030\001 \001(\t\022\'\n\013budg" +
       "et_unit\030\002 \001(\0162\022.mlflow.BudgetUnit\022\025\n\rbud" +
       "get_amount\030\003 \001(\001\022(\n\010duration\030\004 \001(\0132\026.mlf" +
@@ -309037,162 +309780,164 @@ public final class Service {
       "tion\030\006 \001(\0162\024.mlflow.BudgetAction\022\022\n\ncrea" +
       "ted_by\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001(\003\022\027\n\017last" +
       "_updated_by\030\t \001(\t\022\027\n\017last_updated_at\030\n \001" +
-      "(\003\"\267\002\n\031CreateGatewayBudgetPolicy\022\'\n\013budg" +
-      "et_unit\030\001 \001(\0162\022.mlflow.BudgetUnit\022\025\n\rbud" +
-      "get_amount\030\002 \001(\001\022(\n\010duration\030\003 \001(\0132\026.mlf" +
-      "low.BudgetDuration\022/\n\014target_scope\030\004 \001(\016" +
-      "2\031.mlflow.BudgetTargetScope\022+\n\rbudget_ac" +
-      "tion\030\005 \001(\0162\024.mlflow.BudgetAction\022\022\n\ncrea" +
-      "ted_by\030\006 \001(\t\032>\n\010Response\0222\n\rbudget_polic" +
-      "y\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"r\n\026" +
-      "GetGatewayBudgetPolicy\022\030\n\020budget_policy_" +
-      "id\030\001 \001(\t\032>\n\010Response\0222\n\rbudget_policy\030\001 " +
-      "\001(\0132\033.mlflow.GatewayBudgetPolicy\"\321\002\n\031Upd" +
-      "ateGatewayBudgetPolicy\022\030\n\020budget_policy_" +
-      "id\030\001 \001(\t\022\'\n\013budget_unit\030\002 \001(\0162\022.mlflow.B" +
-      "udgetUnit\022\025\n\rbudget_amount\030\003 \001(\001\022(\n\010dura" +
-      "tion\030\004 \001(\0132\026.mlflow.BudgetDuration\022/\n\014ta" +
-      "rget_scope\030\005 \001(\0162\031.mlflow.BudgetTargetSc" +
-      "ope\022+\n\rbudget_action\030\006 \001(\0162\024.mlflow.Budg" +
-      "etAction\022\022\n\nupdated_by\030\007 \001(\t\032>\n\010Response" +
-      "\0222\n\rbudget_policy\030\001 \001(\0132\033.mlflow.Gateway" +
-      "BudgetPolicy\"A\n\031DeleteGatewayBudgetPolic" +
-      "y\022\030\n\020budget_policy_id\030\001 \001(\t\032\n\n\010Response\"" +
-      "\237\001\n\031ListGatewayBudgetPolicies\022\023\n\013max_res" +
-      "ults\030\001 \001(\003\022\022\n\npage_token\030\002 \001(\t\032Y\n\010Respon" +
-      "se\0224\n\017budget_policies\030\001 \003(\0132\033.mlflow.Gat" +
-      "ewayBudgetPolicy\022\027\n\017next_page_token\030\002 \001(" +
-      "\t\"\327\001\n\030ListGatewayBudgetWindows\032o\n\014Budget" +
-      "Window\022\030\n\020budget_policy_id\030\001 \001(\t\022\027\n\017wind" +
-      "ow_start_ms\030\002 \001(\003\022\025\n\rwindow_end_ms\030\003 \001(\003" +
-      "\022\025\n\rcurrent_spend\030\004 \001(\001\032J\n\010Response\022>\n\007w" +
-      "indows\030\001 \003(\0132-.mlflow.ListGatewayBudgetW" +
-      "indows.BudgetWindow\"\234\002\n\020GatewayGuardrail" +
-      "\022\024\n\014guardrail_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\036\n\006" +
-      "scorer\030\003 \001(\0132\016.mlflow.Scorer\022%\n\005stage\030\004 " +
-      "\001(\0162\026.mlflow.GuardrailStage\022\'\n\006action\030\005 " +
-      "\001(\0162\027.mlflow.GuardrailAction\022\032\n\022action_e" +
-      "ndpoint_id\030\006 \001(\t\022\022\n\ncreated_by\030\007 \001(\t\022\022\n\n" +
-      "created_at\030\010 \001(\003\022\027\n\017last_updated_by\030\t \001(" +
-      "\t\022\027\n\017last_updated_at\030\n \001(\003\"\261\001\n\026GatewayGu" +
-      "ardrailConfig\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014gu" +
-      "ardrail_id\030\002 \001(\t\022\027\n\017execution_order\030\003 \001(" +
-      "\003\022\022\n\ncreated_by\030\004 \001(\t\022\022\n\ncreated_at\030\005 \001(" +
-      "\003\022+\n\tguardrail\030\006 \001(\0132\030.mlflow.GatewayGua" +
-      "rdrail\"\243\002\n\026CreateGatewayGuardrail\022\014\n\004nam" +
-      "e\030\001 \001(\t\022\021\n\tscorer_id\030\002 \001(\t\022\026\n\016scorer_ver" +
-      "sion\030\003 \001(\003\022%\n\005stage\030\004 \001(\0162\026.mlflow.Guard" +
-      "railStage\022\'\n\006action\030\005 \001(\0162\027.mlflow.Guard" +
-      "railAction\022\032\n\022action_endpoint_id\030\006 \001(\t\0327" +
-      "\n\010Response\022+\n\tguardrail\030\001 \001(\0132\030.mlflow.G" +
-      "atewayGuardrail:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\221\001\n\023GetGatewayGuard" +
-      "rail\022\024\n\014guardrail_id\030\001 \001(\t\0327\n\010Response\022+" +
-      "\n\tguardrail\030\001 \001(\0132\030.mlflow.GatewayGuardr" +
-      "ail:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"g\n\026DeleteGatewayGuardrail\022\024\n\014gu" +
-      "ardrail_id\030\001 \001(\t\032\n\n\010Response:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"\300\001\n\025Li" +
-      "stGatewayGuardrails\022\023\n\013max_results\030\001 \001(\003" +
-      "\022\022\n\npage_token\030\002 \001(\t\032Q\n\010Response\022,\n\nguar" +
-      "drails\030\001 \003(\0132\030.mlflow.GatewayGuardrail\022\027" +
-      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\305\001\n\026AddGuar" +
-      "drailToEndpoint\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014" +
-      "guardrail_id\030\002 \001(\t\022\027\n\017execution_order\030\003 " +
-      "\001(\003\032:\n\010Response\022.\n\006config\030\001 \001(\0132\036.mlflow" +
-      ".GatewayGuardrailConfig:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\201\001\n\033RemoveG" +
-      "uardrailFromEndpoint\022\023\n\013endpoint_id\030\001 \001(" +
-      "\t\022\024\n\014guardrail_id\030\002 \001(\t\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\235\001\n\034ListEndpointGuardrailConfigs\022\023\n\013end" +
-      "point_id\030\001 \001(\t\032;\n\010Response\022/\n\007configs\030\001 " +
-      "\003(\0132\036.mlflow.GatewayGuardrailConfig:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\314\001\n\035UpdateEndpointGuardrailConfig\022\023\n\013en" +
-      "dpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 \001(\t\022\027\n" +
-      "\017execution_order\030\003 \001(\003\032:\n\010Response\022.\n\006co" +
-      "nfig\030\001 \001(\0132\036.mlflow.GatewayGuardrailConf" +
-      "ig:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"9\n\020GetSecretsConfig\032%\n\010Response\022" +
-      "\031\n\021secrets_available\030\001 \001(\010\"\354\001\n\033CreatePro" +
-      "mptOptimizationJob\022\025\n\rexperiment_id\030\001 \001(" +
-      "\t\022\031\n\021source_prompt_uri\030\002 \001(\t\0223\n\006config\030\003" +
-      " \001(\0132#.mlflow.PromptOptimizationJobConfi" +
-      "g\022.\n\004tags\030\004 \003(\0132 .mlflow.PromptOptimizat" +
-      "ionJobTag\0326\n\010Response\022*\n\003job\030\001 \001(\0132\035.mlf" +
-      "low.PromptOptimizationJob\"b\n\030GetPromptOp" +
-      "timizationJob\022\016\n\006job_id\030\001 \001(\t\0326\n\010Respons" +
-      "e\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOptimizati" +
-      "onJob\"n\n\034SearchPromptOptimizationJobs\022\025\n" +
-      "\rexperiment_id\030\001 \001(\t\0327\n\010Response\022+\n\004jobs" +
-      "\030\001 \003(\0132\035.mlflow.PromptOptimizationJob\"e\n" +
-      "\033CancelPromptOptimizationJob\022\016\n\006job_id\030\001" +
-      " \001(\t\0326\n\010Response\022*\n\003job\030\001 \001(\0132\035.mlflow.P" +
-      "romptOptimizationJob\"9\n\033DeletePromptOpti" +
-      "mizationJob\022\016\n\006job_id\030\001 \001(\t\032\n\n\010Response\"" +
-      ":\n\023TraceArchivalConfig\022\020\n\010location\030\001 \001(\t" +
-      "\022\021\n\tretention\030\002 \001(\t\"\217\001\n\tWorkspace\022\022\n\004nam" +
-      "e\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\022\035\n\025de" +
-      "fault_artifact_root\030\003 \001(\t\022:\n\025trace_archi" +
-      "val_config\030\004 \001(\0132\033.mlflow.TraceArchivalC" +
-      "onfig\"p\n\016ListWorkspaces\0321\n\010Response\022%\n\nw" +
-      "orkspaces\030\001 \003(\0132\021.mlflow.Workspace:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\364\001\n\017CreateWorkspace\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
+      "(\003\022\024\n\014target_value\030\013 \001(\t\"\315\002\n\031CreateGatew" +
+      "ayBudgetPolicy\022\'\n\013budget_unit\030\001 \001(\0162\022.ml" +
+      "flow.BudgetUnit\022\025\n\rbudget_amount\030\002 \001(\001\022(" +
+      "\n\010duration\030\003 \001(\0132\026.mlflow.BudgetDuration" +
+      "\022/\n\014target_scope\030\004 \001(\0162\031.mlflow.BudgetTa" +
+      "rgetScope\022+\n\rbudget_action\030\005 \001(\0162\024.mlflo" +
+      "w.BudgetAction\022\022\n\ncreated_by\030\006 \001(\t\022\024\n\014ta" +
+      "rget_value\030\007 \001(\t\032>\n\010Response\0222\n\rbudget_p" +
+      "olicy\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy" +
+      "\"r\n\026GetGatewayBudgetPolicy\022\030\n\020budget_pol" +
+      "icy_id\030\001 \001(\t\032>\n\010Response\0222\n\rbudget_polic" +
+      "y\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"\347\002\n" +
+      "\031UpdateGatewayBudgetPolicy\022\030\n\020budget_pol" +
+      "icy_id\030\001 \001(\t\022\'\n\013budget_unit\030\002 \001(\0162\022.mlfl" +
+      "ow.BudgetUnit\022\025\n\rbudget_amount\030\003 \001(\001\022(\n\010" +
+      "duration\030\004 \001(\0132\026.mlflow.BudgetDuration\022/" +
+      "\n\014target_scope\030\005 \001(\0162\031.mlflow.BudgetTarg" +
+      "etScope\022+\n\rbudget_action\030\006 \001(\0162\024.mlflow." +
+      "BudgetAction\022\022\n\nupdated_by\030\007 \001(\t\022\024\n\014targ" +
+      "et_value\030\010 \001(\t\032>\n\010Response\0222\n\rbudget_pol" +
+      "icy\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"A" +
+      "\n\031DeleteGatewayBudgetPolicy\022\030\n\020budget_po" +
+      "licy_id\030\001 \001(\t\032\n\n\010Response\"\237\001\n\031ListGatewa" +
+      "yBudgetPolicies\022\023\n\013max_results\030\001 \001(\003\022\022\n\n" +
+      "page_token\030\002 \001(\t\032Y\n\010Response\0224\n\017budget_p" +
+      "olicies\030\001 \003(\0132\033.mlflow.GatewayBudgetPoli" +
+      "cy\022\027\n\017next_page_token\030\002 \001(\t\"\327\001\n\030ListGate" +
+      "wayBudgetWindows\032o\n\014BudgetWindow\022\030\n\020budg" +
+      "et_policy_id\030\001 \001(\t\022\027\n\017window_start_ms\030\002 " +
+      "\001(\003\022\025\n\rwindow_end_ms\030\003 \001(\003\022\025\n\rcurrent_sp" +
+      "end\030\004 \001(\001\032J\n\010Response\022>\n\007windows\030\001 \003(\0132-" +
+      ".mlflow.ListGatewayBudgetWindows.BudgetW" +
+      "indow\"\234\002\n\020GatewayGuardrail\022\024\n\014guardrail_" +
+      "id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\036\n\006scorer\030\003 \001(\0132\016" +
+      ".mlflow.Scorer\022%\n\005stage\030\004 \001(\0162\026.mlflow.G" +
+      "uardrailStage\022\'\n\006action\030\005 \001(\0162\027.mlflow.G" +
+      "uardrailAction\022\032\n\022action_endpoint_id\030\006 \001" +
+      "(\t\022\022\n\ncreated_by\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001" +
+      "(\003\022\027\n\017last_updated_by\030\t \001(\t\022\027\n\017last_upda" +
+      "ted_at\030\n \001(\003\"\261\001\n\026GatewayGuardrailConfig\022" +
+      "\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 \001" +
+      "(\t\022\027\n\017execution_order\030\003 \001(\003\022\022\n\ncreated_b" +
+      "y\030\004 \001(\t\022\022\n\ncreated_at\030\005 \001(\003\022+\n\tguardrail" +
+      "\030\006 \001(\0132\030.mlflow.GatewayGuardrail\"\243\002\n\026Cre" +
+      "ateGatewayGuardrail\022\014\n\004name\030\001 \001(\t\022\021\n\tsco" +
+      "rer_id\030\002 \001(\t\022\026\n\016scorer_version\030\003 \001(\003\022%\n\005" +
+      "stage\030\004 \001(\0162\026.mlflow.GuardrailStage\022\'\n\006a" +
+      "ction\030\005 \001(\0162\027.mlflow.GuardrailAction\022\032\n\022" +
+      "action_endpoint_id\030\006 \001(\t\0327\n\010Response\022+\n\t" +
+      "guardrail\030\001 \001(\0132\030.mlflow.GatewayGuardrai" +
+      "l:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\221\001\n\023GetGatewayGuardrail\022\024\n\014guardr" +
+      "ail_id\030\001 \001(\t\0327\n\010Response\022+\n\tguardrail\030\001 " +
+      "\001(\0132\030.mlflow.GatewayGuardrail:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"g\n\026De" +
+      "leteGatewayGuardrail\022\024\n\014guardrail_id\030\001 \001" +
+      "(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\300\001\n\025ListGatewayGuard" +
+      "rails\022\023\n\013max_results\030\001 \001(\003\022\022\n\npage_token" +
+      "\030\002 \001(\t\032Q\n\010Response\022,\n\nguardrails\030\001 \003(\0132\030" +
+      ".mlflow.GatewayGuardrail\022\027\n\017next_page_to" +
+      "ken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\305\001\n\026AddGuardrailToEndpoin" +
+      "t\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002" +
+      " \001(\t\022\027\n\017execution_order\030\003 \001(\003\032:\n\010Respons" +
+      "e\022.\n\006config\030\001 \001(\0132\036.mlflow.GatewayGuardr" +
+      "ailConfig:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\201\001\n\033RemoveGuardrailFromEn" +
+      "dpoint\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail" +
+      "_id\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\235\001\n\034ListEndpo" +
+      "intGuardrailConfigs\022\023\n\013endpoint_id\030\001 \001(\t" +
+      "\032;\n\010Response\022/\n\007configs\030\001 \003(\0132\036.mlflow.G" +
+      "atewayGuardrailConfig:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\314\001\n\035UpdateEnd" +
+      "pointGuardrailConfig\022\023\n\013endpoint_id\030\001 \001(" +
+      "\t\022\024\n\014guardrail_id\030\002 \001(\t\022\027\n\017execution_ord" +
+      "er\030\003 \001(\003\032:\n\010Response\022.\n\006config\030\001 \001(\0132\036.m" +
+      "lflow.GatewayGuardrailConfig:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"9\n\020Get" +
+      "SecretsConfig\032%\n\010Response\022\031\n\021secrets_ava" +
+      "ilable\030\001 \001(\010\"\354\001\n\033CreatePromptOptimizatio" +
+      "nJob\022\025\n\rexperiment_id\030\001 \001(\t\022\031\n\021source_pr" +
+      "ompt_uri\030\002 \001(\t\0223\n\006config\030\003 \001(\0132#.mlflow." +
+      "PromptOptimizationJobConfig\022.\n\004tags\030\004 \003(" +
+      "\0132 .mlflow.PromptOptimizationJobTag\0326\n\010R" +
+      "esponse\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOpti" +
+      "mizationJob\"b\n\030GetPromptOptimizationJob\022" +
+      "\016\n\006job_id\030\001 \001(\t\0326\n\010Response\022*\n\003job\030\001 \001(\013" +
+      "2\035.mlflow.PromptOptimizationJob\"n\n\034Searc" +
+      "hPromptOptimizationJobs\022\025\n\rexperiment_id" +
+      "\030\001 \001(\t\0327\n\010Response\022+\n\004jobs\030\001 \003(\0132\035.mlflo" +
+      "w.PromptOptimizationJob\"e\n\033CancelPromptO" +
+      "ptimizationJob\022\016\n\006job_id\030\001 \001(\t\0326\n\010Respon" +
+      "se\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOptimizat" +
+      "ionJob\"9\n\033DeletePromptOptimizationJob\022\016\n" +
+      "\006job_id\030\001 \001(\t\032\n\n\010Response\":\n\023TraceArchiv" +
+      "alConfig\022\020\n\010location\030\001 \001(\t\022\021\n\tretention\030" +
+      "\002 \001(\t\"\217\001\n\tWorkspace\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
       "\023\n\013description\030\002 \001(\t\022\035\n\025default_artifact" +
       "_root\030\003 \001(\t\022:\n\025trace_archival_config\030\004 \001" +
-      "(\0132\033.mlflow.TraceArchivalConfig\0320\n\010Respo" +
-      "nse\022$\n\tworkspace\030\001 \001(\0132\021.mlflow.Workspac" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\213\001\n\014GetWorkspace\022\034\n\016workspace_nam" +
-      "e\030\001 \001(\tB\004\370\206\031\001\0320\n\010Response\022$\n\tworkspace\030\001" +
-      " \001(\0132\021.mlflow.Workspace:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\376\001\n\017UpdateW" +
-      "orkspace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001\022\023" +
-      "\n\013description\030\002 \001(\t\022\035\n\025default_artifact_" +
-      "root\030\003 \001(\t\022:\n\025trace_archival_config\030\004 \001(" +
-      "\0132\033.mlflow.TraceArchivalConfig\0320\n\010Respon" +
-      "se\022$\n\tworkspace\030\001 \001(\0132\021.mlflow.Workspace" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"h\n\017DeleteWorkspace\022\034\n\016workspace_na" +
-      "me\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]*6\n\010ViewT" +
-      "ype\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007" +
-      "\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003J" +
-      "OB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020" +
-      "\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULE" +
-      "D\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020" +
-      "\005*O\n\013TraceStatus\022\034\n\030TRACE_STATUS_UNSPECI" +
-      "FIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS" +
-      "\020\003*8\n\016MetricViewType\022\n\n\006TRACES\020\001\022\t\n\005SPAN" +
-      "S\020\002\022\017\n\013ASSESSMENTS\020\003*P\n\017AggregationType\022" +
-      "\t\n\005COUNT\020\001\022\007\n\003SUM\020\002\022\007\n\003AVG\020\003\022\016\n\nPERCENTI" +
-      "LE\020\004\022\007\n\003MIN\020\005\022\007\n\003MAX\020\006*\212\001\n\021LoggedModelSt" +
-      "atus\022#\n\037LOGGED_MODEL_STATUS_UNSPECIFIED\020" +
-      "\000\022\030\n\024LOGGED_MODEL_PENDING\020\001\022\026\n\022LOGGED_MO" +
-      "DEL_READY\020\002\022\036\n\032LOGGED_MODEL_UPLOAD_FAILE" +
-      "D\020\003*Z\n\017RoutingStrategy\022&\n\034ROUTING_STRATE" +
-      "GY_UNSPECIFIED\020\000\032\004\360\206\031\003\022\037\n\033REQUEST_BASED_" +
-      "TRAFFIC_SPLIT\020\001*K\n\020FallbackStrategy\022\'\n\035F" +
-      "ALLBACK_STRATEGY_UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n\n" +
-      "SEQUENTIAL\020\001*X\n\027GatewayModelLinkageType\022" +
-      "\"\n\030LINKAGE_TYPE_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007P" +
-      "RIMARY\020\001\022\014\n\010FALLBACK\020\002*r\n\022BudgetDuration" +
-      "Unit\022#\n\031DURATION_UNIT_UNSPECIFIED\020\000\032\004\360\206\031" +
-      "\003\022\013\n\007MINUTES\020\001\022\t\n\005HOURS\020\002\022\010\n\004DAYS\020\003\022\t\n\005W" +
-      "EEKS\020\004\022\n\n\006MONTHS\020\005*R\n\021BudgetTargetScope\022" +
-      "\"\n\030TARGET_SCOPE_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006G" +
-      "LOBAL\020\001\022\r\n\tWORKSPACE\020\002*J\n\014BudgetAction\022#" +
+      "(\0132\033.mlflow.TraceArchivalConfig\"p\n\016ListW" +
+      "orkspaces\0321\n\010Response\022%\n\nworkspaces\030\001 \003(" +
+      "\0132\021.mlflow.Workspace:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"\364\001\n\017CreateWork" +
+      "space\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description" +
+      "\030\002 \001(\t\022\035\n\025default_artifact_root\030\003 \001(\t\022:\n" +
+      "\025trace_archival_config\030\004 \001(\0132\033.mlflow.Tr" +
+      "aceArchivalConfig\0320\n\010Response\022$\n\tworkspa" +
+      "ce\030\001 \001(\0132\021.mlflow.Workspace:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\213\001\n\014Get" +
+      "Workspace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001\032" +
+      "0\n\010Response\022$\n\tworkspace\030\001 \001(\0132\021.mlflow." +
+      "Workspace:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\376\001\n\017UpdateWorkspace\022\034\n\016wo" +
+      "rkspace_name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030" +
+      "\002 \001(\t\022\035\n\025default_artifact_root\030\003 \001(\t\022:\n\025" +
+      "trace_archival_config\030\004 \001(\0132\033.mlflow.Tra" +
+      "ceArchivalConfig\0320\n\010Response\022$\n\tworkspac" +
+      "e\030\001 \001(\0132\021.mlflow.Workspace:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"h\n\017Delet" +
+      "eWorkspace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE_" +
+      "ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSou" +
+      "rceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJEC" +
+      "T\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatu" +
+      "s\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHE" +
+      "D\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013TraceStat" +
+      "us\022\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022\006\n\002OK\020\001" +
+      "\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003*8\n\016MetricVi" +
+      "ewType\022\n\n\006TRACES\020\001\022\t\n\005SPANS\020\002\022\017\n\013ASSESSM" +
+      "ENTS\020\003*P\n\017AggregationType\022\t\n\005COUNT\020\001\022\007\n\003" +
+      "SUM\020\002\022\007\n\003AVG\020\003\022\016\n\nPERCENTILE\020\004\022\007\n\003MIN\020\005\022" +
+      "\007\n\003MAX\020\006*\212\001\n\021LoggedModelStatus\022#\n\037LOGGED" +
+      "_MODEL_STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_MO" +
+      "DEL_PENDING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n" +
+      "\032LOGGED_MODEL_UPLOAD_FAILED\020\003*Z\n\017Routing" +
+      "Strategy\022&\n\034ROUTING_STRATEGY_UNSPECIFIED" +
+      "\020\000\032\004\360\206\031\003\022\037\n\033REQUEST_BASED_TRAFFIC_SPLIT\020" +
+      "\001*K\n\020FallbackStrategy\022\'\n\035FALLBACK_STRATE" +
+      "GY_UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n\nSEQUENTIAL\020\001*X" +
+      "\n\027GatewayModelLinkageType\022\"\n\030LINKAGE_TYP" +
+      "E_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007PRIMARY\020\001\022\014\n\010FA" +
+      "LLBACK\020\002*r\n\022BudgetDurationUnit\022#\n\031DURATI" +
+      "ON_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007MINUTES\020\001" +
+      "\022\t\n\005HOURS\020\002\022\010\n\004DAYS\020\003\022\t\n\005WEEKS\020\004\022\n\n\006MONT" +
+      "HS\020\005*`\n\021BudgetTargetScope\022\"\n\030TARGET_SCOP" +
+      "E_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006GLOBAL\020\001\022\r\n\tWOR" +
+      "KSPACE\020\002\022\014\n\010ENDPOINT\020\003*J\n\014BudgetAction\022#" +
       "\n\031BUDGET_ACTION_UNSPECIFIED\020\000\032\004\360\206\031\003\022\t\n\005A" +
       "LERT\020\001\022\n\n\006REJECT\020\002*8\n\nBudgetUnit\022!\n\027BUDG" +
       "ET_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022\007\n\003USD\020\001*N\n\016" +
       "GuardrailStage\022%\n\033GUARDRAIL_STAGE_UNSPEC" +
       "IFIED\020\000\032\004\360\206\031\003\022\n\n\006BEFORE\020\001\022\t\n\005AFTER\020\002*[\n\017" +
-      "GuardrailAction\022&\n\034GUARDRAIL_ACTION_UNSP" +
+      "GuardrailAction\022&\n\034GUARDRAIL_ACTION_UNSP",
       "ECIFIED\020\000\032\004\360\206\031\003\022\016\n\nVALIDATION\020\001\022\020\n\014SANIT" +
-      "IZATION\020\0022\337\305\001\n\rMlflowService\022\246\001\n\023getExpe",
+      "IZATION\020\0022\337\305\001\n\rMlflowService\022\246\001\n\023getExpe" +
       "rimentByName\022\033.mlflow.GetExperimentByNam" +
       "e\032$.mlflow.GetExperimentByName.Response\"" +
       "L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by" +
@@ -309590,9 +310335,9 @@ public final class Service {
       "ete Gateway Secret\022\252\001\n\026listGatewaySecret" +
       "Infos\022\036.mlflow.ListGatewaySecretInfos\032\'." +
       "mlflow.ListGatewaySecretInfos.Response\"G" +
-      "\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/secrets/lis" +
+      "\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/secrets/lis",
       "t\032\004\010\003\020\000\020\001*\024List Gateway Secrets\022\257\001\n\025crea" +
-      "teGatewayEndpoint\022\035.mlflow.CreateGateway",
+      "teGatewayEndpoint\022\035.mlflow.CreateGateway" +
       "Endpoint\032&.mlflow.CreateGatewayEndpoint." +
       "Response\"O\362\206\031K\n.\n\004POST\022 /mlflow/gateway/" +
       "endpoints/create\032\004\010\003\020\000\020\001*\027Create Gateway" +
@@ -311438,13 +312183,13 @@ public final class Service {
     internal_static_mlflow_GatewayBudgetPolicy_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GatewayBudgetPolicy_descriptor,
-        new java.lang.String[] { "BudgetPolicyId", "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "CreatedBy", "CreatedAt", "LastUpdatedBy", "LastUpdatedAt", });
+        new java.lang.String[] { "BudgetPolicyId", "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "CreatedBy", "CreatedAt", "LastUpdatedBy", "LastUpdatedAt", "TargetValue", });
     internal_static_mlflow_CreateGatewayBudgetPolicy_descriptor =
       getDescriptor().getMessageTypes().get(146);
     internal_static_mlflow_CreateGatewayBudgetPolicy_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateGatewayBudgetPolicy_descriptor,
-        new java.lang.String[] { "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "CreatedBy", });
+        new java.lang.String[] { "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "CreatedBy", "TargetValue", });
     internal_static_mlflow_CreateGatewayBudgetPolicy_Response_descriptor =
       internal_static_mlflow_CreateGatewayBudgetPolicy_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_CreateGatewayBudgetPolicy_Response_fieldAccessorTable = new
@@ -311468,7 +312213,7 @@ public final class Service {
     internal_static_mlflow_UpdateGatewayBudgetPolicy_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateGatewayBudgetPolicy_descriptor,
-        new java.lang.String[] { "BudgetPolicyId", "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "UpdatedBy", });
+        new java.lang.String[] { "BudgetPolicyId", "BudgetUnit", "BudgetAmount", "Duration", "TargetScope", "BudgetAction", "UpdatedBy", "TargetValue", });
     internal_static_mlflow_UpdateGatewayBudgetPolicy_Response_descriptor =
       internal_static_mlflow_UpdateGatewayBudgetPolicy_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_UpdateGatewayBudgetPolicy_Response_fieldAccessorTable = new

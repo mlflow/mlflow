@@ -482,10 +482,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Setup actions
-  const refreshConfig = useCallback(async () => {
-    // Only show the blocking loading screen on the first load; refreshes swap
-    // state in place so switching provider / saving a key doesn't flash it.
-    if (!hasLoadedConfigRef.current) {
+  // `silent` refreshes config without toggling `isLoadingConfig`, so a background
+  // re-read (e.g. returning from settings while the panel is already open) doesn't
+  // flash the full-panel loading state over the chat view. Non-silent refreshes
+  // only show the blocking loading screen on first load.
+  const refreshConfig = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    const shouldShowLoading = !silent && !hasLoadedConfigRef.current;
+    if (shouldShowLoading) {
       setIsLoadingConfig(true);
     }
     try {
@@ -511,7 +514,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
     } finally {
       hasLoadedConfigRef.current = true;
-      setIsLoadingConfig(false);
+      if (shouldShowLoading) {
+        setIsLoadingConfig(false);
+      }
     }
   }, []);
 

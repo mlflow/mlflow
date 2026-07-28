@@ -1396,7 +1396,7 @@ def get_databricks_env_vars(tracking_uri):
 
 def _get_databricks_serverless_env_vars() -> dict[str, str]:
     """
-    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    Returns the environment variables required to initialize WorkspaceClient in a subprocess
     with serverless compute.
 
     Note:
