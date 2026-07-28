@@ -221,7 +221,7 @@ export const useCreateMCPServerVersionModal = ({
       title={
         isVersionMode ? (
           <FormattedMessage
-            defaultMessage="Create MCP server version"
+            defaultMessage="Create new version"
             description="Title for the create MCP server version modal when adding a version to an existing server"
           />
         ) : (

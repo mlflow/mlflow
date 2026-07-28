@@ -163,10 +163,6 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
-  "+itf/D": {
-    "defaultMessage": "Save",
-    "description": "Save button"
-  },
   "+jTk/P": {
     "defaultMessage": "Show less",
     "description": "MCP server package show less env vars button"
@@ -238,10 +234,6 @@
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
-  },
-  "/44YOb": {
-    "defaultMessage": "Create MCP server version",
-    "description": "MCP server detail create version button"
   },
   "/4Aok8": {
     "defaultMessage": "Run",
@@ -2515,6 +2507,10 @@
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
   },
+  "9QLHlI": {
+    "defaultMessage": "Version status",
+    "description": "Aria label for MCP server version status selector"
+  },
   "9Sxo9h": {
     "defaultMessage": "Max length",
     "description": "Text max length input"
@@ -3523,6 +3519,10 @@
     "defaultMessage": "Download attachment ({contentType})",
     "description": "Download link for trace attachment with unknown content type"
   },
+  "Dma9ZE": {
+    "defaultMessage": "Versions",
+    "description": "Header for the version column in the registered prompts table"
+  },
   "DsitAi": {
     "defaultMessage": "About access endpoints",
     "description": "Aria label for access endpoints subsection help popover"
@@ -3723,10 +3723,6 @@
     "defaultMessage": "Custom Guardrail",
     "description": "Custom guardrail type name"
   },
-  "EiV1ml": {
-    "defaultMessage": "Edit version details",
-    "description": "MCP server version edit details modal title"
-  },
   "EjPmMR": {
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
@@ -3866,6 +3862,10 @@
   "FWtUH2": {
     "defaultMessage": "Load more",
     "description": "Label for a button to load more results in the logged models table"
+  },
+  "FX9826": {
+    "defaultMessage": "Edit version status",
+    "description": "Aria label for edit MCP server version status button"
   },
   "FYxQgz": {
     "defaultMessage": "Key",
@@ -4742,10 +4742,6 @@
   "JcRo6a": {
     "defaultMessage": "User",
     "description": "Column label for user"
-  },
-  "JdZI8+": {
-    "defaultMessage": "Version",
-    "description": "Header for the version column in the MCP server versions table"
   },
   "Jdkf6Z": {
     "defaultMessage": "URL is required",
@@ -7483,10 +7479,6 @@
     "defaultMessage": "Select a built-in judge or create a custom one.",
     "description": "Hint text for LLM judge selection"
   },
-  "Vn+uJi": {
-    "defaultMessage": "Version",
-    "description": "Header for the version column in the registered prompts table"
-  },
   "VnnPrX": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view usage metrics",
     "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
@@ -7902,10 +7894,6 @@
   "XREd2h": {
     "defaultMessage": "Learn more",
     "description": "Link text in column header tooltip that opens documentation in a new tab"
-  },
-  "XWtgGm": {
-    "defaultMessage": "Status",
-    "description": "Version edit status label"
   },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
@@ -9547,10 +9535,6 @@
     "defaultMessage": "Add a judge to your experiment to measure your GenAI app quality",
     "description": "Title for the empty state when no judges exist"
   },
-  "eZ8y48": {
-    "defaultMessage": "Create MCP server version",
-    "description": "Title for the create MCP server version modal when adding a version to an existing server"
-  },
   "eZOxx1": {
     "defaultMessage": "Toggle the preview sidepane",
     "description": "Experiment page > control bar > expanded view toggle button tooltip"
@@ -9574,6 +9558,10 @@
   "efeZ8U": {
     "defaultMessage": "Description",
     "description": "Label for workspace description field"
+  },
+  "egLFDc": {
+    "defaultMessage": "Create new version",
+    "description": "MCP server detail create version button"
   },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
@@ -11227,6 +11215,10 @@
     "defaultMessage": "1 value",
     "description": "Text for number of unique values for categorical assessment"
   },
+  "lLEIsv": {
+    "defaultMessage": "Versions",
+    "description": "Header for the version column in the MCP server versions table"
+  },
   "lM0z8k": {
     "defaultMessage": "The following variable names contain spaces which is disallowed: {invalidNames}",
     "description": "Experiment page > new run modal > variable name validation > including spaces error"
@@ -12615,6 +12607,10 @@
     "defaultMessage": "New LLM judge",
     "description": "Button text to create a new LLM judge"
   },
+  "rMR4gC": {
+    "defaultMessage": "Create new version",
+    "description": "Title for the create MCP server version modal when adding a version to an existing server"
+  },
   "rNj11o": {
     "defaultMessage": "Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens.",
     "description": "Instruction to open the traces tab in the experiment page"
@@ -13875,10 +13871,6 @@
     "defaultMessage": "Latency (AVG)",
     "description": "Column header for average latency"
   },
-  "xRb5P+": {
-    "defaultMessage": "Edit",
-    "description": "MCP server edit version button"
-  },
   "xRw7H2": {
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
@@ -14430,10 +14422,6 @@
   "zyPq2R": {
     "defaultMessage": "An error occurred while attempting to delete traces. Please refresh the page and try again.",
     "description": "Experiment page > traces view controls > Delete traces modal > Error message"
-  },
-  "zznpND": {
-    "defaultMessage": "Aliases",
-    "description": "Version edit aliases label"
   },
   "zzuzri": {
     "defaultMessage": "Description",
