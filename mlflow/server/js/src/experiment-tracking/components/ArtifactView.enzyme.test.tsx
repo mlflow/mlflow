@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { DesignSystemProvider, Typography } from '@databricks/design-system';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
@@ -24,6 +24,8 @@ import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
 import { getArtifactBlob } from '../../common/utils/ArtifactUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { MlflowService } from '../sdk/MlflowService';
 
 const { Text } = Typography;
 
@@ -190,46 +192,145 @@ describe('ArtifactView', () => {
     geojsonFileElement.simulate('click');
     expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
   });
-  test('should download artifact via fetch and blob URL', async () => {
-    const rootNode = new ArtifactNode(true, undefined, undefined);
-    rootNode.isLoaded = true;
-    const textFile = new ArtifactNode(
-      false,
-      {
-        path: 'summary.txt',
-        is_dir: false,
-        file_size: '100',
+  describe('artifact download', () => {
+    let assignMock: jest.Mock;
+    let originalLocation: Location;
+    let originalRevokeObjectURL: any;
+    let createObjectURLSpy: any;
+    let revokeObjectURLMock: jest.Mock;
+    let anchor: any;
+    let presignedSpy: any;
+
+    const getImplInstance = () => {
+      const rootNode = new ArtifactNode(true, undefined, undefined);
+      rootNode.isLoaded = true;
+      const textFile = new ArtifactNode(
+        false,
+        {
+          path: 'summary.txt',
+          is_dir: false,
+          file_size: '100',
+        },
+        undefined,
+      );
+      rootNode.setChildren([textFile.fileInfo]);
+      wrapper = getWrapper(getMockStore(rootNode), minimalProps);
+      wrapper.find('NodeHeader').at(0).simulate('click');
+      wrapper.update();
+      // Mock the DOM download plumbing only after enzyme has mounted the component:
+      // enzyme itself needs the real document.createElement to create its container.
+      createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+      // jsdom does not implement URL.revokeObjectURL (and the test setup does not polyfill
+      // it), so jest.spyOn cannot be used here; the original value is restored in afterEach.
+      revokeObjectURLMock = jest.fn();
+      URL.revokeObjectURL = revokeObjectURLMock;
+      anchor = { href: '', download: '', click: jest.fn() };
+      jest.spyOn(document, 'createElement').mockReturnValue(anchor);
+      jest.spyOn(document.body, 'appendChild').mockImplementation(() => anchor);
+      jest.spyOn(document.body, 'removeChild').mockImplementation(() => anchor);
+      return wrapper.find('ArtifactViewImpl').instance() as any;
+    };
+
+    const expectBlobDownload = (expectedUrlPart: string) => {
+      expect(getArtifactBlob).toHaveBeenCalledWith(expect.stringContaining(expectedUrlPart));
+      expect(createObjectURLSpy).toHaveBeenCalled();
+      expect(anchor.download).toBe('summary.txt');
+      expect(anchor.click).toHaveBeenCalled();
+      expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:fake-url');
+    };
+
+    beforeEach(() => {
+      originalLocation = window.location;
+      originalRevokeObjectURL = (URL as any).revokeObjectURL;
+      assignMock = jest.fn();
+      // The download navigates the top-level page to a cross-origin (cloud storage) URL,
+      // which no router test utility models — mock `location.assign` directly.
+      // eslint-disable-next-line @databricks/no-mock-location
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, assign: assignMock },
+        writable: true,
+      });
+      presignedSpy = jest.spyOn(MlflowService, 'createPresignedDownloadUrl');
+      jest.mocked(getArtifactBlob).mockClear();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      (URL as any).revokeObjectURL = originalRevokeObjectURL;
+      // eslint-disable-next-line @databricks/no-mock-location
+      Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
+    });
+
+    test('should navigate to the presigned URL when the server provides one', async () => {
+      presignedSpy.mockResolvedValue({ presigned_url: 'https://s3.example.com/signed', file_size: 100 });
+
+      const implInstance = getImplInstance();
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(presignedSpy).toHaveBeenCalledWith({ run_id: 'fakeUuid', path: 'summary.txt' });
+      expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/signed');
+      expect(getArtifactBlob).not.toHaveBeenCalled();
+    });
+
+    test.each([400, 404, 501, 503])(
+      'should fall back to the proxied download when the presigned request fails with %s',
+      async (status) => {
+        presignedSpy.mockRejectedValue(new ErrorWrapper('unavailable', status));
+
+        const implInstance = getImplInstance();
+        await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+        expect(assignMock).not.toHaveBeenCalled();
+        expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
       },
-      undefined,
     );
-    rootNode.setChildren([textFile.fileInfo]);
-    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
 
-    const fileElement = wrapper.find('NodeHeader').at(0);
-    fileElement.simulate('click');
-    wrapper.update();
+    test('should fail closed without fallback when the presigned request is denied with 403', async () => {
+      const notifySpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+      presignedSpy.mockRejectedValue(new ErrorWrapper('permission denied', 403));
 
-    const createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
-    const revokeObjectURLMock = jest.fn();
-    URL.revokeObjectURL = revokeObjectURLMock;
+      const implInstance = getImplInstance();
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
-    const anchor = { href: '', download: '', click: jest.fn() } as any;
-    const createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(anchor);
-    jest.spyOn(document.body, 'appendChild').mockImplementation(() => anchor);
-    jest.spyOn(document.body, 'removeChild').mockImplementation(() => anchor);
+      expect(notifySpy).toHaveBeenCalled();
+      expect(assignMock).not.toHaveBeenCalled();
+      expect(getArtifactBlob).not.toHaveBeenCalled();
+    });
 
-    const implInstance = wrapper.find('ArtifactViewImpl').instance() as any;
-    await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+    test('should notify the user when the proxied fallback download itself fails', async () => {
+      const notifySpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+      presignedSpy.mockRejectedValue(new ErrorWrapper('older server', 404));
 
-    expect(getArtifactBlob).toHaveBeenCalledWith(
-      expect.stringContaining('get-artifact?path=summary.txt&run_uuid=fakeUuid'),
-    );
-    expect(createObjectURLSpy).toHaveBeenCalled();
-    expect(anchor.download).toBe('summary.txt');
-    expect(anchor.click).toHaveBeenCalled();
-    expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:fake-url');
+      const implInstance = getImplInstance();
+      jest.mocked(getArtifactBlob).mockRejectedValueOnce(new ErrorWrapper('missing artifact', 404));
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
-    createObjectURLSpy.mockRestore();
-    createElementSpy.mockRestore();
+      expect(getArtifactBlob).toHaveBeenCalled();
+      expect(notifySpy).toHaveBeenCalled();
+      expect(assignMock).not.toHaveBeenCalled();
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
+    });
+
+    test('should use the proxied download when the presigned URL requires request headers', async () => {
+      presignedSpy.mockResolvedValue({
+        presigned_url: 'https://s3.example.com/signed',
+        headers: { 'x-required-header': 'value' },
+      });
+
+      const implInstance = getImplInstance();
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(assignMock).not.toHaveBeenCalled();
+      expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
+    });
+
+    test('should download logged-model artifacts via the proxied path without a presigned request', async () => {
+      const implInstance = getImplInstance();
+      await implInstance.onDownloadClick(undefined, 'summary.txt', 'model-123');
+
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expect(assignMock).not.toHaveBeenCalled();
+      expectBlobDownload('model-123');
+    });
   });
 });

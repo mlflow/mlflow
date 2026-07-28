@@ -19,6 +19,7 @@ beforeAll(() => {
 const mockSendMessage = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
+const mockRefreshConfig = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
 const EMPTY_TOKEN_USAGE: TokenUsage = {
@@ -54,9 +55,22 @@ jest.mock('./AssistantContext', () => ({
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: mockCancelSession,
-    refreshConfig: jest.fn(),
+    refreshConfig: mockRefreshConfig,
     completeSetup: jest.fn(),
   }),
+}));
+
+// Stub the setup wizard so the settings view exposes its onBack handler directly,
+// without depending on the wizard's internal steps.
+jest.mock('./setup', () => ({
+  AssistantSetupWizard: ({ onBack }: { onBack?: () => void }) =>
+    onBack ? (
+      <button type="button" onClick={onBack}>
+        Back from settings
+      </button>
+    ) : (
+      <div>Setup wizard</div>
+    ),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -82,6 +96,7 @@ describe('AssistantChatPanel', () => {
     mockSendMessage.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
+    mockRefreshConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
     mockTokenUsage = EMPTY_TOKEN_USAGE;
@@ -198,6 +213,21 @@ describe('AssistantChatPanel', () => {
     await user.keyboard('{Enter}');
 
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
+  });
+
+  test('returning from settings refreshes config so the provider indicator is not stale', async () => {
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    // Opening settings alone should not refetch config.
+    await user.click(screen.getByLabelText('Settings'));
+    expect(mockRefreshConfig).not.toHaveBeenCalled();
+
+    // Going back re-reads the config, so a provider changed in settings is reflected immediately.
+    // The refresh is silent so it doesn't flash the loading state over the already-open chat.
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+    expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
   });
 
   test('token footer shows a compact total and an info trigger when usage is present', () => {
