@@ -5342,10 +5342,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # accumulating per-batch sums onto the stored value would double-count.
             # Fetch the trace's already-stored spans so Phase 5 can recompute the
             # tree-aware aggregate over the full span tree (stored + batch).
+            #
+            # Derived from preexisting_trace_ids so the recompute only reads spans for traces
+            # locked above. That keeps the read from observing another log_spans() call's
+            # uncommitted spans, and keeps recompute_trace_ids a subset of the locked rows by
+            # construction rather than by coincidence.
+            usage_or_cost_trace_ids = set(trace_ids_with_token_usage) | set(trace_ids_with_cost)
             recompute_trace_ids = [
-                tid
-                for tid in set(trace_ids_with_token_usage) | set(trace_ids_with_cost)
-                if tid not in created_trace_ids
+                trace_id
+                for trace_id in preexisting_trace_ids
+                if trace_id in usage_or_cost_trace_ids
             ]
             stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
