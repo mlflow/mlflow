@@ -47,6 +47,7 @@ import {
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../common/utils/ArtifactUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
@@ -221,6 +222,28 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
+  async downloadArtifactViaBlob(url: string, artifactPath: string) {
+    try {
+      const blob = await getArtifactBlob(url);
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = blobUrl;
+        anchor.download = getBasename(artifactPath);
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (e) {
+      // Surface proxied-download failures (e.g. a genuinely missing artifact reached via
+      // the presigned 404 fallback) instead of leaving an unhandled rejection with no
+      // user-visible feedback.
+      Utils.logErrorAndNotifyUser(e);
+    }
+  }
+
   async onDownloadClick(
     // comment for copybara formatting
     runUuid: any,
@@ -228,24 +251,42 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     loggedModelId?: string,
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
-    let url: string;
     if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      url = getArtifactLocationUrl(artifactPath, runUuid);
+      // Prefer a presigned URL minted by the tracking server: the browser then downloads
+      // directly from cloud storage via top-level navigation, so artifact bytes are
+      // neither proxied through the tracking server nor buffered in browser memory.
+      try {
+        const response = await MlflowService.createPresignedDownloadUrl({
+          run_id: runUuid,
+          path: artifactPath,
+        });
+        // A top-level navigation cannot attach request headers; if the backend requires
+        // any, use the proxied download instead.
+        if (response.presigned_url && Object.keys(response.headers ?? {}).length === 0) {
+          window.location.assign(response.presigned_url);
+          return;
+        }
+      } catch (e) {
+        const canFallBack =
+          e instanceof ErrorWrapper &&
+          // 400: the server rejects presigned downloads for proxied artifact storage
+          // (`mlflow-artifacts:` URIs — the default `mlflow server` configuration), where
+          // the proxied download IS the correct path. 404: older server without the
+          // endpoint (for a genuinely missing artifact the proxied path surfaces the same
+          // error). 501: artifact repository without presigned support. 503:
+          // artifacts-only server mode.
+          [400, 404, 501, 503].includes(e.getStatus());
+        if (!canFallBack) {
+          // Fail closed on everything else — notably 403, where falling back to the
+          // proxied path would sidestep a permission denial.
+          Utils.logErrorAndNotifyUser(e);
+          return;
+        }
+      }
+      await this.downloadArtifactViaBlob(getArtifactLocationUrl(artifactPath, runUuid), artifactPath);
     } else if (loggedModelId) {
-      url = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
-    } else {
-      return;
+      await this.downloadArtifactViaBlob(getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId), artifactPath);
     }
-
-    const blob = await getArtifactBlob(url);
-    const blobUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = getBasename(artifactPath);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(blobUrl);
   }
 
   renderControls() {

@@ -90,6 +90,7 @@ def test_collect_affected_trace_ids_gathers_from_analyses():
         severity="high",
         example_indices=[0, 1],
         categories=[],
+        category_rationale="",
     )
     result = collect_affected_trace_ids(issue, analyses)
     assert result == ["t1", "t2", "t3"]
@@ -106,6 +107,7 @@ def test_collect_affected_trace_ids_skips_out_of_bounds():
         severity="high",
         example_indices=[0, 5],
         categories=[],
+        category_rationale="",
     )
     result = collect_affected_trace_ids(issue, analyses)
     assert result == ["t1"]
