@@ -141,13 +141,11 @@ export const getChatTurnContent = (span: ModelTraceSpanNode): ChatTurnContent | 
  * the tree breadth-first for the shallowest span that has something to show.
  */
 export const findChatTurnContent = (rootSpan: ModelTraceSpanNode): ChatTurnContent => {
-  const queue = [rootSpan];
+  // Index-based cursor rather than shift(), which re-indexes the queue each step.
+  const queue: ModelTraceSpanNode[] = [rootSpan];
 
-  while (queue.length > 0) {
-    const span = queue.shift();
-    if (!span) {
-      break;
-    }
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const span = queue[cursor];
 
     const content = getChatTurnContent(span);
     if (content) {
