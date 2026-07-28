@@ -308,6 +308,22 @@ def test_get_config_does_not_list_gateway_models_for_default_provider():
     gateway_provider.list_models.assert_not_called()
 
 
+def test_get_config_does_not_probe_gateway_default_provider(client):
+    with (
+        patch("mlflow.assistant.providers.ClaudeCodeProvider.is_available", return_value=False),
+        patch("mlflow.assistant.providers.CodexProvider.is_available", return_value=False),
+        patch(
+            "mlflow.assistant.providers.MlflowGatewayProvider.is_available",
+            side_effect=AssertionError("should not probe gateway"),
+        ),
+    ):
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == {}
+
+
 def test_get_config_returns_existing_config(client, tmp_path):
     # Set up existing config by saving it first
     project_dir = tmp_path / "project"

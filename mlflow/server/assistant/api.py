@@ -450,7 +450,9 @@ async def get_config(request: Request) -> ConfigResponse:
     providers = {name: p.model_dump() for name, p in config.providers.items()}
     is_remote = not _is_localhost(request)
     selected_provider = _get_selected_provider(config)
-    provider = selected_provider or resolve_default_provider(remote=is_remote)
+    provider = selected_provider or resolve_default_provider(
+        remote=is_remote, include_gateway=False
+    )
     if selected_provider is None and provider is not None:
         provider_config = config.providers.get(provider.name) or AssistantProviderConfig()
         provider_data = provider_config.model_dump()

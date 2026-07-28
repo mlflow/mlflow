@@ -34,17 +34,21 @@ def list_providers() -> list[AssistantProvider]:
     return _build_providers()
 
 
-def _default_provider_precedence() -> list[AssistantProvider]:
-    return [
+def _default_provider_precedence(include_gateway: bool = True) -> list[AssistantProvider]:
+    providers = [
         ClaudeCodeProvider(),
         CodexProvider(),
-        MlflowGatewayProvider(),
     ]
+    if include_gateway:
+        providers.append(MlflowGatewayProvider())
+    return providers
 
 
-def resolve_default_provider(remote: bool = False) -> AssistantProvider | None:
+def resolve_default_provider(
+    remote: bool = False, include_gateway: bool = True
+) -> AssistantProvider | None:
     """Pick a runtime provider when the user has not selected one explicitly."""
-    for provider in _default_provider_precedence():
+    for provider in _default_provider_precedence(include_gateway=include_gateway):
         if remote and not provider.allows_remote_access:
             continue
         try:
