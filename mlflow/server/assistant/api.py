@@ -455,9 +455,6 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_config = config.providers.get(provider.name) or AssistantProviderConfig()
         provider_data = provider_config.model_dump()
         provider_data["selected"] = True
-        if isinstance(provider, MlflowGatewayProvider) and provider_data["model"] == "default":
-            if models := provider.list_models():
-                provider_data["model"] = models[0]
         providers[provider.name] = provider_data
     for provider_data in providers.values():
         provider_data.pop("api_key", None)

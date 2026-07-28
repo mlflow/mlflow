@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
-from mlflow.assistant.providers import OllamaProvider
+from mlflow.assistant.providers import MlflowGatewayProvider, OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -284,6 +284,28 @@ def test_get_config_exposes_default_provider_when_none_selected():
     data = response.json()
     assert data["providers"]["mock_provider"]["selected"] is True
     assert data["providers"]["mock_provider"]["model"] == "default"
+
+
+def test_get_config_does_not_list_gateway_models_for_default_provider():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    gateway_provider = MlflowGatewayProvider()
+    gateway_provider.list_models = MagicMock(side_effect=AssertionError("should not list models"))
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch(
+            "mlflow.server.assistant.api.resolve_default_provider", return_value=gateway_provider
+        ),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["mlflow_gateway"]["selected"] is True
+    assert data["providers"]["mlflow_gateway"]["model"] == "default"
+    gateway_provider.list_models.assert_not_called()
 
 
 def test_get_config_returns_existing_config(client, tmp_path):
