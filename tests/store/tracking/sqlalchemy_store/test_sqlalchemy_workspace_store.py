@@ -2,6 +2,7 @@ import json
 import math
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -47,9 +48,13 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
     SqlEntityAssociation,
     SqlExperiment,
+    SqlSpanCostDailyRollup,
     SqlTraceInfo,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
     SqlTraceTag,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
@@ -139,6 +144,44 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, db_uri, monke
         assert store.supports_trace_archival is True
     finally:
         store._dispose_engine()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        SqlTraceMetricDailyRollup,
+        SqlSpanCostDailyRollup,
+        SqlAssessmentDailyRollup,
+        SqlTraceRollupRebuild,
+    ],
+)
+def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, model):
+    experiment_ids = {}
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            experiment_ids[workspace] = int(
+                workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            )
+
+    def create_row(experiment_id):
+        values = {
+            "experiment_id": experiment_id,
+            "rollup_day": date(2026, 1, 1),
+        }
+        if model is SqlTraceRollupRebuild:
+            values["rollup_family"] = "trace_metrics"
+        else:
+            values.update(metric_name="total_tokens", grouping_set="global", sample_count=1)
+        return model(**values)
+
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all(create_row(experiment_id) for experiment_id in experiment_ids.values())
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [row.experiment_id for row in rows] == [experiment_ids[workspace]]
 
 
 def test_experiments_are_workspace_scoped(workspace_tracking_store):
