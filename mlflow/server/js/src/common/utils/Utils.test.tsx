@@ -1009,6 +1009,13 @@ describe('logErrorAndNotifyUser', () => {
     );
   });
 
+  test('shows toast for Error instances', () => {
+    Utils.logErrorAndNotifyUser(new Error('something went wrong'));
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'something went wrong' }),
+    );
+  });
+
   test('shows toast for ErrorWrapper errors', () => {
     const wrapper = new ErrorWrapper('{"error_code":"PERMISSION_DENIED","message":"not allowed"}', 403);
     Utils.logErrorAndNotifyUser(wrapper);

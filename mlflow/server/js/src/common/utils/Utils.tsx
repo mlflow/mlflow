@@ -1015,6 +1015,8 @@ class Utils {
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
     } else if (e instanceof NetworkRequestError) {
       Utils.displayGlobalErrorNotification(e.message, duration);
+    } else if (e instanceof Error) {
+      Utils.displayGlobalErrorNotification(e.message, duration);
       // eslint-disable-next-line no-empty
     } else {
     }
