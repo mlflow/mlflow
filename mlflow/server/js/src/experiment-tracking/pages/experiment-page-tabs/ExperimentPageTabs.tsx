@@ -31,6 +31,7 @@ import { useNavigateToExperimentPageTab } from '../../components/experiment-page
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
 import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
+import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
 import type { ExperimentEntity } from '../../types';
 
 const ExperimentPageTabsImpl = () => {
@@ -201,7 +202,9 @@ const ExperimentPageTabsImpl = () => {
     ) : undefined;
 
   return (
-    <>
+    // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
+    // via the outlet below) up to the header Views dropdown, which lives above the outlet.
+    <SharedViewActionsBridgeProvider>
       {!headerHidden && (
         <ExperimentPageHeaderWithDescription
           experiment={experiment}
@@ -239,7 +242,7 @@ const ExperimentPageTabsImpl = () => {
       ) : (
         <div css={contentWrapperCss}>{outletComponent}</div>
       )}
-    </>
+    </SharedViewActionsBridgeProvider>
   );
 };
 

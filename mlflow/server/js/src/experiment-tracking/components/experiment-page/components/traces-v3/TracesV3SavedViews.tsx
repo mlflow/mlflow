@@ -3,12 +3,13 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useDispatch } from 'react-redux';
 import type { EvaluationsOverviewTableSort } from '@databricks/web-shared/genai-traces-table';
 import {
-  BookmarkIcon,
   Button,
+  CheckCircleIcon,
   ChevronDownIcon,
   DangerModal,
   DropdownMenu,
   Input,
+  LayerIcon,
   Modal,
   Typography,
   useDesignSystemTheme,
@@ -81,6 +82,24 @@ interface TraceLiveViewState {
 const TraceLiveViewStateContext = createContext<TraceLiveViewState | null>(null);
 
 export const TraceLiveViewStateProvider = TraceLiveViewStateContext.Provider;
+
+/**
+ * Bridges the shared-view preview actions from TracesV3Logs (where the preview overlay lives) to the
+ * Views dropdown, which is passed INTO TracesV3Logs as a toolbar corner-addon (so it can't read the
+ * preview hook directly). `active` is whether a shared view is currently applied; `override`/`discard`
+ * mirror the banner's actions so they remain reachable after the banner is dismissed.
+ */
+export interface TracePreviewActions {
+  active: boolean;
+  override: () => void;
+  discard: () => void;
+}
+
+const TracePreviewActionsContext = createContext<TracePreviewActions | null>(null);
+
+export const TracePreviewActionsProvider = TracePreviewActionsContext.Provider;
+
+export const useTracePreviewActions = () => useContext(TracePreviewActionsContext);
 
 const encodeLiveViewState = (live: TraceLiveViewState): CapturedTraceViewState['single'] => {
   const single: CapturedTraceViewState['single'] = {};
@@ -383,6 +402,16 @@ const SaveTraceViewModal = ({
       const { id, state } = result;
       setSavedUrl(getTraceSavedViewShareUrl(experimentId, state, id));
       onSaved(state, id);
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'View "{name}" saved.',
+            description: 'Success toast shown after a traces view is saved',
+          },
+          { name: trimmed },
+        ),
+        3,
+      );
     } catch {
       Utils.displayGlobalErrorNotification(
         intl.formatMessage({
@@ -401,7 +430,7 @@ const SaveTraceViewModal = ({
       componentId="mlflow.traces.save_view.modal"
       title={
         <FormattedMessage
-          defaultMessage="Save & share view"
+          defaultMessage="Save view"
           description="Title of the modal that saves the current traces view and produces a shareable link"
         />
       }
@@ -410,12 +439,15 @@ const SaveTraceViewModal = ({
     >
       {savedUrl ? (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="Saved to this experiment. Anyone with access can open this view from the link or the Views list."
-              description="Confirmation shown after saving a traces view"
-            />
-          </Typography.Text>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Saved to this experiment. Anyone with access can open this view from the link or the Views list."
+                description="Confirmation shown after saving a traces view"
+              />
+            </Typography.Text>
+          </div>
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <Input componentId="mlflow.traces.save_view.link" value={savedUrl} readOnly />
             <CopyButton copyText={savedUrl} />
@@ -483,6 +515,9 @@ export const TracesV3SavedViewsButton = ({
 }) => {
   const intl = useIntl();
   const { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey } = savedViews;
+  // Preview actions bridged from TracesV3Logs (this button renders as a toolbar corner-addon inside
+  // it). Present only in the traces-view tree; null elsewhere → the menu shows no Override/Discard.
+  const previewActions = useTracePreviewActions();
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click:
   // a DangerModal rendered inside DropdownMenu.Content would be torn down when the menu dismisses.
@@ -534,7 +569,7 @@ export const TracesV3SavedViewsButton = ({
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.traces.saved_views.trigger"
-            icon={<BookmarkIcon />}
+            icon={<LayerIcon />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-saved-views-trigger"
           >
@@ -561,6 +596,15 @@ export const TracesV3SavedViewsButton = ({
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
             onSaveCurrent={() => setShowSaveModal(true)}
+            sharedViewActive={previewActions?.active}
+            onOverrideActive={previewActions?.override}
+            onDiscardActive={previewActions?.discard}
+            overrideLabel={
+              <FormattedMessage
+                defaultMessage="Override my view"
+                description="Traces Views menu > entry that adopts the applied shared view into the user's own view"
+              />
+            }
           />
         </DropdownMenu.Content>
       </DropdownMenu.Root>

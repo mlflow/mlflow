@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-import { TracesV3SavedViewsButton, TraceLiveViewStateProvider, useTraceSavedViews } from './TracesV3SavedViews';
+import {
+  TracesV3SavedViewsButton,
+  TraceLiveViewStateProvider,
+  TracePreviewActionsProvider,
+  useTraceSavedViews,
+} from './TracesV3SavedViews';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
@@ -273,5 +278,43 @@ describe('TracesV3SavedViewsButton', () => {
 
     // Sharing routes through the named-view flow: the modal prompts for a view name before saving.
     expect(await screen.findByTestId('save-trace-view-name-input')).toBeInTheDocument();
+  });
+
+  test('surfaces Override/Discard in the menu (wired to preview actions) only when a shared view is active', async () => {
+    const override = jest.fn();
+    const discard = jest.fn();
+    const renderWithPreview = (active: boolean) =>
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <MockedReduxStoreProvider>
+              <TracePreviewActionsProvider value={{ active, override, discard }}>
+                <SavedViewsButtonHarness experimentId="exp-1" />
+              </TracePreviewActionsProvider>
+            </MockedReduxStoreProvider>
+          </DesignSystemProvider>
+        </IntlProvider>,
+        {
+          wrapper: ({ children }) => (
+            <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={['/']} />
+          ),
+        },
+      );
+
+    // Not previewing → no Override/Discard entries.
+    const { unmount } = renderWithPreview(false);
+    await openDropdown();
+    expect(screen.queryByTestId('trace-saved-views-override-active')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('trace-saved-views-discard-active')).not.toBeInTheDocument();
+    unmount();
+
+    // Previewing → entries appear and invoke the bridged preview actions.
+    renderWithPreview(true);
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('trace-saved-views-override-active'));
+    expect(override).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByTestId('trace-saved-views-trigger'));
+    await userEvent.click(screen.getByTestId('trace-saved-views-discard-active'));
+    expect(discard).toHaveBeenCalledTimes(1);
   });
 });

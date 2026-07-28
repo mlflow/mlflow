@@ -276,7 +276,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-end',
-              gap: theme.spacing.xs,
+              gap: theme.spacing.sm,
             }}
           >
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>{cornerAddons}</div>

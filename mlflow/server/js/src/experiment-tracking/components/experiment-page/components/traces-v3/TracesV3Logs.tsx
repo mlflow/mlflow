@@ -69,7 +69,11 @@ import { FormattedMessage } from 'react-intl';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { SharedViewBanner } from '../saved-views/SharedViewBanner';
-import { TRACE_SHARE_URL_PARAM_KEY, TraceLiveViewStateProvider } from './TracesV3SavedViews';
+import {
+  TRACE_SHARE_URL_PARAM_KEY,
+  TraceLiveViewStateProvider,
+  TracePreviewActionsProvider,
+} from './TracesV3SavedViews';
 import { useSavedViewPreview } from './traceSavedViewPreview';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
@@ -334,6 +338,21 @@ const TracesV3LogsImpl = React.memo(
       setTableSort,
       exitPreview,
     });
+
+    // Lets the user hide the shared-view banner WITHOUT leaving the view (Override/Discard stay
+    // reachable from the Views menu). Ephemeral: keyed on the active share key so opening a different
+    // view re-shows its banner, and reset once preview ends. Does NOT touch `preview.active`, so the
+    // view stays applied and column controls stay disabled while dismissed.
+    const activeShareKey = searchParams.get(TRACE_SHARE_URL_PARAM_KEY);
+    const [dismissedShareKey, setDismissedShareKey] = useState<string | null>(null);
+    const bannerDismissed = preview.active && dismissedShareKey === activeShareKey;
+
+    // Expose the preview actions to the Views dropdown (rendered as a corner addon), so Override /
+    // Discard remain reachable there after the banner is dismissed.
+    const previewActions = useMemo(
+      () => ({ active: preview.active, override: preview.override, discard: preview.discard }),
+      [preview.active, preview.override, preview.discard],
+    );
 
     const effectiveColumns = preview.active && preview.columns ? preview.columns : selectedColumns;
     const effectiveSort = preview.active && preview.sort ? preview.sort : tableSort;
@@ -680,7 +699,7 @@ const TracesV3LogsImpl = React.memo(
               flexDirection: 'column',
             }}
           >
-            {preview.active && (
+            {preview.active && !bannerDismissed && (
               <SharedViewBanner
                 componentId="mlflow.traces.shared_view"
                 message={
@@ -697,6 +716,7 @@ const TracesV3LogsImpl = React.memo(
                 }
                 onOverride={preview.override}
                 onDiscard={preview.discard}
+                onDismiss={() => setDismissedShareKey(activeShareKey)}
               />
             )}
             <GenAITracesTableToolbar
@@ -730,9 +750,11 @@ const TracesV3LogsImpl = React.memo(
               }
               cornerAddons={
                 toolbarCornerAddons ? (
-                  <TraceLiveViewStateProvider value={liveSavedViewState}>
-                    {toolbarCornerAddons}
-                  </TraceLiveViewStateProvider>
+                  <TracePreviewActionsProvider value={previewActions}>
+                    <TraceLiveViewStateProvider value={liveSavedViewState}>
+                      {toolbarCornerAddons}
+                    </TraceLiveViewStateProvider>
+                  </TracePreviewActionsProvider>
                 ) : (
                   toolbarCornerAddons
                 )
