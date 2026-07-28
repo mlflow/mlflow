@@ -28,7 +28,7 @@ export const AssistantSettingsPage = ({ experimentId, onBack }: AssistantSetting
         overflow: 'auto',
       }}
     >
-      <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+      <Typography.Title level={3} css={{ marginBottom: theme.spacing.md }}>
         <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings page" />
       </Typography.Title>
 

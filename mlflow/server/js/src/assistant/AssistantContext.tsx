@@ -422,8 +422,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Setup actions
-  const refreshConfig = useCallback(async () => {
-    setIsLoadingConfig(true);
+  // `silent` refreshes config without toggling `isLoadingConfig`, so a background
+  // re-read (e.g. returning from settings while the panel is already open) doesn't
+  // flash the full-panel loading state over the chat view.
+  const refreshConfig = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setIsLoadingConfig(true);
+    }
     try {
       const config = await getConfig();
       const { setupComplete: isComplete, selectedProvider: provider } = await resolveSetup(config);
@@ -438,7 +443,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setRemoteAccessAllowed(false);
       setSelectedProvider(null);
     } finally {
-      setIsLoadingConfig(false);
+      if (!silent) {
+        setIsLoadingConfig(false);
+      }
     }
   }, []);
 

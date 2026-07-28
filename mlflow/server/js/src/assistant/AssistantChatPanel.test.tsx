@@ -19,8 +19,11 @@ beforeAll(() => {
 const mockSendMessage = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
+const mockRefreshConfig = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
+let mockIsLocalServer = true;
+let mockCanUseAssistant = true;
 const EMPTY_TOKEN_USAGE: TokenUsage = {
   promptTokens: 0,
   completionTokens: 0,
@@ -41,10 +44,10 @@ jest.mock('./AssistantContext', () => ({
     activeTools: [],
     setupComplete: mockSetupComplete,
     isLoadingConfig: false,
-    isLocalServer: true,
+    isLocalServer: mockIsLocalServer,
     selectedProvider: null,
     pendingPrompt: mockPendingPrompt,
-    canUseAssistant: true,
+    canUseAssistant: mockCanUseAssistant,
     tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
@@ -54,8 +57,17 @@ jest.mock('./AssistantContext', () => ({
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: mockCancelSession,
-    refreshConfig: jest.fn(),
+    refreshConfig: mockRefreshConfig,
   }),
+}));
+
+// Stub the settings page so the settings view exposes its onBack handler directly.
+jest.mock('./setup', () => ({
+  AssistantSettingsPage: ({ onBack }: { onBack: () => void }) => (
+    <button type="button" onClick={onBack}>
+      Back from settings
+    </button>
+  ),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -81,8 +93,11 @@ describe('AssistantChatPanel', () => {
     mockSendMessage.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
+    mockRefreshConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
+    mockIsLocalServer = true;
+    mockCanUseAssistant = true;
     mockTokenUsage = EMPTY_TOKEN_USAGE;
     mockLogTelemetryEvent = jest.fn();
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
@@ -94,6 +109,16 @@ describe('AssistantChatPanel', () => {
 
     expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
+  });
+
+  test('when setup is incomplete on a remote client, the panel asks for local setup', () => {
+    mockSetupComplete = false;
+    mockIsLocalServer = false;
+    renderChatPanel();
+
+    expect(screen.getByText('Assistant setup required')).toBeInTheDocument();
+    expect(screen.queryByText('Welcome to MLflow Assistant')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
   });
 
@@ -194,6 +219,21 @@ describe('AssistantChatPanel', () => {
     await user.keyboard('{Enter}');
 
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
+  });
+
+  test('returning from settings refreshes config so the provider indicator is not stale', async () => {
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    // Opening settings alone should not refetch config.
+    await user.click(screen.getByLabelText('Settings'));
+    expect(mockRefreshConfig).not.toHaveBeenCalled();
+
+    // Going back re-reads the config, so a provider changed in settings is reflected immediately.
+    // The refresh is silent so it doesn't flash the loading state over the already-open chat.
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+    expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
   });
 
   test('token footer shows a compact total and an info trigger when usage is present', () => {

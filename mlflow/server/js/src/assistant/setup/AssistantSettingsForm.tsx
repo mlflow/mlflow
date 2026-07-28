@@ -14,6 +14,9 @@ import {
 
 import { updateConfig, installSkills } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
+import { Link } from '../../common/utils/RoutingUtils';
+import Routes from '../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../settings/settingsSectionConstants';
 
 type SkillsLocation = 'global' | 'project' | 'custom';
 
@@ -188,6 +191,31 @@ export const AssistantSettingsForm = ({
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div css={{ flex: 1, overflow: 'auto' }}>
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Text color="secondary">
+              Need to update API keys? Manage them in{' '}
+              <Link
+                componentId="mlflow.assistant.setup.llm_connections_link"
+                to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
+                css={{
+                  color: theme.colors.actionPrimaryBackgroundDefault,
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                LLM Connections
+              </Link>
+              .
+            </Typography.Text>
+          </div>
+
           {/* Permissions Section */}
           <div>
             <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>

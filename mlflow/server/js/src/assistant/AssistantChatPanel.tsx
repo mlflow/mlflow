@@ -700,6 +700,53 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
+const RemoteSetupRequiredMessage = ({ onClose }: { onClose: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 0,
+        padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 3,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+
+      <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
+        <FormattedMessage
+          defaultMessage="Assistant setup required"
+          description="Title shown when a remote client cannot configure Assistant setup"
+        />
+      </Typography.Title>
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup."
+          description="Message explaining that Assistant setup must be completed locally by a server admin"
+        />
+      </Typography.Text>
+
+      <Button componentId="mlflow.assistant.chat_panel.remote_setup_close" onClick={onClose}>
+        <FormattedMessage defaultMessage="Close" description="Button to close the assistant panel on remote servers" />
+      </Button>
+    </div>
+  );
+};
+
 /**
  * Empty state shown when no assistant provider can be resolved.
  */
@@ -731,7 +778,8 @@ const SetupPrompt = () => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, isLocalServer } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, isLocalServer, refreshConfig } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -750,8 +798,13 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const handleBackFromSettings = useCallback(() => {
+    // Re-read the config so the composer's provider indicator reflects any
+    // change made in settings; without this it stays stale until a reload.
+    // `silent` avoids flashing the full-panel loading state over the chat,
+    // since the panel is already open during back-navigation.
+    refreshConfig({ silent: true });
     setCurrentView('chat');
-  }, []);
+  }, [refreshConfig]);
 
   const renderContent = () => {
     // Show message when this client isn't allowed to use the Assistant
@@ -763,6 +816,10 @@ export const AssistantChatPanel = () => {
     // Show loading state while fetching config
     if (isLoadingConfig) {
       return <SetupLoadingState />;
+    }
+
+    if (!isLocalServer && !setupComplete) {
+      return <RemoteSetupRequiredMessage onClose={handleClose} />;
     }
 
     switch (currentView) {
