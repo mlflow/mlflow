@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785248458297,
+  "lastUpdate": 1785250258814,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -17225,6 +17225,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.052282400002241,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "daniel.lok@databricks.com",
+            "name": "Daniel Lok",
+            "username": "daniellok-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3f5172a9b8b595034ab6acf3962482974602919b",
+          "message": "Fix workspace-enabled tracking store crash-loop when the default experiment is renamed (#24598)\n\nSigned-off-by: Daniel Lok <daniel.lok@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-07-28T14:47:14Z",
+          "tree_id": "8d957a56dca148512094673acc64a7c9732546d5",
+          "url": "https://github.com/mlflow/mlflow/commit/3f5172a9b8b595034ab6acf3962482974602919b"
+        },
+        "date": 1785250256955,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.78035374999638,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 26.461860424241696,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.711702016666397,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.409095589286675,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.45446855932201,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.880728799996973,
             "unit": "ms"
           }
         ]
