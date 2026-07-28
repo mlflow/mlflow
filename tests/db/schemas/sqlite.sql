@@ -4,6 +4,7 @@ CREATE TABLE alembic_version (
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
 )
 
+
 CREATE TABLE budget_policies (
 	budget_policy_id VARCHAR(36) NOT NULL,
 	budget_unit VARCHAR(32) NOT NULL,
@@ -783,3 +784,4 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
+
