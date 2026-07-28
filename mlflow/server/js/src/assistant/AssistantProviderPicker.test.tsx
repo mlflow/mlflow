@@ -89,7 +89,9 @@ const getMenuItemByText = (text: string): HTMLElement => {
     .getAllByText(text)
     .map((element) => element.closest('[role="menuitem"]'))
     .find((element): element is HTMLElement => element instanceof HTMLElement);
-  expect(item).toBeInTheDocument();
+  if (!item) {
+    throw new Error(`Menu item not found: ${text}`);
+  }
   return item;
 };
 
