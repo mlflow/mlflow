@@ -293,7 +293,7 @@ describe('AssistantContext — pendingPrompt seed', () => {
 
   // completing setup must NOT drop a queued prompt, so it can be
   // consumed once the chat input appears post-setup.
-  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
+  it('keeps pendingPrompt across completeSetup() (seed survives setup refresh)', async () => {
     const { result } = await renderAssistant();
 
     act(() => {
@@ -301,7 +301,7 @@ describe('AssistantContext — pendingPrompt seed', () => {
     });
     expect(result.current.pendingPrompt).toBe('SEED');
 
-    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
+    // completeSetup() re-fetches config; mirror a finished setup where a provider is selected
     // so setupComplete stays true after the refresh lands.
     mockGetProviders.mockResolvedValue({
       providers: [],

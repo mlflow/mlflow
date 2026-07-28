@@ -8,6 +8,7 @@ import {
   ToolCallGroup,
   fencedBlock,
   groupStatus,
+  toolInputSummary,
   toolNameSummary,
   type ToolCallPart,
 } from './ToolCallCard';
@@ -44,6 +45,16 @@ describe('ToolCallCard', () => {
   test('summarizes trace_id with its jq_filter', () => {
     renderCard(toolCall({ name: 'trace_analyse', input: { trace_id: 'tr-1', jq_filter: '.data.spans' } }));
     expect(screen.getByText('tr-1 · .data.spans')).toBeInTheDocument();
+  });
+
+  test('truncates long input summaries before rendering the collapsed header', () => {
+    const summary = toolInputSummary(toolCall({ input: { command: 'x'.repeat(300) } }));
+    expect(summary).toContain('truncated, 60 more chars');
+    expect(summary.length).toBeLessThan(300);
+  });
+
+  test('uses a longer markdown fence when content contains backticks', () => {
+    expect(fencedBlock('before ``` after', 'json')).toBe('````json\nbefore ``` after\n````');
   });
 
   test.each([

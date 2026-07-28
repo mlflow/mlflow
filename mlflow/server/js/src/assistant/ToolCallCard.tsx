@@ -23,20 +23,23 @@ export type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
 
 // Tool output can be huge (e.g. a full trace); cap what we render in the card.
 const MAX_OUTPUT_CHARS = 4000;
+const MAX_INPUT_SUMMARY_CHARS = 240;
 
-const truncate = (text: string): string =>
-  text.length > MAX_OUTPUT_CHARS
-    ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… (truncated, ${text.length - MAX_OUTPUT_CHARS} more chars)`
+const truncate = (text: string, maxChars: number, markerPrefix = ''): string =>
+  text.length > maxChars
+    ? `${text.slice(0, maxChars)}${markerPrefix}… (truncated, ${text.length - maxChars} more chars)`
     : text;
 
 // One-line summary of a tool call's input for the header. Generic across tools: joins the
 // input's string values in order; falls back to compact JSON when there are none.
-const toolInputSummary = (part: ToolCallPart): string => {
+export const toolInputSummary = (part: ToolCallPart): string => {
   const input = part.input ?? {};
   const strings = Object.values(input).filter((v): v is string => typeof v === 'string' && v.length > 0);
-  if (strings.length > 0) return strings.join(' · ');
+  if (strings.length > 0) {
+    return truncate(strings.join(' · ').replace(/\s+/g, ' ').trim(), MAX_INPUT_SUMMARY_CHARS, ' ');
+  }
   const json = JSON.stringify(input);
-  return json === '{}' ? '' : json;
+  return json === '{}' ? '' : truncate(json, MAX_INPUT_SUMMARY_CHARS, ' ');
 };
 
 // Fixed-size badge box so done/error/running all occupy identical space and
@@ -285,7 +288,9 @@ export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
               <Typography.Text size="sm" color="secondary" bold>
                 <FormattedMessage defaultMessage="Output" description="Label for an assistant tool call's output" />
               </Typography.Text>
-              <GenAIMarkdownRenderer>{fencedBlock(truncate(part.result))}</GenAIMarkdownRenderer>
+              <GenAIMarkdownRenderer>
+                {fencedBlock(truncate(part.result, MAX_OUTPUT_CHARS, '\n'))}
+              </GenAIMarkdownRenderer>
             </>
           )}
         </div>

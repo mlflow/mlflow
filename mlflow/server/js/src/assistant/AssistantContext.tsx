@@ -120,7 +120,7 @@ const generateMessageId = (): string => {
  * Fold the `/providers` discovery response into the context's setup state. The server
  * resolves which provider will serve the next chat (the explicitly selected one when
  * usable, otherwise the best available default), so the client no longer gates the chat
- * on a completed setup wizard: a resolved provider means the chat is ready. Anything
+ * on a completed setup flow: a resolved provider means the chat is ready. Anything
  * still missing (e.g. an API key) is surfaced lazily at the first send instead.
  */
 export function resolveSetupFromProviders(providersResponse: ProvidersResponse): {

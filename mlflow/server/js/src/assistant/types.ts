@@ -241,7 +241,7 @@ export interface AssistantAgentActions {
   sendMessage: (message: string) => void;
   /** Optimistically switch the active provider (persisted on the next send). */
   selectProvider: (selection: AssistantProviderSelection) => void;
-  /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
+  /** Queue a prompt to seed the chat input the next time it's visible (survives setup/settings navigation) */
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */
   clearPendingPrompt: () => void;
@@ -253,7 +253,7 @@ export interface AssistantAgentActions {
   cancelSession: () => void;
   /** Fetch/refresh config from backend. Pass `{ silent: true }` to skip the loading state on a background refresh. */
   refreshConfig: (options?: { silent?: boolean }) => Promise<void>;
-  /** Mark setup as complete (after wizard finishes) */
+  /** Mark setup as complete (after setup finishes) */
   completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */
   respondToPermission: (allow: boolean) => void;
@@ -326,7 +326,7 @@ export interface AssistantConfigUpdate {
 }
 
 /**
- * Setup wizard step type.
+ * Legacy setup flow step type.
  */
 export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';
 

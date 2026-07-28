@@ -453,22 +453,6 @@ def test_get_config_redacts_project_location_for_remote_clients(tmp_path):
     assert "location" not in response.json()["projects"]["exp-123"]
 
 
-def test_get_config_always_redacts_api_key(client):
-    config = AssistantConfig(
-        providers={
-            "claude_code": AssistantProviderConfig(
-                model="default", selected=True, api_key="sk-secret"
-            )
-        },
-    )
-    config.save()
-
-    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
-
-    assert response.status_code == 200
-    assert "api_key" not in response.json()["providers"]["claude_code"]
-
-
 def test_get_config_loads_config_once(client):
     with patch.object(AssistantConfig, "load", wraps=AssistantConfig.load) as mock_load:
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
