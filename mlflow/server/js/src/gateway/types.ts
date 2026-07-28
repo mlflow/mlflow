@@ -365,7 +365,6 @@ export interface BudgetPolicyWindow {
   window_start_ms: number;
   window_end_ms: number;
   current_spend: number;
-  target_value?: string;
 }
 
 export interface ListBudgetWindowsResponse {
