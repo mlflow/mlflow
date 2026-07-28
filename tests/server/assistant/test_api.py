@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -208,6 +209,31 @@ def test_stream_uses_selected_provider_without_default_probe(client):
     assert response.status_code == 200
     assert "Hello from mock" in response.text
     mock_resolve_default.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stream_resolves_provider_off_event_loop():
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    event_loop_thread_id = threading.get_ident()
+
+    def resolve_provider(remote=False):
+        assert threading.get_ident() != event_loop_thread_id
+        return MockProvider()
+
+    with patch("mlflow.server.assistant.api._resolve_provider", side_effect=resolve_provider):
+        response = await stream_response(mock_request, session_id)
+        body = "".join([c async for c in response.body_iterator])
+
+    assert "Hello from mock" in body
 
 
 def test_health_check_returns_ok_when_healthy(client):

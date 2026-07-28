@@ -1,3 +1,4 @@
+import asyncio
 import enum
 import ipaddress
 import uuid
@@ -317,7 +318,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
-        provider = _resolve_provider(remote=is_remote)
+        provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
         if provider is None:
             from mlflow.assistant.types import Event
 
