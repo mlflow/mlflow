@@ -68,9 +68,11 @@ const currentModel = (provider: ResolvedProviderInfo, options: string[]): string
 };
 
 const GatewayVendorItems = ({
+  provider,
   gatewayVendorOptions,
   onSelect,
 }: {
+  provider: ResolvedProviderInfo;
   gatewayVendorOptions: Record<string, string[]>;
   onSelect: OnSelectProvider;
 }) => {
@@ -91,6 +93,7 @@ const GatewayVendorItems = ({
         const providerModel = endpointModelName(endpoint) ?? modelOptions[0];
         const vendorDisplay = getLlmProviderDisplay(vendor);
         const label = gatewayVendorMenuLabel(vendor);
+        const isSelected = provider.name === GATEWAY_PROVIDER_ID && provider.model_provider === vendor;
 
         return (
           <DropdownMenu.Item
@@ -117,6 +120,13 @@ const GatewayVendorItems = ({
               />
             )}
             <span css={{ flex: 1 }}>{label}</span>
+            {isSelected && (
+              <CheckIcon
+                aria-hidden
+                data-testid="assistant-provider-selected-check"
+                css={{ marginLeft: theme.spacing.sm }}
+              />
+            )}
           </DropdownMenu.Item>
         );
       })}
@@ -125,13 +135,16 @@ const GatewayVendorItems = ({
 };
 
 const GatewayEndpointItems = ({
+  provider,
   gatewayVendorOptions,
   onSelect,
 }: {
+  provider: ResolvedProviderInfo;
   gatewayVendorOptions: Record<string, string[]>;
   onSelect: OnSelectProvider;
 }) => {
   const { data } = useEndpointsQuery();
+  const { theme } = useDesignSystemTheme();
   const endpoints = data ?? [];
   const managedEndpointNames = new Set(Object.keys(gatewayVendorOptions).map(gatewayVendorEndpointName));
   const customEndpoints = endpoints.filter((endpoint) => !managedEndpointNames.has(endpoint.name));
@@ -144,7 +157,14 @@ const GatewayEndpointItems = ({
           key={endpoint.name}
           onClick={() => onSelect({ kind: PROVIDER_SELECTION_KIND.Gateway, endpointName: endpoint.name })}
         >
-          {endpoint.name}
+          <span css={{ flex: 1 }}>{endpoint.name}</span>
+          {provider.name === GATEWAY_PROVIDER_ID && provider.model === endpoint.name && (
+            <CheckIcon
+              aria-hidden
+              data-testid="assistant-provider-selected-check"
+              css={{ marginLeft: theme.spacing.sm }}
+            />
+          )}
         </DropdownMenu.Item>
       ))}
       <DropdownMenu.Item
@@ -189,7 +209,7 @@ const ProviderMenu = ({
   const hasGatewayVendorOptions = orderedGatewayVendors(gatewayVendorOptions).length > 0;
   const groupLabelStyles = { color: theme.colors.textSecondary };
 
-  const providerItemContent = (candidate: ProviderInfo, candidateLabel: string) => {
+  const providerItemContent = (candidate: ProviderInfo, candidateLabel: string, isSelected = false) => {
     const candidateMeta = getAssistantProvider(candidate.name);
     const candidateLogo = candidateMeta?.logo;
     const CandidateIcon = candidateMeta?.icon;
@@ -211,6 +231,13 @@ const ProviderMenu = ({
           />
         )}
         <span css={{ flex: 1 }}>{candidateLabel}</span>
+        {isSelected && (
+          <CheckIcon
+            aria-hidden
+            data-testid="assistant-provider-selected-check"
+            css={{ marginLeft: theme.spacing.sm }}
+          />
+        )}
       </>
     );
   };
@@ -258,7 +285,7 @@ const ProviderMenu = ({
                 description="Provider picker section label for assistant providers backed by external hosted APIs"
               />
             </DropdownMenu.Label>
-            <GatewayVendorItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
+            <GatewayVendorItems provider={provider} gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
           </DropdownMenu.Group>
         )}
         {hasGatewayVendorOptions && standardProviders.length > 0 && <DropdownMenu.Separator />}
@@ -273,6 +300,7 @@ const ProviderMenu = ({
             {standardProviders.map((candidate) => {
               const candidateMeta = getAssistantProvider(candidate.name);
               const candidateLabel = providerMenuLabel(candidate.name, candidateMeta?.name ?? candidate.display_name);
+              const isSelected = provider.name === candidate.name;
 
               return (
                 <DropdownMenu.Item
@@ -287,7 +315,7 @@ const ProviderMenu = ({
                     })
                   }
                 >
-                  {providerItemContent(candidate, candidateLabel)}
+                  {providerItemContent(candidate, candidateLabel, isSelected)}
                 </DropdownMenu.Item>
               );
             })}
@@ -307,10 +335,15 @@ const ProviderMenu = ({
                 {providerItemContent(
                   gatewayProvider,
                   getAssistantProvider(gatewayProvider.name)?.name ?? gatewayProvider.display_name,
+                  provider.name === GATEWAY_PROVIDER_ID && !provider.model_provider,
                 )}
               </DropdownMenu.SubTrigger>
               <DropdownMenu.SubContent>
-                <GatewayEndpointItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
+                <GatewayEndpointItems
+                  provider={provider}
+                  gatewayVendorOptions={gatewayVendorOptions}
+                  onSelect={onSelect}
+                />
               </DropdownMenu.SubContent>
             </DropdownMenu.Sub>
           </DropdownMenu.Group>

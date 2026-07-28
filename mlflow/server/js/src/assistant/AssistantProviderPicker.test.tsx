@@ -84,6 +84,27 @@ const renderPicker = ({
   return { ...result, onSelect };
 };
 
+const getMenuItemByText = (text: string): HTMLElement => {
+  const item = screen
+    .getAllByText(text)
+    .map((element) => element.closest('[role="menuitem"]'))
+    .find((element): element is HTMLElement => element instanceof HTMLElement);
+  expect(item).toBeInTheDocument();
+  return item;
+};
+
+const expectProviderChecked = (text: string) => {
+  expect(
+    getMenuItemByText(text).querySelector('[data-testid="assistant-provider-selected-check"]'),
+  ).toBeInTheDocument();
+};
+
+const expectProviderUnchecked = (text: string) => {
+  expect(
+    getMenuItemByText(text).querySelector('[data-testid="assistant-provider-selected-check"]'),
+  ).not.toBeInTheDocument();
+};
+
 describe('AssistantProviderPicker', () => {
   beforeEach(() => {
     mockGatewayEndpoints = [];
@@ -105,6 +126,8 @@ describe('AssistantProviderPicker', () => {
     expect(screen.getByText('Gateway endpoints')).toBeInTheDocument();
     expect(screen.getByText('MLflow AI Gateway')).toBeInTheDocument();
     expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
+    expectProviderChecked('Claude Code');
+    expectProviderUnchecked('OpenAI');
 
     await user.click(screen.getByText('OpenAI'));
     expect(onSelect).toHaveBeenCalledWith({
@@ -116,6 +139,46 @@ describe('AssistantProviderPicker', () => {
       requiresApiKey: true,
       hasApiKey: false,
     });
+  });
+
+  test('marks the selected API provider shortcut', async () => {
+    const user = userEvent.setup();
+    renderPicker({
+      provider: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'mlflow-assistant-openai',
+        auto_selected: false,
+        model_provider: 'openai',
+        provider_model: 'gpt-5.5',
+        model_options: ['gpt-5.5', 'gpt-5-mini'],
+      }),
+      gatewayVendorOptions: { openai: ['gpt-5.5', 'gpt-5-mini'], anthropic: ['claude-3-5-sonnet'] },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
+
+    expectProviderChecked('OpenAI');
+    expectProviderUnchecked('Anthropic');
+    expectProviderUnchecked('Claude Code');
+  });
+
+  test('marks the selected custom gateway endpoint', async () => {
+    const user = userEvent.setup();
+    mockGatewayEndpoints = [endpoint('custom-openai-endpoint', 'openai:/gpt-5')];
+    renderPicker({
+      provider: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'custom-openai-endpoint',
+        auto_selected: false,
+      }),
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
+    expectProviderChecked('MLflow AI Gateway');
+
+    await user.hover(getMenuItemByText('MLflow AI Gateway'));
+    expect(await screen.findByText('custom-openai-endpoint')).toBeInTheDocument();
+    expectProviderChecked('custom-openai-endpoint');
   });
 
   test('hides assistant-managed gateway endpoints from the custom gateway submenu', async () => {
