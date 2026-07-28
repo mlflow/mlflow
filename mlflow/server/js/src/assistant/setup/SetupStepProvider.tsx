@@ -22,6 +22,34 @@ export const SetupStepProvider = ({ selectedProvider, onContinue }: SetupStepPro
     }
   };
 
+  const renderProviderBrand = (provider: AssistantProvider) => {
+    const ProviderIcon = provider.icon;
+    if (provider.logo) {
+      return (
+        <img
+          src={provider.logo}
+          alt={provider.name}
+          css={{
+            width: 32,
+            height: 32,
+            objectFit: 'contain',
+            flexShrink: 0,
+          }}
+        />
+      );
+    }
+    return ProviderIcon ? (
+      <ProviderIcon
+        aria-hidden
+        css={{
+          fontSize: 32,
+          color: provider.available ? theme.colors.textPrimary : theme.colors.textSecondary,
+          flexShrink: 0,
+        }}
+      />
+    ) : null;
+  };
+
   const renderProviderCard = (provider: AssistantProvider) => (
     <div
       key={provider.id}
@@ -63,16 +91,7 @@ export const SetupStepProvider = ({ selectedProvider, onContinue }: SetupStepPro
             />
           )}
         </div>
-        <img
-          src={provider.logo}
-          alt={provider.name}
-          css={{
-            width: 32,
-            height: 32,
-            objectFit: 'contain',
-            flexShrink: 0,
-          }}
-        />
+        {renderProviderBrand(provider)}
         <div css={{ flex: 1 }}>
           <Typography.Text
             bold

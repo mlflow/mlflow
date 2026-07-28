@@ -286,6 +286,72 @@ def test_health_check_returns_401_when_not_authenticated():
         assert "Not authenticated" in response.json()["detail"]
 
 
+def test_get_providers_auto_resolves_available_default(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == [
+        {
+            "name": "mock_provider",
+            "display_name": "Mock Provider",
+            "description": "Mock provider for testing",
+            "available": True,
+            "selected": False,
+            "requires_api_key": False,
+            "has_api_key": False,
+            "allows_remote_access": False,
+            "model_options": [],
+        }
+    ]
+    assert data["resolved"] == {
+        "name": "mock_provider",
+        "model": None,
+        "auto_selected": True,
+        "requires_api_key": False,
+        "has_api_key": False,
+        "model_provider": None,
+        "model_options": [],
+        "provider_model": None,
+    }
+    assert data["gateway_vendor_options"]["openai"] == ["gpt-5.5"]
+
+
+def test_get_providers_resolves_selected_managed_gateway_endpoint():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    gateway_provider = MlflowGatewayProvider()
+    config = AssistantConfig(
+        providers={
+            MlflowGatewayProvider.GATEWAY_PROVIDER_NAME: AssistantProviderConfig(
+                model="mlflow-assistant-openai",
+                selected=True,
+            )
+        },
+    )
+    config.save()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[gateway_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"][0]["selected"] is True
+    assert data["resolved"] == {
+        "name": "mlflow_gateway",
+        "model": "mlflow-assistant-openai",
+        "auto_selected": False,
+        "requires_api_key": False,
+        "has_api_key": True,
+        "model_provider": "openai",
+        "model_options": ["gpt-5.5"],
+        "provider_model": "gpt-5.5",
+    }
+
+
 def test_get_config_returns_empty_config(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/config")
     assert response.status_code == 200

@@ -69,7 +69,11 @@ const StatusBadge = ({ status, ariaHidden }: { status: ToolCallPart['status']; a
   );
 };
 
-const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}\n\`\`\``;
+export const fencedBlock = (body: string, lang = ''): string => {
+  const longestBacktickRun = (body.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 2);
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  return `${fence}${lang}\n${body}\n${fence}`;
+};
 
 // Overall status for a run of tool calls. Running until every call resolves. Once settled,
 // the run reflects how it *ended*: a failure that a later call recovered from (e.g. a retry)
