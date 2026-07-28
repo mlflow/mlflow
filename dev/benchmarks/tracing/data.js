@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785230159262,
+  "lastUpdate": 1785248458297,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -17171,6 +17171,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.106753599999706,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "HumairAK@users.noreply.github.com",
+            "name": "Humair Khan",
+            "username": "HumairAK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c077f73c826674c7a39fed2d35a29668dcc10d03",
+          "message": "Fix Kubernetes auth token extraction for `kubernetes-client` 36+ (#24687)\n\nSigned-off-by: Humair Khan <HumairAK@users.noreply.github.com>",
+          "timestamp": "2026-07-28T14:17:04Z",
+          "tree_id": "071e75933bcbca0c868833bb7a12c3fa7db931d4",
+          "url": "https://github.com/mlflow/mlflow/commit/c077f73c826674c7a39fed2d35a29668dcc10d03"
+        },
+        "date": 1785248457312,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.97094610000522,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 30.692352727273274,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 25.934857666667693,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 29.053682555556293,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 28.20960846296335,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.052282400002241,
             "unit": "ms"
           }
         ]
