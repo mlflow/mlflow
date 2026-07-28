@@ -29,6 +29,25 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
+# Substrings that identify an authentication or credential failure in an export
+# exception. A dropped trace from one of these is worth an ERROR, not a WARNING,
+# because the fix is a user re-auth rather than a transient retry.
+_AUTH_FAILURE_MARKERS = (
+    "token refresh",
+    "unauthorized",
+    "401",
+    "403",
+    "invalid access token",
+    "expired",
+    "could not identify databricks workspace configuration",
+    "default auth",
+)
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """Best-effort check for an auth or credential failure in an export exception."""
+    return any(marker in str(exc).lower() for marker in _AUTH_FAILURE_MARKERS)
+
 
 class MlflowV3SpanExporter(SpanExporter):
     """
@@ -208,10 +227,22 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
-            _logger.warning(
-                f"Failed to send trace to MLflow backend: {e}",
-                exc_info=_logger.isEnabledFor(logging.DEBUG),
-            )
+            if _is_auth_failure(e):
+                # An expired or missing credential silently drops the trace: the app
+                # keeps running, so without a loud signal the user never learns the
+                # trace was lost. Surface it at ERROR with a re-auth hint.
+                _logger.error(
+                    "Failed to send trace to MLflow backend because of an "
+                    f"authentication error, so the trace was NOT saved: {e}. "
+                    "Refresh your credentials (for example, run `databricks auth login`) "
+                    "and retry.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+            else:
+                _logger.warning(
+                    f"Failed to send trace to MLflow backend: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
         # Upload attachments in a separate try-except so trace data still lands
         # even if attachment upload fails. Runs regardless of span storage mode —

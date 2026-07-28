@@ -187,6 +187,35 @@ def test_export_catch_failure(is_async, monkeypatch):
     assert any("Failed to start trace" in msg for msg in warning_calls)
 
 
+@pytest.mark.parametrize("is_async", [True, False])
+def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=Exception(
+                "default auth: cannot configure default credentials, token refresh"
+            ),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        _predict("hello")
+
+        if is_async:
+            _flush_async_logging()
+
+    # An auth-class failure is logged at ERROR with a re-auth hint, not swallowed at WARNING.
+    mock_logger.error.assert_called()
+    error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
+    assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
