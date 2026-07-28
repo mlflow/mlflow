@@ -97,6 +97,7 @@ MCP Registry is an experimental feature introduced in MLflow 3.15.0. APIs and be
       )
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -128,6 +129,7 @@ MCP Registry is an experimental feature introduced in MLflow 3.15.0. APIs and be
       active_servers = mlflow.genai.search_mcp_servers(filter_string="status = 'active'")
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -167,6 +169,7 @@ Access endpoints define how agents and applications connect to a running MCP ser
       print(f"Endpoint {endpoint.id} → {endpoint.url}")
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -176,11 +179,11 @@ Access endpoints define how agents and applications connect to a running MCP ser
 
 The MCP Registry is organized around three core entities:
 
-| Entity | Description |
-|--------|-------------|
-| **MCPServer** | The logical server entry. Identified by a namespaced name (e.g., `io.github.anthropic/brave-search`). Holds metadata like display name, description, icons, and tags. |
-| **MCPServerVersion** | A specific version of a server's configuration, identified by a [semver](https://semver.org/) string (e.g., `1.0.0`). Contains the [`server_json`](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) payload, tool definitions, and a status (`draft`, `active`, `deprecated`, or `deleted`). |
-| **MCPAccessEndpoint** | A connection endpoint (URL + transport type) pinned to a specific version or alias. Defines how users and agents actually connect to a running MCP server instance. |
+| Entity                | Description                                                                                                                                                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCPServer**         | The logical server entry. Identified by a namespaced name (e.g., `io.github.anthropic/brave-search`). Holds metadata like display name, description, icons, and tags.                                                                                                                                          |
+| **MCPServerVersion**  | A specific version of a server's configuration, identified by a [semver](https://semver.org/) string (e.g., `1.0.0`). Contains the [`server_json`](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) payload, tool definitions, and a status (`draft`, `active`, `deprecated`, or `deleted`). |
+| **MCPAccessEndpoint** | A connection endpoint (URL + transport type) pinned to a specific version or alias. Defines how users and agents actually connect to a running MCP server instance.                                                                                                                                            |
 
 ### Server Naming Convention
 

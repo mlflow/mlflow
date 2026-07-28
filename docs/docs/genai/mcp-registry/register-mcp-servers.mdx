@@ -54,14 +54,14 @@ If the parent `MCPServer` does not yet exist, it is created automatically. If yo
 
 The `server_json` payload must contain `name` and `version` at the top level. Other fields are optional:
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Namespaced server name (e.g., `io.github.anthropic/brave-search`) |
-| `version` | Yes | Semantic version string (e.g., `1.0.0`, `2.0.0-beta.1`) |
-| `description` | No | Human-readable description of the server |
-| `icons` | No | List of icon objects with `src` and optional `theme` (`light`, `dark`, or omitted for any) |
-| `packages` | No | List of package references (npm, PyPI, Docker, etc.) for local installation |
-| `remotes` | No | List of remote endpoints where the server is deployed |
+| Field         | Required | Description                                                                                |
+| ------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `name`        | Yes      | Namespaced server name (e.g., `io.github.anthropic/brave-search`)                          |
+| `version`     | Yes      | Semantic version string (e.g., `1.0.0`, `2.0.0-beta.1`)                                    |
+| `description` | No       | Human-readable description of the server                                                   |
+| `icons`       | No       | List of icon objects with `src` and optional `theme` (`light`, `dark`, or omitted for any) |
+| `packages`    | No       | List of package references (npm, PyPI, Docker, etc.) for local installation                |
+| `remotes`     | No       | List of remote endpoints where the server is deployed                                      |
 
 ## Register from a URL
 
