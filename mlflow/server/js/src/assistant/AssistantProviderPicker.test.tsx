@@ -1,4 +1,4 @@
-import { describe, test, expect, jest } from '@jest/globals';
+import { beforeEach, describe, test, expect, jest } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -6,10 +6,13 @@ import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react1
 
 import { AssistantProviderPicker } from './AssistantProviderPicker';
 import type { AssistantProviderSelection, ProviderInfo, ResolvedProviderInfo } from './types';
+import type { Endpoint } from '../gateway/types';
+
+let mockGatewayEndpoints: Endpoint[] = [];
 
 jest.mock('../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: () => ({
-    data: [],
+    data: mockGatewayEndpoints,
     isLoading: false,
   }),
 }));
@@ -34,6 +37,24 @@ const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): Resolv
   has_api_key: false,
   ...overrides,
 });
+
+const endpoint = (name: string, modelName = 'model-a'): Endpoint =>
+  ({
+    endpoint_id: name,
+    name,
+    model_mappings: [
+      {
+        mapping_id: `${name}-mapping`,
+        endpoint_id: name,
+        model_definition_id: `${name}-model-definition`,
+        model_definition: { model_name: modelName },
+        weight: 1,
+        created_at: 0,
+      },
+    ],
+    created_at: 0,
+    last_updated_at: 0,
+  }) as Endpoint;
 
 const renderPicker = ({
   provider = resolvedProvider(),
@@ -64,18 +85,28 @@ const renderPicker = ({
 };
 
 describe('AssistantProviderPicker', () => {
-  test('lists hosted gateway vendors as top-level shortcuts', async () => {
+  beforeEach(() => {
+    mockGatewayEndpoints = [];
+  });
+
+  test('groups API provider shortcuts separately from local providers and gateway endpoints', async () => {
     const user = userEvent.setup();
-    const { onSelect } = renderPicker();
+    const { onSelect } = renderPicker({
+      gatewayVendorOptions: { openai: ['gpt-5.5', 'gpt-5-mini'], anthropic: ['claude-3-5-sonnet'] },
+    });
 
     await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
 
-    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+    expect(await screen.findByText('API providers')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI API')).toBeInTheDocument();
+    expect(screen.getByText('Anthropic API')).toBeInTheDocument();
+    expect(screen.getByText('Local providers')).toBeInTheDocument();
+    expect(screen.getByText('Codex CLI (local)')).toBeInTheDocument();
+    expect(screen.getByText('Gateway endpoints')).toBeInTheDocument();
     expect(screen.getByText('MLflow AI Gateway')).toBeInTheDocument();
-    expect(screen.getByText('Codex')).toBeInTheDocument();
     expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('OpenAI'));
+    await user.click(screen.getByText('OpenAI API'));
     expect(onSelect).toHaveBeenCalledWith({
       kind: 'gateway',
       endpointName: 'mlflow-assistant-openai',
@@ -85,6 +116,22 @@ describe('AssistantProviderPicker', () => {
       requiresApiKey: true,
       hasApiKey: false,
     });
+  });
+
+  test('hides assistant-managed gateway endpoints from the custom gateway submenu', async () => {
+    const user = userEvent.setup();
+    mockGatewayEndpoints = [
+      endpoint('mlflow-assistant-anthropic', 'claude-3-5-sonnet'),
+      endpoint('custom-anthropic-endpoint', 'claude-3-opus'),
+    ];
+    renderPicker({ gatewayVendorOptions: { anthropic: ['claude-3-5-sonnet'] } });
+
+    await user.click(screen.getByRole('button', { name: 'Change assistant provider' }));
+    expect(await screen.findByText('Anthropic API')).toBeInTheDocument();
+
+    await user.hover(screen.getByText('MLflow AI Gateway'));
+    expect(await screen.findByText('custom-anthropic-endpoint')).toBeInTheDocument();
+    expect(screen.queryByText('mlflow-assistant-anthropic')).not.toBeInTheDocument();
   });
 
   test('switches the current hosted model optimistically', async () => {
@@ -117,7 +164,7 @@ describe('AssistantProviderPicker', () => {
   });
 
   test.each([
-    ['openai', 'OpenAI'],
+    ['openai', 'OpenAI API'],
     ['xai', 'MLflow AI Gateway'],
   ])('shows %s gateway endpoint as %s', (modelProvider, label) => {
     renderPicker({

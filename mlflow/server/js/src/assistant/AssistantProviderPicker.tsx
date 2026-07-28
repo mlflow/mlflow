@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -17,6 +16,16 @@ import { GatewayRoutePaths } from '../gateway/routes';
 import type { Endpoint } from '../gateway/types';
 
 const GATEWAY_VENDOR_ORDER = ['openai', 'anthropic', 'gemini'];
+const GATEWAY_VENDOR_MENU_LABELS = {
+  openai: 'OpenAI API',
+  anthropic: 'Anthropic API',
+  gemini: 'Gemini API',
+} satisfies Record<string, string>;
+const LOCAL_PROVIDER_MENU_LABELS = {
+  claude_code: 'Claude Code (local)',
+  codex: 'Codex CLI (local)',
+  ollama: 'Ollama (local)',
+} satisfies Record<string, string>;
 const PROVIDER_SELECTION_KIND = {
   Provider: 'provider',
   Gateway: 'gateway',
@@ -35,6 +44,14 @@ const orderedGatewayVendors = (options: Record<string, string[]>): string[] => {
 
 const endpointModelName = (endpoint: Endpoint | undefined): string | undefined =>
   endpoint?.model_mappings?.[0]?.model_definition?.model_name;
+
+const gatewayVendorMenuLabel = (vendor: string): string =>
+  (GATEWAY_VENDOR_MENU_LABELS as Record<string, string | undefined>)[vendor] ??
+  getLlmProviderDisplay(vendor)?.name ??
+  vendor;
+
+const providerMenuLabel = (providerName: string, fallback: string): string =>
+  (LOCAL_PROVIDER_MENU_LABELS as Record<string, string | undefined>)[providerName] ?? fallback;
 
 const currentModelOptions = (provider: ResolvedProviderInfo, providers: ProviderInfo[]): string[] => {
   if (provider.model_options?.length) {
@@ -73,6 +90,7 @@ const GatewayVendorItems = ({
         const modelOptions = gatewayVendorOptions[vendor] ?? [];
         const providerModel = endpointModelName(endpoint) ?? modelOptions[0];
         const vendorDisplay = getLlmProviderDisplay(vendor);
+        const label = gatewayVendorMenuLabel(vendor);
 
         return (
           <DropdownMenu.Item
@@ -98,11 +116,10 @@ const GatewayVendorItems = ({
                 css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
               />
             )}
-            <span css={{ flex: 1 }}>{vendorDisplay?.name ?? vendor}</span>
+            <span css={{ flex: 1 }}>{label}</span>
           </DropdownMenu.Item>
         );
       })}
-      <DropdownMenu.Separator />
     </>
   );
 };
@@ -160,9 +177,43 @@ const ProviderMenu = ({
   const { theme } = useDesignSystemTheme();
   const meta = getAssistantProvider(provider.name);
   const llmVendor = provider.model_provider ? getLlmProviderDisplay(provider.model_provider) : undefined;
-  const label = llmVendor?.name ?? meta?.name ?? provider.name;
+  const label = provider.model_provider
+    ? llmVendor
+      ? gatewayVendorMenuLabel(provider.model_provider)
+      : (meta?.name ?? provider.name)
+    : providerMenuLabel(provider.name, meta?.name ?? provider.name);
   const logo = llmVendor?.logo ?? meta?.logo;
   const ProviderIcon = llmVendor ? undefined : meta?.icon;
+  const gatewayProvider = providers.find((candidate) => candidate.name === GATEWAY_PROVIDER_ID);
+  const standardProviders = providers.filter((candidate) => candidate.name !== GATEWAY_PROVIDER_ID);
+  const hasGatewayVendorOptions = orderedGatewayVendors(gatewayVendorOptions).length > 0;
+  const groupLabelStyles = { color: theme.colors.textSecondary };
+
+  const providerItemContent = (candidate: ProviderInfo, candidateLabel: string) => {
+    const candidateMeta = getAssistantProvider(candidate.name);
+    const candidateLogo = candidateMeta?.logo;
+    const CandidateIcon = candidateMeta?.icon;
+
+    return (
+      <>
+        {candidateLogo && (
+          <img
+            src={candidateLogo}
+            alt=""
+            aria-hidden
+            css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
+          />
+        )}
+        {!candidateLogo && CandidateIcon && (
+          <CandidateIcon
+            aria-hidden
+            css={{ fontSize: 16, marginRight: theme.spacing.xs, color: theme.colors.textSecondary }}
+          />
+        )}
+        <span css={{ flex: 1 }}>{candidateLabel}</span>
+      </>
+    );
+  };
 
   const trigger = (
     <button
@@ -199,62 +250,71 @@ const ProviderMenu = ({
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Content side="top" align="start" css={{ minWidth: 220 }}>
-        {providers.map((candidate) => {
-          const candidateMeta = getAssistantProvider(candidate.name);
-          const candidateLogo = candidateMeta?.logo;
-          const CandidateIcon = candidateMeta?.icon;
-          const candidateLabel = candidateMeta?.name ?? candidate.display_name;
-          const itemContent = (
-            <>
-              {candidateLogo && (
-                <img
-                  src={candidateLogo}
-                  alt=""
-                  aria-hidden
-                  css={{ width: 16, height: 16, marginRight: theme.spacing.xs, borderRadius: 2 }}
-                />
-              )}
-              {!candidateLogo && CandidateIcon && (
-                <CandidateIcon
-                  aria-hidden
-                  css={{ fontSize: 16, marginRight: theme.spacing.xs, color: theme.colors.textSecondary }}
-                />
-              )}
-              <span css={{ flex: 1 }}>{candidateLabel}</span>
-            </>
-          );
+        {hasGatewayVendorOptions && (
+          <DropdownMenu.Group>
+            <DropdownMenu.Label css={groupLabelStyles}>
+              <FormattedMessage
+                defaultMessage="API providers"
+                description="Provider picker section label for assistant providers backed by external hosted APIs"
+              />
+            </DropdownMenu.Label>
+            <GatewayVendorItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
+          </DropdownMenu.Group>
+        )}
+        {hasGatewayVendorOptions && standardProviders.length > 0 && <DropdownMenu.Separator />}
+        {standardProviders.length > 0 && (
+          <DropdownMenu.Group>
+            <DropdownMenu.Label css={groupLabelStyles}>
+              <FormattedMessage
+                defaultMessage="Local providers"
+                description="Provider picker section label for assistant providers that run through a local CLI or local server"
+              />
+            </DropdownMenu.Label>
+            {standardProviders.map((candidate) => {
+              const candidateMeta = getAssistantProvider(candidate.name);
+              const candidateLabel = providerMenuLabel(candidate.name, candidateMeta?.name ?? candidate.display_name);
 
-          if (candidate.name === GATEWAY_PROVIDER_ID) {
-            return (
-              <Fragment key={candidate.name}>
-                <GatewayVendorItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
-                <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger>{itemContent}</DropdownMenu.SubTrigger>
-                  <DropdownMenu.SubContent>
-                    <GatewayEndpointItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
-              </Fragment>
-            );
-          }
-
-          return (
-            <DropdownMenu.Item
-              componentId="mlflow.assistant.provider_picker.item"
-              key={candidate.name}
-              disabled={!candidate.available}
-              onClick={() =>
-                onSelect({
-                  kind: PROVIDER_SELECTION_KIND.Provider,
-                  name: candidate.name,
-                  model: candidate.model_options[0],
-                })
-              }
-            >
-              {itemContent}
-            </DropdownMenu.Item>
-          );
-        })}
+              return (
+                <DropdownMenu.Item
+                  componentId="mlflow.assistant.provider_picker.item"
+                  key={candidate.name}
+                  disabled={!candidate.available}
+                  onClick={() =>
+                    onSelect({
+                      kind: PROVIDER_SELECTION_KIND.Provider,
+                      name: candidate.name,
+                      model: candidate.model_options[0],
+                    })
+                  }
+                >
+                  {providerItemContent(candidate, candidateLabel)}
+                </DropdownMenu.Item>
+              );
+            })}
+          </DropdownMenu.Group>
+        )}
+        {gatewayProvider && (hasGatewayVendorOptions || standardProviders.length > 0) && <DropdownMenu.Separator />}
+        {gatewayProvider && (
+          <DropdownMenu.Group>
+            <DropdownMenu.Label css={groupLabelStyles}>
+              <FormattedMessage
+                defaultMessage="Gateway endpoints"
+                description="Provider picker section label for custom MLflow AI Gateway endpoints"
+              />
+            </DropdownMenu.Label>
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger>
+                {providerItemContent(
+                  gatewayProvider,
+                  getAssistantProvider(gatewayProvider.name)?.name ?? gatewayProvider.display_name,
+                )}
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.SubContent>
+                <GatewayEndpointItems gatewayVendorOptions={gatewayVendorOptions} onSelect={onSelect} />
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Sub>
+          </DropdownMenu.Group>
+        )}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );
