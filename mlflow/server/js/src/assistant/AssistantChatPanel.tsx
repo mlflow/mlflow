@@ -737,8 +737,16 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
-    useAssistant();
+  const {
+    closePanel,
+    reset,
+    setupComplete,
+    isLoadingConfig,
+    canUseAssistant,
+    completeSetup,
+    isLocalServer,
+    refreshConfig,
+  } = useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -766,8 +774,11 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const handleBackFromSettings = useCallback(() => {
+    // Re-read the config so the composer's provider indicator reflects any
+    // change made in settings; without this it stays stale until a reload.
+    refreshConfig();
     setCurrentView('chat');
-  }, []);
+  }, [refreshConfig]);
 
   const renderContent = () => {
     // Show message when this client isn't allowed to use the Assistant
