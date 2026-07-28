@@ -11,7 +11,7 @@ This guide walks you through registering MCP servers in the MLflow MCP Registry.
 
 ## Register from a server_json Payload
 
-The most direct way to register an MCP server is by providing a `server_json` dictionary containing the server's configuration. Use <APILink fn="mlflow.genai.register_mcp_server" />:
+The most direct way to register an MCP server is by providing a [`server_json`](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) dictionary containing the server's configuration. Use <APILink fn="mlflow.genai.register_mcp_server" />:
 
 ```python
 import mlflow
@@ -21,10 +21,10 @@ version = mlflow.genai.register_mcp_server(
         "name": "io.github.anthropic/brave-search",
         "version": "1.0.0",
         "description": "Brave Search MCP server for web and local search",
-        "icons": {
-            "light": "https://example.com/icon-light.svg",
-            "dark": "https://example.com/icon-dark.svg",
-        },
+        "icons": [
+            {"src": "https://example.com/icon-light.svg", "theme": "light"},
+            {"src": "https://example.com/icon-dark.svg", "theme": "dark"},
+        ],
         "packages": [
             {
                 "registryType": "npm",
@@ -59,7 +59,7 @@ The `server_json` payload must contain `name` and `version` at the top level. Ot
 | `name` | Yes | Namespaced server name (e.g., `io.github.anthropic/brave-search`) |
 | `version` | Yes | Semantic version string (e.g., `1.0.0`, `2.0.0-beta.1`) |
 | `description` | No | Human-readable description of the server |
-| `icons` | No | Object with `light` and/or `dark` icon URLs |
+| `icons` | No | List of icon objects with `src` and optional `theme` (`light`, `dark`, or omitted for any) |
 | `packages` | No | List of package references (npm, PyPI, Docker, etc.) for local installation |
 | `remotes` | No | List of remote endpoints where the server is deployed |
 
@@ -102,7 +102,7 @@ When you register a server without explicitly providing tools, MLflow automatica
 
 :::note
 
-Tool auto-discovery requires the `mcp` extra: `pip install 'mlflow[mcp]'`. Discovery failure (network issues, auth requirements, timeouts) does **not** abort registration — the version is created with `tools=None`.
+Tool auto-discovery requires the `mcp` extra: `pip install 'mlflow[mcp]'`. Discovery failure (network issues, auth requirements, timeouts) does **not** abort registration. The version is still created with `tools=None`.
 
 :::
 
@@ -111,20 +111,26 @@ You can control this behavior:
 ```python
 import mlflow
 
+server_json = {
+    "name": "io.github.anthropic/brave-search",
+    "version": "1.0.0",
+    "remotes": [
+        {"url": "https://mcp.example.com/brave-search", "type": "streamable-http"},
+    ],
+}
+
 # Let MLflow auto-discover tools (default behavior)
-version = mlflow.genai.register_mcp_server(
-    server_json={...},
-)
+version = mlflow.genai.register_mcp_server(server_json=server_json)
 
 # Skip tool discovery by passing an empty list
 version = mlflow.genai.register_mcp_server(
-    server_json={...},
+    server_json=server_json,
     tools=[],
 )
 
 # Provide auth headers for tool discovery from a protected server
 version = mlflow.genai.register_mcp_server(
-    server_json={...},
+    server_json=server_json,
     mcp_server_access_headers={"Authorization": "Bearer <token>"},
 )
 ```

@@ -9,11 +9,11 @@ import { APILink } from "@site/src/components/APILink";
 
 # Manage Versions and Aliases
 
-MCP Registry uses semantic versioning and aliases to give you precise control over which server configurations your agents use. This guide covers version management, status transitions, aliases, and tags.
+MCP Registry uses semantic versioning and aliases to give you precise control over which server configurations your users and agents use. This guide covers version management, status transitions, aliases, and tags.
 
 ## Semantic Versioning
 
-Every MCP server version is identified by a [semver](https://semver.org/) string (e.g., `1.0.0`, `2.0.0-beta.1`). MLflow parses and stores major, minor, and patch components for correct ordering, so `2.0.0` is always considered newer than `1.9.0`.
+Every MCP server version is identified by a [semver](https://semver.org/) string (e.g., `1.0.0`, `2.0.0-beta.1`). Versions are ordered by semantic version, so `2.0.0` is always considered newer than `1.9.0`.
 
 ## Status Lifecycle
 
@@ -55,7 +55,7 @@ Each version has a status that controls its availability:
       # Promote a draft version to active
       mlflow.genai.update_mcp_server_version(
           name="io.github.anthropic/brave-search",
-          version="1.0.0",
+          version="2.0.0",
           status="active",
       )
 

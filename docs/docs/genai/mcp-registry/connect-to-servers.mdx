@@ -1,5 +1,5 @@
 ---
-title: Connect to Servers
+title: Connect to MCP Servers
 description: Learn how to create access endpoints, generate connection instructions, and manage tool discovery for MCP servers in the MLflow MCP Registry.
 ---
 
@@ -7,9 +7,11 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
 
-# Connect to Servers
+# Connect to MCP Servers
 
-Access endpoints define how agents and applications connect to MCP servers registered in the registry. This guide covers creating endpoints, generating connection instructions, and refreshing tool definitions.
+Access endpoints define how agents and applications connect to MCP servers registered in the registry. While `server_json` includes `remotes` entries, organizations often deploy MCP servers internally at different URLs, rotate deployment endpoints, or route traffic through an MCP gateway or proxy. Access endpoints let you manage these real connection details independently of the immutable `server_json` configuration.
+
+This guide covers creating endpoints, generating connection instructions, and refreshing tool definitions.
 
 ## Access Endpoints
 
@@ -75,7 +77,10 @@ endpoints = mlflow.genai.search_mcp_access_endpoints(
 )
 
 for ep in endpoints:
-    print(f"  {ep.url} ({ep.transport_type}) → version {ep.resolved_version}")
+    resolved = ep.resolved_version.version if ep.resolved_version else None
+    print(f"  {ep.url} ({ep.transport_type}) → version {resolved}")
+
+endpoint = endpoints[0]
 
 # Update an endpoint
 mlflow.genai.update_mcp_access_endpoint(
@@ -147,6 +152,6 @@ updated_version = mlflow.genai.refresh_mcp_server_version_tools(
 
 :::note
 
-Tool discovery requires the `mcp` extra: `pip install 'mlflow[mcp]'`. Discovered tools are a point-in-time snapshot — they are not automatically kept in sync with the live server.
+Tool discovery requires the `mcp` extra: `pip install 'mlflow[mcp]'`. Discovered tools are a point-in-time snapshot. They will not be automatically kept in sync with the live server.
 
 :::
