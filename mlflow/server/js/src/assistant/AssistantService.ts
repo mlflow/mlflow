@@ -8,8 +8,10 @@ import type {
   ToolResultInfo,
   AssistantConfig,
   AssistantConfigUpdate,
+  HealthCheckResult,
   InstallSkillsResponse,
   PermissionRequest,
+  ProvidersResponse,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
@@ -57,10 +59,33 @@ export const processContentBlocks = (
 };
 
 /**
+ * Check if a provider is healthy (CLI installed and authenticated).
+ * Returns { ok: true } on success, or { ok: false, error, status } if not set up.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/providers/${provider}/health`));
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Unknown error', status: error.status };
+  }
+};
+
+/**
  * Get the assistant configuration.
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
   return await fetchAPI(getAjaxUrl(`${API_BASE}/config`));
+};
+
+/**
+ * Discover assistant providers and the one that would serve a chat from this
+ * client (`resolved`), which may be an auto-picked default when nothing is
+ * explicitly selected in config.
+ */
+export const getProviders = async (): Promise<ProvidersResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/providers`));
 };
 
 /**
@@ -93,7 +118,8 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
 
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
-  onError: (error: string) => void;
+  /** `code` is the backend's machine-readable error class when it provided one. */
+  onError: (error: string, code?: string) => void;
   onDone: () => void;
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
@@ -203,7 +229,7 @@ const attachStreamListeners = (
     if (event.type === 'error' && (event as MessageEvent).data) {
       try {
         const data = JSON.parse((event as MessageEvent).data);
-        onError(data.error || 'Unknown error');
+        onError(data.error || 'Unknown error', data.error_code);
       } catch {
         onError('Connection error');
       }
@@ -292,6 +318,27 @@ export const resumeStream = async (
   const eventSource = createEventSource(sessionId);
   attachStreamListeners(eventSource, sessionId, callbacks);
   return { eventSource };
+};
+
+export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
+  // api_key is sent as an X-API-Key header (not a query param) so the
+  // bearer token doesn't end up in access logs, browser history, or
+  // referer headers. base_url is omitted when unset so the provider's
+  // default (e.g. the OpenAI API) applies.
+  const params = new URLSearchParams(baseUrl ? { base_url: baseUrl } : {});
+  const query = params.toString();
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models${query ? `?${query}` : ''}`;
+  const headers = {
+    ...getDefaultHeaders(document.cookie),
+    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+  };
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
 };
 
 /**

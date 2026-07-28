@@ -73,8 +73,8 @@ const StatusBadge = ({ status, ariaHidden }: { status: ToolCallPart['status']; a
 };
 
 export const fencedBlock = (body: string, lang = ''): string => {
-  const longestBacktickRun = Math.max(0, ...(body.match(/`+/g) ?? []).map((run) => run.length));
-  const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+  const longestBacktickRun = (body.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 2);
+  const fence = '`'.repeat(longestBacktickRun + 1);
   return `${fence}${lang}\n${body}\n${fence}`;
 };
 

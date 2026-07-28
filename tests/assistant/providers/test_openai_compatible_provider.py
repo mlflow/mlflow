@@ -442,6 +442,27 @@ def test_list_models_raises_not_implemented_when_no_fn():
         provider.list_models()
 
 
+def test_list_models_passes_supplied_api_key():
+    captured = {}
+
+    def list_models(base_url: str, api_key: str | None = None) -> list[str]:
+        captured["base_url"] = base_url
+        captured["api_key"] = api_key
+        return ["model-a"]
+
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=list_models,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+
+    assert provider.list_models(api_key="sk-test") == ["model-a"]
+    assert captured == {"base_url": "http://localhost:9999", "api_key": "sk-test"}
+
+
 @pytest.mark.asyncio
 async def test_astream_yields_error_on_http_error(provider):
     session, _calls = _make_aiohttp_session([[b""]], status=500)

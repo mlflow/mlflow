@@ -119,6 +119,16 @@ describe('ToolCallCard', () => {
   });
 });
 
+describe('fencedBlock', () => {
+  test('uses the standard triple-backtick fence when the body has no backtick runs', () => {
+    expect(fencedBlock('{"ok":true}', 'json')).toBe('```json\n{"ok":true}\n```');
+  });
+
+  test('uses a longer fence than any backtick run in the body', () => {
+    expect(fencedBlock('before ``` inside ```` after')).toBe('`````\nbefore ``` inside ```` after\n`````');
+  });
+});
+
 describe('groupStatus', () => {
   test('is running while any call is unresolved', () => {
     expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'running' })])).toBe('running');

@@ -419,6 +419,10 @@
     "defaultMessage": "View docs",
     "description": "Text for docs link button on experiment view page header"
   },
+  "/mbCKq": {
+    "defaultMessage": "Add your {provider} API key to continue, or pick another provider below.",
+    "description": "Explanation shown in the inline assistant API key prompt"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -3775,6 +3779,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
+  "F2cMi+": {
+    "defaultMessage": "API providers",
+    "description": "Provider picker section label for assistant providers backed by external hosted APIs"
+  },
   "F39ONm": {
     "defaultMessage": "LLM Connections",
     "description": "Sidebar link: Settings > LLM Connections"
@@ -3846,6 +3854,10 @@
   "FRNRtM": {
     "defaultMessage": "{action} endpoint {url}",
     "description": "Aria label for expanding/collapsing an access endpoint row"
+  },
+  "FSICUH": {
+    "defaultMessage": "Create new endpoint",
+    "description": "Option in the assistant provider picker that opens the gateway endpoint creation page"
   },
   "FT/Zcy": {
     "defaultMessage": "Filter by access endpoint availability",
@@ -4446,6 +4458,10 @@
   "IDk8d+": {
     "defaultMessage": "Save prompt",
     "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
+  },
+  "IE+Vu1": {
+    "defaultMessage": "Gateway endpoints",
+    "description": "Provider picker section label for custom MLflow AI Gateway endpoints"
   },
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
@@ -5107,6 +5123,10 @@
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
   },
+  "LH14Ea": {
+    "defaultMessage": "Continue",
+    "description": "Confirm button of the inline assistant API key prompt"
+  },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
     "description": "LLM template option"
@@ -5362,6 +5382,10 @@
   "MUUYWZ": {
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
+  },
+  "MUrZoz": {
+    "defaultMessage": "The provider's CLI is not installed on the MLflow server. Install it, or switch to another provider.",
+    "description": "Callout shown when the assistant provider CLI is missing"
   },
   "MX4ypf": {
     "defaultMessage": "Save",
@@ -5970,6 +5994,10 @@
   "P037Va": {
     "defaultMessage": "Passed",
     "description": "Pass status pill in the regression-test detail"
+  },
+  "P05k8c": {
+    "defaultMessage": "Your key is stored in MLflow LLM Connections on this server.",
+    "description": "Note in the inline assistant API key prompt about how the key is stored"
   },
   "P0Y/ks": {
     "defaultMessage": "Workspace Manager",
@@ -8523,10 +8551,6 @@
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
   },
-  "aKVdS3": {
-    "defaultMessage": "Model: {model}",
-    "description": "Tooltip on the assistant composer showing the active provider's configured model name"
-  },
   "aKW54p": {
     "defaultMessage": "See it in action",
     "description": "Label on the click-to-play video preview in the traces empty state"
@@ -8934,6 +8958,10 @@
   "c5AQYh": {
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
+  },
+  "c5LAfJ": {
+    "defaultMessage": "Local providers",
+    "description": "Provider picker section label for assistant providers that run through a local CLI or local server"
   },
   "c6rG3e": {
     "defaultMessage": "Output is factually accurate and grounded in provided data",
@@ -10963,6 +10991,10 @@
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
   },
+  "k9M+N6": {
+    "defaultMessage": "No assistant provider is available. Configure one in Settings.",
+    "description": "Callout shown when no assistant provider could serve the chat"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -11366,6 +11398,10 @@
   "m4159e": {
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
+  },
+  "m5GIsD": {
+    "defaultMessage": "Open Settings",
+    "description": "Button on the assistant error callout that opens the settings flow"
   },
   "m8ztHR": {
     "defaultMessage": "Edited {timeSince} by {source}.",
@@ -13118,6 +13154,10 @@
   "tkc+sv": {
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
+  },
+  "tms9Qs": {
+    "defaultMessage": "The provider is not authenticated. Fix the credentials, or switch to another provider.",
+    "description": "Callout shown when the assistant provider rejected the credentials"
   },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
