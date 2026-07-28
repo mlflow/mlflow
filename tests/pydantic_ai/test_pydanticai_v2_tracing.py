@@ -439,6 +439,23 @@ def test_run_stream_sync_lifecycle(completion_method, use_context_manager):
     assert spans[2].parent_id == spans[1].span_id
 
 
+def test_run_stream_sync_context_manager_allows_use_after_streaming():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    with agent.run_stream_sync("hi") as result:
+        assert list(result.stream_text())
+        # The caller still owns the result, so the stream must stay open and the span unended.
+        assert get_traces() == []
+        assert result.get_output() == "hello"
+
+    assert _span_names() == [
+        "Agent.run_stream_sync",
+        "Agent.run_stream",
+        "TestModel.request",
+    ]
+
+
 def test_run_stream_sync_cleanup_error_is_propagated_and_traced():
     class FailingResult:
         def __exit__(self, exc_type, exc_value, traceback):

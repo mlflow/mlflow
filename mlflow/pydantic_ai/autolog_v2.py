@@ -272,6 +272,7 @@ class _StreamedRunResultSyncWrapper:
         self._span = span
         self._closed = False
         self._finalized = False
+        self._entered = False
 
     def _use_span_context(self):
         return with_active_span(self._span)
@@ -307,15 +308,23 @@ class _StreamedRunResultSyncWrapper:
             self._end_span(exc_value)
             return suppress
 
+    # While the caller holds the result open in a `with` block, __exit__ owns finalization.
+    # Closing here would exit the underlying Pydantic AI result before the caller is done with
+    # it, breaking follow-up calls such as get_output() after a stream has been consumed.
+    def _finalize_unless_entered(self, exc_type=None, exc_value=None, traceback=None):
+        if self._entered:
+            return None
+        return self._finalize(exc_type, exc_value, traceback)
+
     def _wrap_iterator(self, iterator_func, **kwargs):
         try:
             with self._use_span_context():
                 yield from iterator_func(**kwargs)
         except BaseException:
-            self._finalize(*sys.exc_info())
+            self._finalize_unless_entered(*sys.exc_info())
             raise
         else:
-            self._finalize()
+            self._finalize_unless_entered()
 
     def stream_text(self, **kwargs):
         return self._wrap_iterator(self._result.stream_text, **kwargs)
@@ -331,14 +340,15 @@ class _StreamedRunResultSyncWrapper:
             with self._use_span_context():
                 return self._result.get_output()
         except BaseException:
-            self._finalize(*sys.exc_info())
+            self._finalize_unless_entered(*sys.exc_info())
             raise
         finally:
             if not self._finalized:
-                self._finalize()
+                self._finalize_unless_entered()
 
     def __enter__(self):
         self._result.__enter__()
+        self._entered = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
