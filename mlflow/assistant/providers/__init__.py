@@ -43,7 +43,7 @@ def _default_provider_precedence() -> list[AssistantProvider]:
 
 
 def resolve_default_provider(remote: bool = False) -> AssistantProvider | None:
-    """Pick a provider when the user has not selected one explicitly."""
+    """Pick a runtime provider when the user has not selected one explicitly."""
     for provider in _default_provider_precedence():
         if remote and not provider.allows_remote_access:
             continue

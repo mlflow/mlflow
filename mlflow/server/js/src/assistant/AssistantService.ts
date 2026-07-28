@@ -120,6 +120,7 @@ export interface SendMessageStreamCallbacks {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    cache_read_tokens?: number;
     total_cost_usd?: number | null;
   }) => void;
 }

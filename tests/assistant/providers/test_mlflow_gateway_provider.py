@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -22,13 +23,15 @@ def test_provider_identity():
 
 
 def test_list_models_reads_gateway_endpoint_names():
-    endpoint = mock.MagicMock()
-    endpoint.name = "chat-endpoint"
     store = mock.MagicMock()
-    store.list_gateway_endpoints.return_value = [endpoint]
+    store.list_gateway_endpoints.return_value = [
+        SimpleNamespace(name="z-chat-endpoint"),
+        SimpleNamespace(name=""),
+        SimpleNamespace(name="a-chat-endpoint"),
+    ]
 
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        assert _gateway_provider().list_models() == ["chat-endpoint"]
+        assert _gateway_provider().list_models() == ["a-chat-endpoint", "z-chat-endpoint"]
 
     store.list_gateway_endpoints.assert_called_once()
 

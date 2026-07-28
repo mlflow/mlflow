@@ -52,7 +52,7 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
             return []
 
     def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
-        return [endpoint.name for endpoint in self._list_endpoints() if endpoint.name]
+        return sorted(endpoint.name for endpoint in self._list_endpoints() if endpoint.name)
 
     def is_available(self) -> bool:
         try:

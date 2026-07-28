@@ -134,7 +134,10 @@ def test_message(client):
     data = response.json()
     session_id = data["session_id"]
     assert session_id is not None
-    assert data["stream_url"] == f"/ajax-api/3.0/mlflow/assistant/stream/{data['session_id']}"
+    assert (
+        data["stream_url"]
+        == f"/ajax-api/3.0/mlflow/assistant/sessions/{data['session_id']}/stream"
+    )
 
     # continue the conversation
     response = client.post(
@@ -155,11 +158,11 @@ def test_stream_not_found_for_invalid_session(client):
 def test_stream_bad_request_when_no_pending_message(client):
     # Create session and consume the pending message
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-    session_id = r.json()["session_id"]
-    client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    stream_url = r.json()["stream_url"]
+    client.get(stream_url)
 
     # Try to stream again without a new message
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    response = client.get(stream_url)
 
     assert response.status_code == 400
     assert "No pending message" in response.json()["detail"]
@@ -167,9 +170,8 @@ def test_stream_bad_request_when_no_pending_message(client):
 
 def test_stream_returns_sse_events(client):
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-    session_id = r.json()["session_id"]
 
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    response = client.get(r.json()["stream_url"])
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
@@ -192,12 +194,21 @@ def test_stream_uses_default_provider_when_none_selected():
     ):
         client = TestClient(app)
         r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-        session_id = r.json()["session_id"]
 
-        response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+        response = client.get(r.json()["stream_url"])
 
     assert response.status_code == 200
     assert "Hello from mock" in response.text
+
+
+def test_stream_uses_selected_provider_without_default_probe(client):
+    with patch("mlflow.server.assistant.api.resolve_default_provider") as mock_resolve_default:
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    assert "Hello from mock" in response.text
+    mock_resolve_default.assert_not_called()
 
 
 def test_health_check_returns_ok_when_healthy(client):
@@ -421,6 +432,72 @@ def test_update_config_sets_provider(client):
     assert response.status_code == 200
     data = response.json()
     assert data["providers"]["claude_code"]["selected"] is True
+
+
+def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(client, isolated_config):
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        return_value="mlflow-assistant-openai",
+    ) as mock_connect:
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret-123",
+                        "selected": True,
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 200
+    mock_connect.assert_called_once_with("openai", "sk-secret-123")
+    data = response.json()
+    assert data["providers"]["mlflow_gateway"]["selected"] is True
+    assert data["providers"]["mlflow_gateway"]["model"] == "mlflow-assistant-openai"
+    assert "sk-secret-123" not in (isolated_config / "config.json").read_text()
+
+
+@pytest.mark.parametrize(
+    "provider_data",
+    [
+        {"api_key": "sk-nope"},
+        {"gateway_vendor": "openai", "api_key": "sk-nope"},
+    ],
+)
+def test_update_config_rejects_api_key_outside_gateway_connection(client, provider_data):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": provider_data}},
+    )
+
+    assert response.status_code == 400
+    assert "LLM Connections" in response.json()["detail"]
+
+
+def test_update_config_gateway_connection_unsupported_returns_400(client):
+    from mlflow.assistant.gateway_connection import GatewayUnsupportedError
+
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        side_effect=GatewayUnsupportedError("no gateway on this backend"),
+    ):
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret",
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "no gateway on this backend"
 
 
 def test_update_config_sets_project(client, tmp_path):
@@ -807,6 +884,26 @@ def test_install_skills_blocked_for_remote_client(monkeypatch):
 
     assert response.status_code == 403
     assert "same host" in response.json()["detail"]
+
+
+def test_install_skills_requires_explicit_selected_provider():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider") as mock_resolve_default,
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+    assert response.status_code == 412
+    assert "No assistant provider" in response.json()["detail"]
+    mock_resolve_default.assert_not_called()
 
 
 def test_update_config_partial_update_preserves_selected_provider(client):

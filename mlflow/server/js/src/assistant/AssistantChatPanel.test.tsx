@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
-import type { AssistantPart, ChatMessage } from './types';
+import type { AssistantPart, ChatMessage, TokenUsage } from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 
 jest.mock('../telemetry/hooks/useLogTelemetryEvent', () => ({
@@ -21,6 +21,14 @@ const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
+const EMPTY_TOKEN_USAGE: TokenUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: null,
+};
+let mockTokenUsage: TokenUsage = EMPTY_TOKEN_USAGE;
 
 jest.mock('./AssistantContext', () => ({
   useAssistant: () => ({
@@ -34,9 +42,10 @@ jest.mock('./AssistantContext', () => ({
     setupComplete: mockSetupComplete,
     isLoadingConfig: false,
     isLocalServer: true,
+    selectedProvider: null,
     pendingPrompt: mockPendingPrompt,
     canUseAssistant: true,
-    tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
+    tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
@@ -75,6 +84,7 @@ describe('AssistantChatPanel', () => {
     mockClearPendingPrompt.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
     mockLogTelemetryEvent = jest.fn();
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
   });
@@ -188,6 +198,24 @@ describe('AssistantChatPanel', () => {
     await user.keyboard('{Enter}');
 
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
+  });
+
+  test('token footer shows a compact total and an info trigger when usage is present', () => {
+    mockTokenUsage = { promptTokens: 200, completionTokens: 30, totalTokens: 230, cacheReadTokens: 120, costUsd: 0.02 };
+    renderChatPanel();
+
+    // Compact headline reflects the full processed total; the breakdown (fresh vs cached
+    // input) lives in the hover tooltip, which Radix doesn't reliably open in JSDOM, so
+    // the fresh/cached arithmetic is covered by AssistantContext's accumulation test.
+    expect(screen.getByText('230')).toBeInTheDocument();
+    expect(screen.getByLabelText('More information')).toBeInTheDocument();
+  });
+
+  test('token footer is hidden when no tokens have been used', () => {
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
+    renderChatPanel();
+
+    expect(screen.queryByLabelText('More information')).not.toBeInTheDocument();
   });
 });
 
