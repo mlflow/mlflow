@@ -5894,10 +5894,6 @@ message ListGatewayBudgetWindows {
     optional int64 window_end_ms = 3;
 
     optional double current_spend = 4;
-
-    // Target of the window's policy (endpoint ID for ENDPOINT scope; unset for
-    // GLOBAL and WORKSPACE policies)
-    optional string target_value = 5;
   }
 
   message Response {

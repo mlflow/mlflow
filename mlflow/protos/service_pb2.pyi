@@ -2511,18 +2511,16 @@ class ListGatewayBudgetPolicies(_message.Message):
 class ListGatewayBudgetWindows(_message.Message):
     __slots__ = ()
     class BudgetWindow(_message.Message):
-        __slots__ = ("budget_policy_id", "window_start_ms", "window_end_ms", "current_spend", "target_value")
+        __slots__ = ("budget_policy_id", "window_start_ms", "window_end_ms", "current_spend")
         BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
         WINDOW_START_MS_FIELD_NUMBER: _ClassVar[int]
         WINDOW_END_MS_FIELD_NUMBER: _ClassVar[int]
         CURRENT_SPEND_FIELD_NUMBER: _ClassVar[int]
-        TARGET_VALUE_FIELD_NUMBER: _ClassVar[int]
         budget_policy_id: str
         window_start_ms: int
         window_end_ms: int
         current_spend: float
-        target_value: str
-        def __init__(self, budget_policy_id: _Optional[str] = ..., window_start_ms: _Optional[int] = ..., window_end_ms: _Optional[int] = ..., current_spend: _Optional[float] = ..., target_value: _Optional[str] = ...) -> None: ...
+        def __init__(self, budget_policy_id: _Optional[str] = ..., window_start_ms: _Optional[int] = ..., window_end_ms: _Optional[int] = ..., current_spend: _Optional[float] = ...) -> None: ...
     class Response(_message.Message):
         __slots__ = ("windows",)
         WINDOWS_FIELD_NUMBER: _ClassVar[int]
