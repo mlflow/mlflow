@@ -12947,10 +12947,6 @@
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
   },
-  "sy4S+d": {
-    "defaultMessage": "Save & share view",
-    "description": "Title of the modal that saves the current experiment view and produces a shareable link"
-  },
   "syQ4eZ": {
     "defaultMessage": "Are the tool calls and their arguments correct for the request?",
     "description": "Hint for ToolCallCorrectness template"
@@ -13662,6 +13658,10 @@
   "wZtuCR": {
     "defaultMessage": "AutoML",
     "description": "Label for generic AutoML experiments"
+  },
+  "wa2Qnm": {
+    "defaultMessage": "Save view",
+    "description": "Title of the modal that saves the current experiment view and produces a shareable link"
   },
   "waKoIu": {
     "defaultMessage": "Save",

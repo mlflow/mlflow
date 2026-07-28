@@ -214,7 +214,7 @@ export const ExperimentGetShareLinkModal = ({
       componentId="mlflow.experiment_page.save_and_share_view.modal"
       title={
         <FormattedMessage
-          defaultMessage="Save & share view"
+          defaultMessage="Save view"
           description="Title of the modal that saves the current experiment view and produces a shareable link"
         />
       }
