@@ -640,9 +640,10 @@ class SqlAlchemyGatewayStoreMixin:
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
             exclude_content: Whether to exclude request/response content from traces.
-                            When True, prompts, messages, and model responses are redacted
+                            When True, prompts, messages, and model responses are dropped
                             from traces while usage metadata (token counts, latency,
-                            status) is kept.
+                            status) is kept. Normalized to False when usage_tracking is
+                            False, since there are no traces to exclude content from.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -656,6 +657,11 @@ class SqlAlchemyGatewayStoreMixin:
                 "Endpoint must have at least one model configuration",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        # Excluding content is meaningless without tracing, and persisting it as True
+        # would silently activate redaction if usage tracking were enabled later.
+        if not usage_tracking:
+            exclude_content = False
 
         with self.ManagedSessionMaker(read_only=False) as session:
             # Validate all model definitions exist
@@ -800,7 +806,8 @@ class SqlAlchemyGatewayStoreMixin:
             experiment_id: Optional new experiment ID for tracing.
             usage_tracking: Optional flag to enable/disable usage tracking.
             exclude_content: Optional flag to exclude request/response content from
-                            traces while keeping usage metadata.
+                            traces while keeping usage metadata. Cleared when the
+                            endpoint ends up with usage tracking disabled.
 
         Returns:
             Updated Endpoint entity.
@@ -819,6 +826,12 @@ class SqlAlchemyGatewayStoreMixin:
 
             if exclude_content is not None:
                 sql_endpoint.exclude_content = exclude_content
+
+            # Keep exclude_content consistent with the resulting usage_tracking state:
+            # disabling tracing clears it, so re-enabling tracing later cannot silently
+            # resurrect redaction the caller never asked for.
+            if not sql_endpoint.usage_tracking:
+                sql_endpoint.exclude_content = False
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:

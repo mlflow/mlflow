@@ -709,6 +709,102 @@ def test_update_gateway_endpoint_exclude_content(store: SqlAlchemyStore):
     assert reverted.exclude_content is False
 
 
+def test_create_gateway_endpoint_exclude_content_cleared_without_usage_tracking(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="excl-no-track-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="excl-no-track-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-no-track-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=False,
+        exclude_content=True,
+    )
+
+    # There are no traces to exclude content from, so the flag is not persisted as True
+    assert endpoint.exclude_content is False
+    assert store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id).exclude_content is False
+
+
+def test_update_gateway_endpoint_disabling_usage_tracking_clears_exclude_content(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="excl-clear-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="excl-clear-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-clear-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        exclude_content=True,
+    )
+    assert endpoint.exclude_content is True
+
+    disabled = store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, usage_tracking=False)
+    assert disabled.usage_tracking is False
+    assert disabled.exclude_content is False
+
+    # Re-enabling tracing must not resurrect redaction the caller never asked for
+    re_enabled = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id, usage_tracking=True
+    )
+    assert re_enabled.usage_tracking is True
+    assert re_enabled.exclude_content is False
+
+
+def test_update_gateway_endpoint_exclude_content_ignored_when_tracking_disabled(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="excl-both-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="excl-both-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="excl-both-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    updated = store.update_gateway_endpoint(
+        endpoint_id=endpoint.endpoint_id, usage_tracking=False, exclude_content=True
+    )
+    assert updated.usage_tracking is False
+    assert updated.exclude_content is False
+
+
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
         store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])
