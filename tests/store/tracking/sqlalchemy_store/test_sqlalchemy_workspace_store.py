@@ -986,7 +986,9 @@ def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
     store._dispose_engine()
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
-    with pytest.raises(MlflowException, match="IntegrityError"):
+    # The wrapped message is the driver's error string, whose class name is dialect-specific:
+    # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
+    with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
         tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 

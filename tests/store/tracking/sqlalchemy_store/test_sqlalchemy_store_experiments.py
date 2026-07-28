@@ -147,7 +147,9 @@ def test_create_default_experiment_reraises_when_name_slot_taken_and_id_zero_mis
             )
         )
 
-    with pytest.raises(MlflowException, match="IntegrityError"):
+    # The wrapped message is the driver's error string, whose class name is dialect-specific:
+    # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
+    with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
         with store.ManagedSessionMaker(read_only=False) as session:
             store._create_default_experiment(session)
 
