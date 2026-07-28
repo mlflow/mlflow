@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -155,11 +155,13 @@ describe('ToolCallGroup', () => {
     toolCall({ toolUseId: 't3', name: 'Bash', status: 'done', result: 'c' }),
   ];
 
-  test('renders the count, name summary, and a status label', () => {
+  test('renders the count, name summary, and a status icon', () => {
     renderGroup(calls);
     expect(screen.getByText('3 tool calls')).toBeInTheDocument();
     expect(screen.getByText('load_skill, Bash ×2')).toBeInTheDocument();
-    expect(screen.getByTestId('tool-group-status-done')).toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    const groupStatusIcon = screen.getByTestId('tool-group-status-done');
+    expect(within(groupStatusIcon).getByTestId('tool-call-status-done')).toBeInTheDocument();
   });
 
   test('treats a missing status as running', () => {

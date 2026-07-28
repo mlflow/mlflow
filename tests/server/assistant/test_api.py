@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
-from mlflow.assistant.providers import OllamaProvider
+from mlflow.assistant.providers import MlflowGatewayProvider, OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -230,6 +230,72 @@ def test_health_check_returns_401_when_not_authenticated():
         assert "Not authenticated" in response.json()["detail"]
 
 
+def test_get_providers_auto_resolves_available_default(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == [
+        {
+            "name": "mock_provider",
+            "display_name": "Mock Provider",
+            "description": "Mock provider for testing",
+            "available": True,
+            "selected": False,
+            "requires_api_key": False,
+            "has_api_key": False,
+            "allows_remote_access": False,
+            "model_options": [],
+        }
+    ]
+    assert data["resolved"] == {
+        "name": "mock_provider",
+        "model": None,
+        "auto_selected": True,
+        "requires_api_key": False,
+        "has_api_key": False,
+        "model_provider": None,
+        "model_options": [],
+        "provider_model": None,
+    }
+    assert data["gateway_vendor_options"]["openai"] == ["gpt-5.5"]
+
+
+def test_get_providers_resolves_selected_managed_gateway_endpoint():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    gateway_provider = MlflowGatewayProvider()
+    config = AssistantConfig(
+        providers={
+            MlflowGatewayProvider.GATEWAY_PROVIDER_NAME: AssistantProviderConfig(
+                model="mlflow-assistant-openai",
+                selected=True,
+            )
+        },
+    )
+    config.save()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[gateway_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"][0]["selected"] is True
+    assert data["resolved"] == {
+        "name": "mlflow_gateway",
+        "model": "mlflow-assistant-openai",
+        "auto_selected": False,
+        "requires_api_key": False,
+        "has_api_key": True,
+        "model_provider": "openai",
+        "model_options": ["gpt-5.5"],
+        "provider_model": "gpt-5.5",
+    }
+
+
 def test_get_config_returns_empty_config(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/config")
     assert response.status_code == 200
@@ -401,6 +467,72 @@ def test_update_config_sets_provider(client):
     assert response.status_code == 200
     data = response.json()
     assert data["providers"]["claude_code"]["selected"] is True
+
+
+def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(client, isolated_config):
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        return_value="mlflow-assistant-openai",
+    ) as mock_connect:
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret-123",
+                        "selected": True,
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 200
+    mock_connect.assert_called_once_with("openai", "sk-secret-123")
+    data = response.json()
+    assert data["providers"]["mlflow_gateway"]["selected"] is True
+    assert data["providers"]["mlflow_gateway"]["model"] == "mlflow-assistant-openai"
+    assert "sk-secret-123" not in (isolated_config / "config.json").read_text()
+
+
+@pytest.mark.parametrize(
+    "provider_data",
+    [
+        {"api_key": "sk-nope"},
+        {"gateway_vendor": "openai", "api_key": "sk-nope"},
+    ],
+)
+def test_update_config_rejects_api_key_outside_gateway_connection(client, provider_data):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": provider_data}},
+    )
+
+    assert response.status_code == 400
+    assert "LLM Connections" in response.json()["detail"]
+
+
+def test_update_config_gateway_connection_unsupported_returns_400(client):
+    from mlflow.assistant.gateway_connection import GatewayUnsupportedError
+
+    with patch(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        side_effect=GatewayUnsupportedError("no gateway on this backend"),
+    ):
+        response = client.put(
+            "/ajax-api/3.0/mlflow/assistant/config",
+            json={
+                "providers": {
+                    "mlflow_gateway": {
+                        "gateway_vendor": "openai",
+                        "api_key": "sk-secret",
+                    }
+                }
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "no gateway on this backend"
 
 
 def test_update_config_sets_project(client, tmp_path):

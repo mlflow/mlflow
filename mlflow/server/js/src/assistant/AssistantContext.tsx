@@ -46,12 +46,26 @@ const MAX_PERSISTED_CHARS = 1_500_000;
 export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
 export const CHAT_STORAGE_VERSION = 1;
 
-const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+const EMPTY_TOKEN_USAGE: TokenUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: null,
+};
 
 interface PersistedChat {
   messages: ChatMessage[];
   tokenUsage: TokenUsage;
 }
+
+const normalizeTokenUsage = (usage?: Partial<TokenUsage> | null): TokenUsage => ({
+  promptTokens: usage?.promptTokens ?? 0,
+  completionTokens: usage?.completionTokens ?? 0,
+  totalTokens: usage?.totalTokens ?? 0,
+  cacheReadTokens: usage?.cacheReadTokens ?? 0,
+  costUsd: usage?.costUsd ?? null,
+});
 
 /** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
 export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
@@ -266,7 +280,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => persistedChat.tokenUsage ?? EMPTY_TOKEN_USAGE);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -442,6 +456,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       prompt_tokens: number;
       completion_tokens: number;
       total_tokens: number;
+      cache_read_tokens?: number;
       total_cost_usd?: number | null;
     }) => {
       // Contract: each `usage` event is a per-turn / per-request *delta*, never a
@@ -453,6 +468,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
         completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
         totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+        cacheReadTokens: prev.cacheReadTokens + (usage.cache_read_tokens ?? 0),
         // Accumulate cost only from priced turns; stays null until the first
         // numeric estimate arrives so unpriced models render no cost at all.
         costUsd: usage.total_cost_usd == null ? prev.costUsd : (prev.costUsd ?? 0) + usage.total_cost_usd,
@@ -518,14 +534,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (!pending) {
       return;
     }
-    const providerUpdate: { selected: true; model?: string; gateway_vendor?: string } = { selected: true };
+    const providerUpdate: { selected: true; model?: string } = { selected: true };
     const providerName = pending.kind === 'gateway' ? GATEWAY_PROVIDER_ID : pending.name;
-    if (pending.kind === 'gateway' && pending.gatewayVendor) {
-      providerUpdate.gateway_vendor = pending.gatewayVendor;
-      if (pending.providerModel) {
-        providerUpdate.model = pending.providerModel;
-      }
-    } else if (pending.kind === 'gateway') {
+    if (pending.kind === 'gateway') {
       providerUpdate.model = pending.endpointName;
     } else if (pending.model && pending.model !== 'default') {
       providerUpdate.model = pending.model;
@@ -672,10 +683,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setErrorCode(null);
     setCurrentStatus(null);
     setActiveTools([]);
-    setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
+    setTokenUsage(EMPTY_TOKEN_USAGE);
+    setPersistedChat({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE });
     openTextBufferRef.current = '';
     setPendingPermission(null);
-  }, []);
+  }, [setPersistedChat]);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
   // return a checker for whether this send is
@@ -1055,7 +1067,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   pendingPrompt: null,
   pendingPermission: null,
   canUseAssistant: false,
-  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
+  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

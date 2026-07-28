@@ -13,7 +13,12 @@ from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
-from mlflow.assistant.providers import list_providers
+from mlflow.assistant.gateway_connection import (
+    _GATEWAY_VENDOR_MODELS,
+    GatewayUnsupportedError,
+    ensure_gateway_connection,
+)
+from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -160,6 +165,35 @@ class ConfigUpdateRequest(BaseModel):
     projects: dict[str, Any] | None = None
 
 
+class ProviderInfo(BaseModel):
+    name: str
+    display_name: str
+    description: str
+    available: bool
+    selected: bool
+    requires_api_key: bool
+    has_api_key: bool
+    allows_remote_access: bool
+    model_options: list[str] = Field(default_factory=list)
+
+
+class ResolvedProviderInfo(BaseModel):
+    name: str
+    model: str | None = None
+    auto_selected: bool
+    requires_api_key: bool
+    has_api_key: bool
+    model_provider: str | None = None
+    model_options: list[str] = Field(default_factory=list)
+    provider_model: str | None = None
+
+
+class ProvidersResponse(BaseModel):
+    providers: list[ProviderInfo]
+    resolved: ResolvedProviderInfo | None
+    gateway_vendor_options: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class SessionPatchRequest(BaseModel):
     status: Literal["cancelled"]
 
@@ -171,6 +205,91 @@ class SessionPatchResponse(BaseModel):
 class PermissionDecision(BaseModel):
     request_id: str  # the paused tool_call's id
     decision: Literal["allow", "deny"]
+
+
+def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | None:
+    api_key = provider_data.get("api_key")
+    gateway_vendor = provider_data.get("gateway_vendor")
+    if not api_key and gateway_vendor is None:
+        return None
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway vendor connections require an API key.",
+        )
+    if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="API keys must be stored in LLM Connections through the "
+            "'mlflow_gateway' provider.",
+        )
+    if gateway_vendor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway API keys require a gateway_vendor.",
+        )
+    try:
+        return ensure_gateway_connection(gateway_vendor, api_key)
+    except (GatewayUnsupportedError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def _gateway_vendor_options() -> dict[str, list[str]]:
+    return {vendor: [model] for vendor, model in _GATEWAY_VENDOR_MODELS.items()}
+
+
+def _gateway_vendor_from_managed_endpoint(model: str | None) -> str | None:
+    if not model:
+        return None
+    prefix = "mlflow-assistant-"
+    vendor = model.removeprefix(prefix)
+    if vendor == model:
+        return None
+    return vendor if vendor in _GATEWAY_VENDOR_MODELS else None
+
+
+def _resolved_provider_info(
+    provider: AssistantProvider,
+    provider_config: Any | None,
+    *,
+    auto_selected: bool,
+) -> ResolvedProviderInfo:
+    model = (
+        provider_config.model if provider_config and provider_config.model != "default" else None
+    )
+    resolved = ResolvedProviderInfo(
+        name=provider.name,
+        model=model,
+        auto_selected=auto_selected,
+        requires_api_key=False,
+        has_api_key=False,
+    )
+    if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        vendor = _gateway_vendor_from_managed_endpoint(model)
+        if vendor:
+            provider_model = _GATEWAY_VENDOR_MODELS[vendor]
+            resolved.model_provider = vendor
+            resolved.model_options = [provider_model]
+            resolved.provider_model = provider_model
+            resolved.has_api_key = True
+    return resolved
+
+
+def _resolve_assistant_provider(
+    config: AssistantConfig,
+    providers: list[AssistantProvider],
+) -> ResolvedProviderInfo | None:
+    for provider in providers:
+        provider_config = config.providers.get(provider.name)
+        if provider_config and provider_config.selected:
+            return _resolved_provider_info(provider, provider_config, auto_selected=False)
+
+    for provider in providers:
+        if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+            continue
+        if provider.is_available():
+            return _resolved_provider_info(provider, None, auto_selected=True)
+    return None
 
 
 # Skills-related models
@@ -387,6 +506,33 @@ async def provider_health_check(provider: str) -> dict[str, str]:
     return {"status": "ok"}
 
 
+@assistant_router.get("/providers")
+@_remote_access_policy(_RemoteAccessPolicy.NONE)
+async def get_providers() -> ProvidersResponse:
+    config = AssistantConfig.load()
+    providers = list_providers()
+    provider_infos = [
+        ProviderInfo(
+            name=provider.name,
+            display_name=provider.display_name,
+            description=provider.description,
+            available=provider.is_available(),
+            selected=bool(config.providers.get(provider.name, None))
+            and config.providers[provider.name].selected,
+            requires_api_key=False,
+            has_api_key=False,
+            allows_remote_access=provider.allows_remote_access,
+            model_options=[],
+        )
+        for provider in providers
+    ]
+    return ProvidersResponse(
+        providers=provider_infos,
+        resolved=_resolve_assistant_provider(config, providers),
+        gateway_vendor_options=_gateway_vendor_options(),
+    )
+
+
 @assistant_router.get("/config")
 @_remote_access_policy(_RemoteAccessPolicy.NONE)
 async def get_config(request: Request) -> ConfigResponse:
@@ -433,7 +579,8 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
-            api_key = provider_data.get("api_key")
+            if gateway_model := _store_gateway_api_key(name, provider_data):
+                model = gateway_model
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
@@ -444,14 +591,13 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
             selected = provider_data.get("selected", False)
             if selected:
-                config.set_provider(name, model, permissions, base_url=base_url, api_key=api_key)
+                config.set_provider(name, model, permissions, base_url=base_url)
             else:
                 config.update_provider(
                     name,
                     model=model,
                     permissions=permissions,
                     base_url=base_url,
-                    api_key=api_key,
                 )
 
     # Update projects

@@ -238,6 +238,7 @@ async def test_astream_emits_usage_event_before_done():
         "prompt_tokens": 35257,
         "completion_tokens": 5,
         "total_tokens": 35262,
+        "cache_read_tokens": 100,
         "total_cost_usd": 0.1319,
     }
     # The usage event must precede the DONE event, which closes the client stream.
@@ -256,6 +257,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 10,
                 "completion_tokens": 5,
                 "total_tokens": 15,
+                "cache_read_tokens": 0,
                 "total_cost_usd": 0.25,
             },
         ),
@@ -271,6 +273,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 152,
                 "completion_tokens": 5,
                 "total_tokens": 157,
+                "cache_read_tokens": 50,
                 "total_cost_usd": None,
             },
         ),
@@ -281,6 +284,7 @@ async def test_astream_emits_usage_event_before_done():
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
+                "cache_read_tokens": 0,
                 "total_cost_usd": None,
             },
         ),

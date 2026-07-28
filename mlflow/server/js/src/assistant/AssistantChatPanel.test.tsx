@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { DesignSystemProvider } from '@databricks/design-system';
 import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
 import * as AssistantService from './AssistantService';
-import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
+import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo, TokenUsage } from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import type { Endpoint } from '../gateway/types';
 
@@ -35,6 +35,14 @@ let mockIsLocalServer = true;
 let mockNeedsApiKey = false;
 let mockError: string | null = null;
 let mockErrorCode: string | null = null;
+const EMPTY_TOKEN_USAGE: TokenUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: null,
+};
+let mockTokenUsage: TokenUsage = EMPTY_TOKEN_USAGE;
 
 jest.mock('./AssistantService', () => ({
   __esModule: true,
@@ -68,7 +76,7 @@ jest.mock('./AssistantContext', () => ({
     needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
     canUseAssistant: true,
-    tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
+    tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
@@ -126,6 +134,7 @@ describe('AssistantChatPanel', () => {
     mockNeedsApiKey = false;
     mockError = null;
     mockErrorCode = null;
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
     mockLogTelemetryEvent = jest.fn();
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
   });
@@ -304,6 +313,30 @@ describe('AssistantChatPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Open Settings' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Set API key' })).not.toBeInTheDocument();
+  });
+
+  test('token footer shows a compact total and an info trigger when usage is present', () => {
+    mockTokenUsage = {
+      promptTokens: 200,
+      completionTokens: 30,
+      totalTokens: 230,
+      cacheReadTokens: 120,
+      costUsd: 0.02,
+    };
+    renderChatPanel();
+
+    // Compact headline reflects the full processed total; the breakdown (fresh vs cached
+    // input) lives in the hover tooltip, which Radix doesn't reliably open in JSDOM, so
+    // the fresh/cached arithmetic is covered by AssistantContext's accumulation test.
+    expect(screen.getByText('230')).toBeInTheDocument();
+    expect(screen.getByLabelText('More information')).toBeInTheDocument();
+  });
+
+  test('token footer is hidden when no tokens have been used', () => {
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
+    renderChatPanel();
+
+    expect(screen.queryByLabelText('More information')).not.toBeInTheDocument();
   });
 });
 

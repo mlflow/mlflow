@@ -26,7 +26,7 @@ import {
   WrenchSparkleIcon,
   Spinner,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
@@ -62,16 +62,17 @@ const DOTS_ANIMATION = {
 };
 
 // Abbreviate token counts for the compact usage footer (e.g. 45257 -> "45.3K").
-const formatCompactTokens = (n: number): string =>
-  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+// Formats through react-intl's locale so numbers match the surrounding FormattedMessage text.
+const formatCompactTokens = (intl: IntlShape, n: number): string =>
+  intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 });
 
 // Sub-dollar estimates need more precision than cents (e.g. "$0.0045").
-const formatCostUsd = (cost: number): string =>
-  new Intl.NumberFormat(undefined, {
+const formatCostUsd = (intl: IntlShape, cost: number): string =>
+  intl.formatNumber(cost, {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: cost < 1 ? 4 : 2,
-  }).format(cost);
+  });
 
 export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
 
@@ -88,7 +89,7 @@ export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
     }
     const last = groups[groups.length - 1];
     if (last?.kind === 'tools') {
-      last.calls = [...last.calls, part];
+      groups[groups.length - 1] = { kind: 'tools', calls: [...last.calls, part] };
     } else {
       groups.push({ kind: 'tools', calls: [part] });
     }
@@ -422,6 +423,7 @@ const RECOVERABLE_ERROR_CODES = new Set<string>([
 
 const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const {
     messages,
     isStreaming,
@@ -680,7 +682,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
             {tokenUsage.totalTokens > 0 && (
               <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Typography.Text size="sm" color="secondary" css={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {formatCompactTokens(tokenUsage.totalTokens)}
+                  {formatCompactTokens(intl, tokenUsage.totalTokens)}
                 </Typography.Text>
                 <InfoTooltip
                   componentId="mlflow.assistant.chat_panel.usage_info"
@@ -698,17 +700,26 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
                           defaultMessage="Input {input} · Output {output} tokens"
                           description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
                           values={{
-                            input: tokenUsage.promptTokens.toLocaleString(),
-                            output: tokenUsage.completionTokens.toLocaleString(),
+                            input: intl.formatNumber(tokenUsage.promptTokens - tokenUsage.cacheReadTokens),
+                            output: intl.formatNumber(tokenUsage.completionTokens),
                           }}
                         />
                       </span>
+                      {tokenUsage.cacheReadTokens > 0 && (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cached {cached} tokens, reused conversation context billed at a reduced rate"
+                            description="Portion of input tokens re-read from the provider's prompt cache across turns"
+                            values={{ cached: intl.formatNumber(tokenUsage.cacheReadTokens) }}
+                          />
+                        </span>
+                      )}
                       {tokenUsage.costUsd != null ? (
                         <span>
                           <FormattedMessage
-                            defaultMessage="Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates)."
+                            defaultMessage="Estimated cost ~{cost}, from public model pricing; actual may vary (provider and cache rates)."
                             description="Estimated session cost with a disclaimer that it is approximate"
-                            values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
+                            values={{ cost: formatCostUsd(intl, tokenUsage.costUsd) }}
                           />
                         </span>
                       ) : (
