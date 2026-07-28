@@ -1,11 +1,11 @@
-# A daily job to run slow tests with MLFLOW_RUN_SLOW_TESTS environment variable set to true.
-name: MLflow Slow Tests
+# A daily job to run extended tests that are too expensive or flaky for every PR.
+name: MLflow Nightly Tests
 
 on:
   pull_request:
     paths:
       # Run this workflow in PR when relevant files change
-      - ".github/workflows/slow-tests.yml"
+      - ".github/workflows/nightly-tests.yml"
       - "tests/docker/**"
       - "tests/pyfunc/docker/**"
   workflow_dispatch:
@@ -157,3 +157,109 @@ jobs:
 
             echo "Windows tests failed on attempt $attempt; retrying"
           done
+
+  java:
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
+      - name: Install dependencies
+        run: |
+          uv sync --no-dev
+      - name: Run tests
+        working-directory: mlflow/java
+        run: |
+          uv run --no-dev mvn clean package -q
+
+  r:
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mlflow/R/mlflow
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
+      # This step dumps the current set of R dependencies and R version into files to be used
+      # as a cache key when caching/restoring R dependencies.
+      - name: Dump dependencies
+        run: |
+          Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
+      - name: Get OS name
+        id: os-name
+        run: |
+          # `os_name` will be like "Ubuntu-20.04.1-LTS"
+          os_name=$(lsb_release -ds | sed 's/\s/-/g')
+          echo "os-name=$os_name" >> $GITHUB_OUTPUT
+      - name: Cache R packages
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        continue-on-error: true
+        # https://github.com/actions/cache/issues/810
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+          # R dependencies
+          key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
+      - name: Install dependencies
+        run: |
+          Rscript -e 'source(".install-deps.R", echo=TRUE)'
+      - name: Set USE_R_DEVEL
+        env:
+          HAS_R_DEVEL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'r-devel') }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            USE_R_DEVEL=true
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            # Use r-devel on a pull request targeted to a release branch or with the "r-devel" label
+            if [[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] || [ "$HAS_R_DEVEL_LABEL" = "true" ]; then
+              USE_R_DEVEL=true
+            else
+              USE_R_DEVEL=false
+            fi
+          else
+            # Use r-devel when manually dispatched against a release branch
+            USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+          fi
+          echo "USE_R_DEVEL=$USE_R_DEVEL" >> $GITHUB_ENV
+      - name: Build package
+        run: |
+          ./build-package.sh
+      - name: Create test environment
+        run: |
+          uv pip install --system $(git rev-parse --show-toplevel)
+          H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
+          # test-keras-model.R fails with tensorflow>=2.13.0
+          uv pip install --system xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION" "pydantic<3,>=1.0" "typing_extensions>=4.6.0"
+          Rscript -e 'source(".install-mlflow-r.R", echo=TRUE)'
+      - name: Run tests
+        env:
+          LINTR_COMMENT_BOT: false
+          # TODO: Migrate R tests to use a SQLite backend instead of FileStore
+          MLFLOW_ALLOW_FILE_STORE: true
+        run: |
+          cd tests
+          export RETICULATE_PYTHON_BIN=$(which python)
+          export MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false
+          Rscript -e 'source("../.run-tests.R", echo=TRUE)'
