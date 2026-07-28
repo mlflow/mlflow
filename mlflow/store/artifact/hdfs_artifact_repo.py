@@ -202,7 +202,7 @@ def _parse_extra_conf(extra_conf):
     if extra_conf:
 
         def as_pair(config):
-            key, val = config.split("=")
+            key, val = config.split("=", 1)
             return key, val
 
         list_of_key_val = [as_pair(conf) for conf in extra_conf.split(",")]

@@ -719,7 +719,7 @@ def test_violates_pep_440():
         ("sklearn", "0.23.0rc1", False),
         ("sklearn", "0.23.0dev0", False),
         ("sklearn", "0.23.0-SNAPSHOT", False),
-        ("pytorch", "2.3.1", True),
+        ("pytorch", "2.4.0", True),
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),

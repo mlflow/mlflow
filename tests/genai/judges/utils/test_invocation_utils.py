@@ -1,11 +1,3 @@
-"""Tests for invoke_judge_model and get_chat_completions_with_structured_output.
-
-These tests verify routing (which adapter is selected), payload passthrough,
-and output parsing. Adapter internals (RetryPolicy, litellm.Message types,
-cost tracking, response_format caching) are tested in the adapter-specific
-test files (test_litellm_adapter.py, test_gateway_adapter.py).
-"""
-
 import json
 from unittest import mock
 

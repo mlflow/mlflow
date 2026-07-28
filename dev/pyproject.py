@@ -122,8 +122,8 @@ TRACING_EXCLUDE_FILES = [
     "mlflow/protos/databricks_uc_registry_messages_pb2.py",
     "mlflow/protos/databricks_uc_registry_service_pb2.py",
     "mlflow/protos/model_registry_pb2.py",
-    "mlflow/protos/unity_catalog_oss_messages_pb2.py",
-    "mlflow/protos/unity_catalog_oss_service_pb2.py",
+    "mlflow/protos/unity_catalog_messages_pb2.py",
+    "mlflow/protos/unity_catalog_service_pb2.py",
     # Test files
     "tests",
     "tests.*",
@@ -473,6 +473,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
+            "agent/setup/templates/**/*.md",
         ]
     }
 

@@ -37,6 +37,7 @@ type ExperimentViewRunsControlsProps = {
   uiState: ExperimentPageUIState;
   isLoading: boolean;
   isComparingExperiments: boolean;
+  onResetColumns: () => void;
 };
 
 /**
@@ -58,6 +59,7 @@ export const ExperimentViewRunsControls = React.memo(
     uiState,
     isLoading,
     isComparingExperiments,
+    onResetColumns,
   }: ExperimentViewRunsControlsProps) => {
     const [compareRunsMode, setCompareRunsMode] = useExperimentPageViewMode();
 
@@ -150,6 +152,7 @@ export const ExperimentViewRunsControls = React.memo(
                     onChangeColumnSelectorVisible={changeColumnSelectorVisible}
                     runsData={runsData}
                     selectedColumns={uiState.selectedColumns}
+                    onResetColumns={onResetColumns}
                   />
                 )}
 

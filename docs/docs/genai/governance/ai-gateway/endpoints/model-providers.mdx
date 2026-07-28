@@ -260,12 +260,23 @@ response = client.chat.completions.create(
 
 [Portkey](https://portkey.ai) provides a single OpenAI-compatible API.
 
+In addition to your Portkey API key, Portkey needs to know which upstream provider
+to route each request to. Configure one of the following when creating the endpoint:
+
+- **Provider Slug**: a [Model Catalog](https://portkey.ai/docs/product/model-catalog)
+  integration slug prefixed with `@` (e.g. `@openai-prod`), or a bare provider slug
+  (e.g. `openai`) together with a **Provider API Key** for that provider
+- **Config ID or JSON**: a saved Portkey config ID (e.g. `pc-xxxx`) or a raw JSON config. This is stored as a secret, since a raw JSON config may embed upstream credentials
+- Neither, if your model name already embeds the routing target
+  (e.g. `@openai-prod/gpt-4o`) or your Portkey API key has a default config attached
+
 When creating a Portkey endpoint:
 
 1. Select **Portkey** as the provider
-2. Enter your Portkey API key
+2. Enter your Portkey API key and a routing target as described above
 3. Enter your Portkey base URL (e.g. `https://api.portkey.ai/v1`)
-4. Enter the model name as per your Portkey configuration (e.g. a virtual key name, `provider/model-name`, or a custom alias)
+4. Enter the model name as per your Portkey configuration
+   (e.g. `gpt-4o`, `@openai-prod/gpt-4o`, or a custom alias)
 
 ```python
 from openai import OpenAI

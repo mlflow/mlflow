@@ -12,6 +12,7 @@ from mlflow.gateway.providers.base import (
     _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import (
+    parse_base64_data_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -49,6 +50,35 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
+    """Translate a user message's content into Gemini ``parts``.
+
+    A string becomes a single text part (unchanged behavior). A multimodal list has each
+    part translated: text -> ``{"text": ...}``, ``image_url`` base64 data URL ->
+    ``{"inlineData": {"mimeType": ..., "data": ...}}``. Non-base64 image URLs fall back to
+    a text note since the judge image tool only ever emits base64 data URLs. Any other part
+    type is passed through unchanged rather than coerced to empty text, so a non-text part
+    (e.g. ``input_audio``) isn't silently dropped.
+    """
+    if not isinstance(content, list):
+        return [{"text": content}]
+
+    parts: list[dict[str, Any]] = []
+    for part in content:
+        if part.get("type") == "text":
+            parts.append({"text": part.get("text", "")})
+        elif part.get("type") == "image_url":
+            url = part.get("image_url", {}).get("url", "")
+            if parsed := parse_base64_data_url(url):
+                mime, data = parsed
+                parts.append({"inlineData": {"mimeType": mime, "data": data}})
+            else:
+                parts.append({"text": f"[unsupported image reference: {url}]"})
+        else:
+            parts.append(part)
+    return parts
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -111,6 +141,7 @@ class GeminiAdapter(ProviderAdapter):
         system_message = None
 
         call_id_to_function_name_map = {}
+        call_id_to_thought_signature_map = {}
 
         for message in payload["messages"]:
             role = message["role"]
@@ -126,17 +157,26 @@ class GeminiAdapter(ProviderAdapter):
                             call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
                                 "name"
                             ]
-                            gemini_function_calls.append({
-                                "functionCall": {
-                                    "id": tool_call["id"],
-                                    "name": tool_call["function"]["name"],
-                                    "args": json.loads(tool_call["function"]["arguments"]),
-                                }
-                            })
+                            if sig := tool_call.get("thought_signature"):
+                                call_id_to_thought_signature_map[tool_call["id"]] = sig
+
+                            fc = {
+                                "id": tool_call["id"],
+                                "name": tool_call["function"]["name"],
+                                "args": json.loads(tool_call["function"]["arguments"]),
+                            }
+                            if tool_call["id"] in call_id_to_thought_signature_map:
+                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                    tool_call["id"]
+                                ]
+
+                            gemini_function_calls.append({"functionCall": fc})
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
-                    contents.append({"role": role, "parts": [{"text": message["content"]}]})
+                    # _to_gemini_parts translates multimodal list content (e.g. an image_url
+                    # part) to Gemini parts; string content stays a single text part.
+                    contents.append({"role": role, "parts": _to_gemini_parts(message["content"])})
             elif role == "system":
                 if system_message is None:
                     system_message = {"parts": []}
@@ -167,13 +207,16 @@ class GeminiAdapter(ProviderAdapter):
 
         # Transform response_format for Gemini structured outputs
         if response_format := payload.pop("response_format", None):
-            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
-                if "generationConfig" not in gemini_payload:
-                    gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseJsonSchema"] = response_format[
-                    "json_schema"
-                ]["schema"]
-                gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
+            response_format_type = response_format.get("type")
+            if response_format_type == "json_schema" and "json_schema" in response_format:
+                generation_config = gemini_payload.setdefault("generationConfig", {})
+                generation_config["responseJsonSchema"] = response_format["json_schema"]["schema"]
+                generation_config["responseMimeType"] = "application/json"
+            elif response_format_type == "json_object":
+                # Gemini constrains output to valid JSON when responseMimeType is set,
+                # even without an explicit schema.
+                generation_config = gemini_payload.setdefault("generationConfig", {})
+                generation_config["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
         if tools := payload.pop("tools", None):
@@ -217,6 +260,9 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
+            thought_sig = function_call.get("thoughtSignature") or function_call.get(
+                "thought_signature"
+            )
             if call_id is None:
                 # Gemini model response might not contain function call id,
                 # in order to make it compatible with Openai chat protocol,
@@ -238,6 +284,7 @@ class GeminiAdapter(ProviderAdapter):
                             arguments=func_arguments,
                         ),
                         type="function",
+                        thought_signature=thought_sig,
                     )
                 )
             else:
@@ -249,6 +296,7 @@ class GeminiAdapter(ProviderAdapter):
                             arguments=func_arguments,
                         ),
                         type="function",
+                        thought_signature=thought_sig,
                     )
                 )
         if stream:

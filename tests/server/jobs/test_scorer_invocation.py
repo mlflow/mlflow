@@ -1,12 +1,3 @@
-"""
-E2E integration tests for async scorer invocation via the MLflow server.
-
-These tests spin up a real MLflow server with job execution enabled and test
-the full flow of invoking scorers on traces asynchronously.
-
-The MLflow AI Gateway is mocked to avoid real LLM calls during testing.
-"""
-
 import json
 import os
 import signal

@@ -123,9 +123,9 @@
         "vision": true,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "kimi-k2.6": {
       "mode": "chat",
@@ -144,9 +144,9 @@
         "vision": true,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "kimi-latest": {
       "mode": "chat",
@@ -269,9 +269,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-128k-0430": {
       "mode": "chat",
@@ -309,9 +309,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-32k": {
       "mode": "chat",
@@ -329,9 +329,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-32k-0430": {
       "mode": "chat",
@@ -369,9 +369,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-8k": {
       "mode": "chat",
@@ -389,9 +389,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-8k-0430": {
       "mode": "chat",
@@ -429,9 +429,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "moonshot-v1-auto": {
       "mode": "chat",
@@ -449,9 +449,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     }
   }
 }

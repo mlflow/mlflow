@@ -35,6 +35,7 @@ import type {
   SaveAssessmentsQuery,
 } from '../types';
 import { convertTraceInfoV3ToRunEvalEntry, getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
+import { copyToClipboard } from '../../../../common/utils/copyToClipboard';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -127,15 +128,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     }, [evaluations, nextEvaluationIdx, onChangeEvaluationId]);
 
     const evaluation = useMemo(() => evaluations?.find(findEval), [evaluations, findEval]);
-    const nextEvaluation = useMemo(
-      () => (nextEvaluationIdx && evaluations ? evaluations?.[nextEvaluationIdx] : undefined),
-      [evaluations, nextEvaluationIdx],
-    );
-    const previousEvaluation = useMemo(
-      () => (previousEvaluationIdx && evaluations ? evaluations?.[previousEvaluationIdx] : undefined),
-      [evaluations, previousEvaluationIdx],
-    );
-
     const tracesTableConfig = useGenAITracesTableConfig();
 
     // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
@@ -164,18 +156,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       getTrace,
       shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
     );
-
-    // Prefetching the next and previous traces to optimize performance
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: nextEvaluation?.currentRunValue?.traceInfo,
-    });
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: previousEvaluation?.currentRunValue?.traceInfo,
-    });
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
@@ -352,11 +332,17 @@ const ModalWrapper = ({
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
 
-  const handleShareClick = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-    setShowCopiedNotification(true);
-    setTimeout(() => setShowCopiedNotification(false), 2000);
+  const handleShareClick = useCallback(async () => {
+    const success = await copyToClipboard(window.location.href);
+    if (success) {
+      setShowCopiedNotification(true);
+      setTimeout(() => setShowCopiedNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   return (
@@ -482,6 +468,19 @@ const ModalWrapper = ({
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId="mlflow.evaluations_review.modal.share-error-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

@@ -29,6 +29,7 @@ type MlflowExperiment {
   creationTime: LongString
   tags: [MlflowExperimentTag!]
   effectiveTraceArchivalRetention: String
+  workspace: String
 }
 
 """

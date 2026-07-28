@@ -1,11 +1,10 @@
 import json
 import os
-import time
-from unittest import mock
 
 import datasets
 import pandas as pd
 import pytest
+from huggingface_hub.errors import HfHubHTTPError
 
 import mlflow.data
 import mlflow.data.huggingface_dataset
@@ -25,27 +24,31 @@ pytestmark = skip_if_hf_hub_unhealthy()
 
 
 @pytest.fixture(scope="module", autouse=True)
-def mock_datasets_load_dataset():
-    """
-    `datasets.load_dataset` is flaky and sometimes fails with a network error.
-    This fixture retries the call up to 5 times with exponential backoff.
-    """
+def prefetch_huggingface_datasets():
+    """Pre-warm the HF cache so individual tests don't hit the Hub and risk HTTP 429s."""
 
-    original = datasets.load_dataset
-
-    def load_dataset(*args, **kwargs):
-        for i in range(5):
-            try:
-                return original(*args, **kwargs)
-            except Exception:
-                if i < 4:
-                    time.sleep(2**i)
-                    continue
-                raise
-
-    with mock.patch("datasets.load_dataset", wraps=load_dataset) as mock_load_dataset:
-        yield
-        mock_load_dataset.assert_called()
+    try:
+        datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
+        datasets.load_dataset(
+            "cornell-movie-review-data/rotten_tomatoes",
+            split="train",
+            revision="aa13bc287fa6fcab6daf52f0dfb9994269ffea28",
+            trust_remote_code=True,
+        )
+        datasets.load_dataset(
+            "cornell-movie-review-data/rotten_tomatoes",
+            split="train",
+            revision="c33cbf965006dba64f134f7bef69c53d5d0d285d",
+        )
+        datasets.load_dataset(
+            "fka/awesome-chatgpt-prompts",
+            data_files={"train": "prompts.csv"},
+            split="train",
+        )
+    except HfHubHTTPError as e:
+        if e.response is not None and e.response.status_code == 429:
+            pytest.skip(f"HF Hub returned 429 while pre-warming the cache: {e}")
+        raise
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():

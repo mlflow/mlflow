@@ -131,6 +131,12 @@ class UCSchemaLocation(TraceLocationBase):
             location._otel_logs_table_name = otel_logs_table_name
         return location
 
+    @classmethod
+    def from_proto(cls, proto) -> "UCSchemaLocation":
+        from mlflow.utils.databricks_tracing_utils import uc_schema_location_from_proto
+
+        return uc_schema_location_from_proto(proto)
+
 
 @experimental(version="3.11.0")
 @dataclass
@@ -224,6 +230,12 @@ class UnityCatalog(TraceLocationBase):
         if annotations_table_name := d.get("annotations_table_name"):
             location._annotations_table_name = annotations_table_name
         return location
+
+    @classmethod
+    def from_proto(cls, proto) -> "UnityCatalog":
+        from mlflow.utils.databricks_tracing_utils import uc_table_prefix_location_from_proto
+
+        return uc_table_prefix_location_from_proto(proto)
 
 
 class TraceLocationType(str, Enum):

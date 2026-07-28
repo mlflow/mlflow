@@ -4,6 +4,7 @@ from unittest import mock
 
 import opentelemetry.trace as trace_api
 import pytest
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as OTelResource
@@ -500,11 +501,59 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
 
+    # Verify resource is empty when none is provided
+    assert len(mlflow_span._span.resource.attributes) == 0
+
     # Verify links use v3 format when no location_id
     assert len(mlflow_span.links) == 1
     assert mlflow_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
     assert mlflow_span.links[0].span_id == "1122334455667788"
     assert mlflow_span.links[0].attributes == {"rel": "causal"}
+
+
+def test_span_from_otel_proto_with_resource():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span_with_resource"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # Build a proto Resource with typical OTel resource attributes
+    resource = OTelProtoResource()
+    for key, value in [
+        ("service.name", "my-app"),
+        ("telemetry.sdk.language", "java"),
+        ("telemetry.sdk.name", "opentelemetry"),
+        ("telemetry.sdk.version", "1.40.0"),
+    ]:
+        attr = resource.attributes.add()
+        attr.key = key
+        _set_otel_proto_anyvalue(attr.value, value)
+
+    mlflow_span = Span.from_otel_proto(otel_proto, resource=resource)
+
+    assert mlflow_span.name == "span_with_resource"
+    res_attrs = dict(mlflow_span._span.resource.attributes)
+    assert res_attrs["service.name"] == "my-app"
+    assert res_attrs["telemetry.sdk.language"] == "java"
+    assert res_attrs["telemetry.sdk.name"] == "opentelemetry"
+    assert res_attrs["telemetry.sdk.version"] == "1.40.0"
+
+
+def test_span_from_otel_proto_with_empty_resource():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span_empty_resource"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # An empty proto Resource (no attributes)
+    resource = OTelProtoResource()
+    mlflow_span = Span.from_otel_proto(otel_proto, resource=resource)
+
+    assert len(mlflow_span._span.resource.attributes) == 0
 
 
 def test_span_from_otel_proto_with_location():
@@ -1115,3 +1164,91 @@ def test_to_immutable_span_deep_copies_links():
     live_span._links[0].attributes["k"] = "mutated"
 
     assert immutable_span.links[0].attributes["k"] == "v"
+
+
+def test_lazy_span_to_dict_does_not_materialize():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+
+    span_dict = span.to_dict()
+    lazy = LazySpan(span_dict)
+
+    assert isinstance(lazy, Span)
+    assert not isinstance(lazy, LiveSpan)
+    assert lazy.to_dict() is span_dict
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_materializes_on_property_access():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+            span.set_status("OK")
+
+    span_dict = span.to_dict()
+    lazy = LazySpan(span_dict)
+
+    assert lazy.name == "child"
+    assert lazy.__dict__["_materialized"] is True
+    assert lazy.inputs == {"input": 1}
+    assert lazy.outputs == 2
+    assert lazy.span_type == SpanType.LLM
+    assert lazy.to_dict() == span_dict
+
+
+def test_lazy_span_round_trips_through_trace_data_to_dict():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    lazy = LazySpan(span.to_dict())
+    trace_data = TraceData(spans=[lazy])
+
+    dumped = trace_data.to_dict()
+    assert dumped["spans"][0]["name"] == "child"
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_matches_eager_span_after_materialization():
+    from mlflow.entities.link import Link
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.otel.translation import translate_loaded_span
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("parent"):
+        with tracer.start_as_current_span("child") as otel_span:
+            span = create_mlflow_span(otel_span, trace_id=trace_id, span_type=SpanType.LLM)
+            span.set_inputs({"input": 1})
+            span.set_outputs({"output": 2})
+            span.set_status("OK")
+            span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
+            span.add_link(
+                Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"})
+            )
+
+    span_dict = translate_loaded_span(span.to_dict())
+    eager = Span.from_dict(span_dict)
+    lazy = LazySpan(span_dict)
+
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()
+
+    _ = lazy.name
+    assert lazy.__dict__["_materialized"] is True
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.attributes == eager.attributes
+    assert lazy.links == eager.links
+    assert lazy.status == eager.status
+    assert lazy.events == eager.events
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()

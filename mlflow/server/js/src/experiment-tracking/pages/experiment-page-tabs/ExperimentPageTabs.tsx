@@ -29,6 +29,10 @@ import { useGetExperimentPageActiveTabByRoute } from '../../components/experimen
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
+import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
+import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
+import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
+import type { ExperimentEntity } from '../../types';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -58,6 +62,8 @@ const ExperimentPageTabsImpl = () => {
 
   // Put the experiment in the redux store so that the logged models page can transition smoothly
   useExperimentReduxStoreCompat(experiment);
+
+  const { headerHidden } = useHeaderVisibility();
 
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
@@ -184,27 +190,43 @@ const ExperimentPageTabsImpl = () => {
     minHeight: 0,
   };
 
+  // Saved-views controls live in the header (the page-level action cluster) rather than the runs
+  // toolbar, since a view is a container over the toolbar's column/filter/sort selectors. The Views
+  // dropdown reads saved-view tags and the active-view URL param only, and the Save modal
+  // reconstructs the current view from its localStorage persistKey — so no live uiState needs to be
+  // plumbed up here. Sharing lives inside the Views dropdown's "Save & share current view…" entry
+  // rather than a separate button. Runs-only for now; traces parity fills the same slot separately.
+  const headerSavedViewsSlot =
+    activeTab === ExperimentPageTabName.Runs && experiment ? (
+      <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
+    ) : undefined;
+
   return (
-    <>
-      <ExperimentPageHeaderWithDescription
-        experiment={experiment}
-        loading={loadingExperiment || inferringExperimentType}
-        onNoteUpdated={refetchExperiment}
-        error={experimentError}
-        inferredExperimentKind={inferredExperimentKind}
-        experimentKindSelector={
-          !enableWorkflowBasedNavigation ? (
-            <ExperimentViewHeaderKindSelector
-              value={experimentKind}
-              inferredExperimentKind={inferredExperimentKind}
-              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-              isUpdating={updatingExperimentKind || inferringExperimentType}
-              key={inferredExperimentKind}
-              readOnly={!canUpdateExperimentKind}
-            />
-          ) : null
-        }
-      />
+    // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
+    // via the outlet below) up to the header Views dropdown, which lives above the outlet.
+    <SharedViewActionsBridgeProvider>
+      {!headerHidden && (
+        <ExperimentPageHeaderWithDescription
+          experiment={experiment}
+          loading={loadingExperiment || inferringExperimentType}
+          onNoteUpdated={refetchExperiment}
+          error={experimentError}
+          inferredExperimentKind={inferredExperimentKind}
+          savedViewsSlot={headerSavedViewsSlot}
+          experimentKindSelector={
+            !enableWorkflowBasedNavigation ? (
+              <ExperimentViewHeaderKindSelector
+                value={experimentKind}
+                inferredExperimentKind={inferredExperimentKind}
+                onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+                isUpdating={updatingExperimentKind || inferringExperimentType}
+                key={inferredExperimentKind}
+                readOnly={!canUpdateExperimentKind}
+              />
+            ) : null
+          }
+        />
+      )}
       {!enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
@@ -220,7 +242,7 @@ const ExperimentPageTabsImpl = () => {
       ) : (
         <div css={contentWrapperCss}>{outletComponent}</div>
       )}
-    </>
+    </SharedViewActionsBridgeProvider>
   );
 };
 
@@ -228,18 +250,20 @@ const ExperimentPageTabs = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div
-      css={{
-        flex: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: theme.spacing.md,
-        height: '100%',
-      }}
-    >
-      <ExperimentPageTabsImpl />
-    </div>
+    <HeaderVisibilityProvider>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: theme.spacing.md,
+          height: '100%',
+        }}
+      >
+        <ExperimentPageTabsImpl />
+      </div>
+    </HeaderVisibilityProvider>
   );
 };
 

@@ -27,14 +27,14 @@ interface Props {
   setSelectedColumns: (cols: TracesTableColumn[]) => void;
   isLoading?: boolean;
   isError?: boolean;
+  disabled?: boolean;
 }
 
 const OPTION_HEIGHT = 32;
 
 const getGroupLabel = (group: string): string => {
-  return group === TracesTableColumnGroup.INFO
-    ? 'Attributes'
-    : TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
+  if (group === TracesTableColumnGroup.BASE) return 'Base Attributes';
+  return TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
 };
 
 /**
@@ -47,6 +47,7 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
   setSelectedColumns,
   isLoading,
   isError,
+  disabled,
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -121,6 +122,7 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
           endIcon={<ChevronDownIcon />}
           data-testid="column-selector-button"
           componentId="mlflow.evaluations_review.table_ui.filter_button"
+          disabled={disabled}
         >
           <div
             css={{

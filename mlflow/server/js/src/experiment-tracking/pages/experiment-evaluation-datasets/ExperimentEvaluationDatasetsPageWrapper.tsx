@@ -1,6 +1,6 @@
 import { UserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { ErrorBoundary } from 'react-error-boundary';
-import { DangerIcon, Empty, PageWrapper } from '@databricks/design-system';
+import { DangerIcon, Empty, Notification, PageWrapper } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 const PageFallback = ({ error }: { error?: Error }) => {
@@ -41,7 +41,10 @@ export const ExperimentEvaluationDatasetsPageWrapper = ({
 }) => {
   return (
     <ErrorBoundary FallbackComponent={PageFallback} resetKeys={[resetKey]}>
-      <UserActionErrorHandler>{children}</UserActionErrorHandler>
+      <Notification.Provider>
+        <UserActionErrorHandler>{children}</UserActionErrorHandler>
+        <Notification.Viewport />
+      </Notification.Provider>
     </ErrorBoundary>
   );
 };

@@ -5,6 +5,7 @@ import logging
 from functools import cached_property
 from typing import Any, Union
 
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
@@ -456,10 +457,11 @@ class Span:
     @classmethod
     def from_otel_proto(
         cls,
-        otel_proto_span,
+        otel_proto_span: OTelProtoSpan,
         location_id: str | None = None,
         *,
         preserve_request_id: bool = False,
+        resource: OTelProtoResource | None = None,
     ) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
@@ -499,6 +501,17 @@ class Span:
             if location_id
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
+
+        # Convert proto Resource to OTel SDK Resource if provided.
+        # We avoid _OTelResource.create() which has significant overhead from
+        # environment variable reads (see https://github.com/mlflow/mlflow/issues/15625).
+        if resource is not None and resource.attributes:
+            resource_attrs = {
+                attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in resource.attributes
+            }
+            otel_resource = _OTelResource(resource_attrs)
+        else:
+            otel_resource = _OTelResource.get_empty()
 
         links = []
         if location_id:
@@ -541,7 +554,7 @@ class Span:
                 )
                 for event in otel_proto_span.events
             ],
-            resource=_OTelResource.get_empty(),
+            resource=otel_resource,
         )
 
         span = cls(otel_span)
@@ -1256,6 +1269,60 @@ class LiveSpan(Span):
 
 
 NO_OP_SPAN_TRACE_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
+
+
+class LazySpan(Span):
+    """
+    A span that keeps its stored dict form and only builds an OTel-backed Span
+    when a property or conversion that needs one is accessed.
+
+    TRACKING_STORE rows already persist the span as JSON. Returning ``LazySpan``
+    from the store avoids an eager ``json.loads`` → ``Span.from_dict`` →
+    ``to_dict``/``to_otel_proto`` round-trip when the consumer only needs the
+    dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
+    """
+
+    def __init__(self, span_dict: dict[str, Any]):
+        # Skip Span.__init__: we intentionally avoid constructing an OTel span
+        # until a caller needs property access or OTLP conversion.
+        self.__dict__["_span_dict"] = span_dict
+        self.__dict__["_materialized"] = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.__dict__["_span_dict"]
+
+    def _ensure_materialized(self) -> None:
+        if self.__dict__["_materialized"]:
+            return
+        span = Span.from_dict(self.__dict__["_span_dict"])
+        self.__dict__["_span"] = span._span
+        self.__dict__["_attributes"] = span._attributes
+        self.__dict__["_attachments"] = span._attachments
+        self.__dict__["_links"] = span._links
+        self.__dict__["_materialized"] = True
+
+    def __getattr__(self, name: str):
+        self._ensure_materialized()
+        return object.__getattribute__(self, name)
+
+    def __repr__(self):
+        if self.__dict__.get("_materialized"):
+            return super().__repr__()
+        span_dict = self.__dict__["_span_dict"]
+        name = span_dict.get("name")
+        attributes = span_dict.get("attributes") or {}
+        request_id = attributes.get(SpanAttributeKey.REQUEST_ID)
+        # request_id may still be JSON-encoded in persisted attributes.
+        if isinstance(request_id, str):
+            try:
+                request_id = json.loads(request_id)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        return (
+            f"LazySpan(name={name!r}, trace_id={request_id!r}, "
+            f"span_id={span_dict.get('span_id')!r}, "
+            f"parent_id={span_dict.get('parent_span_id')!r})"
+        )
 
 
 class NoOpSpan(Span):

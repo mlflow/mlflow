@@ -6,7 +6,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from scipy.sparse import csc_matrix, csr_matrix
 from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
@@ -324,7 +324,12 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name=artifact_path,
+            input_example=example,
+            serialization_format="cloudpickle",
+        )
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
@@ -338,6 +343,7 @@ def test_infer_signature_from_example_can_be_disabled():
             name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
+            serialization_format="cloudpickle",
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -356,7 +362,12 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
+            mlflow.sklearn.log_model(
+                ErrorModel(),
+                name="model",
+                input_example=np.array([[1]]),
+                serialization_format="cloudpickle",
+            )
         assert any(
             "Failed to validate serving input example" in call[0][0]
             for call in mock_warning.call_args_list
@@ -366,7 +377,7 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 @pytest.fixture(scope="module")
 def iris_model():
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    return knn.KNeighborsClassifier().fit(X, y)
+    return logreg_module.LogisticRegression().fit(X, y)
 
 
 @pytest.mark.parametrize(
@@ -423,7 +434,10 @@ def test_infer_signature_on_scalar_input_examples(input_example):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            IdentitySklearnModel(), name=artifact_path, input_example=input_example
+            IdentitySklearnModel(),
+            name=artifact_path,
+            input_example=input_example,
+            serialization_format="cloudpickle",
         )
 
     mlflow_model = Model.load(model_info.model_uri)

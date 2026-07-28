@@ -76,13 +76,22 @@ function makeRecord(overrides: Partial<WalRecord> = {}): WalRecord {
   return { ...base, ...overrides };
 }
 
-function makeClient(opts: { createTrace?: jest.Mock; uploadTraceData?: jest.Mock }): MlflowClient {
+function makeClient(opts: {
+  createTrace?: jest.Mock;
+  uploadTraceData?: jest.Mock;
+  exportOtlpSpans?: jest.Mock;
+}): MlflowClient {
   return {
     createTrace:
       opts.createTrace ?? jest.fn().mockImplementation((info: TraceInfo) => Promise.resolve(info)),
     uploadTraceData:
       opts.uploadTraceData ??
       jest.fn().mockImplementation((_info: TraceInfo, _data: TraceData) => Promise.resolve()),
+    exportOtlpSpans:
+      opts.exportOtlpSpans ??
+      jest
+        .fn()
+        .mockImplementation((_experimentId: string, _bytes: Uint8Array) => Promise.resolve()),
     getHost: () => 'http://localhost:5000',
   } as unknown as MlflowClient;
 }
@@ -310,6 +319,63 @@ describe('wal/daemon', () => {
       // After tombstone the record should not be in the live set.
       const pending = await readPending();
       expect(pending.find((r) => r.id === 'row-success')).toBeUndefined();
+    });
+
+    it('logs captured OTLP spans to the DB when record.otlpSpans is present', async () => {
+      const exportOtlpSpans = jest
+        .fn()
+        .mockImplementation((_experimentId: string, _bytes: Uint8Array) => Promise.resolve());
+      const client = makeClient({ exportOtlpSpans });
+
+      const otlpBytes = Buffer.from([0x0a, 0x01, 0x02, 0x03]);
+      const record = makeRecord({
+        id: 'row-otlp',
+        experimentId: 'exp-7',
+        otlpSpans: otlpBytes.toString('base64'),
+      });
+      await uploadOne(record, client, new BatchingWriter());
+
+      expect(exportOtlpSpans).toHaveBeenCalledTimes(1);
+      const [experimentId, bytes] = exportOtlpSpans.mock.calls[0] as [string, Uint8Array];
+      expect(experimentId).toBe('exp-7');
+      expect(Buffer.from(bytes).equals(otlpBytes)).toBe(true);
+
+      const pending = await readPending();
+      expect(pending.find((r) => r.id === 'row-otlp')).toBeUndefined();
+    });
+
+    it('skips span logging when record.otlpSpans is absent', async () => {
+      const exportOtlpSpans = jest.fn();
+      const client = makeClient({ exportOtlpSpans });
+
+      const record = makeRecord({ id: 'row-no-otlp' });
+      await uploadOne(record, client, new BatchingWriter());
+
+      expect(exportOtlpSpans).not.toHaveBeenCalled();
+    });
+
+    it('tombstones the record even when span logging fails (non-fatal)', async () => {
+      const exportOtlpSpans = jest.fn().mockRejectedValue(new Error('501 not supported'));
+      const createTrace = jest.fn().mockImplementation((info: TraceInfo) => Promise.resolve(info));
+      const uploadTraceData = jest
+        .fn()
+        .mockImplementation((_info: TraceInfo, _data: TraceData) => Promise.resolve());
+      const client = makeClient({ createTrace, uploadTraceData, exportOtlpSpans });
+
+      const record = makeRecord({
+        id: 'row-otlp-fail',
+        otlpSpans: Buffer.from([0x0a, 0x01]).toString('base64'),
+      });
+      await uploadOne(record, client, new BatchingWriter());
+
+      expect(createTrace).toHaveBeenCalledTimes(1);
+      expect(uploadTraceData).toHaveBeenCalledTimes(1);
+      expect(exportOtlpSpans).toHaveBeenCalledTimes(1);
+
+      // The trace info + artifact already uploaded, so a span-log failure must
+      // not retry or dead-letter: the row is tombstoned and nothing re-appended.
+      const pending = await readPending();
+      expect(pending).toHaveLength(0);
     });
 
     it('re-appends a fresh row with bumped attempts on transient failure', async () => {

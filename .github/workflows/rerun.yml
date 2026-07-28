@@ -26,7 +26,7 @@ jobs:
       github.event.review.state == 'approved' &&
       (
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) ||
-        (github.event.review.user.login == 'mlflow-app[bot]' && github.event.review.user.type == 'Bot')
+        (github.event.review.user.type == 'Bot' && contains(fromJSON('["mlflow-app[bot]", "nailaopus[bot]"]'), github.event.review.user.login))
       )
     steps:
       - name: Upload PR number

@@ -1,10 +1,76 @@
 import { randomUUID } from 'node:crypto';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import { ReadableSpan as OTelReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-base';
+import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { getConfig, MLflowTracingConfig } from '../../core/config';
 import { InMemoryTraceManager } from '../../core/trace_manager';
-import { submitRecord } from './ipc';
+import { ipcRequestByteLength, MAX_REQUEST_BYTES, submitRecord } from './ipc';
 import { WalRecord } from './types';
+
+function decodeMlflowSpanAttributes(
+  attributes: OTelReadableSpan['attributes'],
+): Record<string, unknown> {
+  const decoded: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (typeof value === 'string' && value.startsWith('"')) {
+      try {
+        decoded[key] = JSON.parse(value);
+      } catch {
+        decoded[key] = value;
+      }
+    } else {
+      decoded[key] = value;
+    }
+  }
+  return decoded;
+}
+
+/**
+ * Return a view of `span` whose `attributes` are decoded (see
+ * {@link decodeMlflowSpanAttributes}) while every other property/method is
+ * delegated to the original span untouched.
+ */
+function spanWithDecodedAttributes(span: OTelReadableSpan): OTelReadableSpan {
+  const decoded = decodeMlflowSpanAttributes(span.attributes);
+  return new Proxy(span, {
+    get(target, prop) {
+      if (prop === 'attributes') {
+        return decoded;
+      }
+      const value: unknown = Reflect.get(target, prop);
+      return typeof value === 'function' ? (value.bind(target) as unknown) : value;
+    },
+  });
+}
+
+/**
+ * Serialize live OTel spans into a base64-encoded OTLP
+ * `ExportTraceServiceRequest` protobuf, suitable for storing on a
+ * {@link WalRecord} and later POSTing to the server's OTLP span-ingestion
+ * endpoint
+ */
+function serializeSpansToOtlpBase64(spans: OTelReadableSpan[]): string | undefined {
+  const serializable = spans.filter((s) => s?.resource != null && s?.instrumentationScope != null);
+  if (serializable.length === 0) {
+    return undefined;
+  }
+  try {
+    const bytes = ProtobufTraceSerializer.serializeRequest(
+      serializable.map(spanWithDecodedAttributes),
+    );
+    if (!bytes || bytes.length === 0) {
+      return undefined;
+    }
+    return Buffer.from(bytes).toString('base64');
+  } catch (err) {
+    console.warn(
+      '[mlflow][wal] Failed to serialize spans to OTLP protobuf; ' +
+        'falling back to JSON artifact upload (spans will not appear in DB-backed span metrics).',
+      err,
+    );
+    return undefined;
+  }
+}
 
 /**
  * Hook-side submit function. Returns once the daemon has fsynced the
@@ -62,6 +128,8 @@ export class MlflowWalSpanExporter implements SpanExporter {
 
       traceManager.lastActiveTraceId = trace.info.traceId;
 
+      const otlpSpans = serializeSpansToOtlpBase64(trace.data.spans.map((s) => s._span));
+
       const record: WalRecord = {
         id: randomUUID(),
         trackingUri: cfg.trackingUri,
@@ -71,7 +139,18 @@ export class MlflowWalSpanExporter implements SpanExporter {
         attempts: 0,
         nextAttemptAt: 0,
         createdAt: Date.now(),
+        otlpSpans,
       };
+
+      const fullSizeBytes = ipcRequestByteLength(record);
+      if (otlpSpans !== undefined && fullSizeBytes > MAX_REQUEST_BYTES) {
+        console.warn(
+          `[mlflow][wal] WAL record for trace ${trace.info.traceId} is ${fullSizeBytes} bytes, exceeding the ` +
+            `${MAX_REQUEST_BYTES}-byte IPC request limit; dropping OTLP spans and attempting JSON artifact upload ` +
+            '(spans will not appear in DB-backed span metrics).',
+        );
+        record.otlpSpans = undefined;
+      }
 
       const pending = this._submit(record).catch((err) => {
         console.error(

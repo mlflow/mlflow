@@ -1,10 +1,3 @@
-"""Tests for BaseJudgeAdapter template method and inline Databricks telemetry.
-
-Uses a minimal FakeAdapter stub so these tests are adapter-agnostic —
-they verify the base class behavior without coupling to any specific
-adapter implementation.
-"""
-
 from unittest import mock
 
 import pytest

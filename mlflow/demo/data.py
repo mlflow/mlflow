@@ -375,7 +375,7 @@ AGENT_TRACES: list[DemoTrace] = [
         ),
         v2_response=(
             "With annual compounding, $10,000 at 5% interest for 10 years grows to "
-            "$16,288.95. The formula is: Principal x (1 + rate)^years = 10000 x 1.05^10. "
+            "**$16,288.95**. The formula is: Principal x (1 + rate)^years = 10000 x 1.05^10. "
             "You'll earn $6,288.95 in interest over the period."
         ),
         expected_response=(
@@ -388,6 +388,11 @@ AGENT_TRACES: list[DemoTrace] = [
                 name="calculator",
                 input={"expression": "10000 * (1.05 ** 10)", "precision": 2},
                 output={"result": 16288.95, "formula": "10000 * 1.05^10"},
+            ),
+            ToolCall(
+                name="format_currency",
+                input={"amount": 16288.95, "locale": "en-US"},
+                output={"formatted": "$16,288.95", "currency": "USD"},
             ),
         ],
     ),
@@ -715,27 +720,70 @@ SESSION_TRACES: list[DemoTrace] = [
             "or chunk size."
         ),
         v2_response=(
-            "Retrieval issues are common! Here's how to diagnose:\n\n"
-            "1. **In MLflow Traces**, click on the RETRIEVER span to see:\n"
-            "   - Retrieved document IDs and relevance scores\n"
-            "   - The query embedding used\n\n"
-            "2. **Common fixes**:\n"
-            "   - Lower your similarity threshold (try 0.7 instead of 0.8)\n"
-            "   - Experiment with chunk sizes (512 tokens often works well)\n"
-            "   - Try a different embedding model\n\n"
-            "3. **Track experiments**: Log retrieval params to compare:\n"
+            "Let me dig into your recent traces to confirm.\n\n"
+            "I pulled 50 recent RETRIEVER spans and scored them: the **average relevance "
+            "is 0.62**, with **18 low-scoring cases** clustered on long-form queries. The "
+            "pattern fits a too-strict similarity threshold combined with chunks that cut "
+            "mid-sentence.\n\n"
+            "**Recommended config changes:**\n"
+            "- Lower similarity threshold: `0.8 → 0.75` (captures borderline-relevant chunks)\n"
+            "- Increase chunk size: `256 → 512` tokens (reduces mid-sentence cutoffs)\n\n"
             "```python\n"
-            "mlflow.log_params({'chunk_size': 512, 'threshold': 0.7})\n"
-            "```"
+            "mlflow.log_params({'chunk_size': 512, 'threshold': 0.75})\n"
+            "```\n\n"
+            "Want me to also try a different embedding model?"
         ),
         expected_response=(
-            "Check RETRIEVER span in traces for scores. Try adjusting similarity threshold, "
-            "chunk size, or embedding model. Log params to compare experiments."
+            "Inspect RETRIEVER spans in traces for scores. Lower threshold to 0.75 and "
+            "increase chunk size to 512 to fix long-form query retrieval."
         ),
         trace_type="session",
         session_id="session-rag-debug",
         session_user="bob@example.com",
         turn_index=2,
+        tools=[
+            ToolCall(
+                name="search_traces",
+                input={
+                    "experiment_name": "rag-app",
+                    "filter": "span_type='RETRIEVER'",
+                    "limit": 50,
+                },
+                output={
+                    "trace_ids": [f"trace_{i:03d}" for i in range(50)],
+                    "count": 50,
+                },
+            ),
+            ToolCall(
+                name="analyze_retrieval_quality",
+                input={"trace_ids": [f"trace_{i:03d}" for i in range(50)]},
+                output={
+                    "avg_score": 0.62,
+                    "low_score_count": 18,
+                    "common_failure_pattern": "long-form queries",
+                },
+            ),
+            ToolCall(
+                name="recommend_config_changes",
+                input={
+                    "current_threshold": 0.8,
+                    "current_chunk_size": 256,
+                    "analysis": {
+                        "avg_score": 0.62,
+                        "low_score_count": 18,
+                        "common_failure_pattern": "long-form queries",
+                    },
+                },
+                output={
+                    "similarity_threshold": 0.75,
+                    "chunk_size": 512,
+                    "rationale": (
+                        "Lower threshold to capture borderline-relevant chunks; "
+                        "larger chunks reduce mid-sentence cutoffs."
+                    ),
+                },
+            ),
+        ],
     ),
     DemoTrace(
         query="How do I compare different retrieval configurations systematically?",
@@ -826,16 +874,27 @@ SESSION_TRACES: list[DemoTrace] = [
             "```bash\n"
             "docker push your-registry/my-classifier:v1\n"
             "```\n\n"
-            "3. **Deploy to K8s** (example deployment.yaml):\n"
+            "3. **Deploy to K8s** — I generated the manifest for you (2 replicas on port 8080):\n"
             "```yaml\n"
             "apiVersion: apps/v1\n"
             "kind: Deployment\n"
+            "metadata:\n"
+            "  name: my-classifier\n"
             "spec:\n"
-            "  containers:\n"
-            "  - name: model\n"
-            "    image: your-registry/my-classifier:v1\n"
-            "    ports:\n"
-            "    - containerPort: 8080\n"
+            "  replicas: 2\n"
+            "  selector:\n"
+            "    matchLabels:\n"
+            "      app: my-classifier\n"
+            "  template:\n"
+            "    metadata:\n"
+            "      labels:\n"
+            "        app: my-classifier\n"
+            "    spec:\n"
+            "      containers:\n"
+            "      - name: model\n"
+            "        image: your-registry/my-classifier:v1\n"
+            "        ports:\n"
+            "        - containerPort: 8080\n"
             "```\n\n"
             "The container exposes a `/invocations` endpoint compatible with MLflow's format."
         ),
@@ -847,6 +906,42 @@ SESSION_TRACES: list[DemoTrace] = [
         session_id="session-deployment",
         session_user="carol@example.com",
         turn_index=2,
+        tools=[
+            ToolCall(
+                name="generate_k8s_manifest",
+                input={
+                    "model_uri": "models:/my-classifier/1",
+                    "image": "your-registry/my-classifier:v1",
+                    "replicas": 2,
+                    "port": 8080,
+                },
+                output={
+                    "manifest": (
+                        "apiVersion: apps/v1\n"
+                        "kind: Deployment\n"
+                        "metadata:\n"
+                        "  name: my-classifier\n"
+                        "spec:\n"
+                        "  replicas: 2\n"
+                        "  selector:\n"
+                        "    matchLabels:\n"
+                        "      app: my-classifier\n"
+                        "  template:\n"
+                        "    metadata:\n"
+                        "      labels:\n"
+                        "        app: my-classifier\n"
+                        "    spec:\n"
+                        "      containers:\n"
+                        "      - name: model\n"
+                        "        image: your-registry/my-classifier:v1\n"
+                        "        ports:\n"
+                        "        - containerPort: 8080"
+                    ),
+                    "service_endpoint": "/invocations",
+                    "estimated_pod_count": 2,
+                },
+            ),
+        ],
     ),
 ]
 

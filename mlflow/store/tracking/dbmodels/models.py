@@ -24,12 +24,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import (
+    backref,
+    query_expression,
+    relationship,
+    validates,
+    with_expression,
+)
 
 from mlflow.entities import (
     Assessment,
     AssessmentError,
     AssessmentSource,
+    ConnectOptionSettings,
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
@@ -52,6 +59,12 @@ from mlflow.entities import (
     IssueReference,
     IssueSeverity,
     IssueStatus,
+    MCPAccessEndpoint,
+    MCPRemoteTransportType,
+    MCPServer,
+    MCPServerVersion,
+    MCPStatus,
+    MCPTool,
     Metric,
     Param,
     RoutingStrategy,
@@ -113,6 +126,34 @@ RunStatusTypes = [
 
 # Create MutableJSON type for tracking mutations in JSON columns
 MutableJSON = MutableDict.as_mutable(JSON)
+
+
+def _resolve_mcp_server_icons(
+    server_icons: list[dict[str, Any]] | None,
+    version_icons: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]] | None:
+    # Explicit empty server overrides must not fall back to version icons, matching
+    # description resolution where only ``None`` (not empty) triggers fallback.
+    if server_icons is not None and len(server_icons) == 0:
+        return []
+
+    resolved_icons = []
+    server_icons = server_icons or []
+    version_icons = version_icons or []
+    server_themes = set()
+
+    for icon in server_icons:
+        if not isinstance(icon, dict):
+            continue
+        server_themes.add(icon.get("theme"))
+        resolved_icons.append({**icon, "source": "server"})
+
+    for icon in version_icons:
+        if not isinstance(icon, dict) or icon.get("theme") in server_themes:
+            continue
+        resolved_icons.append({**icon, "source": "version"})
+
+    return resolved_icons or None
 
 
 class SqlExperiment(Base):
@@ -725,7 +766,9 @@ class SqlTraceInfo(Base):
     Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     Named as "trace_id" in V3 format.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -2037,7 +2080,13 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
-        Index("index_spans_experiment_id", "experiment_id"),
+        # The leftmost experiment_id column also supports experiment-only filters, so this
+        # composite index replaces a separate index on experiment_id.
+        Index(
+            "index_spans_experiment_id_start_time",
+            "experiment_id",
+            "start_time_unix_nano",
+        ),
         # Two indexes needed to support both filter patterns efficiently:
         Index(
             "index_spans_experiment_id_status_type", "experiment_id", "status", "type"
@@ -2971,7 +3020,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3002,10 +3051,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
+    target_value = Column(String(255), nullable=True)
+    """
+    Target the policy applies to: `String` (limit 255 characters). Interpreted per
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
+    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
+        Index("idx_budget_policies_target_value", "target_value"),
     )
 
     def __repr__(self):
@@ -3027,6 +3083,7 @@ class SqlGatewayBudgetPolicy(Base):
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
+            target_value=self.target_value,
         )
 
 
@@ -3231,7 +3288,7 @@ class SqlGatewayGuardrailConfig(Base):
 
 class SqlLabelSchema(Base):
     """
-    DB model for OSS-native label schemas.
+    DB model for label schemas.
 
     Schemas are experiment-scoped UI rendering hints; they do not gate
     or validate assessment writes. See
@@ -3294,9 +3351,9 @@ class SqlLabelSchema(Base):
     input_type = Column(String(32), nullable=False)
     """
     Discriminator for the input config payload. One of ``'pass_fail'``,
-    ``'categorical'``, ``'numeric'``, ``'text'`` for OSS-native schemas. The
+    ``'categorical'``, ``'numeric'``, ``'text'`` for tracking-store schemas. The
     remaining Databricks-routed types (``'categorical_list'``,
-    ``'text_list'``) are not accepted by the OSS-native server.
+    ``'text_list'``) are not accepted by the server.
     """
 
     input_config = Column(Text, nullable=False)
@@ -3319,6 +3376,12 @@ class SqlLabelSchema(Base):
     last_update_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
     """
     Last update time in milliseconds.
+    """
+
+    is_default = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether this is the experiment's protected default question: server-seeded,
+    undeletable, and uneditable. At most one row per experiment is ``True``.
     """
 
     __table_args__ = (
@@ -3349,6 +3412,7 @@ class SqlLabelSchema(Base):
             created_by=self.created_by,
             created_at=self.created_time,
             updated_at=self.last_update_time,
+            is_default=self.is_default,
         )
 
     @classmethod
@@ -3375,7 +3439,321 @@ class SqlLabelSchema(Base):
             created_by=schema.created_by,
             created_time=schema.created_at or now,
             last_update_time=schema.updated_at or now,
+            is_default=schema.is_default,
         )
+
+
+class SqlReviewQueue(Base):
+    """
+    DB model for review queues.
+
+    A review queue is a named bundle of attached items, questions
+    (label schemas), and assigned users, scoped to an experiment and
+    keyed on ``(experiment_id, name)``. See
+    ``mlflow/genai/review_queues/review_queues.py`` for the entity
+    dataclasses and ``validation.py`` for the validation rules.
+
+    The queue inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``, exactly
+    like ``label_schemas``), so there is no denormalized ``workspace``
+    column. The three child tables (``review_queue_users``,
+    ``review_queue_items``, ``review_queue_label_schemas``) inherit it
+    transitively through this table.
+    """
+
+    __tablename__ = "review_queues"
+
+    QUEUE_ID_PREFIX = "rq-"
+
+    queue_id = Column(String(36), primary_key=True)
+    """
+    Queue ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``review_queues`` table.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment the queue belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is hard-deleted.
+    """
+
+    name = Column(String(250), nullable=False)
+    """
+    Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
+    For a user queue this equals the (normalized) user identifier; for a
+    custom queue it is an arbitrary display name, stored case-preserved.
+    ``'default'`` (the no-auth default user queue) is reserved
+    case-insensitively (any casing of ``'default'``) and rejected for
+    custom queues.
+    """
+
+    name_key = Column(String(250), nullable=False)
+    """
+    Case-folded (lowercased) form of ``name``, carrying the uniqueness
+    guarantee. Names are unique within ``experiment_id`` case-insensitively,
+    so ``Foo`` and ``foo`` can't coexist (and a custom queue can't collide
+    with a user queue's normalized name). ``name`` keeps the display casing;
+    this column is the identity key. Kept equal to ``name.lower()`` by the
+    ``@validates("name")`` hook, which derives it whenever ``name`` is assigned.
+    """
+
+    queue_type = Column(String(16), nullable=False)
+    """
+    Queue flavor: ``'user'`` or ``'custom'``. ``String`` (limit 16).
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    User who created the queue.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Queue creation time in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent change to the queue's own configuration (its
+    assigned users / attached schemas) in milliseconds since epoch. It does
+    NOT track attach/detach or per-item status churn in
+    ``review_queue_items`` — those carry their own timestamps — so a "last
+    activity" view must consult the child rows, not just this field.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", name="review_queues_pk"),
+        UniqueConstraint("experiment_id", "name_key", name="uq_review_queues_experiment_name_key"),
+        Index("index_review_queues_experiment_id", "experiment_id"),
+    )
+
+    @validates("name")
+    def _derive_name_key(self, _key, value):
+        # Keep `name_key` in lockstep with `name` from one place. Uses Python's
+        # Unicode-aware `.lower()` (the same casefold the rest of the store uses),
+        # so the key stays consistent across every dialect -- unlike a SQL
+        # `LOWER()` CHECK, which is ASCII-only on SQLite. This fires on ORM
+        # attribute assignment (constructor kwargs and `queue.name = ...`); it does
+        # NOT fire for Core / bulk updates, which this store never uses on `name`.
+        # `name` is non-nullable and always a validated string, so no None guard.
+        self.name_key = value.lower()
+        return value
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueue (id={self.queue_id}, experiment_id={self.experiment_id}, "
+            f"name={self.name}, type={self.queue_type})>"
+        )
+
+    def to_mlflow_entity(self, *, users=None, schema_ids=None):
+        """Convert DB model to corresponding MLflow entity.
+
+        ``users`` / ``schema_ids`` are the queue's association sets,
+        loaded separately by the store and passed in (there are no ORM
+        relationships, so lazy-loading them here is impossible by design).
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueue`.
+        """
+        # Lazy import: importing `mlflow.genai.review_queues` triggers the
+        # `mlflow.genai` package init, which can pull this module back in;
+        # deferring the import avoids that cycle at module load time.
+        from mlflow.genai.review_queues import ReviewQueue, ReviewQueueType
+
+        return ReviewQueue(
+            queue_id=self.queue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            queue_type=ReviewQueueType(self.queue_type),
+            created_by=self.created_by,
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            users=list(users) if users is not None else [],
+            schema_ids=list(schema_ids) if schema_ids is not None else [],
+        )
+
+
+class SqlReviewQueueUser(Base):
+    """
+    DB model for the assigned-user set of a review queue.
+
+    One row per ``(queue_id, user)``. The assigned users are a *pool*:
+    any one of them may work the queue's items. A user queue has exactly
+    one row (``user == queue.name``); a custom queue has 0..N.
+    """
+
+    __tablename__ = "review_queue_users"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this assignment belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    user_id = Column(String(250), nullable=False)
+    """
+    Assigned user identifier (normalized lowercase). ``VARCHAR(250)`` to
+    mirror ``SqlAssessments.source_id`` so an assigned user can never be
+    too long to also appear as an assessment ``source_id``. Named
+    ``user_id`` (not ``user``) because ``user`` is a reserved word in
+    several SQL dialects.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "user_id", name="review_queue_users_pk"),
+        Index("index_review_queue_users_user_id", "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueUser (queue_id={self.queue_id}, user_id={self.user_id})>"
+
+
+class SqlReviewQueueItem(Base):
+    """
+    DB model for an item attached to a review queue + its shared-pool
+    workflow status.
+
+    One row per ``(queue_id, item_id)``. ``status`` is per-``(queue,
+    item)`` (NOT per-user): an item is addressed when **any** assigned
+    user completes/declines it, and ``completed_by`` records who. There is
+    no ``in_progress`` state; status only changes on an explicit reviewer
+    action, never as a side effect of writing an assessment.
+    """
+
+    __tablename__ = "review_queue_items"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this item is attached to. *Foreign Key* into ``review_queues``.
+    """
+
+    item_type = Column(String(16), nullable=False)
+    """
+    What kind of object is attached: ``String`` (limit 16). v1 ships
+    ``'trace'`` only; ``'session'`` / ``'span'`` are reserved.
+    """
+
+    item_id = Column(String(50), nullable=False)
+    """
+    The attached object's id — a trace id today. ``String`` (limit 50).
+    """
+
+    status = Column(String(16), nullable=False)
+    """
+    Shared-pool workflow status: ``'pending'``, ``'complete'``, or
+    ``'declined'``. ``String`` (limit 16).
+    """
+
+    completed_by = Column(String(250), nullable=True)
+    """
+    Who completed or declined this item; ``NULL`` while ``pending``.
+    Same shape as ``review_queue_users.user_id``. Cleared on reopen.
+    """
+
+    completed_time_ms = Column(BigInteger, nullable=True)
+    """
+    Time the item reached a terminal status in milliseconds since epoch;
+    ``NULL`` while ``pending``. Cleared on reopen.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time the item was attached to the queue in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent status change in milliseconds since epoch.
+    Equals ``creation_time_ms`` for an item that is still ``pending``.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "item_id", name="review_queue_items_pk"),
+        # "Show me this queue's <status> items" — the queue view's status tabs.
+        Index("index_review_queue_items_queue_id_status", "queue_id", "status"),
+        # "Which queues is this item in?" — the per-item review widget.
+        Index("index_review_queue_items_item_id", "item_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueueItem (queue_id={self.queue_id}, item_id={self.item_id}, "
+            f"status={self.status})>"
+        )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueueItem`.
+        """
+        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem, ReviewStatus
+
+        return ReviewQueueItem(
+            queue_id=self.queue_id,
+            item_type=ReviewItemType(self.item_type),
+            item_id=self.item_id,
+            status=ReviewStatus(self.status),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            completed_by=self.completed_by,
+            completed_time_ms=self.completed_time_ms,
+        )
+
+
+class SqlReviewQueueLabelSchema(Base):
+    """
+    DB model for the questions (label schemas) attached to a *custom*
+    review queue.
+
+    One row per ``(queue_id, schema_id)``. **User queues store no rows
+    here** — they resolve to all of the experiment's label schemas at read
+    time.
+    """
+
+    __tablename__ = "review_queue_label_schemas"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this question belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    schema_id = Column(String(36), nullable=False)
+    """
+    The attached label schema's id. Validated against ``label_schemas`` at
+    write time but intentionally NOT a DB foreign key: a second cascading FK
+    here (to ``label_schemas``) would converge with the ``queue_id`` ->
+    ``review_queues`` -> ``experiments`` cascade on a single experiment
+    delete, which MSSQL rejects as a multiple-cascade-path. The reference is
+    therefore soft (like an assessment's ``name`` -> schema link): a row may
+    point at a since-deleted schema. The store read path returns the stored ids
+    as-is (no pruning); orphans are harmless because callers resolve a queue's
+    schema ids against the experiment's live label schemas, so a missing one is
+    simply not surfaced. A periodic sweep to physically prune orphans is deferred.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "schema_id", name="review_queue_label_schemas_pk"),
+        Index("index_review_queue_label_schemas_schema_id", "schema_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueLabelSchema (queue_id={self.queue_id}, schema_id={self.schema_id})>"
 
 
 def _input_to_dict(input_obj) -> tuple[str, str]:
@@ -3454,3 +3832,468 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
                 f"Unknown label schema input_type {input_type!r}; expected one of "
                 "'pass_fail', 'categorical', 'numeric', 'text'."
             )
+
+
+class SqlMCPServer(Base):
+    __tablename__ = "mcp_servers"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    display_name = Column(String(256), nullable=True)
+    description = Column(Text, nullable=True)
+    icons = Column(JSON, nullable=True)
+    resolved_latest_version = query_expression()
+    resolved_parent_server_json = query_expression()
+    resolved_status = query_expression()
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    __table_args__ = (PrimaryKeyConstraint("workspace", "name", name="mcp_servers_pk"),)
+
+    def __repr__(self):
+        return f"<SqlMCPServer ({self.name}, {self.workspace})>"
+
+    @staticmethod
+    def _version_order_by():
+        """Return DESC clauses for semantic ordering plus deterministic tie-breaks.
+
+        For semver-equal builds, prefer newer-created rows before using the raw
+        version string as a final deterministic fallback.
+        """
+        return (
+            SqlMCPServerVersion.version_major.desc(),
+            SqlMCPServerVersion.version_minor.desc(),
+            SqlMCPServerVersion.version_patch.desc(),
+            SqlMCPServerVersion.version_prerelease_sort_key.desc(),
+            SqlMCPServerVersion.created_at.desc(),
+            SqlMCPServerVersion.version.desc(),
+        )
+
+    @classmethod
+    def _resolved_latest_candidates_query(cls):
+        status_priority = sa.case(
+            (SqlMCPServerVersion.status == MCPStatus.ACTIVE.value, 0),
+            else_=1,
+        )
+        return sa.select(
+            SqlMCPServerVersion.workspace.label("workspace"),
+            SqlMCPServerVersion.name.label("name"),
+            SqlMCPServerVersion.version.label("version"),
+            SqlMCPServerVersion.server_json.label("server_json"),
+            SqlMCPServerVersion.status.label("status"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(SqlMCPServerVersion.workspace, SqlMCPServerVersion.name),
+                order_by=(status_priority.asc(), *cls._version_order_by()),
+            )
+            .label("row_num"),
+        ).where(SqlMCPServerVersion.status != MCPStatus.DELETED.value)
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in .filter()."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_status_latest_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.status)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "mcp_latest_candidates"
+        )
+
+        return query.outerjoin(
+            latest_candidates,
+            sa.and_(
+                latest_candidates.c.workspace == cls.workspace,
+                latest_candidates.c.name == cls.name,
+                latest_candidates.c.row_num == 1,
+            ),
+        ).options(
+            with_expression(
+                cls.resolved_latest_version,
+                latest_candidates.c.version,
+            ),
+            with_expression(
+                cls.resolved_parent_server_json,
+                latest_candidates.c.server_json,
+            ),
+            with_expression(
+                cls.resolved_status,
+                latest_candidates.c.status,
+            ),
+        )
+
+    def to_mlflow_entity(
+        self,
+        resolved_versions_by_endpoint_id=None,
+        *,
+        resolved_latest_version: str | None = None,
+        resolved_status: str | None = None,
+    ):
+        tags = {t.key: t.value for t in self.tags}
+        aliases = {a.alias: a.version for a in self.server_aliases}
+        endpoint_entities = []
+        for ep in self.access_endpoints:
+            if (
+                resolved_versions_by_endpoint_id is not None
+                and ep.id not in resolved_versions_by_endpoint_id
+            ):
+                continue
+            endpoint_entity = ep.to_mlflow_entity()
+            if resolved_versions_by_endpoint_id is not None:
+                endpoint_entity.resolved_version = resolved_versions_by_endpoint_id.get(ep.id)
+            endpoint_entities.append(endpoint_entity)
+
+        resolved_latest_version = (
+            self.resolved_latest_version
+            if resolved_latest_version is None
+            else resolved_latest_version
+        )
+        resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        status = MCPStatus(resolved_status) if resolved_status is not None else None
+        parent_server_json = None
+        if self.resolved_parent_server_json is not None:
+            parent_server_json = self.resolved_parent_server_json
+            if not isinstance(parent_server_json, dict):
+                parent_server_json = json.loads(parent_server_json)
+        description = self.description
+        if description is None and parent_server_json is not None:
+            description = parent_server_json.get("description")
+        icons = _resolve_mcp_server_icons(
+            self.icons,
+            parent_server_json.get("icons") if parent_server_json is not None else None,
+        )
+
+        return MCPServer(
+            name=self.name,
+            display_name=self.display_name,
+            description=description,
+            icons=icons,
+            workspace=self.workspace,
+            status=status,
+            tags=tags,
+            aliases=aliases,
+            access_endpoints=endpoint_entities,
+            latest_version=resolved_latest_version,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlMCPServerVersion(Base):
+    __tablename__ = "mcp_server_versions"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+    version_major = Column(Integer, nullable=False)
+    version_minor = Column(Integer, nullable=False)
+    version_patch = Column(Integer, nullable=False)
+    version_prerelease_sort_key = Column(String(512), nullable=False)
+    server_json = Column(JSON, nullable=False)
+    status = Column(
+        String(20),
+        nullable=False,
+        default=MCPStatus.DRAFT.value,
+        server_default=sa.text(f"'{MCPStatus.DRAFT.value}'"),
+    )
+    tools = Column(JSON, nullable=True)
+    source = Column(String(512), nullable=True)
+    connect_options = Column(JSON, nullable=True)
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref("server_versions", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "version", name="mcp_server_versions_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_versions_server_fkey",
+        ),
+        # Keep this support index narrow enough for MySQL's 3072-byte key
+        # limit. Latest resolution still orders in SQL by semver core,
+        # prerelease sort key, created_at, and finally raw version; only the
+        # coarse prefix is indexed here because that is the most important
+        # pruning portion.
+        Index(
+            "idx_mcp_server_versions_latest",
+            "workspace",
+            "name",
+            "status",
+            sa.text("version_major DESC"),
+            sa.text("version_minor DESC"),
+            sa.text("version_patch DESC"),
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerVersion ({self.name}, {self.version}, {self.status})>"
+
+    def to_mlflow_entity(self, alias_names=None):
+        tags = {t.key: t.value for t in self.version_tags}
+        if alias_names is None:
+            alias_names = [a.alias for a in self.server.server_aliases if a.version == self.version]
+        tools = None
+        if self.tools is not None:
+            raw = self.tools if isinstance(self.tools, list) else json.loads(self.tools)
+            tools = [MCPTool.from_dict(t) for t in raw]
+        server_json = (
+            self.server_json if isinstance(self.server_json, dict) else json.loads(self.server_json)
+        )
+        return MCPServerVersion(
+            name=self.name,
+            version=self.version,
+            server_json=server_json,
+            status=MCPStatus(self.status),
+            tools=tools,
+            aliases=alias_names,
+            tags=tags,
+            connect_options={
+                k: ConnectOptionSettings(**v) for k, v in (self.connect_options or {}).items()
+            },
+            source=self.source,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlMCPServerTag(Base):
+    __tablename__ = "mcp_server_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(String(5000), nullable=True)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref("tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "key", name="mcp_server_tags_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_tags_server_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerTag ({self.name}, {self.key}={self.value})>"
+
+
+class SqlMCPServerVersionTag(Base):
+    __tablename__ = "mcp_server_version_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(String(5000), nullable=True)
+
+    server_version = relationship(
+        "SqlMCPServerVersion",
+        backref=backref("version_tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, name, version],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "name", "version", "key", name="mcp_server_version_tags_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "name", "version"],
+            [
+                "mcp_server_versions.workspace",
+                "mcp_server_versions.name",
+                "mcp_server_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_version_tags_version_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
+
+
+class SqlMCPServerAlias(Base):
+    __tablename__ = "mcp_server_aliases"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    name = Column(String(256), nullable=False)
+    alias = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref(
+            "server_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPServerAlias.alias",
+        ),
+        foreign_keys=[workspace, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "name", "alias", name="mcp_server_aliases_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_server_aliases_server_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPServerAlias ({self.name}, {self.alias} -> {self.version})>"
+
+
+class SqlMCPAccessEndpoint(Base):
+    __tablename__ = "mcp_access_endpoints"
+
+    id = Column(String(36))
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    server_name = Column(String(256), nullable=False)
+    server_version = Column(String(128), nullable=True)
+    server_alias = Column(String(256), nullable=True)
+    url = Column(String(2048), nullable=False)
+    transport_type = Column(
+        String(32),
+        nullable=False,
+        default=MCPRemoteTransportType.STREAMABLE_HTTP.value,
+        server_default=sa.text(f"'{MCPRemoteTransportType.STREAMABLE_HTTP.value}'"),
+    )
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    server = relationship(
+        "SqlMCPServer",
+        backref=backref(
+            "access_endpoints",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPAccessEndpoint.id",
+        ),
+        foreign_keys=[workspace, server_name],
+    )
+
+    # Populated via contains_eager in _endpoint_query_with_version, which
+    # resolves through both direct server_version and alias paths.
+    # Never auto-loaded (noload) — only filled by explicit JOIN.
+    resolved_version_rel = relationship(
+        "SqlMCPServerVersion",
+        primaryjoin=lambda: sa.and_(
+            SqlMCPAccessEndpoint.workspace == SqlMCPServerVersion.workspace,
+            SqlMCPAccessEndpoint.server_name == SqlMCPServerVersion.name,
+            SqlMCPAccessEndpoint.server_version == SqlMCPServerVersion.version,
+        ),
+        foreign_keys=[workspace, server_name, server_version],
+        viewonly=True,
+        lazy="noload",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="mcp_access_endpoints_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "server_name"],
+            ["mcp_servers.workspace", "mcp_servers.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="mcp_access_endpoints_server_fkey",
+        ),
+        Index("ix_mcp_access_endpoints_server_name", "workspace", "server_name"),
+        Index("ix_mcp_access_endpoints_version", "workspace", "server_name", "server_version"),
+        Index("ix_mcp_access_endpoints_alias", "workspace", "server_name", "server_alias"),
+    )
+
+    def __repr__(self):
+        return f"<SqlMCPAccessEndpoint ({self.id}, {self.server_name})>"
+
+    def to_mlflow_entity(self):
+        resolved = None
+        if self.resolved_version_rel:
+            resolved = self.resolved_version_rel.to_mlflow_entity()
+        return MCPAccessEndpoint(
+            id=self.id,
+            server_name=self.server_name,
+            url=self.url,
+            transport_type=MCPRemoteTransportType(self.transport_type),
+            server_version=self.server_version,
+            server_alias=self.server_alias,
+            resolved_version=resolved,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )

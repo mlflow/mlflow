@@ -8,6 +8,7 @@ import issues_pb2 as _issues_pb2
 import label_schemas_pb2 as _label_schemas_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 import prompt_optimization_pb2 as _prompt_optimization_pb2
+import review_queues_pb2 as _review_queues_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -99,6 +100,7 @@ class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TARGET_SCOPE_UNSPECIFIED: _ClassVar[BudgetTargetScope]
     GLOBAL: _ClassVar[BudgetTargetScope]
     WORKSPACE: _ClassVar[BudgetTargetScope]
+    ENDPOINT: _ClassVar[BudgetTargetScope]
 
 class BudgetAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -168,6 +170,7 @@ MONTHS: BudgetDurationUnit
 TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
 GLOBAL: BudgetTargetScope
 WORKSPACE: BudgetTargetScope
+ENDPOINT: BudgetTargetScope
 BUDGET_ACTION_UNSPECIFIED: BudgetAction
 ALERT: BudgetAction
 REJECT: BudgetAction
@@ -285,7 +288,7 @@ class RunInfo(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ...) -> None: ...
 
 class Experiment(_message.Message):
-    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention")
+    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention", "workspace")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_LOCATION_FIELD_NUMBER: _ClassVar[int]
@@ -294,6 +297,7 @@ class Experiment(_message.Message):
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     EFFECTIVE_TRACE_ARCHIVAL_RETENTION_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     artifact_location: str
@@ -302,7 +306,8 @@ class Experiment(_message.Message):
     creation_time: int
     tags: _containers.RepeatedCompositeFieldContainer[ExperimentTag]
     effective_trace_archival_retention: str
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ...) -> None: ...
+    workspace: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ..., workspace: _Optional[str] = ...) -> None: ...
 
 class DatasetInput(_message.Message):
     __slots__ = ("tags", "dataset")
@@ -645,6 +650,32 @@ class CreatePresignedUploadUrl(_message.Message):
         presigned_url: str
         headers: _containers.ScalarMap[str, str]
         def __init__(self, presigned_url: _Optional[str] = ..., headers: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    path: str
+    expiration: int
+    def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ...) -> None: ...
+
+class CreatePresignedDownloadUrl(_message.Message):
+    __slots__ = ("run_id", "path", "expiration")
+    class Response(_message.Message):
+        __slots__ = ("presigned_url", "headers", "file_size")
+        class HeadersEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        PRESIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+        HEADERS_FIELD_NUMBER: _ClassVar[int]
+        FILE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        presigned_url: str
+        headers: _containers.ScalarMap[str, str]
+        file_size: int
+        def __init__(self, presigned_url: _Optional[str] = ..., headers: _Optional[_Mapping[str, str]] = ..., file_size: _Optional[int] = ...) -> None: ...
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
     EXPIRATION_FIELD_NUMBER: _ClassVar[int]
@@ -2369,7 +2400,7 @@ class DeleteGatewayEndpointTag(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class GatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by", "created_at", "last_updated_by", "last_updated_at", "target_value")
     BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
     BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
     BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
@@ -2380,6 +2411,7 @@ class GatewayBudgetPolicy(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    TARGET_VALUE_FIELD_NUMBER: _ClassVar[int]
     budget_policy_id: str
     budget_unit: BudgetUnit
     budget_amount: float
@@ -2390,10 +2422,11 @@ class GatewayBudgetPolicy(_message.Message):
     created_at: int
     last_updated_by: str
     last_updated_at: int
-    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+    target_value: str
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ..., target_value: _Optional[str] = ...) -> None: ...
 
 class CreateGatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by")
+    __slots__ = ("budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by", "target_value")
     class Response(_message.Message):
         __slots__ = ("budget_policy",)
         BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -2405,13 +2438,15 @@ class CreateGatewayBudgetPolicy(_message.Message):
     TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
     BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TARGET_VALUE_FIELD_NUMBER: _ClassVar[int]
     budget_unit: BudgetUnit
     budget_amount: float
     duration: BudgetDuration
     target_scope: BudgetTargetScope
     budget_action: BudgetAction
     created_by: str
-    def __init__(self, budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    target_value: str
+    def __init__(self, budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ..., target_value: _Optional[str] = ...) -> None: ...
 
 class GetGatewayBudgetPolicy(_message.Message):
     __slots__ = ("budget_policy_id",)
@@ -2425,7 +2460,7 @@ class GetGatewayBudgetPolicy(_message.Message):
     def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "updated_by")
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "updated_by", "target_value")
     class Response(_message.Message):
         __slots__ = ("budget_policy",)
         BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -2438,6 +2473,7 @@ class UpdateGatewayBudgetPolicy(_message.Message):
     TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
     BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TARGET_VALUE_FIELD_NUMBER: _ClassVar[int]
     budget_policy_id: str
     budget_unit: BudgetUnit
     budget_amount: float
@@ -2445,7 +2481,8 @@ class UpdateGatewayBudgetPolicy(_message.Message):
     target_scope: BudgetTargetScope
     budget_action: BudgetAction
     updated_by: str
-    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    target_value: str
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., updated_by: _Optional[str] = ..., target_value: _Optional[str] = ...) -> None: ...
 
 class DeleteGatewayBudgetPolicy(_message.Message):
     __slots__ = ("budget_policy_id",)

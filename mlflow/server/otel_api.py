@@ -32,6 +32,7 @@ from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
+    MLFLOW_RUN_ID_HEADER,
     OTLP_TRACES_PATH,
     _decode_otel_proto_anyvalue,
     decompress_otlp_body,
@@ -95,6 +96,7 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 async def export_traces(
     request: Request,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    x_mlflow_run_id: str | None = Header(default=None, alias=MLFLOW_RUN_ID_HEADER),
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
@@ -112,6 +114,7 @@ async def export_traces(
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID
+        x_mlflow_run_id: Optional header containing the run ID to associate with ingested traces
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
@@ -180,10 +183,11 @@ async def export_traces(
                     service_names.add(resource_service_name)
                 break
 
+        resource = resource_span.resource
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
-                    mlflow_span = Span.from_otel_proto(otel_proto_span)
+                    mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
 
                     # Propagate service.name onto root spans so it's visible
                     # in the UI. Per the OTel resource spec, resource attrs
@@ -219,13 +223,14 @@ async def export_traces(
                 status_code=e.get_http_status_code(),
                 content=json.loads(e.serialize_as_json()),
             )
-        except Exception:
-            trace_ids = {s.trace_id for s in all_spans}
-            _logger.exception("Failed to log OpenTelemetry spans for trace(s): %s", trace_ids)
-            raise HTTPException(
-                status_code=422,
-                detail="Failed to log OpenTelemetry spans",
-            )
+        except Exception as e:
+            raise HTTPException(status_code=422, detail="Failed to log OpenTelemetry spans") from e
+
+        if x_mlflow_run_id and completed_trace_ids:
+            try:
+                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
+            except Exception:
+                _logger.exception("Failed to link OpenTelemetry traces to MLflow run")
 
         if completed_trace_ids:
             if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):

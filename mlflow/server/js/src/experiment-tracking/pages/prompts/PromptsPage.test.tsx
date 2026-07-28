@@ -193,6 +193,58 @@ describe('PromptsPage', () => {
     );
   });
 
+  it('should disable the Create button while required fields are empty', async () => {
+    server.use(getMockedRegisteredPromptsResponse(0));
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Name:'), 'my-prompt');
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Prompt:'), 'hello');
+    expect(createButton).toBeEnabled();
+
+    await userEvent.clear(screen.getByLabelText('Name:'));
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Name:'), '   ');
+    expect(createButton).toBeDisabled();
+  });
+
+  it('should disable the Create button in chat mode while user message content is empty', async () => {
+    server.use(getMockedRegisteredPromptsResponse(0));
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByLabelText('Name:'), 'my-chat-prompt');
+    await userEvent.click(screen.getByRole('radio', { name: 'Chat' }));
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+    expect(createButton).toBeDisabled();
+
+    const content = document.querySelector('textarea[name="chatMessages.0.content"]') as HTMLTextAreaElement;
+    await userEvent.type(content, 'Hello');
+    expect(createButton).toBeEnabled();
+  });
+
   describe('Experiment-scoped prompts', () => {
     it('should render experiment-scoped prompts with filtering', async () => {
       const experimentId = '123';

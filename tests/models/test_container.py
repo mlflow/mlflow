@@ -1,9 +1,3 @@
-"""
-Tests for mlflow.models.container module.
-
-Includes security tests for command injection prevention.
-"""
-
 import os
 from unittest import mock
 

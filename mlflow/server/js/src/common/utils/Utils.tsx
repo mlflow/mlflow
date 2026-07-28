@@ -67,13 +67,15 @@ class Utils {
   }
 
   /**
-   * Displays the info notification in the UI.
+   * Displays the info notification in the UI. `style` is forwarded to the
+   * underlying notification (e.g. to widen it past the default fixed width so
+   * single-line content doesn't wrap).
    */
-  static displayGlobalInfoNotification(content: any, duration?: any) {
+  static displayGlobalInfoNotification(content: any, duration?: any, style?: any) {
     if (!Utils.#notificationsApi) {
       return;
     }
-    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration, style: style });
   }
 
   static runNameTag = 'mlflow.runName';

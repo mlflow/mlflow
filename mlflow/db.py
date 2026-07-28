@@ -24,7 +24,10 @@ def upgrade(url):
     import mlflow.store.db.utils
 
     engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
-    mlflow.store.db.utils._upgrade_db(engine)
+    if mlflow.store.db.utils._is_empty_database(engine):
+        mlflow.store.db.utils._initialize_tables(engine)
+    else:
+        mlflow.store.db.utils._upgrade_db(engine)
 
 
 @commands.command("migrate-to-default-workspace")

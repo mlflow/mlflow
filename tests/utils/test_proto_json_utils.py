@@ -37,6 +37,7 @@ def test_message_to_json():
         "name": "name",
         "artifact_location": "arty",
         "lifecycle_stage": "active",
+        "workspace": "default",
     }
 
     original_proto_message = RegisteredModel(

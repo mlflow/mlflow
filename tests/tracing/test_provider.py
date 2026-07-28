@@ -1,4 +1,5 @@
 import random
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -31,6 +32,7 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _get_span_processor,
     _get_tracer,
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
@@ -329,21 +331,15 @@ def test_trace_disabled_decorator(enabled_initially):
     assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
-    # @trace_disabled should not block the decorated function even
-    # if it fails to disable tracing
+    # @trace_disabled should not block the decorated function even if the
+    # tracing machinery errors while checking/toggling the tracing state.
     with mock.patch(
-        "mlflow.tracing.provider.disable", side_effect=MlflowTracingException("error")
-    ) as disable_mock:
+        "mlflow.tracing.provider.is_tracing_enabled",
+        side_effect=MlflowTracingException("error"),
+    ) as is_enabled_mock:
         assert test_fn() == 0
         assert call_count == 3
-        assert disable_mock.call_count == (1 if enabled_initially else 0)
-
-    with mock.patch(
-        "mlflow.tracing.provider.enable", side_effect=MlflowTracingException("error")
-    ) as enable_mock:
-        assert test_fn() == 0
-        assert call_count == 4
-        assert enable_mock.call_count == (1 if enabled_initially else 0)
+        assert is_enabled_mock.call_count == 1
 
 
 @pytest.mark.parametrize("enabled_initially", [True, False])
@@ -385,6 +381,221 @@ def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
 
     test_fn()
     assert trace.get_tracer_provider() is otel_tracer_provider
+
+
+def _count_batch_processor_threads() -> int:
+    # Match the "OtelBatchSpan" prefix rather than the full worker-thread name:
+    # OTel SDK versions name this daemon thread differently ("OtelBatchSpanProcessor"
+    # on older releases, "OtelBatchSpanRecordProcessor" on current ones), and the
+    # protobuf cross-version CI job exercises both.
+    return sum("OtelBatchSpan" in t.name for t in threading.enumerate())
+
+
+def _assert_batch_path_active() -> None:
+    # Guard against a vacuous pass: the async BatchSpanProcessor path must actually
+    # be active before we measure the baseline thread count. Assert on the active
+    # processor's batch delegate directly so the guard does not depend on OTel's
+    # worker-thread name (which varies across SDK versions).
+    processor = _get_span_processor()
+    assert processor is not None
+    assert processor._batch_delegate is not None
+
+
+@pytest.fixture
+def batch_span_processor(monkeypatch):
+    # Force the async BatchSpanProcessor path (which owns the leaked thread).
+    # The backend is supplied by the autouse conftest fixtures, so don't override
+    # the tracking URI here (sqlite:// breaks the SDK-only job, which has no store).
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+
+
+def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
+    # Prime a real BatchSpanProcessor (and its daemon thread).
+    f()
+    _assert_batch_path_active()
+    baseline = _count_batch_processor_threads()
+    assert baseline >= 1
+
+    # Each enable() used to build a fresh provider + BatchSpanProcessor without
+    # shutting down the old one, leaking one thread per cycle (issue #24209).
+    for _ in range(10):
+        mlflow.tracing.disable()
+        mlflow.tracing.enable()
+
+    assert _count_batch_processor_threads() <= baseline
+
+
+def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def wrapped():
+        return 0
+
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
+    f()
+    _assert_batch_path_active()
+    baseline = _count_batch_processor_threads()
+    assert baseline >= 1
+
+    # trace_disabled wraps load_model/log_model; it must not create or destroy
+    # the BatchSpanProcessor thread per call.
+    for _ in range(20):
+        wrapped()
+
+    assert _count_batch_processor_threads() <= baseline
+    # Tracing is fully restored and still records after the decorated call.
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_disable_enable_no_data_loss_on_retire(batch_span_processor):
+    # A span emitted just before enable() rebuilds the provider must still be
+    # exported: retiring the outgoing processor force_flushes before shutdown.
+    @mlflow.trace
+    def f():
+        return 0
+
+    f()
+    purge_traces()
+    f()
+    # Rebuild the provider; the pending span must survive the retire (flush-then-shutdown).
+    mlflow.tracing.disable()
+    mlflow.tracing.enable()
+    assert len(get_traces()) == 1
+
+
+def test_nested_trace_disabled_restores_tracing(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def inner():
+        return is_tracing_enabled()
+
+    @trace_disabled
+    def outer():
+        assert not is_tracing_enabled()
+        inner_state = inner()
+        # The inner frame must NOT restore tracing on its own exit: we are still
+        # inside the outer frame, so tracing must remain disabled.
+        assert not is_tracing_enabled()
+        return inner_state
+
+    f()
+    baseline = _count_batch_processor_threads()
+
+    assert outer() is False
+    # Only the outermost exit restores tracing.
+    assert is_tracing_enabled()
+    assert _count_batch_processor_threads() <= baseline
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_trace_disabled_under_concurrency_smoke(batch_span_processor):
+    # Smoke check that trace_disabled is safe under concurrent use: after many
+    # overlapping calls tracing is still enabled and no BSP thread leaked. This
+    # asserts the happy end state; it does not deterministically force the rare
+    # swap/restore interleaving the depth guard defends against.
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def wrapped():
+        return 0
+
+    f()
+    baseline = _count_batch_processor_threads()
+
+    with ThreadPoolExecutor(max_workers=8, thread_name_prefix="trace-disabled-test") as executor:
+        futures = [executor.submit(wrapped) for _ in range(200)]
+        for future in futures:
+            future.result()
+
+    assert is_tracing_enabled()
+    assert _count_batch_processor_threads() <= baseline
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_otlp_span_processor_is_retired_on_provider_replace(monkeypatch):
+    # OtelSpanProcessor subclasses OTel's BatchSpanProcessor directly (not a
+    # BaseMlflowSpanProcessor), so it must be retired on provider replace too.
+    from mlflow.tracing.provider import _get_tracer
+
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter"),
+    ):
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
+        (otel_processor,) = tracer.span_processor._span_processors
+        assert isinstance(otel_processor, OtelSpanProcessor)
+
+        with (
+            mock.patch.object(otel_processor, "force_flush") as force_flush,
+            mock.patch.object(otel_processor, "shutdown") as shutdown,
+        ):
+            # Replacing the provider must flush before it shuts the processor down.
+            mlflow.tracing.disable()
+            force_flush.assert_called_once()
+            shutdown.assert_called_once()
+
+
+def test_set_experiment_survives_tracing_state_error():
+    # is_tracing_enabled() is raise_as_trace_exception-wrapped; a tracing error
+    # must not break set_experiment (issue #24209 review).
+    mlflow.set_experiment("first")
+
+    @mlflow.trace
+    def f():
+        return 0
+
+    f()  # ensure provider.once._done so the preserve-disabled branch runs
+    with mock.patch(
+        "mlflow.tracing.provider.is_tracing_enabled",
+        side_effect=MlflowTracingException("boom"),
+    ):
+        # Should not raise despite the tracing-state check failing.
+        mlflow.set_experiment("second")
+
+
+def test_set_experiment_preserves_explicit_disable():
+    mlflow.set_experiment("first")
+
+    mlflow.tracing.disable()
+    assert not is_tracing_enabled()
+
+    # set_experiment resets the provider to re-derive the destination; it must
+    # not silently re-enable tracing the user explicitly turned off (issue #24209).
+    mlflow.set_experiment("second")
+    assert not is_tracing_enabled()
+
+    mlflow.tracing.enable()
+    assert is_tracing_enabled()
 
 
 def test_is_tracing_enabled():
@@ -597,19 +808,27 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
 
 
 def test_otel_resource_attributes(monkeypatch):
+    def resource_attributes(tracer):
+        # opentelemetry-sdk 1.43.0+ auto-injects a random `service.instance.id` when it builds
+        # the resource from env vars. It is not deterministic, so drop it before comparing.
+        attributes = dict(tracer.resource.attributes)
+        attributes.pop("service.instance.id", None)
+        return attributes
+
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
-    assert tracer.resource.attributes == {
+    assert resource_attributes(tracer) == {
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
     }
 
     mlflow.tracing.reset()
-    # When otel attributes are set explicitly, MLflow's SDK attributes are not set on the resource
+    # When otel attributes are set explicitly, they are merged into the resource
+    # alongside MLflow's SDK attributes.
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "favorite.fruit=apple,color=red")
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "favorite.fruit": "apple",
         "color": "red",
         "telemetry.sdk.language": "python",
@@ -623,7 +842,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.setenv("OTEL_SERVICE_NAME", "test-service")
     monkeypatch.delenv("OTEL_RESOURCE_ATTRIBUTES", raising=False)
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "service.name": "test-service",
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
@@ -635,7 +854,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "invalid")
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "service.name": "unknown_service",
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",

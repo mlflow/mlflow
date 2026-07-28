@@ -7,6 +7,7 @@ from mlflow.pydantic_ai.autolog import (
     patched_agent_init,
     patched_async_class_call,
     patched_async_stream_call,
+    patched_capability_model_request,
     patched_class_call,
     patched_sync_stream_call,
 )
@@ -103,6 +104,23 @@ def _tool_manager_uses_execute_tool_call() -> bool:
         return False
 
 
+def _has_instrumentation_capability() -> bool:
+    """Return True if pydantic-ai routes model calls through the Instrumentation capability.
+
+    pydantic-ai >= 1.95 replaced the ``InstrumentedModel`` wrapper with a capabilities
+    system: model requests funnel through ``Instrumentation.wrap_model_request`` instead of
+    ``InstrumentedModel.request``/``request_stream``. When this module is importable we
+    instrument that hook and skip the ``InstrumentedModel`` patch, so exactly one path
+    produces the LLM span (never both).
+    """
+    try:
+        import pydantic_ai.capabilities.instrumentation  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
@@ -125,13 +143,14 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
+    # On pydantic-ai >= 1.95 the Instrumentation capability (patched below) is the model
+    # request funnel; on older versions it's InstrumentedModel. Instrument exactly one of
+    # them so a single LLM span is produced per model call, never two overlapping spans.
+    has_instrumentation_capability = _has_instrumentation_capability()
+
     tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
     class_map = {
         "pydantic_ai.Agent": agent_methods,
-        "pydantic_ai.models.instrumented.InstrumentedModel": [
-            "request",
-            "request_stream",
-        ],
         # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
         # bypassing handle_call. Patch execute_tool_call when available; fall back to
         # handle_call for older versions where execute_tool_call doesn't exist.
@@ -140,6 +159,11 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
+    if not has_instrumentation_capability:
+        class_map["pydantic_ai.models.instrumented.InstrumentedModel"] = [
+            "request",
+            "request_stream",
+        ]
 
     try:
         from pydantic_ai import Tool
@@ -180,6 +204,23 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 _patch_method(cls, method)
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    # pydantic-ai >= 1.95 routes both streaming and non-streaming model requests through
+    # the Instrumentation capability's wrap_model_request instead of InstrumentedModel.
+    # Patch it (and only it, since InstrumentedModel is excluded from class_map above) so a
+    # single provider-agnostic LLM span is produced per model request on modern versions.
+    if has_instrumentation_capability:
+        try:
+            from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+            safe_patch(
+                FLAVOR_NAME,
+                Instrumentation,
+                "wrap_model_request",
+                patched_capability_model_request,
+            )
+        except (ImportError, AttributeError) as e:
+            _logger.error("Error patching Instrumentation.wrap_model_request: %s", e)
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

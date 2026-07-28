@@ -41,7 +41,7 @@ fi
 echo "Files:       $file_count"
 
 # Create release if it doesn't exist
-if ! gh release view "$TAG" --repo "$REPO" &>/dev/null; then
+if ! gh release view "$TAG" --repo "$REPO" >/dev/null; then
   echo "Creating release $TAG ..."
   gh release create "$TAG" \
     --repo "$REPO" \

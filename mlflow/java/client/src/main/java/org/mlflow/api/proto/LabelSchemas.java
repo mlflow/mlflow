@@ -4770,6 +4770,27 @@ public final class LabelSchemas {
      * @return The lastUpdatedAt.
      */
     long getLastUpdatedAt();
+
+    /**
+     * <pre>
+     * Whether this is the experiment's protected default question: server-seeded,
+     * undeletable, and uneditable. Read-only to clients.
+     * </pre>
+     *
+     * <code>optional bool is_default = 12;</code>
+     * @return Whether the isDefault field is set.
+     */
+    boolean hasIsDefault();
+    /**
+     * <pre>
+     * Whether this is the experiment's protected default question: server-seeded,
+     * undeletable, and uneditable. Read-only to clients.
+     * </pre>
+     *
+     * <code>optional bool is_default = 12;</code>
+     * @return The isDefault.
+     */
+    boolean getIsDefault();
   }
   /**
    * <pre>
@@ -4895,6 +4916,11 @@ public final class LabelSchemas {
             case 88: {
               bitField0_ |= 0x00000200;
               lastUpdatedAt_ = input.readInt64();
+              break;
+            }
+            case 96: {
+              bitField0_ |= 0x00000400;
+              isDefault_ = input.readBool();
               break;
             }
             default: {
@@ -5359,6 +5385,35 @@ public final class LabelSchemas {
       return lastUpdatedAt_;
     }
 
+    public static final int IS_DEFAULT_FIELD_NUMBER = 12;
+    private boolean isDefault_;
+    /**
+     * <pre>
+     * Whether this is the experiment's protected default question: server-seeded,
+     * undeletable, and uneditable. Read-only to clients.
+     * </pre>
+     *
+     * <code>optional bool is_default = 12;</code>
+     * @return Whether the isDefault field is set.
+     */
+    @java.lang.Override
+    public boolean hasIsDefault() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * Whether this is the experiment's protected default question: server-seeded,
+     * undeletable, and uneditable. Read-only to clients.
+     * </pre>
+     *
+     * <code>optional bool is_default = 12;</code>
+     * @return The isDefault.
+     */
+    @java.lang.Override
+    public boolean getIsDefault() {
+      return isDefault_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -5403,6 +5458,9 @@ public final class LabelSchemas {
       if (((bitField0_ & 0x00000200) != 0)) {
         output.writeInt64(11, lastUpdatedAt_);
       }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        output.writeBool(12, isDefault_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -5446,6 +5504,10 @@ public final class LabelSchemas {
       if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(11, lastUpdatedAt_);
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(12, isDefault_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -5511,6 +5573,11 @@ public final class LabelSchemas {
         if (getLastUpdatedAt()
             != other.getLastUpdatedAt()) return false;
       }
+      if (hasIsDefault() != other.hasIsDefault()) return false;
+      if (hasIsDefault()) {
+        if (getIsDefault()
+            != other.getIsDefault()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -5564,6 +5631,11 @@ public final class LabelSchemas {
         hash = (37 * hash) + LAST_UPDATED_AT_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getLastUpdatedAt());
+      }
+      if (hasIsDefault()) {
+        hash = (37 * hash) + IS_DEFAULT_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getIsDefault());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -5727,6 +5799,8 @@ public final class LabelSchemas {
         bitField0_ = (bitField0_ & ~0x00000100);
         lastUpdatedAt_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000200);
+        isDefault_ = false;
+        bitField0_ = (bitField0_ & ~0x00000400);
         return this;
       }
 
@@ -5798,6 +5872,10 @@ public final class LabelSchemas {
         if (((from_bitField0_ & 0x00000200) != 0)) {
           result.lastUpdatedAt_ = lastUpdatedAt_;
           to_bitField0_ |= 0x00000200;
+        }
+        if (((from_bitField0_ & 0x00000400) != 0)) {
+          result.isDefault_ = isDefault_;
+          to_bitField0_ |= 0x00000400;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -5887,6 +5965,9 @@ public final class LabelSchemas {
         }
         if (other.hasLastUpdatedAt()) {
           setLastUpdatedAt(other.getLastUpdatedAt());
+        }
+        if (other.hasIsDefault()) {
+          setIsDefault(other.getIsDefault());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -6788,6 +6869,65 @@ public final class LabelSchemas {
       public Builder clearLastUpdatedAt() {
         bitField0_ = (bitField0_ & ~0x00000200);
         lastUpdatedAt_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private boolean isDefault_ ;
+      /**
+       * <pre>
+       * Whether this is the experiment's protected default question: server-seeded,
+       * undeletable, and uneditable. Read-only to clients.
+       * </pre>
+       *
+       * <code>optional bool is_default = 12;</code>
+       * @return Whether the isDefault field is set.
+       */
+      @java.lang.Override
+      public boolean hasIsDefault() {
+        return ((bitField0_ & 0x00000400) != 0);
+      }
+      /**
+       * <pre>
+       * Whether this is the experiment's protected default question: server-seeded,
+       * undeletable, and uneditable. Read-only to clients.
+       * </pre>
+       *
+       * <code>optional bool is_default = 12;</code>
+       * @return The isDefault.
+       */
+      @java.lang.Override
+      public boolean getIsDefault() {
+        return isDefault_;
+      }
+      /**
+       * <pre>
+       * Whether this is the experiment's protected default question: server-seeded,
+       * undeletable, and uneditable. Read-only to clients.
+       * </pre>
+       *
+       * <code>optional bool is_default = 12;</code>
+       * @param value The isDefault to set.
+       * @return This builder for chaining.
+       */
+      public Builder setIsDefault(boolean value) {
+        bitField0_ |= 0x00000400;
+        isDefault_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Whether this is the experiment's protected default question: server-seeded,
+       * undeletable, and uneditable. Read-only to clients.
+       * </pre>
+       *
+       * <code>optional bool is_default = 12;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearIsDefault() {
+        bitField0_ = (bitField0_ & ~0x00000400);
+        isDefault_ = false;
         onChanged();
         return this;
       }
@@ -16551,51 +16691,51 @@ public final class LabelSchemas {
       "\".mlflow.label_schemas.InputNumericH\000\022/\n" +
       "\004text\030\005 \001(\0132\037.mlflow.label_schemas.Input" +
       "TextH\000B\007\n\005inputJ\004\010\004\020\005J\004\010\006\020\007R\020categorical" +
-      "_listR\ttext_list\"\254\002\n\013LabelSchema\022\021\n\tsche" +
+      "_listR\ttext_list\"\300\002\n\013LabelSchema\022\021\n\tsche" +
       "ma_id\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\014\n\004na" +
       "me\030\003 \001(\t\0223\n\004type\030\004 \001(\0162%.mlflow.label_sc" +
       "hemas.LabelSchemaType\022\023\n\013instruction\030\006 \001" +
       "(\t\022\026\n\016enable_comment\030\007 \001(\010\0225\n\005input\030\010 \001(" +
       "\0132&.mlflow.label_schemas.LabelSchemaInpu" +
       "t\022\022\n\ncreated_by\030\t \001(\t\022\022\n\ncreated_at\030\n \001(" +
-      "\003\022\027\n\017last_updated_at\030\013 \001(\003J\004\010\005\020\006R\005title\"" +
-      "\350\002\n\021CreateLabelSchema\022\033\n\rexperiment_id\030\001" +
-      " \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\0229\n\004type\030\003" +
-      " \001(\0162%.mlflow.label_schemas.LabelSchemaT" +
-      "ypeB\004\370\206\031\001\022;\n\005input\030\005 \001(\0132&.mlflow.label_" +
-      "schemas.LabelSchemaInputB\004\370\206\031\001\022\023\n\013instru" +
-      "ction\030\006 \001(\t\022\026\n\016enable_comment\030\007 \001(\010\032C\n\010R" +
-      "esponse\0227\n\014label_schema\030\001 \001(\0132!.mlflow.l" +
-      "abel_schemas.LabelSchema:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]J\004\010\004\020\005R\005tit" +
-      "le\"\233\001\n\016GetLabelSchema\022\027\n\tschema_id\030\001 \001(\t" +
-      "B\004\370\206\031\001\032C\n\010Response\0227\n\014label_schema\030\001 \001(\013" +
-      "2!.mlflow.label_schemas.LabelSchema:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\271\001\n\024GetLabelSchemaByName\022\033\n\rexperiment_" +
-      "id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\032C\n\010Re" +
-      "sponse\0227\n\014label_schema\030\001 \001(\0132!.mlflow.la" +
-      "bel_schemas.LabelSchema:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\344\001\n\020ListLab" +
-      "elSchemas\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\023" +
-      "\n\013max_results\030\002 \001(\005\022\022\n\npage_token\030\003 \001(\t\032" +
-      "]\n\010Response\0228\n\rlabel_schemas\030\001 \003(\0132!.mlf" +
-      "low.label_schemas.LabelSchema\022\027\n\017next_pa" +
-      "ge_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\235\002\n\021UpdateLabelSchem" +
-      "a\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t" +
-      "\022\023\n\013instruction\030\004 \001(\t\022\026\n\016enable_comment\030" +
-      "\005 \001(\010\0225\n\005input\030\006 \001(\0132&.mlflow.label_sche" +
-      "mas.LabelSchemaInput\032C\n\010Response\0227\n\014labe" +
-      "l_schema\030\001 \001(\0132!.mlflow.label_schemas.La" +
-      "belSchema:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]J\004\010\003\020\004R\005title\"e\n\021DeleteLab" +
-      "elSchema\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]*S\n\017LabelSchemaType\022!\n\035LABEL_S" +
-      "CHEMA_TYPE_UNSPECIFIED\020\000\022\014\n\010FEEDBACK\020\001\022\017" +
-      "\n\013EXPECTATION\020\002B\031\n\024org.mlflow.api.proto\220" +
-      "\001\001"
+      "\003\022\027\n\017last_updated_at\030\013 \001(\003\022\022\n\nis_default" +
+      "\030\014 \001(\010J\004\010\005\020\006R\005title\"\350\002\n\021CreateLabelSchem" +
+      "a\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002" +
+      " \001(\tB\004\370\206\031\001\0229\n\004type\030\003 \001(\0162%.mlflow.label_" +
+      "schemas.LabelSchemaTypeB\004\370\206\031\001\022;\n\005input\030\005" +
+      " \001(\0132&.mlflow.label_schemas.LabelSchemaI" +
+      "nputB\004\370\206\031\001\022\023\n\013instruction\030\006 \001(\t\022\026\n\016enabl" +
+      "e_comment\030\007 \001(\010\032C\n\010Response\0227\n\014label_sch" +
+      "ema\030\001 \001(\0132!.mlflow.label_schemas.LabelSc" +
+      "hema:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]J\004\010\004\020\005R\005title\"\233\001\n\016GetLabelSchem" +
+      "a\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Response\0227" +
+      "\n\014label_schema\030\001 \001(\0132!.mlflow.label_sche" +
+      "mas.LabelSchema:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\271\001\n\024GetLabelSchemaB" +
+      "yName\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004na" +
+      "me\030\002 \001(\tB\004\370\206\031\001\032C\n\010Response\0227\n\014label_sche" +
+      "ma\030\001 \001(\0132!.mlflow.label_schemas.LabelSch" +
+      "ema:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\344\001\n\020ListLabelSchemas\022\033\n\rexperim" +
+      "ent_id\030\001 \001(\tB\004\370\206\031\001\022\023\n\013max_results\030\002 \001(\005\022" +
+      "\022\n\npage_token\030\003 \001(\t\032]\n\010Response\0228\n\rlabel" +
+      "_schemas\030\001 \003(\0132!.mlflow.label_schemas.La" +
+      "belSchema\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\235\002\n\021UpdateLabelSchema\022\027\n\tschema_id\030\001 \001(\t" +
+      "B\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013instruction\030\004 \001(" +
+      "\t\022\026\n\016enable_comment\030\005 \001(\010\0225\n\005input\030\006 \001(\013" +
+      "2&.mlflow.label_schemas.LabelSchemaInput" +
+      "\032C\n\010Response\0227\n\014label_schema\030\001 \001(\0132!.mlf" +
+      "low.label_schemas.LabelSchema:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]J\004\010\003\020\004" +
+      "R\005title\"e\n\021DeleteLabelSchema\022\027\n\tschema_i" +
+      "d\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]*S\n\017LabelS" +
+      "chemaType\022!\n\035LABEL_SCHEMA_TYPE_UNSPECIFI" +
+      "ED\020\000\022\014\n\010FEEDBACK\020\001\022\017\n\013EXPECTATION\020\002B\031\n\024o" +
+      "rg.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -16638,7 +16778,7 @@ public final class LabelSchemas {
     internal_static_mlflow_label_schemas_LabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_LabelSchema_descriptor,
-        new java.lang.String[] { "SchemaId", "ExperimentId", "Name", "Type", "Instruction", "EnableComment", "Input", "CreatedBy", "CreatedAt", "LastUpdatedAt", });
+        new java.lang.String[] { "SchemaId", "ExperimentId", "Name", "Type", "Instruction", "EnableComment", "Input", "CreatedBy", "CreatedAt", "LastUpdatedAt", "IsDefault", });
     internal_static_mlflow_label_schemas_CreateLabelSchema_descriptor =
       getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_label_schemas_CreateLabelSchema_fieldAccessorTable = new
