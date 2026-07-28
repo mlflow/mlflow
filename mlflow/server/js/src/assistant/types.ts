@@ -188,8 +188,8 @@ export interface AssistantAgentActions {
   reset: () => void;
   /** Cancel the current streaming session */
   cancelSession: () => void;
-  /** Fetch/refresh config from backend */
-  refreshConfig: () => Promise<void>;
+  /** Fetch/refresh config from backend. Pass `{ silent: true }` to skip the loading state on a background refresh. */
+  refreshConfig: (options?: { silent?: boolean }) => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */
   completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */

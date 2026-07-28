@@ -776,7 +776,9 @@ export const AssistantChatPanel = () => {
   const handleBackFromSettings = useCallback(() => {
     // Re-read the config so the composer's provider indicator reflects any
     // change made in settings; without this it stays stale until a reload.
-    refreshConfig();
+    // `silent` avoids flashing the full-panel loading state over the chat,
+    // since the panel is already open during back-navigation.
+    refreshConfig({ silent: true });
     setCurrentView('chat');
   }, [refreshConfig]);
 

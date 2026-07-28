@@ -224,8 +224,10 @@ describe('AssistantChatPanel', () => {
     expect(mockRefreshConfig).not.toHaveBeenCalled();
 
     // Going back re-reads the config, so a provider changed in settings is reflected immediately.
+    // The refresh is silent so it doesn't flash the loading state over the already-open chat.
     await user.click(screen.getByRole('button', { name: 'Back from settings' }));
     expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+    expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
   });
 
   test('token footer shows a compact total and an info trigger when usage is present', () => {
