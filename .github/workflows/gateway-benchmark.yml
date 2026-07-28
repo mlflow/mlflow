@@ -8,7 +8,7 @@ name: MLflow Gateway Benchmark
 
 on:
   schedule:
-    # Run daily at 06:00 UTC (off-peak; slow-tests runs at 13:00)
+    # Run daily at 06:00 UTC (off-peak; nightly-tests runs at 13:00)
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
