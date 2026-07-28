@@ -107,10 +107,6 @@
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
   },
-  "+Vc8hK": {
-    "defaultMessage": "Share",
-    "description": "Label for the button that opens the save-and-share-view modal in the experiment runs toolbar"
-  },
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
@@ -626,10 +622,6 @@
   "0ja5l/": {
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
-  },
-  "0jvNkS": {
-    "defaultMessage": "+ Save current view...",
-    "description": "Menu item that opens the modal to save the current view"
   },
   "0ktvTS": {
     "defaultMessage": "Trace archival retention unit",
@@ -4674,10 +4666,6 @@
   "JGQ5B2": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > metadata column > 'add' button label"
-  },
-  "JGVWJS": {
-    "defaultMessage": "Share",
-    "description": "Label for the button that opens the save-and-share-view modal in the traces toolbar"
   },
   "JJ43Fa": {
     "defaultMessage": "Error",
@@ -12274,6 +12262,10 @@
   "qBGVKG": {
     "defaultMessage": "No logs available",
     "description": "Empty state title for logs tab"
+  },
+  "qCNDn7": {
+    "defaultMessage": "+ Save & share current view...",
+    "description": "Menu item that opens the modal to save the current view and share it by link"
   },
   "qDiJI2": {
     "defaultMessage": "Forecasting",

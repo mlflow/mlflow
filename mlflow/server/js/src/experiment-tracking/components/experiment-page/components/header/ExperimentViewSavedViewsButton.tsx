@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Button, DangerModal, DropdownMenu, BookmarkIcon } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DangerModal, DropdownMenu, BookmarkIcon } from '@databricks/design-system';
 
 import Utils from '../../../../../common/utils/Utils';
 import { copyToClipboard } from '../../../../../common/utils/copyToClipboard';
@@ -75,6 +75,7 @@ export const ExperimentViewSavedViewsButton = ({
           <Button
             componentId="mlflow.experiment_page.saved_views.trigger"
             icon={<BookmarkIcon />}
+            endIcon={<ChevronDownIcon />}
             data-testid="saved-views-trigger"
           >
             {activeView ? (

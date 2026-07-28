@@ -31,7 +31,6 @@ import { useNavigateToExperimentPageTab } from '../../components/experiment-page
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
 import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
-import { ExperimentViewShareButton } from '../../components/experiment-page/components/header/ExperimentViewShareButton';
 import type { ExperimentEntity } from '../../types';
 
 const ExperimentPageTabsImpl = () => {
@@ -194,13 +193,11 @@ const ExperimentPageTabsImpl = () => {
   // toolbar, since a view is a container over the toolbar's column/filter/sort selectors. The Views
   // dropdown reads saved-view tags and the active-view URL param only, and the Save modal
   // reconstructs the current view from its localStorage persistKey — so no live uiState needs to be
-  // plumbed up here. Runs-only for now; traces parity fills the same slot separately.
+  // plumbed up here. Sharing lives inside the Views dropdown's "Save & share current view…" entry
+  // rather than a separate button. Runs-only for now; traces parity fills the same slot separately.
   const headerSavedViewsSlot =
     activeTab === ExperimentPageTabName.Runs && experiment ? (
-      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-        <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
-        <ExperimentViewShareButton experimentId={experimentId} />
-      </div>
+      <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
     ) : undefined;
 
   return (

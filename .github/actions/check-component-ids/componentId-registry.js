@@ -1360,7 +1360,6 @@ module.exports = {
   "mlflow.experiment_page.scorers.filter_string_input": "",
   "mlflow.experiment_page.scorers.filter_string_syntax_link": "",
   "mlflow.experiment_page.scorers.search_traces_syntax_link": "",
-  "mlflow.experiment_page.share_current_view": "",
   "mlflow.experiment_page.shared_view": "",
   "mlflow.experiment_page.shared_view.override_undo": "",
   "mlflow.experiment_page.sort_dropdown.search": "",
@@ -2368,7 +2367,6 @@ module.exports = {
   "mlflow.traces.saved_views": "",
   "mlflow.traces.saved_views.delete_confirm": "",
   "mlflow.traces.saved_views.trigger": "",
-  "mlflow.traces.share_current_view": "",
   "mlflow.traces.shared_view": "",
   "mlflow.traces.shared_view.override_undo": "",
 

@@ -11,7 +11,7 @@ import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
-import { TracesV3SavedViewsButton, TracesV3ShareButton, useTraceSavedViews } from './TracesV3SavedViews';
+import { TracesV3SavedViewsButton, useTraceSavedViews } from './TracesV3SavedViews';
 import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
@@ -43,12 +43,7 @@ const TracesV3Content = ({
         timeRange={timeRange}
         drawerWidth="80vw"
         toolbarCornerAddons={
-          experimentId && (
-            <>
-              <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />
-              <TracesV3ShareButton experimentId={experimentId} savedViews={savedViews} />
-            </>
-          )
+          experimentId && <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />
         }
       />
     );

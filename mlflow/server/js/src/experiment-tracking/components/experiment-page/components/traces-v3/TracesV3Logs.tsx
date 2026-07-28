@@ -680,6 +680,25 @@ const TracesV3LogsImpl = React.memo(
               flexDirection: 'column',
             }}
           >
+            {preview.active && (
+              <SharedViewBanner
+                componentId="mlflow.traces.shared_view"
+                message={
+                  <FormattedMessage
+                    defaultMessage="You're viewing a shared view. Your changes won't be saved unless you override your own view."
+                    description="Traces page > shared view banner explaining that changes are not persisted while previewing"
+                  />
+                }
+                overrideLabel={
+                  <FormattedMessage
+                    defaultMessage="Override my view"
+                    description="Traces shared view banner > button that adopts the shared view into the user's own view"
+                  />
+                }
+                onOverride={preview.override}
+                onDiscard={preview.discard}
+              />
+            )}
             <GenAITracesTableToolbar
               pageSource={pageSource}
               experimentId={singleExperimentId}
@@ -724,25 +743,6 @@ const TracesV3LogsImpl = React.memo(
               onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
             {JudgesStatusBanner}
-            {preview.active && (
-              <SharedViewBanner
-                componentId="mlflow.traces.shared_view"
-                message={
-                  <FormattedMessage
-                    defaultMessage="You're viewing a shared view. Your changes won't be saved unless you override your own view."
-                    description="Traces page > shared view banner explaining that changes are not persisted while previewing"
-                  />
-                }
-                overrideLabel={
-                  <FormattedMessage
-                    defaultMessage="Override my view"
-                    description="Traces shared view banner > button that adopts the shared view into the user's own view"
-                  />
-                }
-                onOverride={preview.override}
-                onDiscard={preview.discard}
-              />
-            )}
             {renderMainContent()}
           </div>
           {!disableActions && isIssueDetectionModalOpen && (

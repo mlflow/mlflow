@@ -4,12 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-import {
-  TracesV3SavedViewsButton,
-  TracesV3ShareButton,
-  TraceLiveViewStateProvider,
-  useTraceSavedViews,
-} from './TracesV3SavedViews';
+import { TracesV3SavedViewsButton, TraceLiveViewStateProvider, useTraceSavedViews } from './TracesV3SavedViews';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
@@ -62,11 +57,6 @@ const { history } = setupTestRouter();
 const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => {
   const savedViews = useTraceSavedViews({ experimentId });
   return <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />;
-};
-
-const ShareButtonHarness = ({ experimentId }: { experimentId: string }) => {
-  const savedViews = useTraceSavedViews({ experimentId });
-  return <TracesV3ShareButton experimentId={experimentId} savedViews={savedViews} />;
 };
 
 // Mirrors the PRODUCTION component layering: useTraceSavedViews is hoisted ABOVE the
@@ -271,38 +261,17 @@ describe('TracesV3SavedViewsButton', () => {
 
     expect(screen.getByText(/No saved views yet/)).toBeInTheDocument();
   });
-});
 
-describe('TracesV3ShareButton', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockCopyToClipboard.mockResolvedValue(true);
-  });
+  test('the "Save & share current view" entry opens the save-and-share modal (name-first)', async () => {
+    renderButton();
+    await openDropdown();
 
-  test('opens the Save & share view modal (name-first) rather than copying an anonymous link', async () => {
-    render(
-      <IntlProvider locale="en">
-        <DesignSystemProvider>
-          <MockedReduxStoreProvider>
-            <ShareButtonHarness experimentId="exp-1" />
-          </MockedReduxStoreProvider>
-        </DesignSystemProvider>
-      </IntlProvider>,
-      {
-        wrapper: ({ children }) => (
-          <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={['/']} />
-        ),
-      },
-    );
-
-    // No modal and no anonymous link until the button is clicked.
+    // No modal until the entry is clicked.
     expect(screen.queryByTestId('save-trace-view-name-input')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByTestId('trace-share-button'));
+    await userEvent.click(screen.getByTestId('trace-saved-views-save-current'));
 
-    // Sharing routes through the named-view flow: the modal prompts for a view name before saving,
-    // and nothing is copied to the clipboard just by opening it.
+    // Sharing routes through the named-view flow: the modal prompts for a view name before saving.
     expect(await screen.findByTestId('save-trace-view-name-input')).toBeInTheDocument();
-    expect(mockCopyToClipboard).not.toHaveBeenCalled();
   });
 });

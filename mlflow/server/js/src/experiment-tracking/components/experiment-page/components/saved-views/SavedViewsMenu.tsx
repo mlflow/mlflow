@@ -169,8 +169,8 @@ export const SavedViewsMenu = ({
             onClick={onSaveCurrent}
           >
             <FormattedMessage
-              defaultMessage="+ Save current view..."
-              description="Menu item that opens the modal to save the current view"
+              defaultMessage="+ Save & share current view..."
+              description="Menu item that opens the modal to save the current view and share it by link"
             />
           </DropdownMenu.Item>
         </>

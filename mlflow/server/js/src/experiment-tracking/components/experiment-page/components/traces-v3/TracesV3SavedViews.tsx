@@ -5,10 +5,10 @@ import type { EvaluationsOverviewTableSort } from '@databricks/web-shared/genai-
 import {
   BookmarkIcon,
   Button,
+  ChevronDownIcon,
   DangerModal,
   DropdownMenu,
   Input,
-  LinkIcon,
   Modal,
   Typography,
   useDesignSystemTheme,
@@ -535,6 +535,7 @@ export const TracesV3SavedViewsButton = ({
           <Button
             componentId="mlflow.traces.saved_views.trigger"
             icon={<BookmarkIcon />}
+            endIcon={<ChevronDownIcon />}
             data-testid="trace-saved-views-trigger"
           >
             {activeView ? (
@@ -596,50 +597,6 @@ export const TracesV3SavedViewsButton = ({
         onSaved={() => {
           // Keep the modal open so the share-link phase (savedUrl) is shown; the modal resets its
           // own state on cancel/close. Do not close here.
-        }}
-      />
-    </>
-  );
-};
-
-/**
- * "Share" button for the Traces toolbar. Opens the "Save & share view" modal, which names the
- * current view, persists it as a named saved view, then hands back a link. Sharing is always
- * something you do to a *named* view — there is no anonymous current-state link — so this is just a
- * more discoverable, top-level entry point to the same flow as the Views dropdown's "Save current
- * view…" item.
- */
-export const TracesV3ShareButton = ({
-  experimentId,
-  savedViews,
-}: {
-  experimentId: string;
-  savedViews: TraceSavedViewsApi;
-}) => {
-  const [showModal, setShowModal] = useState(false);
-  const { saveView, atCap } = savedViews;
-
-  return (
-    <>
-      <Button
-        componentId="mlflow.traces.share_current_view"
-        icon={<LinkIcon />}
-        data-testid="trace-share-button"
-        onClick={() => setShowModal(true)}
-      >
-        <FormattedMessage
-          defaultMessage="Share"
-          description="Label for the button that opens the save-and-share-view modal in the traces toolbar"
-        />
-      </Button>
-      <SaveTraceViewModal
-        experimentId={experimentId}
-        visible={showModal}
-        saveView={saveView}
-        atCap={atCap}
-        onCancel={() => setShowModal(false)}
-        onSaved={() => {
-          // Keep the modal open so the share-link phase (savedUrl) is shown; it resets on close.
         }}
       />
     </>
