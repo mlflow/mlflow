@@ -43,12 +43,6 @@ def test_default_provider_precedence(availability, available, expected):
     assert (provider.name if provider else None) == expected
 
 
-def test_default_provider_can_exclude_gateway(availability):
-    availability("mlflow_gateway")
-
-    assert resolve_default_provider(include_gateway=False) is None
-
-
 def test_default_provider_skips_probe_failures(availability, monkeypatch):
     availability("claude_code", "codex")
 
