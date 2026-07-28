@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785250258814,
+  "lastUpdate": 1785264078558,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -17279,6 +17279,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.880728799996973,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be138ab3087174b41959d0218696d4394a9440b3",
+          "message": "Fix experiment GC cascades for traces and logged models (#24351)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>\nCo-authored-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-07-28T18:37:32Z",
+          "tree_id": "432c45fcedb717206c560a9832c68d47bc0ad7d2",
+          "url": "https://github.com/mlflow/mlflow/commit/be138ab3087174b41959d0218696d4394a9440b3"
+        },
+        "date": 1785264077393,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.52431960000169,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.55424667647059,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.184220696427975,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.140602696429276,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 29.15764934482639,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.846405199996752,
             "unit": "ms"
           }
         ]
