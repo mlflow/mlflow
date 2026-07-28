@@ -11611,6 +11611,10 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
+  "n0SReK": {
+    "defaultMessage": "View \"{name}\" saved.",
+    "description": "Success toast shown after an experiment view is saved"
+  },
   "n0i7kI": {
     "defaultMessage": "Created by",
     "description": "Column selector label for the created-by column"
