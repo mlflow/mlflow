@@ -293,6 +293,8 @@ mlflow.set_experiment("my-tracing-experiment")
 mlflow.openai.autolog()  # Call before using OpenAI
 ```
 
+**Expired or missing credentials**: If your tracking URI points to a remote server that requires authentication, an expired or missing credential causes trace export to fail. Because tracing is best-effort, your application keeps running and the failed traces are dropped. The failure is written to your application logs, so check them for auth errors, verify your credentials are current, and refresh them if needed (for example, re-run your auth login). This is easy to hit when a short-lived token expires partway through a long session: earlier traces land and later ones do not.
+
 ## Multi-threading and Concurrency
 
 ### Q: My trace is split into multiple traces when doing multi-threading. How can I combine them into a single trace?

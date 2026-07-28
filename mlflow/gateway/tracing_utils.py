@@ -7,6 +7,9 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+import pydantic
+from cachetools import TTLCache
+
 import mlflow
 from mlflow.entities import LiveSpan, SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
@@ -25,10 +28,6 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
 
-# Placeholder stored in place of request/response content when an endpoint is
-# configured with `exclude_content`.
-EXCLUDED_CONTENT_PLACEHOLDER = "[REDACTED]"
-
 # Span attributes that carry raw request/response content. Usage metadata
 # attributes (token usage, cost, model, latency, status) are intentionally kept.
 _CONTENT_SPAN_ATTRIBUTE_KEYS = (
@@ -43,17 +42,37 @@ _STREAM_CHUNK_EVENT_PREFIX = STREAM_CHUNK_EVENT_NAME_FORMAT.split("{", 1)[0]
 
 # Trace IDs whose spans must have request/response content redacted before export.
 # Registered when a traced gateway call starts for an endpoint with
-# `exclude_content` enabled, and discarded when the trace's root span ends.
-_content_excluded_trace_ids: set[str] = set()
+# `exclude_content` enabled, and discarded when the gateway span ends. A TTL cache
+# bounds the registry so a trace whose gateway span never ends (e.g. an abandoned
+# stream) cannot leak memory; the TTL only needs to outlive a single request.
+_content_excluded_trace_ids: TTLCache = TTLCache(maxsize=10_000, ttl=3600)
+_content_excluded_trace_ids_lock = threading.Lock()
 _exclude_content_processor_lock = threading.Lock()
 
 
 def _scrub_span_content(span: LiveSpan) -> None:
-    for key in _CONTENT_SPAN_ATTRIBUTE_KEYS:
-        if span.get_attribute(key) is not None:
-            span.set_attribute(key, EXCLUDED_CONTENT_PLACEHOLDER)
-
+    # Drop the attributes outright rather than substituting a placeholder, matching
+    # how OTel GenAI instrumentations omit content when capture is disabled.
+    _drop_span_attributes(span, _CONTENT_SPAN_ATTRIBUTE_KEYS)
     _drop_stream_chunk_events(span)
+
+
+def _drop_span_attributes(span: LiveSpan, keys: tuple[str, ...]) -> None:
+    # There is no public API to remove a span attribute, so mutate the underlying
+    # OpenTelemetry attribute mapping. Best-effort: a failure here must never break
+    # the request. Fall back to emptying the value so content is never exported.
+    try:
+        attributes = span._span._attributes
+        for key in keys:
+            attributes.pop(key, None)
+    except Exception:
+        _logger.debug("Failed to drop content attributes from span", exc_info=True)
+        for key in keys:
+            try:
+                if span.get_attribute(key) is not None:
+                    span.set_attribute(key, None)
+            except Exception:
+                _logger.debug("Failed to clear span attribute %s", key, exc_info=True)
 
 
 def _drop_stream_chunk_events(span: LiveSpan) -> None:
@@ -78,12 +97,17 @@ def _exclude_content_span_processor(span: LiveSpan) -> None:
     provider model spans, and guardrail spans alike.
     """
     trace_id = span.trace_id
-    if trace_id not in _content_excluded_trace_ids:
+    with _content_excluded_trace_ids_lock:
+        gateway_span_id = _content_excluded_trace_ids.get(trace_id)
+    if gateway_span_id is None:
         return
     _scrub_span_content(span)
-    if span.parent_id is None:
-        # Root span ends last; the trace is fully scrubbed at this point.
-        _content_excluded_trace_ids.discard(trace_id)
+    if span.span_id == gateway_span_id:
+        # The gateway span wraps the whole call, so it ends last and the trace is
+        # fully scrubbed at this point. Keyed on the span ID rather than a missing
+        # parent because the gateway span may itself be nested under a caller's span.
+        with _content_excluded_trace_ids_lock:
+            _content_excluded_trace_ids.pop(trace_id, None)
 
 
 def _ensure_exclude_content_processor_registered() -> None:
@@ -102,7 +126,8 @@ def _ensure_exclude_content_processor_registered() -> None:
 
 def _register_content_exclusion() -> None:
     if span := mlflow.get_current_active_span():
-        _content_excluded_trace_ids.add(span.trace_id)
+        with _content_excluded_trace_ids_lock:
+            _content_excluded_trace_ids[span.trace_id] = span.span_id
 
 
 @dataclasses.dataclass
@@ -132,6 +157,15 @@ def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
     return None
 
 
+def _dump_payload(value: Any) -> Any:
+    """Serialize pydantic request payloads without None fields so the trace input
+    shows only the fields the caller actually sent, not every optional parameter.
+    """
+    if isinstance(value, pydantic.BaseModel):
+        return value.model_dump(exclude_none=True)
+    return value
+
+
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     """Unwrap inputs so trace shows the request body directly.
 
@@ -145,10 +179,10 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     # This takes precedence to handle cases where functions are called with
     # keyword arguments (e.g., action=..., payload=..., headers=...)
     if "payload" in kwargs:
-        span.set_inputs(kwargs["payload"])
+        span.set_inputs(_dump_payload(kwargs["payload"]))
     # For other endpoints with a single positional argument
     elif len(args) == 1 and not kwargs:
-        span.set_inputs(args[0])
+        span.set_inputs(_dump_payload(args[0]))
 
 
 def _has_traceparent(headers: dict[str, str]) -> bool:
@@ -276,7 +310,7 @@ def maybe_traced_gateway_call(
     Wrap a gateway function with tracing.
 
     When the endpoint is configured with ``exclude_content``, request/response
-    content (span inputs/outputs, chat tools) is redacted from every span of the
+    content (span inputs/outputs, chat tools) is dropped from every span of the
     trace before export, while usage metadata (token usage, cost, model, latency,
     status) is kept.
 
