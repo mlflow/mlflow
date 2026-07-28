@@ -1,6 +1,8 @@
 import uuid
+from datetime import date
 
 import pytest
+import sqlalchemy as sa
 
 from mlflow.entities import ExperimentTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -9,6 +11,12 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.store.db.workspace_move import _SPEC_BY_MODEL, MoveResult, move_resources
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
+)
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
+    SqlSpanCostDailyRollup,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
 )
 from mlflow.store.workspace.sqlalchemy_store import (
     SqlAlchemyStore as WorkspaceStore,
@@ -162,6 +170,81 @@ def test_move_all_experiments_no_filter(tracking_store, workspace_store, engine)
     assert "exp-1" in result.names
     assert "exp-2" in result.names
     assert result.row_count >= 2
+
+
+def test_move_experiment_preserves_inherited_analytics_ownership(
+    tracking_store, workspace_store, engine
+):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        moved_experiment_id = int(tracking_store.create_experiment("move-exp"))
+        retained_experiment_id = int(tracking_store.create_experiment("retain-exp"))
+
+    rollup_day = date(2026, 7, 27)
+    rollup_models = (
+        SqlTraceMetricDailyRollup,
+        SqlSpanCostDailyRollup,
+        SqlAssessmentDailyRollup,
+    )
+    analytics_models = (*rollup_models, SqlTraceRollupRebuild)
+    with engine.begin() as conn:
+        for experiment_id in (moved_experiment_id, retained_experiment_id):
+            values = {
+                "experiment_id": experiment_id,
+                "rollup_day": rollup_day,
+                "metric_name": "total_cost",
+                "grouping_set": "global",
+                "sample_count": 1,
+            }
+            for model in rollup_models:
+                conn.execute(model.__table__.insert().values(**values))
+            conn.execute(
+                SqlTraceRollupRebuild.__table__.insert().values(
+                    experiment_id=experiment_id,
+                    rollup_day=rollup_day,
+                    rollup_family="trace_metrics",
+                )
+            )
+
+    dry_run_result = move_resources(
+        engine,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="experiments",
+        names=["move-exp"],
+        dry_run=True,
+    )
+    assert dry_run_result.names == ["move-exp"]
+    with engine.connect() as conn:
+        for model in analytics_models:
+            assert (
+                conn.execute(
+                    sa.select(sa.func.count()).where(
+                        model.experiment_id.in_([moved_experiment_id, retained_experiment_id])
+                    )
+                ).scalar_one()
+                == 2
+            )
+
+    result = move_resources(
+        engine,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="experiments",
+        names=["move-exp"],
+    )
+
+    assert result.names == ["move-exp"]
+    assert result.row_count == 1
+    for workspace, expected_experiment_id in (
+        ("team-a", moved_experiment_id),
+        (DEFAULT_WORKSPACE_NAME, retained_experiment_id),
+    ):
+        with WorkspaceContext(workspace):
+            with tracking_store.ManagedSessionMaker() as session:
+                for model in analytics_models:
+                    rows = tracking_store._get_query(session, model).all()
+                    assert [row.experiment_id for row in rows] == [expected_experiment_id]
 
 
 # ---------------------------------------------------------------------------
