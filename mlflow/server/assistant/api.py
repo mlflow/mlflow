@@ -13,6 +13,7 @@ from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.gateway_connection import (
     GatewayUnsupportedError,
     ensure_gateway_connection,
@@ -447,6 +448,17 @@ async def get_config(request: Request) -> ConfigResponse:
     """
     config = AssistantConfig.load()
     providers = {name: p.model_dump() for name, p in config.providers.items()}
+    is_remote = not _is_localhost(request)
+    selected_provider = _get_selected_provider(config)
+    provider = selected_provider or resolve_default_provider(remote=is_remote)
+    if selected_provider is None and provider is not None:
+        provider_config = config.providers.get(provider.name) or AssistantProviderConfig()
+        provider_data = provider_config.model_dump()
+        provider_data["selected"] = True
+        if isinstance(provider, MlflowGatewayProvider) and provider_data["model"] == "default":
+            if models := provider.list_models():
+                provider_data["model"] = models[0]
+        providers[provider.name] = provider_data
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
@@ -458,9 +470,7 @@ async def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects=projects,
-        remote_access_allowed=_provider_allows_remote_access(
-            _resolve_provider(config, remote=not _is_localhost(request))
-        ),
+        remote_access_allowed=_provider_allows_remote_access(provider),
     )
 
 

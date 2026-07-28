@@ -135,8 +135,7 @@ def test_message(client):
     session_id = data["session_id"]
     assert session_id is not None
     assert (
-        data["stream_url"]
-        == f"/ajax-api/3.0/mlflow/assistant/sessions/{data['session_id']}/stream"
+        data["stream_url"] == f"/ajax-api/3.0/mlflow/assistant/sessions/{data['session_id']}/stream"
     )
 
     # continue the conversation
@@ -267,6 +266,24 @@ def test_get_config_returns_empty_config(client):
     data = response.json()
     assert data["providers"] == {}
     assert data["projects"] == {}
+
+
+def test_get_config_exposes_default_provider_when_none_selected():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["mock_provider"]["selected"] is True
+    assert data["providers"]["mock_provider"]["model"] == "default"
 
 
 def test_get_config_returns_existing_config(client, tmp_path):
