@@ -328,7 +328,7 @@ jobs:
           | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
           > [!NOTE]
-          > This preview is only accessible to users with Databricks workspace access.
+          > This preview is only accessible to core maintainers with workspace access.
           > The preview updates automatically when new commits are pushed."
 
           # Find existing comment
