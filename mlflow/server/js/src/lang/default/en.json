@@ -111,10 +111,6 @@
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
   },
-  "+WaZ18": {
-    "defaultMessage": "Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found",
-    "description": "Issue detection progress > Progress summary when completed"
-  },
   "+Wd9fs": {
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
@@ -1574,6 +1570,10 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
+  },
+  "5EY1X7": {
+    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
+    "description": "Introduction of the guidance callout on low-result issue detection runs"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -4611,6 +4611,10 @@
     "defaultMessage": "Transport",
     "description": "Endpoint drawer transport label"
   },
+  "IxV+1g": {
+    "defaultMessage": "This stops the current run. You can start a new one at any time.",
+    "description": "Body of the confirmation dialog for canceling an issue detection run"
+  },
   "J+Mfua": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 evaluation dataset delete modal"
@@ -5959,6 +5963,10 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
+  "Ortr1x": {
+    "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
+    "description": "Suggestion to collect user feedback on traces, with documentation link"
+  },
   "OvkqyX": {
     "defaultMessage": "Add Tag",
     "description": "Modal title for adding a new tag"
@@ -6427,6 +6435,10 @@
     "defaultMessage": "Discard shared view",
     "description": "Menu item that discards the currently-applied shared view and restores the user's own view"
   },
+  "R+r9jY": {
+    "defaultMessage": "Cancel issue detection?",
+    "description": "Title of the confirmation dialog for canceling an issue detection run"
+  },
   "R/4/8G": {
     "defaultMessage": "Metric",
     "description": "Label for the metric column in the logged model details metrics table"
@@ -6859,6 +6871,10 @@
     "defaultMessage": "Custom code judge feedback",
     "description": "Tooltip content for custom code judge feedback"
   },
+  "Sw9saQ": {
+    "defaultMessage": "Add more traces. Only {count, plural, one {1 trace was} other {# traces were}} analyzed.",
+    "description": "Suggestion to analyze more traces, with the number analyzed in this run"
+  },
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
@@ -7078,6 +7094,10 @@
   "U+nNo1": {
     "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
     "description": "Generic error message for budget policy update"
+  },
+  "U0eQAT": {
+    "defaultMessage": "Only 1 issue found. There may be more.",
+    "description": "Title of the guidance callout when an issue detection run found a single issue"
   },
   "U0joaT": {
     "defaultMessage": "Select traces",
@@ -7307,6 +7327,10 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
+  "V386Xy": {
+    "defaultMessage": "0 issues doesn't always mean all clear",
+    "description": "Title of the guidance callout when an issue detection run found no issues"
+  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -7483,6 +7507,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
   },
+  "VjeYic": {
+    "defaultMessage": "<link>Annotate traces</link> in the review queue to capture known issues",
+    "description": "Suggestion to annotate traces in the review queue, with link to the review queue"
+  },
   "Vjha2S": {
     "defaultMessage": "Guardrails",
     "description": "Tab label for endpoint guardrails"
@@ -7530,6 +7558,10 @@
   "VtJXih": {
     "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
     "description": "Queue settings: validation shown when no questions are selected"
+  },
+  "VuoTZe": {
+    "defaultMessage": "Cancel run",
+    "description": "Confirm button that cancels the issue detection run"
   },
   "Vvs+79": {
     "defaultMessage": "Low",
@@ -8019,10 +8051,6 @@
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
   },
-  "Y+bHa1": {
-    "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary while running"
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -8038,6 +8066,10 @@
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
+  },
+  "Y31bI7": {
+    "defaultMessage": "Try a stronger model. Model quality directly affects detection accuracy.",
+    "description": "Suggestion to use a stronger model for issue detection"
   },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
@@ -8634,6 +8666,10 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "adOmg9": {
+    "defaultMessage": "Add more traces for broader coverage",
+    "description": "Suggestion to analyze more traces"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",
@@ -9314,6 +9350,10 @@
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
+  },
+  "dWC3yM": {
+    "defaultMessage": "Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found",
+    "description": "Issue detection progress > Progress summary when completed"
   },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
@@ -12051,6 +12091,10 @@
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
   },
+  "opk7FD": {
+    "defaultMessage": "Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary while running"
+  },
   "oqBCfB": {
     "defaultMessage": "With the latest Model Registry UI, you can use <b>Model Aliases</b> for flexible references to specific model versions, streamlining deployment in a given environment. Use <b>Model Tags</b> to annotate model versions with metadata, like the status of pre-deployment checks.",
     "description": "Model registry > OSS Promo modal for model version aliases > description paragraph body"
@@ -12678,6 +12722,10 @@
   "rRhMQt": {
     "defaultMessage": "Execution time (ms)",
     "description": "Column label for execution time with the unit suffix"
+  },
+  "rXJqoL": {
+    "defaultMessage": "Adjust and run again",
+    "description": "Button to adjust issue detection settings and run from the low-results callout"
   },
   "rY00Iw": {
     "defaultMessage": "Add filter",
