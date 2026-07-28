@@ -6229,24 +6229,6 @@ def test_update_budget_policy_scope_switch_does_not_inherit_target():
     store.update_budget_policy.assert_not_called()
 
 
-def test_list_budget_windows_includes_target_value():
-    tracker = InMemoryBudgetTracker()
-    policy = _make_endpoint_budget_policy(budget_policy_id="bp-ep", target_value="ep-1")
-    tracker.refresh_policies([policy])
-
-    with (
-        app.test_client() as c,
-        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
-        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
-    ):
-        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
-
-    assert response.status_code == 200
-    window = response.json["windows"][0]
-    assert window["budget_policy_id"] == "bp-ep"
-    assert window["target_value"] == "ep-1"
-
-
 def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
     tracker = InMemoryBudgetTracker()
     ep_team_a = _make_endpoint_budget_policy(

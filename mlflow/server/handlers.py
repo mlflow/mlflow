@@ -6605,8 +6605,6 @@ def _list_budget_windows():
             window_end_ms=int(w.window_end.timestamp() * 1000),
             current_spend=w.cumulative_spend,
         )
-        if w.policy.target_value is not None:
-            window_msg.target_value = w.policy.target_value
         response_message.windows.append(window_msg)
     return _wrap_response(response_message)
 
