@@ -501,10 +501,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const selectProvider = useCallback(
     (selection: AssistantProviderSelection) => {
+      if (!isLocalServer) {
+        return;
+      }
       pendingProviderSelectionRef.current = selection;
       setActiveProvider(activeProviderFromSelection(selection, providers));
     },
-    [providers],
+    [isLocalServer, providers],
   );
 
   // Persist a pending optimistic provider pick to config before a turn streams,
@@ -515,7 +518,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (!pending) {
       return;
     }
-    pendingProviderSelectionRef.current = null;
     const providerUpdate: { selected: true; model?: string; gateway_vendor?: string } = { selected: true };
     const providerName = pending.kind === 'gateway' ? GATEWAY_PROVIDER_ID : pending.name;
     if (pending.kind === 'gateway' && pending.gatewayVendor) {
@@ -529,6 +531,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       providerUpdate.model = pending.model;
     }
     await updateConfig({ providers: { [providerName]: providerUpdate } });
+    if (pendingProviderSelectionRef.current === pending) {
+      pendingProviderSelectionRef.current = null;
+    }
     // Sync the resolved provider in the background (fills the gateway endpoint's
     // model vendor, clears needsApiKey after a key save). Not awaited so it
     // never delays the stream.
@@ -836,26 +841,42 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         },
       ]);
 
-      // Commit any optimistic provider pick before streaming the turn (await
-      // only when pending, to keep the no-switch path synchronous).
-      if (pendingProviderSelectionRef.current) {
-        await flushPendingProvider();
-      }
+      try {
+        // Commit any optimistic provider pick before streaming the turn (await
+        // only when pending, to keep the no-switch path synchronous).
+        if (pendingProviderSelectionRef.current) {
+          await flushPendingProvider();
+        }
 
-      // Send message and stream response
-      const pageContext = getPageContext();
-      const result = await sendMessageStream(
-        {
-          session_id: sessionId,
-          message,
-          experiment_id: pageContext['experimentId'] as string | undefined,
-          context: pageContext,
-        },
-        withGuard(isCurrent, streamCallbacks),
-      );
-      attachStreamIfCurrent(isCurrent, result);
+        // Send message and stream response
+        const pageContext = getPageContext();
+        const result = await sendMessageStream(
+          {
+            session_id: sessionId,
+            message,
+            experiment_id: pageContext['experimentId'] as string | undefined,
+            context: pageContext,
+          },
+          withGuard(isCurrent, streamCallbacks),
+        );
+        attachStreamIfCurrent(isCurrent, result);
+      } catch (err) {
+        if (!isCurrent()) {
+          return;
+        }
+        failStreamingTurn(err instanceof Error ? err.message : 'Failed to send message');
+      }
     },
-    [sessionId, startChat, beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks],
+    [
+      sessionId,
+      startChat,
+      beginRequest,
+      attachStreamIfCurrent,
+      flushPendingProvider,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+    ],
   );
 
   const handleCancelSession = useCallback(() => {
@@ -938,24 +959,31 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ];
     });
 
-    // Commit any optimistic provider pick before re-streaming the turn (await
-    // only when pending, to keep the no-switch path synchronous).
-    if (pendingProviderSelectionRef.current) {
-      await flushPendingProvider();
-    }
+    try {
+      // Commit any optimistic provider pick before re-streaming the turn (await
+      // only when pending, to keep the no-switch path synchronous).
+      if (pendingProviderSelectionRef.current) {
+        await flushPendingProvider();
+      }
 
-    // Re-send the last user message
-    const pageContext = getPageContext();
-    const result = await sendMessageStream(
-      {
-        session_id: sessionId ?? undefined,
-        message: userMessageContent,
-        experiment_id: pageContext['experimentId'] as string | undefined,
-        context: pageContext,
-      },
-      withGuard(isCurrent, streamCallbacks),
-    );
-    attachStreamIfCurrent(isCurrent, result);
+      // Re-send the last user message
+      const pageContext = getPageContext();
+      const result = await sendMessageStream(
+        {
+          session_id: sessionId ?? undefined,
+          message: userMessageContent,
+          experiment_id: pageContext['experimentId'] as string | undefined,
+          context: pageContext,
+        },
+        withGuard(isCurrent, streamCallbacks),
+      );
+      attachStreamIfCurrent(isCurrent, result);
+    } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
+      failStreamingTurn(err instanceof Error ? err.message : 'Failed to regenerate');
+    }
   }, [
     messages,
     sessionId,
@@ -965,6 +993,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     flushPendingProvider,
     getPageContext,
     streamCallbacks,
+    failStreamingTurn,
   ]);
 
   const value: AssistantAgentContextType = {

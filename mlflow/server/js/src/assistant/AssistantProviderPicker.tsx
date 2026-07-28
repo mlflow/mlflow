@@ -17,6 +17,10 @@ import { GatewayRoutePaths } from '../gateway/routes';
 import type { Endpoint } from '../gateway/types';
 
 const GATEWAY_VENDOR_ORDER = ['openai', 'anthropic', 'gemini'];
+const PROVIDER_SELECTION_KIND = {
+  Provider: 'provider',
+  Gateway: 'gateway',
+} as const;
 type OnSelectProvider = (selection: AssistantProviderSelection) => void;
 
 const gatewayVendorEndpointName = (vendor: string): string => `mlflow-assistant-${vendor}`;
@@ -76,7 +80,7 @@ const GatewayVendorItems = ({
             key={vendor}
             onClick={() =>
               onSelect({
-                kind: 'gateway',
+                kind: PROVIDER_SELECTION_KIND.Gateway,
                 endpointName,
                 gatewayVendor: vendor,
                 providerModel,
@@ -121,7 +125,7 @@ const GatewayEndpointItems = ({
         <DropdownMenu.Item
           componentId="mlflow.assistant.provider_picker.endpoint"
           key={endpoint.name}
-          onClick={() => onSelect({ kind: 'gateway', endpointName: endpoint.name })}
+          onClick={() => onSelect({ kind: PROVIDER_SELECTION_KIND.Gateway, endpointName: endpoint.name })}
         >
           {endpoint.name}
         </DropdownMenu.Item>
@@ -239,7 +243,13 @@ const ProviderMenu = ({
               componentId="mlflow.assistant.provider_picker.item"
               key={candidate.name}
               disabled={!candidate.available}
-              onClick={() => onSelect({ kind: 'provider', name: candidate.name, model: candidate.model_options[0] })}
+              onClick={() =>
+                onSelect({
+                  kind: PROVIDER_SELECTION_KIND.Provider,
+                  name: candidate.name,
+                  model: candidate.model_options[0],
+                })
+              }
             >
               {itemContent}
             </DropdownMenu.Item>
@@ -349,7 +359,7 @@ export const AssistantProviderPicker = ({
         onSelect={(model) => {
           if (provider.name === GATEWAY_PROVIDER_ID && provider.model_provider) {
             onSelect({
-              kind: 'gateway',
+              kind: PROVIDER_SELECTION_KIND.Gateway,
               endpointName: provider.model ?? gatewayVendorEndpointName(provider.model_provider),
               gatewayVendor: provider.model_provider,
               providerModel: model,
@@ -358,7 +368,7 @@ export const AssistantProviderPicker = ({
               hasApiKey: provider.has_api_key,
             });
           } else {
-            onSelect({ kind: 'provider', name: provider.name, model });
+            onSelect({ kind: PROVIDER_SELECTION_KIND.Provider, name: provider.name, model });
           }
         }}
       />

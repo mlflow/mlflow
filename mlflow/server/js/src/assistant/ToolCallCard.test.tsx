@@ -3,7 +3,14 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { ToolCallCard, ToolCallGroup, groupStatus, toolNameSummary, type ToolCallPart } from './ToolCallCard';
+import {
+  ToolCallCard,
+  ToolCallGroup,
+  fencedBlock,
+  groupStatus,
+  toolNameSummary,
+  type ToolCallPart,
+} from './ToolCallCard';
 
 const renderCard = (part: ToolCallPart) =>
   renderWithIntl(
@@ -98,6 +105,16 @@ describe('ToolCallCard', () => {
 
     await user.click(screen.getByText('Bash'));
     await waitFor(() => expect(document.body.textContent).toContain('truncated, 1000 more chars'));
+  });
+});
+
+describe('fencedBlock', () => {
+  test('uses the standard triple-backtick fence when the body has no backtick runs', () => {
+    expect(fencedBlock('{"ok":true}', 'json')).toBe('```json\n{"ok":true}\n```');
+  });
+
+  test('uses a longer fence than any backtick run in the body', () => {
+    expect(fencedBlock('before ``` inside ```` after')).toBe('`````\nbefore ``` inside ```` after\n`````');
   });
 });
 

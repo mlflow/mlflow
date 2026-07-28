@@ -159,7 +159,10 @@ const StreamingIndicator = () => {
           '@keyframes dots': DOTS_ANIMATION,
         }}
       >
-        Processing
+        <FormattedMessage
+          defaultMessage="Processing"
+          description="Processing indicator while Assistant is streaming a response"
+        />
       </span>
     </div>
   );

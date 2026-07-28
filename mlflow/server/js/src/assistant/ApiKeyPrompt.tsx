@@ -62,6 +62,7 @@ export const ApiKeyPrompt = ({
       } else {
         await updateConfig({ providers: { [providerId]: { api_key: apiKey.trim() } } });
       }
+      setIsSaving(false);
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the API key');

@@ -1,3 +1,4 @@
+/* eslint-disable @databricks/no-mock-location */
 import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -68,6 +69,7 @@ const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
 const mockGetProviders = jest.mocked(AssistantService.getProviders);
 const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
+const originalLocation = window.location;
 
 // A fake EventSource — the real one is created inside sendMessageStream, which we mock,
 // so the context only ever calls .close() on what we hand back here.
@@ -101,6 +103,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   jest.restoreAllMocks();
   jest.clearAllMocks();
 });
@@ -494,6 +497,80 @@ describe('AssistantProvider setup state from provider discovery', () => {
         },
       },
     });
+  });
+
+  test('ignores provider selection on remote clients because config updates are local-only', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, hostname: 'remote.example.com' },
+      writable: true,
+    });
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, remote_access_allowed: true });
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+
+    expect(result.current.isLocalServer).toBe(false);
+    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  test('a failed pending provider pick closes the established-session placeholder as failed', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    await act(async () => {
+      result.current.sendMessage('first');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+    });
+    expect(result.current.isStreaming).toBe(false);
+    mockSendMessageStream.mockClear();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+    mockUpdateConfig.mockRejectedValueOnce(new Error('could not save provider'));
+
+    await act(async () => {
+      result.current.sendMessage('second');
+    });
+
+    const failedAssistantTurn = result.current.messages[result.current.messages.length - 1];
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.error).toBe('could not save provider');
+    expect(failedAssistantTurn).toMatchObject({ role: 'assistant', isStreaming: false });
+    expect(failedAssistantTurn.content).toContain('Error: could not save provider');
   });
 
   test('discovery failure => setup treated as incomplete', async () => {
