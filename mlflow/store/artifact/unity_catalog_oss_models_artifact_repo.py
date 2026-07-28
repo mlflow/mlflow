@@ -2,7 +2,6 @@ import base64
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.unity_catalog_messages_pb2 import (
     READ_MODEL_VERSION as MODEL_VERSION_OPERATION_READ_OSS,
 )
@@ -26,7 +25,6 @@ from mlflow.utils._unity_catalog_utils import (
 from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
     _UC_OSS_REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
@@ -38,7 +36,6 @@ from mlflow.utils.uri import (
     is_oss_unity_catalog_uri,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO_OSS = extract_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
