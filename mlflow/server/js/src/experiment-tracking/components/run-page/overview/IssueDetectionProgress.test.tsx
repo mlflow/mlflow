@@ -136,6 +136,39 @@ describe('IssueDetectionProgress telemetry', () => {
   });
 });
 
+describe('IssueDetectionProgress summary copy', () => {
+  const { useSearchIssuesQuery } = jest.requireMock('../hooks/useSearchIssuesQuery') as {
+    useSearchIssuesQuery: jest.Mock;
+  };
+
+  test('pluralizes running summary counts', () => {
+    useSearchIssuesQuery.mockReturnValue({ issues: [{ issue_id: 'iss-1' }] });
+
+    renderWithIntl(
+      <MemoryRouter>
+        <IssueDetectionProgress jobStatus={JobStatus.RUNNING} totalTraces={1} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('1 trace')).toBeInTheDocument();
+    expect(screen.getByText('1 issue')).toBeInTheDocument();
+    expect(screen.getByText(/identified so far/)).toBeInTheDocument();
+  });
+
+  test('pluralizes completed summary counts', () => {
+    useSearchIssuesQuery.mockReturnValue({ issues: [{ issue_id: 'iss-1' }] });
+
+    renderWithIntl(
+      <MemoryRouter>
+        <IssueDetectionProgress jobStatus={JobStatus.SUCCEEDED} totalTraces={3} result={{ issues: 1 }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('3 traces')).toBeInTheDocument();
+    expect(screen.getByText('1 issue')).toBeInTheDocument();
+  });
+});
+
 describe('IssueDetectionProgress low-result callout', () => {
   const { useSearchIssuesQuery } = jest.requireMock('../hooks/useSearchIssuesQuery') as {
     useSearchIssuesQuery: jest.Mock;

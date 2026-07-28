@@ -111,10 +111,6 @@
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
   },
-  "+WaZ18": {
-    "defaultMessage": "Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found",
-    "description": "Issue detection progress > Progress summary when completed"
-  },
   "+Wd9fs": {
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
@@ -4595,13 +4591,13 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
-  "IxV+1g": {
-    "defaultMessage": "This stops the current run. You can start a new one at any time.",
-    "description": "Body of the confirmation dialog for canceling an issue detection run"
-  },
   "Itto3x": {
     "defaultMessage": "Transport",
     "description": "Endpoint drawer transport label"
+  },
+  "IxV+1g": {
+    "defaultMessage": "This stops the current run. You can start a new one at any time.",
+    "description": "Body of the confirmation dialog for canceling an issue detection run"
   },
   "J+Mfua": {
     "defaultMessage": "Delete",
@@ -5082,10 +5078,6 @@
   "L3szkg": {
     "defaultMessage": "Failed to create assessment. Error: {error}",
     "description": "Error message when creating an assessment fails"
-  },
-  "L5/mUT": {
-    "defaultMessage": "Adjust and run again",
-    "description": "Button to adjust issue detection settings and run from the low-results callout"
   },
   "L5OVKv": {
     "defaultMessage": "Transport type",
@@ -6411,13 +6403,13 @@
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
   },
-  "R+r9jY": {
-    "defaultMessage": "Cancel issue detection?",
-    "description": "Title of the confirmation dialog for canceling an issue detection run"
-  },
   "QzRwbK": {
     "defaultMessage": "Discard shared view",
     "description": "Menu item that discards the currently-applied shared view and restores the user's own view"
+  },
+  "R+r9jY": {
+    "defaultMessage": "Cancel issue detection?",
+    "description": "Title of the confirmation dialog for canceling an issue detection run"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -8031,10 +8023,6 @@
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
   },
-  "Y+bHa1": {
-    "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary while running"
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -9334,6 +9322,10 @@
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
+  },
+  "dWC3yM": {
+    "defaultMessage": "Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found",
+    "description": "Issue detection progress > Progress summary when completed"
   },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
@@ -12063,6 +12055,10 @@
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
   },
+  "opk7FD": {
+    "defaultMessage": "Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary while running"
+  },
   "oqBCfB": {
     "defaultMessage": "With the latest Model Registry UI, you can use <b>Model Aliases</b> for flexible references to specific model versions, streamlining deployment in a given environment. Use <b>Model Tags</b> to annotate model versions with metadata, like the status of pre-deployment checks.",
     "description": "Model registry > OSS Promo modal for model version aliases > description paragraph body"
@@ -12690,6 +12686,10 @@
   "rRhMQt": {
     "defaultMessage": "Execution time (ms)",
     "description": "Column label for execution time with the unit suffix"
+  },
+  "rXJqoL": {
+    "defaultMessage": "Adjust and run again",
+    "description": "Button to adjust issue detection settings and run from the low-results callout"
   },
   "rY00Iw": {
     "defaultMessage": "Add filter",

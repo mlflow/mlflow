@@ -223,8 +223,9 @@ export const IssueDetectionProgress = ({
         <div css={{ marginLeft: 24 }}>
           <Typography.Hint>
             {jobComplete ? (
+              // eslint-disable-next-line formatjs/no-multiple-plurals
               <FormattedMessage
-                defaultMessage="Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found"
+                defaultMessage="Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found"
                 description="Issue detection progress > Progress summary when completed"
                 values={{
                   totalTraces,
@@ -248,8 +249,9 @@ export const IssueDetectionProgress = ({
                 }}
               />
             ) : (
+              // eslint-disable-next-line formatjs/no-multiple-plurals
               <FormattedMessage
-                defaultMessage="Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far"
+                defaultMessage="Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far"
                 description="Issue detection progress > Progress summary while running"
                 values={{
                   totalTraces,
