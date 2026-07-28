@@ -70,7 +70,6 @@ When using Databricks managed MLflow, the cost computation requires the client a
 Cost can appear as $0.00 even when token counts are tracked correctly. This happens when the model name recorded on the span has no matching entry in LiteLLM's price table. Databricks serving-endpoint names (for example, `databricks-claude-opus-4-8`) are one such case: LiteLLM cannot infer the provider from the bare endpoint name, so it returns no price.
 
 To fix this, [set the cost attributes directly on the span](#manually-setting-token-and-cost-information).
-
 :::
 
 ## Viewing in the UI
