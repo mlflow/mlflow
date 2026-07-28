@@ -1299,17 +1299,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MCP',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'mcp/index',
-        },
-      ],
-    },
-    {
-      type: 'category',
       label: 'MCP Registry',
       className: 'sidebar-top-level-category',
       items: [
@@ -1361,6 +1350,17 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'html',
       value: '<b>References</b>',
       defaultStyle: true,
+    },
+    {
+      type: 'category',
+      label: 'MLflow MCP Server',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
     },
     {
       type: 'category',

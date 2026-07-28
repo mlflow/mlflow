@@ -39,7 +39,7 @@ MCP Registry is an experimental feature introduced in MLflow 3.15.0. APIs and be
   },
   {
     icon: Link,
-    title: "Access Endpoints",
+    title: "Manage Access",
     description: "Define and manage connection endpoints for each server, pinned to a specific version or alias. Generate ready-to-use connection instructions for Claude Code, .mcp.json, and more."
   },
 ]} />
@@ -59,6 +59,13 @@ MCP Registry is an experimental feature introduced in MLflow 3.15.0. APIs and be
       2. Navigate to the **MCP Registry** section in the sidebar.
       3. Click the **Create MCP server** button.
       4. Enter a display name and edit the **server.json** payload with the server's configuration.
+
+      :::tip What is server.json?
+
+      The `server.json` file follows the [open MCP registry standard](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) and describes an MCP server's metadata, packages, and remote endpoints. Many popular MCP servers publish one in their GitHub repository.
+
+      :::
+
       5. Click **Create** to register the server.
     </div>
 
