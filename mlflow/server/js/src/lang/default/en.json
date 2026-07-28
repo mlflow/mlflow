@@ -107,10 +107,6 @@
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
   },
-  "+Vc8hK": {
-    "defaultMessage": "Share",
-    "description": "Label for the button that opens the save-and-share-view modal in the experiment runs toolbar"
-  },
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
@@ -538,6 +534,10 @@
   "0HIfuE": {
     "defaultMessage": "Outputs of the trace, derived from the root span's outputs",
     "description": "Tooltip description for the Response column in the traces table"
+  },
+  "0HUkFk": {
+    "defaultMessage": "Your view was overridden.",
+    "description": "Traces page > shared view > confirmation toast after overriding the user's view with a shared view"
   },
   "0HbGko": {
     "defaultMessage": "Model",
@@ -1563,6 +1563,10 @@
     "defaultMessage": "Output /1M",
     "description": "Table header for output cost"
   },
+  "581sYm": {
+    "defaultMessage": "Override my view",
+    "description": "Traces Views menu > entry that adopts the applied shared view into the user's own view"
+  },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
@@ -2411,6 +2415,10 @@
     "defaultMessage": "Success Rate",
     "description": "Label for success rate statistic"
   },
+  "96tEXl": {
+    "defaultMessage": "This saved view no longer exists.",
+    "description": "Error toast shown when opening a saved traces view that has been deleted"
+  },
   "97xY+o": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading message for endpoints list"
@@ -2683,6 +2691,10 @@
     "defaultMessage": "Child runs loading",
     "description": "Run page > Overview > Child runs loading"
   },
+  "A6k+VR": {
+    "defaultMessage": "Save the current columns, filters, sort and time range as a named view, then share it by link.",
+    "description": "Explanation shown in the save-traces-view modal describing what a saved view captures"
+  },
   "A7R0ii": {
     "defaultMessage": "Copy path",
     "description": "Copy tooltip to copy experiment path from experiment runs table header"
@@ -2910,6 +2922,10 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
+  },
+  "B72CCA": {
+    "defaultMessage": "This saved view could not be shared.",
+    "description": "Error toast shown when building a saved traces view share link fails"
   },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
@@ -3799,6 +3815,10 @@
     "defaultMessage": "Parallel coordinates",
     "description": "Experiment tracking > runs charts > add chart menu > parallel coordinates"
   },
+  "FD9uxI": {
+    "defaultMessage": "Delete saved view",
+    "description": "Title of the delete-traces-view confirmation"
+  },
   "FFe+Ug": {
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
@@ -4110,6 +4130,10 @@
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
+  },
+  "Gnn+ae": {
+    "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
+    "description": "Confirmation toast shown after copying a saved traces view share link"
   },
   "GogRws": {
     "defaultMessage": "Loading judges...",
@@ -4578,6 +4602,10 @@
   "J+Q9dW": {
     "defaultMessage": "Trace Archival Location",
     "description": "Label for workspace trace archival location field"
+  },
+  "J/D4aJ": {
+    "defaultMessage": "This saved view could not be opened.",
+    "description": "Error toast shown when a saved traces view fails to decode"
   },
   "J/srtP": {
     "defaultMessage": "{count} {count, plural, one {value} other {values}}",
@@ -5223,6 +5251,10 @@
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
   },
+  "M/tp81": {
+    "defaultMessage": "Hide banner",
+    "description": "Experiment page > shared view banner > button that hides the banner while keeping the shared view applied"
+  },
   "M0O/hf": {
     "defaultMessage": "(cache write)",
     "description": "Label for cache creation input token usage"
@@ -5311,6 +5343,10 @@
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
   },
+  "MQfqVe": {
+    "defaultMessage": "Delete \"{name}\"? This can't be undone.",
+    "description": "Body of the delete-traces-view confirmation"
+  },
   "MQlFT0": {
     "defaultMessage": "Inputs",
     "description": "Section title for inputs in the V2 dataset record side panel"
@@ -5351,6 +5387,10 @@
     "defaultMessage": "Actions ({count})",
     "description": "Actions dropdown button label with count of selected sessions"
   },
+  "MZPdBw": {
+    "defaultMessage": "Save view",
+    "description": "Title of the modal that saves the current traces view and produces a shareable link"
+  },
   "MatV9u": {
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
@@ -5390,6 +5430,10 @@
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
+  },
+  "Mib3VA": {
+    "defaultMessage": "Override saved view",
+    "description": "Experiment page Views menu > entry that overwrites the user's saved view with the applied shared view"
   },
   "MjypBt": {
     "defaultMessage": "Pending ({count})",
@@ -6283,6 +6327,10 @@
     "defaultMessage": "Error details",
     "description": "Issue detection error details > Title"
   },
+  "QfSTsy": {
+    "defaultMessage": "Dismiss this banner. You'll keep viewing the shared view.",
+    "description": "Tooltip on the shared view banner's dismiss button explaining it hides the banner but keeps the view"
+  },
   "Qg12xQ": {
     "defaultMessage": "Register prompts",
     "description": "Home page quick action title for registering prompts"
@@ -6350,6 +6398,10 @@
   "QybNk9": {
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
+  },
+  "QzRwbK": {
+    "defaultMessage": "Discard shared view",
+    "description": "Menu item that discards the currently-applied shared view and restores the user's own view"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -7307,6 +7359,10 @@
     "defaultMessage": "Delete",
     "description": "Delete webhook button"
   },
+  "VM1pKU": {
+    "defaultMessage": "This view is too large to save.",
+    "description": "Error toast shown when a saved traces view exceeds the experiment-tag size limit"
+  },
   "VMHghH": {
     "defaultMessage": "Latest version:",
     "description": "Quick connect modal latest version label"
@@ -8075,6 +8131,10 @@
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
   },
+  "YXS+Tk": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own view.",
+    "description": "Traces page > shared view banner explaining that changes are not persisted while previewing"
+  },
   "YYGGIr": {
     "defaultMessage": "Tags could not be saved",
     "description": "Error notification when saving MCP server tags fails"
@@ -8438,6 +8498,10 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAY0J8": {
+    "defaultMessage": "Override my view",
+    "description": "Traces shared view banner > button that adopts the shared view into the user's own view"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
@@ -9131,6 +9195,10 @@
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
   },
+  "d5gWbr": {
+    "defaultMessage": "This view could not be applied. Try again in a moment.",
+    "description": "Traces page > shared view > error toast when overriding before the view could be decoded"
+  },
   "d6Mx+/": {
     "defaultMessage": "Current password is required",
     "description": "Validation error when the current-password field is empty"
@@ -9387,6 +9455,10 @@
     "defaultMessage": "Destination",
     "description": "Label for the destination selector in the playground save-prompt-version modal"
   },
+  "eGhQB6": {
+    "defaultMessage": "Override my view",
+    "description": "Menu item that adopts the currently-applied shared view into the user's own view"
+  },
   "eIM9PU": {
     "defaultMessage": "Open dataset record {recordId} — tags",
     "description": "Aria label for the tags-preview cell that opens the record drawer"
@@ -9398,6 +9470,10 @@
   "eIdMWq": {
     "defaultMessage": "Reset example",
     "description": "Reset example button"
+  },
+  "eIk7yy": {
+    "defaultMessage": "You're viewing a shared view",
+    "description": "Heading above the override/discard actions in the saved views menu, shown while a shared view is applied"
   },
   "eLgTRT": {
     "defaultMessage": "Key",
@@ -9458,6 +9534,10 @@
   "eWm+AG": {
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
+  },
+  "eYEyfq": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button for deleting a traces view"
   },
   "eYZ/ZL": {
     "defaultMessage": "Endpoints",
@@ -9702,6 +9782,10 @@
   "ffema5": {
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
+  },
+  "fh1apj": {
+    "defaultMessage": "View name",
+    "description": "Placeholder for the name input when saving a traces view"
   },
   "fh6RWb": {
     "defaultMessage": "{count} more...",
@@ -10587,6 +10671,10 @@
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
   },
+  "itlAT2": {
+    "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
+    "description": "Error toast shown when saving a traces view once the experiment is at the saved-view cap"
+  },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
     "description": "Text for provide feedback button on experiment view page header"
@@ -11435,6 +11523,10 @@
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
   },
+  "mk/23q": {
+    "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
+    "description": "Message shown in the save-traces-view modal when the experiment has reached the saved-view cap"
+  },
   "mltH0e": {
     "defaultMessage": "Show assessments",
     "description": "Label for the button to show the assessments pane"
@@ -11519,6 +11611,10 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
+  "n0SReK": {
+    "defaultMessage": "View \"{name}\" saved.",
+    "description": "Success toast shown after an experiment view is saved"
+  },
   "n0i7kI": {
     "defaultMessage": "Created by",
     "description": "Column selector label for the created-by column"
@@ -11538,6 +11634,10 @@
   "n4on5x": {
     "defaultMessage": "Create",
     "description": "Gateway > API keys list > Create button"
+  },
+  "n545X4": {
+    "defaultMessage": "A view named \"{name}\" already exists. Choose a different name.",
+    "description": "Error toast shown when saving a traces view whose name is already taken"
   },
   "n6SrIn": {
     "defaultMessage": "Edit history",
@@ -12315,6 +12415,10 @@
     "defaultMessage": "Copied to clipboard",
     "description": "Success message after copying trace link"
   },
+  "qeC5dV": {
+    "defaultMessage": "Failed to save the view.",
+    "description": "Error toast shown when saving a traces view fails"
+  },
   "qgCzU6": {
     "defaultMessage": "Edit access endpoint",
     "description": "Aria label for edit access endpoint button"
@@ -12439,6 +12543,10 @@
     "defaultMessage": "Cancel judge",
     "description": "Button text for canceling judge evaluation"
   },
+  "r7THIr": {
+    "defaultMessage": "Copy failed — clipboard unavailable.",
+    "description": "Error toast shown when copying a saved traces view share link fails"
+  },
   "r7aGM3": {
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
@@ -12498,6 +12606,10 @@
   "rJzt9L": {
     "defaultMessage": "Updated {time}",
     "description": "Tooltip for the V2 dataset refresh button showing how long ago the data was last fetched"
+  },
+  "rKg3iE": {
+    "defaultMessage": "View \"{name}\" saved.",
+    "description": "Success toast shown after a traces view is saved"
   },
   "rMIdMr": {
     "defaultMessage": "New LLM judge",
@@ -12834,10 +12946,6 @@
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
-  },
-  "sy4S+d": {
-    "defaultMessage": "Save & share view",
-    "description": "Title of the modal that saves the current experiment view and produces a shareable link"
   },
   "syQ4eZ": {
     "defaultMessage": "Are the tool calls and their arguments correct for the request?",
@@ -13215,6 +13323,10 @@
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
   },
+  "uw/A3k": {
+    "defaultMessage": "Undo",
+    "description": "Traces page > shared view > undo button on the override confirmation toast"
+  },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
     "description": "Link text for search traces documentation"
@@ -13495,6 +13607,10 @@
     "defaultMessage": "Direct",
     "description": "Source label for a per-resource permission granted directly to the user (not via a role)"
   },
+  "wKHZOA": {
+    "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
+    "description": "Confirmation shown after saving a traces view"
+  },
   "wKNdFh": {
     "defaultMessage": "Run judge on session",
     "description": "Title for run judge modal in sessions view"
@@ -13543,6 +13659,10 @@
     "defaultMessage": "AutoML",
     "description": "Label for generic AutoML experiments"
   },
+  "wa2Qnm": {
+    "defaultMessage": "Save view",
+    "description": "Title of the modal that saves the current experiment view and produces a shareable link"
+  },
   "waKoIu": {
     "defaultMessage": "Save",
     "description": "Button that saves the current experiment view as a named view"
@@ -13554,6 +13674,10 @@
   "wcSVYI": {
     "defaultMessage": "Are you sure you want to save and close without adding \"{tag}\"",
     "description": "Key-value tag editor modal > Unsaved tag message"
+  },
+  "wcVvZ5": {
+    "defaultMessage": "Save",
+    "description": "Button that saves the current traces view"
   },
   "wcXwcq": {
     "defaultMessage": "Type a value",
@@ -13642,6 +13766,10 @@
   "x+e1xE": {
     "defaultMessage": "Is tool usage efficient throughout the conversation?",
     "description": "Hint for ConversationalToolCallEfficiency template"
+  },
+  "x+qOh2": {
+    "defaultMessage": "Views",
+    "description": "Label for the saved views dropdown in the traces toolbar"
   },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
