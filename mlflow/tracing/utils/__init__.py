@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -201,24 +201,35 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def _aggregate_from_spans(
-    spans: list[LiveSpan],
-    attribute_key: str,
+@dataclass
+class SpanAggregationNode:
+    """Minimal view of a span used for tree-aware aggregation of usage/cost data.
+
+    Allows sharing the aggregation logic between in-memory spans (client) and
+    spans deserialized from a tracking store (server).
+    """
+
+    span_id: str
+    parent_id: str | None
+    data: dict[str, Any] | None
+
+
+def _aggregate_from_nodes(
+    nodes: list[SpanAggregationNode],
     keys: list[str],
     default: int | float,
     optional_keys: list[str] | None = None,
 ) -> dict[str, int | float] | None:
-    """Generic aggregation of data from spans using DFS traversal.
+    """Generic aggregation of data from span nodes using DFS traversal.
 
-    Avoids double-counting by skipping spans whose ancestors already have the data.
+    Avoids double-counting by skipping nodes whose ancestors already have the data.
 
     Args:
-        spans: List of spans to aggregate from.
-        attribute_key: The span attribute key to look up.
+        nodes: List of span nodes to aggregate from.
         keys: Keys to aggregate. Always included in the result.
         default: Default value (0 for int, 0.0 for float) that also determines return type.
         optional_keys: Additional keys to aggregate. Only included in the result
-            when the key is present in the span attribute.
+            when the key is present in the node data.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
@@ -226,32 +237,32 @@ def _aggregate_from_spans(
     totals: dict[str, int | float] = dict.fromkeys(keys, default)
     has_data = False
 
-    span_id_to_spans = {span.span_id: span for span in spans}
-    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
-    roots: list[LiveSpan] = []
+    node_ids = {node.span_id for node in nodes}
+    children_map: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
+    roots: list[SpanAggregationNode] = []
 
-    for span in spans:
-        parent_id = span.parent_id
-        if parent_id and parent_id in span_id_to_spans:
-            children_map[parent_id].append(span)
+    for node in nodes:
+        parent_id = node.parent_id
+        if parent_id and parent_id in node_ids:
+            children_map[parent_id].append(node)
         else:
-            roots.append(span)
+            roots.append(node)
 
     # Iterative DFS with an explicit stack, instead of recursion, to avoid overflowing
     # Python's call stack for deeply nested traces (~1000+ levels). A recursive walk here
     # used to abort root-span finalization and permanently corrupt the trace.
     #
     # Visit order is irrelevant: totals is a sum and has_data an OR (both commutative), and
-    # each span's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
+    # each node's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
     # order. So a plain stack (no reversed()) yields identical results.
-    stack: list[tuple[LiveSpan, bool]] = [(root, False) for root in roots]
+    stack: list[tuple[SpanAggregationNode, bool]] = [(root, False) for root in roots]
     while stack:
-        span, ancestor_has_data = stack.pop()
+        node, ancestor_has_data = stack.pop()
 
-        data = span.get_attribute(attribute_key)
-        span_has_data = data is not None
+        data = node.data
+        node_has_data = data is not None
 
-        if span_has_data and not ancestor_has_data:
+        if node_has_data and not ancestor_has_data:
             for k in keys:
                 totals[k] += data.get(k, default)
             for k in optional_keys or []:
@@ -259,9 +270,9 @@ def _aggregate_from_spans(
                     totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
-        next_ancestor_has_data = ancestor_has_data or span_has_data
+        next_ancestor_has_data = ancestor_has_data or node_has_data
         stack.extend(
-            (child, next_ancestor_has_data) for child in children_map.get(span.span_id, [])
+            (child, next_ancestor_has_data) for child in children_map.get(node.span_id, [])
         )
 
     if not has_data:
@@ -270,11 +281,30 @@ def _aggregate_from_spans(
     return totals
 
 
+def _to_span_nodes(spans: list[LiveSpan], attribute_key: str) -> list[SpanAggregationNode]:
+    return [
+        SpanAggregationNode(
+            span_id=span.span_id,
+            parent_id=span.parent_id,
+            data=span.get_attribute(attribute_key),
+        )
+        for span in spans
+    ]
+
+
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.CHAT_USAGE,
+    return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
+
+
+def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
+    """Aggregate token usage information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
+    return _aggregate_from_nodes(
+        nodes,
         keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
         default=0,
         optional_keys=TokenUsageKey.cache_keys(),
@@ -283,9 +313,17 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     """Aggregate cost information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.LLM_COST,
+    return aggregate_cost_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.LLM_COST))
+
+
+def aggregate_cost_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, float] | None:
+    """Aggregate cost information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
+    return _aggregate_from_nodes(
+        nodes,
         keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
         default=0.0,
     )

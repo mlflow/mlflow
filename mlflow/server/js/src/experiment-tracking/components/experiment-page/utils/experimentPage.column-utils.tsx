@@ -362,8 +362,6 @@ export const useRunsColumnDefinitions = ({
       headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
       field: 'duration',
       initialWidth: 80,
-      // Always-visible anchor column: allow resize but lock its position.
-      suppressMovable: true,
     });
 
     // Experiment name column
