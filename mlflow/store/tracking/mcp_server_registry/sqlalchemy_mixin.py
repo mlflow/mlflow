@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import asdict, replace
 from typing import Any
 
 import sqlalchemy as sa
@@ -17,7 +18,7 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -36,6 +37,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMCPServerVersionTag,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.telemetry.events import (
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -45,6 +51,7 @@ from mlflow.utils.search_utils import (
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
+    _strip_mcp_icon_response_fields,
     _validate_mcp_icon_payloads,
     _validate_mcp_initial_status,
     _validate_mcp_tool_payloads,
@@ -59,6 +66,27 @@ def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
     # Keep validation aligned with schema-defined icon locations only. Extra free-form
     # metadata (for example under ``_meta``) must continue to round-trip untouched.
     _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+
+
+def _strip_server_json_icon_response_fields(server_json: dict[str, Any]) -> dict[str, Any]:
+    if "icons" not in server_json:
+        return server_json
+    return {
+        **server_json,
+        "icons": _strip_mcp_icon_response_fields(server_json.get("icons"), "server_json.icons"),
+    }
+
+
+def _strip_tool_icon_response_fields(tools: list[MCPTool] | None) -> list[MCPTool] | None:
+    if tools is None:
+        return None
+    return [
+        replace(
+            tool,
+            icons=_strip_mcp_icon_response_fields(tool.icons, f"tools[{idx}].icons"),
+        )
+        for idx, tool in enumerate(tools)
+    ]
 
 
 def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools") -> None:
@@ -90,6 +118,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPServer:
         validate_mcp_server_name(name)
+        icons = _strip_mcp_icon_response_fields(icons)
         _validate_mcp_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -201,6 +230,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         last_updated_by: str | None = None,
     ) -> MCPServer:
         if icons is not NOT_SET:
+            icons = _strip_mcp_icon_response_fields(icons)
             _validate_mcp_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
@@ -240,14 +270,15 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     # --- MCPServerVersion operations ---
 
+    @record_usage_event(McpRegistryCreateServerVersionEvent)
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -257,12 +288,17 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         validate_mcp_server_name(name)
+        server_json = _strip_server_json_icon_response_fields(server_json)
         _validate_server_json_icon_fields(server_json)
         parsed_version = parse_semver(version, param_name="server_json.version")
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
         _validate_mcp_initial_status(status)
+
+        # Store/server create does not perform remote discovery. Omitted tools
+        # are stored as null; client-side callers may resolve before create.
+        tools = None if tools is NOT_SET else _strip_tool_icon_response_fields(tools)
         _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
@@ -305,12 +341,16 @@ class SqlAlchemyMCPServerRegistryMixin:
                         version_patch=parsed_version.patch,
                         version_prerelease_sort_key=encode_prerelease_sort_key(parsed_version),
                         server_json=server_json,
-                        display_name=display_name,
                         status=status.value,
                         tools=tools_json,
                         source=source,
                         created_by=created_by,
                         last_updated_by=created_by,
+                        connect_options=(
+                            {k: asdict(v) for k, v in connect_options.items()}
+                            if connect_options is not None
+                            else connect_options
+                        ),
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -444,12 +484,13 @@ class SqlAlchemyMCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         if tools is not NOT_SET:
+            tools = _strip_tool_icon_response_fields(tools)
             _validate_tool_icons(tools)
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
@@ -461,10 +502,14 @@ class SqlAlchemyMCPServerRegistryMixin:
             if status is not NOT_SET:
                 _validate_status_transition(MCPStatus(sv.status), status)
                 sv.status = status.value
-            if display_name is not NOT_SET:
-                sv.display_name = display_name
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
+            if connect_options is not NOT_SET:
+                sv.connect_options = (
+                    {k: asdict(v) for k, v in connect_options.items()}
+                    if connect_options is not None
+                    else connect_options
+                )
 
             sv.last_updated_by = last_updated_by
             sv.last_updated_at = get_current_time_millis()
@@ -576,6 +621,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             )
         return target_sv
 
+    @record_usage_event(McpRegistryCreateAccessEndpointEvent)
     def create_mcp_access_endpoint(
         self,
         server_name: str,
@@ -586,6 +632,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPAccessEndpoint:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
+        _validate_mcp_access_endpoint_url(url)
 
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -777,6 +824,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                         "MCP access endpoint url cannot be None",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                _validate_mcp_access_endpoint_url(url)
                 endpoint.url = url
             if transport_type is not NOT_SET and transport_type is not None:
                 endpoint.transport_type = transport_type.value
@@ -1008,6 +1056,14 @@ def _validate_exactly_one(
     if (param1_value is None) == (param2_value is None):
         raise MlflowException(
             f"Exactly one of {param1_name} or {param2_name} must be provided",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_mcp_access_endpoint_url(url: str) -> None:
+    if not isinstance(url, str) or not url.strip():
+        raise MlflowException(
+            f"MCP access endpoint url cannot be empty or just whitespace: {url!r}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

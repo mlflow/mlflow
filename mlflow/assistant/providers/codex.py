@@ -11,7 +11,7 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
-    load_config,
+    load_config_or_default,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
@@ -31,11 +31,11 @@ class CodexProvider(AssistantProvider):
 
     @property
     def display_name(self) -> str:
-        return "OpenAI Codex"
+        return "Codex"
 
     @property
     def description(self) -> str:
-        return "AI-powered assistant using the OpenAI Codex CLI"
+        return "AI-powered assistant using the Codex CLI"
 
     def is_available(self) -> bool:
         return shutil.which(_CODEX_BINARY) is not None
@@ -121,7 +121,7 @@ class CodexProvider(AssistantProvider):
             )
             return
 
-        config = load_config(self.name)
+        config = load_config_or_default(self.name)
 
         if context:
             user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
@@ -260,6 +260,9 @@ class CodexProvider(AssistantProvider):
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
+                # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+                # so the UI can distinguish fresh input from resent, cached context.
+                "cache_read_tokens": cache_read or 0,
                 "total_cost_usd": cost[CostKey.TOTAL_COST] if cost else None,
             },
         })

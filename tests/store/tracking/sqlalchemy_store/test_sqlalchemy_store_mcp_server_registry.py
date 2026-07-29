@@ -1,7 +1,11 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -125,7 +129,7 @@ def test_create_mcp_server_accepts_upstream_name_shapes(store, name):
 def test_create_mcp_server_with_icons(store):
     icons = [{"src": "https://example.com/icon.png", "sizes": "32x32"}]
     server = store.create_mcp_server("io.github.test/servererver", icons=icons)
-    assert server.icons == icons
+    assert server.icons == [{**icons[0], "source": "server"}]
 
 
 def test_create_mcp_server_rejects_risky_icons(store):
@@ -401,10 +405,165 @@ def test_get_mcp_server_description_falls_back_to_highest_non_deleted_version(st
     assert server.latest_version == "2.0.0"
 
 
+def test_get_mcp_server_icons_fall_back_to_highest_active_semver(store):
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/active.png", "theme": "dark"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        icons=[{"src": "https://example.com/deprecated.png", "theme": "dark"}],
+        status=MCPStatus.DEPRECATED,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/active.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
+
+
+def test_get_mcp_server_icons_fall_back_to_highest_non_deleted_version(store):
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        icons=[{"src": "https://example.com/deprecated.png", "theme": "dark"}],
+        status=MCPStatus.DEPRECATED,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/deprecated.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
+
+
+def test_get_mcp_server_icons_merge_server_and_version_by_theme(store):
+    store.create_mcp_server(
+        "io.github.test/server",
+        icons=[{"src": "https://example.com/server-dark.png", "theme": "dark"}],
+    )
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[
+                {"src": "https://example.com/version-dark.png", "theme": "dark"},
+                {"src": "https://example.com/version-light.png", "theme": "light"},
+            ],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == [
+        {
+            "src": "https://example.com/server-dark.png",
+            "theme": "dark",
+            "source": "server",
+        },
+        {
+            "src": "https://example.com/version-light.png",
+            "theme": "light",
+            "source": "version",
+        },
+    ]
+
+
+def test_get_mcp_server_empty_icons_do_not_fall_back_to_version(store):
+    store.create_mcp_server(
+        "io.github.test/server",
+        icons=[],
+    )
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/version.png", "theme": "dark"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == []
+
+
+def test_get_mcp_server_empty_icons_remain_empty_without_version(store):
+    store.create_mcp_server("io.github.test/server", icons=[])
+    server = store.get_mcp_server("io.github.test/server")
+    assert server.icons == []
+
+
+def test_create_mcp_server_version_ignores_server_icon_source(store):
+    version = store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/icon.png", "source": "server"}],
+        ),
+        tools=[
+            MCPTool(
+                name="search",
+                icons=[{"src": "https://example.com/tool.png", "source": "server"}],
+            )
+        ],
+        status=MCPStatus.ACTIVE,
+    )
+    assert version.server_json["icons"] == [{"src": "https://example.com/icon.png"}]
+    assert version.tools[0].icons == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_mcp_server_version_rejects_version_icon_source(store):
+    with pytest.raises(MlflowException, match="source.*version"):
+        store.create_mcp_server_version(
+            _server_json(
+                "io.github.test/server",
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+            ),
+            status=MCPStatus.ACTIVE,
+        )
+
+
+def test_create_mcp_server_rejects_version_icon_source(store):
+    with pytest.raises(MlflowException, match="source.*version"):
+        store.create_mcp_server(
+            "io.github.test/server",
+            icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+        )
+
+
 def test_get_mcp_server_resolved_status_no_versions(store):
     store.create_mcp_server("io.github.test/server")
     server = store.get_mcp_server("io.github.test/server")
     assert server.status is None
+
+
+def test_search_mcp_servers_resolves_icons_from_latest_version(store):
+    store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/server",
+            "1.0.0",
+            icons=[{"src": "https://example.com/icon.png"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+
+    servers = store.search_mcp_servers()
+    assert servers[0].icons == [{"src": "https://example.com/icon.png", "source": "version"}]
 
 
 def test_delete_mcp_server(store):
@@ -602,6 +761,64 @@ def test_create_mcp_server_version_with_tools(store):
     assert sv.tools is not None
     assert len(sv.tools) == 1
     assert sv.tools[0].name == "web_search"
+
+
+def test_create_mcp_server_version_omitted_tools_store_null_without_discovery(store):
+    # No remotes: omit/NOT_SET stores null without network.
+    sv = store.create_mcp_server_version(_server_json("io.github.test/omit-tools", "1.0.0"))
+    assert sv.tools is None
+
+    remotes_sj = _server_json(
+        "io.github.test/discover-tools",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/sql"}],
+    )
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        sv_discovered = store.create_mcp_server_version(remotes_sj, tools=NOT_SET)
+    mock_discover.assert_not_called()
+    assert sv_discovered.tools is None
+
+    # Explicit None disables discovery even when remotes exist.
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        sv_none = store.create_mcp_server_version(
+            _server_json(
+                "io.github.test/none-tools",
+                "1.0.0",
+                remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
+            ),
+            tools=None,
+        )
+    mock_discover.assert_not_called()
+    assert sv_none.tools is None
+
+
+def test_create_mcp_server_version_duplicate_raises_without_discovery(store):
+    remotes_sj = _server_json(
+        "io.github.test/dup-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup"}],
+    )
+    store.create_mcp_server_version(remotes_sj, tools=None)
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_mcp_server_version(remotes_sj)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    mock_discover.assert_not_called()
+
+
+def test_create_mcp_server_version_deleted_duplicate_raises_without_discovery(store):
+    remotes_sj = _server_json(
+        "io.github.test/dup-deleted-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/dup-del"}],
+    )
+    store.create_mcp_server_version(remotes_sj, tools=None)
+    store.delete_mcp_server_version("io.github.test/dup-deleted-discover", "1.0.0")
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_mcp_server_version(remotes_sj)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    mock_discover.assert_not_called()
 
 
 def test_create_mcp_server_version_rejects_risky_tool_icons(store):
@@ -923,12 +1140,12 @@ def test_update_mcp_server_version_invalid_transition(store):
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_update_mcp_server_version_display_name(store):
+def test_update_mcp_server_version_status(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(
-        "io.github.test/servererver", "1.0.0", display_name="v1"
+        "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE
     )
-    assert updated.display_name == "v1"
+    assert updated.status == MCPStatus.ACTIVE
 
 
 def test_update_mcp_server_version_tools(store):
@@ -977,14 +1194,26 @@ def test_update_mcp_server_version_tools_none_clears_tools(store):
     assert updated.tools is None
 
 
+def test_update_mcp_server_version_omitted_tools_leaves_unchanged(store):
+    store.create_mcp_server_version(
+        _server_json(),
+        tools=[MCPTool(name="calculator")],
+    )
+    updated = store.update_mcp_server_version(
+        "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE
+    )
+    assert updated.status == MCPStatus.ACTIVE
+    assert updated.tools is not None
+    assert updated.tools[0].name == "calculator"
+
+
 def test_update_mcp_server_version_returns_complete_entity(store):
     store.create_mcp_server_version(_server_json(), status=MCPStatus.ACTIVE)
     store.set_mcp_server_version_tag("io.github.test/servererver", "1.0.0", "env", "prod")
     updated = store.update_mcp_server_version(
-        "io.github.test/servererver", "1.0.0", display_name="Updated"
+        "io.github.test/servererver", "1.0.0", status=MCPStatus.DEPRECATED
     )
-    assert updated.display_name == "Updated"
-    assert updated.status == MCPStatus.ACTIVE
+    assert updated.status == MCPStatus.DEPRECATED
     assert updated.server_json == _server_json()
     assert updated.tags == {"env": "prod"}
 
@@ -994,9 +1223,49 @@ def test_update_mcp_server_version_deleted_raises(store):
     store.delete_mcp_server_version("io.github.test/servererver", "1.0.0")
     with pytest.raises(MlflowException, match="not found") as exc:
         store.update_mcp_server_version(
-            "io.github.test/servererver", "1.0.0", display_name="Updated"
+            "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE
         )
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_create_mcp_server_version_with_connect_options(store):
+    sv = store.create_mcp_server_version(
+        _server_json(),
+        connect_options={"packages": ConnectOptionSettings(hidden=True)},
+    )
+    assert sv.connect_options == {"packages": ConnectOptionSettings(hidden=True)}
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.connect_options == {"packages": ConnectOptionSettings(hidden=True)}
+
+
+def test_update_mcp_server_version_connect_options(store):
+    store.create_mcp_server_version(_server_json())
+    updated = store.update_mcp_server_version(
+        "io.github.test/servererver",
+        "1.0.0",
+        connect_options={
+            "packages": ConnectOptionSettings(hidden=True),
+            "remotes": ConnectOptionSettings(hidden=False),
+        },
+    )
+    assert updated.connect_options == {
+        "packages": ConnectOptionSettings(hidden=True),
+        "remotes": ConnectOptionSettings(hidden=False),
+    }
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.connect_options == {
+        "packages": ConnectOptionSettings(hidden=True),
+        "remotes": ConnectOptionSettings(hidden=False),
+    }
+
+    updated2 = store.update_mcp_server_version(
+        "io.github.test/servererver",
+        "1.0.0",
+        connect_options=None,
+    )
+    assert updated2.connect_options == {}
+    reloaded2 = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded2.connect_options == {}
 
 
 def test_delete_mcp_server_version_soft_delete(store):
@@ -1117,6 +1386,25 @@ def test_create_mcp_access_endpoint_server_not_found(store):
         store.create_mcp_access_endpoint(
             "io.github.test/nonexistent", "https://mcp.example.com", server_version="1.0.0"
         )
+
+
+@pytest.mark.parametrize("blank_url", ["", "   ", "\t"])
+def test_create_mcp_access_endpoint_rejects_blank_url(store, blank_url):
+    _setup_server(store, "io.github.test/blank-url")
+    with pytest.raises(MlflowException, match="cannot be empty or just whitespace"):
+        store.create_mcp_access_endpoint(
+            "io.github.test/blank-url", blank_url, server_version="1.0.0"
+        )
+
+
+@pytest.mark.parametrize("blank_url", ["", "   "])
+def test_update_mcp_access_endpoint_rejects_blank_url(store, blank_url):
+    _setup_server(store, "io.github.test/blank-url-upd")
+    endpoint = store.create_mcp_access_endpoint(
+        "io.github.test/blank-url-upd", "https://mcp.example.com", server_version="1.0.0"
+    )
+    with pytest.raises(MlflowException, match="cannot be empty or just whitespace"):
+        store.update_mcp_access_endpoint("io.github.test/blank-url-upd", endpoint.id, url=blank_url)
 
 
 def test_get_mcp_access_endpoint_not_found_raises(store):
@@ -1825,7 +2113,9 @@ def test_delete_mcp_server_version_tag_not_found_raises(store):
 
 def test_update_mcp_server_version_not_found_raises(store):
     with pytest.raises(MlflowException, match="not found"):
-        store.update_mcp_server_version("io.github.test/nonexistent", "1.0.0", display_name="x")
+        store.update_mcp_server_version(
+            "io.github.test/nonexistent", "1.0.0", status=MCPStatus.ACTIVE
+        )
 
 
 def test_search_mcp_access_endpoints_pagination(store):

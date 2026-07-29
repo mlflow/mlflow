@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from unittest import mock
 
@@ -94,6 +99,54 @@ def test_get_packages_preserves_order_and_fetches_each() -> None:
     expected = [Version("1.0.0"), Version("2.0.0"), Version("3.0.0")]
     assert [p.latest_version for p in pkgs] == expected
     assert sorted(seen) == sorted(names)
+
+
+@contextmanager
+def _serve(body: str, content_type: str, requests: list[str] | None = None) -> Iterator[str]:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if requests is not None:
+                requests.append(self.path)
+            encoded = body.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_fetch_json_accepts_non_json_mimetype(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Some PyPI mirrors serve the JSON API as `text/html`
+    with _serve(json.dumps(_payload(["1.0.0"])), "text/html") as url:
+        monkeypatch.setenv("PYPI_URL", url)
+        pkg = asyncio.run(pypi.get_package("demo"))
+
+    assert pkg.latest_version == Version("1.0.0")
+
+
+def test_fetch_json_retries_then_rejects_non_json_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pypi._client, "_BACKOFF_BASE", 0)
+    requests: list[str] = []
+
+    with _serve("<html>nope</html>", "text/html", requests) as url:
+        monkeypatch.setenv("PYPI_URL", url)
+        with pytest.raises(pypi.PyPIError, match="invalid JSON"):
+            asyncio.run(pypi.get_package("demo"))
+
+    assert len(requests) == pypi._client._RETRIES
 
 
 def test_pypi_error_propagates() -> None:

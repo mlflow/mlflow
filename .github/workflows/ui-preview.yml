@@ -213,6 +213,25 @@ jobs:
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
 
+      - name: Grant preview access
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+        run: |
+          # An app is only reachable by its creator (this service principal) and
+          # workspace admins by default, so non-admin maintainers get a 403 on the
+          # preview URL. Grant CAN_USE to everyone with workspace access.
+          # `update-permissions` is additive and idempotent, so running it on every
+          # deploy also backfills apps created before this step existed.
+          databricks apps update-permissions "$APP_NAME" --json '{
+            "access_control_list": [
+              {"group_name": "users", "permission_level": "CAN_USE"}
+            ]
+          }'
+
       - name: Configure app environment
         env:
           APP_URL: ${{ steps.app.outputs.url }}

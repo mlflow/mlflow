@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.entities.mcp_server import MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
@@ -18,6 +19,7 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_api_route_prefixes,
     mcp_server_router,
 )
+from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
@@ -65,10 +67,10 @@ def _create_registry_fastapi_app(route_prefixes=None):
 
 
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture
@@ -108,7 +110,7 @@ def test_create_server_with_icons(client):
     icons = [{"src": "https://example.com/icon.png", "sizes": ["32x32"]}]
     r = client.post(PREFIX, json={"name": "com.example/icon-server", "icons": icons})
     assert r.status_code == 200
-    assert r.json()["icons"] == icons
+    assert r.json()["icons"] == [{**icons[0], "source": "server"}]
 
 
 def test_create_server_rejects_too_many_icons(client):
@@ -131,7 +133,41 @@ def test_create_server_with_icons_preserves_extra_fields(client):
         json={"name": "com.example/icon-extra-server", "icons": icons},
     )
     assert r.status_code == 200
-    assert r.json()["icons"] == icons
+    assert r.json()["icons"] == [{**icons[0], "source": "server"}]
+
+
+def test_create_server_ignores_server_icon_source_on_write(client, store):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-source-server",
+            "icons": [{"src": "https://example.com/icon.png", "source": "server"}],
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"] == [{"src": "https://example.com/icon.png", "source": "server"}]
+
+    with store.ManagedSessionMaker() as session:
+        persisted = (
+            session
+            .query(SqlMCPServer)
+            .filter(SqlMCPServer.name == "com.example/icon-source-server")
+            .one()
+        )
+        assert persisted.icons == [{"src": "https://example.com/icon.png"}]
+
+
+def test_create_server_rejects_version_icon_source_on_write(client):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-version-source",
+            "icons": [{"src": "https://example.com/icon.png", "source": "version"}],
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
 
 
 @pytest.mark.parametrize(
@@ -349,6 +385,22 @@ def test_search_servers(client):
     assert len(r2.json()["mcp_servers"]) == 1
 
 
+def test_search_servers_returns_resolved_icon_source(client):
+    _create_version(
+        client,
+        "com.example/icon-search",
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png"}],
+    )
+
+    r = client.get(PREFIX, params={"filter_string": "name = 'com.example/icon-search'"})
+    assert r.status_code == 200
+    assert r.json()["mcp_servers"][0]["icons"] == [
+        {"src": "https://example.com/version.png", "source": "version"}
+    ]
+
+
 def test_server_responses_include_nested_endpoint_server_name(client):
     sj = _server_json("com.example/nested-bind-srv", "1.0.0")
     client.post(
@@ -394,6 +446,132 @@ def test_update_server_rejects_risky_icon_urls(client):
     )
     assert r.status_code == 400
     assert "Icon URL" in r.text
+
+
+def test_update_server_ignores_server_icon_source_on_write(client, store):
+    client.post(PREFIX, json={"name": "com.example/upd-icons-source"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-icons-source')}",
+        json={"icons": [{"src": "https://example.com/icon.png", "source": "server"}]},
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"] == [{"src": "https://example.com/icon.png", "source": "server"}]
+
+    with store.ManagedSessionMaker() as session:
+        persisted = (
+            session
+            .query(SqlMCPServer)
+            .filter(SqlMCPServer.name == "com.example/upd-icons-source")
+            .one()
+        )
+        assert persisted.icons == [{"src": "https://example.com/icon.png"}]
+
+
+def test_update_server_rejects_version_icon_source_on_write(client):
+    client.post(PREFIX, json={"name": "com.example/upd-icons-version"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-icons-version')}",
+        json={"icons": [{"src": "https://example.com/icon.png", "source": "version"}]},
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_create_version_ignores_server_icon_source_on_write(client):
+    name = "com.example/icon-version-source"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(
+                name,
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "server"}],
+            ),
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "server"}],
+                }
+            ],
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["server_json"]["icons"] == [{"src": "https://example.com/icon.png"}]
+    assert r.json()["tools"][0]["icons"] == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_version_rejects_version_icon_source_on_write(client):
+    name = "com.example/icon-version-rejected"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(
+                name,
+                "1.0.0",
+                icons=[{"src": "https://example.com/icon.png", "source": "version"}],
+            ),
+            "status": "active",
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_create_version_rejects_tool_version_icon_source_on_write(client):
+    name = "com.example/icon-tool-version-rejected"
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(name, "1.0.0"),
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "version"}],
+                }
+            ],
+            "status": "active",
+        },
+    )
+    assert r.status_code == 400
+    assert "source" in r.text
+    assert "version" in r.text
+
+
+def test_update_version_ignores_server_tool_icon_source_on_write(client):
+    name = "com.example/icon-tool-source"
+    _create_version(client, name, "1.0.0", status="draft")
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param(name)}/versions/1.0.0",
+        json={
+            "tools": [
+                {
+                    "name": "search",
+                    "icons": [{"src": "https://example.com/tool.png", "source": "server"}],
+                }
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["tools"][0]["icons"] == [{"src": "https://example.com/tool.png"}]
+
+
+def test_create_server_empty_icons_do_not_fall_back_to_version(client):
+    name = "com.example/empty-icons"
+    client.post(PREFIX, json={"name": name, "icons": []})
+    _create_version(
+        client,
+        name,
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png"}],
+    )
+
+    r = client.get(f"{PREFIX}/{_encode_path_param(name)}")
+    assert r.status_code == 200
+    assert r.json()["icons"] == []
 
 
 def test_update_server_rejects_latest_version_field(client):
@@ -588,7 +766,7 @@ def test_create_version_invalid_package_shape_returns_mlflow_error(client):
     assert "server_json.packages.0.registryType" in r.json()["message"]
 
 
-def test_create_version_invalid_server_name_rejected(client):
+def test_create_version_rejects_non_namespaced_server_name(client):
     r = client.post(
         PREFIX + "/my-server/versions",
         json={"server_json": {"name": "my-server", "version": "1.0.0"}},
@@ -713,6 +891,78 @@ def test_create_version_rejects_risky_server_json_icon_urls(client):
     assert "Icon URL" in r.text
 
 
+def test_create_version_accepts_registry_server_json_envelope(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/enveloped-server')}/versions",
+        json={
+            "server_json": {
+                "server": {
+                    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+                    "name": "com.example/enveloped-server",
+                    "version": "1.0.0",
+                    "description": "Server copied from a registry API response",
+                    "_meta": {
+                        "io.modelcontextprotocol.registry/publisher-provided": {
+                            "copied_from": "registry response"
+                        }
+                    },
+                },
+                "_meta": {
+                    "io.modelcontextprotocol.registry/official": {
+                        "status": "active",
+                        "publishedAt": "2025-10-06T19:14:32.797821Z",
+                        "isLatest": False,
+                    }
+                },
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"] == {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+        "name": "com.example/enveloped-server",
+        "version": "1.0.0",
+        "description": "Server copied from a registry API response",
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "copied_from": "registry response"
+            }
+        },
+    }
+
+
+def test_create_version_rejects_registry_server_json_envelope_with_non_object_server(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/bad-envelope')}/versions",
+        json={"server_json": {"server": "not-an-object"}},
+    )
+    assert r.status_code == 400
+    assert "server_json.server" in r.json()["message"]
+
+
+def test_create_version_prefers_top_level_server_json_shape_over_nested_server_key(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/raw-wins')}/versions",
+        json={
+            "server_json": {
+                "name": "com.example/raw-wins",
+                "version": "1.0.0",
+                "description": "Raw server_json shape should win",
+                "server": {"name": "com.example/nested", "version": "9.9.9"},
+            },
+            "status": "active",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "com.example/raw-wins"
+    assert r.json()["version"] == "1.0.0"
+    assert r.json()["server_json"]["server"] == {
+        "name": "com.example/nested",
+        "version": "9.9.9",
+    }
+
+
 def test_create_version_accepts_remote_with_null_type(client):
     sj = _server_json(
         "com.example/null-remote-type",
@@ -721,7 +971,7 @@ def test_create_version_accepts_remote_with_null_type(client):
     )
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/null-remote-type')}/versions",
-        json={"server_json": sj, "status": "active"},
+        json={"server_json": sj, "status": "active", "tools": None},
     )
     assert r.status_code == 200
     assert r.json()["server_json"]["remotes"][0]["type"] is None
@@ -764,6 +1014,82 @@ def test_create_version_preserves_empty_tools_list(client):
     )
     assert r.status_code == 200
     assert r.json()["tools"] == []
+
+
+def test_create_version_omitted_tools_stores_null_without_discovery(client):
+    sj = _server_json(
+        "com.example/omit-discover",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/api"}],
+    )
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="api_search")],
+    ) as mock_discover:
+        omit_r = client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/omit-discover')}/versions",
+            json={"server_json": sj, "status": "active"},
+        )
+    assert omit_r.status_code == 200
+    mock_discover.assert_not_called()
+    assert omit_r.json()["tools"] == []
+
+
+def test_create_version_explicit_null_tools_skips_discovery(client):
+    sj = _server_json(
+        "com.example/null-tools",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/skip"}],
+    )
+    with mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover:
+        null_r = client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/null-tools')}/versions",
+            json={"server_json": sj, "status": "active", "tools": None},
+        )
+    assert null_r.status_code == 200
+    mock_discover.assert_not_called()
+    assert null_r.json()["tools"] == []
+
+
+def test_update_version_omitted_tools_leaves_unchanged(client):
+    sj = _server_json("com.example/uv-omit-tools", "1.0.0")
+    create_r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-omit-tools')}/versions",
+        json={
+            "server_json": sj,
+            "status": "active",
+            "tools": [{"name": "search", "description": "Search"}],
+        },
+    )
+    assert create_r.status_code == 200
+    assert create_r.json()["tools"][0]["name"] == "search"
+
+    # PATCH without tools must leave tools unchanged (model_fields_set / NOT_SET path).
+    patch_r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-omit-tools')}/versions/1.0.0",
+        json={"status": "deprecated"},
+    )
+    assert patch_r.status_code == 200
+    assert patch_r.json()["status"] == "deprecated"
+    assert patch_r.json()["tools"][0]["name"] == "search"
+
+
+def test_update_version_tools_null_clears_tools(client):
+    sj = _server_json("com.example/uv-clear-tools", "1.0.0")
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-clear-tools')}/versions",
+        json={
+            "server_json": sj,
+            "status": "active",
+            "tools": [{"name": "search"}],
+        },
+    )
+    patch_r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/uv-clear-tools')}/versions/1.0.0",
+        json={"tools": None},
+    )
+    assert patch_r.status_code == 200
+    assert patch_r.json()["tools"] == []
 
 
 def test_create_version_accepts_repository_object(client):
@@ -1575,6 +1901,25 @@ def test_server_response_includes_endpoint_resolved_version(client):
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}").json()
     assert len(server["access_endpoints"]) == 1
     assert server["access_endpoints"][0]["resolved_version"]["version"] == "1.0.0"
+
+
+def test_server_response_resolves_icon_source_from_latest_version(client):
+    _create_version(
+        client,
+        "com.example/icon-get",
+        "1.0.0",
+        status="active",
+        icons=[{"src": "https://example.com/version.png", "theme": "dark"}],
+    )
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/icon-get')}").json()
+    assert server["icons"] == [
+        {
+            "src": "https://example.com/version.png",
+            "theme": "dark",
+            "source": "version",
+        }
+    ]
 
 
 def test_server_json_extra_fields_preserved(client):
