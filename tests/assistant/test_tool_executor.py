@@ -93,10 +93,37 @@ def test_path_containment_blocks_escape(workspace):
     assert "Permission denied" in result
 
 
-def test_bash_works_without_cwd():
+def test_bash_python_denied_without_cwd():
+    # Regression guard for GHSA-27c7-qx3r-x4f8: without a configured project
+    # directory (cwd=None), python/python3 must be denied. Bash previously
+    # allowed running python3 with no cwd at all, which reached the same
+    # arbitrary-file-read impact as the Read tool bug this advisory reports,
+    # since python3 -c "..." can read (or do anything else with) any path the
+    # process can access, regardless of what Read itself allows.
     result, is_error = _run(execute_tool("Bash", {"command": "python3 -c \"print('hello')\""}))
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_python_works_with_cwd(workspace):
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "python3 -c \"print('hello')\""}, cwd=workspace)
+    )
     assert not is_error
     assert "hello" in result
+
+
+def test_bash_python_sensitive_file_denied_without_cwd(tmp_path):
+    # Regression guard for GHSA-27c7-qx3r-x4f8: reproduces the exact bypass
+    # reported in review, reading a secret file via Bash + python3 instead of
+    # Read, with no cwd configured.
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    command = f'python3 -c "print(open({str(secret)!r}).read())"'
+    result, is_error = _run(execute_tool("Bash", {"command": command}))
+    assert is_error
+    assert "Permission denied" in result
+    assert "SECRET_API_KEY" not in result
 
 
 def test_bash_blocks_non_mlflow_commands():
