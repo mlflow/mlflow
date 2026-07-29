@@ -9,8 +9,6 @@ import React, { Component } from 'react';
 import { deleteRunApi, openErrorModal } from '../../actions';
 import { connect } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
-import type { IntlShape } from 'react-intl';
-import { injectIntl } from 'react-intl';
 import { Button, Modal } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 
@@ -25,7 +23,6 @@ type Props = {
   openErrorModal: (...args: any[]) => any;
   deleteRunApi: (...args: any[]) => any;
   onSuccess?: () => void;
-  intl: IntlShape;
   childRunIdsBySelectedParent: Record<string, string[]>;
 };
 
@@ -89,12 +86,8 @@ export class DeleteRunModalImpl extends Component<Props, State> {
       deletePromises.push(this.props.deleteRunApi(runId));
     });
     return Promise.all(deletePromises)
-      .catch(() => {
-        const errorModalContent = `${this.props.intl.formatMessage({
-          defaultMessage: 'While deleting an experiment run, an error occurred.',
-          description: 'Experiment tracking > delete run modal > error message',
-        })}`;
-        this.props.openErrorModal(errorModalContent);
+      .catch((e: any) => {
+        Utils.logErrorAndNotifyUser(e);
       })
       .then(() => {
         this.props.onSuccess?.();
@@ -242,4 +235,4 @@ const mapDispatchToProps = {
   openErrorModal,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(injectIntl(DeleteRunModalImpl));
+export default connect(mapStateToProps, mapDispatchToProps)(DeleteRunModalImpl);
