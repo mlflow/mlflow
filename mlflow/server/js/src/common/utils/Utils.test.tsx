@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { test, expect, jest, describe, beforeEach } from '@jest/globals';
+import { test, expect, jest, describe, beforeEach, afterEach } from '@jest/globals';
 import Utils from './Utils';
 import React from 'react';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from '../../experiment-tracking/components/MetricsPlotControls';
@@ -1002,8 +1002,19 @@ describe('logErrorAndNotifyUser', () => {
     Utils.registerNotificationsApi(mockNotificationsApi);
   });
 
+  afterEach(() => {
+    Utils.registerNotificationsApi(null);
+  });
+
   test('shows toast for plain string errors', () => {
     Utils.logErrorAndNotifyUser('something went wrong');
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'something went wrong' }),
+    );
+  });
+
+  test('shows toast for Error instances', () => {
+    Utils.logErrorAndNotifyUser(new Error('something went wrong'));
     expect(mockNotificationsApi.error).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'something went wrong' }),
     );
