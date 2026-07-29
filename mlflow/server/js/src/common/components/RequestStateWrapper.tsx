@@ -22,7 +22,6 @@ type RequestStateWrapperProps = {
   requests: any[];
   requestIds?: string[];
   requestIdsWith404sToIgnore?: string[];
-  permissionDeniedView?: React.ReactNode;
   suppressErrorThrow?: boolean;
   customRequestErrorHandlerFn?: (
     failedRequests: {
@@ -78,20 +77,13 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
   }
 
   getRenderedContent() {
-    const { children, requests, customSpinner, permissionDeniedView, suppressErrorThrow, customRequestErrorHandlerFn } =
-      this.props;
+    const { children, requests, customSpinner, suppressErrorThrow, customRequestErrorHandlerFn } = this.props;
     // @ts-expect-error TS(2339): Property 'requestErrors' does not exist on type '{... Remove this comment to see the full error message
     const { shouldRender, shouldRenderError, requestErrors } = this.state;
-    const permissionDeniedErrors = requestErrors.filter((failedRequest: any) => {
-      return failedRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED;
-    });
 
     if (typeof children === 'function') {
       return children(!shouldRender, shouldRenderError, requests, requestErrors);
     } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
-      if (permissionDeniedErrors.length > 0 && permissionDeniedView) {
-        return permissionDeniedView;
-      }
       if (shouldRenderError && !suppressErrorThrow) {
         customRequestErrorHandlerFn ? customRequestErrorHandlerFn(requestErrors) : triggerError(requestErrors);
       }
