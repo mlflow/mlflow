@@ -178,7 +178,13 @@ def static_permission_error(
 
     if tool_name in _FILE_TOOLS and cwd:
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
-            target = _resolve_file_path(raw_path, cwd)
+            # resolve() raises ValueError on a NUL byte (and OSError on other bad
+            # paths). This runs outside execute_tool's try/except, so guard it here and
+            # fail closed rather than letting the exception propagate.
+            try:
+                target = _resolve_file_path(raw_path, cwd)
+            except (ValueError, OSError):
+                return f"Permission denied: invalid path {raw_path!r}"
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
 

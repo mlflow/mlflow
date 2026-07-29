@@ -281,6 +281,18 @@ def test_remote_read_without_cwd_cannot_escape(monkeypatch):
     assert "Permission denied" in result
 
 
+@pytest.mark.parametrize("tool", ["Read", "Write", "Edit"])
+def test_nul_byte_path_denied_not_crashed(workspace, tool):
+    # A NUL byte in file_path makes Path.resolve() raise ValueError. That call lives
+    # in static_permission_error (outside execute_tool's try/except), so an unguarded
+    # resolve would propagate instead of denying. It must fail closed with a denial.
+    err = static_permission_error(
+        tool, {"file_path": "a\x00b"}, PermissionsConfig(allow_edit_files=True), workspace
+    )
+    assert err is not None
+    assert "Permission denied" in err
+
+
 def test_bash_full_access_allows_any_command():
     perms = PermissionsConfig(full_access=True)
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}, permissions=perms))
