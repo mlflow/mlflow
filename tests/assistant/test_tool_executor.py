@@ -260,15 +260,33 @@ def test_remote_env_disables_full_access_file_escape(monkeypatch, workspace):
 
 
 @pytest.mark.parametrize("tool", ["Read", "Write", "Edit"])
-def test_file_tool_without_cwd_denied_under_remote_lockdown(monkeypatch, tool):
-    # Under remote lockdown, no workspace root means no containment boundary, so an
-    # absolute path like /etc/passwd would otherwise reach the filesystem unchecked.
-    # Every file tool must require a configured project directory here, not just
-    # Write/Edit. (Local unscoped reads remain allowed — see
-    # test_read_absolute_path_works_without_cwd.)
+def test_file_tools_denied_under_remote_lockdown(monkeypatch, tool):
+    # Remote lockdown is tracking-API-query only: the mlflow CLI already reads all
+    # tracking state, and Read/Write/Edit add only server-local filesystem access as
+    # the server identity (no per-call approval), which is a disclosure/tamper
+    # primitive with no remote use the CLI doesn't cover. Deny all three outright,
+    # regardless of whether a project dir is configured. (Local/full-access retains
+    # them — see test_read_absolute_path_works_without_cwd.)
     monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
-    err = static_permission_error(tool, {"file_path": "/etc/passwd"}, PermissionsConfig(), None)
+    assert (
+        static_permission_error(tool, {"file_path": "/etc/passwd"}, PermissionsConfig(), None)
+        is not None
+    )
+
+
+@pytest.mark.parametrize("tool", ["Read", "Write", "Edit"])
+def test_file_tools_denied_under_remote_lockdown_even_with_workspace(monkeypatch, workspace, tool):
+    # Even a validly-contained in-workspace path is denied: the ban is on the tool
+    # under remote lockdown, not merely on paths that escape the workspace.
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
+    err = static_permission_error(
+        tool,
+        {"file_path": "README.md", "content": "x", "old_string": "# project", "new_string": "y"},
+        PermissionsConfig(),
+        workspace,
+    )
     assert err is not None
+    assert "Permission denied" in err
 
 
 def test_remote_read_without_cwd_cannot_escape(monkeypatch):

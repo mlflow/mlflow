@@ -91,7 +91,9 @@ def remote_lockdown_active() -> bool:
 
     In this mode the restricted allowlist is absolute: full_access is force-disabled
     and per-call approval cannot override it, since arbitrary shell/code execution on a
-    remotely-reachable server is RCE affecting every tenant.
+    remotely-reachable server is RCE affecting every tenant. The file tools
+    (Read/Write/Edit) are also denied outright — remote is tracking-API-query only, and
+    server-local file access adds no capability the mlflow CLI doesn't already cover.
     """
     return MLFLOW_ENABLE_REMOTE_ASSISTANT.get()
 
@@ -165,15 +167,17 @@ def static_permission_error(
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
         return f"Permission denied: {tool_name} is not allowed"
 
-    if tool_name in {"Write", "Edit"} and not cwd:
-        return f"Permission denied: {tool_name} requires a configured project directory"
+    # Remote lockdown is tracking-API-query only. The mlflow CLI already reads all
+    # tracking state; the file tools add only server-local filesystem access, running
+    # as the server identity with no per-call approval — a disclosure/tamper primitive
+    # with no remote use the CLI doesn't cover (cwd is an admin-configured project dir
+    # on the server host, not the remote caller's own workspace). Deny all three
+    # outright here. Locally / under full_access they remain available for the
+    # code-integration workflow, which is where reading and editing project files lives.
+    if tool_name in _FILE_TOOLS and remote_lockdown_active():
+        return f"Permission denied: {tool_name} is not available on a remote assistant"
 
-    # Under remote lockdown a file tool with no workspace root has no containment
-    # boundary, so an absolute path (e.g. /etc/passwd) would reach the filesystem
-    # unchecked — this must cover Read, which Write/Edit's cwd requirement above does
-    # not. Locally (same host as the user) an unscoped read is the existing contract,
-    # so this denial is scoped to remote mode.
-    if tool_name in _FILE_TOOLS and not cwd and remote_lockdown_active():
+    if tool_name in {"Write", "Edit"} and not cwd:
         return f"Permission denied: {tool_name} requires a configured project directory"
 
     if tool_name in _FILE_TOOLS and cwd:
