@@ -542,6 +542,13 @@ But reject sources like:
 
 When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit, the server will terminate the request, resulting in a request failure on the client side.
 
+:::note
+Since MLflow 3.15.0, the MLflow UI downloads artifacts directly from supported storage (e.g., Amazon S3) via
+presigned URLs instead of streaming them through the tracking server, which avoids these timeouts for UI downloads.
+See [Presigned URLs for direct artifact downloads](/self-hosting/architecture/artifact-store#presigned-download-urls)
+for details.
+:::
+
 Example client code:
 
 ```python
