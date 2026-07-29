@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import functools
+import gzip
 import hmac
 import importlib
 import json
@@ -19,6 +20,7 @@ import logging
 import re
 import secrets
 import threading
+import zlib
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
@@ -4630,10 +4632,19 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         body = None
         if path in _ROUTES_NEEDING_BODY:
             try:
-                body = await request.json()
+                # Check for Content-Encoding and decompress if needed
+                content_encoding = request.headers.get("content-encoding", "").lower().strip()
+                if content_encoding:
+                    raw_body = await request.body()
+                    decompressed_body = _decompress_gateway_body(raw_body, content_encoding)
+                    body = json.loads(decompressed_body)
+                else:
+                    body = await request.json()
                 # Cache parsed body in request.state so route handlers can reuse it
                 # (request body can only be read once in Starlette/FastAPI)
                 request.state.cached_body = body
+            except MlflowException:
+                raise
             except Exception as e:
                 raise MlflowException(f"Invalid JSON payload: {e}", error_code=BAD_REQUEST)
 
@@ -4644,6 +4655,62 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         return _validate_gateway_use_permission(endpoint_name, username)
 
     return validator
+
+
+def _decompress_gateway_body(raw_body: bytes, content_encoding: str) -> bytes:
+    """
+    Decompress a gateway request body according to Content-Encoding.
+
+    Supported encodings:
+    - gzip
+    - deflate (RFC-compliant and raw deflate)
+    - zstd (requires the `zstandard` package)
+
+    Raises MlflowException if the payload cannot be decompressed or if the
+    encoding is not supported.
+    """
+    match content_encoding:
+        case "gzip":
+            try:
+                return gzip.decompress(raw_body)
+            except Exception:
+                raise MlflowException(
+                    "Failed to decompress gzip payload", error_code=BAD_REQUEST
+                )
+
+        case "deflate":
+            try:
+                return zlib.decompress(raw_body)
+            except Exception:
+                # Try raw DEFLATE stream (some clients send this)
+                try:
+                    return zlib.decompress(raw_body, -zlib.MAX_WBITS)
+                except Exception:
+                    raise MlflowException(
+                        "Failed to decompress deflate payload", error_code=BAD_REQUEST
+                    )
+
+        case "zstd":
+            try:
+                import zstandard
+            except ImportError:
+                raise MlflowException(
+                    "zstd decompression requires the 'zstandard' package. "
+                    "Install it with: pip install zstandard",
+                    error_code=BAD_REQUEST,
+                )
+            try:
+                decompressor = zstandard.ZstdDecompressor()
+                return decompressor.decompress(raw_body)
+            except Exception:
+                raise MlflowException(
+                    "Failed to decompress zstd payload", error_code=BAD_REQUEST
+                )
+
+        case _:
+            raise MlflowException(
+                f"Unsupported Content-Encoding: {content_encoding}", error_code=BAD_REQUEST
+            )
 
 
 def _mcp_server_suffix(path: str) -> str:

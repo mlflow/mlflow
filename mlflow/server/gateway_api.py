@@ -7,9 +7,11 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
+import gzip
 import logging
 import sys
 import time
+import zlib
 from collections.abc import AsyncIterable, Callable
 from typing import Any
 
@@ -89,6 +91,68 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
+def _decompress_body(raw_body: bytes, content_encoding: str) -> bytes:
+    """
+    Decompress a gateway request body according to Content-Encoding.
+
+    Supported encodings:
+    - gzip
+    - deflate (RFC-compliant and raw deflate)
+    - zstd (requires the `zstandard` package)
+
+    Raises HTTPException if the payload cannot be decompressed or if the
+    encoding is not supported.
+    """
+    match content_encoding:
+        case "gzip":
+            try:
+                return gzip.decompress(raw_body)
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Failed to decompress gzip payload",
+                )
+
+        case "deflate":
+            try:
+                return zlib.decompress(raw_body)
+            except Exception:
+                # Try raw DEFLATE stream (some clients send this)
+                try:
+                    return zlib.decompress(raw_body, -zlib.MAX_WBITS)
+                except Exception:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Failed to decompress deflate payload",
+                    )
+
+        case "zstd":
+            try:
+                import zstandard
+            except ImportError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "zstd decompression requires the 'zstandard' package. "
+                        "Install it with: pip install zstandard"
+                    ),
+                )
+            try:
+                decompressor = zstandard.ZstdDecompressor()
+                return decompressor.decompress(raw_body)
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Failed to decompress zstd payload",
+                )
+
+        case _:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported Content-Encoding: {content_encoding}",
+            )
+
+
 async def _get_request_body(request: Request) -> dict[str, Any]:
     """
     Get request body, using cached version if available.
@@ -97,6 +161,9 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
     validation. Since Starlette request body can only be read once, we cache
     the parsed body in request.state.cached_body for reuse by route handlers.
 
+    If the request has a Content-Encoding header (e.g., zstd, gzip, deflate),
+    the body is decompressed before JSON parsing.
+
     Args:
         request: The FastAPI Request object.
 
@@ -104,16 +171,27 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
         Parsed JSON body as a dictionary.
 
     Raises:
-        HTTPException: If the request body is not valid JSON.
+        HTTPException: If the request body is not valid JSON or decompression fails.
     """
     # Check if body was already parsed by auth middleware
     cached_body = getattr(request.state, "cached_body", None)
     if isinstance(cached_body, dict):
         return cached_body
 
-    # Otherwise parse it now
+    # Check for Content-Encoding and decompress if needed
+    content_encoding = request.headers.get("content-encoding", "").lower().strip()
+
     try:
-        return await request.json()
+        if content_encoding:
+            raw_body = await request.body()
+            decompressed_body = _decompress_body(raw_body, content_encoding)
+            import json
+
+            return json.loads(decompressed_body)
+        else:
+            return await request.json()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
