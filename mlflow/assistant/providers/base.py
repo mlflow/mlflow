@@ -20,6 +20,13 @@ def clear_config_cache() -> None:
     load_config.cache_clear()
 
 
+def load_config_or_default(name: str) -> ProviderConfig:
+    try:
+        return load_config(name)
+    except RuntimeError:
+        return ProviderConfig()
+
+
 class ProviderNotConfiguredError(Exception):
     """Raised when a provider is not properly configured."""
 
@@ -53,6 +60,11 @@ class AssistantProvider(ABC):
     @abstractmethod
     def is_available(self) -> bool:
         """Check if the provider is available and ready to use."""
+
+    @property
+    def allows_remote_access(self) -> bool:
+        """Whether this provider can serve requests from remote clients."""
+        return False
 
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:

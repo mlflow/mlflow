@@ -108,7 +108,7 @@ jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTra
   ExportTracesToDatasetModal: jest.fn(() => null),
 }));
 
-const renderComponent = (props = {}) => {
+const renderComponent = (props = {}, initialEntries?: string[]) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -117,6 +117,7 @@ const renderComponent = (props = {}) => {
 
   return render(
     <TestRouter
+      initialEntries={initialEntries}
       routes={[
         testRoute(
           <IntlProvider locale="en">
@@ -646,6 +647,71 @@ describe('TracesV3Logs', () => {
       expect(mockLogTelemetryEvent).not.toHaveBeenCalledWith(
         expect.objectContaining({ componentId: 'mlflow.traces-tab.trace-count' }),
       );
+    });
+  });
+
+  describe('saved-view preview', () => {
+    // The column-count Tag renders its digits as separate text nodes and its componentId isn't
+    // surfaced as a testid, so locate the column-selector trigger button (which carries the
+    // "Columns N/M" label) and assert on its combined text content.
+    const getColumnsButton = () =>
+      screen.getAllByRole('button').find((el) => (el.textContent ?? '').startsWith('Columns'));
+
+    // request_time + execution_duration exist as columns; the user has only request_time selected.
+    const previewColumns = [
+      {
+        id: REQUEST_TIME_COLUMN_ID,
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Request Time',
+      },
+      {
+        id: 'execution_duration',
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Duration',
+      },
+    ];
+
+    beforeEach(() => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: previewColumns,
+        totalCount: 1,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [{ trace_id: 'test-trace-1' }],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+    });
+
+    it('renders the toolbar column count from the preview, not the user’s own selection', async () => {
+      // User owns 1 column (the default mock); the shared view in the URL selects 2. The toolbar
+      // counter must reflect the previewed 2/2, matching the body — not the user's 1.
+      renderComponent({}, [`/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`]);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns2/2'));
+      // The column control is disabled during preview — editing is deferred to Override/Discard.
+      expect(getColumnsButton()).toBeDisabled();
+    });
+
+    it('shows the user’s own column count (not a preview) when no shared view is open', async () => {
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      // Outside preview the control is editable.
+      expect(getColumnsButton()).not.toBeDisabled();
     });
   });
 });

@@ -1,20 +1,34 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import userEventGlobal from '@testing-library/user-event';
 import React from 'react';
-import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { CreateUserModal } from './CreateUserModal';
 
 let userEvent: ReturnType<typeof userEventGlobal.setup>;
 beforeEach(() => {
   userEvent = userEventGlobal.setup();
+  mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
+  // ``null`` is what ``useActiveWorkspace`` actually returns on a
+  // single-tenant server — the fix must not coerce it back to a workspace.
+  mockUseActiveWorkspace.mockReturnValue(null);
 });
+
+// ``fireEvent.change``-based credential fill: per-keystroke ``userEvent.type``
+// pushed the grant-flow tests past jest's default 5s per-test timeout on
+// loaded CI runners, and ``jest.setTimeout`` is banned by lint.
+const fillCredentials = () => {
+  fireEvent.change(screen.getByPlaceholderText('Enter username'), { target: { value: 'newbie' } });
+  fireEvent.change(screen.getByPlaceholderText('Enter password'), { target: { value: 'hunter2' } });
+};
 
 // Typed as ``(...args: any[]) => any`` so ``mockResolvedValue`` accepts the
 // realistic response shapes the component awaits. ``jest.fn()``'s default
 // signature is ``() => never``, which would reject the payload.
 const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
+const mockUseActiveWorkspace = jest.fn<() => string | null>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
@@ -31,19 +45,19 @@ jest.mock('../hooks', () => ({
   // the stub has to exist; only the shape matters.
   useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
   useRolesQuery: () => ({ data: { roles: [] }, isLoading: false, error: null }),
-  useWorkspaceOptions: () => ['default'],
+  useWorkspaceOptions: () => ['default', 'team-a'],
 }));
 
 jest.mock('../../workspaces/utils/WorkspaceUtils', () => ({
-  useActiveWorkspace: () => 'default',
+  useActiveWorkspace: () => mockUseActiveWorkspace(),
 }));
 
 jest.mock('../../workspaces/hooks/useWorkspaces', () => ({
-  useWorkspaces: () => ({ workspaces: [{ name: 'default' }], isLoading: false }),
+  useWorkspaces: () => ({ workspaces: [{ name: 'default' }, { name: 'team-a' }], isLoading: false }),
 }));
 
 jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
-  useWorkspacesEnabled: () => ({ workspacesEnabled: false }),
+  useWorkspacesEnabled: () => mockUseWorkspacesEnabled(),
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
@@ -89,8 +103,7 @@ describe('CreateUserModal — collapsible optional sections', () => {
     const onClose = jest.fn();
     renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
 
-    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
-    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+    fillCredentials();
     // Sanity-check we're still in the default-collapsed state before submit
     // — otherwise the test isn't really exercising what we claim.
     expect(screen.getByRole('button', { name: /Role assignment/ })).toHaveAttribute('aria-expanded', 'false');
@@ -122,8 +135,7 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
     await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
 
-    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
-    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+    fillCredentials();
 
     // Submit button stays enabled — the gate is the dialog, not a lock.
     const submit = screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ });
@@ -152,8 +164,7 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
     await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
 
-    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
-    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+    fillCredentials();
 
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ }));
     expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
@@ -164,5 +175,65 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(screen.getByRole('button', { name: /^Back$/ }));
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
     expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateUserModal — workspace targeting on direct grants', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+  });
+
+  // ``fireEvent`` instead of ``userEvent``: this is the heaviest flow in the
+  // file (mounts the collapsed direct-permissions form), and the pointer
+  // pipeline made it exceed the default 5s timeout on loaded CI runners.
+  const stageGrantAndSubmit = () => {
+    fireEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fillCredentials();
+    fireEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+  };
+
+  it('omits the workspace when workspaces are disabled', async () => {
+    // Regression: single-tenant servers reject ANY ``X-MLFLOW-WORKSPACE``
+    // header (even ``default``) with FEATURE_DISABLED, so the modal must not
+    // coerce "no active workspace" into ``default`` on the grant request.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
+
+    stageGrantAndSubmit();
+
+    // The submit handler is async (create → grant → close); ``onClose`` is
+    // its last step, so waiting on it settles the whole chain.
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resource_type: 'experiment',
+        resource_id: '*',
+        username: 'newbie',
+        permission: 'READ',
+      }),
+    );
+    expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBeUndefined();
+  });
+
+  it('targets the selected workspace when workspaces are enabled', async () => {
+    mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: true });
+    // A non-default active workspace: the pre-fix coercion also produced
+    // ``'default'``, so asserting ``'default'`` here would pass on the
+    // broken code too.
+    mockUseActiveWorkspace.mockReturnValue('team-a');
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    stageGrantAndSubmit();
+
+    await waitFor(() => expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
   });
 });

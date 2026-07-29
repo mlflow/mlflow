@@ -350,6 +350,23 @@ See the following example of a client REST call in Python attempting to list exp
 mlflow server --artifacts-only ...
 ```
 
+When workspaces are enabled, the artifact-only server must use the same logical workspace provider
+as the tracking server so it can validate `X-MLFLOW-WORKSPACE` before accessing storage. Configure
+the provider explicitly with `--workspace-store-uri`:
+
+```bash
+mlflow server \
+  --artifacts-only \
+  --enable-workspaces \
+  --workspace-store-uri postgresql://user:pass@host/mlflow \
+  --artifacts-destination s3://mlflow-artifacts
+```
+
+In this mode, MLflow initializes the workspace provider for request validation but does not
+initialize the tracking or model registry stores. Tracking and workspace-management APIs remain
+disabled. If the workspace header is omitted, the provider's default workspace is used; unknown
+workspaces and requests without a resolvable default are rejected.
+
 ```python
 import requests
 

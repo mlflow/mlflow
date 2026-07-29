@@ -23,6 +23,7 @@ import {
   useUpdateRole,
   useUsersQuery,
 } from '../hooks';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
@@ -77,6 +78,12 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const currentName = roleData?.role?.name ?? '';
   const currentDescription = roleData?.role?.description ?? '';
   const currentWorkspace = roleData?.role?.workspace ?? '';
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // to the resource picker so the ``X-MLFLOW-WORKSPACE`` header is omitted
+  // (the server rejects any workspace header, including ``default``, when
+  // workspaces are disabled).
+  const resourcePickerWorkspace = workspacesEnabled ? currentWorkspace : undefined;
 
   const currentPermissions = useMemo<StagedRolePermission[]>(() => {
     return (roleData?.role?.permissions ?? []).map((p) => ({
@@ -419,7 +426,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                   key={String(open)}
                   value={permissions}
                   onChange={setPermissions}
-                  workspace={currentWorkspace}
+                  workspace={resourcePickerWorkspace}
                   disabled={submitting}
                   onUnsavedDraftChange={setHasUnsavedDraft}
                 />

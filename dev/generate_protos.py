@@ -111,8 +111,8 @@ uc_proto_files = to_paths(
     "databricks_uc_registry_messages.proto",
     "databricks_uc_registry_service.proto",
     "databricks_filesystem_service.proto",
-    "unity_catalog_oss_messages.proto",
-    "unity_catalog_oss_service.proto",
+    "unity_catalog_messages.proto",
+    "unity_catalog_service.proto",
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
@@ -145,8 +145,8 @@ python_gencode_replacements = [
         "catalog_messages_pb2",
     ),
     (
-        "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
-        "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
+        "import unity_catalog_messages_pb2 as unity__catalog__messages__pb2",
+        "from . import unity_catalog_messages_pb2 as unity_catalog_messages_pb2",
     ),
     (
         "import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",
