@@ -102,9 +102,11 @@ def test_get_packages_preserves_order_and_fetches_each() -> None:
 
 
 @contextmanager
-def _serve(body: str, content_type: str) -> Iterator[str]:
+def _serve(body: str, content_type: str, requests: list[str] | None = None) -> Iterator[str]:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if requests is not None:
+                requests.append(self.path)
             encoded = body.encode()
             self.send_response(200)
             self.send_header("Content-Type", content_type)
@@ -135,11 +137,16 @@ def test_fetch_json_accepts_non_json_mimetype(monkeypatch: pytest.MonkeyPatch) -
     assert pkg.latest_version == Version("1.0.0")
 
 
-def test_fetch_json_rejects_non_json_body(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _serve("<html>nope</html>", "text/html") as url:
+def test_fetch_json_retries_then_rejects_non_json_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pypi._client, "_BACKOFF_BASE", 0)
+    requests: list[str] = []
+
+    with _serve("<html>nope</html>", "text/html", requests) as url:
         monkeypatch.setenv("PYPI_URL", url)
-        with pytest.raises(pypi.PyPIError, match="Invalid JSON"):
+        with pytest.raises(pypi.PyPIError, match="invalid JSON"):
             asyncio.run(pypi.get_package("demo"))
+
+    assert len(requests) == pypi._client._RETRIES
 
 
 def test_pypi_error_propagates() -> None:
