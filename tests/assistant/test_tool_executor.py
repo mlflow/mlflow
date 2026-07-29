@@ -173,18 +173,18 @@ def test_static_denies_dangerous_mlflow_commands(cmd):
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["mlflow"], (None, None)),
-        (["mlflow", "--version"], (None, None)),
-        (["mlflow", "experiments"], ("experiments", None)),
-        (["mlflow", "experiments", "search"], ("experiments", "search")),
-        (["mlflow", "experiments", "csv", "--filename", "/tmp/x"], ("experiments", "csv")),
+        (["mlflow"], None),
+        (["mlflow", "--version"], None),
+        (["mlflow", "experiments"], "experiments"),
+        (["mlflow", "experiments", "search"], "experiments"),
+        (["mlflow", "experiments", "csv", "--filename", "/tmp/x"], "experiments"),
         # --env-file consumes its value; a value that looks like a subcommand is not one.
-        (["mlflow", "--env-file", "run", "experiments", "search"], ("experiments", "search")),
+        (["mlflow", "--env-file", "run", "experiments", "search"], "experiments"),
         # Glued --env-file=value must skip exactly one slot.
-        (["mlflow", "--env-file=x", "run"], ("run", None)),
+        (["mlflow", "--env-file=x", "run"], "run"),
         # `ui` is an AliasedGroup alias for `server`; not in the allowlist -> caught.
-        (["mlflow", "ui"], ("ui", None)),
-        (["mlflow", "--env-file", "/tmp/e", "run", "."], ("run", ".")),
+        (["mlflow", "ui"], "ui"),
+        (["mlflow", "--env-file", "/tmp/e", "run", "."], "run"),
     ],
 )
 def test_mlflow_subcommand_parsing(argv, expected):
@@ -205,6 +205,28 @@ def test_dangerous_subcommand_after_env_file_flag_is_blocked():
         "Bash", {"command": "mlflow --env-file /tmp/e run ."}, PermissionsConfig(), None
     )
     assert err is not None
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Canonical form (already denied), kept as a regression guard.
+        "mlflow experiments csv --experiment-id 0 -o /tmp/x",
+        # Bypass: `-x` takes a value, so a positional-index denylist reads the
+        # sub-subcommand as "0" and lets `csv` through. A whole-argv verb scan
+        # must still deny it regardless of where `csv` appears.
+        "mlflow experiments -x 0 csv -o /tmp/x",
+        # Glued short option value (`-x0`) is the subtlest shlex form.
+        "mlflow experiments -x0 csv -o /tmp/x",
+        "mlflow experiments --experiment-id 0 csv --filename /tmp/x",
+        "mlflow experiments --experiment-id=0 csv -o /tmp/x",
+    ],
+)
+def test_experiments_csv_denied_regardless_of_arg_order(cmd):
+    # `experiments csv` writes an arbitrary server-local file (to_csv, no path
+    # validation). The denial must not be evadable by moving a value-taking
+    # option in front of the `csv` verb.
+    assert static_permission_error("Bash", {"command": cmd}, PermissionsConfig(), None) is not None
 
 
 def test_remote_env_disables_full_access_bash(monkeypatch):

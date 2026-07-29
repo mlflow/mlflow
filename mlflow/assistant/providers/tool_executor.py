@@ -38,11 +38,13 @@ _ALLOWED_MLFLOW_SUBCOMMANDS = frozenset({
     "scorers",
 })
 
-# Sub-subcommands that are denied even though their parent subcommand is allowlisted,
-# because they are file-system primitives (not tracking-API queries) that escape the
+# Verbs that are denied even when their parent subcommand is allowlisted, because
+# they are file-system primitives (not tracking-API queries) that escape the
 # workspace sandbox. `experiments csv --filename/-o PATH` writes an arbitrary
 # server-local file via pandas.to_csv with no path validation (mlflow/experiments.py),
-# and needs no shell to do it. Keyed by parent subcommand.
+# and needs no shell to do it. Keyed by parent subcommand; matched against the whole
+# argv (see static_permission_error) rather than a fixed positional, so a value-taking
+# option cannot shift the verb out of view (e.g. `experiments -x 0 csv`).
 _DENIED_MLFLOW_SUBSUBCOMMANDS = {
     "experiments": frozenset({"csv"}),
 }
@@ -52,33 +54,28 @@ _DENIED_MLFLOW_SUBSUBCOMMANDS = {
 _MLFLOW_GLOBAL_VALUE_FLAGS = frozenset({"--env-file"})
 
 
-def _mlflow_subcommand(argv: list[str]) -> tuple[str | None, str | None]:
-    """Return ``(subcommand, sub_subcommand)`` for a ``mlflow`` invocation, using
-    None for either when absent (e.g. ``mlflow --version`` -> (None, None),
-    ``mlflow experiments`` -> ("experiments", None)). ``argv[0]`` is assumed to be
-    ``mlflow``.
+def _mlflow_subcommand(argv: list[str]) -> str | None:
+    """Return the top-level subcommand for a ``mlflow`` invocation, or None when
+    absent (e.g. ``mlflow --version`` -> None, ``mlflow experiments search`` ->
+    "experiments"). ``argv[0]`` is assumed to be ``mlflow``.
 
-    Skips global flags and the value consumed by ``--env-file`` so the positional
-    tokens are identified without a full CLI parser. The sub-subcommand is the second
-    positional; per-subcommand option values could in principle precede it, but the
-    denied sub-subcommands are all bare verbs, so returning the first positional after
-    the subcommand is sufficient (and any mismatch fails closed at the allowlist).
+    Skips global flags and the value consumed by ``--env-file`` so the subcommand is
+    identified without a full CLI parser. Only the top-level subcommand is returned;
+    the denied verbs (see ``_DENIED_MLFLOW_SUBSUBCOMMANDS``) are matched against the
+    whole argv by the caller, so no fragile positional-index reasoning about
+    sub-subcommands is needed here.
     """
-    positionals: list[str] = []
     i = 1
-    while i < len(argv) and len(positionals) < 2:
+    while i < len(argv):
         tok = argv[i]
         if tok in _MLFLOW_GLOBAL_VALUE_FLAGS:
             i += 2  # skip the flag and its value
             continue
         if tok.startswith("-"):
-            i += 1  # boolean flag such as --version / --help
+            i += 1  # boolean/glued flag such as --version / --help / --env-file=x
             continue
-        positionals.append(tok)
-        i += 1
-    subcommand = positionals[0] if positionals else None
-    sub_subcommand = positionals[1] if len(positionals) > 1 else None
-    return subcommand, sub_subcommand
+        return tok
+    return None
 
 
 def remote_lockdown_active() -> bool:
@@ -137,17 +134,24 @@ def static_permission_error(
                 "commands are allowed"
             )
         if argv[0] == "mlflow":
-            subcommand, sub_subcommand = _mlflow_subcommand(argv)
+            subcommand = _mlflow_subcommand(argv)
             if subcommand is not None and subcommand not in _ALLOWED_MLFLOW_SUBCOMMANDS:
                 return (
                     f"Permission denied: 'mlflow {subcommand}' is not allowed. "
                     f"Allowed subcommands: {', '.join(sorted(_ALLOWED_MLFLOW_SUBCOMMANDS))}"
                 )
+            # Match denied verbs anywhere in argv, not at a fixed position: a
+            # value-taking option (e.g. `experiments -x 0 csv`) must not be able to
+            # shift the verb past a positional check and evade the denial. This
+            # over-denies the rare case where a denied verb also appears as an option
+            # value (e.g. an experiment literally named "csv") — an acceptable
+            # fail-closed tradeoff, since distinguishing verb from value would require
+            # the positional reasoning this scan deliberately avoids.
             denied_actions = _DENIED_MLFLOW_SUBSUBCOMMANDS.get(subcommand, frozenset())
-            if sub_subcommand in denied_actions:
+            if denied_verb := denied_actions.intersection(argv):
                 return (
-                    f"Permission denied: 'mlflow {subcommand} {sub_subcommand}' is not allowed "
-                    "(it can write to an arbitrary server-local path)."
+                    f"Permission denied: 'mlflow {subcommand} {min(denied_verb)}' is not "
+                    "allowed (it can write to an arbitrary server-local path)."
                 )
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
