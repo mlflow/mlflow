@@ -4891,6 +4891,57 @@ def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemySto
     assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 600
 
 
+def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) -> None:
+    # The usage recompute must only read spans for traces whose row this call locked, otherwise
+    # it can observe a concurrent log_spans() call's uncommitted spans. Guards the derivation of
+    # the recompute trace IDs from the locked pre-existing ones against a future refactor.
+    experiment_id = store.create_experiment("test_log_spans_recompute_reads_locked_traces")
+    preexisting_trace_id = f"tr-{uuid.uuid4().hex}"
+    new_trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(trace_id: str, span_id: int, total: int, trace_num: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            trace_num=trace_num,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(preexisting_trace_id, 1, 100, 111)])
+
+    with (
+        mock.patch.object(
+            store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+        ) as mock_lock,
+        mock.patch.object(
+            store, "_stored_span_rows_query", wraps=store._stored_span_rows_query
+        ) as mock_stored,
+    ):
+        # The trace created by this call carries usage too, so a recompute derived from every
+        # trace in the batch would read its spans without having locked its row.
+        store.log_spans(
+            experiment_id,
+            [_span(preexisting_trace_id, 2, 200, 111), _span(new_trace_id, 3, 300, 222)],
+        )
+
+    mock_lock.assert_called_once()
+    mock_stored.assert_called_once()
+    locked_trace_ids = set(mock_lock.call_args.args[1])
+    assert locked_trace_ids == {preexisting_trace_id}
+    assert set(mock_stored.call_args.args[1]) <= locked_trace_ids
+
+    assert store.get_trace_info(preexisting_trace_id).token_usage["total_tokens"] == 300
+    assert store.get_trace_info(new_trace_id).token_usage["total_tokens"] == 300
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
