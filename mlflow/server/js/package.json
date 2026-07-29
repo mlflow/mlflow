@@ -208,7 +208,13 @@
     "rc-virtual-list@^3.0.3": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",
     "rc-virtual-list@^3.0.1": "patch:rc-virtual-list@npm%3A3.2.0#yarn/patches/rc-virtual-list-npm-3.2.0-5efaefc12e.patch",
     "csstype@^3.0.2": "3.0.11",
-    "nwsapi": "2.2.20"
+    "nwsapi": "2.2.20",
+    "postcss@npm:^8.2.15": "npm:8.5.12",
+    "postcss@npm:^8.3.5": "npm:8.5.12",
+    "postcss@npm:^8.4.4": "npm:8.5.12",
+    "postcss@npm:^8.4.33": "npm:8.5.12",
+    "postcss@npm:^8.4.47": "npm:8.5.12",
+    "postcss@npm:^8.5.6": "npm:8.5.12"
   },
   "//": "homepage is hard to configure without resorting to env variables and doesn't play nicely with other webpack settings. This field should be removed.",
   "homepage": "static-files",
