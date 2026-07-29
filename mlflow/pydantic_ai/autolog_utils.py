@@ -1,10 +1,52 @@
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from mlflow.tracing.constant import TokenUsageKey
 
 _logger = logging.getLogger(__name__)
+_SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
+
+
+def is_safe_for_serialization(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, _SAFE_PRIMITIVE_TYPES):
+        return True
+    if isinstance(value, dict):
+        return all(is_safe_for_serialization(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return all(is_safe_for_serialization(item) for item in value)
+    return (is_dataclass(value) and not isinstance(value, type)) or isinstance(value, type)
+
+
+def extract_safe_attributes(instance: Any) -> dict[str, Any]:
+    attributes = {}
+    for key in dir(instance):
+        if key.startswith("_"):
+            continue
+        try:
+            value = getattr(instance, key, None)
+        except Exception:
+            continue
+        if callable(value) and not isinstance(value, type):
+            continue
+        if isinstance(value, type):
+            attributes[key] = value.__name__
+        elif is_safe_for_serialization(value):
+            attributes[key] = value
+    return attributes
+
+
+def model_request_inputs(request_context) -> dict[str, Any]:
+    if request_context is None:
+        return {}
+    inputs = {
+        "messages": getattr(request_context, "messages", None),
+        "model_settings": getattr(request_context, "model_settings", None),
+        "model_request_parameters": getattr(request_context, "model_request_parameters", None),
+    }
+    return {key: value for key, value in inputs.items() if value is not None}
 
 
 def serialize_output(result: Any) -> Any:
@@ -54,7 +96,7 @@ def parse_usage(result: Any) -> dict[str, int] | None:
         output_tokens = getattr(usage, "output_tokens", None)
         if output_tokens is None:
             output_tokens = getattr(usage, "response_tokens", 0)
-        total_tokens = getattr(usage, "total_tokens")
+        total_tokens = getattr(usage, "total_tokens", None)
         if total_tokens is None:
             total_tokens = input_tokens + output_tokens
         return {

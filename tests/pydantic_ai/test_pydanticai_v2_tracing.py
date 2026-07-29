@@ -17,6 +17,7 @@ from pydantic_ai.tools import ToolDefinition
 
 import mlflow
 import mlflow.pydantic_ai.autolog_v2
+import mlflow.utils.autologging_utils
 from mlflow.entities import SpanType
 from mlflow.pydantic_ai.autolog_v2 import (
     _StreamedRunResultSyncWrapper,
@@ -25,6 +26,7 @@ from mlflow.pydantic_ai.autolog_v2 import (
     patched_mcp_direct_call_tool,
     patched_mcp_list_tools,
 )
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -64,6 +66,50 @@ def test_disable_removes_v2_patches():
     assert get_traces() == []
 
 
+def test_disable_autologging_suppresses_agent_and_tool_spans():
+    mlflow.pydantic_ai.autolog()
+
+    def add(left: int, right: int) -> int:
+        return left + right
+
+    agent = Agent(TestModel(), tools=[add])
+
+    with mlflow.utils.autologging_utils.disable_autologging():
+        assert agent.run_sync("add two numbers").output is not None
+
+    # The manual (non-safe_patch) wrappers for run_stream, run_stream_sync, and the tool /
+    # MCP async hooks must honor the global disabled state, not just log_traces. Otherwise
+    # they keep emitting spans (leaking tool inputs) while autologging is globally suppressed.
+    assert get_traces() == []
+
+
+@pytest.mark.asyncio
+async def test_disabled_tracing_bypasses_tool_execute_hook():
+    mlflow.pydantic_ai.autolog()
+    instrumentation = Instrumentation()
+    call = ToolCallPart(tool_name="add", args={"left": 1, "right": 2})
+    tool_def = ToolDefinition(name="add", parameters_json_schema={})
+    handler_call_count = 0
+
+    async def handler(args):
+        nonlocal handler_call_count
+        handler_call_count += 1
+        return args["left"] + args["right"]
+
+    with mlflow.utils.autologging_utils.disable_autologging():
+        result = await instrumentation.wrap_tool_execute(
+            None,
+            call=call,
+            tool_def=tool_def,
+            args=call.args,
+            handler=handler,
+        )
+
+    assert result == 3
+    assert handler_call_count == 1
+    assert get_traces() == []
+
+
 def test_run_sync_preserves_run_nesting():
     mlflow.pydantic_ai.autolog()
     agent = Agent(TestModel(custom_output_text="hello"))
@@ -85,6 +131,18 @@ def test_run_sync_preserves_run_nesting():
     ]
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].parent_id == spans[1].span_id
+
+
+def test_model_request_span_records_model_attributes():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    assert agent.run_sync("hi").output == "hello"
+
+    model_span = next(span for span in get_traces()[0].data.spans if span.span_type == SpanType.LLM)
+    assert model_span.attributes[SpanAttributeKey.MODEL] == "test"
+    assert model_span.attributes[SpanAttributeKey.MODEL_PROVIDER] == "test"
+    assert model_span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "pydantic_ai"
 
 
 def test_tool_span_uses_logical_tool_payload():

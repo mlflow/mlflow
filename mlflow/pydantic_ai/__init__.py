@@ -133,11 +133,6 @@ def _get_pydantic_ai_version() -> Version | None:
         return None
 
 
-def _is_pydantic_ai_v2() -> bool:
-    version = _get_pydantic_ai_version()
-    return version is not None and version.major >= 2
-
-
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """

@@ -3,21 +3,43 @@ import inspect
 import logging
 import sys
 from contextlib import asynccontextmanager
-from dataclasses import is_dataclass
 from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.pydantic_ai.autolog_utils import parse_usage, serialize_output
+from mlflow.pydantic_ai.autolog_utils import (
+    extract_safe_attributes,
+    model_request_inputs,
+    parse_usage,
+    serialize_output,
+)
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
-from mlflow.utils.autologging_utils import get_autologging_config, is_testing, safe_patch
+from mlflow.utils import autologging_utils
+from mlflow.utils.autologging_utils import (
+    autologging_is_disabled,
+    get_autologging_config,
+    is_testing,
+    safe_patch,
+)
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
 _logger = logging.getLogger(__name__)
-_SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
+
+
+def _tracing_enabled() -> bool:
+    # The wrappers installed by _patch_streaming_method and _safe_patch_async_hook bypass
+    # safe_patch, so they must replicate its gating: honor the per-flavor log_traces config,
+    # the per-flavor disabled state, AND the process-wide disable_autologging() flag. The
+    # latter is a separate module global that autologging_is_disabled() does not consult, so
+    # it must be checked explicitly — otherwise these manual patches keep emitting spans
+    # under global suppression, leaking inputs such as tool arguments.
+    if autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED:
+        return False
+    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    return config.log_traces and not autologging_is_disabled(mlflow.pydantic_ai.FLAVOR_NAME)
 
 
 def _construct_inputs(func, *args, **kwargs) -> dict[str, Any]:
@@ -34,45 +56,15 @@ def _construct_inputs(func, *args, **kwargs) -> dict[str, Any]:
         return kwargs
 
 
-def _is_safe_for_serialization(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, _SAFE_PRIMITIVE_TYPES):
-        return True
-    if isinstance(value, dict):
-        return all(_is_safe_for_serialization(item) for item in value.values())
-    if isinstance(value, (list, tuple)):
-        return all(_is_safe_for_serialization(item) for item in value)
-    return (is_dataclass(value) and not isinstance(value, type)) or isinstance(value, type)
-
-
-def _extract_safe_attributes(instance: Any) -> dict[str, Any]:
-    attributes = {}
-    for key in dir(instance):
-        if key.startswith("_"):
-            continue
-        try:
-            value = getattr(instance, key, None)
-        except Exception:
-            continue
-        if callable(value) and not isinstance(value, type):
-            continue
-        if isinstance(value, type):
-            attributes[key] = value.__name__
-        elif _is_safe_for_serialization(value):
-            attributes[key] = value
-    return attributes
-
-
 def _set_agent_attributes(span: LiveSpan, agent) -> None:
     attributes = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
-    attributes.update(_extract_safe_attributes(agent))
+    attributes.update(extract_safe_attributes(agent))
     span.set_attributes(attributes)
 
 
 def _set_model_attributes(span: LiveSpan, model) -> None:
     attributes = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
-    attributes.update(_extract_safe_attributes(model))
+    attributes.update(extract_safe_attributes(model))
     span.set_attributes(attributes)
 
     if model_name := getattr(model, "model_name", None):
@@ -90,28 +82,16 @@ def _set_result(span: LiveSpan, result: Any) -> None:
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
 
-def _model_request_inputs(request_context) -> dict[str, Any]:
-    if request_context is None:
-        return {}
-    inputs = {
-        "messages": getattr(request_context, "messages", None),
-        "model_settings": getattr(request_context, "model_settings", None),
-        "model_request_parameters": getattr(request_context, "model_request_parameters", None),
-    }
-    return {key: value for key, value in inputs.items() if value is not None}
-
-
 def patched_agent_init(original, self, *args, **kwargs):
     result = original(self, *args, **kwargs)
     config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if config.log_traces and self.instrument is None:
+    if config.log_traces and getattr(self, "instrument", None) is None:
         self.instrument = True
     return result
 
 
 async def patched_agent_run(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
+    if not _tracing_enabled():
         return await original(self, *args, **kwargs)
 
     with mlflow.start_span(name="Agent.run", span_type=SpanType.AGENT) as span:
@@ -123,8 +103,7 @@ async def patched_agent_run(original, self, *args, **kwargs):
 
 
 def patched_agent_run_sync(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
+    if not _tracing_enabled():
         return original(self, *args, **kwargs)
 
     with mlflow.start_span(name="Agent.run_sync", span_type=SpanType.AGENT) as span:
@@ -138,8 +117,7 @@ def patched_agent_run_sync(original, self, *args, **kwargs):
 def patched_agent_run_stream(original, self, *args, **kwargs):
     @asynccontextmanager
     async def traced_stream():
-        config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-        if not config.log_traces:
+        if not _tracing_enabled():
             async with original(self, *args, **kwargs) as result:
                 yield result
             return
@@ -160,8 +138,7 @@ def patched_agent_run_stream(original, self, *args, **kwargs):
 
 
 async def patched_capability_model_request(original, self, ctx, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
+    if not _tracing_enabled():
         return await original(self, ctx, **kwargs)
 
     request_context = kwargs.get("request_context")
@@ -169,7 +146,7 @@ async def patched_capability_model_request(original, self, ctx, **kwargs):
     span_name = f"{type(model).__name__}.request" if model is not None else "Model.request"
 
     with mlflow.start_span(name=span_name, span_type=SpanType.LLM) as span:
-        span.set_inputs(_model_request_inputs(request_context))
+        span.set_inputs(model_request_inputs(request_context))
         if model is not None:
             _set_model_attributes(span, model)
         result = await original(self, ctx, **kwargs)
@@ -231,8 +208,7 @@ async def patched_capability_tool_execute(
 
 
 async def patched_mcp_list_tools(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
+    if not _tracing_enabled():
         return await original(self, *args, **kwargs)
 
     with mlflow.start_span(name="MCPToolset.list_tools", span_type=SpanType.TOOL) as span:
@@ -359,8 +335,7 @@ class _StreamedRunResultSyncWrapper:
 
 
 def patched_agent_run_stream_sync(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-    if not config.log_traces:
+    if not _tracing_enabled():
         return original(self, *args, **kwargs)
 
     span = mlflow.start_span_no_context(name="Agent.run_stream_sync", span_type=SpanType.AGENT)
@@ -415,8 +390,7 @@ def _safe_patch_async_hook(destination, function_name, patch_function) -> None:
                 raise
 
         try:
-            config = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
-            if not config.log_traces:
+            if not _tracing_enabled():
                 return await call_original(self, *args, **kwargs)
             return await patch_function(call_original, self, *args, **kwargs)
         except BaseException as patch_error:
@@ -447,8 +421,6 @@ def _safe_patch_async_hook(destination, function_name, patch_function) -> None:
 
 def setup_autologging() -> None:
     from pydantic_ai import Agent
-    from pydantic_ai.capabilities.instrumentation import Instrumentation
-    from pydantic_ai.mcp import MCPToolset
 
     safe_patch(
         mlflow.pydantic_ai.FLAVOR_NAME,
@@ -460,30 +432,45 @@ def setup_autologging() -> None:
     safe_patch(mlflow.pydantic_ai.FLAVOR_NAME, Agent, "run_sync", patched_agent_run_sync)
     _patch_streaming_method(Agent, "run_stream", patched_agent_run_stream)
     _patch_streaming_method(Agent, "run_stream_sync", patched_agent_run_stream_sync)
-    safe_patch(
-        mlflow.pydantic_ai.FLAVOR_NAME,
-        Instrumentation,
-        "wrap_model_request",
-        patched_capability_model_request,
-    )
-    _safe_patch_async_hook(
-        Instrumentation,
-        "on_tool_validate_error",
-        patched_capability_tool_validate_error,
-    )
-    _safe_patch_async_hook(
-        Instrumentation,
-        "wrap_tool_execute",
-        patched_capability_tool_execute,
-    )
-    safe_patch(
-        mlflow.pydantic_ai.FLAVOR_NAME,
-        MCPToolset,
-        "list_tools",
-        patched_mcp_list_tools,
-    )
-    _safe_patch_async_hook(
-        MCPToolset,
-        "direct_call_tool",
-        patched_mcp_direct_call_tool,
-    )
+
+    # Instrumentation and MCP are optional surfaces (e.g. MCPToolset only exists when the
+    # `mcp` extra is installed). Degrade gracefully like the 1.x path so a missing optional
+    # module disables only that surface instead of failing the whole autolog() call.
+    try:
+        from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+        safe_patch(
+            mlflow.pydantic_ai.FLAVOR_NAME,
+            Instrumentation,
+            "wrap_model_request",
+            patched_capability_model_request,
+        )
+        _safe_patch_async_hook(
+            Instrumentation,
+            "on_tool_validate_error",
+            patched_capability_tool_validate_error,
+        )
+        _safe_patch_async_hook(
+            Instrumentation,
+            "wrap_tool_execute",
+            patched_capability_tool_execute,
+        )
+    except (ImportError, AttributeError) as e:
+        _logger.warning("Skipping Pydantic AI 2.x Instrumentation tracing: %s", e)
+
+    try:
+        from pydantic_ai.mcp import MCPToolset
+
+        safe_patch(
+            mlflow.pydantic_ai.FLAVOR_NAME,
+            MCPToolset,
+            "list_tools",
+            patched_mcp_list_tools,
+        )
+        _safe_patch_async_hook(
+            MCPToolset,
+            "direct_call_tool",
+            patched_mcp_direct_call_tool,
+        )
+    except (ImportError, AttributeError) as e:
+        _logger.warning("Skipping Pydantic AI 2.x MCP tracing: %s", e)
