@@ -110,6 +110,32 @@ async def test_disabled_tracing_bypasses_tool_execute_hook():
     assert get_traces() == []
 
 
+def test_disable_autologging_suppresses_run_stream_sync_spans():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    # run_stream_sync (and the run_stream it drives internally) are installed via
+    # _patch_streaming_method, which bypasses safe_patch. Exercise the full sync-stream
+    # lifecycle under global suppression to prove those manual wrappers emit no spans.
+    with mlflow.utils.autologging_utils.disable_autologging():
+        with agent.run_stream_sync("hi") as result:
+            assert result.get_output() == "hello"
+
+    assert get_traces() == []
+
+
+@pytest.mark.asyncio
+async def test_disable_autologging_suppresses_run_stream_spans():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    with mlflow.utils.autologging_utils.disable_autologging():
+        async with agent.run_stream("hi") as result:
+            assert await result.get_output() == "hello"
+
+    assert get_traces() == []
+
+
 def test_run_sync_preserves_run_nesting():
     mlflow.pydantic_ai.autolog()
     agent = Agent(TestModel(custom_output_text="hello"))

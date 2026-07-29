@@ -8,7 +8,7 @@ from typing import Any
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.pydantic_ai.autolog_utils import (
+from mlflow.pydantic_ai.utils import (
     extract_safe_attributes,
     model_request_inputs,
     parse_usage,

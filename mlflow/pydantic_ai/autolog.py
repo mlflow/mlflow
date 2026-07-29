@@ -8,8 +8,8 @@ from typing import Any
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.pydantic_ai.autolog_utils import parse_usage as _parse_usage
-from mlflow.pydantic_ai.autolog_utils import serialize_output as _serialize_output
+from mlflow.pydantic_ai.utils import parse_usage as _parse_usage
+from mlflow.pydantic_ai.utils import serialize_output as _serialize_output
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
