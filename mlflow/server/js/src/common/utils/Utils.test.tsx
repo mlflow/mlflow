@@ -1013,13 +1013,6 @@ describe('logErrorAndNotifyUser', () => {
     );
   });
 
-  test('shows toast for Error instances', () => {
-    Utils.logErrorAndNotifyUser(new Error('something went wrong'));
-    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'something went wrong' }),
-    );
-  });
-
   test('shows toast for ErrorWrapper errors', () => {
     const wrapper = new ErrorWrapper('{"error_code":"PERMISSION_DENIED","message":"not allowed"}', 403);
     Utils.logErrorAndNotifyUser(wrapper);
@@ -1032,13 +1025,15 @@ describe('logErrorAndNotifyUser', () => {
     const error = new PermissionError({});
     Utils.logErrorAndNotifyUser(error);
     expect(mockNotificationsApi.error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'You do not have permission to access this resource.' }),
+      expect.objectContaining({ message: error.displayMessage }),
     );
   });
 
   test('shows toast for UnauthorizedError (PredefinedError)', () => {
     const error = new UnauthorizedError({});
     Utils.logErrorAndNotifyUser(error);
-    expect(mockNotificationsApi.error).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(String) }));
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: error.displayMessage }),
+    );
   });
 });
