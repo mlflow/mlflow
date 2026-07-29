@@ -52,6 +52,7 @@ class ScorerKind(Enum):
     GUIDELINES = "guidelines"
     THIRD_PARTY = "third_party"
     MEMORY_AUGMENTED = "memory_augmented"
+    ENSEMBLE = "ensemble"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
@@ -61,6 +62,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [
     ScorerKind.GUIDELINES,
     ScorerKind.MEMORY_AUGMENTED,
     ScorerKind.THIRD_PARTY,
+    ScorerKind.ENSEMBLE,
 ]
 
 
@@ -85,6 +87,23 @@ class ScorerSamplingConfig:
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
+def _extract_scorer_value(result: Any) -> Any:
+    """Reduce a sub-scorer's return to a single aggregatable value.
+
+    Failures and empty assessments (``None`` or an error ``Feedback``) become ``None``
+    so the ensemble function decides how to treat them.
+    """
+    if result is None:
+        return None
+    if isinstance(result, Feedback):
+        return None if result.error is not None else result.value
+    if isinstance(result, list):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_ensemble does not support sub-scorers that return a list of Feedback objects."
+        )
+    return result
 
 
 @dataclass
@@ -122,6 +141,10 @@ class SerializedScorer:
     #   {"module": ..., "class": ..., "metric_name": ..., "model": ..., "kwargs": {...}}
     third_party_scorer_data: dict[str, Any] | None = None
 
+    # Ensemble scorer fields (for scorer_ensemble()). Shape:
+    #   {"ensemble_fn": <builtin name>, "scorers": [<serialized sub-scorer dict>, ...]}
+    ensemble_scorer_data: dict[str, Any] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
@@ -129,6 +152,7 @@ class SerializedScorer:
         has_instructions_fields = self.instructions_judge_pydantic_data is not None
         has_memory_augmented_fields = self.memory_augmented_judge_data is not None
         has_third_party_fields = self.third_party_scorer_data is not None
+        has_ensemble_fields = self.ensemble_scorer_data is not None
 
         # Count how many field types are present
         field_count = sum([
@@ -137,6 +161,7 @@ class SerializedScorer:
             has_instructions_fields,
             has_memory_augmented_fields,
             has_third_party_fields,
+            has_ensemble_fields,
         ])
 
         if field_count == 0:
@@ -145,7 +170,8 @@ class SerializedScorer:
                 "(builtin_scorer_class), decorator scorer fields (call_source), "
                 "instructions judge fields (instructions_judge_pydantic_data), "
                 "memory augmented judge fields (memory_augmented_judge_data), "
-                "or third-party scorer fields (third_party_scorer_data) present"
+                "third-party scorer fields (third_party_scorer_data), "
+                "or ensemble scorer fields (ensemble_scorer_data) present"
             )
 
         if field_count > 1:
@@ -526,6 +552,25 @@ class Scorer(BaseModel):
                 scorer_instance.aggregations = serialized.aggregations
             object.__setattr__(scorer_instance, "_cached_dump", asdict(serialized))
             return scorer_instance
+
+        # Handle ensemble scorers
+        elif serialized.ensemble_scorer_data is not None:
+            from mlflow.genai.scorers.ensemble import BUILTIN_ENSEMBLES
+
+            data = serialized.ensemble_scorer_data
+            fn_name = data.get("ensemble_fn")
+            if fn_name not in BUILTIN_ENSEMBLES:
+                raise MlflowException.invalid_parameter_value(
+                    f"Ensemble scorer '{serialized.name}': unknown ensemble function "
+                    f"'{fn_name}'. Available: {sorted(BUILTIN_ENSEMBLES)}."
+                )
+            sub_scorers = [cls.model_validate(d) for d in data.get("scorers", [])]
+            return scorer_ensemble(
+                name=serialized.name,
+                scorers=sub_scorers,
+                ensemble_fn=fn_name,
+                description=serialized.description,
+            )
 
         # Invalid serialized data
         else:
@@ -1395,3 +1440,158 @@ def scorer(
         description=description,
         aggregations=aggregations,
     )
+
+
+class EnsembleScorer(Scorer):
+    _scorers: list[Scorer] = PrivateAttr(default_factory=list)
+    _ensemble_fn: Callable[..., Any] = PrivateAttr()
+    _ensemble_fn_name: str | None = PrivateAttr(default=None)
+    _is_session_level: bool = PrivateAttr(default=False)
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        from mlflow.genai.scorers.ensemble import BUILTIN_ENSEMBLES
+
+        if self._ensemble_fn_name is None:
+            raise MlflowException.invalid_parameter_value(
+                "This ensemble scorer uses a custom ensemble function and cannot be "
+                "serialized or registered. Pass one of the built-in ensemble functions "
+                f"({sorted(BUILTIN_ENSEMBLES)}) to make it serializable."
+            )
+        serialized = SerializedScorer(
+            name=self.name,
+            description=self.description,
+            aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            ensemble_scorer_data={
+                "ensemble_fn": self._ensemble_fn_name,
+                "scorers": [s.model_dump() for s in self._scorers],
+            },
+        )
+        return asdict(serialized)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.ENSEMBLE
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return self._is_session_level
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        if self._is_session_level:
+            kwargs = {"session": session, "expectations": expectations}
+        else:
+            kwargs = {
+                "inputs": inputs,
+                "outputs": outputs,
+                "expectations": expectations,
+                "trace": trace,
+            }
+
+        results = [s.run(**kwargs) for s in self._scorers]
+        values = [_extract_scorer_value(r) for r in results]
+
+        params = inspect.signature(self._ensemble_fn).parameters
+        feedbacks_mode = "feedbacks" in params
+
+        if not feedbacks_mode:
+            for sub_scorer, value in zip(self._scorers, values):
+                if value is not None and not isinstance(value, (bool, int, float, str)):
+                    raise MlflowException.invalid_parameter_value(
+                        f"scorer_ensemble only supports sub-scorers returning bool, "
+                        f"numeric, or categorical (str) values. Sub-scorer "
+                        f"'{sub_scorer.name}' returned {type(value).__name__}."
+                    )
+
+        agg_input = results if feedbacks_mode else values
+        result = self._ensemble_fn(agg_input)
+
+        if isinstance(result, Feedback):
+            if result.name == DEFAULT_FEEDBACK_NAME:
+                result.name = self.name
+            return result
+        return Feedback(name=self.name, value=result)
+
+
+def scorer_ensemble(
+    *,
+    name: str,
+    scorers: list[Scorer],
+    ensemble_fn: str | Callable[..., Any],
+    description: str | None = None,
+) -> EnsembleScorer:
+    """Create a scorer that runs several sub-scorers and aggregates their results.
+
+    Args:
+        name: Name of the ensemble scorer (and of the emitted Feedback).
+        scorers: Sub-scorers to run. Must be homogeneous in level — all session-level
+            or all single-turn. Each must return a bool, numeric, or categorical
+            (str) value.
+        ensemble_fn: A callable ``(values) -> value|Feedback``, or a callable
+            ``(feedbacks) -> value|Feedback`` to receive full Feedback objects, or the
+            string name of a built-in (one of ``mlflow.genai.scorers.ensemble``).
+        description: Optional description.
+    """
+    from mlflow.genai.scorers.ensemble import (
+        BUILTIN_ENSEMBLES,
+        NUMERIC_ENSEMBLES,
+        is_numeric_feedback_type,
+    )
+
+    if not scorers:
+        raise MlflowException.invalid_parameter_value(
+            "scorer_ensemble requires at least one sub-scorer."
+        )
+
+    levels = {s.is_session_level_scorer for s in scorers}
+    if len(levels) > 1:
+        raise MlflowException.invalid_parameter_value(
+            "All sub-scorers passed to scorer_ensemble must be the same level: "
+            "either all session-level or all single-turn."
+        )
+    is_session_level = levels.pop()
+
+    if isinstance(ensemble_fn, str):
+        if ensemble_fn not in BUILTIN_ENSEMBLES:
+            raise MlflowException.invalid_parameter_value(
+                f"'{ensemble_fn}' is not a built-in ensemble function. "
+                f"Available: {sorted(BUILTIN_ENSEMBLES)}."
+            )
+        fn_name = ensemble_fn
+        fn = BUILTIN_ENSEMBLES[ensemble_fn]
+    else:
+        fn = ensemble_fn
+        # Record the built-in name when a built-in callable is passed directly, so the
+        # scorer stays serializable.
+        fn_name = next((n for n, f in BUILTIN_ENSEMBLES.items() if f is fn), None)
+
+    # Up-front validation: numeric built-ins reject sub-scorers that DECLARE a
+    # non-numeric feedback_value_type (e.g. a Literal["yes","no"] judge), giving a clear
+    # error before any evaluation runs. Only judges/builtin scorers declare this; decorator
+    # scorers omit it and are validated at call time by the runtime value-check.
+    if fn_name in NUMERIC_ENSEMBLES:
+        for s in scorers:
+            declared = getattr(s, "feedback_value_type", None)
+            if declared is not None and not is_numeric_feedback_type(declared):
+                raise MlflowException.invalid_parameter_value(
+                    f"Ensemble function '{fn_name}' requires numeric sub-scorer values, "
+                    f"but sub-scorer '{s.name}' declares a non-numeric feedback_value_type "
+                    f"({declared!r}). Use majority_vote for categorical scorers."
+                )
+
+    agg = EnsembleScorer(name=name, description=description)
+    object.__setattr__(agg, "_scorers", list(scorers))
+    object.__setattr__(agg, "_ensemble_fn", fn)
+    object.__setattr__(agg, "_ensemble_fn_name", fn_name)
+    object.__setattr__(agg, "_is_session_level", is_session_level)
+    return agg
