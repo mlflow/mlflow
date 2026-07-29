@@ -6,10 +6,21 @@ from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.tool_executor import (
     _mlflow_subcommand,
     execute_tool,
+    remote_lockdown_active,
     static_permission_error,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 
-# MLFLOW_ALLOW_REMOTE_ASSISTANT is cleared by the autouse fixture in conftest.py.
+# MLFLOW_ENABLE_REMOTE_ASSISTANT is cleared by the autouse fixture in conftest.py.
+
+
+def test_remote_lockdown_reads_canonical_env_var(monkeypatch):
+    # The lockdown must key off the same switch that actually opens the assistant to
+    # remote clients (MLFLOW_ENABLE_REMOTE_ASSISTANT, mlflow/server/assistant/api.py),
+    # not a differently-named variable that nothing sets — otherwise it is fail-open.
+    assert remote_lockdown_active() is False
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
+    assert remote_lockdown_active() is True
 
 
 @pytest.fixture
@@ -230,7 +241,7 @@ def test_experiments_csv_denied_regardless_of_arg_order(cmd):
 
 
 def test_remote_env_disables_full_access_bash(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "1")
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
     perms = PermissionsConfig(full_access=True)
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}, permissions=perms))
     assert is_error
@@ -238,7 +249,7 @@ def test_remote_env_disables_full_access_bash(monkeypatch):
 
 
 def test_remote_env_disables_full_access_file_escape(monkeypatch, workspace):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "1")
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
     perms = PermissionsConfig(full_access=True)
     result, is_error = _run(
         execute_tool("Read", {"file_path": "../../../etc/passwd"}, cwd=workspace, permissions=perms)

@@ -16,6 +16,7 @@ from mlflow.assistant.providers.openai_compatible import (
 )
 from mlflow.assistant.providers.tool_executor import static_permission_error
 from mlflow.assistant.types import EventType
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 
 # ---------------------------------------------------------------------------
@@ -678,7 +679,7 @@ async def test_astream_remote_lockdown_denies_full_access_bash(provider, config_
     # disallowed Bash command must be denied by the real execute_tool (not prompted,
     # not executed) even though full_access is configured. Guards the security-critical
     # `gated` short-circuit and effective_permissions selection.
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "1")
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
     config_file.write_text(
         json.dumps({
             "providers": {"oai_test": {"model": "model-a", "permissions": {"full_access": True}}}

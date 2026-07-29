@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 
 _logger = logging.getLogger(__name__)
 
@@ -79,13 +80,20 @@ def _mlflow_subcommand(argv: list[str]) -> str | None:
 
 
 def remote_lockdown_active() -> bool:
-    """True when the assistant is exposed beyond localhost (MLFLOW_ALLOW_REMOTE_ASSISTANT).
+    """True when the assistant may be exposed beyond localhost.
+
+    Keyed on MLFLOW_ENABLE_REMOTE_ASSISTANT — the same switch the server uses to open
+    the assistant API to non-localhost clients (mlflow/server/assistant/api.py). Reading
+    the canonical flag (rather than a separate variable) is what keeps the lockdown from
+    being fail-open: it engages exactly when remote access is enabled. This is the
+    fail-safe reading — remote exposure additionally requires a provider that allows it,
+    so locking down whenever the flag is on is never less restrictive than actual reach.
 
     In this mode the restricted allowlist is absolute: full_access is force-disabled
     and per-call approval cannot override it, since arbitrary shell/code execution on a
     remotely-reachable server is RCE affecting every tenant.
     """
-    return bool(os.environ.get("MLFLOW_ALLOW_REMOTE_ASSISTANT"))
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get()
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
