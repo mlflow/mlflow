@@ -108,10 +108,6 @@ MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
 MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
     "mlflow.experiment.databricksTraceAnnotationsTable"
 )
-# SQL warehouse used for Databricks production monitoring of UC-backed traces. Written by
-# `mlflow.tracing.set_databricks_monitoring_sql_warehouse_id` and read back as a fallback when
-# resolving the warehouse for UC trace operations that require one.
-MLFLOW_EXPERIMENT_DATABRICKS_MONITORING_SQL_WAREHOUSE_ID = "mlflow.monitoring.sqlWarehouseId"
 MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
 MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
 MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"

@@ -18,7 +18,6 @@ def set_databricks_monitoring_sql_warehouse_id(
     from mlflow.tracking import get_tracking_uri
     from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id
-    from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_MONITORING_SQL_WAREHOUSE_ID
 
     tracking_uri = get_tracking_uri()
     if not is_databricks_uri(tracking_uri):
@@ -39,5 +38,5 @@ def set_databricks_monitoring_sql_warehouse_id(
     store = _get_store()
     store.set_experiment_tag(
         resolved_experiment_id,
-        ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_MONITORING_SQL_WAREHOUSE_ID, sql_warehouse_id),
+        ExperimentTag("mlflow.monitoring.sqlWarehouseId", sql_warehouse_id),
     )

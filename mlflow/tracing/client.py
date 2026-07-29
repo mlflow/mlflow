@@ -65,18 +65,11 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import (
-    TraceJSONEncoder,
-    exclude_immutable_tags,
-    parse_trace_id_v4,
-)
+from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
-from mlflow.utils.mlflow_tags import (
-    IMMUTABLE_TAGS,
-    MLFLOW_EXPERIMENT_DATABRICKS_MONITORING_SQL_WAREHOUSE_ID,
-)
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
@@ -139,10 +132,9 @@ class TracingClient:
         """
         Fetch the experiment when its traces are stored in Unity Catalog.
 
-        Returns the ``Experiment`` (which carries both the UC ``trace_location`` and the
-        monitoring tags) when the experiment stores traces in Unity Catalog, or ``None``
-        otherwise (non-Databricks tracking, an experiment whose traces live in the MLflow
-        experiment itself, or a resolution failure).
+        Returns the ``Experiment`` (which carries the UC ``trace_location``) when the experiment
+        stores traces in Unity Catalog, or ``None`` otherwise (non-Databricks tracking, an
+        experiment whose traces live in the MLflow experiment itself, or a resolution failure).
         """
         if experiment_id is None or not is_databricks_uri(self.tracking_uri):
             return None
@@ -166,68 +158,6 @@ class TracingClient:
         experiment = self._get_uc_trace_experiment(experiment_id)
         return experiment.trace_location.full_table_prefix if experiment is not None else None
 
-    def _resolve_sql_warehouse_id(self, experiment) -> str | None:
-        """
-        Resolve the SQL warehouse used for UC trace SQL operations.
-
-        Resolution order: the ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` environment variable, then the
-        experiment's ``mlflow.monitoring.sqlWarehouseId`` tag (written by
-        ``mlflow.tracing.set_databricks_monitoring_sql_warehouse_id``). Returns ``None`` when
-        neither is set.
-        """
-        if wh_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
-            return wh_id
-        if experiment is not None:
-            return experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_MONITORING_SQL_WAREHOUSE_ID)
-        return None
-
-    def _delete_uc_traces_via_sql(
-        self, experiment, trace_ids: list[str], warehouse_id: str
-    ) -> int:
-        """
-        Delete UC-backed traces by issuing a ``DELETE`` against the OTel spans table.
-
-        There is no V4 trace-delete RPC, and the V3 ``DeleteTraces`` endpoint cannot address
-        UC Delta-table traces, so deletion mirrors the documented SQL workaround: delete the
-        rows for the given trace IDs from the experiment's OTel spans table. The spans table
-        name and its ``trace_id`` column are a Databricks-published contract that this client
-        does not own, so the delete is best-effort: it fails loudly rather than silently if the
-        table name is unavailable or the row count comes back inconsistent. A server-owned
-        delete endpoint would be the more robust long-term fix.
-        """
-        from mlflow.utils.databricks_sql_warehouse import execute_sql_statement, num_affected_rows
-
-        spans_table = experiment.trace_location.full_otel_spans_table_name
-        if not spans_table:
-            raise MlflowException(
-                "Cannot delete Unity Catalog traces: the experiment does not expose an OTel "
-                "spans table name. Ensure the experiment's trace storage location is fully "
-                "configured, or delete the traces via SQL against the spans table directly."
-            )
-
-        # The spans table stores the bare OTel hex trace ID; normalize both plain and
-        # fully-qualified (`trace:/<location>/<id>`) inputs to that form.
-        otel_ids = [parse_trace_id_v4(tid)[1] for tid in trace_ids]
-        placeholders = ", ".join(f":id_{i}" for i in range(len(otel_ids)))
-        from databricks.sdk.service.sql import StatementParameterListItem
-
-        parameters = [
-            StatementParameterListItem(name=f"id_{i}", value=tid) for i, tid in enumerate(otel_ids)
-        ]
-        # `spans_table` is a backend-provided identifier, not user input, so it is safe to
-        # interpolate; the trace IDs are bound as parameters.
-        statement = f"DELETE FROM {spans_table} WHERE trace_id IN ({placeholders})"  # noqa: S608
-        response = execute_sql_statement(warehouse_id, statement, parameters)
-
-        deleted = num_affected_rows(response)
-        if deleted is None:
-            raise MlflowException(
-                f"Deleted traces from '{spans_table}' but the backend did not report an "
-                "affected-row count. The traces may or may not have been deleted; verify "
-                "directly against the spans table."
-            )
-        return deleted
-
     def delete_traces(
         self,
         experiment_id: str,
@@ -235,19 +165,6 @@ class TracingClient:
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
-        # Unity Catalog-backed traces cannot be deleted through the V3 `DeleteTraces` RPC (there
-        # is no UC-aware delete endpoint), so for UC experiments we delete by running SQL against
-        # the experiment's OTel spans table. Non-UC experiments continue to use the store RPC.
-        if trace_ids and (experiment := self._get_uc_trace_experiment(experiment_id)) is not None:
-            warehouse_id = self._resolve_sql_warehouse_id(experiment)
-            if warehouse_id is None:
-                raise MlflowException(
-                    "A SQL warehouse is required to delete traces stored in Unity Catalog. "
-                    f"Set the {MLFLOW_TRACING_SQL_WAREHOUSE_ID.name} environment variable, or "
-                    "configure one on the experiment via "
-                    "`mlflow.tracing.set_databricks_monitoring_sql_warehouse_id`."
-                )
-            return self._delete_uc_traces_via_sql(experiment, trace_ids, warehouse_id)
         return self.store.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
