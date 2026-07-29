@@ -255,7 +255,9 @@ You can configure the following environment variables:
 
 ## Presigned URLs for direct artifact downloads \{#presigned-download-urls}
 
-Presigned URL downloads require **MLflow >= 3.15.0**.
+:::note[MLflow 3.15.0 Required]
+Presigned URL downloads require MLflow 3.15.0 or later.
+:::
 
 When run artifacts are stored directly on supported storage (for example, an `s3://` artifact location as in
 [non-proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-no-proxy)), the MLflow UI
