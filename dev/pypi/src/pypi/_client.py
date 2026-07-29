@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Iterable
 from typing import Any, Literal, overload
@@ -43,13 +44,19 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str) -> dict[str, Any
                 if resp.status not in _RETRYABLE_STATUSES and not 200 <= resp.status < 300:
                     raise PyPIError(f"HTTP {resp.status} from {url}: {resp.reason}")
                 if 200 <= resp.status < 300:
-                    payload = await resp.json()
+                    # `content_type=None` skips aiohttp's mimetype check. Some PyPI mirrors
+                    # serve the JSON API as `text/html`.
+                    payload = await resp.json(content_type=None)
                     if not isinstance(payload, dict):
                         raise PyPIError(f"Unexpected response from {url}: {type(payload).__name__}")
                     return payload
                 last_error = f"HTTP {resp.status}"
         except aiohttp.ClientError as e:
             last_error = e
+        except json.JSONDecodeError as e:
+            # A body truncated mid-transfer looks like malformed JSON, so retry rather than
+            # failing outright.
+            last_error = f"invalid JSON: {e}"
 
         if attempt + 1 < _RETRIES:
             await asyncio.sleep(_BACKOFF_BASE * (2**attempt))
