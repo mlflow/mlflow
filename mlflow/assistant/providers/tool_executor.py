@@ -168,6 +168,14 @@ def static_permission_error(
     if tool_name in {"Write", "Edit"} and not cwd:
         return f"Permission denied: {tool_name} requires a configured project directory"
 
+    # Under remote lockdown a file tool with no workspace root has no containment
+    # boundary, so an absolute path (e.g. /etc/passwd) would reach the filesystem
+    # unchecked — this must cover Read, which Write/Edit's cwd requirement above does
+    # not. Locally (same host as the user) an unscoped read is the existing contract,
+    # so this denial is scoped to remote mode.
+    if tool_name in _FILE_TOOLS and not cwd and remote_lockdown_active():
+        return f"Permission denied: {tool_name} requires a configured project directory"
+
     if tool_name in _FILE_TOOLS and cwd:
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
             target = _resolve_file_path(raw_path, cwd)
@@ -268,7 +276,14 @@ async def _execute_bash(
     except asyncio.TimeoutError:
         return "Command timed out after 120 seconds", True
     except FileNotFoundError:
-        return f"Command not found: {command}", True
+        # Echo only the executable name, never the full command: it carries
+        # user-controlled arguments and may surface server paths / option values
+        # the caller shouldn't see in a streamed tool result.
+        try:
+            executable = shlex.split(command)[0]
+        except (ValueError, IndexError):
+            executable = command
+        return f"Command not found: {executable}", True
 
 
 def _execute_read(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:

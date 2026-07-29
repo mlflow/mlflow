@@ -4,6 +4,7 @@ import pytest
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.tool_executor import (
+    _execute_bash,
     _mlflow_subcommand,
     execute_tool,
     remote_lockdown_active,
@@ -258,11 +259,49 @@ def test_remote_env_disables_full_access_file_escape(monkeypatch, workspace):
     assert "Permission denied" in result
 
 
+@pytest.mark.parametrize("tool", ["Read", "Write", "Edit"])
+def test_file_tool_without_cwd_denied_under_remote_lockdown(monkeypatch, tool):
+    # Under remote lockdown, no workspace root means no containment boundary, so an
+    # absolute path like /etc/passwd would otherwise reach the filesystem unchecked.
+    # Every file tool must require a configured project directory here, not just
+    # Write/Edit. (Local unscoped reads remain allowed — see
+    # test_read_absolute_path_works_without_cwd.)
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
+    err = static_permission_error(tool, {"file_path": "/etc/passwd"}, PermissionsConfig(), None)
+    assert err is not None
+
+
+def test_remote_read_without_cwd_cannot_escape(monkeypatch):
+    # Regression: remote lockdown + full_access config, no cwd. Read must be denied
+    # rather than falling through to read an arbitrary server-local file.
+    monkeypatch.setenv(MLFLOW_ENABLE_REMOTE_ASSISTANT.name, "1")
+    perms = PermissionsConfig(full_access=True)
+    result, is_error = _run(execute_tool("Read", {"file_path": "/etc/passwd"}, permissions=perms))
+    assert is_error
+    assert "Permission denied" in result
+
+
 def test_bash_full_access_allows_any_command():
     perms = PermissionsConfig(full_access=True)
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}, permissions=perms))
     assert not is_error
     assert "hello" in result
+
+
+def test_command_not_found_echoes_only_executable(tmp_path):
+    # The FileNotFoundError message must not leak user-controlled arguments or
+    # server-local paths — only the executable name.
+    secret_arg = str(tmp_path / "secret-internal-path")
+    result, is_error = _run(
+        _execute_bash(
+            {"command": f"definitely-not-a-real-binary --token {secret_arg}"},
+            cwd=None,
+            tracking_uri=None,
+        )
+    )
+    assert is_error
+    assert result == "Command not found: definitely-not-a-real-binary"
+    assert secret_arg not in result
 
 
 def test_bash_full_access_still_uses_shell(tmp_path):
