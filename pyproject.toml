@@ -176,7 +176,7 @@ dev = [
 ]
 lint = [
   "ruff==0.15.17",
-  "pre-commit==4.0.1",
+  "pre-commit==4.6.1",
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",

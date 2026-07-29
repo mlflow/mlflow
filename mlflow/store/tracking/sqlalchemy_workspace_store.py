@@ -491,12 +491,13 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if default_workspace is None:
             return
 
-        with workspace_context.WorkspaceContext(default_workspace.name):
-            if self.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
-                with self.ManagedSessionMaker(read_only=False) as session:
-                    self._create_default_experiment(
-                        session, workspace_override=default_workspace.name
-                    )
+        # ``_create_default_experiment`` is idempotent: the default-workspace branch delegates to
+        # the base store, whose insert tolerates experiment 0 already existing (verified by the
+        # global primary key). Calling it directly avoids a pre-check scoped to
+        # ``default_workspace.name``, which would misfire if that name ever diverged from
+        # ``DEFAULT_WORKSPACE_NAME`` (experiment 0 is always pinned to ``DEFAULT_WORKSPACE_NAME``).
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._create_default_experiment(session, workspace_override=default_workspace.name)
 
     def _create_default_experiment(self, session, workspace_override: str | None = None):
         workspace = workspace_override or self._get_active_workspace()
@@ -505,6 +506,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             # Use the context to create the default experiment in the default workspace
             # in case the default workspace was a workspace override. It's important to keep the
             # default workspace experiment ID as 0 to allow a user to disable workspaces later.
+            # The base store's insert is idempotent (it tolerates experiment 0 already existing and
+            # re-raises any other integrity failure), so this is safe to call on every startup.
             with workspace_context.WorkspaceContext(workspace):
                 return super()._create_default_experiment(session)
 
