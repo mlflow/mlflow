@@ -338,17 +338,23 @@ enum ModelVersionStatus {
 // Credentials Related Protos
 
 message TemporaryCredentials {
-  optional AwsCredentials aws_temp_credentials = 2;
-  optional AzureUserDelegationSAS azure_user_delegation_sas = 3;
-  optional GcpOauthToken gcp_oauth_token = 4;
+  // Exactly one cloud-provider credential is populated per response. Kept as a `oneof` so the
+  // shared UC artifact-repo dispatch (WhichOneof("credentials")) selects the right cloud backend;
+  // it is wire-compatible with the equivalently-numbered optional fields.
+  oneof credentials {
+    AwsCredentials aws_temp_credentials = 2;
+    AzureUserDelegationSAS azure_user_delegation_sas = 3;
+    GcpOauthToken gcp_oauth_token = 4;
+    // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
+    // Cloudflare R2 temporary credentials.
+    R2Credentials r2_temp_credentials = 5;
+  }
 
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
 
   // ---- Databricks (databricks-uc) backend only; ignored by the open-source UC backend. ----
-  // Cloudflare R2 temporary credentials.
-  optional R2Credentials r2_temp_credentials = 5;
   // Storage mode of the model-version location (customer-hosted vs default storage).
   optional StorageMode storage_mode = 6;
   // Encryption options to use when accessing cloud storage.

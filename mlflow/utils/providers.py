@@ -654,6 +654,49 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "portkey": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use Portkey API Key with an optional routing target",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "Portkey API Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "portkey_provider",
+                    "description": "Provider to route to: a Model Catalog slug "
+                    "(e.g. @openai-prod) or a bare provider slug (e.g. openai)",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "portkey_config",
+                    "description": "Portkey config ID (e.g. pc-xxxx) or JSON config. "
+                    "Stored as a secret since a raw JSON config may embed "
+                    "upstream credentials",
+                    "secret": True,
+                    "required": False,
+                },
+                {
+                    "name": "provider_api_key",
+                    "description": "Upstream provider API key "
+                    "(only for bare provider slugs not stored in Portkey)",
+                    "secret": True,
+                    "required": False,
+                },
+                {
+                    "name": "api_base",
+                    "description": "Portkey API Base URL (defaults to https://api.portkey.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+    },
     "sagemaker": {
         "access_keys": {
             "display_name": "Access Keys",

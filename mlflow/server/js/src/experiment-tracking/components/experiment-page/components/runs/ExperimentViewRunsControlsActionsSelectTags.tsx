@@ -48,11 +48,14 @@ const getRunsTagsSelection = (
     return [];
   });
 
-  const allRunsTags: string[] = tagsList.flatMap((tags) => {
-    return Object.keys(tags)
-      .filter(isUserFacingTag)
-      .map((tagKey) => convertTagToString(tags[tagKey]));
-  });
+  // Deduplicate and sort alphabetically so tags always appear in a consistent order
+  const allRunsTags: string[] = uniq(
+    tagsList.flatMap((tags) => {
+      return Object.keys(tags)
+        .filter(isUserFacingTag)
+        .map((tagKey) => convertTagToString(tags[tagKey]));
+    }),
+  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
 
   const selectedRunsAllSelectedTags: string[] = allRunsTags.filter((tag) =>
     selectedRunsTagArray.every((selectedTags) => selectedTags.includes(tag)),
@@ -189,18 +192,21 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
         />
         <DialogComboboxContent matchTriggerWidth>
           <DialogComboboxOptionList>
-            {Object.keys(selectedTags).map((tagString) => {
-              const isIndeterminate = selectedTags[tagString] === undefined;
-              return (
-                <DialogComboboxOptionListCheckboxItem
-                  key={tagString}
-                  value={tagString}
-                  onChange={handleChange}
-                  checked={selectedTags[tagString]}
-                  indeterminate={isIndeterminate}
-                />
-              );
-            })}
+            {/* Sort keys alphabetically so the dropdown list is always ordered consistently */}
+            {Object.keys(selectedTags)
+              .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }))
+              .map((tagString) => {
+                const isIndeterminate = selectedTags[tagString] === undefined;
+                return (
+                  <DialogComboboxOptionListCheckboxItem
+                    key={tagString}
+                    value={tagString}
+                    onChange={handleChange}
+                    checked={selectedTags[tagString]}
+                    indeterminate={isIndeterminate}
+                  />
+                );
+              })}
           </DialogComboboxOptionList>
           <DialogComboboxFooter>
             <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>

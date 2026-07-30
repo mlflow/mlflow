@@ -54,6 +54,7 @@ MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PAT
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR = (
     "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH"
 )
+MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR = "_MLFLOW_ORIGINAL_PARENT_PID"
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
@@ -106,8 +107,16 @@ class JobResult:
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:
+    raw_parent_pid = os.environ.get(MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR)
+    try:
+        parent_pid = int(raw_parent_pid) if raw_parent_pid is not None else 0
+    except (TypeError, ValueError):
+        parent_pid = 0
+    if parent_pid <= 0:
+        parent_pid = os.getppid()
     while True:
-        if os.getppid() == 1:
+        current_parent_pid = os.getppid()
+        if current_parent_pid == 1 or current_parent_pid != parent_pid:
             os._exit(1)
         time.sleep(poll_interval)
 
@@ -156,6 +165,7 @@ def _start_huey_consumer_proc(
         synchronous=False,
         extra_env={
             MLFLOW_HUEY_INSTANCE_KEY: huey_instance_key,
+            MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid()),
         },
     )
 
@@ -244,6 +254,7 @@ def _exec_job_in_subproc(
         MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: function_fullname,
         MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: result_file,
         MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: transient_error_classes_file,
+        MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid()),
         **(extra_envs or {}),
     }
 
@@ -553,6 +564,7 @@ def _start_periodic_tasks_consumer_proc():
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),
+        "-f",
     ]
 
     # Add quiet flag unless DEBUG logging is explicitly requested,
@@ -565,6 +577,7 @@ def _start_periodic_tasks_consumer_proc():
         cmd,
         capture_output=False,
         synchronous=False,
+        extra_env={MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid())},
     )
 
 

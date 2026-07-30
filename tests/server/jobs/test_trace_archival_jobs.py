@@ -20,7 +20,11 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.utils import register_periodic_tasks
+from mlflow.server.jobs.utils import (
+    MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR,
+    _start_periodic_tasks_consumer_proc,
+    register_periodic_tasks,
+)
 from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
@@ -676,3 +680,16 @@ def test_register_periodic_tasks_includes_trace_archival_when_configured(monkeyp
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
+
+
+def test_periodic_tasks_consumer_enables_flush_locks():
+    with (
+        patch("mlflow.server.jobs.utils.os.getpid", return_value=987),
+        patch("mlflow.server.jobs.utils._exec_cmd") as mock_exec_cmd,
+    ):
+        _start_periodic_tasks_consumer_proc()
+
+    assert mock_exec_cmd.call_count == 1
+    cmd = mock_exec_cmd.call_args.args[0]
+    assert "-f" in cmd
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "987"

@@ -5,6 +5,7 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
@@ -115,7 +116,8 @@ def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
         )
 
 
-def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():
+def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     non_databricks_uri = "non_databricks_uri"
     artifact_location = "s3://blah_bucket/"
     with (

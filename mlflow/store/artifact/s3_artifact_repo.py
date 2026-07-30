@@ -46,6 +46,10 @@ BOTO_TO_MLFLOW_ERROR = {
     "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
     "InvalidAccessKeyId": UNAUTHENTICATED,
     "SignatureDoesNotMatch": UNAUTHENTICATED,
+    # HEAD responses (e.g. head_object) carry no error body, so botocore reports the
+    # bare HTTP status code instead of an S3 error code.
+    "403": PERMISSION_DENIED,
+    "404": RESOURCE_DOES_NOT_EXIST,
 }
 
 # Maps boto3 put_object parameter names to their HTTP header equivalents.
@@ -80,6 +84,40 @@ _S3_PARAM_TO_HEADER = {
 
 def _get_utcnow_timestamp():
     return datetime.now(timezone.utc).timestamp()
+
+
+def _hoist_expected_bucket_owner(request, **kwargs):
+    """Make ``ExpectedBucketOwner`` usable from a top-level browser navigation.
+
+    For a presigned GET, botocore serializes ``ExpectedBucketOwner`` as the
+    ``x-amz-expected-bucket-owner`` request header and signs it, leaving the owner value out
+    of the URL (``X-Amz-SignedHeaders=host;x-amz-expected-bucket-owner``). A browser
+    navigating directly to the URL cannot attach that header, so S3 rejects it with
+    ``SignatureDoesNotMatch``. Moving the value into the signed query before signing keeps the
+    owner enforced (it is covered by the SigV4 signature and cannot be tampered with) while the
+    browser needs no custom header (``X-Amz-SignedHeaders=host``). Presign-only, so regular S3
+    calls are unaffected.
+    """
+    if not request.context.get("is_presign_request"):
+        return
+    if owner := request.headers.get("x-amz-expected-bucket-owner"):
+        del request.headers["x-amz-expected-bucket-owner"]
+        request.params["x-amz-expected-bucket-owner"] = owner
+
+
+def _attachment_content_disposition(filename):
+    """Build an RFC 6266 ``attachment`` Content-Disposition value for ``filename``.
+
+    Printable-ASCII filenames use the plain ``filename=`` parameter (quoted-string
+    form, with ``\\`` and ``"`` escaped). Anything else — non-ASCII names (RFC 5987)
+    or names containing control characters, which must never reach a header value
+    verbatim — uses the percent-encoded ``filename*=UTF-8''...`` extended parameter,
+    which browsers decode natively.
+    """
+    if not filename.isascii() or not filename.isprintable():
+        return f"attachment; filename*=UTF-8''{urllib.parse.quote(filename)}"
+    escaped = filename.replace("\\", "\\\\").replace('"', '\\"')
+    return f'attachment; filename="{escaped}"'
 
 
 @lru_cache(maxsize=64)
@@ -117,7 +155,7 @@ def _cached_get_s3_client(
 
         signature_version = UNSIGNED
 
-    return boto3.client(
+    s3_client = boto3.client(
         "s3",
         config=Config(
             signature_version=signature_version, s3={"addressing_style": addressing_style}
@@ -129,6 +167,15 @@ def _cached_get_s3_client(
         aws_session_token=session_token,
         region_name=region_name,
     )
+    # Move a signed ``ExpectedBucketOwner`` from a request header into the presigned query so
+    # presigned GET URLs are usable from a top-level browser navigation. See
+    # _hoist_expected_bucket_owner for details.
+    s3_client.meta.events.register(
+        "before-sign.s3.GetObject",
+        _hoist_expected_bucket_owner,
+        unique_id="mlflow-hoist-expected-bucket-owner",
+    )
+    return s3_client
 
 
 def _get_s3_client(
@@ -711,9 +758,24 @@ class S3ArtifactRepository(
             )
         file_size = head_response.get("ContentLength")
 
+        # Serve the object as a download with the artifact's own filename. Without an
+        # `attachment` disposition, a browser navigating to the URL would render
+        # renderable types (text, HTML, images, PDF) inline instead of saving them.
+        # The override is part of the SigV4-signed query, so it cannot be stripped or
+        # altered without invalidating the URL, and it is ignored for programmatic
+        # clients and subresource loads (e.g. `<img>`), which do not honor
+        # Content-Disposition. The stored Content-Type is deliberately NOT overridden,
+        # so the downloaded file keeps its correct MIME metadata.
         url = s3_client.generate_presigned_url(
             "get_object",
-            Params={"Bucket": bucket, "Key": key, **self._bucket_owner_params},
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+                "ResponseContentDisposition": _attachment_content_disposition(
+                    posixpath.basename(key)
+                ),
+                **self._bucket_owner_params,
+            },
             ExpiresIn=expiration,
         )
         return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)

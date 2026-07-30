@@ -38,6 +38,7 @@
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",
     "test": "jest --config jest.config.cjs",
+    "sync:pricing": "node scripts/sync-anthropic-pricing.mjs && prettier --write src/anthropicPricing.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write .",

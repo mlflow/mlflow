@@ -330,22 +330,22 @@ class ListModelVersions(_message.Message):
     def __init__(self, full_name: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., include_browse: bool = ...) -> None: ...
 
 class TemporaryCredentials(_message.Message):
-    __slots__ = ("aws_temp_credentials", "azure_user_delegation_sas", "gcp_oauth_token", "expiration_time", "r2_temp_credentials", "storage_mode", "encryption_details")
+    __slots__ = ("aws_temp_credentials", "azure_user_delegation_sas", "gcp_oauth_token", "r2_temp_credentials", "expiration_time", "storage_mode", "encryption_details")
     AWS_TEMP_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     AZURE_USER_DELEGATION_SAS_FIELD_NUMBER: _ClassVar[int]
     GCP_OAUTH_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    EXPIRATION_TIME_FIELD_NUMBER: _ClassVar[int]
     R2_TEMP_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_TIME_FIELD_NUMBER: _ClassVar[int]
     STORAGE_MODE_FIELD_NUMBER: _ClassVar[int]
     ENCRYPTION_DETAILS_FIELD_NUMBER: _ClassVar[int]
     aws_temp_credentials: AwsCredentials
     azure_user_delegation_sas: AzureUserDelegationSAS
     gcp_oauth_token: GcpOauthToken
-    expiration_time: int
     r2_temp_credentials: R2Credentials
+    expiration_time: int
     storage_mode: StorageMode
     encryption_details: EncryptionDetails
-    def __init__(self, aws_temp_credentials: _Optional[_Union[AwsCredentials, _Mapping]] = ..., azure_user_delegation_sas: _Optional[_Union[AzureUserDelegationSAS, _Mapping]] = ..., gcp_oauth_token: _Optional[_Union[GcpOauthToken, _Mapping]] = ..., expiration_time: _Optional[int] = ..., r2_temp_credentials: _Optional[_Union[R2Credentials, _Mapping]] = ..., storage_mode: _Optional[_Union[StorageMode, str]] = ..., encryption_details: _Optional[_Union[EncryptionDetails, _Mapping]] = ...) -> None: ...
+    def __init__(self, aws_temp_credentials: _Optional[_Union[AwsCredentials, _Mapping]] = ..., azure_user_delegation_sas: _Optional[_Union[AzureUserDelegationSAS, _Mapping]] = ..., gcp_oauth_token: _Optional[_Union[GcpOauthToken, _Mapping]] = ..., r2_temp_credentials: _Optional[_Union[R2Credentials, _Mapping]] = ..., expiration_time: _Optional[int] = ..., storage_mode: _Optional[_Union[StorageMode, str]] = ..., encryption_details: _Optional[_Union[EncryptionDetails, _Mapping]] = ...) -> None: ...
 
 class AwsCredentials(_message.Message):
     __slots__ = ("access_key_id", "secret_access_key", "session_token")
