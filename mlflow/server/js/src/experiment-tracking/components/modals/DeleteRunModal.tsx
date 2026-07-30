@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { deleteRunApi, openErrorModal } from '../../actions';
+import { deleteRunApi } from '../../actions';
 import { connect } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
 import { Button, Modal } from '@databricks/design-system';
@@ -20,7 +20,6 @@ type Props = {
   isOpen: boolean;
   onClose: (...args: any[]) => any;
   selectedRunIds: string[];
-  openErrorModal: (...args: any[]) => any;
   deleteRunApi: (...args: any[]) => any;
   onSuccess?: () => void;
   childRunIdsBySelectedParent: Record<string, string[]>;
@@ -86,11 +85,11 @@ export class DeleteRunModalImpl extends Component<Props, State> {
       deletePromises.push(this.props.deleteRunApi(runId));
     });
     return Promise.all(deletePromises)
-      .catch((e: any) => {
-        Utils.logErrorAndNotifyUser(e);
-      })
       .then(() => {
         this.props.onSuccess?.();
+      })
+      .catch((e: any) => {
+        Utils.logErrorAndNotifyUser(e?.message || e);
       })
       .finally(() => {
         this.setState({ deletingMode: null });
@@ -232,7 +231,6 @@ const mapStateToProps = (state: any, ownProps: { selectedRunIds: string[] }) => 
 
 const mapDispatchToProps = {
   deleteRunApi,
-  openErrorModal,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(DeleteRunModalImpl);

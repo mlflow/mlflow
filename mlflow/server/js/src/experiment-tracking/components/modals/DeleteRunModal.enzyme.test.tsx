@@ -23,7 +23,7 @@ const getMockDeleteRunApiFn = (shouldFail: any, deletedIdsList: any) => {
     return new Promise((resolve, reject) => {
       window.setTimeout(() => {
         if (shouldFail) {
-          reject();
+          reject(new Error('Delete failed: PERMISSION_DENIED'));
         } else {
           deletedIdsList.push(runId);
           // @ts-expect-error TS(2794): Expected 1 arguments, but got 0. Did you forget to... Remove this comment to see the full error message
@@ -44,7 +44,6 @@ describe('MyComponent', () => {
       isOpen: false,
       onClose: jest.fn(),
       selectedRunIds: ['runId0', 'runId1'],
-      openErrorModal: jest.fn(),
       deleteRunApi: getMockDeleteRunApiFn(false, []),
       childRunIdsBySelectedParent: {},
     };
@@ -76,10 +75,13 @@ describe('MyComponent', () => {
     wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }} />);
     instance = wrapper.instance();
     instance.handleDeleteSelected().then(() => {
-      expect(deletedRunIds).toEqual([]);
-      expect(logErrorSpy).toHaveBeenCalled();
-      logErrorSpy.mockRestore();
-      done();
+      try {
+        expect(deletedRunIds).toEqual([]);
+        expect(logErrorSpy).toHaveBeenCalledWith('Delete failed: PERMISSION_DENIED');
+      } finally {
+        logErrorSpy.mockRestore();
+        done();
+      }
     });
   });
 
