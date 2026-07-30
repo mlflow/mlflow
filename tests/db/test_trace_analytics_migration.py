@@ -2,6 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from datetime import date
+from decimal import Decimal
 from importlib import import_module
 
 import pytest
@@ -529,11 +530,10 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
             )
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 1
             assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 1
-            assert conn.execute(sa.text("SELECT key FROM trace_tags")).scalar_one() == "custom-tag"
-            assert (
-                conn.execute(sa.text("SELECT key FROM trace_request_metadata")).scalar_one()
-                == "custom-metadata"
-            )
+            trace_tags = _table(conn, "trace_tags")
+            assert conn.execute(sa.select(trace_tags.c.key)).scalar_one() == "custom-tag"
+            trace_metadata = _table(conn, "trace_request_metadata")
+            assert conn.execute(sa.select(trace_metadata.c.key)).scalar_one() == "custom-metadata"
 
         with engine.begin() as conn:
             common_rollup_values = {
@@ -600,10 +600,13 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
             )
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 5
             assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 6
+            spans = _table(conn, "spans")
             dimensions = conn.execute(
-                sa.text("SELECT dimension_attributes FROM spans WHERE span_id = 'span-explicit'")
+                sa.select(spans.c.dimension_attributes).where(spans.c.span_id == "span-explicit")
             ).scalar_one()
-            assert json.loads(dimensions) == {
+            if isinstance(dimensions, str):
+                dimensions = json.loads(dimensions)
+            assert dimensions == {
                 SpanAttributeKey.MODEL: _MODEL_NAME_OVER_LIMIT[:500],
                 SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER_OVER_LIMIT[:500],
             }
@@ -923,7 +926,7 @@ def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_
                 spans
                 .update()
                 .where(spans.c.span_id == "span-explicit")
-                .values(dimension_attributes={"custom.dimension": "value"})
+                .values(dimension_attributes=json.dumps({"custom.dimension": "value"}))
             )
 
         with pytest.raises(RuntimeError, match="unsupported content"):
@@ -976,7 +979,13 @@ def test_trace_analytics_backfill_batch_validation_rejects_mismatched_values():
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(True, None), (False, None), ("1.25", 1.25), ("not-a-number", None)],
+    [
+        (True, None),
+        (False, None),
+        ("1.25", 1.25),
+        (Decimal("1.25"), 1.25),
+        ("not-a-number", None),
+    ],
 )
 def test_trace_analytics_migration_finite_float_conversion(value, expected):
     assert MIGRATION_MODULE._finite_float_or_none(value) == expected

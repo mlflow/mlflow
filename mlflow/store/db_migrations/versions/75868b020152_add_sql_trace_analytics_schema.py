@@ -937,9 +937,9 @@ def _reconstruct_legacy_analytics():
                     "value": row["session_id"],
                 })
             token_usage = {
-                key: row[column]
+                key: value
                 for key, column in _TOKEN_COLUMNS.items()
-                if row[column] is not None
+                if (value := _finite_float_or_none(row[column])) is not None
             }
             if token_usage:
                 metadata_rows.append({
@@ -952,7 +952,9 @@ def _reconstruct_legacy_analytics():
                     for key, value in token_usage.items()
                 )
             cost = {
-                key: row[column] for key, column in _COST_COLUMNS.items() if row[column] is not None
+                key: value
+                for key, column in _COST_COLUMNS.items()
+                if (value := _finite_float_or_none(row[column])) is not None
             }
             if cost:
                 metadata_rows.append({
@@ -968,6 +970,20 @@ def _reconstruct_legacy_analytics():
             bind.execute(trace_metrics.insert(), metric_rows)
         last_request_id = rows[-1]["request_id"]
 
+    dimension_update_stmt = (
+        spans
+        .update()
+        .where(
+            spans.c.trace_id == sa.bindparam("trace_id_param"),
+            spans.c.span_id == sa.bindparam("span_id_param"),
+        )
+        .values(
+            dimension_attributes=sa.bindparam(
+                "dimension_attributes_param",
+                type_=_dimension_attributes_type(),
+            )
+        )
+    )
     last_span_key = None
     while True:
         stmt = sa.select(spans).order_by(spans.c.trace_id, spans.c.span_id)
@@ -985,6 +1001,7 @@ def _reconstruct_legacy_analytics():
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
         if not rows:
             break
+        dimension_updates = []
         metric_rows = []
         for row in rows:
             dimensions = {
@@ -993,15 +1010,11 @@ def _reconstruct_legacy_analytics():
             }
             dimensions = {key: value for key, value in dimensions.items() if value is not None}
             if dimensions:
-                bind.execute(
-                    spans
-                    .update()
-                    .where(
-                        spans.c.trace_id == row["trace_id"],
-                        spans.c.span_id == row["span_id"],
-                    )
-                    .values(dimension_attributes=dimensions)
-                )
+                dimension_updates.append({
+                    "trace_id_param": row["trace_id"],
+                    "span_id_param": row["span_id"],
+                    "dimension_attributes_param": dimensions,
+                })
             metric_rows.extend(
                 {
                     "trace_id": row["trace_id"],
@@ -1012,6 +1025,8 @@ def _reconstruct_legacy_analytics():
                 for key, column in _COST_COLUMNS.items()
                 if row[column] is not None
             )
+        if dimension_updates:
+            bind.execute(dimension_update_stmt, dimension_updates)
         if metric_rows:
             bind.execute(span_metrics.insert(), metric_rows)
         last_span_key = (rows[-1]["trace_id"], rows[-1]["span_id"])
