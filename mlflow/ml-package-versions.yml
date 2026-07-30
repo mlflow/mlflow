@@ -1067,7 +1067,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "5.4.0"
-    maximum: "5.4.1"
+    maximum: "6.4.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
     run: |
