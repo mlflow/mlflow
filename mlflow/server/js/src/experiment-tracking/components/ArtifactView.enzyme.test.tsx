@@ -228,10 +228,7 @@ describe('ArtifactView', () => {
     let presignedSpy: any;
     let proxiedPresignedSpy: any;
 
-    const getImplInstance = (
-      props: any = {},
-      options: { cachedMultipartDownloadsEnabled?: boolean } = {},
-    ) => {
+    const getImplInstance = (props: any = {}, options: { cachedMultipartDownloadsEnabled?: boolean } = {}) => {
       const rootNode = new ArtifactNode(true, undefined, undefined);
       rootNode.isLoaded = true;
       const textFile = new ArtifactNode(
