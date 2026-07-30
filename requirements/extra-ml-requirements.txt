@@ -93,4 +93,5 @@ agno
 # Required by mlflow.strands
 strands-agents
 # Required by mlflow.haystack
-haystack-ai
+# TODO: Support haystack 3.x (`OpenTelemetryTracer` moved to `opentelemetry-haystack`)
+haystack-ai<3

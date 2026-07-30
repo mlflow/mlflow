@@ -230,7 +230,8 @@ docs = [
   "Flask-WTF<2",
   "polars>=1",
   "openai",
-  "haystack-ai",
+  # TODO: Support haystack 3.x (`OpenTelemetryTracer` moved to `opentelemetry-haystack`)
+  "haystack-ai<3",
   "deepeval",
   "ragas",
   "instructor",
