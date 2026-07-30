@@ -13,6 +13,26 @@ import { IntlProvider } from 'react-intl';
 import { shouldUseCompressedExperimentViewSharedState } from '../../../../common/utils/FeatureUtils';
 import { textCompressDeflate } from '../../../../common/utils/StringUtils';
 import { encodeSavedViewEnvelope } from '../utils/savedViewEnvelope';
+import { MlflowService } from '../../../sdk/MlflowService';
+
+// The hook dispatches getExperimentApi to refetch when a share key isn't in the cached tags. Route
+// dispatch through a fake that mimics redux-promise-middleware: it awaits the action's payload and
+// resolves to `{ value, action }` — the exact shape the hook unwraps. Driving the payload via a
+// mocked MlflowService.getExperiment (below) exercises the REAL getExperimentApi action + response
+// transform, rather than stubbing the action to a fresh object (which would hide prop-identity bugs).
+const mockDispatch = jest.fn((action: any) => Promise.resolve(action.payload).then((value) => ({ value, action })));
+jest.mock('react-redux', () => ({
+  ...jest.requireActual<typeof import('react-redux')>('react-redux'),
+  useDispatch: () => mockDispatch,
+}));
+
+jest.mock('../../../sdk/MlflowService', () => ({
+  ...jest.requireActual<typeof import('../../../sdk/MlflowService')>('../../../sdk/MlflowService'),
+  MlflowService: {
+    ...jest.requireActual<typeof import('../../../sdk/MlflowService')>('../../../sdk/MlflowService').MlflowService,
+    getExperiment: jest.fn(),
+  },
+}));
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
@@ -67,6 +87,11 @@ describe('useSharedExperimentViewState', () => {
     jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
     jest.mocked(useNavigate).mockReturnValue(navigateMock as ReturnType<typeof useNavigate>);
     jest.mocked(useUpdateExperimentPageSearchFacets).mockReturnValue(updateSearchFacetsMock);
+    // Default: a refetch reveals no new tags, so a genuinely-missing key still resolves to not-found.
+    // Tests exercising the stale-cache recovery override this to resolve with the freshly-saved tag.
+    jest
+      .mocked(MlflowService.getExperiment)
+      .mockResolvedValue({ experiment: { experimentId: 'experiment_1', tags: [] } } as any);
   });
 
   describe.each([true, false])('when state compression flag is set to %s', (compressionEnabled) => {
@@ -161,13 +186,14 @@ describe('useSharedExperimentViewState', () => {
       });
     });
 
-    it('does not apply or clear view state when the legacy share key has no matching tag', async () => {
+    it('refetches once then reports not-found when the share key has no matching tag anywhere', async () => {
       jest.spyOn(console, 'error').mockImplementation(() => {});
       jest
         .mocked(useSearchParams)
         .mockReturnValue([new URLSearchParams(`viewStateShareKey=${testSerializedStateHash}`), jest.fn()]);
 
-      // Bare-hash key routes to the legacy branch; the experiment has no matching tag.
+      // Cached experiment lacks the tag; the refetch (default mock) also returns no matching tag — a
+      // genuinely-missing key. The hook must refetch exactly once, then report not-found (no loop).
       const experimentWithoutTag = { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity;
 
       const { result } = renderHookWithIntl(() =>
@@ -175,12 +201,98 @@ describe('useSharedExperimentViewState', () => {
       );
 
       await waitFor(() => {
-        expect(updateSearchFacetsMock).not.toHaveBeenCalled();
-        expect(uiStateSetterMock).not.toHaveBeenCalled();
         expect(result.current.sharedStateError).toMatch(/does not exist/);
       });
+      expect(updateSearchFacetsMock).not.toHaveBeenCalled();
+      expect(uiStateSetterMock).not.toHaveBeenCalled();
+      expect(MlflowService.getExperiment).toHaveBeenCalledTimes(1);
+      expect(MlflowService.getExperiment).toHaveBeenCalledWith({ experiment_id: 'experiment_1' });
       // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       jest.mocked(console.error).mockRestore();
+    });
+
+    it('applies the view when a refetch reveals a tag that was stale-missing (paste into an open tab)', async () => {
+      // The reported bug: a tab whose experiment loaded BEFORE the view was saved has a stale tag
+      // cache, so pasting the link initially can't resolve the tag. The refetch returns fresh tags
+      // and the view applies — driven purely through the awaited dispatch, NOT a prop-identity change
+      // (an isEqual selector would collapse an identical-tags prop, so relying on that would hang).
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const compressedState = await textCompressDeflate(testSerializedShareViewState);
+      const envelopeValue = encodeSavedViewEnvelope('Freshly saved', compressedState, 1770000000000);
+      jest.mocked(MlflowService.getExperiment).mockResolvedValue({
+        experiment: {
+          experimentId: 'experiment_1',
+          tags: [{ key: `mlflow.sharedViewState.${testSerializedStateHash}`, value: envelopeValue }],
+        },
+      } as any);
+
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${testSerializedStateHash}`), jest.fn()]);
+
+      // The cached experiment does NOT have the tag (stale) — never rerendered with a fresh one.
+      const staleExperiment = { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, staleExperiment));
+
+      const expectedFacetsState = omitBy(testFacetsState, isNil);
+      const expectedUiState = omitBy(testUIState, isNil);
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).toHaveBeenCalledWith(expect.objectContaining(expectedFacetsState), {
+          replace: true,
+        });
+        expect(uiStateSetterMock).toHaveBeenCalledWith(expect.objectContaining(expectedUiState));
+      });
+      expect(result.current.sharedStateError).toBeNull();
+      expect(MlflowService.getExperiment).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports not-found without looping when the refetch itself fails', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest.mocked(MlflowService.getExperiment).mockRejectedValue(new Error('network'));
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${testSerializedStateHash}`), jest.fn()]);
+
+      const experimentWithoutTag = { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() =>
+        useSharedExperimentViewState(uiStateSetterMock, experimentWithoutTag),
+      );
+
+      await waitFor(() => {
+        expect(result.current.sharedStateError).toMatch(/does not exist/);
+      });
+      // The rejection path must not apply anything (a regression calling applyParsedState here would
+      // otherwise slip through).
+      expect(updateSearchFacetsMock).not.toHaveBeenCalled();
+      expect(uiStateSetterMock).not.toHaveBeenCalled();
+      expect(MlflowService.getExperiment).toHaveBeenCalledTimes(1);
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+      jest.mocked(console.error).mockRestore();
+    });
+
+    it('does not refetch when the share key tag is already present in the cached experiment', async () => {
+      // Fast path untouched: a link opened in a tab whose cache already has the tag must NOT refetch.
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const compressedState = await textCompressDeflate(testSerializedShareViewState);
+      const envelopeValue = encodeSavedViewEnvelope('Already cached', compressedState, 1770000000000);
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams(`viewStateShareKey=${testSerializedStateHash}`), jest.fn()]);
+
+      const experimentWithTag = {
+        experimentId: 'experiment_1',
+        tags: [{ key: `mlflow.sharedViewState.${testSerializedStateHash}`, value: envelopeValue }],
+      } as ExperimentEntity;
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock, experimentWithTag));
+
+      await waitFor(() => {
+        expect(updateSearchFacetsMock).toHaveBeenCalled();
+      });
+      expect(result.current.sharedStateError).toBeNull();
+      expect(MlflowService.getExperiment).not.toHaveBeenCalled();
     });
   });
 
