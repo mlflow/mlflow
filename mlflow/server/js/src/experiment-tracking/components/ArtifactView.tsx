@@ -59,8 +59,54 @@ import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { MlflowService } from '../sdk/MlflowService';
 import type { KeyValueEntity } from '../../common/types';
+import { getMultipartDownloadsEnabledSync } from '../hooks/useServerInfo';
 
 const { Text } = Typography;
+const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = [
+  'api/2.0/mlflow-artifacts/artifacts/',
+  'ajax-api/2.0/mlflow-artifacts/artifacts/',
+];
+const PRESIGNED_DOWNLOAD_FALLBACK_STATUSES = [400, 404, 501, 503];
+
+const joinArtifactPaths = (rootPath: string, artifactPath: string) =>
+  [rootPath.replace(/^\/+|\/+$/g, ''), artifactPath.replace(/^\/+/, '')].filter(Boolean).join('/');
+
+const getProxiedArtifactDownloadPath = (artifactRootUri?: string, artifactPath?: string) => {
+  if (!artifactRootUri || !artifactPath) {
+    return undefined;
+  }
+  try {
+    const parsedArtifactRootUri = new URL(artifactRootUri);
+    if (parsedArtifactRootUri.protocol === 'mlflow-artifacts:') {
+      return joinArtifactPaths(parsedArtifactRootUri.pathname, artifactPath);
+    }
+    if (parsedArtifactRootUri.protocol === 'http:' || parsedArtifactRootUri.protocol === 'https:') {
+      const rootPath = parsedArtifactRootUri.pathname.replace(/^\/+/, '');
+      const routeAnchor = MLFLOW_ARTIFACTS_ROUTE_ANCHORS.find((anchor) => rootPath.includes(anchor));
+      if (routeAnchor) {
+        return joinArtifactPaths(rootPath.split(routeAnchor)[1] ?? '', artifactPath);
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+};
+
+const shouldTryRunScopedPresignedDownload = (artifactRootUri?: string) => {
+  if (!artifactRootUri) {
+    return true;
+  }
+  try {
+    const { protocol } = new URL(artifactRootUri);
+    return protocol !== 'mlflow-artifacts:' && protocol !== 'http:' && protocol !== 'https:';
+  } catch {
+    return true;
+  }
+};
+
+const canFallBackFromPresignedDownloadError = (error: unknown) =>
+  error instanceof ErrorWrapper && PRESIGNED_DOWNLOAD_FALLBACK_STATUSES.includes(error.getStatus());
 
 type ArtifactViewImplProps = DesignSystemHocProps & {
   experimentId: string;
@@ -78,6 +124,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
   entityTags?: Partial<KeyValueEntity>[];
+  multipartDownloadsEnabled?: boolean;
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -252,35 +299,55 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
     if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      // Prefer a presigned URL minted by the tracking server: the browser then downloads
-      // directly from cloud storage via top-level navigation, so artifact bytes are
-      // neither proxied through the tracking server nor buffered in browser memory.
-      try {
-        const response = await MlflowService.createPresignedDownloadUrl({
-          run_id: runUuid,
-          path: artifactPath,
-        });
-        // A top-level navigation cannot attach request headers; if the backend requires
-        // any, use the proxied download instead.
-        if (response.presigned_url && Object.keys(response.headers ?? {}).length === 0) {
-          window.location.assign(response.presigned_url);
-          return;
+      const proxiedArtifactDownloadPath = getProxiedArtifactDownloadPath(this.props.artifactRootUri, artifactPath);
+      const multipartDownloadsEnabled = this.props.multipartDownloadsEnabled ?? getMultipartDownloadsEnabledSync();
+      if (multipartDownloadsEnabled && proxiedArtifactDownloadPath) {
+        // For proxied artifact roots, use the capability advertised by /server-info and
+        // request the presigned URL from the mlflow-artifacts service directly.
+        try {
+          const response = await MlflowService.getMlflowArtifactsPresignedDownloadUrl(proxiedArtifactDownloadPath);
+          // A top-level navigation cannot attach request headers; if the backend requires
+          // any, use the proxied download instead.
+          if (response.url && Object.keys(response.headers ?? {}).length === 0) {
+            window.location.assign(response.url);
+            return;
+          }
+        } catch (e) {
+          if (!canFallBackFromPresignedDownloadError(e)) {
+            // Fail closed on everything else — notably 403, where falling back to the
+            // proxied path would sidestep a permission denial.
+            Utils.logErrorAndNotifyUser(e);
+            return;
+          }
         }
-      } catch (e) {
-        const canFallBack =
-          e instanceof ErrorWrapper &&
+      } else if (!proxiedArtifactDownloadPath && shouldTryRunScopedPresignedDownload(this.props.artifactRootUri)) {
+        // Prefer a presigned URL minted by the tracking server: the browser then downloads
+        // directly from cloud storage via top-level navigation, so artifact bytes are
+        // neither proxied through the tracking server nor buffered in browser memory.
+        try {
+          const response = await MlflowService.createPresignedDownloadUrl({
+            run_id: runUuid,
+            path: artifactPath,
+          });
+          // A top-level navigation cannot attach request headers; if the backend requires
+          // any, use the proxied download instead.
+          if (response.presigned_url && Object.keys(response.headers ?? {}).length === 0) {
+            window.location.assign(response.presigned_url);
+            return;
+          }
+        } catch (e) {
           // 400: the server rejects presigned downloads for proxied artifact storage
           // (`mlflow-artifacts:` URIs — the default `mlflow server` configuration), where
           // the proxied download IS the correct path. 404: older server without the
           // endpoint (for a genuinely missing artifact the proxied path surfaces the same
           // error). 501: artifact repository without presigned support. 503:
           // artifacts-only server mode.
-          [400, 404, 501, 503].includes(e.getStatus());
-        if (!canFallBack) {
-          // Fail closed on everything else — notably 403, where falling back to the
-          // proxied path would sidestep a permission denial.
-          Utils.logErrorAndNotifyUser(e);
-          return;
+          if (!canFallBackFromPresignedDownloadError(e)) {
+            // Fail closed on everything else — notably 403, where falling back to the
+            // proxied path would sidestep a permission denial.
+            Utils.logErrorAndNotifyUser(e);
+            return;
+          }
         }
       }
       await this.downloadArtifactViaBlob(getArtifactLocationUrl(artifactPath, runUuid), artifactPath);
