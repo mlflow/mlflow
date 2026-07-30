@@ -232,7 +232,7 @@ def _register_model(
         "arm64",
     }:
         _logger.warning(
-            "`env_pack` is not supported on ARM client images and will be ignored. "
+            "`env_pack` is not supported on the current architecture and will be ignored. "
             "The model will be registered without a packed environment."
         )
         validated_env_pack = None

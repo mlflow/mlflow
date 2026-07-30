@@ -297,7 +297,7 @@ def mock_dbr_version():
 
 
 ARM_ENV_PACK_WARNING = (
-    "`env_pack` is not supported on ARM client images and will be ignored. "
+    "`env_pack` is not supported on the current architecture and will be ignored. "
     "The model will be registered without a packed environment."
 )
 
