@@ -9,6 +9,7 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { getLinkFieldKey } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { Link } from '../RoutingUtils';
 import { useSpanLinkHrefs } from '../hooks/useSpanLinkHref';
 
 function SpanLinkEntry({
@@ -31,15 +32,16 @@ function SpanLinkEntry({
   const title = (
     <Tooltip componentId="mlflow.model_trace_explorer.span_link.tooltip" content={`span_id: ${link.span_id}`}>
       {href ? (
-        <Typography.Link
+        <Link
           componentId="mlflow.model_trace_explorer.span_link"
-          href={href}
-          openInNewTab
+          to={href}
+          target="_blank"
+          rel="noreferrer"
           onClick={(e: React.MouseEvent) => e.stopPropagation()}
           css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           {link.trace_id}
-        </Typography.Link>
+        </Link>
       ) : (
         <Typography.Text bold css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {link.trace_id}
