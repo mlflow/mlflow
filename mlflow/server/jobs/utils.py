@@ -176,33 +176,41 @@ _JOB_ENTRY_MODULE = "mlflow.server.jobs._job_subproc_entry"
 _JOB_STATUS_POLL_INTERVAL = 1
 
 
-def _exec_job_in_subproc(
+@dataclass(frozen=True)
+class _PreparedJobSetupCommand:
+    command: list[str]
+    cwd: str | None = None
+    extra_env: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class _PreparedJobSubprocess:
+    command: list[str]
+    env: dict[str, str]
+    result_path: str
+    setup_commands: tuple[_PreparedJobSetupCommand, ...] = ()
+
+
+def _prepare_job_subprocess(
     function_fullname: str,
     params: dict[str, Any],
     python_env: _PythonEnv | None,
     transient_error_classes: list[type[Exception]] | None,
-    timeout: float | None,
     tmpdir: str,
-    job_store: "AbstractJobStore",
     job_id: str,
     job_name: str,
     workspace: str | None,
     extra_envs: dict[str, str] | None = None,
-) -> JobResult | None:
-    """
-    Executes the job function in a subprocess,
-    If the job execution time exceeds timeout, the subprocess is killed and return None,
-    otherwise return `JobResult` instance,
-    """
-    from mlflow.utils.process import _exec_cmd, _join_commands
+) -> _PreparedJobSubprocess:
+    from mlflow.server.jobs._job_env_setup import _get_incomplete_marker_path
+    from mlflow.utils.process import _join_commands
     from mlflow.utils.virtualenv import (
         _get_mlflow_virtualenv_root,
-        _get_uv_env_creation_command,
         _get_virtualenv_activate_cmd,
-        _get_virtualenv_extra_env_vars,
         _get_virtualenv_name,
     )
 
+    setup_commands = []
     if python_env is not None:
         if shutil.which("uv") is None:
             raise MlflowException(
@@ -210,27 +218,30 @@ def _exec_job_in_subproc(
                 "but 'uv' is not installed."
             )
 
-        # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         env_name = _get_virtualenv_name(python_env, None)
         env_dir = virtual_envs_root_path / env_name
         activate_cmd = _get_virtualenv_activate_cmd(env_dir)
 
-        if not env_dir.exists():
-            _logger.info(f"Creating a python virtual environment in {env_dir}.")
-            # create python environment
-            env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
-            _exec_cmd(env_creation_cmd, capture_output=False)
-
-            # install dependencies
+        if not env_dir.exists() or _get_incomplete_marker_path(env_dir).exists():
+            _logger.info(f"Creating or repairing a python virtual environment in {env_dir}.")
             tmp_req_file = "requirements.txt"
-            (Path(tmpdir) / tmp_req_file).write_text("\n".join(python_env.dependencies))
-            cmd = _join_commands(activate_cmd, f"uv pip install -r {tmp_req_file}")
-            _exec_cmd(
-                cmd,
-                cwd=tmpdir,
-                extra_env=_get_virtualenv_extra_env_vars(),
-                capture_output=False,
+            requirements_file = Path(tmpdir) / tmp_req_file
+            requirements_file.write_text("\n".join(python_env.dependencies))
+            setup_commands.append(
+                _PreparedJobSetupCommand(
+                    command=[
+                        sys.executable,
+                        "-m",
+                        "mlflow.server.jobs._job_env_setup",
+                        "--env-dir",
+                        str(env_dir),
+                        "--python-version",
+                        python_env.python,
+                        "--requirements-file",
+                        str(requirements_file),
+                    ],
+                )
             )
         else:
             _logger.debug(f"The python environment {env_dir} already exists.")
@@ -258,12 +269,60 @@ def _exec_job_in_subproc(
         **(extra_envs or {}),
     }
 
-    if workspace:
+    if workspace is None:
+        job_env.pop(MLFLOW_WORKSPACE.name, None)
+    else:
         job_env[MLFLOW_WORKSPACE.name] = workspace
 
-    with subprocess.Popen(
-        job_cmd,
+    return _PreparedJobSubprocess(
+        command=job_cmd,
         env=job_env,
+        result_path=result_file,
+        setup_commands=tuple(setup_commands),
+    )
+
+
+def _exec_job_in_subproc(
+    function_fullname: str,
+    params: dict[str, Any],
+    python_env: _PythonEnv | None,
+    transient_error_classes: list[type[Exception]] | None,
+    timeout: float | None,
+    tmpdir: str,
+    job_store: "AbstractJobStore",
+    job_id: str,
+    job_name: str,
+    workspace: str | None,
+    extra_envs: dict[str, str] | None = None,
+) -> JobResult | None:
+    """
+    Executes the job function in a subprocess,
+    If the job execution time exceeds timeout, the subprocess is killed and return None,
+    otherwise return `JobResult` instance,
+    """
+    prepared_subprocess = _prepare_job_subprocess(
+        function_fullname=function_fullname,
+        params=params,
+        python_env=python_env,
+        transient_error_classes=transient_error_classes,
+        tmpdir=tmpdir,
+        job_id=job_id,
+        job_name=job_name,
+        workspace=workspace,
+        extra_envs=extra_envs,
+    )
+
+    for setup_command in prepared_subprocess.setup_commands:
+        _exec_cmd(
+            setup_command.command,
+            cwd=setup_command.cwd,
+            extra_env=setup_command.extra_env,
+            capture_output=False,
+        )
+
+    with subprocess.Popen(
+        prepared_subprocess.command,
+        env=prepared_subprocess.env,
     ) as popen:
         beg_time = time.time()
         while popen.poll() is None:
@@ -282,12 +341,12 @@ def _exec_job_in_subproc(
                     return None
 
         if popen.returncode == 0:
-            return JobResult.load(result_file)
+            return JobResult.load(prepared_subprocess.result_path)
 
         return JobResult.from_error(
             RuntimeError(
                 f"The subprocess that executes job function {function_fullname} "
-                f"exists with error code {popen.returncode}"
+                f"exited with error code {popen.returncode}"
             )
         )
 
