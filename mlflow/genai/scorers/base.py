@@ -287,6 +287,18 @@ class Scorer(BaseModel):
 
         return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
+    def _set_registration_metadata(
+        self,
+        *,
+        backend: str,
+        experiment_id: str | None,
+        sampling_config: ScorerSamplingConfig | None,
+    ) -> "Scorer":
+        self._registered_backend = backend
+        self._experiment_id = experiment_id
+        self._sampling_config = sampling_config
+        return self
+
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
         base_repr = super().__repr__()
