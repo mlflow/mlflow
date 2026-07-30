@@ -570,6 +570,7 @@ class Scorer(BaseModel):
                 scorers=sub_scorers,
                 ensemble_fn=fn_name,
                 description=serialized.description,
+                aggregations=serialized.aggregations,
             )
 
         # Invalid serialized data
@@ -1473,25 +1474,29 @@ class EnsembleScorer(Scorer):
         )
         return asdict(serialized)
 
-    def _build_sub_feedbacks_metadata(
-        self, results: list[Any], values: list[Any]
-    ) -> dict[str, str]:
+    def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Any]:
+        # feedbacks-mode ensemble fns and the sub-feedbacks metadata both need a real
+        # Feedback per sub-scorer; bare-value returns are wrapped and named after the scorer.
+        feedbacks = []
+        for sub_scorer, result, value in zip(self._scorers, results, values):
+            fb = (
+                result
+                if isinstance(result, Feedback)
+                else Feedback(name=sub_scorer.name, value=value)
+            )
+            # Defensive guard: feedbacks-mode fns may return a Feedback with the default name;
+            # always use the sub-scorer's name so every metadata entry is attributable.
+            if fb.name in (None, DEFAULT_FEEDBACK_NAME):
+                fb.name = sub_scorer.name
+            feedbacks.append(fb)
+        return feedbacks
+
+    def _build_sub_feedbacks_metadata(self, sub_feedbacks: list[Any]) -> dict[str, str]:
         # Preserve each sub-scorer's full Feedback (value, rationale, source, error) on the
         # aggregate so the ensemble result stays fully explainable — including which judge/human/
         # code produced each sub-result. metadata is dict[str, str], so the list of Feedback
-        # dicts is JSON-encoded under a single key. Bare-value sub-scorers are normalized to a
-        # Feedback named after the sub-scorer (source defaults to CODE).
-        entries = []
-        for sub_scorer, result, value in zip(self._scorers, results, values):
-            if isinstance(result, Feedback):
-                feedback = result
-            else:
-                feedback = Feedback(name=sub_scorer.name, value=value)
-            # Defensive guard: feedbacks-mode fns may return a Feedback with the default name;
-            # always use the sub-scorer's name so every metadata entry is attributable.
-            if feedback.name in (None, DEFAULT_FEEDBACK_NAME):
-                feedback.name = sub_scorer.name
-            entries.append(feedback.to_dictionary())
+        # dicts is JSON-encoded under a single key.
+        entries = [fb.to_dictionary() for fb in sub_feedbacks]
         return {self._SUB_FEEDBACKS_METADATA_KEY: json.dumps(entries)}
 
     @property
@@ -1526,6 +1531,7 @@ class EnsembleScorer(Scorer):
 
         params = inspect.signature(self._ensemble_fn).parameters
         feedbacks_mode = "feedbacks" in params
+        sub_feedbacks = self._normalize_to_feedbacks(results, values)
 
         if not feedbacks_mode:
             for sub_scorer, value in zip(self._scorers, values):
@@ -1536,10 +1542,10 @@ class EnsembleScorer(Scorer):
                         f"'{sub_scorer.name}' returned {type(value).__name__}."
                     )
 
-        agg_input = results if feedbacks_mode else values
+        agg_input = sub_feedbacks if feedbacks_mode else values
         result = self._ensemble_fn(agg_input)
 
-        sub_metadata = self._build_sub_feedbacks_metadata(results, values)
+        sub_metadata = self._build_sub_feedbacks_metadata(sub_feedbacks)
 
         if isinstance(result, Feedback):
             if result.name == DEFAULT_FEEDBACK_NAME:
@@ -1556,6 +1562,7 @@ def scorer_ensemble(
     scorers: list[Scorer],
     ensemble_fn: str | Callable[..., Any],
     description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
 ) -> EnsembleScorer:
     """Create a scorer that runs several sub-scorers and aggregates their results.
 
@@ -1568,6 +1575,10 @@ def scorer_ensemble(
             ``(feedbacks) -> value|Feedback`` to receive full Feedback objects, or the
             string name of a built-in (one of ``mlflow.genai.scorers.ensemble``).
         description: Optional description.
+        aggregations: A list of aggregation functions to apply to the scorer's output
+            across rows. Each entry is either a string
+            (``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``, ``"p90"``)
+            or a callable ``(list[values]) -> float``. Defaults to ``"mean"``.
     """
     from mlflow.genai.scorers.ensemble import (
         BUILTIN_ENSEMBLES,
@@ -1616,7 +1627,7 @@ def scorer_ensemble(
                     f"({declared!r}). Use majority_vote for categorical scorers."
                 )
 
-    agg = EnsembleScorer(name=name, description=description)
+    agg = EnsembleScorer(name=name, description=description, aggregations=aggregations)
     object.__setattr__(agg, "_scorers", list(scorers))
     object.__setattr__(agg, "_ensemble_fn", fn)
     object.__setattr__(agg, "_ensemble_fn_name", fn_name)

@@ -240,6 +240,19 @@ def test_ensemble_serialization_round_trip():
     assert isinstance(restored._scorers[0], Safety)
 
 
+def test_ensemble_serialization_preserves_aggregations():
+    agg = scorer_ensemble(
+        name="agg_safety",
+        scorers=[Safety()],
+        ensemble_fn="majority_vote",
+        aggregations=["min", "max"],
+    )
+    dumped = agg.model_dump()
+    assert dumped["aggregations"] == ["min", "max"]
+    restored = Scorer.model_validate(dumped)
+    assert restored.aggregations == ["min", "max"]
+
+
 def test_ensemble_custom_callable_not_serializable():
     agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: sum(values))
     with pytest.raises(MlflowException, match="custom ensemble function"):
@@ -301,12 +314,28 @@ def test_mean_rejects_categorical_values():
 
 
 def test_feedbacks_mode_allows_non_numeric():
-    # feedbacks-mode bypasses the value-type check entirely; feedbacks contains raw run() results.
+    # feedbacks-mode bypasses the value-type check entirely; feedbacks contains Feedback objects.
     def first_value(feedbacks):
-        return feedbacks[0]
+        return feedbacks[0].value
 
     agg = scorer_ensemble(name="f", scorers=[_label], ensemble_fn=first_value)
     assert agg(outputs="hello").value == "hello"
+
+
+def test_ensemble_feedbacks_mode_receives_feedback_objects():
+    captured = {}
+
+    def inspect_fn(feedbacks):
+        captured["types"] = [type(f).__name__ for f in feedbacks]
+        captured["names"] = [f.name for f in feedbacks]
+        return feedbacks[0].value
+
+    # _num_len returns a bare int; must be wrapped into a Feedback in feedbacks-mode.
+    agg = scorer_ensemble(name="fb", scorers=[_num_len], ensemble_fn=inspect_fn)
+    fb = agg(outputs="abcd")
+    assert captured["types"] == ["Feedback"]
+    assert captured["names"] == ["_num_len"]
+    assert fb.value == 4
 
 
 def test_numeric_builtin_rejects_literal_judge_upfront():
