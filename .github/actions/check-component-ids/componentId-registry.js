@@ -1909,6 +1909,7 @@ module.exports = {
   "mlflow.model_trace_explorer.header_details.tag-session-id": "",
   "mlflow.model_trace_explorer.linked_prompts.prompt_link": "",
   "mlflow.model_trace_explorer.span_link": "",
+  "mlflow.model_trace_explorer.span_link.tooltip": "",
   "mlflow.model_trace_explorer.timeline.gateway_trace_link": "",
 
   // -- mlflow.node-level-metric-charts --
