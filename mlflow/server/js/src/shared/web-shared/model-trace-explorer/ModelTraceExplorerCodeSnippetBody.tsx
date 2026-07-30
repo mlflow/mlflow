@@ -173,7 +173,7 @@ export function ModelTraceExplorerCodeSnippetBody({
           <SnippetCopyAction
             key="copy-snippet"
             componentId="shared.model-trace-explorer.copy-snippet-markdown"
-            copyText={data}
+            copyText={dataToTruncate}
             size="small"
             css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
           />
