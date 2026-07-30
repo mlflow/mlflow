@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import org.apache.commons.io.FileUtils;
@@ -229,5 +230,60 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(page2.getItems().get(0).getName(), modelName);
         Assert.assertEquals(page2.getItems().get(0).getRunId(), newVersionRunId);
         Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
+    }
+
+    @Test
+    public void testSearchRegisteredModels() {
+        Page<RegisteredModel> modelsBefore = client.searchRegisteredModels();
+
+        // create first new model
+        String newModelName1 = "NewModel1-" + UUID.randomUUID().toString();
+        client.sendPost("registered-models/create",
+            mapper.makeCreateModel(newModelName1));
+
+        // create second new model
+        String newModelName2 = "NewModel2-" + UUID.randomUUID().toString();
+        client.sendPost("registered-models/create",
+            mapper.makeCreateModel(newModelName2));
+
+        Page<RegisteredModel> modelsAfter = client.searchRegisteredModels();
+        Assert.assertEquals(modelsAfter.getPageSize(), 2 + modelsBefore.getPageSize());
+        Assert.assertFalse(modelsAfter.hasNextPage());
+        Assert.assertFalse(modelsAfter.getNextPageToken().isPresent());
+
+        String filter1 = String.format("name = '%s'", newModelName1);
+        Page<RegisteredModel> models1 = client.searchRegisteredModels(filter1);
+        Assert.assertEquals(models1.getPageSize(), 1);
+        RegisteredModel model1 = models1.getItems().iterator().next();
+        Assert.assertEquals(model1.getName(), newModelName1);
+
+        String filter2 = "name LIKE 'NewModel2%'";
+        Page<RegisteredModel> models2 = client.searchRegisteredModels(filter2);
+        Assert.assertEquals(models2.getPageSize(), 1);
+        RegisteredModel model2 = models2.getItems().iterator().next();
+        Assert.assertEquals(model2.getName(), newModelName2);
+
+        Page<RegisteredModel> page1 = client.searchRegisteredModels(
+            "", 1, Arrays.asList("timestamp DESC")
+        );
+        Assert.assertEquals(page1.getPageSize(), 1);
+        Assert.assertEquals(page1.getItems().iterator().next().getName(), newModelName2);
+        Assert.assertTrue(page1.hasNextPage());
+        Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+        Page<RegisteredModel> page2 = client.searchRegisteredModels(
+            "",
+            2,
+            Arrays.asList("timestamp DESC"),
+            page1.getNextPageToken().get()
+        );
+        Assert.assertEquals(page2.getPageSize(), 2);
+        Iterator<RegisteredModel> results = page2.getItems().iterator();
+        Assert.assertEquals(results.next().getName(), newModelName1);
+
+        Page<RegisteredModel> page2fromPage1Link = page1.getNextPage();
+        Assert.assertEquals(page2fromPage1Link.getPageSize(), 1);
+        Assert.assertEquals(page2.getItems().iterator().next().getName(), newModelName1);
+        Assert.assertTrue(page2fromPage1Link.getNextPageToken().isPresent());
     }
 }
