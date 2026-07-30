@@ -397,12 +397,13 @@ def test_register_model_without_env_pack_does_not_warn_on_arm(monkeypatch, caplo
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
             return_value=created_model_version,
-        ),
+        ) as mock_create_version,
         caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
     ):
         register_model("s3:/some/path/to/model", "No env pack")
 
     assert ARM_ENV_PACK_WARNING not in caplog.messages
+    mock_create_version.assert_called_once()
 
 
 @pytest.mark.parametrize("cpu_arch", ["x86_64", "unknown", None])
@@ -436,12 +437,6 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version, monkeypatch, c
         mock.patch(
             "mlflow.MlflowClient.get_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
-        ),
-        mock.patch("platform.machine", return_value="aarch64"),
-        mock.patch(
-            "mlflow.tracking._model_registry.fluent.machine",
-            return_value="aarch64",
-            create=True,
         ),
         caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
     ):
