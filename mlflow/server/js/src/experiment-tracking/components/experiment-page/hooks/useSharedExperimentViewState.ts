@@ -105,6 +105,10 @@ export const useSharedExperimentViewState = (
     const hasFacetParams = EXPERIMENT_PAGE_QUERY_PARAM_KEYS.some((key) => searchParams.has(key));
     if (hasFacetParams) {
       appliedShareKeyRef.current = null;
+      // Deliberately NOT clearing refetchedShareKeyRef here: it's a once-ever-per-key latch (a stale
+      // cache is refetched at most once), whereas appliedShareKeyRef is a per-apply guard that must
+      // reset so a re-pasted bare link re-applies. Clearing it here would let a missing key refetch
+      // again on every facet-wipe cycle.
       return;
     }
 

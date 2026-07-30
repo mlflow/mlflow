@@ -266,6 +266,10 @@ describe('useSharedExperimentViewState', () => {
       await waitFor(() => {
         expect(result.current.sharedStateError).toMatch(/does not exist/);
       });
+      // The rejection path must not apply anything (a regression calling applyParsedState here would
+      // otherwise slip through).
+      expect(updateSearchFacetsMock).not.toHaveBeenCalled();
+      expect(uiStateSetterMock).not.toHaveBeenCalled();
       expect(MlflowService.getExperiment).toHaveBeenCalledTimes(1);
       // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       jest.mocked(console.error).mockRestore();
