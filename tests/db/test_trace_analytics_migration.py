@@ -221,10 +221,7 @@ def _seed_legacy_analytics_data(conn):
                 "start_time_unix_nano": 300,
                 "end_time_unix_nano": 500,
                 "content": "{}",
-                "dimension_attributes": json.dumps({
-                    SpanAttributeKey.MODEL: 123,
-                    SpanAttributeKey.MODEL_PROVIDER: ["provider"],
-                }),
+                "dimension_attributes": json.dumps({}),
             },
             {
                 "trace_id": "trace-fallback",
@@ -916,7 +913,15 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
         engine.dispose()
 
 
-def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_path):
+@pytest.mark.parametrize(
+    "dimensions",
+    [
+        {"custom.dimension": "value"},
+        {SpanAttributeKey.MODEL: 123},
+        {SpanAttributeKey.MODEL_PROVIDER: ["provider"]},
+    ],
+)
+def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_path, dimensions):
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
@@ -926,7 +931,7 @@ def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_
                 spans
                 .update()
                 .where(spans.c.span_id == "span-explicit")
-                .values(dimension_attributes=json.dumps({"custom.dimension": "value"}))
+                .values(dimension_attributes=json.dumps(dimensions))
             )
 
         with pytest.raises(RuntimeError, match="unsupported content"):

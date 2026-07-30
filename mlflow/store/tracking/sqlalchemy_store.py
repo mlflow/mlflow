@@ -5552,8 +5552,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     update_dict.update(
                         self._update_trace_info_attributes(sql_trace_info, root_span_dict)
                     )
-                if trace_name := agg.trace_tags.get(TraceTagKey.TRACE_NAME):
-                    update_dict[SqlTraceInfo.trace_name] = trace_name
+                if TraceTagKey.TRACE_NAME in agg.trace_tags:
+                    update_dict[SqlTraceInfo.trace_name] = agg.trace_tags[TraceTagKey.TRACE_NAME]
 
                 # start_trace() values take precedence over values inferred from spans.
                 if aggregated_token_usage := agg.aggregated_token_usage:
