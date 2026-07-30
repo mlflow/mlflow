@@ -252,3 +252,37 @@ You can configure the following environment variables:
   when logging artifacts (Default: 500 MB)
 - `MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE` - Specifies the chunk size in bytes to use when performing multipart upload
   (Default: 100 MB)
+
+## Presigned URLs for direct artifact downloads \{#presigned-download-urls}
+
+:::note[MLflow 3.15.0 Required]
+Presigned URL downloads require MLflow 3.15.0 or later.
+:::
+
+When run artifacts are stored directly on supported storage (for example, an `s3://` artifact location as in
+[non-proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-no-proxy)), the MLflow UI
+downloads artifacts directly from the storage instead of streaming them through the Tracking Server.
+
+Under the hood, when you download an artifact from the artifact viewer, the UI requests a short-lived presigned URL
+from the Tracking Server and navigates the browser to it, letting the storage serve the artifact data.
+None of the data will pass through the Tracking Server. The URL is generated with a `Content-Disposition: attachment`
+response header so that browsers save the artifact as a file instead of rendering it.
+
+If the artifacts are not stored directly on supported storage (for example, with
+[proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store), the default
+configuration), the UI falls back to downloading the artifact through the Tracking Server.
+
+MLflow supports presigned URL downloads for the following storage:
+
+- Amazon S3
+
+You can configure the following environment variable:
+
+- `MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS` - Specifies how long a generated presigned URL remains valid, in
+  seconds (Default: 300)
+
+:::note
+The browser must have network access to the storage endpoint for the direct download to succeed. In deployments
+where end users cannot reach the storage directly, use proxied artifact access so that downloads flow through the
+Tracking Server. Also note that anyone holding a presigned URL can fetch the artifact until the URL expires.
+:::
