@@ -49,27 +49,31 @@ const createMockSpanNode = (overrides: Partial<ModelTraceSpanNode> = {}): ModelT
 describe('ModelTraceExplorerLinksTab', () => {
   it('renders empty state when span has no links', () => {
     const span = createMockSpanNode();
-    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
 
     expect(screen.getByText('No links found')).toBeInTheDocument();
   });
 
   it('renders empty state when links array is empty', () => {
     const span = createMockSpanNode({ links: [] });
-    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
 
     expect(screen.getByText('No links found')).toBeInTheDocument();
   });
 
-  it('renders link entries with trace_id and span_id', () => {
-    render(<ModelTraceExplorerLinksTab activeSpan={MOCK_LINKS_SPAN} />, { wrapper: Wrapper });
+  it('renders link entries with trace_id', () => {
+    render(<ModelTraceExplorerLinksTab activeSpan={MOCK_LINKS_SPAN} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
 
     expect(screen.getByText(MOCK_SPAN_LINKS[0].trace_id)).toBeInTheDocument();
     expect(screen.getByText(MOCK_SPAN_LINKS[1].trace_id)).toBeInTheDocument();
   });
 
-  it('renders navigation links for each span link', () => {
-    render(<ModelTraceExplorerLinksTab activeSpan={MOCK_LINKS_SPAN} />, { wrapper: Wrapper });
+  it('renders navigation links with correct href', () => {
+    render(<ModelTraceExplorerLinksTab activeSpan={MOCK_LINKS_SPAN} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
 
     const navLinks = screen.getAllByRole('link');
     expect(navLinks).toHaveLength(2);
@@ -79,7 +83,7 @@ describe('ModelTraceExplorerLinksTab', () => {
     );
   });
 
-  it('renders link attributes when present', () => {
+  it('renders each attribute key as a separate snippet', () => {
     const span = createMockSpanNode({
       links: [
         {
@@ -89,10 +93,11 @@ describe('ModelTraceExplorerLinksTab', () => {
         },
       ],
     });
-    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
 
     expect(screen.getByText('tr-with-attrs')).toBeInTheDocument();
-    expect(screen.getByText('attributes')).toBeInTheDocument();
+    expect(screen.getByText('relationship')).toBeInTheDocument();
+    expect(screen.getByText('priority')).toBeInTheDocument();
   });
 
   it('renders trace_id as plain text when href is unavailable', () => {
@@ -100,20 +105,20 @@ describe('ModelTraceExplorerLinksTab', () => {
     const span = createMockSpanNode({
       links: [{ trace_id: 'tr-unresolved', span_id: 'eeff000000000000' }],
     });
-    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
 
     expect(screen.getByText('tr-unresolved')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     mockUseSpanLinkHref.mockRestore();
   });
 
-  it('does not render attributes section when link has no attributes', () => {
+  it('does not render attribute snippets when link has no attributes', () => {
     const span = createMockSpanNode({
       links: [{ trace_id: 'tr-no-attrs', span_id: 'ccdd000000000000' }],
     });
-    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
 
     expect(screen.getByText('tr-no-attrs')).toBeInTheDocument();
-    expect(screen.queryByText('attributes')).not.toBeInTheDocument();
+    expect(screen.queryByText('relationship')).not.toBeInTheDocument();
   });
 });

@@ -87,6 +87,7 @@ import {
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
+import { getExperimentPageTracesTabRoute } from './routes';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -250,24 +251,20 @@ const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): Se
 
   const matches: SearchMatch[] = [];
   links.forEach((link, index) => {
-    const fields = [
-      { field: 'span_id', value: JSON.stringify(link.span_id) },
-      ...(link.attributes && Object.keys(link.attributes).length > 0
-        ? [{ field: 'attributes', value: JSON.stringify(link.attributes, null, 2) }]
-        : []),
-    ];
+    const attributes = link.attributes;
+    if (!attributes || Object.keys(attributes).length === 0) return;
 
-    fields.forEach(({ field, value }) => {
-      const key = getLinkFieldKey(index, field);
-      const numValueMatches = value.toLowerCase().split(searchFilter).length - 1;
+    Object.entries(attributes).forEach(([attrKey, attrValue]) => {
+      const key = getLinkFieldKey(index, attrKey);
+      const isKeyMatch = attrKey.toLowerCase().includes(searchFilter);
+      if (isKeyMatch) {
+        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
+      }
+
+      const value = JSON.stringify(attrValue, null, 2).toLowerCase();
+      const numValueMatches = value.split(searchFilter).length - 1;
       for (let i = 0; i < numValueMatches; i++) {
-        matches.push({
-          span,
-          section: 'links',
-          key,
-          isKeyMatch: false,
-          matchIndex: i,
-        });
+        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
       }
     });
   });
@@ -651,6 +648,22 @@ export function isV3ModelTraceInfo(
 
   return 'trace_location' in info;
 }
+
+export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | undefined): string | undefined => {
+  if (!traceInfo) return undefined;
+
+  let experimentId: string | undefined;
+  if (isV3ModelTraceInfo(traceInfo)) {
+    if (traceInfo.trace_location?.type === 'MLFLOW_EXPERIMENT') {
+      experimentId = traceInfo.trace_location.mlflow_experiment?.experiment_id;
+    }
+  } else {
+    experimentId = traceInfo.experiment_id;
+  }
+
+  if (!experimentId) return undefined;
+  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+};
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
   return 'start_time_unix_nano' in span && Array.isArray(span.attributes);
