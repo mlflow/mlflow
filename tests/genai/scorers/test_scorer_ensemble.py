@@ -369,14 +369,15 @@ def test_ensemble_metadata_present_for_custom_value_fn():
 def test_ensemble_fn_metadata_wins_on_collision():
     from mlflow.genai.scorers.base import EnsembleScorer
 
+    key = EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY
+
     def fn_with_meta(feedbacks):
-        return Feedback(value=True, metadata={"custom": "kept"})
+        return Feedback(value=True, metadata={key: "override"})
 
     agg = scorer_ensemble(name="m", scorers=[_always_true], ensemble_fn=fn_with_meta)
     fb = agg(outputs="x")
-    assert fb.metadata["custom"] == "kept"
-    # sub-feedback provenance is still attached alongside it
-    assert EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY in fb.metadata
+    # The ensemble_fn's own metadata wins on key collision.
+    assert fb.metadata[key] == "override"
 
 
 def test_ensemble_metadata_is_string_valued():

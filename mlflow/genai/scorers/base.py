@@ -1476,7 +1476,7 @@ class EnsembleScorer(Scorer):
     def _build_sub_feedbacks_metadata(
         self, results: list[Any], values: list[Any]
     ) -> dict[str, str]:
-        # Preserve each sub-scorer's provenance (name, value, rationale) on the aggregate
+        # Preserve each sub-scorer's provenance (name, value, rationale, error) on the aggregate
         # Feedback so the ensemble result stays explainable. metadata is dict[str, str], so the
         # structured list is JSON-encoded under a single key.
         entries = []
