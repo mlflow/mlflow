@@ -156,9 +156,9 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
   getOverflowMenuItems() {
     const permissionLevel = this.props.model?.permission_level;
-    // When permission_level is absent (no-auth deployment) treat as unrestricted.
+    // Treat falsy values (undefined, '') as absent — no-auth deployments may send ''.
     // Only MANAGE permission can delete the entire registered model.
-    if (permissionLevel !== undefined && permissionLevel !== 'MANAGE') {
+    if (permissionLevel && permissionLevel !== 'MANAGE') {
       return [];
     }
 

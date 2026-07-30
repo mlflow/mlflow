@@ -257,9 +257,9 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
 
   shouldHideDeleteOption() {
     const permissionLevel = this.props.modelVersion?.permission_level;
-    // When permission_level is absent (no-auth deployment) treat as unrestricted.
+    // Treat falsy values (undefined, '') as absent — no-auth deployments may send ''.
     // READ-only users cannot delete model versions.
-    return permissionLevel !== undefined && permissionLevel === 'READ';
+    return permissionLevel === 'READ';
   }
 
   renderStageDropdown(modelVersion: any) {
