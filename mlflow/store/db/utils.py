@@ -86,7 +86,10 @@ def _is_empty_database(engine):
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
-    _upgrade_db(engine)
+    # Only run upgrade if the database is not already at the latest revision
+    # to prevent errors when the 'secrets' table (or other later tables) already exist.
+    if not _db_is_at_latest_revision(engine):
+        _upgrade_db(engine)
 
 
 def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
