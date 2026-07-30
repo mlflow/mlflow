@@ -216,7 +216,6 @@ describe('useSharedExperimentViewState', () => {
       // cache, so pasting the link initially can't resolve the tag. The refetch returns fresh tags
       // and the view applies — driven purely through the awaited dispatch, NOT a prop-identity change
       // (an isEqual selector would collapse an identical-tags prop, so relying on that would hang).
-      jest.spyOn(console, 'error').mockImplementation(() => {});
       jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
       const compressedState = await textCompressDeflate(testSerializedShareViewState);
       const envelopeValue = encodeSavedViewEnvelope('Freshly saved', compressedState, 1770000000000);
@@ -246,8 +245,6 @@ describe('useSharedExperimentViewState', () => {
       });
       expect(result.current.sharedStateError).toBeNull();
       expect(MlflowService.getExperiment).toHaveBeenCalledTimes(1);
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      jest.mocked(console.error).mockRestore();
     });
 
     it('reports not-found without looping when the refetch itself fails', async () => {
