@@ -36,6 +36,7 @@ from mlflow.entities import (
     Assessment,
     AssessmentError,
     AssessmentSource,
+    ConnectOptionSettings,
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
@@ -765,7 +766,9 @@ class SqlTraceInfo(Base):
     Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     Named as "trace_id" in V3 format.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -3017,7 +3020,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3048,10 +3051,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
+    target_value = Column(String(255), nullable=True)
+    """
+    Target the policy applies to: `String` (limit 255 characters). Interpreted per
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
+    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
+        Index("idx_budget_policies_target_value", "target_value"),
     )
 
     def __repr__(self):
@@ -3073,6 +3083,7 @@ class SqlGatewayBudgetPolicy(Base):
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
+            target_value=self.target_value,
         )
 
 
@@ -4009,7 +4020,6 @@ class SqlMCPServerVersion(Base):
     version_patch = Column(Integer, nullable=False)
     version_prerelease_sort_key = Column(String(512), nullable=False)
     server_json = Column(JSON, nullable=False)
-    display_name = Column(String(256), nullable=True)
     status = Column(
         String(20),
         nullable=False,
@@ -4018,6 +4028,7 @@ class SqlMCPServerVersion(Base):
     )
     tools = Column(JSON, nullable=True)
     source = Column(String(512), nullable=True)
+    connect_options = Column(JSON, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
@@ -4072,11 +4083,13 @@ class SqlMCPServerVersion(Base):
             name=self.name,
             version=self.version,
             server_json=server_json,
-            display_name=self.display_name,
             status=MCPStatus(self.status),
             tools=tools,
             aliases=alias_names,
             tags=tags,
+            connect_options={
+                k: ConnectOptionSettings(**v) for k, v in (self.connect_options or {}).items()
+            },
             source=self.source,
             workspace=self.workspace,
             created_by=self.created_by,

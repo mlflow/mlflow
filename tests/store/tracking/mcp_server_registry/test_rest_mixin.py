@@ -58,10 +58,10 @@ class _TestRestClient(WorkspaceRestStoreMixin, RestMCPServerRegistryMixin):
 
 
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture
@@ -429,9 +429,9 @@ def test_update_version_omitted_tools_leaves_unchanged(rest_client):
         tools=[MCPTool(name="search")],
     )
     updated = rest_client.update_mcp_server_version(
-        "io.github.test/uv-omit-tools", "1.0.0", display_name="kept-tools"
+        "io.github.test/uv-omit-tools", "1.0.0", status=MCPStatus.DEPRECATED
     )
-    assert updated.display_name == "kept-tools"
+    assert updated.status == MCPStatus.DEPRECATED
     assert updated.tools[0].name == "search"
 
 
@@ -501,18 +501,6 @@ def test_update_version(rest_client):
         "io.github.test/uv", "1.0.0", status=MCPStatus.ACTIVE
     )
     assert updated.status == MCPStatus.ACTIVE
-
-
-def test_update_version_can_clear_display_name(rest_client):
-    rest_client.create_mcp_server_version(
-        _server_json("io.github.test/uv-clear", "1.0.0"),
-        display_name="v1",
-        status=MCPStatus.ACTIVE,
-    )
-    updated = rest_client.update_mcp_server_version(
-        "io.github.test/uv-clear", "1.0.0", display_name=None
-    )
-    assert updated.display_name is None
 
 
 def test_update_version_preserves_empty_tools_list(rest_client):

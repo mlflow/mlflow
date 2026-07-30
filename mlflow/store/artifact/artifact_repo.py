@@ -10,7 +10,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -741,6 +741,24 @@ class StreamUploadMixin(ABC):
 
         Args:
             stream: Readable binary stream containing the artifact contents.
+            artifact_file_name: Artifact filename to log. Any directory components are
+                ignored; use ``artifact_path`` to specify the destination directory.
+            artifact_path: Directory within the run's artifact directory in which to log
+                the artifact.
+        """
+
+    @abstractmethod
+    async def log_artifact_from_async_stream(
+        self,
+        chunks: AsyncIterable[bytes],
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        """
+        Log artifact contents from an async chunk stream.
+
+        Args:
+            chunks: Async iterable yielding binary chunks containing the artifact contents.
             artifact_file_name: Artifact filename to log. Any directory components are
                 ignored; use ``artifact_path`` to specify the destination directory.
             artifact_path: Directory within the run's artifact directory in which to log
