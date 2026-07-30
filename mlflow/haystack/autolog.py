@@ -3,7 +3,7 @@ import logging
 import threading
 from typing import Any
 
-from haystack.tracing import OpenTelemetryTracer, enable_tracing
+from haystack.tracing import enable_tracing
 from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -34,6 +34,23 @@ from mlflow.tracing.utils import (
 _logger = logging.getLogger(__name__)
 
 
+def _get_opentelemetry_tracer_class():
+    try:
+        from haystack_integrations.tracing.opentelemetry import OpenTelemetryTracer
+    except ImportError:
+        try:
+            # In haystack < 3, `OpenTelemetryTracer` ships in the core package
+            from haystack.tracing import OpenTelemetryTracer
+        except ImportError as e:
+            from mlflow.exceptions import MlflowException
+
+            raise MlflowException(
+                "MLflow haystack autologging requires the `opentelemetry-haystack` package "
+                "when using haystack >= 3. Please run `pip install opentelemetry-haystack`."
+            ) from e
+    return OpenTelemetryTracer
+
+
 def setup_haystack_tracing():
     from haystack import tracing as hs_tracing
 
@@ -53,7 +70,7 @@ def setup_haystack_tracing():
             provider.add_span_processor(hs_processor)
 
     tracer = trace.get_tracer(__name__)
-    enable_tracing(OpenTelemetryTracer(tracer))
+    enable_tracing(_get_opentelemetry_tracer_class()(tracer))
 
 
 def _infer_span_type_from_haystack(

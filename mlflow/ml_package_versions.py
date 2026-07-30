@@ -420,7 +420,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "2.4.0",
-            "maximum": "2.31.0"
+            "maximum": "3.0.0"
         }
     },
     "sentence_transformers": {
