@@ -713,5 +713,28 @@ describe('TracesV3Logs', () => {
       // Outside preview the control is editable.
       expect(getColumnsButton()).not.toBeDisabled();
     });
+
+    it('does not enter preview for a bare share key carrying no view state', async () => {
+      // A garbage/deleted share key has no selectedColumns/sort in the URL, so there's nothing to
+      // preview. Presence of the key alone must not enter preview mode: the user keeps their own
+      // column count and the control stays editable (no misleading "shared view" state).
+      renderComponent({}, ['/?traceViewShareKey=does-not-exist']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      expect(getColumnsButton()).not.toBeDisabled();
+    });
+
+    it('enters preview for a share link carrying only a time range (no columns or sort)', async () => {
+      // buildTraceViewQuery also serializes startTime/endTime/filter, so a view that captures only a
+      // time range still carries real state. previewActive must gate on the full captured param set,
+      // not just columns/sort — otherwise this link would skip preview and enable the controls.
+      renderComponent({}, ['/?traceViewShareKey=v-time&startTime=2026-01-01T00:00:00.000Z']);
+      await waitForRoutesToBeRendered();
+
+      // In preview the column control is disabled (editing is deferred to Override/Discard), even
+      // though the link carried no columns of its own — the user's own columns show, read-only.
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
   });
 });
