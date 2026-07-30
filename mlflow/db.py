@@ -111,15 +111,6 @@ def _parse_tag(value: str) -> tuple[str, str]:
     return key, val
 
 
-def _echo_retargets(result) -> None:
-    if result.retarget_plans:
-        click.echo("Artifact roots to retarget:")
-        for plan in result.retarget_plans:
-            click.echo(f"  {plan.experiment_name!r}: {plan.old_root} -> {plan.new_root}")
-    for skip in result.skipped_retargets:
-        click.echo(f"  {skip.experiment_name!r}: kept at {skip.artifact_location} ({skip.reason})")
-
-
 @commands.command("move-resources")
 @click.argument("url")
 @click.option(
@@ -165,16 +156,17 @@ def _echo_retargets(result) -> None:
     show_default=True,
     help=(
         "How to handle experiment artifact locations (experiments only). 'preserve' keeps "
-        "them unchanged. 'retarget' repoints experiments still on the layout derived from "
-        "--default-artifact-root to the target workspace's artifact root. Artifact objects "
-        "and stored run, logged model and trace URIs are not modified."
+        "them unchanged. 'retarget' repoints every moved experiment to the target "
+        "workspace's artifact root. Artifact objects and stored run, logged model and "
+        "trace URIs are not modified."
     ),
 )
 @click.option(
     "--default-artifact-root",
     default=None,
     help=(
-        "Artifact root the tracking server is started with. Required by --artifact-policy retarget."
+        "Artifact root the tracking server is started with. Used by --artifact-policy "
+        "retarget when the target workspace does not define its own default_artifact_root."
     ),
 )
 @click.option(
@@ -239,23 +231,25 @@ def move_resources(
         --name training-v1 --artifact-policy retarget \\
         --default-artifact-root s3://mlflow-artifacts
 
-    With --artifact-policy retarget (experiments only), experiments whose
-    artifact_location still matches the layout derived from
-    --default-artifact-root are repointed to the artifact root resolved for the
-    target workspace, in the same transaction as the move. Artifact objects are
-    not copied or deleted, and stored run, logged model and trace URIs are left
+    With --artifact-policy retarget (experiments only), every moved experiment's
+    artifact_location is repointed to the artifact root resolved for the target
+    workspace, in the same transaction as the move. Artifact objects are not
+    copied or deleted, and stored run, logged model and trace URIs are left
     unchanged, so everything already logged keeps resolving at its current
-    location while new runs land under the new root. Experiments on custom
-    artifact locations are reported and left unchanged.
+    location while new runs land under the new root.
 
     **IMPORTANT**: Always take a backup of your database before running this command.
     """
+    import sqlalchemy as sa
     import sqlalchemy.exc
 
     import mlflow.store.db.utils
+    from mlflow.exceptions import MlflowException
     from mlflow.store.db.workspace_move import RESOURCE_TYPE_CHOICES
     from mlflow.store.db.workspace_move import move_resources as move
-    from mlflow.store.db.workspace_utils import format_truncated_list
+    from mlflow.store.db.workspace_utils import _NOT_ENABLED_MSG, format_truncated_list
+    from mlflow.tracking._workspace.registry import get_workspace_store
+    from mlflow.utils.workspace_utils import resolve_workspace_store_uri
 
     if resource_type not in RESOURCE_TYPE_CHOICES:
         raise click.ClickException(
@@ -271,8 +265,17 @@ def move_resources(
         engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
         needs_confirmation = not dry_run and not yes
 
+        # Probe before constructing the workspace store: on database URIs the
+        # provider initializes tables on an empty database, and a mistargeted
+        # URL should fail cleanly instead.
+        if not sa.inspect(engine).has_table("workspaces"):
+            raise RuntimeError(_NOT_ENABLED_MSG)
+
+        workspace_store = get_workspace_store(resolve_workspace_store_uri(None, tracking_uri=url))
+
         result = move(
             engine,
+            workspace_store,
             source_workspace=source_workspace,
             target_workspace=target_workspace,
             resource_type=resource_type,
@@ -305,7 +308,8 @@ def move_resources(
             )
             for note in extra_notes:
                 click.echo(note)
-            _echo_retargets(result)
+            if result.retarget_root:
+                click.echo(f"Artifact roots would be repointed under {result.retarget_root}.")
             return
 
         if needs_confirmation:
@@ -315,7 +319,8 @@ def move_resources(
             )
             for note in extra_notes:
                 click.echo(note)
-            _echo_retargets(result)
+            if result.retarget_root:
+                click.echo(f"Artifact roots would be repointed under {result.retarget_root}.")
             click.confirm("Proceed with move?", default=False, abort=True)
             # Re-run the full move (including conflict detection) in a new
             # transaction. The preview counts above may differ from the
@@ -323,6 +328,7 @@ def move_resources(
             # but the second call is self-consistent and safe.
             result = move(
                 engine,
+                workspace_store,
                 source_workspace=source_workspace,
                 target_workspace=target_workspace,
                 resource_type=resource_type,
@@ -338,12 +344,12 @@ def move_resources(
             f"Moved {result.row_count} {resource_type} row(s) "
             f"from {source_workspace!r} to {target_workspace!r}."
         )
-        if result.retarget_plans or result.skipped_retargets:
+        if result.retarget_root:
             click.echo(
-                f"Retargeted {len(result.retarget_plans)} experiment artifact root(s), "
-                f"{len(result.skipped_retargets)} kept unchanged."
+                f"Repointed {result.row_count} experiment artifact root(s) "
+                f"under {result.retarget_root}."
             )
-    except RuntimeError as e:
+    except (RuntimeError, MlflowException) as e:
         raise click.ClickException(str(e)) from e
     except sqlalchemy.exc.SQLAlchemyError as e:
         raise click.ClickException(f"Database error: {e}") from e
