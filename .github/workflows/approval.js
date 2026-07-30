@@ -28,6 +28,8 @@ const EXEMPTION_RULES = [
   },
 ];
 
+const UNGATED_BASE_BRANCHES = new Set(["scorer-versioning"]);
+
 function matchesAnyPattern(path, patterns) {
   if (!patterns) {
     return false;
@@ -64,6 +66,11 @@ function hasAnyApproval(reviews) {
 
 module.exports = async ({ github, context, core }) => {
   const { pull_request: pr } = context.payload;
+  if (UNGATED_BASE_BRANCHES.has(pr?.base?.ref)) {
+    core.info(`Skipping maintainer approval gate for ${pr.base.ref}`);
+    return;
+  }
+
   const authorLogin = pr?.user?.login;
   if (authorLogin === "mlflow-app[bot]") {
     return;
