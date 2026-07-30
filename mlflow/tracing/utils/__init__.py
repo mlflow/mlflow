@@ -356,6 +356,9 @@ def calculate_cost_by_model_and_token_usage(
     if not model_name or not usage:
         return None
 
+    if not isinstance(model_name, str):
+        return None
+
     if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
