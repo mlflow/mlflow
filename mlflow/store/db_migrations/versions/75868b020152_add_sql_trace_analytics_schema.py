@@ -12,6 +12,7 @@ import math
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import mssql
 
 from mlflow.tracing.constant import (
     CostKey,
@@ -51,17 +52,84 @@ def upgrade():
     _backfill_span_analytics()
     _backfill_assessment_analytics()
     _validate_backfill()
+    _validate_dimension_attributes()
+    _cleanup_legacy_analytics()
+    _drop_dimension_attributes()
     _create_rollup_tables()
     _create_analytics_indexes()
 
 
 def downgrade():
+    _add_dimension_attributes()
+    _reconstruct_legacy_analytics()
     _drop_analytics_indexes()
     op.drop_table("sql_trace_rollup_rebuild_queue")
     op.drop_table("sql_assessment_daily_rollups")
     op.drop_table("sql_span_cost_daily_rollups")
     op.drop_table("sql_trace_metric_daily_rollups")
     _drop_analytics_columns()
+
+
+def _dimension_attributes_type():
+    return mssql.JSON() if op.get_bind().dialect.name == "mssql" else sa.JSON()
+
+
+def _drop_dimension_attributes():
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("spans") as batch_op:
+            batch_op.drop_column("duration_ns")
+            batch_op.drop_column("dimension_attributes")
+            batch_op.drop_constraint("fk_spans_trace_id", type_="foreignkey")
+            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey")
+            batch_op.create_foreign_key(
+                "fk_spans_experiment_id",
+                "experiments",
+                ["experiment_id"],
+                ["experiment_id"],
+            )
+            batch_op.create_foreign_key(
+                "fk_spans_trace_id",
+                "trace_info",
+                ["trace_id"],
+                ["request_id"],
+                ondelete="CASCADE",
+            )
+            batch_op.add_column(
+                sa.Column(
+                    "duration_ns",
+                    sa.BigInteger(),
+                    sa.Computed(
+                        "end_time_unix_nano - start_time_unix_nano",
+                        persisted=True,
+                    ),
+                    nullable=True,
+                ),
+                insert_before="content",
+            )
+    else:
+        op.drop_column("spans", "dimension_attributes")
+
+
+def _add_dimension_attributes():
+    column = sa.Column("dimension_attributes", _dimension_attributes_type(), nullable=True)
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("spans") as batch_op:
+            batch_op.drop_column("duration_ns")
+            batch_op.add_column(column)
+            batch_op.add_column(
+                sa.Column(
+                    "duration_ns",
+                    sa.BigInteger(),
+                    sa.Computed(
+                        "end_time_unix_nano - start_time_unix_nano",
+                        persisted=True,
+                    ),
+                    nullable=True,
+                ),
+                insert_before="content",
+            )
+    else:
+        op.add_column("spans", column)
 
 
 def _add_analytics_columns():
@@ -712,6 +780,243 @@ def _validate_backfill():
         )
 
 
+def _validate_dimension_attributes():
+    bind = op.get_bind()
+    spans = sa.Table("spans", sa.MetaData(), autoload_with=bind)
+    allowed_keys = {SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER}
+    last_span_key = None
+    while True:
+        stmt = (
+            sa
+            .select(spans.c.trace_id, spans.c.span_id, spans.c.dimension_attributes)
+            .where(spans.c.dimension_attributes.isnot(None))
+            .order_by(spans.c.trace_id, spans.c.span_id)
+        )
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
+        if not rows:
+            break
+        for row in rows:
+            value = row.dimension_attributes
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except (TypeError, ValueError) as e:
+                    raise RuntimeError(
+                        "Cannot drop spans.dimension_attributes: malformed JSON for "
+                        f"span {(row.trace_id, row.span_id)!r}"
+                    ) from e
+            if value is None:
+                continue
+            unexpected = set(value) - allowed_keys if isinstance(value, dict) else set()
+            if not isinstance(value, dict) or unexpected:
+                details = sorted(unexpected) if isinstance(value, dict) else type(value).__name__
+                raise RuntimeError(
+                    "Cannot drop spans.dimension_attributes: unsupported content for "
+                    f"span {(row.trace_id, row.span_id)!r}: {details}"
+                )
+        last_span_key = (rows[-1].trace_id, rows[-1].span_id)
+
+
+def _delete_trace_rows(table, keys):
+    bind = op.get_bind()
+    while True:
+        request_ids = (
+            bind
+            .execute(
+                sa
+                .select(table.c.request_id)
+                .where(table.c.key.in_(keys))
+                .order_by(table.c.request_id)
+                .limit(_BATCH_SIZE)
+            )
+            .scalars()
+            .all()
+        )
+        if not request_ids:
+            break
+        bind.execute(
+            table.delete().where(table.c.request_id.in_(request_ids), table.c.key.in_(keys))
+        )
+
+
+def _delete_span_metric_rows(span_metrics):
+    bind = op.get_bind()
+    while True:
+        rows = bind.execute(
+            sa
+            .select(span_metrics.c.trace_id, span_metrics.c.span_id)
+            .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
+            .order_by(span_metrics.c.trace_id, span_metrics.c.span_id)
+            .limit(_BATCH_SIZE)
+        ).all()
+        if not rows:
+            break
+        key_filter = sa.or_(
+            *(
+                sa.and_(
+                    span_metrics.c.trace_id == row.trace_id,
+                    span_metrics.c.span_id == row.span_id,
+                )
+                for row in rows
+            )
+        )
+        bind.execute(
+            span_metrics.delete().where(
+                key_filter,
+                span_metrics.c.key.in_(list(_COST_COLUMNS)),
+            )
+        )
+
+
+def _cleanup_legacy_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_tags = sa.Table("trace_tags", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
+    span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
+
+    _delete_trace_rows(trace_tags, [TraceTagKey.TRACE_NAME])
+    _delete_trace_rows(
+        trace_metadata,
+        [
+            TraceMetadataKey.TRACE_SESSION,
+            TraceMetadataKey.TOKEN_USAGE,
+            TraceMetadataKey.COST,
+        ],
+    )
+    _delete_trace_rows(trace_metrics, list(_TOKEN_COLUMNS))
+    _delete_span_metric_rows(span_metrics)
+
+
+def _reconstruct_legacy_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    trace_tags = sa.Table("trace_tags", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
+    spans = sa.Table("spans", metadata, autoload_with=bind)
+    span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
+
+    _cleanup_legacy_analytics()
+    last_request_id = None
+    while True:
+        stmt = sa.select(trace_info).order_by(trace_info.c.request_id)
+        if last_request_id is not None:
+            stmt = stmt.where(trace_info.c.request_id > last_request_id)
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
+        if not rows:
+            break
+        tag_rows = []
+        metadata_rows = []
+        metric_rows = []
+        for row in rows:
+            trace_id = row["request_id"]
+            if row["trace_name"] is not None:
+                tag_rows.append({
+                    "request_id": trace_id,
+                    "key": TraceTagKey.TRACE_NAME,
+                    "value": row["trace_name"],
+                })
+            if row["session_id"] is not None:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": TraceMetadataKey.TRACE_SESSION,
+                    "value": row["session_id"],
+                })
+            token_usage = {
+                key: row[column]
+                for key, column in _TOKEN_COLUMNS.items()
+                if row[column] is not None
+            }
+            if token_usage:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": TraceMetadataKey.TOKEN_USAGE,
+                    "value": json.dumps(token_usage),
+                })
+                metric_rows.extend(
+                    {"request_id": trace_id, "key": key, "value": value}
+                    for key, value in token_usage.items()
+                )
+            cost = {
+                key: row[column] for key, column in _COST_COLUMNS.items() if row[column] is not None
+            }
+            if cost:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": TraceMetadataKey.COST,
+                    "value": json.dumps(cost),
+                })
+        if tag_rows:
+            bind.execute(trace_tags.insert(), tag_rows)
+        if metadata_rows:
+            bind.execute(trace_metadata.insert(), metadata_rows)
+        if metric_rows:
+            bind.execute(trace_metrics.insert(), metric_rows)
+        last_request_id = rows[-1]["request_id"]
+
+    last_span_key = None
+    while True:
+        stmt = sa.select(spans).order_by(spans.c.trace_id, spans.c.span_id)
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
+        if not rows:
+            break
+        metric_rows = []
+        for row in rows:
+            dimensions = {
+                SpanAttributeKey.MODEL: row["model_name"],
+                SpanAttributeKey.MODEL_PROVIDER: row["model_provider"],
+            }
+            dimensions = {key: value for key, value in dimensions.items() if value is not None}
+            if dimensions:
+                bind.execute(
+                    spans
+                    .update()
+                    .where(
+                        spans.c.trace_id == row["trace_id"],
+                        spans.c.span_id == row["span_id"],
+                    )
+                    .values(dimension_attributes=dimensions)
+                )
+            metric_rows.extend(
+                {
+                    "trace_id": row["trace_id"],
+                    "span_id": row["span_id"],
+                    "key": key,
+                    "value": row[column],
+                }
+                for key, column in _COST_COLUMNS.items()
+                if row[column] is not None
+            )
+        if metric_rows:
+            bind.execute(span_metrics.insert(), metric_rows)
+        last_span_key = (rows[-1]["trace_id"], rows[-1]["span_id"])
+
+
 def _validate_backfill_batch(entity, expected, actual):
     for row_key, expected_values in expected.items():
         actual_values = actual.get(row_key)
@@ -758,7 +1063,7 @@ def _json_object(value):
 
 
 def _finite_float_or_none(value):
-    if value is None:
+    if value is None or isinstance(value, bool):
         return None
     try:
         value = float(value)

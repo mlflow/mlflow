@@ -103,6 +103,11 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.tracking.utils.trace_analytics import (
+    assessment_aggregate,
+    compatibility_metadata_from_columns,
+)
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -874,14 +879,30 @@ class SqlTraceInfo(Base):
         Returns:
             :py:class:`mlflow.entities.TraceInfo` object.
         """
+        tags = {t.key: t.value for t in self.tags if t.key != TraceTagKey.TRACE_NAME}
+        if self.trace_name is not None:
+            tags[TraceTagKey.TRACE_NAME] = self.trace_name
+
+        trace_metadata = {
+            m.key: m.value
+            for m in self.request_metadata
+            if m.key
+            not in {
+                TraceMetadataKey.TRACE_SESSION,
+                TraceMetadataKey.TOKEN_USAGE,
+                TraceMetadataKey.COST,
+            }
+        }
+        trace_metadata.update(compatibility_metadata_from_columns(self))
+
         return TraceInfo(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(str(self.experiment_id)),
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=TraceState(self.status),
-            tags={t.key: t.value for t in self.tags},
-            trace_metadata={m.key: m.value for m in self.request_metadata},
+            tags=tags,
+            trace_metadata=trace_metadata,
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
@@ -1319,7 +1340,8 @@ class SqlAssessments(Base):
 
         if assessment.feedback is not None:
             assessment_type = "feedback"
-            value_json = json.dumps(assessment.feedback.value)
+            value = assessment.feedback.value
+            value_json = json.dumps(value)
             error_json = (
                 json.dumps(assessment.feedback.error.to_dictionary())
                 if assessment.feedback.error
@@ -1327,11 +1349,13 @@ class SqlAssessments(Base):
             )
         elif assessment.expectation is not None:
             assessment_type = "expectation"
-            value_json = json.dumps(assessment.expectation.value)
+            value = assessment.expectation.value
+            value_json = json.dumps(value)
             error_json = None
         elif assessment.issue is not None:
             assessment_type = "issue"
-            value_json = json.dumps(assessment.issue.to_dictionary())
+            value = assessment.issue.to_dictionary()
+            value_json = json.dumps(value)
             error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
@@ -1340,6 +1364,7 @@ class SqlAssessments(Base):
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
 
+        aggregate_value, is_numeric_value = assessment_aggregate(value)
         return SqlAssessments(
             assessment_id=assessment.assessment_id,
             trace_id=assessment.trace_id,
@@ -1357,6 +1382,8 @@ class SqlAssessments(Base):
             overrides=assessment.overrides,
             valid=True,
             assessment_metadata=metadata_json,
+            aggregate_value=aggregate_value,
+            is_numeric_value=is_numeric_value,
         )
 
     def __repr__(self):
@@ -2169,15 +2196,13 @@ class SqlEvaluationDatasetRecord(Base):
 class SqlSpan(Base):
     __tablename__ = "spans"
 
-    trace_id = Column(
-        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
-    )
+    trace_id = Column(String(50), nullable=False)
     """
     Trace ID: `String` (limit 50 characters). Part of composite primary key.
     Foreign key to trace_info table.
     """
 
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(Integer, nullable=False)
     """
     Experiment ID: `Integer`. Foreign key to experiments table.
     """
@@ -2236,11 +2261,6 @@ class SqlSpan(Base):
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
     """
 
-    dimension_attributes = Column(MutableJSON, nullable=True)
-    """
-    Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
-    efficient querying or metrics aggregation.
-    """
     input_cost = Column(Float(precision=53), nullable=True)
     """
     Denormalized input cost used by span analytics queries.
@@ -2269,6 +2289,17 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        ForeignKeyConstraint(
+            ["trace_id"],
+            ["trace_info.request_id"],
+            name="fk_spans_trace_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_spans_experiment_id",
+        ),
         # The leftmost experiment_id column also supports experiment-only filters, so this
         # composite index replaces a separate index on experiment_id.
         Index(
