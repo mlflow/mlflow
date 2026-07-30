@@ -71,6 +71,8 @@ const PRESIGNED_DOWNLOAD_FALLBACK_STATUSES = [400, 404, 501, 503];
 const joinArtifactPaths = (rootPath: string, artifactPath: string) =>
   [rootPath.replace(/^\/+|\/+$/g, ''), artifactPath.replace(/^\/+/, '')].filter(Boolean).join('/');
 
+const getDecodedPathname = (url: URL) => decodeURIComponent(url.pathname);
+
 const getProxiedArtifactDownloadPath = (artifactRootUri?: string, artifactPath?: string) => {
   if (!artifactRootUri || !artifactPath) {
     return undefined;
@@ -78,13 +80,14 @@ const getProxiedArtifactDownloadPath = (artifactRootUri?: string, artifactPath?:
   try {
     const parsedArtifactRootUri = new URL(artifactRootUri);
     if (parsedArtifactRootUri.protocol === 'mlflow-artifacts:') {
-      return joinArtifactPaths(parsedArtifactRootUri.pathname, artifactPath);
+      return joinArtifactPaths(getDecodedPathname(parsedArtifactRootUri), artifactPath);
     }
     if (parsedArtifactRootUri.protocol === 'http:' || parsedArtifactRootUri.protocol === 'https:') {
-      const rootPath = parsedArtifactRootUri.pathname.replace(/^\/+/, '');
+      const rootPath = getDecodedPathname(parsedArtifactRootUri).replace(/^\/+/, '');
       const routeAnchor = MLFLOW_ARTIFACTS_ROUTE_ANCHORS.find((anchor) => rootPath.includes(anchor));
       if (routeAnchor) {
-        return joinArtifactPaths(rootPath.split(routeAnchor)[1] ?? '', artifactPath);
+        const routeAnchorIndex = rootPath.indexOf(routeAnchor);
+        return joinArtifactPaths(rootPath.slice(routeAnchorIndex + routeAnchor.length), artifactPath);
       }
     }
   } catch {

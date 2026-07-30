@@ -26,6 +26,8 @@ import Utils from '../../common/utils/Utils';
 import { getArtifactBlob } from '../../common/utils/ArtifactUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { MlflowService } from '../sdk/MlflowService';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { ServerInfoProvider } from '../hooks/useServerInfo';
 
 const { Text } = Typography;
 
@@ -65,6 +67,30 @@ describe('ArtifactView', () => {
         </DesignSystemProvider>
       </Provider>,
     );
+  const getWrapperWithServerInfo = (fakeStore: any, mockProps: any, multipartDownloadsEnabled: boolean) => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['serverInfo'], {
+      store_type: null,
+      workspaces_enabled: false,
+      trace_archival_enabled: false,
+      multipart_uploads_enabled: false,
+      multipart_downloads_enabled: multipartDownloadsEnabled,
+    });
+
+    return mountWithIntl(
+      <QueryClientProvider client={queryClient}>
+        <ServerInfoProvider>
+          <Provider store={fakeStore}>
+            <DesignSystemProvider>
+              <BrowserRouter>
+                <ArtifactView {...mockProps} />
+              </BrowserRouter>
+            </DesignSystemProvider>
+          </Provider>
+        </ServerInfoProvider>
+      </QueryClientProvider>,
+    );
+  };
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     jest
@@ -202,7 +228,10 @@ describe('ArtifactView', () => {
     let presignedSpy: any;
     let proxiedPresignedSpy: any;
 
-    const getImplInstance = (props = {}) => {
+    const getImplInstance = (
+      props: any = {},
+      options: { cachedMultipartDownloadsEnabled?: boolean } = {},
+    ) => {
       const rootNode = new ArtifactNode(true, undefined, undefined);
       rootNode.isLoaded = true;
       const textFile = new ArtifactNode(
@@ -215,12 +244,16 @@ describe('ArtifactView', () => {
         undefined,
       );
       rootNode.setChildren([textFile.fileInfo]);
-      wrapper = getWrapper(getMockStore(rootNode), {
+      const mockProps = {
         ...minimalProps,
         artifactRootUri: 's3://bucket/0/fakeUuid/artifacts',
         multipartDownloadsEnabled: true,
         ...props,
-      });
+      };
+      wrapper =
+        options.cachedMultipartDownloadsEnabled === undefined
+          ? getWrapper(getMockStore(rootNode), mockProps)
+          : getWrapperWithServerInfo(getMockStore(rootNode), mockProps, options.cachedMultipartDownloadsEnabled);
       wrapper.find('NodeHeader').at(0).simulate('click');
       wrapper.update();
       // Mock the DOM download plumbing only after enzyme has mounted the component:
@@ -286,6 +319,41 @@ describe('ArtifactView', () => {
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
       expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/fakeUuid/artifacts/summary.txt');
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
+      expect(getArtifactBlob).not.toHaveBeenCalled();
+    });
+
+    test('should use cached server-info when deciding proxied artifact presigned downloads', async () => {
+      proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
+
+      const implInstance = getImplInstance(
+        {
+          artifactRootUri: 'mlflow-artifacts:/0/my%20run/artifacts',
+          multipartDownloadsEnabled: undefined,
+        },
+        { cachedMultipartDownloadsEnabled: true },
+      );
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/my run/artifacts/summary.txt');
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
+      expect(getArtifactBlob).not.toHaveBeenCalled();
+    });
+
+    test('should decode and preserve proxied HTTP artifact root paths before route encoding', async () => {
+      proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
+
+      const implInstance = getImplInstance({
+        artifactRootUri:
+          'https://mlflow.example.com/prefix/api/2.0/mlflow-artifacts/artifacts/0/my%20run/api/2.0/mlflow-artifacts/artifacts/artifacts',
+      });
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(proxiedPresignedSpy).toHaveBeenCalledWith(
+        '0/my run/api/2.0/mlflow-artifacts/artifacts/artifacts/summary.txt',
+      );
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
       expect(getArtifactBlob).not.toHaveBeenCalled();
