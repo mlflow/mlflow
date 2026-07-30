@@ -28,6 +28,7 @@ const EXEMPTION_RULES = [
   },
 ];
 
+// TODO: Remove this temporary exemption after the scorer-versioning feature branch is merged.
 const UNGATED_BASE_BRANCHES = new Set(["scorer-versioning"]);
 
 function matchesAnyPattern(path, patterns) {
