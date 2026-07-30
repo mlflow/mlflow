@@ -905,6 +905,7 @@ def test_non_databricks_model_not_repriced_as_databricks():
     # sanity: gpt-4o input price is $2.50/1M, so 1k tokens => ~$0.0025
     # databricks/... would give a completely different price; confirm it's not that
     from litellm import cost_per_token as _cpt
+
     expected_input, _ = _cpt(model="gpt-4o", prompt_tokens=1_000, completion_tokens=500)
     assert abs(result[CostKey.INPUT_COST] - expected_input) < 1e-9, (
         "gpt-4o price must not change due to the databricks-name fix"
@@ -913,7 +914,8 @@ def test_non_databricks_model_not_repriced_as_databricks():
 
 def test_databricks_slash_prefixed_name_resolves_cost():
     """'databricks/' prefix (e.g. 'databricks/databricks-claude-opus-4-8') must
-    return non-zero cost even when MODEL_PROVIDER attribute is absent."""
+    return non-zero cost even when MODEL_PROVIDER attribute is absent.
+    """
     result = calculate_cost_by_model_and_token_usage(
         model_name="databricks/databricks-claude-opus-4-8",
         usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
@@ -929,7 +931,8 @@ def test_databricks_slash_prefixed_name_resolves_cost():
 
 def test_explicit_model_provider_passed_through():
     """When model_provider='databricks' is supplied explicitly, cost resolves correctly.
-    Proves the effective_provider path still works after the model_provider rename."""
+    Proves the effective_provider path still works after the model_provider rename.
+    """
     result = calculate_cost_by_model_and_token_usage(
         model_name="databricks-claude-opus-4-8",
         usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
@@ -941,3 +944,21 @@ def test_explicit_model_provider_passed_through():
     assert result[CostKey.INPUT_COST] > 0, (
         "Input cost must be > 0 for 1M tokens with explicit databricks provider"
     )
+
+
+def test_non_string_model_name_does_not_raise():
+    """A non-string truthy model_name (e.g. an integer) must not raise AttributeError.
+
+    The isinstance(model_name, str) guard added alongside the startswith() check
+    prevents AttributeError when a caller passes a non-string value that slips past
+    the earlier falsy guard.
+    """
+    # An integer is truthy, so it passes `if not model_name`, but calling
+    # .startswith() on it would raise AttributeError without the isinstance guard.
+    result = calculate_cost_by_model_and_token_usage(
+        model_name=12345,  # type: ignore[arg-type]
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+        model_provider=None,
+    )
+    # The function may return None (no matching model), but it must not raise.
+    assert result is None or isinstance(result, dict)

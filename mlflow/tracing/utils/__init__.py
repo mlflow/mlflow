@@ -408,8 +408,11 @@ def calculate_cost_by_model_and_token_usage(
         # absent.  Without this inference the cost returns None and the UI renders $0.00
         # for traced tokens.  The inference is narrow: only names that start with
         # "databricks-" or "databricks/" are assumed to be Databricks-hosted.
-        if result is None and isinstance(model_name, str) and not model_provider and (
-            model_name.startswith("databricks-") or model_name.startswith("databricks/")
+        if (
+            result is None
+            and isinstance(model_name, str)
+            and not model_provider
+            and (model_name.startswith("databricks-") or model_name.startswith("databricks/"))
         ):
             try:
                 result = cost_per_token(
