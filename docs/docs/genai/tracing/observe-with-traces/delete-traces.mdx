@@ -9,8 +9,8 @@ You can delete traces based on specific criteria using the <APILink fn="mlflow.c
 Deleting a trace cannot be undone. Ensure that the parameters provided to the `delete_traces` API meet the intended range for deletion.
 :::
 
-:::warning Not supported for Unity Catalog traces
-`delete_traces()` does not support traces stored in Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying Unity Catalog table using SQL. Target the base OTel spans table (for example `<prefix>_otel_spans`), not `_trace_metadata` or `_trace_unified`, which are views and cannot be deleted from.
+:::warning Not supported for Databricks Unity Catalog traces
+`delete_traces()` does not support traces stored in Databricks Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying table using SQL. Target the base OTel spans table (for example `<prefix>_otel_spans`), not `_trace_metadata` or `_trace_unified`, which are views and cannot be deleted from.
 :::
 
 ## Deleting traces from MLflow UI

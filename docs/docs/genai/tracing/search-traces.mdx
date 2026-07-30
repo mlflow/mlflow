@@ -448,8 +448,8 @@ import mlflow
 trace = mlflow.get_trace(trace_id="tr-abc123")
 ```
 
-:::warning Unity Catalog traces require a full location URI
-If MLflow is configured to store traces in Unity Catalog, `mlflow.get_trace()` requires the full `trace:/` location URI. Passing a plain trace ID raises a NOT_FOUND error (`NOT_FOUND: Trace '<id>' not found.`) with no hint that a different format is needed.
+:::warning Databricks Unity Catalog traces require a full location URI
+If MLflow is configured to store traces in Databricks Unity Catalog, `mlflow.get_trace()` requires the full `trace:/` location URI. Passing a plain trace ID raises a NOT_FOUND error (`NOT_FOUND: Trace '<id>' not found.`) with no hint that a different format is needed.
 
 Use the `trace:/` URI format, which encodes the UC catalog, schema, and table prefix:
 
@@ -458,7 +458,7 @@ import mlflow
 
 # Format: trace:/{catalog}.{schema}.{table_prefix}/{trace_id}
 trace = mlflow.get_trace(
-    trace_id="trace:/my_catalog.my_schema.my_table_prefix/tr-abc123"
+    trace_id="trace:/my_catalog.my_schema.my_table_prefix/abc123"
 )
 ```
 
