@@ -4237,6 +4237,7 @@ docs = [
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
+    { name = "opentelemetry-haystack" },
     { name = "plotly" },
     { name = "polars" },
     { name = "pyspark" },
@@ -4422,13 +4423,14 @@ docs = [
     { name = "datasets" },
     { name = "deepeval" },
     { name = "flask-wtf", specifier = "<2" },
-    { name = "haystack-ai", specifier = "<3" },
+    { name = "haystack-ai" },
     { name = "instructor" },
     { name = "keras" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
+    { name = "opentelemetry-haystack" },
     { name = "plotly" },
     { name = "polars", specifier = ">=1" },
     { name = "pyspark" },
@@ -5274,6 +5276,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl", hash = "sha256:838592fce774c1c8bb7b9a0a7facbfa82e17be5a8a4e94cef10cb84ae026bae3", size = 21850, upload-time = "2026-07-16T15:25:20.006Z" },
+]
+
+[[package]]
+name = "opentelemetry-haystack"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "haystack-ai" },
+    { name = "opentelemetry-sdk" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/7f/4ed8ca4e56b077ec6a52e7dc9bf62317c47bf0bc0f71de8f786bc58cd95c/opentelemetry_haystack-1.0.0.tar.gz", hash = "sha256:e09ec8edd48c28cc20a1fb6234fd733740bef3a44155c9fb3cd51f31eae23ddd", size = 10967, upload-time = "2026-06-23T13:06:52.375Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/77/6c1140542dae1689f93ffc922b571fd0f08a12a50450157445d4e0c0643a/opentelemetry_haystack-1.0.0-py3-none-any.whl", hash = "sha256:e507c4499b27ca93f8f74aff35d8a6fbfe5832f43182a659bfc789bcfffb20a9", size = 9948, upload-time = "2026-06-23T13:06:51.263Z" },
 ]
 
 [[package]]
