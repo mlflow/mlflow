@@ -1015,7 +1015,6 @@ mlflow.genai.label_schemas.update_label_schema
 mlflow.genai.labeling.labeling.Agent
 mlflow.genai.labeling.labeling.LabelingSession
 mlflow.genai.labeling.labeling.ReviewApp
-mlflow.genai.list_scorer_versions
 mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
@@ -1280,7 +1279,6 @@ mlflow.genai.scorers.guardrails.SecretsPresent.model_post_init
 mlflow.genai.scorers.guardrails.ToxicLanguage
 mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
-mlflow.genai.scorers.list_scorer_versions
 mlflow.genai.scorers.list_scorers
 mlflow.genai.scorers.phoenix.Hallucination
 mlflow.genai.scorers.phoenix.Hallucination.model_post_init

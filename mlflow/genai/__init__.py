@@ -72,7 +72,6 @@ from mlflow.genai.scorers import (
     Scorer,
     delete_scorer,
     get_scorer,
-    list_scorer_versions,
     list_scorers,
     scorer,
 )
@@ -86,7 +85,6 @@ __all__ = [
     "Scorer",
     "scorer",
     "get_scorer",
-    "list_scorer_versions",
     "list_scorers",
     "delete_scorer",
     "judges",

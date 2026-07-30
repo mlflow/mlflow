@@ -8,12 +8,13 @@ import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import Guidelines, list_scorer_versions, scorer
+from mlflow.genai.scorers import Guidelines, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
     delete_scorer,
     get_scorer,
+    list_scorer_versions,
     list_scorers,
 )
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -22,7 +23,6 @@ from mlflow.tracking._tracking_service.utils import _get_store
 
 def test_scorer_registry_functions_accessible_from_mlflow_genai():
     assert mlflow.genai.get_scorer is get_scorer
-    assert mlflow.genai.list_scorer_versions is list_scorer_versions
     assert mlflow.genai.list_scorers is list_scorers
     assert mlflow.genai.delete_scorer is delete_scorer
 

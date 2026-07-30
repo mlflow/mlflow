@@ -9,11 +9,10 @@ from mlflow.genai.scorers import (
     Guidelines,
     delete_scorer,
     get_scorer,
-    list_scorer_versions,
     list_scorers,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.registry import DatabricksStore
+from mlflow.genai.scorers.registry import DatabricksStore, list_scorer_versions
 
 
 # Test `mlflow.genai` namespace
