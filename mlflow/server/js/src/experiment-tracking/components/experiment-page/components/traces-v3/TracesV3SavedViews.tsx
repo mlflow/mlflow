@@ -65,8 +65,11 @@ const MULTI_VALUE_KEYS = ['filter'] as const;
 // genuine share link built by buildTraceViewQuery always includes at least one of these; a bare or
 // garbage share key has none. Derived from the same key lists as the capture/build path so the two
 // can't drift — callers use this to decide whether a share key is actually previewing a view.
+// Presence is `!== null`, not truthiness, to match captureTraceViewState: an empty-string value
+// (e.g. `selectedColumns=` when every column is deselected) is a captured value, not "absent".
 export const urlHasCapturedTraceViewState = (params: URLSearchParams): boolean =>
-  SINGLE_VALUE_KEYS.some((key) => params.get(key)) || MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0);
+  SINGLE_VALUE_KEYS.some((key) => params.get(key) !== null) ||
+  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0);
 
 type CapturedTraceViewState = {
   single: Partial<Record<(typeof SINGLE_VALUE_KEYS)[number], string>>;

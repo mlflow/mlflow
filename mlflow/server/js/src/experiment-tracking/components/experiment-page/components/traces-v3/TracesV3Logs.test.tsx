@@ -736,5 +736,15 @@ describe('TracesV3Logs', () => {
       // though the link carried no columns of its own — the user's own columns show, read-only.
       await waitFor(() => expect(getColumnsButton()).toBeDisabled());
     });
+
+    it('enters preview for a share link with an empty selectedColumns value (all columns deselected)', async () => {
+      // captureTraceViewState/buildTraceViewQuery treat an empty-string value as captured (present),
+      // so `selectedColumns=` is a real view — every column deselected. The state check uses `!== null`
+      // (not truthiness) so this still enters preview rather than silently skipping it.
+      renderComponent({}, ['/?traceViewShareKey=v-empty&selectedColumns=']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
   });
 });
