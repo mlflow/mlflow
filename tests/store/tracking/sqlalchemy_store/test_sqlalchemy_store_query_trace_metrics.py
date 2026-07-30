@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
+from sqlalchemy.dialects import postgresql
 
 from mlflow.entities import (
     Assessment,
@@ -26,6 +27,9 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
+    _apply_postgres_trace_first_span_query,
+)
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
@@ -42,6 +46,22 @@ from mlflow.utils.time import get_current_time_millis
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+def test_postgres_span_query_materializes_trace_filters_before_span_join(
+    store: SqlAlchemyStore,
+):
+    with store.ManagedSessionMaker() as session:
+        query = _apply_postgres_trace_first_span_query(
+            store._trace_query(session),
+            ["trace.status = 'OK'", "span.status = 'ERROR'"],
+        )
+        statement = str(query.statement.compile(dialect=postgresql.dialect()))
+
+    join_position = statement.index("FROM spans JOIN metric_trace_ids")
+    assert "WITH metric_trace_ids AS MATERIALIZED" in statement
+    assert statement.index("trace_info.status") < join_position
+    assert statement.index("WHERE spans.status") > join_position
 
 
 def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
@@ -2944,19 +2964,7 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments at different times
-    assessment_times = [
+    trace_times = [
         base_time_ms,
         base_time_ms + 10 * 60 * 1000,  # +10 minutes
         base_time_ms + hour_ms,  # +1 hour
@@ -2964,7 +2972,18 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
         base_time_ms + 2 * hour_ms,  # +2 hours
     ]
 
-    for i, timestamp in enumerate(assessment_times):
+    for i, timestamp in enumerate(trace_times):
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=f"quality_{i}",
@@ -3021,18 +3040,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments at different times with different names
+    # Create assessments on traces from different times with different names.
     assessments_data = [
         (base_time_ms, "correctness"),
         (base_time_ms + 10 * 60 * 1000, "relevance"),
@@ -3041,6 +3049,17 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
     ]
 
     for timestamp, name in assessments_data:
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=name,
@@ -3734,18 +3753,7 @@ def test_query_assessment_value_with_time_bucket(store: SqlAlchemyStore):
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments with numeric values at different times
+    # Create assessments with numeric values on traces from different times.
     assessment_data = [
         # Hour 0: avg should be (0.8 + 0.9) / 2 = 0.85
         (base_time_ms, "accuracy", 0.8),
@@ -3758,6 +3766,17 @@ def test_query_assessment_value_with_time_bucket(store: SqlAlchemyStore):
     ]
 
     for timestamp, name, value in assessment_data:
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=name,

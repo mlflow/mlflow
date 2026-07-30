@@ -68,6 +68,7 @@ from mlflow.tracing.constant import (
     CostKey,
     SpanAttributeKey,
     SpansLocation,
+    TokenUsageKey,
     TraceArchivalFailureReason,
     TraceExperimentTagKey,
     TraceMetadataKey,
@@ -168,6 +169,70 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
     assert trace_info.to_v3() == store.get_trace_info(request_id)
+
+
+def test_legacy_trace_v2_writes_reserved_fields_to_authoritative_columns(
+    store: SqlAlchemyStore,
+):
+    experiment_id = store.create_experiment("test_legacy_reserved_fields")
+    trace_info = store.deprecated_start_trace_v2(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={
+            TraceMetadataKey.TRACE_SESSION: "session-1",
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 10}),
+            TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.1}),
+        },
+        tags={TraceTagKey.TRACE_NAME: "initial-name"},
+    )
+
+    trace_info = store.deprecated_end_trace_v2(
+        request_id=trace_info.request_id,
+        timestamp_ms=2345,
+        status=TraceStatus.OK,
+        request_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 20}),
+            TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.2}),
+        },
+        tags={TraceTagKey.TRACE_NAME: "final-name"},
+    )
+
+    assert trace_info.tags[TraceTagKey.TRACE_NAME] == "final-name"
+    assert trace_info.request_metadata[TraceMetadataKey.TRACE_SESSION] == "session-1"
+    assert json.loads(trace_info.request_metadata[TraceMetadataKey.TOKEN_USAGE]) == {
+        "total_tokens": 20
+    }
+    assert json.loads(trace_info.request_metadata[TraceMetadataKey.COST]) == {
+        CostKey.TOTAL_COST: 0.2
+    }
+
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = session.get(SqlTraceInfo, trace_info.request_id)
+        assert sql_trace_info.trace_name == "final-name"
+        assert sql_trace_info.session_id == "session-1"
+        assert sql_trace_info.total_tokens == 20
+        assert sql_trace_info.total_cost == 0.2
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_info.request_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+        assert (
+            session
+            .query(SqlTraceMetadata)
+            .filter(
+                SqlTraceMetadata.request_id == trace_info.request_id,
+                SqlTraceMetadata.key.in_([
+                    TraceMetadataKey.TRACE_SESSION,
+                    TraceMetadataKey.TOKEN_USAGE,
+                    TraceMetadataKey.COST,
+                ]),
+            )
+            .count()
+            == 0
+        )
 
 
 def test_start_trace(store: SqlAlchemyStore):
@@ -3158,6 +3223,20 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     assert store.get_trace_info(trace_id).tags == {}
 
+    store.set_trace_tag(trace_id, TraceTagKey.TRACE_NAME, "trace-name")
+    assert store.get_trace_info(trace_id).tags == {TraceTagKey.TRACE_NAME: "trace-name"}
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == "trace-name"
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+    store.delete_trace_tag(trace_id, TraceTagKey.TRACE_NAME)
+    assert store.get_trace_info(trace_id).tags == {}
+
     store.set_trace_tag(trace_id, "tag1", "apple")
     assert store.get_trace_info(trace_id).tags == {"tag1": "apple"}
 
@@ -4070,6 +4149,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
 
     otel_span._attributes = {
         "llm.model_name": "gpt-4",
+        "llm.model_provider": "openai",
         "llm.input_tokens": 100,
         "llm.output_tokens": 50,
         "custom.key": "custom_value",
@@ -4091,6 +4171,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
     assert loaded_span.status.description == "Test error"
 
     assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.model_provider") == "openai"
     assert loaded_span.attributes.get("llm.input_tokens") == 100
     assert loaded_span.attributes.get("llm.output_tokens") == 50
     assert loaded_span.attributes.get("custom.key") == "custom_value"
@@ -4817,6 +4898,67 @@ def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStor
     assert stored_cost == authoritative_cost
 
 
+def test_log_spans_infers_session_missing_from_finalized_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_finalized_trace_without_session")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    span = create_test_span(
+        trace_id,
+        name="root",
+        span_id=1,
+        parent_id=None,
+        attributes={SpanAttributeKey.SESSION_ID: "session-from-span"},
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    assert (
+        store.get_trace_info(trace_id).trace_metadata[TraceMetadataKey.TRACE_SESSION]
+        == "session-from-span"
+    )
+
+
+def test_log_spans_infers_usage_missing_from_finalized_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_finalized_trace_without_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000,
+        end_time=2_000_000,
+        trace_id_num=99999,
+        span_id_num=1,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 3,
+            "output_tokens": 2,
+            "total_tokens": 5,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.03,
+            "output_cost": 0.02,
+            "total_cost": 0.05,
+        }),
+    }
+
+    store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 3,
+        "output_tokens": 2,
+        "total_tokens": 5,
+    }
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == {
+        "input_cost": 0.03,
+        "output_cost": 0.02,
+        "total_cost": 0.05,
+    }
+
+
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_batch_get_traces_token_usage")
 
@@ -4996,7 +5138,7 @@ def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
         assert trace_info.trace_id == trace_ids[i]
 
 
-def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
+def test_start_trace_writes_authoritative_token_columns(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_start_trace_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -5017,24 +5159,113 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
     store.start_trace(trace_info)
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (100, 50, 150)
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
         )
 
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
+
+def test_trace_info_synthesizes_reserved_fields_from_authoritative_columns(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_authoritative_trace_info")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "authoritative-name", "custom-tag": "custom-value"},
+            trace_metadata={
+                TraceMetadataKey.TRACE_SESSION: "authoritative-session",
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 12}),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.25}),
+                "custom-metadata": "custom-value",
+            },
+        )
+    )
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlTraceTag(
+                request_id=trace_id,
+                key=TraceTagKey.TRACE_NAME,
+                value="stale-name",
+            )
+        )
+        session.add_all([
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TRACE_SESSION,
+                value="stale-session",
+            ),
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TOKEN_USAGE,
+                value=json.dumps({"total_tokens": 999}),
+            ),
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.COST,
+                value=json.dumps({CostKey.TOTAL_COST: 999}),
+            ),
+            SqlTraceMetrics(request_id=trace_id, key="total_tokens", value=999),
+        ])
+
+    result = store.get_trace_info(trace_id)
+    assert result.tags[TraceTagKey.TRACE_NAME] == "authoritative-name"
+    assert result.tags["custom-tag"] == "custom-value"
+    assert result.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "authoritative-session"
+    assert json.loads(result.trace_metadata[TraceMetadataKey.TOKEN_USAGE]) == {"total_tokens": 12}
+    assert json.loads(result.trace_metadata[TraceMetadataKey.COST]) == {CostKey.TOTAL_COST: 0.25}
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
 
 
-def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_merge_preserves_metrics")
+def test_start_trace_merge_preserves_authoritative_trace_name_when_omitted(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_authoritative_trace_name")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    location = trace_location.TraceLocation.from_experiment_id(experiment_id)
+    timestamp = get_current_time_millis()
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=timestamp,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "existing-name"},
+        )
+    )
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=timestamp,
+            execution_duration=200,
+            state=TraceStatus.OK,
+            trace_metadata={"custom-metadata": "custom-value"},
+        )
+    )
+
+    assert result.tags[TraceTagKey.TRACE_NAME] == "existing-name"
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == "existing-name"
+
+
+def test_start_trace_merge_replaces_authoritative_token_columns(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_merge_replaces_authoritative_token_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"
     loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
     ts = get_current_time_millis()
@@ -5047,16 +5278,18 @@ def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) ->
             execution_duration=100,
             state=TraceStatus.OK,
             trace_metadata={
+                TraceMetadataKey.TRACE_SESSION: "existing-session",
                 TraceMetadataKey.TOKEN_USAGE: json.dumps({
                     "input_tokens": 10,
                     "output_tokens": 20,
                     "total_tokens": 30,
-                })
+                }),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.3}),
             },
         )
     )
 
-    # Second start_trace with a subset of metric keys triggers the merge path.
+    # Second start_trace with a subset of token keys triggers the merge path.
     result = store.start_trace(
         TraceInfo(
             trace_id=trace_id,
@@ -5076,24 +5309,78 @@ def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) ->
     assert result.trace_id == trace_id
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert sql_trace_info.input_tokens is None
+        assert sql_trace_info.output_tokens is None
+        assert sql_trace_info.total_tokens == 110
+        assert sql_trace_info.cache_read_input_tokens == 5
+        assert sql_trace_info.session_id == "existing-session"
+        assert sql_trace_info.total_cost == 0.3
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
         )
-        metrics_by_key = {m.key: m.value for m in metrics}
-        assert metrics_by_key == {
-            "cache_read_input_tokens": 5,
-            "input_tokens": 10,
-            "output_tokens": 20,
-            "total_tokens": 110,
-        }
 
 
-def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_metrics")
+def test_start_trace_merge_preserves_inferred_analytics_for_omitted_metadata(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_inferred_analytics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.SESSION_ID: json.dumps("session-from-span"),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            TokenUsageKey.INPUT_TOKENS: 3,
+            TokenUsageKey.OUTPUT_TOKENS: 2,
+            TokenUsageKey.TOTAL_TOKENS: 5,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.1,
+            CostKey.OUTPUT_COST: 0.2,
+            CostKey.TOTAL_COST: 0.3,
+        }),
+    }
+    store.log_spans(
+        experiment_id,
+        [create_mlflow_span(otel_span, trace_id, "LLM")],
+    )
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            trace_metadata={"custom-metadata": "custom-value"},
+        )
+    )
+
+    assert result.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "session-from-span"
+    assert result.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 3,
+        TokenUsageKey.OUTPUT_TOKENS: 2,
+        TokenUsageKey.TOTAL_TOKENS: 5,
+    }
+    assert result.cost == {
+        CostKey.INPUT_COST: 0.1,
+        CostKey.OUTPUT_COST: 0.2,
+        CostKey.TOTAL_COST: 0.3,
+    }
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
+
+
+def test_log_spans_writes_authoritative_cost_and_model_columns(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_authoritative_cost_and_model_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     trace_info = TraceInfo(
@@ -5126,33 +5413,30 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
     store.log_spans(experiment_id, [span])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlSpanMetrics)
-            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
-            .order_by(SqlSpanMetrics.key)
-            .all()
-        )
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            CostKey.INPUT_COST: 0.01,
-            CostKey.OUTPUT_COST: 0.02,
-            CostKey.TOTAL_COST: 0.03,
-        }
-
-        # Check that dimension_attributes is stored on the span
         sql_span = (
             session
             .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
-        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
-        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+        assert (sql_span.input_cost, sql_span.output_cost, sql_span.total_cost) == (
+            0.01,
+            0.02,
+            0.03,
+        )
+        assert sql_span.model_name == "gpt-4-turbo"
+        assert sql_span.model_provider == "openai"
+        assert (
+            session
+            .query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .count()
+            == 0
+        )
 
 
-def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_incremental_metrics")
+def test_log_spans_updates_authoritative_trace_tokens_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_updates_trace_tokens")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     otel_span1 = create_test_otel_span(
@@ -5175,20 +5459,12 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     store.log_spans(experiment_id, [span1])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
-        )
-
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (100, 50, 150)
 
     otel_span2 = create_test_otel_span(
         trace_id=trace_id,
@@ -5210,23 +5486,16 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     store.log_spans(experiment_id, [span2])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
-        )
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 300,
-            "output_tokens": 125,
-            "total_tokens": 425,
-        }
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (300, 125, 425)
 
 
-def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+def test_log_spans_stores_cost_columns_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_cost_columns_per_span")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     trace_info = TraceInfo(
@@ -5276,27 +5545,20 @@ def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
     store.log_spans(experiment_id, [span1, span2])
 
     with store.ManagedSessionMaker() as session:
-        all_metrics = (
+        sql_spans = (
             session
-            .query(SqlSpanMetrics)
-            .filter(SqlSpanMetrics.trace_id == trace_id)
-            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id)
+            .order_by(SqlSpan.span_id)
             .all()
         )
-
-        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
-        assert span1_metrics == {
-            CostKey.INPUT_COST: 0.001,
-            CostKey.OUTPUT_COST: 0.002,
-            CostKey.TOTAL_COST: 0.003,
-        }
-
-        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
-        assert span2_metrics == {
-            CostKey.INPUT_COST: 0.01,
-            CostKey.OUTPUT_COST: 0.02,
-            CostKey.TOTAL_COST: 0.03,
-        }
+        assert [(s.input_cost, s.output_cost, s.total_cost) for s in sql_spans] == [
+            (0.001, 0.002, 0.003),
+            (0.01, 0.02, 0.03),
+        ]
+        assert (
+            session.query(SqlSpanMetrics).filter(SqlSpanMetrics.trace_id == trace_id).count() == 0
+        )
 
 
 def test_get_trace_basic(store: SqlAlchemyStore) -> None:
@@ -10084,6 +10346,7 @@ def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
         otel_span._attributes = {
             "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
             SpanAttributeKey.SESSION_ID: json.dumps(session_id, cls=TraceJSONEncoder),
+            "user.id": json.dumps(f"user-{session_id}", cls=TraceJSONEncoder),
             SpanAttributeKey.CHAT_USAGE: json.dumps({
                 "input_tokens": 100,
                 "output_tokens": 50,
@@ -10127,15 +10390,15 @@ def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
         assert keys == sorted(keys), f"keys for {rid} not sorted: {keys}"
 
 
-def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_order(
+def test_start_trace_conflict_path_merges_metadata_in_sorted_key_order(
     store: SqlAlchemyStore,
 ):
     """The IntegrityError conflict path is where the reported start_trace()/log_spans()
     race actually occurs (issue #24332): log_spans() creates the trace first, then
-    start_trace() hits IntegrityError and upserts metadata/metrics via per-row
-    session.merge(). This test forces that branch and asserts BOTH merge loops emit keys
-    in sorted order — the happy-path tests never execute these lines, so a regression
-    that dropped the sort there would otherwise pass CI silently.
+    start_trace() hits IntegrityError and upserts custom metadata via per-row
+    session.merge(). This test forces that branch and asserts merges emit keys in sorted
+    order — the happy-path tests never execute these lines, so a regression that dropped
+    the sort there would otherwise pass CI silently.
 
     We spy on Session.merge (the ORM operation the conflict branch actually uses) rather
     than the SQL cursor, because the merges here emit UPDATE statements (the keys were
@@ -10159,21 +10422,17 @@ def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_ord
     }
     store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
 
-    # 2. Record the key order of every metadata/metric row merged during start_trace().
+    # 2. Record the key order of every metadata row merged during start_trace().
     merged_metadata_keys: list[str] = []
-    merged_metric_keys: list[str] = []
     real_merge = sqlalchemy.orm.Session.merge
 
     def _spy_merge(self, instance, *args, **kwargs):
         if isinstance(instance, SqlTraceMetadata) and instance.request_id == trace_id:
             merged_metadata_keys.append(instance.key)
-        elif isinstance(instance, SqlTraceMetrics) and instance.request_id == trace_id:
-            merged_metric_keys.append(instance.key)
         return real_merge(self, instance, *args, **kwargs)
 
-    # Metadata whose natural dict order is NOT sorted; token usage yields several
-    # trace_metrics rows (input/output/total_tokens) so metric ordering is observable.
-    # Values differ from the log_spans write above so the metric merges are real upserts.
+    # Metadata whose natural dict order is not sorted. Token usage differs from the
+    # log_spans value so the conflict path also has to replace authoritative columns.
     trace_metadata = {
         "mlflow.traceOutputs": "out",
         "mlflow.trace.tokenUsage": json.dumps({
@@ -10196,12 +10455,20 @@ def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_ord
     with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
         store.start_trace(trace_info)
 
-    # Both loops must actually have merged multiple keys, else the ordering assertions
-    # are vacuous (e.g. if start_trace took the happy path instead of the conflict path).
+    # Multiple keys must be merged, else the ordering assertion is vacuous.
     assert len(merged_metadata_keys) >= 2, merged_metadata_keys
-    assert len(merged_metric_keys) >= 2, merged_metric_keys
     assert merged_metadata_keys == sorted(merged_metadata_keys)
-    assert merged_metric_keys == sorted(merged_metric_keys)
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (200, 70, 270)
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
+        )
 
 
 @pytest.mark.parametrize(

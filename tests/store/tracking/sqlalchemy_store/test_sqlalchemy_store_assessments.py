@@ -15,6 +15,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.store.tracking.dbmodels.models import SqlAssessments
 from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
@@ -48,6 +49,12 @@ def test_create_and_get_assessment(store_and_trace_info):
     assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
     assert created_feedback.span_id == "span-123"
     assert created_feedback.valid
+    with store.ManagedSessionMaker() as session:
+        sql_assessment = session.get(SqlAssessments, created_feedback.assessment_id)
+        assert sql_assessment.experiment_id == int(trace_info.experiment_id)
+        assert sql_assessment.trace_timestamp_ms == trace_info.timestamp_ms
+        assert sql_assessment.aggregate_value == 1.0
+        assert sql_assessment.is_numeric_value is False
 
     expectation = Expectation(
         trace_id=trace_info.request_id,
@@ -139,6 +146,10 @@ def test_update_assessment_feedback(store_and_trace_info):
     assert updated_feedback.span_id == "span-123"
     assert updated_feedback.source.source_id == "evaluator@company.com"
     assert updated_feedback.valid is True
+    with store.ManagedSessionMaker() as session:
+        sql_assessment = session.get(SqlAssessments, original_id)
+        assert sql_assessment.aggregate_value == 0.0
+        assert sql_assessment.is_numeric_value is False
 
     retrieved = store.get_assessment(trace_info.request_id, original_id)
     assert retrieved.value is False

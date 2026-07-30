@@ -64,7 +64,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -2985,6 +2985,7 @@ def _insert_trace_with_cost(
         timestamp_ms=timestamp_ms,
         execution_time_ms=100,
         status="OK",
+        total_cost=sum(cost for _, cost in span_costs),
     )
     session.add(trace)
     session.flush()
@@ -2997,7 +2998,7 @@ def _insert_trace_with_cost(
         )
         session.add(metadata)
 
-    for span_id, cost in span_costs:
+    for span_id, _ in span_costs:
         span = SqlSpan(
             trace_id=trace_id,
             experiment_id=experiment_id,
@@ -3009,16 +3010,6 @@ def _insert_trace_with_cost(
         )
         session.add(span)
         session.flush()
-
-        metric = SqlSpanMetrics(
-            trace_id=trace_id,
-            span_id=span_id,
-            key=SpanMetricKey.TOTAL_COST,
-            value=cost,
-        )
-        session.add(metric)
-
-    session.flush()
 
 
 def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
