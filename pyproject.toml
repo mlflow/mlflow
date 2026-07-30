@@ -176,7 +176,7 @@ dev = [
 ]
 lint = [
   "ruff==0.15.17",
-  "pre-commit==4.0.1",
+  "pre-commit==4.6.1",
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",
@@ -191,10 +191,10 @@ lint = [
   "aiohttp",
   "pytest",
   "requests",
-  "check-jsonschema==0.37.2",
+  "check-jsonschema==0.37.4",
 ]
 pytest = [
-  "pytest==9.0.2",
+  "pytest==9.1.1",
   "pytest-asyncio",
   "pytest-benchmark",
   "pytest-repeat",
@@ -230,7 +230,8 @@ docs = [
   "Flask-WTF<2",
   "polars>=1",
   "openai",
-  "haystack-ai",
+  # TODO: Support haystack 3.x (`OpenTelemetryTracer` moved to `opentelemetry-haystack`)
+  "haystack-ai<3",
   "deepeval",
   "ragas",
   "instructor",
@@ -564,6 +565,8 @@ filterwarnings = [
   "ignore:The filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
   # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
   "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
+  # Prevent usage of features that will be removed in pytest 10
+  "error::pytest.PytestRemovedIn10Warning",
 ]
 # Use string for pytest-timeout compatibility (https://github.com/pytest-dev/pytest-timeout/issues/194)
 timeout = "1200"

@@ -141,11 +141,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-29"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -163,11 +163,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-29"
     }
   }
 }
