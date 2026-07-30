@@ -835,8 +835,20 @@ def _validate_dimension_attributes():
             if value is None:
                 continue
             unexpected = set(value) - allowed_keys if isinstance(value, dict) else set()
-            if not isinstance(value, dict) or unexpected:
-                details = sorted(unexpected) if isinstance(value, dict) else type(value).__name__
+            invalid_value_keys = (
+                {
+                    key
+                    for key, dimension_value in value.items()
+                    if key in allowed_keys
+                    and dimension_value is not None
+                    and not isinstance(dimension_value, str)
+                }
+                if isinstance(value, dict)
+                else set()
+            )
+            unsupported = unexpected | invalid_value_keys
+            if not isinstance(value, dict) or unsupported:
+                details = sorted(unsupported) if isinstance(value, dict) else type(value).__name__
                 raise RuntimeError(
                     "Cannot drop spans.dimension_attributes: unsupported content for "
                     f"span {(row.trace_id, row.span_id)!r}: {details}"

@@ -3668,6 +3668,44 @@ def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemySto
     assert tags["service.name"] == "from-user"
 
 
+def test_log_spans_persists_empty_trace_name_from_otel_attribute(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_empty_otel_trace_name")
+    trace_id = "tr-empty-name"
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_empty_trace_name",
+            context=trace_api.SpanContext(
+                trace_id=77777,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}{TraceTagKey.TRACE_NAME}": json.dumps(""),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    assert store.get_trace_info(trace_id).tags[TraceTagKey.TRACE_NAME] == ""
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == ""
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+
+
 def test_log_spans_persists_links(store: SqlAlchemyStore):
     trace_id = "tr-links-test"
     experiment_id = store.create_experiment("test_links_experiment")
