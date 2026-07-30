@@ -15,8 +15,15 @@ import type { ReduxState } from '../../redux-types';
 
 export const DEFAULT_ERROR_MESSAGE = 'A request error occurred.';
 
+type RenderPropChildren = (
+  isLoading: boolean,
+  hasError: boolean,
+  requests: any[],
+  requestErrors: any[],
+) => React.ReactNode;
+
 type RequestStateWrapperProps = {
-  children?: React.ReactNode;
+  children?: React.ReactNode | RenderPropChildren;
   customSpinner?: React.ReactNode;
   shouldOptimisticallyRender?: boolean;
   requests: any[];
@@ -82,7 +89,7 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
     const { shouldRender, shouldRenderError, requestErrors } = this.state;
 
     if (typeof children === 'function') {
-      return children(!shouldRender, shouldRenderError, requests, requestErrors);
+      return (children as RenderPropChildren)(!shouldRender, shouldRenderError, requests, requestErrors);
     } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
       if (shouldRenderError && !suppressErrorThrow) {
         customRequestErrorHandlerFn ? customRequestErrorHandlerFn(requestErrors) : triggerError(requestErrors);
