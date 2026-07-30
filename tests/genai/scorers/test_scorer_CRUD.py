@@ -1,18 +1,23 @@
 from unittest.mock import ANY, Mock, patch
 
+import pytest
+
 import mlflow
 import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
+    _is_duplicate_scorer_name_error,
     delete_scorer,
     get_scorer,
     list_scorer_versions,
     list_scorers,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.tracking._tracking_service.utils import _get_store
 
 
@@ -163,6 +168,93 @@ def test_databricks_backend_scorer_operations():
         # Test delete operation
         delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
         mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
+
+
+# Upstream-contract note for the tests below: `databricks-rag-eval` raises the
+# duplicate-name `ValueError` from `databricks/rag_eval/monitoring/scheduled_scorers.py`
+# with the message "A scorer with name '<name>' has already been registered."
+# These tests fake that upstream behavior. If `databricks-rag-eval` changes the
+# wording, update `_DUPLICATE_SCORER_NAME_PATTERN` in
+# `mlflow/genai/scorers/registry.py` and adjust the parametrized cases in
+# `test_is_duplicate_scorer_name_error_pattern` below.
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("A scorer with name 'foo' has already been registered.", True),
+        ("Scorer 'foo' is already registered", True),
+        ("scorer name 'foo' already exists in workspace", True),
+        ("A scorer with name 'foo' HAS ALREADY BEEN REGISTERED.", True),
+        ("invalid filter_string for scorer 'foo'", False),
+        ("permission denied for experiment", False),
+        ("", False),
+    ],
+)
+def test_is_duplicate_scorer_name_error_pattern(message: str, expected: bool):
+    assert _is_duplicate_scorer_name_error(ValueError(message)) is expected
+
+
+def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
+    duplicate_value_error = ValueError(
+        "A scorer with name 'dup_scorer' has already been registered. "
+        "Update the scorer using '.update()' or choose a different name."
+    )
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer",
+            side_effect=duplicate_value_error,
+        ),
+    ):
+        mock_get_store.return_value = DatabricksStore()
+
+        @scorer
+        def dup_scorer(outputs) -> bool:
+            return True
+
+        with pytest.raises(
+            MlflowException, match="Databricks scorer backend does not support versioning"
+        ) as exc_info:
+            dup_scorer.register(experiment_id="exp_456")
+
+        message = str(exc_info.value)
+        assert "dup_scorer" in message
+        assert "Scorer.update" in message
+        assert "delete_scorer" in message
+        assert "MLflow Prompt Registry" in message
+        assert "mlflow.org/docs" in message
+        # Copilot review: must be RESOURCE_ALREADY_EXISTS (HTTP 400),
+        # not the MlflowException default of INTERNAL_ERROR (HTTP 500),
+        # because a duplicate-name registration is a user-actionable
+        # conflict, not an internal failure.
+        assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        assert exc_info.value.__cause__ is duplicate_value_error
+
+
+def test_databricks_backend_register_other_value_error_propagates():
+    unrelated_value_error = ValueError("some other validation failure unrelated to versioning")
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer",
+            side_effect=unrelated_value_error,
+        ),
+    ):
+        mock_get_store.return_value = DatabricksStore()
+
+        @scorer
+        def other_scorer(outputs) -> bool:
+            return True
+
+        with pytest.raises(ValueError, match="some other validation failure") as exc_info:
+            other_scorer.register(experiment_id="exp_789")
+
+        assert exc_info.value is unrelated_value_error
 
 
 def _mock_gateway_endpoint():

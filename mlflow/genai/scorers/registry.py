@@ -6,6 +6,7 @@ evaluate traces in MLflow experiments.
 """
 
 import json
+import re
 import warnings
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Optional
@@ -18,6 +19,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.plugins import get_entry_points
@@ -331,6 +333,21 @@ class MlflowTrackingStore(AbstractScorerStore):
         return self.get_scorer(experiment_id, scorer.name)
 
 
+# Matches the duplicate-name error raised by `databricks-rag-eval` from
+# `databricks/rag_eval/monitoring/scheduled_scorers.py`. Verified against the
+# message "A scorer with name '<name>' has already been registered." Regex
+# (instead of exact substring) absorbs trivial future wording variations like
+# "is already registered" or "scorer name ... already exists".
+_DUPLICATE_SCORER_NAME_PATTERN = re.compile(
+    r"already\s+(?:been\s+)?registered|already\s+exists",
+    re.IGNORECASE,
+)
+
+
+def _is_duplicate_scorer_name_error(exc: ValueError) -> bool:
+    return bool(_DUPLICATE_SCORER_NAME_PATTERN.search(str(exc)))
+
+
 class DatabricksStore(AbstractScorerStore):
     """
     Databricks store that provides scorer functionality through the Databricks API.
@@ -433,14 +450,35 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
-        # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        DatabricksStore.add_registered_scorer(
-            name=scorer.name,
-            scorer=scorer,
-            sample_rate=0.0,
-            filter_string=None,
-            experiment_id=experiment_id,
-        )
+        # The Databricks backend does not support scorer versioning. When the
+        # name already exists, `databricks-rag-eval` raises `ValueError`. Wrap
+        # the duplicate-name case in `MlflowException` so the MLflow API
+        # surface returns a consistent exception type, and point users at the
+        # supported workarounds. See `_is_duplicate_scorer_name_error` for the
+        # upstream-message coupling contract.
+        try:
+            DatabricksStore.add_registered_scorer(
+                name=scorer.name,
+                scorer=scorer,
+                sample_rate=0.0,
+                filter_string=None,
+                experiment_id=experiment_id,
+            )
+        except ValueError as e:
+            if _is_duplicate_scorer_name_error(e):
+                raise MlflowException(
+                    f"Cannot register a new version of scorer '{scorer.name}' "
+                    f"on a Databricks tracking URI. The Databricks scorer "
+                    f"backend does not support versioning. Use `Scorer.update(...)` "
+                    f"to update the scorer in place, or "
+                    f"`delete_scorer(name='{scorer.name}', experiment_id=...)` "
+                    f"and then re-register to replace it. To version the "
+                    f"instruction template, use MLflow Prompt Registry. See "
+                    f"https://mlflow.org/docs/latest/genai/eval-monitor/scorers/versioning "
+                    f"for the full guidance.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+            raise
 
         # Set the sampling config on the new instance
         scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
