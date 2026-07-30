@@ -1,4 +1,5 @@
 import { isNil } from 'lodash';
+import { useMemo } from 'react';
 
 import { Empty, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -8,29 +9,27 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { getLinkFieldKey } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { useSpanLinkHref } from '../hooks/useSpanLinkHref';
+import { useSpanLinkHrefs } from '../hooks/useSpanLinkHref';
 
 function SpanLinkEntry({
   link,
   index,
+  href,
   searchFilter,
   activeMatch,
   isActiveMatchSpan,
 }: {
   link: ModelTraceSpanLink;
   index: number;
+  href: string | undefined;
   searchFilter: string;
   activeMatch: SearchMatch | null;
   isActiveMatchSpan: boolean;
 }) {
   const { theme } = useDesignSystemTheme();
-  const href = useSpanLinkHref(link.trace_id);
 
   const title = (
-    <Tooltip
-      componentId="mlflow.model_trace_explorer.span_link.tooltip"
-      content={`span_id: ${link.span_id}`}
-    >
+    <Tooltip componentId="mlflow.model_trace_explorer.span_link.tooltip" content={`span_id: ${link.span_id}`}>
       {href ? (
         <Typography.Link
           componentId="mlflow.model_trace_explorer.span_link"
@@ -98,6 +97,9 @@ export function ModelTraceExplorerLinksTab({
   const { links } = activeSpan;
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
 
+  const traceIds = useMemo(() => (links ?? []).map((link) => link.trace_id), [links]);
+  const hrefMap = useSpanLinkHrefs(traceIds);
+
   if (!Array.isArray(links) || links.length === 0) {
     return (
       <div css={{ marginTop: theme.spacing.sm }}>
@@ -120,6 +122,7 @@ export function ModelTraceExplorerLinksTab({
           key={`${link.trace_id}-${link.span_id}-${index}`}
           link={link}
           index={index}
+          href={hrefMap[link.trace_id]}
           searchFilter={searchFilter}
           activeMatch={activeMatch}
           isActiveMatchSpan={isActiveMatchSpan}

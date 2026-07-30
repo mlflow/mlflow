@@ -12,12 +12,16 @@ import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { MOCK_LINKS_SPAN, MOCK_SPAN_LINKS } from '../ModelTraceExplorer.test-utils';
 
-const mockUseSpanLinkHref = jest.fn((traceId: string | undefined) =>
-  traceId ? `/experiments/1/traces?selectedEvaluationId=${traceId}` : undefined,
-);
+const mockUseSpanLinkHrefs = jest.fn((traceIds: string[]) => {
+  const map: Record<string, string> = {};
+  for (const id of traceIds) {
+    map[id] = `/experiments/1/traces?selectedEvaluationId=${id}`;
+  }
+  return map;
+});
 
 jest.mock('../hooks/useSpanLinkHref', () => ({
-  useSpanLinkHref: (...args: any[]) => mockUseSpanLinkHref(...args),
+  useSpanLinkHrefs: (...args: any[]) => mockUseSpanLinkHrefs(...args),
 }));
 
 const queryClient = new QueryClient();
@@ -47,6 +51,16 @@ const createMockSpanNode = (overrides: Partial<ModelTraceSpanNode> = {}): ModelT
 });
 
 describe('ModelTraceExplorerLinksTab', () => {
+  afterEach(() => {
+    mockUseSpanLinkHrefs.mockImplementation((traceIds: string[]) => {
+      const map: Record<string, string> = {};
+      for (const id of traceIds) {
+        map[id] = `/experiments/1/traces?selectedEvaluationId=${id}`;
+      }
+      return map;
+    });
+  });
+
   it('renders empty state when span has no links', () => {
     const span = createMockSpanNode();
     render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, { wrapper: Wrapper });
@@ -101,7 +115,7 @@ describe('ModelTraceExplorerLinksTab', () => {
   });
 
   it('renders trace_id as plain text when href is unavailable', () => {
-    mockUseSpanLinkHref.mockReturnValue(undefined);
+    mockUseSpanLinkHrefs.mockReturnValue({});
     const span = createMockSpanNode({
       links: [{ trace_id: 'tr-unresolved', span_id: 'eeff000000000000' }],
     });
@@ -109,7 +123,6 @@ describe('ModelTraceExplorerLinksTab', () => {
 
     expect(screen.getByText('tr-unresolved')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    mockUseSpanLinkHref.mockRestore();
   });
 
   it('does not render attribute snippets when link has no attributes', () => {
