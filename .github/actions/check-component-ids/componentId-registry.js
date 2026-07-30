@@ -2426,6 +2426,7 @@ module.exports = {
   "shared.model-trace-explorer.content-tab.render-mode": "",
   "shared.model-trace-explorer.conversation-toggle": "",
   "shared.model-trace-explorer.copy-snippet": "",
+  "shared.model-trace-explorer.copy-snippet-markdown": "",
   "shared.model-trace-explorer.cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.total-cost.tag": "",
