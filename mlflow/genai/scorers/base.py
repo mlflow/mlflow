@@ -1474,20 +1474,18 @@ class EnsembleScorer(Scorer):
         )
         return asdict(serialized)
 
-    def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Any]:
+    def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Feedback]:
         # feedbacks-mode ensemble fns and the sub-feedbacks metadata both need a real
         # Feedback per sub-scorer; bare-value returns are wrapped and named after the scorer.
         feedbacks = []
         for sub_scorer, result, value in zip(self._scorers, results, values):
+            # Scorer.run() already renamed a default-named Feedback to the sub-scorer's name,
+            # so a returned Feedback is passed through as-is; bare-value returns are wrapped.
             fb = (
                 result
                 if isinstance(result, Feedback)
                 else Feedback(name=sub_scorer.name, value=value)
             )
-            # Defensive guard: feedbacks-mode fns may return a Feedback with the default name;
-            # always use the sub-scorer's name so every metadata entry is attributable.
-            if fb.name in (None, DEFAULT_FEEDBACK_NAME):
-                fb.name = sub_scorer.name
             feedbacks.append(fb)
         return feedbacks
 
