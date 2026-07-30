@@ -1709,6 +1709,27 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_get_model_version_uses_validated_version(store, monkeypatch):
+    # Regression test: the version returned by ``_validate_model_version`` must be threaded
+    # into the SqlModelVersion query filter. If callers discard the coerced value and reuse
+    # the original string, the VARCHAR-vs-INTEGER comparison fails on backends like PostgreSQL
+    # that don't apply implicit type coercion the way SQLite does. Because SQLite tolerates the
+    # mismatch, asserting the query result alone wouldn't catch a regression, so we patch the
+    # validator to return a different version and assert that version is the one queried.
+    name = "GetModelVersionValidatedVersion_TestMod"
+    _rm_maker(store, name)
+    _mv_maker(store, name)  # version 1
+    _mv_maker(store, name)  # version 2
+
+    monkeypatch.setattr(
+        "mlflow.store.model_registry.sqlalchemy_store._validate_model_version",
+        lambda version: 2,
+    )
+    # Pass "1" but the patched validator returns 2; the fix must query on the returned value.
+    mv = store.get_model_version(name, "1")
+    assert mv.version == 2
+
+
 def test_delete_model_version_tag(store):
     name1 = "DeleteModelVersionTag_TestMod"
     name2 = "DeleteModelVersionTag_TestMod 2"
