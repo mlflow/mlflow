@@ -71,6 +71,7 @@ import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-ut
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
+import Utils from '../../../common/utils/Utils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -91,13 +92,11 @@ import {
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
-  // TODO: display error notification in OSS
-  return;
+  Utils.displayGlobalErrorNotification(errorMessage);
 };
 
 export const displaySuccessNotification = (successMessage: string) => {
-  // TODO: display success notification in OSS
-  return;
+  Utils.displayGlobalInfoNotification(successMessage);
 };
 
 export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
