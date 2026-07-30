@@ -407,3 +407,22 @@ def test_ensemble_metadata_is_string_valued():
     fb = agg(outputs="x")
     for v in fb.metadata.values():
         assert isinstance(v, str)
+
+
+def test_ensemble_metadata_captures_error_feedback():
+    from mlflow.genai.scorers.base import EnsembleScorer
+
+    @scorer
+    def _errs(outputs) -> Feedback:
+        return Feedback(error=ValueError("boom"))
+
+    def tolerant(feedbacks):
+        return True
+
+    agg = scorer_ensemble(name="e", scorers=[_errs], ensemble_fn=tolerant)
+    fb = agg(outputs="x")
+    sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
+    assert sub[0]["assessment_name"] == "_errs"
+    # to_dictionary() puts error info under the nested "feedback.error" key
+    assert sub[0]["feedback"]["error"]["error_code"] == "ValueError"
+    assert sub[0]["feedback"]["error"]["error_message"] == "boom"

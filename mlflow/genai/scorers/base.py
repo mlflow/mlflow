@@ -1487,8 +1487,8 @@ class EnsembleScorer(Scorer):
                 feedback = result
             else:
                 feedback = Feedback(name=sub_scorer.name, value=value)
-            # Ensure the entry is attributable to the sub-scorer even if the returned
-            # Feedback used the default name.
+            # Defensive guard: feedbacks-mode fns may return a Feedback with the default name;
+            # always use the sub-scorer's name so every metadata entry is attributable.
             if feedback.name in (None, DEFAULT_FEEDBACK_NAME):
                 feedback.name = sub_scorer.name
             entries.append(feedback.to_dictionary())
