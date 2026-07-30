@@ -13,7 +13,6 @@ from typing import Any, Callable, Literal, get_args, get_origin
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 
-# Built-ins that require numeric values (reject categorical/string inputs).
 NUMERIC_ENSEMBLES: set[str] = {"mean", "minimum", "maximum"}
 
 

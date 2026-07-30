@@ -1480,7 +1480,7 @@ class EnsembleScorer(Scorer):
         feedbacks = []
         for sub_scorer, result, value in zip(self._scorers, results, values):
             # Scorer.run() already renamed a default-named Feedback to the sub-scorer's name,
-            # so a returned Feedback is passed through as-is; bare-value returns are wrapped.
+            # so a returned Feedback needs no rename here.
             fb = (
                 result
                 if isinstance(result, Feedback)
