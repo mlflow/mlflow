@@ -420,7 +420,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "2.4.0",
-            "maximum": "3.0.0"
+            "maximum": "2.31.0"
         }
     },
     "sentence_transformers": {
@@ -437,8 +437,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "johnsnowlabs"
         },
         "models": {
-            "minimum": "5.4.2",
-            "maximum": "6.4.1"
+            "minimum": "5.4.0",
+            "maximum": "5.4.1"
         }
     }
 }

@@ -1004,7 +1004,7 @@ haystack:
       uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.4.0"
-    maximum: "3.0.0"
+    maximum: "2.31.0"
     requirements:
     run: pytest tests/haystack
     test_tracing_sdk: true
@@ -1066,8 +1066,8 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.4.2"
-    maximum: "6.4.1"
+    minimum: "5.4.0"
+    maximum: "5.4.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
     run: |
