@@ -24,9 +24,7 @@ describe('ModelTraceExplorerCodeSnippetBody', () => {
 
     // The DS Button spreads componentId as data-component-id onto the real DOM element.
     // DesignSystemEventProvider.tsx line 225-226: componentId -> 'data-component-id'.
-    expect(
-      container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]')).not.toBeNull();
   });
 
   it('renders a copy button in markdown render mode', () => {
@@ -49,8 +47,6 @@ describe('ModelTraceExplorerCodeSnippetBody', () => {
       { wrapper: Wrapper },
     );
 
-    expect(
-      container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]')).not.toBeNull();
   });
 });
