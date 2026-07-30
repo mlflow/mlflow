@@ -148,4 +148,21 @@ describe('useSavedViewPreview', () => {
     expect(args.exitPreview).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it('override on a view with no columns/sort in the URL exits cleanly (no error)', () => {
+    const errorSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+    const infoSpy = jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
+    // A time-range- or filter-only shared view carries neither param, so nothing decodes. Unlike the
+    // unresolvable case above, there is nothing to adopt — Override must NOT error; it just exits.
+    const args = { ...baseArgs(), rawColumns: undefined, rawSort: undefined };
+    const { result } = renderHook(() => useSavedViewPreview(args), { wrapper });
+    act(() => result.current.override());
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(args.setSelectedColumns).not.toHaveBeenCalled();
+    expect(args.setTableSort).not.toHaveBeenCalled();
+    expect(args.exitPreview).toHaveBeenCalledTimes(1);
+    infoSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
 });
