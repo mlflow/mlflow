@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785404405303,
+  "lastUpdate": 1785413663961,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -17603,6 +17603,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 18.512796599998183,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "59753519+qubeena07@users.noreply.github.com",
+            "name": "Dipika Ranabhat",
+            "username": "qubeena07"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab16e5cfeb1bfe4b04be30bc4a726f65666a54b7",
+          "message": "Fix model version string to int cast in registry stores (#24565)\n\nSigned-off-by: Dipika Ranabhat <qubeena7@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: qubeena07 <username@users.noreply.github.com>",
+          "timestamp": "2026-07-30T12:10:34Z",
+          "tree_id": "0f165a46549e5266203054dd977bedcdbe5fc35b",
+          "url": "https://github.com/mlflow/mlflow/commit/ab16e5cfeb1bfe4b04be30bc4a726f65666a54b7"
+        },
+        "date": 1785413661884,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 32.51054850000088,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 20.198479377777783,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 19.043990524999188,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 19.369703059701674,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.77727594202928,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.258149200000162,
             "unit": "ms"
           }
         ]
