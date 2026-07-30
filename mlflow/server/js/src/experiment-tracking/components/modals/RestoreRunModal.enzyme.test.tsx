@@ -59,10 +59,13 @@ describe('RestoreRunModal', () => {
 
     const promise = wrapper.find(ConfirmModal).prop('handleSubmit')();
     promise.finally(() => {
-      expect(mockFailRestoreRunApi).toHaveBeenCalledTimes(2);
-      expect(logErrorSpy).toHaveBeenCalled();
-      logErrorSpy.mockRestore();
-      done();
+      try {
+        expect(mockFailRestoreRunApi).toHaveBeenCalledTimes(2);
+        expect(logErrorSpy).toHaveBeenCalled();
+      } finally {
+        logErrorSpy.mockRestore();
+        done();
+      }
     });
   });
 });

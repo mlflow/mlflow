@@ -32,7 +32,7 @@ export class RestoreRunModalImpl extends Component<Props> {
     });
     return Promise.all(restorePromises)
       .catch((e) => {
-        Utils.logErrorAndNotifyUser(e);
+        Utils.logErrorAndNotifyUser(e?.message || e);
       })
       .then(() => {
         this.props.onSuccess?.();
