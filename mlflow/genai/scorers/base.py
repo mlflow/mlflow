@@ -15,6 +15,11 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.ensemble import (
+    BUILTIN_ENSEMBLES,
+    NUMERIC_ENSEMBLES,
+    is_numeric_feedback_type,
+)
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     THIRD_PARTY_SCORER_ALLOWED_MODULES,
@@ -555,8 +560,6 @@ class Scorer(BaseModel):
 
         # Handle ensemble scorers
         elif serialized.ensemble_scorer_data is not None:
-            from mlflow.genai.scorers.ensemble import BUILTIN_ENSEMBLES
-
             data = serialized.ensemble_scorer_data
             fn_name = data.get("ensemble_fn")
             if fn_name not in BUILTIN_ENSEMBLES:
@@ -1452,8 +1455,6 @@ class EnsembleScorer(Scorer):
     _is_session_level: bool = PrivateAttr(default=False)
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        from mlflow.genai.scorers.ensemble import BUILTIN_ENSEMBLES
-
         if self._ensemble_fn_name is None:
             raise MlflowException.invalid_parameter_value(
                 "This ensemble scorer uses a custom ensemble function and cannot be "
@@ -1477,17 +1478,12 @@ class EnsembleScorer(Scorer):
     def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Feedback]:
         # feedbacks-mode ensemble fns and the sub-feedbacks metadata both need a real
         # Feedback per sub-scorer; bare-value returns are wrapped and named after the scorer.
-        feedbacks = []
-        for sub_scorer, result, value in zip(self._scorers, results, values):
-            # Scorer.run() already renamed a default-named Feedback to the sub-scorer's name,
-            # so a returned Feedback needs no rename here.
-            fb = (
-                result
-                if isinstance(result, Feedback)
-                else Feedback(name=sub_scorer.name, value=value)
-            )
-            feedbacks.append(fb)
-        return feedbacks
+        # Scorer.run() already renamed a default-named Feedback to the sub-scorer's name, so a
+        # returned Feedback needs no rename here.
+        return [
+            result if isinstance(result, Feedback) else Feedback(name=sub_scorer.name, value=value)
+            for sub_scorer, result, value in zip(self._scorers, results, values)
+        ]
 
     def _build_sub_feedbacks_metadata(self, sub_feedbacks: list[Any]) -> dict[str, str]:
         # Preserve each sub-scorer's full Feedback (value, rationale, source, error) on the
@@ -1578,12 +1574,6 @@ def scorer_ensemble(
             (``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``, ``"p90"``)
             or a callable ``(list[values]) -> float``. Defaults to ``"mean"``.
     """
-    from mlflow.genai.scorers.ensemble import (
-        BUILTIN_ENSEMBLES,
-        NUMERIC_ENSEMBLES,
-        is_numeric_feedback_type,
-    )
-
     if not scorers:
         raise MlflowException.invalid_parameter_value(
             "scorer_ensemble requires at least one sub-scorer."
