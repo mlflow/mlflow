@@ -332,11 +332,11 @@ def test_is_numeric_feedback_type_unit_checks():
 
 
 # ---------------------------------------------------------------------------
-# Task 10: sub-scorer provenance preserved in ensemble Feedback.metadata
+# Task 10/11: sub-scorer provenance preserved in ensemble Feedback.metadata
 # ---------------------------------------------------------------------------
 
 
-def test_ensemble_preserves_sub_rationales_in_metadata():
+def test_ensemble_preserves_sub_feedbacks_in_metadata():
     from mlflow.genai.scorers.base import EnsembleScorer
 
     @scorer
@@ -351,19 +351,41 @@ def test_ensemble_preserves_sub_rationales_in_metadata():
     fb = agg(outputs="x")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     assert len(sub) == 2
+    assert {e["assessment_name"] for e in sub} == {"_yes", "_no"}
     assert {e["rationale"] for e in sub} == {"looks safe", "found an issue"}
-    assert {e["name"] for e in sub} == {"_yes", "_no"}
+    # values live under the nested "feedback" key
+    assert {e["feedback"]["value"] for e in sub} == {True, False}
 
 
-def test_ensemble_metadata_present_for_custom_value_fn():
+def test_ensemble_metadata_captures_sub_feedback_source():
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.scorers.base import EnsembleScorer
+
+    @scorer
+    def _judge(outputs) -> Feedback:
+        return Feedback(
+            value=True,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4o-mini"
+            ),
+        )
+
+    agg = scorer_ensemble(name="e", scorers=[_judge], ensemble_fn="agg_all")
+    fb = agg(outputs="x")
+    sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
+    assert sub[0]["source"]["source_type"] == "LLM_JUDGE"
+    assert sub[0]["source"]["source_id"] == "gpt-4o-mini"
+
+
+def test_ensemble_metadata_normalizes_bare_value():
     from mlflow.genai.scorers.base import EnsembleScorer
 
     agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: max(values))
     fb = agg(outputs="abcd")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
-    assert len(sub) == 1
-    assert sub[0]["name"] == "_num_len"
-    assert sub[0]["value"] == 4
+    assert sub[0]["assessment_name"] == "_num_len"
+    assert sub[0]["feedback"]["value"] == 4
+    assert sub[0]["source"]["source_type"] == "CODE"
 
 
 def test_ensemble_fn_metadata_wins_on_collision():

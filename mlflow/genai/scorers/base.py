@@ -1476,19 +1476,22 @@ class EnsembleScorer(Scorer):
     def _build_sub_feedbacks_metadata(
         self, results: list[Any], values: list[Any]
     ) -> dict[str, str]:
-        # Preserve each sub-scorer's provenance (name, value, rationale, error) on the aggregate
-        # Feedback so the ensemble result stays explainable. metadata is dict[str, str], so the
-        # structured list is JSON-encoded under a single key.
+        # Preserve each sub-scorer's full Feedback (value, rationale, source, error) on the
+        # aggregate so the ensemble result stays fully explainable — including which judge/human/
+        # code produced each sub-result. metadata is dict[str, str], so the list of Feedback
+        # dicts is JSON-encoded under a single key. Bare-value sub-scorers are normalized to a
+        # Feedback named after the sub-scorer (source defaults to CODE).
         entries = []
         for sub_scorer, result, value in zip(self._scorers, results, values):
-            rationale = result.rationale if isinstance(result, Feedback) else None
-            error = str(result.error) if isinstance(result, Feedback) and result.error else None
-            entries.append({
-                "name": sub_scorer.name,
-                "value": value,
-                "rationale": rationale,
-                "error": error,
-            })
+            if isinstance(result, Feedback):
+                feedback = result
+            else:
+                feedback = Feedback(name=sub_scorer.name, value=value)
+            # Ensure the entry is attributable to the sub-scorer even if the returned
+            # Feedback used the default name.
+            if feedback.name in (None, DEFAULT_FEEDBACK_NAME):
+                feedback.name = sub_scorer.name
+            entries.append(feedback.to_dictionary())
         return {self._SUB_FEEDBACKS_METADATA_KEY: json.dumps(entries)}
 
     @property
