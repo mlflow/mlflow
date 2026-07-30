@@ -69,7 +69,13 @@ from mlflow.genai.prompts import (
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
 )
-from mlflow.genai.scorers import Scorer, delete_scorer, get_scorer, list_scorers, scorer
+from mlflow.genai.scorers import (
+    Scorer,
+    delete_scorer,
+    get_scorer,
+    list_scorers,
+    scorer,
+)
 from mlflow.genai.simulators import ConversationSimulator
 
 __all__ = [
