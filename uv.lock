@@ -4371,7 +4371,7 @@ docs = [
     { name = "datasets" },
     { name = "deepeval" },
     { name = "flask-wtf", specifier = "<2" },
-    { name = "haystack-ai" },
+    { name = "haystack-ai", specifier = "<3" },
     { name = "instructor" },
     { name = "keras" },
     { name = "langchain-community", specifier = ">=0.3.0" },
