@@ -4,11 +4,18 @@ from typing import Literal
 import pandas as pd
 import pytest
 
-import mlflow
+import mlflow.genai
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import scorer
-from mlflow.genai.scorers.base import Scorer, ScorerKind, _extract_scorer_value, scorer_ensemble
+from mlflow.genai.scorers.base import (
+    EnsembleScorer,
+    Scorer,
+    ScorerKind,
+    _extract_scorer_value,
+    scorer_ensemble,
+)
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.genai.scorers.ensemble import (
     BUILTIN_ENSEMBLES,
@@ -21,45 +28,83 @@ from mlflow.genai.scorers.ensemble import (
     minimum,
 )
 
+# ---------------------------------------------------------------------------
+# Built-in ensemble function unit tests
+# ---------------------------------------------------------------------------
 
-def test_majority_vote_picks_most_common():
-    fb = majority_vote([True, True, False])
-    assert isinstance(fb, Feedback)
-    assert fb.value is True
-
-
-def test_majority_vote_breaks_ties_lexicographically():
-    # Tie between True and False -> lexicographic order of str(value): "False" < "True"
-    assert majority_vote([True, False]).value is False
-    assert majority_vote(["b", "a"]).value == "a"
+_ALL_BUILTINS = [majority_vote, mean, minimum, maximum, agg_all, agg_any]
+_NUMERIC_BUILTINS = [mean, minimum, maximum]
 
 
-def test_mean_averages():
-    assert mean([1.0, 2.0, 3.0]).value == 2.0
+@pytest.mark.parametrize(
+    ("fn", "values", "expected"),
+    [
+        # majority_vote
+        pytest.param(majority_vote, [True, True, False], True, id="majority_vote-basic"),
+        pytest.param(majority_vote, [True, False], False, id="majority_vote-tie_false_wins"),
+        pytest.param(majority_vote, ["b", "a"], "a", id="majority_vote-categorical_tie"),
+        pytest.param(majority_vote, ["x", "x", "y"], "x", id="majority_vote-categorical_majority"),
+        pytest.param(majority_vote, [True], True, id="majority_vote-single"),
+        pytest.param(majority_vote, ["only"], "only", id="majority_vote-single_categorical"),
+        # mean
+        pytest.param(mean, [1.0, 2.0, 3.0], 2.0, id="mean-basic"),
+        pytest.param(mean, [2], 2, id="mean-single"),
+        pytest.param(mean, [True, False], 0.5, id="mean-bools"),
+        pytest.param(mean, [-1.0, 1.0], 0.0, id="mean-zero"),
+        # minimum
+        pytest.param(minimum, [3, 1, 2], 1, id="minimum-basic"),
+        pytest.param(minimum, [5], 5, id="minimum-single"),
+        pytest.param(minimum, [True, False], False, id="minimum-bools"),
+        # maximum
+        pytest.param(maximum, [3, 1, 2], 3, id="maximum-basic"),
+        pytest.param(maximum, [5], 5, id="maximum-single"),
+        pytest.param(maximum, [True, False], True, id="maximum-bools"),
+        # agg_all
+        pytest.param(agg_all, [True, True], True, id="agg_all-all_true"),
+        pytest.param(agg_all, [True, False], False, id="agg_all-mixed"),
+        pytest.param(agg_all, [True], True, id="agg_all-single"),
+        # agg_any
+        pytest.param(agg_any, [False, False], False, id="agg_any-all_false"),
+        pytest.param(agg_any, [False, True], True, id="agg_any-mixed"),
+        pytest.param(agg_any, [False], False, id="agg_any-single"),
+    ],
+)
+def test_builtin_happy_path(fn, values, expected):
+    result = fn(values)
+    assert isinstance(result, Feedback)
+    assert result.value == expected
 
 
-def test_minimum_maximum():
-    assert minimum([3, 1, 2]).value == 1
-    assert maximum([3, 1, 2]).value == 3
-
-
-def test_agg_all_and_any():
-    assert agg_all([True, True]).value is True
-    assert agg_all([True, False]).value is False
-    assert agg_any([False, False]).value is False
-    assert agg_any([False, True]).value is True
-
-
-@pytest.mark.parametrize("fn", [majority_vote, mean, minimum, maximum, agg_all, agg_any])
-def test_builtins_raise_on_none_entry(fn):
+@pytest.mark.parametrize("fn", _ALL_BUILTINS)
+@pytest.mark.parametrize(
+    "values",
+    [
+        pytest.param([True, None], id="with_none"),
+        pytest.param([None], id="all_none"),
+    ],
+)
+def test_builtins_raise_on_none_entry(fn, values):
     with pytest.raises(MlflowException, match="failed"):
-        fn([True, None])
+        fn(values)
 
 
-@pytest.mark.parametrize("fn", [majority_vote, mean, minimum, maximum, agg_all, agg_any])
+@pytest.mark.parametrize("fn", _ALL_BUILTINS)
 def test_builtins_raise_on_empty_input(fn):
     with pytest.raises(MlflowException, match="failed"):
         fn([])
+
+
+@pytest.mark.parametrize("fn", _NUMERIC_BUILTINS)
+@pytest.mark.parametrize(
+    "values",
+    [
+        pytest.param(["a", "b"], id="all_strings"),
+        pytest.param([1.0, "b"], id="mixed"),
+    ],
+)
+def test_numeric_builtins_reject_non_numeric(fn, values):
+    with pytest.raises(MlflowException, match="numeric"):
+        fn(values)
 
 
 def test_builtin_registry_maps_names():
@@ -75,27 +120,37 @@ def test_builtin_registry_maps_names():
     }
 
 
+# ---------------------------------------------------------------------------
+# ScorerKind and _extract_scorer_value unit tests
+# ---------------------------------------------------------------------------
+
+
 def test_scorer_kind_has_ensemble():
     assert ScorerKind.ENSEMBLE.value == "ensemble"
 
 
-def test_extract_value_from_feedback():
-    assert _extract_scorer_value(Feedback(value=0.5)) == 0.5
-
-
-def test_extract_value_from_primitive():
-    assert _extract_scorer_value(True) is True
-    assert _extract_scorer_value(3) == 3
-
-
-def test_extract_value_none_for_none_and_error():
-    assert _extract_scorer_value(None) is None
-    assert _extract_scorer_value(Feedback(error=ValueError("boom"))) is None
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(Feedback(value=0.5), 0.5, id="feedback_value"),
+        pytest.param(True, True, id="bool_primitive"),
+        pytest.param(3, 3, id="int_primitive"),
+        pytest.param(None, None, id="none_input"),
+        pytest.param(Feedback(error=ValueError("boom")), None, id="error_feedback"),
+    ],
+)
+def test_extract_scorer_value(value, expected):
+    assert _extract_scorer_value(value) == expected
 
 
 def test_extract_value_rejects_feedback_list():
     with pytest.raises(MlflowException, match="list"):
         _extract_scorer_value([Feedback(value=1), Feedback(value=2)])
+
+
+# ---------------------------------------------------------------------------
+# Module-level scorer fixtures used across integration tests
+# ---------------------------------------------------------------------------
 
 
 @scorer
@@ -111,6 +166,11 @@ def _always_false(outputs) -> bool:
 @scorer
 def _num_len(outputs) -> int:
     return len(outputs)
+
+
+# ---------------------------------------------------------------------------
+# EnsembleScorer integration tests
+# ---------------------------------------------------------------------------
 
 
 def test_ensemble_majority_vote_end_to_end():
@@ -196,7 +256,9 @@ def test_ensemble_custom_callable_has_no_builtin_name():
     assert agg._ensemble_fn_name is None
 
 
-# --- Serialization tests ---
+# ---------------------------------------------------------------------------
+# Serialization tests
+# ---------------------------------------------------------------------------
 # Round-trip tests use Safety() (a builtin scorer) as the sub-scorer because decorator-backed
 # sub-scorers require a Databricks tracking URI to reconstruct (_reconstruct_decorator_scorer
 # raises outside Databricks). Safety serializes/reconstructs locally without any network call.
@@ -260,17 +322,6 @@ def test_ensemble_custom_callable_not_serializable():
 
 
 def test_public_exports():
-    import mlflow.genai
-    from mlflow.genai.scorers import (
-        agg_all,
-        agg_any,
-        majority_vote,
-        maximum,
-        mean,
-        minimum,
-        scorer_ensemble,
-    )
-
     assert mlflow.genai.scorer_ensemble is scorer_ensemble
     assert all(callable(fn) for fn in (majority_vote, mean, minimum, maximum, agg_all, agg_any))
 
@@ -291,7 +342,7 @@ def test_ensemble_in_evaluate(is_in_databricks):
 
 
 # ---------------------------------------------------------------------------
-# Task 7: categorical/Literal values + feedback_value_type validation
+# Categorical / Literal values and feedback_value_type validation
 # ---------------------------------------------------------------------------
 
 
@@ -350,24 +401,28 @@ def test_majority_vote_accepts_literal_judge():
     assert agg.name == "ok"
 
 
-def test_is_numeric_feedback_type_unit_checks():
-    assert is_numeric_feedback_type(float) is True
-    assert is_numeric_feedback_type(int) is True
-    assert is_numeric_feedback_type(bool) is True
-    assert is_numeric_feedback_type(Literal[1, 2, 3]) is True
-    assert is_numeric_feedback_type(Literal["yes", "no"]) is False
-    assert is_numeric_feedback_type(str) is False
-    assert is_numeric_feedback_type(None) is False
+@pytest.mark.parametrize(
+    ("feedback_type", "expected"),
+    [
+        pytest.param(float, True, id="float"),
+        pytest.param(int, True, id="int"),
+        pytest.param(bool, True, id="bool"),
+        pytest.param(Literal[1, 2, 3], True, id="literal_numeric"),
+        pytest.param(Literal["yes", "no"], False, id="literal_str"),
+        pytest.param(str, False, id="str"),
+        pytest.param(None, False, id="none"),
+    ],
+)
+def test_is_numeric_feedback_type(feedback_type, expected):
+    assert is_numeric_feedback_type(feedback_type) is expected
 
 
 # ---------------------------------------------------------------------------
-# Task 10/11: sub-scorer provenance preserved in ensemble Feedback.metadata
+# Sub-scorer provenance in ensemble Feedback.metadata
 # ---------------------------------------------------------------------------
 
 
 def test_ensemble_preserves_sub_feedbacks_in_metadata():
-    from mlflow.genai.scorers.base import EnsembleScorer
-
     @scorer
     def _yes(outputs) -> Feedback:
         return Feedback(value=True, rationale="looks safe")
@@ -387,9 +442,6 @@ def test_ensemble_preserves_sub_feedbacks_in_metadata():
 
 
 def test_ensemble_metadata_captures_sub_feedback_source():
-    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-    from mlflow.genai.scorers.base import EnsembleScorer
-
     @scorer
     def _judge(outputs) -> Feedback:
         return Feedback(
@@ -407,8 +459,6 @@ def test_ensemble_metadata_captures_sub_feedback_source():
 
 
 def test_ensemble_metadata_normalizes_bare_value():
-    from mlflow.genai.scorers.base import EnsembleScorer
-
     agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: max(values))
     fb = agg(outputs="abcd")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
@@ -418,8 +468,6 @@ def test_ensemble_metadata_normalizes_bare_value():
 
 
 def test_ensemble_fn_metadata_wins_on_collision():
-    from mlflow.genai.scorers.base import EnsembleScorer
-
     key = EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY
 
     def fn_with_meta(feedbacks):
@@ -439,8 +487,6 @@ def test_ensemble_metadata_is_string_valued():
 
 
 def test_ensemble_metadata_captures_error_feedback():
-    from mlflow.genai.scorers.base import EnsembleScorer
-
     @scorer
     def _errs(outputs) -> Feedback:
         return Feedback(error=ValueError("boom"))
