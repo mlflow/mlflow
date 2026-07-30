@@ -104,7 +104,11 @@ function readCache(
     if (cached.rates == null) {
       return null;
     }
-    return typeof cached.rates === 'object' ? cached.rates : undefined;
+    // An empty rate map would price every model as unknown; treat it as a miss
+    // so the next call refetches, matching how fetchRates rejects empty rates.
+    return typeof cached.rates === 'object' && Object.keys(cached.rates).length > 0
+      ? cached.rates
+      : undefined;
   } catch {
     return undefined;
   }

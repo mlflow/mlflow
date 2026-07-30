@@ -136,6 +136,20 @@ describe('loadCatalogRates', () => {
     expect(rates).toBeNull();
   });
 
+  it('refetches when the cache holds an empty rate map', async () => {
+    const cacheDir = tempCacheDir();
+    writeFileSync(
+      join(cacheDir, 'anthropic.json'),
+      JSON.stringify({ schemaVersion: 1, fetchedAt: new Date().toISOString(), rates: {} }),
+    );
+
+    const fetchImpl = okFetch();
+    const rates = await loadCatalogRates({ baseUri: 'https://example.com', cacheDir, fetchImpl });
+
+    expect(rates).toEqual(EXPECTED_RATES);
+    expect(fetchImpl).toHaveBeenCalled();
+  });
+
   it('reads from a file:// mirror', async () => {
     const mirrorDir = tempCacheDir();
     writeFileSync(join(mirrorDir, 'anthropic.json'), JSON.stringify(CATALOG));
