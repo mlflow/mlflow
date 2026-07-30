@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 import mlflow.genai
+import mlflow.genai.scorers as _public_scorers
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
@@ -72,7 +73,10 @@ _NUMERIC_BUILTINS = [mean, minimum, maximum]
 def test_builtin_happy_path(fn, values, expected):
     result = fn(values)
     assert isinstance(result, Feedback)
-    assert result.value == expected
+    if isinstance(expected, bool):
+        assert result.value is expected
+    else:
+        assert result.value == expected
 
 
 @pytest.mark.parametrize("fn", _ALL_BUILTINS)
@@ -140,7 +144,11 @@ def test_scorer_kind_has_ensemble():
     ],
 )
 def test_extract_scorer_value(value, expected):
-    assert _extract_scorer_value(value) == expected
+    result = _extract_scorer_value(value)
+    if isinstance(expected, bool):
+        assert result is expected
+    else:
+        assert result == expected
 
 
 def test_extract_value_rejects_feedback_list():
@@ -323,7 +331,16 @@ def test_ensemble_custom_callable_not_serializable():
 
 def test_public_exports():
     assert mlflow.genai.scorer_ensemble is scorer_ensemble
-    assert all(callable(fn) for fn in (majority_vote, mean, minimum, maximum, agg_all, agg_any))
+    for name, fn in [
+        ("majority_vote", majority_vote),
+        ("mean", mean),
+        ("minimum", minimum),
+        ("maximum", maximum),
+        ("agg_all", agg_all),
+        ("agg_any", agg_any),
+        ("scorer_ensemble", scorer_ensemble),
+    ]:
+        assert getattr(_public_scorers, name) is fn
 
 
 def test_ensemble_in_evaluate(is_in_databricks):
