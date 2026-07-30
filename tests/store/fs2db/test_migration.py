@@ -1,3 +1,4 @@
+import json
 import math
 from pathlib import Path
 from unittest import mock
@@ -7,6 +8,7 @@ from sqlalchemy import create_engine, text
 
 from mlflow.entities import Experiment, Run, ViewType
 from mlflow.store.fs2db import migrate
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -144,6 +146,42 @@ def test_traces(clients: Clients) -> None:
         assert dst_trace.info.request_time == src_trace.info.request_time
         assert dst_trace.info.execution_duration == src_trace.info.execution_duration
         assert set(dst_trace.info.tags) >= set(src_trace.info.tags)
+        assert (
+            dst_trace.info.tags[TraceTagKey.TRACE_NAME]
+            == src_trace.info.tags[TraceTagKey.TRACE_NAME]
+        )
+        assert (
+            dst_trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION]
+            == src_trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION]
+        )
+        for key in (TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST):
+            assert json.loads(dst_trace.info.trace_metadata[key]) == json.loads(
+                src_trace.info.trace_metadata[key]
+            )
+
+    engine = create_engine(dst.tracking_uri)
+    with engine.connect() as conn:
+        traces_without_authoritative_values = conn.execute(
+            text("SELECT COUNT(*) FROM trace_info WHERE trace_name IS NULL OR session_id IS NULL")
+        ).scalar()
+        legacy_trace_names = conn.execute(
+            text("SELECT COUNT(*) FROM trace_tags WHERE key = :key"),
+            {"key": TraceTagKey.TRACE_NAME},
+        ).scalar()
+        legacy_analytics_metadata = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM trace_request_metadata "
+                "WHERE key IN (:session, :tokens, :cost)"
+            ),
+            {
+                "session": TraceMetadataKey.TRACE_SESSION,
+                "tokens": TraceMetadataKey.TOKEN_USAGE,
+                "cost": TraceMetadataKey.COST,
+            },
+        ).scalar()
+        assert traces_without_authoritative_values == 0
+        assert legacy_trace_names == 0
+        assert legacy_analytics_metadata == 0
 
 
 def test_assessments(clients: Clients) -> None:
@@ -174,6 +212,24 @@ def test_assessments(clients: Clients) -> None:
             if src_a.expectation is not None:
                 assert dst_a.expectation is not None
                 assert dst_a.expectation.value == src_a.expectation.value
+
+    engine = create_engine(dst.tracking_uri)
+    with engine.connect() as conn:
+        assessments_without_authoritative_values = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM assessments "
+                "WHERE experiment_id IS NULL OR trace_timestamp_ms IS NULL"
+            )
+        ).scalar()
+        assert assessments_without_authoritative_values == 0
+        numeric_rows = conn.execute(
+            text(
+                "SELECT aggregate_value, is_numeric_value FROM assessments "
+                "WHERE name = 'relevance_score'"
+            )
+        ).all()
+        assert numeric_rows
+        assert all(value == pytest.approx(0.6) and is_numeric for value, is_numeric in numeric_rows)
 
 
 def test_logged_models(clients: Clients) -> None:
