@@ -1443,6 +1443,8 @@ def scorer(
 
 
 class EnsembleScorer(Scorer):
+    _SUB_FEEDBACKS_METADATA_KEY: ClassVar[str] = "mlflow.ensemble.sub_feedbacks"
+
     _scorers: list[Scorer] = PrivateAttr(default_factory=list)
     _ensemble_fn: Callable[..., Any] = PrivateAttr()
     _ensemble_fn_name: str | None = PrivateAttr(default=None)
@@ -1470,6 +1472,24 @@ class EnsembleScorer(Scorer):
             },
         )
         return asdict(serialized)
+
+    def _build_sub_feedbacks_metadata(
+        self, results: list[Any], values: list[Any]
+    ) -> dict[str, str]:
+        # Preserve each sub-scorer's provenance (name, value, rationale) on the aggregate
+        # Feedback so the ensemble result stays explainable. metadata is dict[str, str], so the
+        # structured list is JSON-encoded under a single key.
+        entries = []
+        for sub_scorer, result, value in zip(self._scorers, results, values):
+            rationale = result.rationale if isinstance(result, Feedback) else None
+            error = str(result.error) if isinstance(result, Feedback) and result.error else None
+            entries.append({
+                "name": sub_scorer.name,
+                "value": value,
+                "rationale": rationale,
+                "error": error,
+            })
+        return {self._SUB_FEEDBACKS_METADATA_KEY: json.dumps(entries)}
 
     @property
     def kind(self) -> ScorerKind:
@@ -1516,11 +1536,15 @@ class EnsembleScorer(Scorer):
         agg_input = results if feedbacks_mode else values
         result = self._ensemble_fn(agg_input)
 
+        sub_metadata = self._build_sub_feedbacks_metadata(results, values)
+
         if isinstance(result, Feedback):
             if result.name == DEFAULT_FEEDBACK_NAME:
                 result.name = self.name
+            # Merge, letting the ensemble_fn's own metadata win on key collisions.
+            result.metadata = {**sub_metadata, **(result.metadata or {})}
             return result
-        return Feedback(name=self.name, value=result)
+        return Feedback(name=self.name, value=result, metadata=sub_metadata)
 
 
 def scorer_ensemble(

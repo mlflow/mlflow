@@ -1,3 +1,4 @@
+import json
 from typing import Literal
 
 import pandas as pd
@@ -328,3 +329,58 @@ def test_is_numeric_feedback_type_unit_checks():
     assert is_numeric_feedback_type(Literal["yes", "no"]) is False
     assert is_numeric_feedback_type(str) is False
     assert is_numeric_feedback_type(None) is False
+
+
+# ---------------------------------------------------------------------------
+# Task 10: sub-scorer provenance preserved in ensemble Feedback.metadata
+# ---------------------------------------------------------------------------
+
+
+def test_ensemble_preserves_sub_rationales_in_metadata():
+    from mlflow.genai.scorers.base import EnsembleScorer
+
+    @scorer
+    def _yes(outputs) -> Feedback:
+        return Feedback(value=True, rationale="looks safe")
+
+    @scorer
+    def _no(outputs) -> Feedback:
+        return Feedback(value=False, rationale="found an issue")
+
+    agg = scorer_ensemble(name="e", scorers=[_yes, _no], ensemble_fn="majority_vote")
+    fb = agg(outputs="x")
+    sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
+    assert len(sub) == 2
+    assert {e["rationale"] for e in sub} == {"looks safe", "found an issue"}
+    assert {e["name"] for e in sub} == {"_yes", "_no"}
+
+
+def test_ensemble_metadata_present_for_custom_value_fn():
+    from mlflow.genai.scorers.base import EnsembleScorer
+
+    agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: max(values))
+    fb = agg(outputs="abcd")
+    sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
+    assert len(sub) == 1
+    assert sub[0]["name"] == "_num_len"
+    assert sub[0]["value"] == 4
+
+
+def test_ensemble_fn_metadata_wins_on_collision():
+    from mlflow.genai.scorers.base import EnsembleScorer
+
+    def fn_with_meta(feedbacks):
+        return Feedback(value=True, metadata={"custom": "kept"})
+
+    agg = scorer_ensemble(name="m", scorers=[_always_true], ensemble_fn=fn_with_meta)
+    fb = agg(outputs="x")
+    assert fb.metadata["custom"] == "kept"
+    # sub-feedback provenance is still attached alongside it
+    assert EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY in fb.metadata
+
+
+def test_ensemble_metadata_is_string_valued():
+    agg = scorer_ensemble(name="s", scorers=[_always_true], ensemble_fn="agg_all")
+    fb = agg(outputs="x")
+    for v in fb.metadata.values():
+        assert isinstance(v, str)
