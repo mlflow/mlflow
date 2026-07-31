@@ -2001,7 +2001,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Args:
             run_id: String ID of the run
             tags: List of RunTag instances to log
-            path: current json path for error messages
         """
         if not tags:
             return

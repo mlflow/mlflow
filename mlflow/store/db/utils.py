@@ -283,7 +283,7 @@ def _upgrade_db(engine):
     we recommend taking a backup of your database before running migrations.
 
     Args:
-        url: Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
+        engine: SQLAlchemy engine connected to the database to upgrade. See
             https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of
             valid database URLs.
     """
