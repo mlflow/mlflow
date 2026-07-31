@@ -43,7 +43,7 @@ sqlalchemy:
 cryptography:
   pip_release: cryptography
   minimum: "43.0.0"
-  max_major_version: 48
+  max_major_version: 49
 
 gunicorn:
   pip_release: gunicorn
@@ -66,7 +66,7 @@ skops:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 24
+  max_major_version: 25
 
 matplotlib:
   pip_release: matplotlib

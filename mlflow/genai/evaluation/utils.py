@@ -270,7 +270,7 @@ def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     Add `expectations` columns to the dataframe from assessments
     stored in the traces, if the "expectations" column is not already present.
     """
-    if "trace" not in df.columns:
+    if "trace" not in df.columns or "expectations" in df.columns:
         return df
 
     expectations_column = []

@@ -154,7 +154,7 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
         with:
           pin-micro-version: false
       - name: Install Claude CLI

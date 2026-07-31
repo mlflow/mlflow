@@ -75,8 +75,8 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
         with:
           pin-micro-version: false
       - name: Install flavors
@@ -145,13 +145,13 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/free-disk-space
+      - uses: $/.github/actions/free-disk-space
         if: matrix.free_disk_space
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
         with:
           python-version: ${{ matrix.python }}
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
@@ -189,7 +189,7 @@ jobs:
           MATRIX_INSTALL: ${{ matrix.install }}
         run: |
           eval "$MATRIX_INSTALL"
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Pre-test
         if: matrix.pre_test
         env:
