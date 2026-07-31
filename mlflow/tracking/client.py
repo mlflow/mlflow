@@ -760,11 +760,7 @@ class MlflowClient:
 
             prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
             self._log_prompt_ui_link(name)
-            # Import here to avoid circular import
-            from mlflow.tracking.fluent import _get_experiment_id
-
-            if uc_experiment_id := _get_experiment_id():
-                self._set_prompt_registry_location_tag(name, uc_experiment_id)
+            self._set_prompt_registry_location_tag(name)
             return prompt_version
 
         # OSS approach using RegisteredModel with special tags
@@ -846,9 +842,7 @@ class MlflowClient:
 
         if experiment_id := _get_experiment_id():
             self._link_prompt_to_experiment(prompt_version, experiment_id)
-            self._set_prompt_registry_location_tag(name, experiment_id)
 
-        self._log_prompt_ui_link(name)
         return prompt_version
 
     def _log_prompt_ui_link(self, name: str) -> None:
@@ -874,17 +868,33 @@ class MlflowClient:
         except Exception:
             pass  # never break registration
 
-    def _set_prompt_registry_location_tag(self, name: str, experiment_id: str) -> None:
-        """Set mlflow.promptRegistryLocation on the active experiment for 3-part UC prompt names.
+    def _set_prompt_registry_location_tag(self, name: str) -> None:
+        """Set mlflow.promptRegistryLocation on the active experiment for UC-backed prompts.
 
-        This causes the experiment's Prompts tab to be pre-populated with prompts from the
-        catalog.schema where the prompt was registered.  Emits a warning on failure; never raises.
+        Called only from the Unity Catalog branch of register_prompt. Pre-populates the
+        experiment Prompts tab so useSearchPrompts / listRegisteredPromptsViaUC (both gated
+        on this tag) can list prompts without any manual setup by the caller.
+
+        The experiment ID and tag write are resolved inside this method so that any failure
+        (including a missing/unreachable tracking server) is swallowed and never breaks
+        registration. The tag is written via this client's tracking store, which is the same
+        store the fluent context targets when the caller uses the default MlflowClient(); in
+        the rare case of a cross-server client the write may target a different server, but
+        the failure is benign (the tag goes to the wrong server and the try/except swallows
+        the error).
         """
         try:
             parts = name.split(".")
             if len(parts) != 3:
                 return
             catalog, schema, _ = parts
+            # Import here to avoid circular import. Resolve the experiment id inside the
+            # try/except so that any lookup failure is swallowed (best-effort).
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not experiment_id:
+                return
             self.set_experiment_tag(
                 experiment_id,
                 "mlflow.promptRegistryLocation",
@@ -892,8 +902,7 @@ class MlflowClient:
             )
         except Exception as e:
             _logger.warning(
-                "Failed to set mlflow.promptRegistryLocation tag on experiment %s: %s",
-                experiment_id,
+                "Failed to set mlflow.promptRegistryLocation tag: %s",
                 e,
             )
 
