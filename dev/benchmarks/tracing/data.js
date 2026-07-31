@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785471971451,
+  "lastUpdate": 1785484427077,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -17765,6 +17765,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.126663800005417,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "qian.yucheng@gmail.com",
+            "name": "Yucheng Qian",
+            "username": "qyc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b5384c4a45c2f4bab14de66a2b9b98b053b8977",
+          "message": "Skip `env_pack` on ARM client images (#24762)\n\nSigned-off-by: Yucheng Qian <yucheng.qian@databricks.com>\nCo-authored-by: Yucheng Qian <yucheng.qian@databricks.com>",
+          "timestamp": "2026-07-31T07:49:27Z",
+          "tree_id": "4caf9e4a8e22fdca5ceb51f9510049cfea0e4e99",
+          "url": "https://github.com/mlflow/mlflow/commit/6b5384c4a45c2f4bab14de66a2b9b98b053b8977"
+        },
+        "date": 1785484425537,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.51141095000446,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.649045705886277,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 25.104489916668626,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 28.392610139999306,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 26.55441205454281,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.370391000004474,
             "unit": "ms"
           }
         ]
