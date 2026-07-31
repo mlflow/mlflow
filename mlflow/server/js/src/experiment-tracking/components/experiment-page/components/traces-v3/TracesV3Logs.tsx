@@ -96,6 +96,8 @@ import {
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
+import { listScheduledScorers } from '../../../../pages/experiment-scorers/api';
+import { useQuery } from '@databricks/web-shared/query-client';
 
 const JudgeContextProvider = ({
   children,
@@ -233,6 +235,30 @@ const TracesV3LogsImpl = React.memo(
 
     const getTrace = getTraceV3;
 
+    // Fetch scorer descriptions so custom-code scorer tooltips show the user-provided description
+    // rather than the generic "This assessment is produced by a custom metric." fallback.
+    // Uses singleExperimentId because scorer registry is per-experiment.
+    const { data: scorersListData } = useQuery({
+      queryKey: ['mlflow', 'scorer-descriptions', singleExperimentId],
+      queryFn: () => listScheduledScorers(singleExperimentId!),
+      staleTime: 5 * 60 * 1000,
+      enabled: Boolean(singleExperimentId),
+    });
+    const scorerDescriptionsByName = useMemo<Record<string, string>>(() => {
+      const map: Record<string, string> = {};
+      for (const scorer of scorersListData?.scorers ?? []) {
+        try {
+          const parsed = JSON.parse(scorer.serialized_scorer);
+          if (parsed.description) {
+            map[scorer.scorer_name] = parsed.description;
+          }
+        } catch {
+          // ignore malformed serialized_scorer entries
+        }
+      }
+      return map;
+    }, [scorersListData]);
+
     // Get metadata
     const {
       assessmentInfos,
@@ -248,6 +274,7 @@ const TracesV3LogsImpl = React.memo(
       timeRange,
       filterByLoggedModelId: loggedModelId,
       disabled: isQueryDisabled,
+      scorerDescriptionsByName,
     });
 
     // Setup table states
