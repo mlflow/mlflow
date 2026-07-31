@@ -4045,46 +4045,50 @@ def test_register_prompt_no_ui_link_logged_when_workspace_url_none(tracking_uri,
 
 
 def test_register_prompt_sets_experiment_tag_for_uc_name(tracking_uri):
-    """D3 (OSS path): After register_prompt with a 3-part UC-style name inside an active
-    experiment, the experiment tag mlflow.promptRegistryLocation is set to 'catalog.schema'."""
+    """D3 (OSS path): After register_prompt with a 3-part UC-style name when an experiment
+    is active via set_experiment(), the experiment tag mlflow.promptRegistryLocation is set
+    to 'catalog.schema'.  Mirrors the real scenario: user calls set_experiment() then
+    register_prompt() — _get_experiment_id() resolves the experiment without an active_run
+    fallback."""
     import threading
 
+    # set_experiment() sets _active_experiment_id so _get_experiment_id() returns it
+    experiment = mlflow.set_experiment("test_d3_experiment")
+    experiment_id = experiment.experiment_id
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test_d3_experiment")
 
     with mock.patch(
         "mlflow.tracking.client.get_workspace_url",
         return_value=None,
     ):
-        with mlflow.start_run(experiment_id=experiment_id):
-            client.register_prompt(
-                name="catalog.schema.my_prompt",
-                template="Answer: {{question}}",
-            )
+        client.register_prompt(
+            name="catalog.schema.my_prompt",
+            template="Answer: {{question}}",
+        )
 
-    # Wait for any background threads from linking
+    # Wait for any background threads from _link_prompt_to_experiment
     for t in threading.enumerate():
         if t.name.startswith("link_prompt_to_experiment_thread"):
             t.join(timeout=5.0)
 
-    experiment = client.get_experiment(experiment_id)
-    assert experiment.tags.get("mlflow.promptRegistryLocation") == "catalog.schema"
+    fetched = client.get_experiment(experiment_id)
+    assert fetched.tags.get("mlflow.promptRegistryLocation") == "catalog.schema"
 
 
 def test_register_prompt_no_experiment_tag_for_non_uc_name(tracking_uri):
     """D3: For a plain (non-3-part) prompt name, no promptRegistryLocation tag should be set."""
+    experiment = mlflow.set_experiment("test_d3_plain_name")
+    experiment_id = experiment.experiment_id
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test_d3_plain_name")
 
     with mock.patch(
         "mlflow.tracking.client.get_workspace_url",
         return_value=None,
     ):
-        with mlflow.start_run(experiment_id=experiment_id):
-            client.register_prompt(
-                name="plain_prompt_name",
-                template="Hello {{name}}",
-            )
+        client.register_prompt(
+            name="plain_prompt_name",
+            template="Hello {{name}}",
+        )
 
-    experiment = client.get_experiment(experiment_id)
-    assert "mlflow.promptRegistryLocation" not in (experiment.tags or {})
+    fetched = client.get_experiment(experiment_id)
+    assert "mlflow.promptRegistryLocation" not in (fetched.tags or {})
