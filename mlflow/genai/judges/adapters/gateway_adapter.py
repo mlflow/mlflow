@@ -464,6 +464,7 @@ class GatewayAdapter(BaseJudgeAdapter):
             inference_params=input_params.inference_params,
             base_url=input_params.base_url,
             extra_headers=input_params.extra_headers,
+            databricks_profile=input_params.databricks_profile,
         )
 
         cleaned_response = _strip_markdown_code_blocks(output.response)
@@ -526,6 +527,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         inference_params: dict[str, Any] | None = None,
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
+        databricks_profile: str | None = None,
     ) -> InvokeOutput:
         """Run the tool-calling loop using the provider infrastructure for HTTP calls."""
         # Lazy import: mlflow.types.llm pulls in numpy via mlflow.types.schema
@@ -534,7 +536,12 @@ class GatewayAdapter(BaseJudgeAdapter):
         # Resolve provider for config, URL, headers, and request/response transformation.
         # Each provider's get_endpoint_url() returns the full endpoint path
         # (e.g. OpenAI: .../chat/completions, Anthropic: .../messages).
-        provider_instance = _get_provider_instance(provider, model_name, base_url=base_url)
+        provider_instance = _get_provider_instance(
+            provider,
+            model_name,
+            base_url=base_url,
+            databricks_profile=databricks_profile,
+        )
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
         # Tag gateway requests so the server can attribute traffic to the judge

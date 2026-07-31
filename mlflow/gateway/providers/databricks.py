@@ -27,12 +27,14 @@ class DatabricksConfig(ConfigModel):
     (PAT, OAuth M2M, Azure CLI, etc.).
 
     Args:
+        profile: Databricks configuration profile name.
         host: Databricks workspace URL (e.g., "https://my-workspace.databricks.com").
         token: Databricks Personal Access Token.
         client_id: OAuth M2M client ID (Service Principal).
         client_secret: OAuth M2M client secret (Service Principal).
     """
 
+    profile: str | None = None
     host: str | None = None
     token: str | None = None
     client_id: str | None = None
@@ -71,9 +73,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
     credential chain: PAT tokens, OAuth M2M (Service Principal), Azure CLI,
     Azure MSI, Google Cloud credentials, Databricks CLI profiles, etc.
 
-    When explicit credentials (host/token/client_id/client_secret) are
-    provided in the config, they are passed to the SDK. Otherwise the SDK
-    resolves credentials from environment variables, ~/.databrickscfg, etc.
+    When explicit configuration (profile/host/token/client_id/client_secret)
+    is provided, it is passed to the SDK. Otherwise the SDK resolves credentials
+    from environment variables, ~/.databrickscfg, etc.
     """
 
     DISPLAY_NAME = "Databricks"

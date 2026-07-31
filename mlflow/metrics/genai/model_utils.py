@@ -317,7 +317,10 @@ class _MlflowGatewayProvider(OpenAIProvider):
 
 
 def _get_provider_instance(
-    provider: str, model: str, base_url: str | None = None
+    provider: str,
+    model: str,
+    base_url: str | None = None,
+    databricks_profile: str | None = None,
 ) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name.
 
@@ -329,6 +332,9 @@ def _get_provider_instance(
             from this URL. Used when the caller already knows the gateway URL
             (e.g. inside the gateway server process where ``MLFLOW_TRACKING_URI``
             points to the backend store, not an HTTP endpoint).
+        databricks_profile: Databricks configuration profile to use for the ``"databricks"``
+            provider. When specified, credentials are resolved from this profile
+            instead of the SDK's ambient default credential chain.
     """
     from mlflow.gateway.config import Provider
 
@@ -493,12 +499,15 @@ def _get_provider_instance(
     elif provider == Provider.DATABRICKS:
         from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
 
-        config = DatabricksConfig(
-            host=os.environ.get("DATABRICKS_HOST"),
-            token=os.environ.get("DATABRICKS_TOKEN"),
-            client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
-            client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
-        )
+        if databricks_profile is not None:
+            config = DatabricksConfig(profile=databricks_profile)
+        else:
+            config = DatabricksConfig(
+                host=os.environ.get("DATABRICKS_HOST"),
+                token=os.environ.get("DATABRICKS_TOKEN"),
+                client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
+                client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
+            )
         return DatabricksProvider(_get_route_config(config))
 
     elif provider == Provider.VERTEX_AI:

@@ -450,6 +450,7 @@ class Scorer(BaseModel):
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
                     inference_params=data.get("inference_params"),
+                    databricks_profile=data.get("databricks_profile"),
                     aggregations=serialized.aggregations,
                 )
             except Exception as e:
