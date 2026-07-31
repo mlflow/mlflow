@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -1368,10 +1369,6 @@ def test_autolog_secondary_patch_failure_emits_warning(caplog):
 
     Regression test for https://github.com/mlflow/mlflow/issues/22032.
     """
-    import logging
-
-    from mlflow.langchain import autolog as autolog_module
-
     # Patch safe_patch so that the first call (BaseCallbackManager.__init__) succeeds
     # but the second block (RunnableSequence.batch / BaseCallbackManager.merge) raises.
     call_count = 0
@@ -1379,16 +1376,23 @@ def test_autolog_secondary_patch_failure_emits_warning(caplog):
     def _safe_patch_side_effect(*args, **kwargs):
         nonlocal call_count
         call_count += 1
-        # First call is the primary __init__ patch — let it succeed silently.
-        # Second call (inside the secondary try block) raises to trigger the warning.
+        # First call is the primary __init__ patch, let it succeed silently.
+        # Later calls (inside the secondary try block) raise to trigger the warning.
         if call_count >= 2:
             raise RuntimeError("simulated patch failure")
 
-    with mock.patch(
-        "mlflow.langchain.autolog.safe_patch", side_effect=_safe_patch_side_effect
-    ):
-        with caplog.at_level(logging.WARNING, logger="mlflow.langchain.autolog"):
-            mlflow.langchain.autolog()
+    # The "mlflow" logger sets propagate=False, so its records never reach caplog's
+    # root handler. Enable propagation for the duration of the test so caplog captures
+    # the warning, then restore the original value.
+    mlflow_logger = logging.getLogger("mlflow")
+    original_propagate = mlflow_logger.propagate
+    mlflow_logger.propagate = True
+    try:
+        with mock.patch("mlflow.langchain.autolog.safe_patch", side_effect=_safe_patch_side_effect):
+            with caplog.at_level(logging.WARNING, logger="mlflow.langchain.autolog"):
+                mlflow.langchain.autolog()
+    finally:
+        mlflow_logger.propagate = original_propagate
 
     warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
     assert any(
