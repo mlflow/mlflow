@@ -887,13 +887,39 @@ def test_is_flavor_supported_returns_true_when_flavor_module_not_installed(monke
 
     original_import = importlib.import_module
 
-    def fake_import(name, *args, **kwargs):
+    def fake_import_absent(name, *args, **kwargs):
         if name == "langchain":
-            raise ModuleNotFoundError(f"No module named '{name}'")
+            raise ModuleNotFoundError(f"No module named '{name}'", name=name)
         return original_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(importlib, "import_module", fake_import)
+    monkeypatch.setattr(importlib, "import_module", fake_import_absent)
 
-    # Must not raise; should gracefully return True (version check not applicable).
+    # Flavor's own module absent -> skip the version check, return True.
     result = is_flavor_supported_for_associated_package_versions("langchain")
     assert result is True
+
+
+def test_is_flavor_supported_reraises_unrelated_module_not_found(monkeypatch):
+    """When the flavor module is installed but a transitive dependency is missing,
+    the ModuleNotFoundError must propagate rather than being silently swallowed.
+
+    This prevents masking genuine installation errors where the flavor itself is
+    present but broken (e.g. one of its own dependencies is missing).
+    """
+    import importlib
+
+    original_import = importlib.import_module
+
+    def fake_import_transitive(name, *args, **kwargs):
+        if name == "langchain":
+            # Simulate: langchain is installed, but importing it fails because
+            # one of its transitive deps ("some_unrelated_dep") is absent.
+            err = ModuleNotFoundError("No module named 'some_unrelated_dep'")
+            err.name = "some_unrelated_dep"
+            raise err
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import_transitive)
+
+    with pytest.raises(ModuleNotFoundError, match="some_unrelated_dep"):
+        is_flavor_supported_for_associated_package_versions("langchain")

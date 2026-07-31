@@ -66,12 +66,17 @@ def is_flavor_supported_for_associated_package_versions(flavor_name, check_max_v
 
     try:
         actual_version = importlib.import_module(module_name).__version__
-    except ModuleNotFoundError:
-        # The flavor's canonical module is not installed. This can happen when only a subset
-        # package is present (e.g. 'langchain-core' without 'langchain'). The actual autolog
-        # machinery may still work via that subset package, so skip the version check and
-        # treat the flavor as supported.
-        return True
+    except ModuleNotFoundError as e:
+        missing = e.name or ""
+        # Skip the version check only when the flavor's own mapping module is absent.
+        # Handles dotted mappings like "google.genai" where e.name may resolve to the
+        # top-level package ("google"), so check both exact match and prefix.
+        # Re-raise for unrelated ModuleNotFoundErrors (e.g. a transitive dependency
+        # missing inside an otherwise-installed flavor module) to avoid masking real
+        # installation errors.
+        if missing == module_name or module_name.startswith(missing + "."):
+            return True
+        raise
     except AttributeError:
         try:
             # NB: Module name is not necessarily the same as the package name. However,
