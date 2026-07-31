@@ -5,6 +5,7 @@ from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import zstandard
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from starlette.testclient import TestClient
@@ -755,6 +756,148 @@ async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
+        await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_zstd_success(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="test-key",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Mock request with zstd compressed body
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-encoding": "zstd"}
+
+    payload = {
+        "messages": [{"role": "user", "content": "Hi"}],
+        "temperature": 0.7,
+        "stream": False,
+    }
+    compressed = zstandard.ZstdCompressor().compress(json.dumps(payload).encode("utf-8"))
+    mock_request.body = AsyncMock(return_value=compressed)
+
+    # Patch the provider creation to return a mocked provider
+    mock_response = chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+
+    with patch(
+        "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+    ) as mock_create_provider:
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        # Call the handler
+        response = await invocations(endpoint.name, mock_request)
+
+        # Verify
+        assert response.id == "test-id"
+        assert response.choices[0].message.content == "Hello!"
+        assert mock_provider.chat.called
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_zstd_invalid_zstd(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="test-key",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Mock request with invalid zstd bytes
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-encoding": "zstd"}
+    mock_request.body = AsyncMock(return_value=b"not a valid zstd payload")
+
+    with pytest.raises(HTTPException, match="Invalid zstd payload") as exc_info:
+        await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_invocations_handler_zstd_invalid_json(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="test-key",
+        secret_value={"api_key": "sk-test"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Mock request with valid zstd but invalid JSON
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-encoding": "zstd"}
+    compressed = zstandard.ZstdCompressor().compress(b"not a valid json payload")
+    mock_request.body = AsyncMock(return_value=compressed)
+
+    with pytest.raises(HTTPException, match="Invalid JSON payload") as exc_info:
         await invocations(endpoint.name, mock_request)
 
     assert exc_info.value.status_code == 400
