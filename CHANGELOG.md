@@ -4,42 +4,29 @@
 
 MLflow 3.15.0 includes several major features and improvements
 
-Features:
+### Major New Features
+
+- **🧩 [MCP Registry](https://mlflow.org/docs/latest/genai/mcp-registry/)**: A centralized catalog for registering, versioning, and sharing Model Context Protocol servers — with semantic-versioned configs, promotable aliases, tags, auto-discovered tools, and ready-made connection instructions for Claude Code and `.mcp.json`. Manage it from the UI, REST API, or Python!
+- **🤖 MLflow Assistant enhancements**: The in-app AI assistant now supports multiple LLM providers (Claude Code, Codex, and OpenAI-compatible/Gateway endpoints) chosen from a single settings page, displays live per-session token usage and estimated cost in the composer, and is easier to set up — `mlflow agent setup` can enable it in one prompt, with API keys stored securely in the Gateway's LLM Connections.
+- **🗂️ Sharable table views**: Save named views of the Runs table and GenAI Traces tab — capturing columns, order, widths, filters, and sort — and share them by URL.
+- **⚡ Proxy-less artifact upload/download via presigned URLs**: Large artifact transfers can now bypass the tracking server and talk directly to cloud storage (e.g. S3) through presigned URLs, cutting server load and timeouts on big files. We fall back to proxied transfer automatically for backward compatibility.
+- **🖼️ Multi-modal attachments in LLM judges**: `{{ trace }}` judges created with `make_judge()` can now _see_ images captured in trace spans via a new `get_span_image` tool, which fetches attachments as base64 data URLs and passes them to multimodal models (Anthropic, Gemini, and OpenAI-compatible via litellm) — enabling evaluation of vision tasks, screenshots, and other visual content.
+
+### Other Assorted Features & Improvements:
 
 - [Tracing / Tracking] Add Pydantic AI 2.x autologging support (#24721, @B-Step62)
 - [Tracing / UI] [3/3] Add action recommendation for low-value issue detection result (#24580, @B-Step62)
-- [Tracing / UI] [4/4] Add saved views to the GenAI Traces tab with a preview-override flow (#24427, @joshuawong-db)
 - [Gateway] Support per-endpoint budget policies in the AI Gateway (#24370, @joelrobin18)
-- [UI] Download UI artifacts directly from cloud storage via presigned URLs (#24613, @henishborad)
-- [UI] Add icon editor, tool auto-discovery modal, and icon fallback system (#24644, @nananosirova)
-- [Tracking / UI] Add access endpoints, RBAC gating, and compare view to MCP Registry UI (#24509, @nananosirova)
-- [UI] Add MCP server detail page with version management, aliases, and tags (#24298, @DaoDaoNoCode)
-- [UI] Add MCP Registry UI foundation: types, API client, page shell, and sidebar entry (#24145, @DaoDaoNoCode)
-- [Scoring] feat: Add native FastAPI artifact upload/download endpoints with streaming support (#24340, @NeriCarcasci)
 - [Evaluation / Gateway] Add `sap-ai-core:/` provider for SAP AI Core Orchestration v2 with `extra_headers` support (#24356, @shivamxtech)
-- [Evaluation / Gateway / Tracing] Let `{{ trace }}` judges see images in traces via `get_span_image` (#24590, @alkispoly-db)
 - [Model Registry] [Model Registry] Migrate UC model artifact download to native temp-creds (#24576, @AknA13)
-- [Gateway / UI] Keep Assistant API keys in LLM Connections (#24581, @B-Step62)
 - [Gateway / Tracing / UI] [2/3] Simplify issue detection start modal (#24579, @B-Step62)
 - [Tracing / UI] [1/3] Run issue detection in the background (#24578, @B-Step62)
-- [Tracking] Add `createPresignedDownloadUrl` tracking-service endpoint for direct artifact downloads (#24435, @henishborad)
-- [Tracking] feat: Advertise presigned artifact capabilities via `/server-info` and auto-detect in Python client (#24341, @NeriCarcasci)
 - [Tracing] [BUG] Fix otel parent context propagation (#24444, @iyashk)
-- [UI] [4/N] Show session token usage and active provider in the Assistant composer (#24507, @joshuawong-db)
 - [Model Registry] [Model Registry] Gate UC model-registry client on native `/api/2.1` endpoints (#24517, @AknA13)
 - [Docs / Tracking] Enable artifacts-only mode with workspaces (#24452, @kramaranya)
-- [UI] [3/N] Support tool call views on MLflow Assistant  (#24235, @joshuawong-db)
-- [UI] [2/4] Add named saved views to the runs page (in the experiment header) (#24360, @joshuawong-db)
-- [UI] Allow remote access to the MLflow Assistant for API-based providers (#24040, @SuperSonnix71)
 - [Tracing / UI] Stop eagerly prefetching full neighboring traces in tracing UI (#24411, @DaoDaoNoCode)
 - [Docs / Gateway] Authenticate OpenAI-protocol coding agents through the RBAC gateway (#24294, @joshuawong-db)
-- [Tracing] Offer to enable the in-app MLflow Assistant during `mlflow agent setup` (#24041, @B-Step62)
 - [Tracing] feat: add search traces to typescript sdk (#23660, @WUMIKE233)
-- [UI] [2/N] Persist Assistant chat across reloads via localStorage (#24202, @joshuawong-db)
-- [Tracking] Enable Client Side Sharing of Experiment View and enable more columns to be shared (#24152, @joshuawong-db)
-- [Tracing] Calculate Token Usage Count for MLflow Assistant (#24099, @joshuawong-db)
-- [UI] Increase discoverability of Assistant (#24056, @joshuawong-db)
-- [] Support column resize on MLflow Experiment Runs table (ML) (#24128, @joshuawong-db)
 - [Prompts / UI] Add per-tool cards with a Monaco JSON editor and Format action to the Playground (#24129, @tanghaoji)
 - [Prompts / UI] Redesign Playground `Tools` settings with an Add-tools entry flow (#24102, @tanghaoji)
 - [] feat: add Cursor model catalog with Auto and Composer 2.5 pricing (#24078, @TomeHirata)
@@ -61,7 +48,7 @@ Bug fixes:
 - [Evaluation / Tracing] Fix issue detection structured output schema (#24674, @B-Step62)
 - [Models] Add `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` guard to `mlflow.statsmodels` flavor (#24686, @B-Step62)
 - [Tracking] Preserve static prefixes in notebook trace renderer URL (#24682, @mprahl)
-- [UI] Fix blank  and  fields in run detail sidebar (#24634, @aishdbx)
+- [UI] Fix blank and fields in run detail sidebar (#24634, @aishdbx)
 - [Models / Scoring] Normalize reasoning content parts for `ChatAgentMessage` in `parse_message` (#24642, @iyashk)
 - [UI] Fix Evaluation Runs `Actions` dropdown remaining clickable when no runs are selected (#24676, @daniellok-db)
 - [UI] Surface truncated assistant streams as errors instead of a silent `done` (#24603, @joshuawong-db)
@@ -73,7 +60,7 @@ Bug fixes:
 - [UI] Show input modal submission errors inline instead of a transient toast in `GenericInputModal` (#23918, @Vedant-Agarwal)
 - [Evaluation / Tracking] Enforce experiment permission on online scoring config endpoints (#24562, @aaronteo-db)
 - [Tracing / Tracking] Propagate contextvars into trace read thread pool workers (#24456, @iyashk)
-- []  Fix Windows path handling in artifact downloads (#20225, @acepace)
+- [] Fix Windows path handling in artifact downloads (#20225, @acepace)
 - [UI] Fix sidebar navigation and workflow type not updating on URL navigation or browser Back/Forward (#22116, @DaoDaoNoCode)
 - [Gateway] Don't send `stream_options` from the Assistant to the gateway (#24552, @joshuawong-db)
 - [Evaluation] Fix MemAlign guideline distillation against Databricks structured-output models (#24547, @veronicalyu320)
