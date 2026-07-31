@@ -43,9 +43,9 @@ LangGraph.js tracing is supported via the OpenTelemetry ingestion. See the [Gett
 </Tabs>
 </TabsWrapper>
 
-:::warning Use `mlflow.langchain.autolog()` for LangGraph, not `mlflow.openai.autolog()`
+:::note
 
-If your LangGraph agent uses an OpenAI model, it is tempting to call `mlflow.openai.autolog()`. That call captures only raw LLM call spans and cannot see LangGraph node boundaries, conditional edges, or graph state. All graph node spans will be missing from the trace. Call `mlflow.langchain.autolog()` instead to capture the full graph execution.
+`mlflow.langchain.autolog()` is what captures the graph itself: node boundaries, conditional edges, and state. Enabling only a per-client autolog such as `mlflow.openai.autolog()` records the raw LLM calls but no graph structure, so the node spans are absent from the trace.
 :::
 
 ## Getting Started
