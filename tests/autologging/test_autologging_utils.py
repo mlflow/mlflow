@@ -870,3 +870,25 @@ def test_get_method_call_arg_value():
     assert get_method_call_arg_value(1, "b", 3, [1, 2], {}) == 2
     assert get_method_call_arg_value(1, "b", 3, [1], {}) == 3
     assert get_method_call_arg_value(1, "b", 3, [1], {"b": 2}) == 2
+
+
+def test_is_flavor_supported_returns_true_when_flavor_module_not_installed(monkeypatch):
+    """When a flavor's mapping module (e.g. 'langchain') is not installed but a subset package
+    (e.g. 'langchain-core') is present, is_flavor_supported_for_associated_package_versions
+    must return True rather than raising ModuleNotFoundError.
+
+    Regression test for: mlflow.langchain.autolog() raises ModuleNotFoundError when only
+    langchain-core + langgraph are installed (not the full 'langchain' package).
+    """
+    import sys
+
+    # Simulate an environment where 'langchain' is not installed but 'langchain_core' is.
+    # We remove 'langchain' from sys.modules so importlib.import_module raises ModuleNotFoundError.
+    original = sys.modules.pop("langchain", None)
+    try:
+        # Must not raise; should gracefully return True (version check not applicable).
+        result = is_flavor_supported_for_associated_package_versions("langchain")
+        assert result is True
+    finally:
+        if original is not None:
+            sys.modules["langchain"] = original

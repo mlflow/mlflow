@@ -66,6 +66,12 @@ def is_flavor_supported_for_associated_package_versions(flavor_name, check_max_v
 
     try:
         actual_version = importlib.import_module(module_name).__version__
+    except ModuleNotFoundError:
+        # The flavor's canonical module is not installed. This can happen when only a subset
+        # package is present (e.g. 'langchain-core' without 'langchain'). The actual autolog
+        # machinery may still work via that subset package, so skip the version check and
+        # treat the flavor as supported.
+        return True
     except AttributeError:
         try:
             # NB: Module name is not necessarily the same as the package name. However,
