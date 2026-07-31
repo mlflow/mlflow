@@ -42,13 +42,16 @@ If you don't have the MLflow server running yet, just follow these simple steps 
 
 :::info[What runs where]
 
-**Your agent code runs locally.** The Python file you write, including any prompts,
-lives on your machine. `mlflow.set_tracking_uri(...)` controls only *where trace data
-is sent*. It does not move your code. When a trace appears in the MLflow UI, you are
-viewing telemetry uploaded from your local process.
+**Your agent code runs locally.** The Python file you write, including your prompt
+templates, lives and executes on your machine. `mlflow.set_tracking_uri(...)` does not
+move or run your code. It sets where the MLflow client sends the trace it records. To
+change agent behavior (prompt wording, model, logic), edit your local files and re-run
+the script. The UI shows the recorded trace. It is not where you edit the agent.
 
-To change agent behavior (prompt wording, model, logic), edit your local files and
-re-run the script.
+The trace holds more than timing. Tracing records the inputs and outputs of the calls it
+wraps, so your prompt text and the model's responses are uploaded to the tracking server
+and shown in the MLflow UI. Treat the tracking server as the destination for that
+content, and do not trace data you cannot send there.
 
 :::
 
