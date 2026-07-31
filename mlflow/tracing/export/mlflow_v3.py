@@ -277,14 +277,33 @@ class MlflowV3SpanExporter(SpanExporter):
                 if trace:
                     add_size_stats_to_trace_metadata(trace)
                     returned_trace_info = self._client.start_trace(trace.info)
-
-                    if self._should_log_spans_to_artifacts(returned_trace_info):
-                        self._client._upload_trace_data(returned_trace_info, trace.data)
                 else:
                     _logger.warning("No trace or trace info provided, unable to export")
             except Exception as e:
                 _logger.warning(
                     f"Failed to send trace to MLflow backend: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+
+            # Upload the trace *data* (spans) in a separate try/except from trace creation above.
+            # The trace row is already created, so if the data upload fails (e.g. missing
+            # artifact-store credentials or a proxy blocking the blob store) the trace still
+            # exists but renders EMPTY in the UI. Surface a specific, actionable warning rather
+            # than the generic "Failed to send trace" message so the empty-trace cause is
+            # discoverable. Mirrors the separate try/except used for attachment upload below.
+            try:
+                if (
+                    trace
+                    and returned_trace_info
+                    and self._should_log_spans_to_artifacts(returned_trace_info)
+                ):
+                    self._client._upload_trace_data(returned_trace_info, trace.data)
+            except Exception as e:
+                _logger.warning(
+                    f"Trace {trace.info.trace_id} was created but its span data failed to upload, "
+                    "so it will appear empty in the MLflow UI. Verify the tracking server's "
+                    "artifact store is reachable and credentialed (e.g. AWS_ACCESS_KEY_ID / "
+                    f"MLFLOW_S3_ENDPOINT_URL, and proxy/NO_PROXY settings): {e}",
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
 

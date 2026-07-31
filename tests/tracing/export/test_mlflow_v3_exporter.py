@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import threading
 import time
@@ -921,3 +922,39 @@ def test_bsp_export_preserves_workspace_context(monkeypatch):
     assert captured_start_trace_workspace[0] == "bsp-workspace"
     assert len(captured_log_spans_workspace) == 1
     assert captured_log_spans_workspace[0] == "bsp-workspace"
+
+
+def test_export_warns_specifically_when_trace_data_upload_fails(monkeypatch, caplog):
+    # start_trace succeeds (the trace row is created) but the span-data upload fails, e.g. the
+    # artifact store's credentials are missing or a proxy blocks it. The trace then renders EMPTY
+    # in the UI, so the exporter should log a specific, actionable warning rather than the generic
+    # "Failed to send trace to MLflow backend" message that conflates the two failure modes.
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    def mock_response(credentials, path, method, trace_json, *args, **kwargs):
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        return pb.StartTraceV3.Response(trace=trace_proto)
+
+    with (
+        mock.patch("mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data",
+            side_effect=RuntimeError("Unable to locate credentials"),
+        ),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+        caplog.at_level(logging.WARNING),
+    ):
+        _predict("hello")
+
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "will appear empty in the MLflow UI" in messages
+    assert "Unable to locate credentials" in messages
+    # the trace row was created successfully, so the generic "failed to send" warning must not fire
+    assert "Failed to send trace to MLflow backend" not in messages
