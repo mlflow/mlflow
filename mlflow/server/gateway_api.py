@@ -14,7 +14,6 @@ import time
 from collections.abc import AsyncIterable, Callable
 from typing import Any
 
-import zstandard
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -115,6 +114,16 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
 
     content_encoding = request.headers.get("content-encoding", "").lower()
     if content_encoding == "zstd":
+        try:
+            import zstandard
+        except ImportError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Received a zstd-encoded request body, but the `zstandard` package "
+                    "is not installed. Install it with: pip install zstandard"
+                ),
+            )
         raw_body = await request.body()
         try:
             raw_body = zstandard.ZstdDecompressor().decompress(raw_body)
