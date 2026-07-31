@@ -83,9 +83,16 @@ export const imagesByRunUuid = (
               if (!file.path) {
                 return acc;
               }
-              const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parseImageFile(
-                file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length),
-              );
+              let parsedImageFile;
+              try {
+                parsedImageFile = parseImageFile(file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length));
+              } catch (e) {
+                // Skip files that don't follow the logged image naming convention, so that a single
+                // unparseable entry doesn't discard the images that did parse
+                Utils.logErrorAndNotifyUser(e);
+                return acc;
+              }
+              const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parsedImageFile;
 
               // Double check extension of image files
               if (extension === IMAGE_FILE_EXTENSION || extension === IMAGE_COMPRESSED_FILE_EXTENSION) {

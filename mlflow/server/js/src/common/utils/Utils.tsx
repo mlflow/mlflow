@@ -1012,8 +1012,10 @@ class Utils {
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
-      // eslint-disable-next-line no-empty
     } else {
+      // Errors we can't render for the user still need to be traceable
+      // eslint-disable-next-line no-console
+      console.error(e);
     }
   }
 
