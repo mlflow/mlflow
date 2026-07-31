@@ -15,13 +15,14 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerKind,
     _extract_scorer_value,
-    scorer_ensemble,
+    make_scorer_ensemble,
 )
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.genai.scorers.ensemble import (
     BUILTIN_ENSEMBLES,
     agg_all,
     agg_any,
+    is_bool_feedback_type,
     is_numeric_feedback_type,
     majority_vote,
     maximum,
@@ -111,6 +112,20 @@ def test_numeric_builtins_reject_non_numeric(fn, values):
         fn(values)
 
 
+@pytest.mark.parametrize("fn", [agg_all, agg_any])
+@pytest.mark.parametrize(
+    "values",
+    [
+        pytest.param(["yes", "no"], id="strings"),
+        pytest.param([1, 2], id="ints_not_bool"),
+        pytest.param([True, 1], id="mixed_bool_int"),
+    ],
+)
+def test_bool_builtins_reject_non_bool(fn, values):
+    with pytest.raises(MlflowException, match="boolean"):
+        fn(values)
+
+
 def test_builtin_registry_maps_names():
     assert BUILTIN_ENSEMBLES["majority_vote"] is majority_vote
     assert BUILTIN_ENSEMBLES["mean"] is mean
@@ -182,7 +197,7 @@ def _num_len(outputs) -> int:
 
 
 def test_ensemble_majority_vote_end_to_end():
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="vote",
         scorers=[_always_true, _always_true, _always_false],
         ensemble_fn="majority_vote",
@@ -194,15 +209,39 @@ def test_ensemble_majority_vote_end_to_end():
 
 def test_ensemble_dispatches_mixed_signatures():
     # _always_true takes outputs; _num_len takes outputs too; use maximum over ints/bools.
-    agg = scorer_ensemble(name="max_agg", scorers=[_num_len], ensemble_fn="maximum")
+    agg = make_scorer_ensemble(name="max_agg", scorers=[_num_len], ensemble_fn="maximum")
     assert agg(outputs="abcd").value == 4
+
+
+def test_ensemble_fn_c_builtin_no_signature():
+    # C builtins like max expose no introspectable signature; the dispatch must not raise and
+    # should default to values-mode (max over the extracted values).
+    agg = make_scorer_ensemble(name="b", scorers=[_num_len, _num_len], ensemble_fn=max)
+    assert agg(outputs="abcd").value == 4
+
+
+def test_ensemble_resilient_to_sub_scorer_failure():
+    @scorer
+    def _boom(outputs) -> bool:
+        raise ValueError("kaboom")
+
+    def tolerant(feedbacks):
+        # One sub-scorer crashed; a feedbacks-mode fn can still produce a result.
+        return True
+
+    agg = make_scorer_ensemble(name="e", scorers=[_always_true, _boom], ensemble_fn=tolerant)
+    fb = agg(outputs="x")
+    assert fb.value is True
+    sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
+    crashed = next(e for e in sub if e["assessment_name"] == "_boom")
+    assert crashed["feedback"]["error"]["error_code"] == "ValueError"
 
 
 def test_ensemble_custom_callable_on_values():
     def spread(values):
         return max(values) - min(values)
 
-    agg = scorer_ensemble(name="spread", scorers=[_num_len, _num_len], ensemble_fn=spread)
+    agg = make_scorer_ensemble(name="spread", scorers=[_num_len, _num_len], ensemble_fn=spread)
     fb = agg(outputs="abc")
     assert fb.value == 0  # both return 3
     assert fb.name == "spread"
@@ -212,31 +251,33 @@ def test_ensemble_feedbacks_mode():
     def count_feedbacks(feedbacks):
         return len(feedbacks)
 
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="count", scorers=[_always_true, _always_false], ensemble_fn=count_feedbacks
     )
     assert agg(outputs="x").value == 2
 
 
 def test_ensemble_rejects_unsupported_value_type():
-    # A scorer returning a non-str/numeric type (dict) is still rejected in values-mode.
+    # A sub-scorer whose Feedback carries a non-str/numeric value (dict) is rejected in
+    # values-mode. The value is wrapped in a Feedback so it survives Scorer.run() validation
+    # and reaches the ensemble's own value-type guard.
     @scorer
-    def _returns_dict(outputs) -> dict[str, str]:
-        return {"key": "val"}
+    def _returns_dict(outputs) -> Feedback:
+        return Feedback(value={"key": "val"})
 
-    agg = scorer_ensemble(name="bad", scorers=[_returns_dict], ensemble_fn="majority_vote")
+    agg = make_scorer_ensemble(name="bad", scorers=[_returns_dict], ensemble_fn="majority_vote")
     with pytest.raises(MlflowException, match="_returns_dict"):
         agg(outputs="x")
 
 
 def test_ensemble_rejects_empty_scorers():
     with pytest.raises(MlflowException, match="at least one"):
-        scorer_ensemble(name="e", scorers=[], ensemble_fn="mean")
+        make_scorer_ensemble(name="e", scorers=[], ensemble_fn="mean")
 
 
 def test_ensemble_rejects_unknown_builtin_name():
     with pytest.raises(MlflowException, match="not a built-in"):
-        scorer_ensemble(name="e", scorers=[_always_true], ensemble_fn="bogus")
+        make_scorer_ensemble(name="e", scorers=[_always_true], ensemble_fn="bogus")
 
 
 def test_ensemble_session_level_derivation_and_mixing():
@@ -244,23 +285,25 @@ def test_ensemble_session_level_derivation_and_mixing():
     def _sess(session) -> bool:
         return len(session) > 0
 
-    session_agg = scorer_ensemble(name="s", scorers=[_sess], ensemble_fn="agg_all")
+    session_agg = make_scorer_ensemble(name="s", scorers=[_sess], ensemble_fn="agg_all")
     assert session_agg.is_session_level_scorer is True
 
-    single_agg = scorer_ensemble(name="t", scorers=[_always_true], ensemble_fn="agg_all")
+    single_agg = make_scorer_ensemble(name="t", scorers=[_always_true], ensemble_fn="agg_all")
     assert single_agg.is_session_level_scorer is False
 
     with pytest.raises(MlflowException, match="same level"):
-        scorer_ensemble(name="m", scorers=[_sess, _always_true], ensemble_fn="agg_all")
+        make_scorer_ensemble(name="m", scorers=[_sess, _always_true], ensemble_fn="agg_all")
 
 
 def test_ensemble_records_builtin_name_for_callable():
-    agg = scorer_ensemble(name="v", scorers=[_always_true], ensemble_fn=majority_vote)
+    agg = make_scorer_ensemble(name="v", scorers=[_always_true], ensemble_fn=majority_vote)
     assert agg._ensemble_fn_name == "majority_vote"
 
 
 def test_ensemble_custom_callable_has_no_builtin_name():
-    agg = scorer_ensemble(name="c", scorers=[_always_true], ensemble_fn=lambda values: max(values))
+    agg = make_scorer_ensemble(
+        name="c", scorers=[_always_true], ensemble_fn=lambda values: max(values)
+    )
     assert agg._ensemble_fn_name is None
 
 
@@ -277,7 +320,7 @@ def test_ensemble_serialization_produces_ensemble_scorer_data():
     SerializedScorer mutual-exclusion validator.
     """
     # Safety declares Literal["yes","no"]; use majority_vote (categorical-friendly).
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="agg_safety",
         scorers=[Safety()],
         ensemble_fn="majority_vote",
@@ -293,7 +336,7 @@ def test_ensemble_serialization_round_trip():
     OSS decorator-reconstruction block.
     """
     # Safety declares Literal["yes","no"]; use majority_vote (categorical-friendly).
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="agg_safety",
         scorers=[Safety()],
         ensemble_fn="majority_vote",
@@ -311,7 +354,7 @@ def test_ensemble_serialization_round_trip():
 
 
 def test_ensemble_serialization_preserves_aggregations():
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="agg_safety",
         scorers=[Safety()],
         ensemble_fn="majority_vote",
@@ -324,13 +367,13 @@ def test_ensemble_serialization_preserves_aggregations():
 
 
 def test_ensemble_custom_callable_not_serializable():
-    agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: sum(values))
+    agg = make_scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: sum(values))
     with pytest.raises(MlflowException, match="custom ensemble function"):
         agg.model_dump()
 
 
 def test_public_exports():
-    assert mlflow.genai.scorer_ensemble is scorer_ensemble
+    assert mlflow.genai.make_scorer_ensemble is make_scorer_ensemble
     for name, fn in [
         ("majority_vote", majority_vote),
         ("mean", mean),
@@ -338,9 +381,23 @@ def test_public_exports():
         ("maximum", maximum),
         ("agg_all", agg_all),
         ("agg_any", agg_any),
-        ("scorer_ensemble", scorer_ensemble),
+        ("make_scorer_ensemble", make_scorer_ensemble),
     ]:
         assert getattr(_public_scorers, name) is fn
+
+
+def test_ensemble_check_can_be_registered_passes_for_builtin_sub_scorers():
+    # An ensemble of builtin sub-scorers is registerable: _check_can_be_registered must not raise.
+    agg = make_scorer_ensemble(name="ok", scorers=[Safety()], ensemble_fn="majority_vote")
+    agg._check_can_be_registered()
+
+
+def test_ensemble_check_can_be_registered_rejects_decorator_sub_scorer_non_databricks():
+    # A decorator sub-scorer is only registerable under a Databricks tracking URI. The ensemble
+    # must be rejected with the same rule (recursion into sub-scorers), not silently allowed.
+    agg = make_scorer_ensemble(name="e", scorers=[_always_true], ensemble_fn="agg_all")
+    with pytest.raises(MlflowException, match="Custom scorer registration"):
+        agg._check_can_be_registered()
 
 
 def test_ensemble_in_evaluate(is_in_databricks):
@@ -348,7 +405,7 @@ def test_ensemble_in_evaluate(is_in_databricks):
         "inputs": [{"q": "a"}, {"q": "b"}],
         "outputs": ["yes", "no"],
     })
-    agg = scorer_ensemble(
+    agg = make_scorer_ensemble(
         name="ensemble",
         scorers=[_always_true, _always_false],
         ensemble_fn="agg_any",
@@ -370,13 +427,15 @@ def _label(outputs) -> str:
 
 def test_ensemble_majority_vote_categorical():
     # majority_vote now handles categorical string values.
-    agg = scorer_ensemble(name="cat", scorers=[_label, _label, _label], ensemble_fn="majority_vote")
+    agg = make_scorer_ensemble(
+        name="cat", scorers=[_label, _label, _label], ensemble_fn="majority_vote"
+    )
     assert agg(outputs="yes").value == "yes"
 
 
 def test_mean_rejects_categorical_values():
     # mean must raise for string values at call time, not silently crash in statistics.mean.
-    agg = scorer_ensemble(name="m", scorers=[_label], ensemble_fn="mean")
+    agg = make_scorer_ensemble(name="m", scorers=[_label], ensemble_fn="mean")
     with pytest.raises(MlflowException, match="numeric"):
         agg(outputs="0.5")
 
@@ -386,7 +445,7 @@ def test_feedbacks_mode_allows_non_numeric():
     def first_value(feedbacks):
         return feedbacks[0].value
 
-    agg = scorer_ensemble(name="f", scorers=[_label], ensemble_fn=first_value)
+    agg = make_scorer_ensemble(name="f", scorers=[_label], ensemble_fn=first_value)
     assert agg(outputs="hello").value == "hello"
 
 
@@ -399,7 +458,7 @@ def test_ensemble_feedbacks_mode_receives_feedback_objects():
         return feedbacks[0].value
 
     # _num_len returns a bare int; must be wrapped into a Feedback in feedbacks-mode.
-    agg = scorer_ensemble(name="fb", scorers=[_num_len], ensemble_fn=inspect_fn)
+    agg = make_scorer_ensemble(name="fb", scorers=[_num_len], ensemble_fn=inspect_fn)
     fb = agg(outputs="abcd")
     assert captured["types"] == ["Feedback"]
     assert captured["names"] == ["_num_len"]
@@ -409,12 +468,12 @@ def test_ensemble_feedbacks_mode_receives_feedback_objects():
 def test_numeric_builtin_rejects_literal_judge_upfront():
     # Safety declares feedback_value_type == Literal["yes","no"]; mean must reject it early.
     with pytest.raises(MlflowException, match="numeric"):
-        scorer_ensemble(name="x", scorers=[Safety()], ensemble_fn="mean")
+        make_scorer_ensemble(name="x", scorers=[Safety()], ensemble_fn="mean")
 
 
 def test_majority_vote_accepts_literal_judge():
     # majority_vote is categorical-friendly; Safety() constructs fine.
-    agg = scorer_ensemble(name="ok", scorers=[Safety()], ensemble_fn="majority_vote")
+    agg = make_scorer_ensemble(name="ok", scorers=[Safety()], ensemble_fn="majority_vote")
     assert agg.name == "ok"
 
 
@@ -434,6 +493,37 @@ def test_is_numeric_feedback_type(feedback_type, expected):
     assert is_numeric_feedback_type(feedback_type) is expected
 
 
+@pytest.mark.parametrize(
+    ("feedback_type", "expected"),
+    [
+        pytest.param(bool, True, id="bool"),
+        pytest.param(Literal[True, False], True, id="literal_bool"),
+        pytest.param(int, False, id="int"),
+        pytest.param(float, False, id="float"),
+        pytest.param(Literal[1, 2, 3], False, id="literal_numeric"),
+        pytest.param(Literal["yes", "no"], False, id="literal_str"),
+        pytest.param(str, False, id="str"),
+        pytest.param(None, False, id="none"),
+    ],
+)
+def test_is_bool_feedback_type(feedback_type, expected):
+    assert is_bool_feedback_type(feedback_type) is expected
+
+
+def test_bool_builtin_rejects_literal_judge_upfront():
+    # Safety declares feedback_value_type == Literal["yes","no"]; agg_all must reject it early.
+    with pytest.raises(MlflowException, match="boolean"):
+        make_scorer_ensemble(name="x", scorers=[Safety()], ensemble_fn="agg_all")
+
+
+def test_agg_all_at_call_time_rejects_non_bool_values():
+    # A decorator scorer declares no feedback_value_type, so the up-front check is skipped;
+    # agg_all still rejects the non-bool string value ("yes") at call time.
+    agg = make_scorer_ensemble(name="a", scorers=[_label], ensemble_fn="agg_all")
+    with pytest.raises(MlflowException, match="boolean"):
+        agg(outputs="yes")
+
+
 # ---------------------------------------------------------------------------
 # Sub-scorer provenance in ensemble Feedback.metadata
 # ---------------------------------------------------------------------------
@@ -448,7 +538,7 @@ def test_ensemble_preserves_sub_feedbacks_in_metadata():
     def _no(outputs) -> Feedback:
         return Feedback(value=False, rationale="found an issue")
 
-    agg = scorer_ensemble(name="e", scorers=[_yes, _no], ensemble_fn="majority_vote")
+    agg = make_scorer_ensemble(name="e", scorers=[_yes, _no], ensemble_fn="majority_vote")
     fb = agg(outputs="x")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     assert len(sub) == 2
@@ -468,7 +558,7 @@ def test_ensemble_metadata_captures_sub_feedback_source():
             ),
         )
 
-    agg = scorer_ensemble(name="e", scorers=[_judge], ensemble_fn="agg_all")
+    agg = make_scorer_ensemble(name="e", scorers=[_judge], ensemble_fn="agg_all")
     fb = agg(outputs="x")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     assert sub[0]["source"]["source_type"] == "LLM_JUDGE"
@@ -476,7 +566,7 @@ def test_ensemble_metadata_captures_sub_feedback_source():
 
 
 def test_ensemble_metadata_normalizes_bare_value():
-    agg = scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: max(values))
+    agg = make_scorer_ensemble(name="c", scorers=[_num_len], ensemble_fn=lambda values: max(values))
     fb = agg(outputs="abcd")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     assert sub[0]["assessment_name"] == "_num_len"
@@ -490,14 +580,14 @@ def test_ensemble_fn_metadata_wins_on_collision():
     def fn_with_meta(feedbacks):
         return Feedback(value=True, metadata={key: "override"})
 
-    agg = scorer_ensemble(name="m", scorers=[_always_true], ensemble_fn=fn_with_meta)
+    agg = make_scorer_ensemble(name="m", scorers=[_always_true], ensemble_fn=fn_with_meta)
     fb = agg(outputs="x")
     # The ensemble_fn's own metadata wins on key collision.
     assert fb.metadata[key] == "override"
 
 
 def test_ensemble_metadata_is_string_valued():
-    agg = scorer_ensemble(name="s", scorers=[_always_true], ensemble_fn="agg_all")
+    agg = make_scorer_ensemble(name="s", scorers=[_always_true], ensemble_fn="agg_all")
     fb = agg(outputs="x")
     for v in fb.metadata.values():
         assert isinstance(v, str)
@@ -511,7 +601,7 @@ def test_ensemble_metadata_captures_error_feedback():
     def tolerant(feedbacks):
         return True
 
-    agg = scorer_ensemble(name="e", scorers=[_errs], ensemble_fn=tolerant)
+    agg = make_scorer_ensemble(name="e", scorers=[_errs], ensemble_fn=tolerant)
     fb = agg(outputs="x")
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     assert sub[0]["assessment_name"] == "_errs"

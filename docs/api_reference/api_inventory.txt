@@ -1023,6 +1023,7 @@ mlflow.genai.labeling.labeling.ReviewApp
 mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
+mlflow.genai.make_scorer_ensemble
 mlflow.genai.optimize.BasePromptOptimizer
 mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.GepaPromptOptimizer
@@ -1080,7 +1081,6 @@ mlflow.genai.review_queues.set_review_queue_item_status
 mlflow.genai.review_queues.update_review_queue
 mlflow.genai.scheduled_scorers.ScorerScheduleConfig
 mlflow.genai.scorer
-mlflow.genai.scorer_ensemble
 mlflow.genai.scorers.Completeness
 mlflow.genai.scorers.Completeness.get_input_fields
 mlflow.genai.scorers.Completeness.model_post_init
@@ -1290,6 +1290,7 @@ mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
 mlflow.genai.scorers.list_scorers
 mlflow.genai.scorers.majority_vote
+mlflow.genai.scorers.make_scorer_ensemble
 mlflow.genai.scorers.maximum
 mlflow.genai.scorers.mean
 mlflow.genai.scorers.minimum
@@ -1396,7 +1397,6 @@ mlflow.genai.scorers.ragas.scorers.rag_metrics.NonLLMContextPrecisionWithReferen
 mlflow.genai.scorers.ragas.scorers.rag_metrics.NonLLMContextRecall
 mlflow.genai.scorers.ragas.scorers.rag_metrics.SemanticSimilarity
 mlflow.genai.scorers.scorer
-mlflow.genai.scorers.scorer_ensemble
 mlflow.genai.scorers.trulens.AnswerRelevance
 mlflow.genai.scorers.trulens.AnswerRelevance.model_post_init
 mlflow.genai.scorers.trulens.Coherence

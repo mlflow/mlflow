@@ -1,7 +1,7 @@
-"""Built-in ensemble functions for ``scorer_ensemble``.
+"""Built-in ensemble functions for ``make_scorer_ensemble``.
 
 Each function receives the list of per-sub-scorer values and returns a single
-``Feedback``. The parameter is named ``values`` on purpose: ``scorer_ensemble``
+``Feedback``. The parameter is named ``values`` on purpose: ``make_scorer_ensemble``
 introspects the parameter name to decide whether to pass raw values or full
 ``Feedback`` objects (a parameter named ``feedbacks`` opts into the latter).
 """
@@ -14,6 +14,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 
 NUMERIC_ENSEMBLES: set[str] = {"mean", "minimum", "maximum"}
+BOOL_ENSEMBLES: set[str] = {"agg_all", "agg_any"}
 
 
 def _require_numeric(values: list[Any]) -> None:
@@ -26,6 +27,31 @@ def _require_numeric(values: list[Any]) -> None:
                 f"This ensemble function requires numeric sub-scorer values, but got a value of "
                 f"type {type(v).__name__}. Use majority_vote for categorical values."
             )
+
+
+def _require_bool(values: list[Any]) -> None:
+    # agg_all/agg_any are boolean reducers; reject non-bool values (e.g. "no"/"yes" strings,
+    # which are all truthy) rather than silently returning a misleading result.
+    for v in values:
+        if not isinstance(v, bool):
+            raise MlflowException.invalid_parameter_value(
+                f"This ensemble function requires boolean sub-scorer values, but got a value "
+                f"of type {type(v).__name__}. Use majority_vote for categorical values."
+            )
+
+
+def is_bool_feedback_type(feedback_value_type) -> bool:
+    """Whether a declared ``feedback_value_type`` denotes a boolean value.
+
+    Used to validate sub-scorers up front against boolean built-ins (agg_all/agg_any). A
+    ``Literal[...]`` is boolean only when every member is a bool. Unknown/unannotated types
+    return False (caller treats them as non-bool).
+    """
+    if feedback_value_type is bool:
+        return True
+    if get_origin(feedback_value_type) is Literal:
+        return all(isinstance(arg, bool) for arg in get_args(feedback_value_type))
+    return False
 
 
 def is_numeric_feedback_type(feedback_value_type) -> bool:
@@ -61,7 +87,10 @@ def majority_vote(values: list[Any]) -> Feedback:
     _require_complete(values)
     counts = Counter(values)
     top = max(counts.values())
-    # Deterministic tie-break: lexicographic order of the string form of the value.
+    # Deterministic tie-break: lexicographic order of the string form of each tied value.
+    # This is intended for categorical/bool values. For numerics the string ordering is NOT
+    # numeric ordering (e.g. str(10) < str(9), and False sorts before True), so majority_vote
+    # is not appropriate for continuous numerics -- use mean/minimum/maximum for those.
     winner = min((v for v, c in counts.items() if c == top), key=lambda v: str(v))
     return Feedback(
         value=winner,
@@ -92,12 +121,14 @@ def maximum(values: list[Any]) -> Feedback:
 
 def agg_all(values: list[Any]) -> Feedback:
     _require_complete(values)
+    _require_bool(values)
     result = all(values)
     return Feedback(value=result, rationale=f"all() over {len(values)} scorers = {result}")
 
 
 def agg_any(values: list[Any]) -> Feedback:
     _require_complete(values)
+    _require_bool(values)
     result = any(values)
     return Feedback(value=result, rationale=f"any() over {len(values)} scorers = {result}")
 
