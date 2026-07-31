@@ -38,15 +38,15 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         from databricks.sdk.config import Config
 
         super().__init__(artifact_uri, tracking_uri, registry_uri)
-        supports_large_file_uploads = _sdk_supports_large_file_uploads()
+        self._supports_large_file_uploads = _sdk_supports_large_file_uploads()
         wc = WorkspaceClient(
             config=(
                 Config(enable_experimental_files_api_client=True)
-                if supports_large_file_uploads
+                if self._supports_large_file_uploads
                 else None
             )
         )
-        if supports_large_file_uploads:
+        if self._supports_large_file_uploads:
             # `Config` has a `multipart_upload_min_stream_size` parameter but the constructor
             # doesn't set it. This is a bug in databricks-sdk.
             # >>> from databricks.sdk.config import Config
@@ -78,7 +78,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
         is_large_file = Path(local_file).stat().st_size > 5 * (1024**3)
-        if is_large_file and not _sdk_supports_large_file_uploads():
+        if is_large_file and not self._supports_large_file_uploads:
             raise MlflowException.invalid_parameter_value(
                 "The installed databricks-sdk version does not support uploading files larger "
                 "than 5GB. Please upgrade the databricks-sdk package to version >= 0.45.0."

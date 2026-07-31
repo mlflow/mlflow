@@ -137,9 +137,10 @@ class DspyModelWrapper(PythonModel):
     def _validate_streaming(
         self,
     ):
-        if (dspy_version := get_installed_version("dspy")) is not None and dspy_version <= Version(
-            "2.6.23"
-        ):
+        # This is a hard gate: block streaming unless we can confirm dspy >= 2.6.24. An
+        # undeterminable version (None) is not safer than an old one, so refuse it too.
+        dspy_version = get_installed_version("dspy")
+        if dspy_version is None or dspy_version <= Version("2.6.23"):
             raise MlflowException(
                 "Streaming API is only supported in dspy 2.6.24 or later. "
                 "Please upgrade your dspy version."
