@@ -8,7 +8,6 @@ from string import Formatter
 from typing import Any
 
 import yaml
-from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -24,6 +23,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils import get_installed_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -118,7 +118,8 @@ def _get_model_name(model):
     if isinstance(model, str):
         return model
 
-    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1 and isinstance(model, openai.Model):
         return model.id
 
     raise mlflow.MlflowException(
@@ -306,7 +307,8 @@ def save_model(
             path="model",
         )
     """
-    if Version(_get_openai_package_version()).major < 1:
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1:
         raise MlflowException("Only openai>=1.0 is supported.")
 
     import numpy as np
