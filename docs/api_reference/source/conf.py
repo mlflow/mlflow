@@ -291,11 +291,16 @@ latex_documents = [
     (master_doc, "MLflow.tex", "MLflow Documentation", "Databricks", "manual"),
 ]
 
-# Mock torch imports as per suggestion in
+# Mock heavy/native imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
+# TensorFlow/Keras load native libraries on import, which segfaults the Sphinx
+# process during autodoc; mock them like torch so their flavors document without
+# importing the real package.
 autodoc_mock_imports = [
     "torch",
     "pytorch_lightning",
+    "tensorflow",
+    "keras",
     "langchain_core",
     "langgraph",
     "langchain_community",
