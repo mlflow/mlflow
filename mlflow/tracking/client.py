@@ -761,12 +761,9 @@ class MlflowClient:
             prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
             self._log_prompt_ui_link(name)
             # Import here to avoid circular import
-            from mlflow.tracking.fluent import _get_experiment_id, active_run
+            from mlflow.tracking.fluent import _get_experiment_id
 
-            uc_experiment_id = _get_experiment_id()
-            if (ar := active_run()) and ar.info.experiment_id:
-                uc_experiment_id = ar.info.experiment_id
-            if uc_experiment_id:
+            if uc_experiment_id := _get_experiment_id():
                 self._set_prompt_registry_location_tag(name, uc_experiment_id)
             return prompt_version
 
@@ -845,14 +842,9 @@ class MlflowClient:
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
         # Import here to avoid circular import
-        from mlflow.tracking.fluent import _get_experiment_id, active_run
+        from mlflow.tracking.fluent import _get_experiment_id
 
-        experiment_id = _get_experiment_id()
-        # Prefer the active run's experiment when one is set directly via start_run()
-        if (ar := active_run()) and ar.info.experiment_id:
-            experiment_id = ar.info.experiment_id
-
-        if experiment_id:
+        if experiment_id := _get_experiment_id():
             self._link_prompt_to_experiment(prompt_version, experiment_id)
             self._set_prompt_registry_location_tag(name, experiment_id)
 
