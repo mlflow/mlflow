@@ -2,6 +2,7 @@ import type { RunEntity, RunEntityWithChildren } from '../../types';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
+import { getParentRunTagName } from '../../actions';
 
 export type ExperimentEvaluationRunsGroupData = {
   groupKey: string;
@@ -97,4 +98,68 @@ export const getGroupByRunsData = (runs: RunEntity[], groupBy: RunsGroupByConfig
   });
 
   return runsWithGroupValues;
+};
+
+/**
+ * Nests child runs under their parent runs.
+ * Returns array with only top-level runs, children nested in 'children' property.
+ */
+export const getNestedRuns = (runs: RunEntity[]): RunEntityWithChildren[] => {
+  const parentToChildren: Record<string, RunEntity[]> = {};
+  const existingRunIds = new Set<string>();
+  const runToParentId: Record<string, string | null> = {};
+
+  runs.forEach((run) => {
+    const runId = run.info.runUuid;
+    existingRunIds.add(runId);
+
+    const parentId = run.data?.tags?.find((t) => t.key === getParentRunTagName())?.value ?? null;
+    runToParentId[runId] = parentId;
+
+    if (parentId) {
+      if (!parentToChildren[parentId]) {
+        parentToChildren[parentId] = [];
+      }
+      parentToChildren[parentId].push(run);
+    }
+  });
+
+  const visited = new Set<string>();
+
+  const nestChildren = (run: RunEntity): RunEntityWithChildren => {
+    const runUuid = run.info.runUuid;
+
+    if (visited.has(runUuid)) {
+      return run;
+    }
+
+    visited.add(runUuid);
+
+    const children = parentToChildren[runUuid];
+    if (!children) {
+      return run;
+    }
+    return {
+      ...run,
+      children: children.map((child) => nestChildren(child)),
+    };
+  };
+
+  /**
+   * Find runs that are either:
+   * 1. Top-level runs (no parent tag)
+   * 2. Orphaned children (have parent tag, but parent is filtered out by searchFilter)
+   */
+  const rootRuns = runs.filter((run) => {
+    const parentId = runToParentId[run.info.runUuid];
+
+    if (!parentId) {
+      return true; // Top-level run (no parent)
+    }
+
+    // Orphaned child (parent filtered out)
+    return !existingRunIds.has(parentId);
+  });
+
+  return rootRuns.map((run) => nestChildren(run));
 };
