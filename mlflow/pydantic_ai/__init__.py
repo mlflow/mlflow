@@ -1,5 +1,4 @@
 import functools
-import importlib.metadata
 import inspect
 import logging
 import typing
@@ -16,6 +15,7 @@ from mlflow.pydantic_ai.autolog import (
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
@@ -127,10 +127,7 @@ def _has_instrumentation_capability() -> bool:
 
 
 def _get_pydantic_ai_version() -> Version | None:
-    try:
-        return Version(importlib.metadata.version("pydantic-ai"))
-    except importlib.metadata.PackageNotFoundError:
-        return None
+    return get_installed_version("pydantic-ai")
 
 
 @autologging_integration(FLAVOR_NAME)
