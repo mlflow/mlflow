@@ -134,6 +134,7 @@ from mlflow.utils.annotations import deprecated, deprecated_parameter, experimen
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
@@ -757,7 +758,17 @@ class MlflowClient:
                 model_config=model_config,
             )
 
-            return registry_client.get_prompt_version(name, str(prompt_version.version))
+            prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
+            self._log_prompt_ui_link(name)
+            # Import here to avoid circular import
+            from mlflow.tracking.fluent import _get_experiment_id, active_run
+
+            uc_experiment_id = _get_experiment_id()
+            if (ar := active_run()) and ar.info.experiment_id:
+                uc_experiment_id = ar.info.experiment_id
+            if uc_experiment_id:
+                self._set_prompt_registry_location_tag(name, uc_experiment_id)
+            return prompt_version
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -834,12 +845,65 @@ class MlflowClient:
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
         # Import here to avoid circular import
-        from mlflow.tracking.fluent import _get_experiment_id
+        from mlflow.tracking.fluent import _get_experiment_id, active_run
 
-        if experiment_id := _get_experiment_id():
+        experiment_id = _get_experiment_id()
+        # Prefer the active run's experiment when one is set directly via start_run()
+        if (ar := active_run()) and ar.info.experiment_id:
+            experiment_id = ar.info.experiment_id
+
+        if experiment_id:
             self._link_prompt_to_experiment(prompt_version, experiment_id)
+            self._set_prompt_registry_location_tag(name, experiment_id)
 
+        self._log_prompt_ui_link(name)
         return prompt_version
+
+    def _log_prompt_ui_link(self, name: str) -> None:
+        """Log a Catalog Explorer URL for the registered prompt when running on Databricks.
+
+        Emits an informational message only; never raises.
+        """
+        try:
+            workspace_url = get_workspace_url()
+            if not workspace_url:
+                return
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            catalog, schema, prompt_name = parts
+            _logger.info(
+                "Prompt registered. View in Catalog Explorer: %s/explore/data/%s/%s/%s",
+                workspace_url.rstrip("/"),
+                catalog,
+                schema,
+                prompt_name,
+            )
+        except Exception:
+            pass  # never break registration
+
+    def _set_prompt_registry_location_tag(self, name: str, experiment_id: str) -> None:
+        """Set mlflow.promptRegistryLocation on the active experiment for 3-part UC prompt names.
+
+        This causes the experiment's Prompts tab to be pre-populated with prompts from the
+        catalog.schema where the prompt was registered.  Emits a warning on failure; never raises.
+        """
+        try:
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            catalog, schema, _ = parts
+            self.set_experiment_tag(
+                experiment_id,
+                "mlflow.promptRegistryLocation",
+                f"{catalog}.{schema}",
+            )
+        except Exception as e:
+            _logger.warning(
+                "Failed to set mlflow.promptRegistryLocation tag on experiment %s: %s",
+                experiment_id,
+                e,
+            )
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
