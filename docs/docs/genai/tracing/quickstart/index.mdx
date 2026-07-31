@@ -40,6 +40,18 @@ If you don't have the MLflow server running yet, just follow these simple steps 
 
 <ServerSetup />
 
+:::info[What runs where]
+
+**Your agent code runs locally.** The Python file you write, including any prompts,
+lives on your machine. `mlflow.set_tracking_uri(...)` controls only *where trace data
+is sent*. It does not move your code. When a trace appears in the MLflow UI, you are
+viewing telemetry uploaded from your local process.
+
+To change agent behavior (prompt wording, model, logic), edit your local files and
+re-run the script.
+
+:::
+
 ## Create a MLflow Experiment
 
 The traces your LLM application or AI agent will send to the MLflow server are grouped into MLflow experiments. We recommend creating one experiment for each LLM application or AI agent.
@@ -185,6 +197,31 @@ For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTe
 </TabItem>
 </Tabs>
 </TabsWrapper>
+
+:::note[On Databricks: trace storage limit]
+
+When using Databricks as the tracking server, MLflow stores traces in the experiment
+backend by default, which caps at 100,000 traces. For production workloads with no cap,
+bind the experiment to a Unity Catalog location:
+
+```python
+from mlflow.entities.trace_location import UnityCatalog
+import os
+
+os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = "<warehouse-id>"
+mlflow.set_experiment(
+    "My Application",
+    trace_location=UnityCatalog(
+        catalog_name="<catalog>",
+        schema_name="<schema>",
+        table_prefix="<prefix>",
+    ),
+)
+```
+
+See the [Databricks UC trace storage guide](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
+
+:::
 
 ## View Your Traces on the MLflow UI
 
