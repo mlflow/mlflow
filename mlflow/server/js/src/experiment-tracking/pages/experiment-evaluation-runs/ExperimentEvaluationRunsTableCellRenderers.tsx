@@ -15,6 +15,8 @@ import {
   VisibleIcon,
   VisibleOffIcon,
   SparkleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
@@ -104,12 +106,36 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     (meta as any).setSelectedRunUuid?.(runUuid);
   };
 
+  const level = row.depth;
+  const hasExpander = row.getCanExpand();
+  const isExpanded = row.getIsExpanded();
+
+  const handleExpanderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    row.toggleExpanded();
+  };
+
   return (
     <div
-      css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+      css={{
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        paddingLeft: level > 0 ? level * theme.spacing.lg : undefined,
+      }}
       onClick={handleClick}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {hasExpander && (
+        <Button
+          componentId="mlflow.eval-runs.parent-child-expand-button"
+          size="small"
+          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          onClick={handleExpanderClick}
+          type="link"
+        />
+      )}
       {isIssueDetectionRun && showIssuesPanelFlag ? (
         <Tooltip
           content={
