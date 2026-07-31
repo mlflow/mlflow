@@ -498,6 +498,29 @@ describe('getAssessmentInfos', () => {
       expect(info?.description).toBe('my_custom_scorer \u2014 Checks whether the response is accurate.');
     });
 
+    it('prefers a CODE scorer description over a built-in judge when their names collide', () => {
+      // A user can register a custom CODE scorer with a name that matches a built-in judge
+      // (for example "correctness"). The registered description must win over the built-in text.
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'CODE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My project-specific accuracy check.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My project-specific accuracy check.');
+    });
+
     it('does not use scorerDescriptionsByName for HUMAN-sourced assessments', () => {
       const humanSource: RunEvaluationResultAssessmentSource = {
         sourceType: 'HUMAN',
