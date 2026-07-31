@@ -1992,8 +1992,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -2007,14 +2007,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-07-31"
     },
     "accounts/fireworks/models/kimi-k2p6": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -2028,14 +2028,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "accounts/fireworks/models/kimi-k2p7-code": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -2049,7 +2049,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "accounts/fireworks/models/llama-guard-2-8b": {
       "mode": "chat",
@@ -5280,8 +5280,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -5295,14 +5295,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "accounts/fireworks/routers/kimi-k2p7-code-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 1.9,
@@ -5316,7 +5316,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "deepseek-v4-flash": {
       "mode": "chat",
@@ -5490,8 +5490,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -5505,14 +5505,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-07-31"
     },
     "kimi-k2p6": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -5526,14 +5526,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "kimi-k2p6-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -5547,14 +5547,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "kimi-k2p7-code": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -5568,14 +5568,14 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "kimi-k2p7-code-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 32768,
+        "max_tokens": 32768
       },
       "pricing": {
         "input_per_million_tokens": 1.9,
@@ -5589,7 +5589,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-07-31"
     },
     "minimax-m2p1": {
       "mode": "chat",
