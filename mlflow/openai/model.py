@@ -1,4 +1,3 @@
-import importlib.metadata
 import itertools
 import logging
 import os
@@ -179,8 +178,11 @@ def _get_api_config() -> _OpenAIApiConfig:
     )
 
 
-def _get_openai_package_version():
-    return importlib.metadata.version("openai")
+def _get_openai_package_version() -> str | None:
+    # Stringified for the saved model's flavor metadata. Returns None if openai has no parseable
+    # version (e.g. vendored on Databricks Serverless), rather than crashing model logging.
+    version = get_installed_version("openai")
+    return str(version) if version is not None else None
 
 
 def _log_secrets_yaml(local_model_dir, scope):
