@@ -991,3 +991,13 @@ test('renderNotebookSource renders plain text for dangerous workspaceUrl', () =>
   ).toEqual('iris');
   /* eslint-enable no-script-url */
 });
+
+test('logErrorAndNotifyUser logs errors it does not display to the user', () => {
+  const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const error = new Error('something went wrong');
+
+  Utils.logErrorAndNotifyUser(error);
+
+  expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+  consoleErrorSpy.mockRestore();
+});

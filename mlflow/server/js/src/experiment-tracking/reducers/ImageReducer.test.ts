@@ -107,7 +107,8 @@ describe('ImageReducer', () => {
     });
   });
 
-  it('should handle error and prevent state update on malformed inputs', () => {
+  it('should skip malformed inputs and keep the images that parsed', () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const initialState = {};
     const action: AsyncFulfilledAction<ListImagesAction> = {
       type: 'LIST_IMAGES_API_FULFILLED',
@@ -115,6 +116,16 @@ describe('ImageReducer', () => {
         files: [
           {
             path: 'images/image1%step%0%1%UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            path: 'images/notes.txt',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            path: 'images/image2%step%1%timestamp%1%UUID.png',
             is_dir: false,
             file_size: 123,
           },
@@ -127,7 +138,19 @@ describe('ImageReducer', () => {
       },
     };
     const newState = imagesByRunUuid(initialState, action);
-    expect(newState).toEqual({});
+    expect(newState).toEqual({
+      '123': {
+        image2: {
+          'image2%step%1%timestamp%1%UUID': {
+            filepath: 'images/image2%step%1%timestamp%1%UUID.png',
+            step: 1,
+            timestamp: 1,
+          },
+        },
+      },
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    consoleErrorSpy.mockRestore();
   });
 
   it('should add image and compressed image to the state', () => {
