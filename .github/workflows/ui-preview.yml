@@ -95,8 +95,8 @@ jobs:
           # guard above restricts it to OWNER/MEMBER/COLLABORATOR PRs.
           allow-unsafe-pr-checkout: true
 
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-node
 
       - name: Install build tools
         run: uv pip install --system build setuptools

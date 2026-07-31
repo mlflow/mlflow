@@ -53,11 +53,11 @@ jobs:
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
         with:
           pin-micro-version: false
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |

@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-node
       - name: Install dependencies
         run: |
           npm ci
@@ -74,9 +74,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-node
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-java
+      - uses: $/.github/actions/setup-node
+      - uses: $/.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
@@ -84,7 +84,7 @@ jobs:
           uv pip install -r requirements/torch.txt
       - run: |
           npm ci
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - run: |
           npm run convert-notebooks
       - name: Set alias
@@ -147,7 +147,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
