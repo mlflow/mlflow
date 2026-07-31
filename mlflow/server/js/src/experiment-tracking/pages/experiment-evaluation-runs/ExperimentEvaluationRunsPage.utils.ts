@@ -1,4 +1,4 @@
-import type { RunEntity } from '../../types';
+import type { RunEntity, RunEntityWithChildren } from '../../types';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
@@ -9,7 +9,7 @@ export type ExperimentEvaluationRunsGroupData = {
   subRuns: RunEntity[];
 };
 
-export type RunEntityOrGroupData = RunEntity | ExperimentEvaluationRunsGroupData;
+export type RunEntityOrGroupData = RunEntity | RunEntityWithChildren | ExperimentEvaluationRunsGroupData;
 
 // string key for easy access in the map object
 const createGroupKey = (groupData: RunGroupByGroupingValue) => {
