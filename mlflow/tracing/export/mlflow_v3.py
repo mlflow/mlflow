@@ -208,6 +208,13 @@ class MlflowV3SpanExporter(SpanExporter):
         if not maybe_get_request_id(is_evaluate=True):
             self._display_handler.display_traces([trace])
 
+        # Make the trace available to the serving response. No-op outside model serving; the
+        # inference-table exporter has its own path and does not reach here, so the buffer is
+        # written at most once.
+        from mlflow.tracing.export.inference_table import maybe_add_trace_to_serving_buffer
+
+        maybe_add_trace_to_serving_buffer(trace)
+
         workspace = manager_trace.workspace
         if self._should_log_async():
             self._async_queue.put(
