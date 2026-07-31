@@ -1,11 +1,17 @@
-import { describe, it, expect } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerCodeSnippetBody } from './ModelTraceExplorerCodeSnippetBody';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
+
+// Capture the text passed to the clipboard so we can assert copied === displayed content.
+const mockClipboardCopy = jest.fn();
+jest.mock('use-clipboard-copy', () => ({
+  useClipboard: () => ({ copy: mockClipboardCopy }),
+}));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
@@ -14,6 +20,10 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 const longString = JSON.stringify('a'.repeat(500));
+
+beforeEach(() => {
+  mockClipboardCopy.mockClear();
+});
 
 describe('ModelTraceExplorerCodeSnippetBody', () => {
   it('renders a copy button in JSON render mode', () => {
@@ -48,5 +58,35 @@ describe('ModelTraceExplorerCodeSnippetBody', () => {
     );
 
     expect(container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]')).not.toBeNull();
+  });
+
+  it('copies the unescaped rendered text in text render mode, not the raw JSON string', () => {
+    // The data prop is a JSON-encoded string with escaped newlines. The UI renders the
+    // parsed/unescaped value, so the copy button must place that same value on the clipboard.
+    const data = JSON.stringify('line one\nline two');
+    const { container } = render(
+      <ModelTraceExplorerCodeSnippetBody data={data} renderMode={CodeSnippetRenderMode.TEXT} />,
+      { wrapper: Wrapper },
+    );
+
+    const copyButton = container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]');
+    fireEvent.click(copyButton as Element);
+
+    expect(mockClipboardCopy).toHaveBeenCalledWith('line one\nline two');
+  });
+
+  it('copies the unescaped rendered text in markdown render mode', () => {
+    const data = JSON.stringify('# Heading\n\nbody text');
+    const { container } = render(
+      <ModelTraceExplorerCodeSnippetBody data={data} renderMode={CodeSnippetRenderMode.MARKDOWN} />,
+      { wrapper: Wrapper },
+    );
+
+    const copyButton = container.querySelector(
+      '[data-component-id="shared.model-trace-explorer.copy-snippet-markdown"]',
+    );
+    fireEvent.click(copyButton as Element);
+
+    expect(mockClipboardCopy).toHaveBeenCalledWith('# Heading\n\nbody text');
   });
 });
