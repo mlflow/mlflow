@@ -879,16 +879,21 @@ def test_is_flavor_supported_returns_true_when_flavor_module_not_installed(monke
 
     Regression test for: mlflow.langchain.autolog() raises ModuleNotFoundError when only
     langchain-core + langgraph are installed (not the full 'langchain' package).
-    """
-    import sys
 
-    # Simulate an environment where 'langchain' is not installed but 'langchain_core' is.
-    # We remove 'langchain' from sys.modules so importlib.import_module raises ModuleNotFoundError.
-    original = sys.modules.pop("langchain", None)
-    try:
-        # Must not raise; should gracefully return True (version check not applicable).
-        result = is_flavor_supported_for_associated_package_versions("langchain")
-        assert result is True
-    finally:
-        if original is not None:
-            sys.modules["langchain"] = original
+    Uses monkeypatch so the test is portable — it exercises the ModuleNotFoundError branch
+    regardless of whether 'langchain' is installed in the test environment.
+    """
+    import importlib
+
+    original_import = importlib.import_module
+
+    def fake_import(name, *args, **kwargs):
+        if name == "langchain":
+            raise ModuleNotFoundError(f"No module named '{name}'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+
+    # Must not raise; should gracefully return True (version check not applicable).
+    result = is_flavor_supported_for_associated_package_versions("langchain")
+    assert result is True
