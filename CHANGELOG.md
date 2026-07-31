@@ -37,7 +37,7 @@ Bug fixes:
 - [Tracing] Compute `mlflow.llm.cost` for Claude Code plugin traces on Databricks (#24416, @harupy)
 - [UI] Fix artifact direct download capability checks in UI (#24748, @B-Step62)
 - [Tracing / UI] Refresh traces saved-view on load across multiple windows (#24746, @joshuawong-db)
-- [UI] Fix UnauthorizedError constructor message copy-pasted from RateLimite (#24729, @mihir2921)
+- [UI] Fix UnauthorizedError constructor message (#24729, @mihir2921)
 - [UI] Fall back to nested spans for Chat Sessions turn content (#24703, @MannXo)
 - [Tracing / Tracking] Fix experiment GC cascades for traces and logged models (#24351, @copilot-swe-agent)
 - [Tracking] Fix workspace-enabled tracking store crash-loop when the default experiment is renamed (#24598, @daniellok-db)
