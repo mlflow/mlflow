@@ -79,12 +79,14 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
+          PR: ${{ steps.ctx.outputs.pr }}
         # Mirrors review.yml's pattern: append a run-URL link to the trigger
         # comment instead of leaving a separate reaction artifact on the PR.
         # The maintainer who typed `/review-v2` sees a clickable "🚀 running"
-        # link to follow the job in real time.
+        # link to follow the job in real time. `?pr=` makes the run page
+        # render a back-link to the PR.
         run: |
-          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
           orig=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
           body=$(printf '%s\n\n---\n\n🚀 [NaiLaOpus running...](%s)' "$orig" "$run_url")
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" || true
@@ -216,7 +218,7 @@ jobs:
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
           # printf with a single-quoted format string keeps backticks literal
           # (no command substitution) and avoids the multi-line YAML quoting
           # bug where embedded backticks broke shell parsing. The leading ❌

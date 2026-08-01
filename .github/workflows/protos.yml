@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
       - name: Check OpenTelemetry protos are up-to-date
         run: |
           ./mlflow/protos/opentelemetry/update.sh

@@ -1,3 +1,5 @@
+from enum import Enum
+
 import pydantic
 import pytest
 
@@ -235,6 +237,20 @@ def test_pydantic_to_response_format_sets_additional_properties_on_nested_object
     # Every nested object - including those under $defs reached via list items and
     # direct references - must also declare additionalProperties=False under strict mode.
     assert schema["$defs"]["Address"]["additionalProperties"] is False
+
+
+def test_pydantic_to_response_format_removes_keywords_from_ref_nodes():
+    class Severity(str, Enum):
+        LOW = "low"
+        HIGH = "high"
+
+    class Result(pydantic.BaseModel):
+        severity: Severity = pydantic.Field(description="Severity of the result")
+
+    result = pydantic_to_response_format(Result)
+    schema = result["json_schema"]["schema"]
+
+    assert schema["properties"]["severity"] == {"$ref": "#/$defs/Severity"}
 
 
 def test_enforce_strict_json_schema_detects_objects_without_explicit_type():

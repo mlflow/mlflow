@@ -91,6 +91,9 @@ export function formatCredentialFieldName(fieldName: string): string {
     vertex_location: 'Location',
     databricks_token: 'Databricks Token',
     databricks_host: 'Databricks Host',
+    portkey_provider: 'Provider Slug',
+    portkey_config: 'Config ID or JSON',
+    provider_api_key: 'Provider API Key',
   } satisfies Record<string, string>;
 
   if (fieldName in formatMap) {
@@ -102,6 +105,7 @@ export function formatCredentialFieldName(fieldName: string): string {
 
 const PROVIDER_FIELD_ORDER = {
   databricks: ['client_id', 'client_secret', 'api_base'],
+  portkey: ['api_key', 'portkey_provider', 'provider_api_key', 'portkey_config', 'api_base'],
 } satisfies Record<string, string[]>;
 
 export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {

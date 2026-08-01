@@ -198,7 +198,7 @@ def save_model(
             # as the package installation of pystan requires Cython to be present
             # in the path. Prophet's installation itself requires imports of
             # existing libraries, preventing the execution of a batched pip install
-            # and instead using a a strictly defined list of dependencies.
+            # and instead using a strictly defined list of dependencies.
             # NOTE: if Prophet .whl build architecture is changed, this should be
             # modified to a standard inferred approach.
             default_reqs = get_default_pip_requirements()

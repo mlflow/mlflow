@@ -60,11 +60,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/free-disk-space
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras
@@ -72,7 +72,7 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt \
             langchain_experimental "pyarrow<18"
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

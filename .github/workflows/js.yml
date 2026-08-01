@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check componentId registry
-        uses: ./.github/actions/check-component-ids
+        uses: $/.github/actions/check-component-ids
 
   js:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-node
       - name: Install dependencies
         run: |
           yarn install --immutable
