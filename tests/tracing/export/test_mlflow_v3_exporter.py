@@ -923,9 +923,9 @@ def test_bsp_export_preserves_workspace_context(monkeypatch):
     assert captured_log_spans_workspace[0] == "bsp-workspace"
 
 
-# ML-67987: In model serving, the trace export path also populates the in-memory serving buffer so
-# the endpoint can return the trace in its response, without a second backend write. These tests
-# cover the shared MlflowV3SpanExporter path (inherited by the UC table exporter).
+# In model serving, the trace export path also populates the in-memory serving buffer so the
+# endpoint can return the trace in its response, without a second backend write. These tests cover
+# the shared MlflowV3SpanExporter path (inherited by the UC table exporter).
 def test_export_populates_serving_buffer_in_model_serving(monkeypatch):
     from mlflow.tracing.export import inference_table
 
@@ -960,9 +960,8 @@ def test_export_populates_serving_buffer_in_model_serving(monkeypatch):
         exporter = MlflowV3SpanExporter()
         exporter.export([otel_span])
 
-    # Buffer populated once, keyed by the client request ID, so the serving response can return it.
     assert inference_table.pop_trace("req-serving-1") is not None
-    # Exactly one backend write — populating the buffer must not double-write the trace.
+    # Populating the buffer must not double-write the trace to the backend.
     mock_start_trace.assert_called_once()
     inference_table._TRACE_BUFFER.clear()
 

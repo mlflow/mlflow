@@ -17,6 +17,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from tests.tracing.helper import (
     create_mock_otel_span,
     create_test_trace_info,
+    skip_when_testing_trace_sdk,
 )
 
 
@@ -180,8 +181,7 @@ def test_trace_metadata_and_tags(active_uc_schema_destination):
     assert trace_info.tags is not None
 
 
-# ML-67987: In model serving the UC processor captures the Databricks client request ID from the
-# prediction context so the finished trace can be returned in the serving response.
+@skip_when_testing_trace_sdk  # needs the prediction context, which pulls in pyfunc (not in the SDK)
 def test_start_trace_sets_client_request_id_in_model_serving(
     monkeypatch, active_uc_schema_destination
 ):
@@ -200,10 +200,16 @@ def test_start_trace_sets_client_request_id_in_model_serving(
     assert created_trace.info.client_request_id == "req-abc-123"
 
 
+@skip_when_testing_trace_sdk  # needs the prediction context, which pulls in pyfunc (not in the SDK)
 def test_start_trace_no_client_request_id_outside_model_serving(active_uc_schema_destination):
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     span = create_mock_otel_span(trace_id=12345, span_id=1, parent_id=None, start_time=5_000_000)
     processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
-    processor.on_start(span)
+    # A prediction context is present but the process is not model serving, so no client request ID
+    # is captured.
+    with set_prediction_context(Context(request_id="req-abc-123")):
+        processor.on_start(span)
 
     trace_manager = InMemoryTraceManager.get_instance()
     created_trace = list(trace_manager._traces.values())[0]

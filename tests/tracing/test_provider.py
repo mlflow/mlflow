@@ -1098,8 +1098,6 @@ def test_get_tracer_does_not_fail_when_experiment_id_resolution_fails():
     mlflow.tracing.reset()
 
 
-# In model serving the process tracking URI is the local store, so a UC-bound experiment's binding
-# is resolved through a databricks store rather than the local process store.
 def _serving_uc_experiment():
     return _experiment(tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "cat.sch.pfx"})
 
@@ -1124,7 +1122,6 @@ def test_resolve_uc_location_in_serving_uses_databricks_store(
         result = _resolve_experiment_uc_location()
 
         assert result == UnityCatalog("cat", "sch", table_prefix="pfx")
-        # The binding is resolved through the databricks store, not the local process store.
         mock_store_fn.assert_called_once_with("databricks")
 
     mlflow.tracing.reset()
@@ -1151,7 +1148,6 @@ def test_serving_uc_bound_experiment_selects_uc_processor(
         assert len(processors) == 1
         assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
         assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
-        # The UC exporter is pinned to the databricks tracking URI so ingestion reaches the backend.
         assert processors[0].span_exporter._client.tracking_uri == "databricks"
 
     mlflow.tracing.reset()

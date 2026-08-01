@@ -486,7 +486,14 @@ def maybe_get_serving_request_id() -> str | None:
     Reads the request ID from the prediction context, falling back to the ``X-Request-Id`` header
     for streaming responses where no prediction context is active. Returns ``None`` when there is
     no request ID rather than aborting, so callers can use it purely to key the serving buffer.
+
+    Returns ``None`` outside model serving, where a client request ID has no meaning.
     """
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
+    if not is_in_databricks_model_serving_environment():
+        return None
+
     if request_id := maybe_get_request_id():
         return request_id
 
