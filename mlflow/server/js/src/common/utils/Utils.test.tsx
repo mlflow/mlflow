@@ -1024,16 +1024,12 @@ describe('logErrorAndNotifyUser', () => {
   test('shows toast for PermissionError (PredefinedError) instead of silently dropping it', () => {
     const error = new PermissionError({});
     Utils.logErrorAndNotifyUser(error);
-    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: error.displayMessage }),
-    );
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(expect.objectContaining({ message: error.displayMessage }));
   });
 
   test('shows toast for UnauthorizedError (PredefinedError)', () => {
     const error = new UnauthorizedError({});
     Utils.logErrorAndNotifyUser(error);
-    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: error.displayMessage }),
-    );
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(expect.objectContaining({ message: error.displayMessage }));
   });
 });
