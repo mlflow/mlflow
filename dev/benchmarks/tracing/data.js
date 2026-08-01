@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785562920834,
+  "lastUpdate": 1785569661368,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18035,6 +18035,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.637763400004815,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52921165+twanahc@users.noreply.github.com",
+            "name": "Twana Cheragwandi",
+            "username": "twanahc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e168e696062942ee34410048ce17cf24b5118bc",
+          "message": "Add support for pandas 3.x (#23719)\n\nSigned-off-by: Twana Cheragwandi <twanahc@gmail.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nSigned-off-by: B-Step62 <bsatbeyp@gmail.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: B-Step62 <bsatbeyp@gmail.com>",
+          "timestamp": "2026-08-01T07:30:07Z",
+          "tree_id": "489fcf05a06c6be6f6e09e4bc19b5d5a4cbb00e4",
+          "url": "https://github.com/mlflow/mlflow/commit/6e168e696062942ee34410048ce17cf24b5118bc"
+        },
+        "date": 1785569659961,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.831762500000536,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.39513239999959,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.091783444445596,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.2849548749999,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.55978598275866,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 31.788631399996348,
             "unit": "ms"
           }
         ]
