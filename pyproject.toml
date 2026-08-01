@@ -27,7 +27,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "mlflow-skinny==2.21.1.dev0",
   "Flask<4",
   "aiohttp<4,>=3.7.0",
   "alembic<2,!=1.10.0",
