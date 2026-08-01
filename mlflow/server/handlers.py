@@ -5807,9 +5807,13 @@ def _create_gateway_endpoint():
             else None,
         )
 
-    model_configs = [
-        GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
-    ]
+    model_configs = []
+    for index, config in enumerate(request_message.model_configs):
+        if not config.HasField("linkage_type"):
+            raise MlflowException.invalid_parameter_value(
+                f"Missing value for required parameter 'model_configs[{index}].linkage_type'."
+            )
+        model_configs.append(GatewayEndpointModelConfig.from_proto(config))
 
     # Determine experiment_id and usage_tracking
     experiment_id = (

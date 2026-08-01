@@ -3541,6 +3541,24 @@ def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
 
 
+def test_create_gateway_endpoint_rejects_missing_linkage_type(mock_get_request_message):
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint(name="test-endpoint")
+    request_msg.model_configs.add(model_definition_id="model-definition-id")
+    mock_get_request_message.return_value = request_msg
+
+    response = _create_gateway_endpoint()
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert "Missing value for required parameter 'model_configs[0].linkage_type'." in response_data[
+        "message"
+    ]
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 @pytest.mark.parametrize(
     "invalid_name",
     [
