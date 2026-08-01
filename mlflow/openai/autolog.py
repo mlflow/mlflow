@@ -396,10 +396,20 @@ def _process_last_chunk(
                     TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
                 }
 
-                # Extract cached tokens if available in the streaming chunk
+                # Extract cached tokens if available in the streaming chunk.
+                # Standard OpenAI path: prompt_tokens_details.cached_tokens.
                 if details := getattr(usage, "prompt_tokens_details", None):
                     if (cached := getattr(details, "cached_tokens", None)) is not None:
                         usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                # Anthropic-via-gateway path: top-level cache_read/creation_input_tokens.
+                # Used when Anthropic models are served via an OpenAI-compatible endpoint
+                # (e.g. Databricks Foundation Model API) where prompt_tokens_details is None
+                # but cache counts appear at the top level of the usage object.
+                if TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage_dict:
+                    if (cache_read := getattr(usage, "cache_read_input_tokens", None)) is not None:
+                        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+                if (cache_creation := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         _end_span_on_success(span, inputs, output, is_responses_api)
