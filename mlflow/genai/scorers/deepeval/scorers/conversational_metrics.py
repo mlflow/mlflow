@@ -10,7 +10,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class TurnRelevancy(DeepEvalScorer):
     """
@@ -40,7 +39,6 @@ class TurnRelevancy(DeepEvalScorer):
     metric_name: ClassVar[str] = "TurnRelevancy"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RoleAdherence(DeepEvalScorer):
     """
@@ -70,7 +68,6 @@ class RoleAdherence(DeepEvalScorer):
     metric_name: ClassVar[str] = "RoleAdherence"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(DeepEvalScorer):
     """
@@ -101,7 +98,6 @@ class KnowledgeRetention(DeepEvalScorer):
     metric_name: ClassVar[str] = "KnowledgeRetention"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(DeepEvalScorer):
     """
@@ -133,7 +129,6 @@ class ConversationCompleteness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ConversationCompleteness"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class GoalAccuracy(DeepEvalScorer):
     """
@@ -164,7 +159,6 @@ class GoalAccuracy(DeepEvalScorer):
     metric_name: ClassVar[str] = "GoalAccuracy"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolUse(DeepEvalScorer):
     """
@@ -195,7 +189,6 @@ class ToolUse(DeepEvalScorer):
     metric_name: ClassVar[str] = "ToolUse"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class TopicAdherence(DeepEvalScorer):
     """

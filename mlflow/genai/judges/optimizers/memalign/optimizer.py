@@ -133,7 +133,6 @@ others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 }
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class MemoryAugmentedJudge(Judge):
     """
@@ -446,7 +445,6 @@ class MemoryAugmentedJudge(Judge):
         if self._episodic_memory:
             self._build_episodic_memory()
 
-    @experimental(version="3.9.0")
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
         Remove specific traces from memory and return an updated judge.
@@ -604,7 +602,6 @@ class MemoryAugmentedJudge(Judge):
         self._distill_new_guidelines(examples)
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class MemAlignOptimizer(AlignmentOptimizer):
     """
