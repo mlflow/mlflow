@@ -94,7 +94,10 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
 
     if os.name == "nt":
         if not _all_tables_exist(engine):
-            _initialize_tables(engine)
+            if _is_empty_database(engine):
+                _initialize_tables(engine)
+            else:
+                _upgrade_db(engine)
         return
 
     url_hash = hashlib.md5(
@@ -103,7 +106,10 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
     ).hexdigest()
     with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
         if not _all_tables_exist(engine):
-            _initialize_tables(engine)
+            if _is_empty_database(engine):
+                _initialize_tables(engine)
+            else:
+                _upgrade_db(engine)
 
 
 def _get_latest_schema_revision():
