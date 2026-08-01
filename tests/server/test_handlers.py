@@ -3214,6 +3214,7 @@ def test_batch_get_traces_handler(mock_get_request_message, mock_tracking_store)
     assert len(traces) == 2
     assert len(traces[0]["spans"]) == 1
     assert len(traces[1]["spans"]) == 1
+    assert isinstance(traces[0]["spans"][0]["start_time_unix_nano"], int)
 
 
 def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_tracking_store):

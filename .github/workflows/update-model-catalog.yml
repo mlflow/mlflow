@@ -34,11 +34,11 @@ jobs:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
         with:
           pin-micro-version: false
 
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-node
 
       - name: Fetch and transform model catalog
         run: uv run python dev/update_model_catalog.py

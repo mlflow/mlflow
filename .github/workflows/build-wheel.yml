@@ -53,10 +53,10 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
       - if: matrix.type == 'dev'
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
 
       - name: Build UI
         if: matrix.type == 'dev'

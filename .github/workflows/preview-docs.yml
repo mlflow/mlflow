@@ -58,7 +58,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
           path: ${{ env.DOCS_BUILD_DIR }}
-      - uses: ./.github/actions/setup-node
+      - uses: $/.github/actions/setup-node
       - name: Deploy to Netlify
         id: netlify_deploy
         env:

@@ -46,18 +46,18 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dev script dependencies
         run: |
           uv pip install --system -r dev/requirements.txt
-      - uses: ./.github/actions/update-requirements
+      - uses: $/.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -80,23 +80,23 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
-      - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/free-disk-space
+      - uses: $/.github/actions/setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dev script dependencies
         run: |
           uv pip install --system -r dev/requirements.txt
-      - uses: ./.github/actions/update-requirements
+      - uses: $/.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
           uv pip install --system '.[gateway]'
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/cache-hf
+      - uses: $/.github/actions/show-versions
+      - uses: $/.github/actions/cache-hf
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
