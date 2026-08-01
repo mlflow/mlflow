@@ -2625,9 +2625,20 @@ def _log_model():
     return response
 
 
-def _wrap_response(response_message):
+def _wrap_response(
+    response_message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
     response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
+    response.set_data(
+        message_to_json(
+            response_message,
+            pretty=pretty,
+            convert_int64_to_number=convert_int64_to_number,
+        )
+    )
     return response
 
 
@@ -3950,6 +3961,19 @@ def _get_presigned_download_url(artifact_path):
 # MLflow Tracing APIs
 
 
+def _wrap_trace_info_response(response_message):
+    # JSON whitespace is not part of the API contract, so compact output reduces serialization
+    # work and payload size for trace-info responses, which can contain up to 500 traces per page.
+    # TraceInfo uses Timestamp/Duration messages, and assessment times use Timestamp, so these
+    # responses contain no raw int64 fields. Complete trace responses still use the default
+    # conversion because span start/end times are fixed64 nanosecond values.
+    return _wrap_response(
+        response_message,
+        pretty=False,
+        convert_int64_to_number=False,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _start_trace_v3():
@@ -3963,7 +3987,7 @@ def _start_trace_v3():
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3975,7 +3999,7 @@ def _get_trace_info_v3(trace_id):
     """
     trace_info = _get_tracking_store().get_trace_info(trace_id)
     response_message = GetTraceInfoV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3992,7 +4016,7 @@ def _batch_get_traces() -> Response:
     traces = _get_tracking_store().batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4005,7 +4029,7 @@ def _batch_get_trace_infos() -> Response:
     trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -4025,7 +4049,7 @@ def _get_trace() -> Response:
     allow_partial = request_message.allow_partial
     trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4064,7 +4088,7 @@ def _search_traces_v3():
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
         response_message.next_page_token = token
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
