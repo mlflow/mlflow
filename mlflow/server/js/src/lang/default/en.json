@@ -863,6 +863,10 @@
     "defaultMessage": "Change message role",
     "description": "Aria label for the dropdown that swaps a chat message role on the playground page"
   },
+  "1uOyoY": {
+    "defaultMessage": "Assistant setup required",
+    "description": "Title shown when a remote client cannot configure Assistant setup"
+  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -886,6 +890,10 @@
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
+  },
+  "24pi72": {
+    "defaultMessage": "Settings",
+    "description": "Title for the MLflow Assistant settings page"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
@@ -3322,10 +3330,6 @@
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
-  },
-  "Cj58gM": {
-    "defaultMessage": "Setup MLflow Assistant",
-    "description": "Title for the MLflow Assistant setup wizard"
   },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
@@ -9431,6 +9435,10 @@
     "defaultMessage": "Updated:",
     "description": "Endpoint expanded updated label"
   },
+  "dyvGJw": {
+    "defaultMessage": "MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup.",
+    "description": "Message explaining that Assistant setup must be completed locally by a server admin"
+  },
   "dzIz7c": {
     "defaultMessage": "Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.",
     "description": "Error message for invalid endpoint name format"
@@ -12518,10 +12526,6 @@
   "qnMgLj": {
     "defaultMessage": "Chunk relevance",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Chunk relevance: moderate\""
-  },
-  "qocKXu": {
-    "defaultMessage": "Settings",
-    "description": "Title for the MLflow Assistant settings wizard"
   },
   "qr7dhT": {
     "defaultMessage": "None",

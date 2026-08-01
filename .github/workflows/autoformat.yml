@@ -119,7 +119,7 @@ jobs:
           git remote add base https://github.com/$BASE_REPO.git
           git fetch base $BASE_REF
           git merge base/$BASE_REF
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
       # ************************************************************************
       # pre-commit
       # ************************************************************************
@@ -149,7 +149,7 @@ jobs:
       # js
       # ************************************************************************
       - if: steps.diff.outputs.js == 'true'
-        uses: ./.github/actions/setup-node
+        uses: $/.github/actions/setup-node
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |

@@ -35,6 +35,7 @@ let mockProviders: ProviderInfo[] = [];
 let mockGatewayVendorOptions: Record<string, string[]> = {};
 let mockGatewayEndpoints: Endpoint[] = [];
 let mockIsLocalServer = true;
+let mockCanUseAssistant = true;
 let mockNeedsApiKey = false;
 let mockError: string | null = null;
 let mockErrorCode: string | null = null;
@@ -78,7 +79,7 @@ jest.mock('./AssistantContext', () => ({
     gatewayVendorOptions: mockGatewayVendorOptions,
     needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
-    canUseAssistant: true,
+    canUseAssistant: mockCanUseAssistant,
     tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
@@ -96,17 +97,13 @@ jest.mock('./AssistantContext', () => ({
   }),
 }));
 
-// Stub the setup wizard so the settings view exposes its onBack handler directly,
-// without depending on the wizard's internal steps.
+// Stub the settings page so the settings view exposes its onBack handler directly.
 jest.mock('./setup', () => ({
-  AssistantSetupWizard: ({ onBack }: { onBack?: () => void }) =>
-    onBack ? (
-      <button type="button" onClick={onBack}>
-        Back from settings
-      </button>
-    ) : (
-      <div>Setup wizard</div>
-    ),
+  AssistantSettingsPage: ({ onBack }: { onBack: () => void }) => (
+    <button type="button" onClick={onBack}>
+      Back from settings
+    </button>
+  ),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -118,7 +115,7 @@ jest.mock('../common/utils/RoutingUtils', () => ({
 }));
 
 const renderChatPanel = () => {
-  // The settings escape hatch mounts the wizard, whose config hook needs a QueryClient.
+  // The settings escape hatch mounts a config hook that needs a QueryClient.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return renderWithIntl(
     <QueryClientProvider client={queryClient}>
@@ -147,6 +144,7 @@ describe('AssistantChatPanel', () => {
     mockGatewayVendorOptions = {};
     mockGatewayEndpoints = [];
     mockIsLocalServer = true;
+    mockCanUseAssistant = true;
     mockNeedsApiKey = false;
     mockError = null;
     mockErrorCode = null;
@@ -155,13 +153,22 @@ describe('AssistantChatPanel', () => {
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
   });
 
-  test('when setup is NOT complete, the panel shows the "Get Started" setup prompt and no chat input', () => {
+  test('when setup is NOT complete, the panel shows the welcome prompt and no chat input', () => {
     mockSetupComplete = false;
     renderChatPanel();
 
-    // The user is asked to set up the assistant ...
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
-    // ... and the chat input isn't mounted yet, so a queued prompt waits on the context.
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
+  });
+
+  test('when setup is incomplete on a remote client, the panel asks for local setup', () => {
+    mockSetupComplete = false;
+    mockIsLocalServer = false;
+    renderChatPanel();
+
+    expect(screen.getByText('Assistant setup required')).toBeInTheDocument();
+    expect(screen.queryByText('Welcome to MLflow Assistant')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
   });
 
@@ -181,7 +188,8 @@ describe('AssistantChatPanel', () => {
     const { rerender } = renderChatPanel();
 
     // Setup prompt is shown; no input yet; the seed has NOT been consumed.
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
     expect(mockClearPendingPrompt).not.toHaveBeenCalled();
 

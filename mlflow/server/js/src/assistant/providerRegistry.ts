@@ -1,6 +1,6 @@
 /**
  * Shared registry of assistant providers: the single source of truth for a provider id's
- * human display name and branding. Used by the setup wizard (to pick one) and the composer
+ * human display name and branding. Used by the settings page (to pick one) and the composer
  * (to show, read-only, which one is active). Keyed by the same provider ids the `/config`
  * payload uses (see `GATEWAY_PROVIDER_ID` and the server-side provider names).
  */

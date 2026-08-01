@@ -44,7 +44,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
     SqlEntityAssociation,
@@ -396,9 +396,25 @@ def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store,
     assert calls == [("mlflow-artifacts:/artifacts", "team-prefix")]
 
 
-def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, monkeypatch):
+def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, monkeypatch, tmp_path):
     monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
+
+    archive_path = tmp_path / "archive"
+    archive_path.mkdir()
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.write_text(
+        "\n".join([
+            "trace_archival:",
+            "  enabled: true",
+            f"  location: {archive_path.as_uri()}",
+            "  retention: 30d",
+        ])
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+    trace_archival_config_calls = []
 
     class PrefixedProvider:
         def __init__(self, store):
@@ -407,6 +423,15 @@ def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, mon
         def resolve_artifact_root(self, artifact_root, workspace_name):
             scoped = append_to_uri_path(artifact_root, f"workspaces/{workspace_name}")
             return scoped, False
+
+        def resolve_trace_archival_config(
+            self, default_root: str, default_retention: str, workspace_name: str
+        ) -> ResolvedTraceArchivalConfig:
+            trace_archival_config_calls.append((default_root, default_retention, workspace_name))
+            return ResolvedTraceArchivalConfig(
+                config=TraceArchivalConfig(location=default_root, retention=default_retention),
+                append_workspace_prefix=True,
+            )
 
     provider = PrefixedProvider(workspace_tracking_store)
     monkeypatch.setattr(
@@ -419,6 +444,7 @@ def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, mon
         exp_id = workspace_tracking_store.create_experiment("with-prefix")
         experiment = workspace_tracking_store.get_experiment(exp_id)
     assert "/workspaces/team-ready/" in experiment.artifact_location
+    assert trace_archival_config_calls == [(archive_path.as_uri(), "30d", "team-ready")]
 
 
 def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, monkeypatch):

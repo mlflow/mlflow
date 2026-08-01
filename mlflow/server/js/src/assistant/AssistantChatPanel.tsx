@@ -39,14 +39,14 @@ import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
-import { AssistantSetupWizard } from './setup';
+import { AssistantSettingsPage } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
-type CurrentView = 'chat' | 'setup-wizard' | 'settings';
+type CurrentView = 'chat' | 'settings';
 
 // Shared animation keyframes
 const PULSE_ANIMATION = {
@@ -468,8 +468,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     }
   }, [inputValue]);
 
-  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
-  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  // Consume a prompt queued by an onboarding card once the chat input is visible.
   useEffect(() => {
     if (pendingPrompt != null) {
       setInputValue(pendingPrompt);
@@ -823,11 +822,57 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
+const RemoteSetupRequiredMessage = ({ onClose }: { onClose: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 0,
+        padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 3,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+
+      <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
+        <FormattedMessage
+          defaultMessage="Assistant setup required"
+          description="Title shown when a remote client cannot configure Assistant setup"
+        />
+      </Typography.Title>
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup."
+          description="Message explaining that Assistant setup must be completed locally by a server admin"
+        />
+      </Typography.Text>
+
+      <Button componentId="mlflow.assistant.chat_panel.remote_setup_close" onClick={onClose}>
+        <FormattedMessage defaultMessage="Close" description="Button to close the assistant panel on remote servers" />
+      </Button>
+    </div>
+  );
+};
+
 /**
- * Setup prompt shown when assistant is not set up yet.
- * Shows empty state illustration and setup button.
+ * Empty state shown when no assistant provider can be resolved.
  */
-const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
+const SetupPrompt = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -843,10 +888,6 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
       }}
     >
       <AssistantWelcomeCarousel />
-
-      <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
-        Get Started
-      </Button>
     </div>
   );
 };
@@ -859,16 +900,8 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const {
-    closePanel,
-    reset,
-    setupComplete,
-    isLoadingConfig,
-    canUseAssistant,
-    completeSetup,
-    isLocalServer,
-    refreshConfig,
-  } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, isLocalServer, refreshConfig } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -881,15 +914,6 @@ export const AssistantChatPanel = () => {
   const handleReset = useCallback(() => {
     reset();
   }, [reset]);
-
-  const handleStartSetup = useCallback(() => {
-    setCurrentView('setup-wizard');
-  }, []);
-
-  const handleSetupComplete = useCallback(() => {
-    setCurrentView('chat');
-    completeSetup();
-  }, [completeSetup]);
 
   const handleOpenSettings = useCallback(() => {
     setCurrentView('settings');
@@ -916,25 +940,19 @@ export const AssistantChatPanel = () => {
       return <SetupLoadingState />;
     }
 
+    if (!isLocalServer && !setupComplete) {
+      return <RemoteSetupRequiredMessage onClose={handleClose} />;
+    }
+
     switch (currentView) {
-      case 'setup-wizard':
-        return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
       case 'settings':
-        return (
-          <AssistantSetupWizard
-            experimentId={experimentId}
-            onComplete={handleSetupComplete}
-            initialStep="provider"
-            onBack={handleBackFromSettings}
-          />
-        );
+        return <AssistantSettingsPage experimentId={experimentId} onBack={handleBackFromSettings} />;
       case 'chat':
       default:
         // With server-side default resolution this only happens when nothing is
-        // usable at all (e.g. a fresh remote-accessible server with no gateway
-        // endpoint); the wizard remains as the manual fallback.
+        // usable at all (e.g. a fresh remote-accessible server with no gateway endpoint).
         if (!setupComplete) {
-          return <SetupPrompt onSetup={handleStartSetup} />;
+          return <SetupPrompt />;
         }
         return <ChatPanelContent onOpenSettings={handleOpenSettings} />;
     }

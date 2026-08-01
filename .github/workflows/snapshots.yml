@@ -31,8 +31,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-java
       - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
 
       - name: Create artifacts directory
