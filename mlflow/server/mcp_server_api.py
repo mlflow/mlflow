@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -23,12 +23,13 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.validation import (
     _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
+    _strip_mcp_icon_response_fields,
     _validate_mcp_icon_mime_type,
     _validate_mcp_icon_url,
 )
@@ -74,6 +75,8 @@ class _BaseMCPIconPayload(BaseModel):
             icon["mimeType"] = self.mimeType
         if self.theme is not None:
             icon["theme"] = self.theme
+        if getattr(self, "source", None) is not None:
+            icon["source"] = self.source
         return icon
 
 
@@ -92,7 +95,13 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
 
 
 class MCPIconResponsePayload(_BaseMCPIconPayload):
-    pass
+    """Icon payload used by nested surfaces such as tool icons."""
+
+
+class MCPServerIconResponsePayload(_BaseMCPIconPayload):
+    """Resolved server icon, including response-only provenance."""
+
+    source: Literal["server", "version"] | None = None
 
 
 class ServerJSONRepositoryPayload(BaseModel):
@@ -200,20 +209,56 @@ class UpdateMCPServerRequest(BaseModel):
 
 class CreateMCPServerVersionRequest(BaseModel):
     server_json: ServerJSONPayload
-    display_name: str | None = None
     status: str = "draft"
     source: str | None = None
     tools: list[MCPToolRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
+        default=None,
+        max_length=_MAX_MCP_TOOLS_PER_LIST,
+        description=(
+            "Optional tool definitions for this version. Omitting the field "
+            "(Python NOT_SET) stores null tools unless a client-side caller "
+            "resolved omitted tools before create. Explicit JSON null also "
+            "stores no tools. Pass [] for an empty list, or a tool list."
+        ),
     )
+    connect_options: dict[str, ConnectOptionSettings] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_registry_server_json_envelope(cls, value):
+        """Accept either raw server.json or a registry response envelope."""
+        if not isinstance(value, dict):
+            return value
+
+        server_json = value.get("server_json")
+        if not isinstance(server_json, dict):
+            return value
+
+        # Prefer the canonical raw server.json shape when both are present.
+        if "name" in server_json and "version" in server_json:
+            return value
+
+        if "server" not in server_json:
+            return value
+
+        envelope_server = server_json.get("server")
+        if not isinstance(envelope_server, dict):
+            raise ValueError("server_json.server: Input should be a valid dictionary")
+
+        if "name" not in envelope_server or "version" not in envelope_server:
+            return value
+
+        normalized = dict(value)
+        normalized["server_json"] = envelope_server
+        return normalized
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
-    display_name: str | None = None
     status: str | None = None
     tools: list[MCPToolRequestPayload] | None = Field(
         default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
     )
+    connect_options: dict[str, ConnectOptionSettings] | None = None
 
 
 class CreateMCPAccessEndpointRequest(BaseModel):
@@ -285,7 +330,7 @@ class MCPServerResponse(BaseModel):
     name: str
     display_name: str | None = None
     description: str | None = None
-    icons: list[MCPIconResponsePayload] | None = None
+    icons: list[MCPServerIconResponsePayload] | None = None
     workspace: str | None = None
     status: str | None = None
     access_endpoints: list[MCPAccessEndpointSummaryResponse] = Field(default_factory=list)
@@ -323,12 +368,12 @@ class MCPServerVersionResponse(BaseModel):
     name: str
     version: str
     server_json: dict[str, Any]
-    display_name: str | None = None
     workspace: str | None = None
     status: str = "draft"
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
+    connect_options: dict[str, ConnectOptionSettings] = Field(default_factory=dict)
     source: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -341,13 +386,13 @@ class MCPServerVersionResponse(BaseModel):
             name=entity.name,
             version=entity.version,
             server_json=entity.server_json,
-            display_name=entity.display_name,
             workspace=entity.workspace,
             status=str(entity.status),
             # Normalize unset tools to [] so clients can iterate without null guards.
             tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
             aliases=entity.aliases,
             tags=entity.tags,
+            connect_options=entity.connect_options,
             source=entity.source,
             created_by=entity.created_by,
             last_updated_by=entity.last_updated_by,
@@ -466,7 +511,7 @@ def _icon_payloads_to_entities(
 ) -> list[MCPIcon] | None:
     if icons is None:
         return None
-    return [icon.model_dump(exclude_none=True) for icon in icons]
+    return _strip_mcp_icon_response_fields([icon.model_dump(exclude_none=True) for icon in icons])
 
 
 def _update_mcp_server_kwargs(name: str, body: UpdateMCPServerRequest) -> dict[str, Any]:
@@ -487,8 +532,6 @@ def _update_mcp_server_version_kwargs(
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name, "version": version}
     provided_fields = body.model_fields_set
-    if "display_name" in provided_fields:
-        kwargs["display_name"] = body.display_name
     if "status" in provided_fields:
         if body.status is None:
             raise MlflowException.invalid_parameter_value(
@@ -497,6 +540,8 @@ def _update_mcp_server_version_kwargs(
         kwargs["status"] = _parse_status(body.status)
     if "tools" in provided_fields:
         kwargs["tools"] = _tool_payloads_to_entities(body.tools)
+    if "connect_options" in provided_fields:
+        kwargs["connect_options"] = body.connect_options
     return kwargs
 
 
@@ -667,17 +712,22 @@ def create_mcp_server_version(
         )
     username = getattr(request.state, "username", None)
     status = _parse_status(body.status)
-    tools = _tool_payloads_to_entities(body.tools)
+    from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
+
+    # Same value space as update: omitted → NOT_SET; present null → None; list → list.
+    # On create, NOT_SET stores null tools unless a client-side caller already
+    # resolved omitted tools before calling the server.
+    tools = _tool_payloads_to_entities(body.tools) if "tools" in body.model_fields_set else NOT_SET
     server_json = body.server_json.model_dump(by_alias=True, exclude_unset=True)
     store = _get_tracking_store()
     _ensure_version_create_parent_access(store, name, username, request)
     ver = store.create_mcp_server_version(
         server_json=server_json,
-        display_name=body.display_name,
         source=body.source,
         status=status,
         tools=tools,
         created_by=username,
+        connect_options=body.connect_options,
     )
     return MCPServerVersionResponse.from_entity(ver)
 

@@ -59,8 +59,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
@@ -85,19 +85,19 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/free-disk-space
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras --extra gateway --extra mcp --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/cache-hf
+      - uses: $/.github/actions/show-versions
+      - uses: $/.github/actions/cache-hf
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -109,13 +109,22 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
+          # Two passes: the bulk of the suite runs in parallel across cores with
+          # pytest-xdist (`--serial=exclude -n auto`), and the xdist-hostile tests
+          # (shared Spark session, process-global Flask app / server config,
+          # env-building subprocesses; see `_XDIST_SERIAL_PATHS` in tests/conftest.py)
+          # run serially afterward (`--serial=only`, no `-n`).
+          COMMON_ARGS=(
+            --splits="$SPLITS" --group="$GROUP"
+            --quiet --requires-ssh --ignore-flavors
+            --ignore=tests/examples
+            --ignore=tests/evaluate
+            --ignore=tests/genai
+            --ignore=tests/docker
             tests
+          )
+          uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
 
       - name: Run databricks-connect related tests
         run: |
@@ -134,7 +143,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
+      - uses: $/.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -191,10 +200,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
         with:
           java-version: 11
       - name: Install dependencies
@@ -215,10 +224,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras
@@ -226,7 +235,7 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt \
             'tensorflow<2.21'
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         run: |
           uv run --no-sync pytest \
@@ -249,18 +258,18 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/free-disk-space
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync
           uv pip install \
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -284,17 +293,17 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -315,10 +324,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra genai
@@ -341,7 +350,7 @@ jobs:
           uv pip install \
             -r requirements/test-requirements.txt \
             deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm google-adk google-cloud-aiplatform
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
           # guardrails-ai is not installed (see the install step), so skip its
@@ -382,18 +391,18 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/free-disk-space
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv sync --extra extras --extra gateway
           uv pip install \
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
-      - uses: ./.github/actions/show-versions
+      - uses: $/.github/actions/show-versions
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -422,10 +431,10 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/untracked
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-java
       - name: Install python dependencies
         run: |
           uv sync --extra extras --extra genai --extra mcp
@@ -433,8 +442,8 @@ jobs:
             -r requirements/test-requirements.txt \
             pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/cache-hf
+      - uses: $/.github/actions/show-versions
+      - uses: $/.github/actions/cache-hf
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils

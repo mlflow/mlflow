@@ -1,6 +1,5 @@
 import functools
 import getpass
-import importlib.metadata
 import json
 import logging
 import os
@@ -954,15 +953,14 @@ def check_databricks_sdk_supports_scopes():
         MlflowException: If databricks-sdk version is < 0.74.0
     """
 
-    try:
-        sdk_version = importlib.metadata.version("databricks-sdk")
-    except importlib.metadata.PackageNotFoundError:
+    sdk_version = mlflow.utils.get_installed_version("databricks-sdk")
+    if sdk_version is None:
         raise MlflowException.invalid_parameter_value(
-            "databricks-sdk is not installed. "
+            "databricks-sdk is not installed or its version could not be determined. "
             "Please install with: pip install databricks-sdk>=0.74.0",
         )
 
-    if Version(sdk_version) < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
+    if sdk_version < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
         raise MlflowException.invalid_parameter_value(
             f"The 'scopes' parameter requires databricks-sdk>="
             f"{_DATABRICKS_SDK_SCOPES_MIN_VERSION}. You have version {sdk_version}. "
@@ -1396,7 +1394,7 @@ def get_databricks_env_vars(tracking_uri):
 
 def _get_databricks_serverless_env_vars() -> dict[str, str]:
     """
-    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    Returns the environment variables required to initialize WorkspaceClient in a subprocess
     with serverless compute.
 
     Note:

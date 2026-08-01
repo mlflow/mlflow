@@ -130,6 +130,7 @@ mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
+mlflow.client.MlflowClient.refresh_mcp_server_version_tools
 mlflow.client.MlflowClient.register_prompt
 mlflow.client.MlflowClient.remove_dataset_from_experiments
 mlflow.client.MlflowClient.rename_experiment
@@ -362,6 +363,7 @@ mlflow.entities.BudgetTargetScope.to_proto
 mlflow.entities.BudgetUnit
 mlflow.entities.BudgetUnit.from_proto
 mlflow.entities.BudgetUnit.to_proto
+mlflow.entities.ConnectOptionSettings
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -727,6 +729,7 @@ mlflow.entities.mcp_server.MCPRemoteTransportType
 mlflow.entities.mcp_server.MCPServer
 mlflow.entities.mcp_server.MCPStatus
 mlflow.entities.mcp_server.MCPTool
+mlflow.entities.mcp_server_version.ConnectOptionSettings
 mlflow.entities.mcp_server_version.MCPServerVersion
 mlflow.entities.metric.Metric
 mlflow.entities.model_registry.ModelVersion
@@ -1041,6 +1044,7 @@ mlflow.genai.optimize.types.PromptOptimizationResult
 mlflow.genai.optimize.types.PromptOptimizerOutput
 mlflow.genai.optimize_prompt
 mlflow.genai.optimize_prompts
+mlflow.genai.refresh_mcp_server_version_tools
 mlflow.genai.register_mcp_server
 mlflow.genai.register_mcp_server_from_url
 mlflow.genai.register_prompt

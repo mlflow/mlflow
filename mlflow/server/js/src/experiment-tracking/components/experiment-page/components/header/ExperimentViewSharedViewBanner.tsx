@@ -10,9 +10,11 @@ import { SharedViewBanner } from '../saved-views/SharedViewBanner';
 export const ExperimentViewSharedViewBanner = ({
   onOverride,
   onDiscard,
+  onDismiss,
 }: {
   onOverride: () => void;
   onDiscard: () => void;
+  onDismiss?: () => void;
 }) => (
   <SharedViewBanner
     componentId="mlflow.experiment_page.shared_view"
@@ -30,5 +32,6 @@ export const ExperimentViewSharedViewBanner = ({
     }
     onOverride={onOverride}
     onDiscard={onDiscard}
+    onDismiss={onDismiss}
   />
 );

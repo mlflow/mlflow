@@ -7,8 +7,10 @@ import {
   useServerInfo,
   useIsFileStore,
   useTraceArchivalEnabled,
+  useMultipartDownloadsEnabled,
   useWorkspacesEnabled,
   getWorkspacesEnabledSync,
+  getMultipartDownloadsEnabledSync,
   resetServerInfoCache,
   ServerInfoProvider,
 } from './useServerInfo';
@@ -180,6 +182,64 @@ describe('useTraceArchivalEnabled', () => {
   });
 });
 
+describe('useMultipartDownloadsEnabled', () => {
+  describe('when backend enables multipart downloads', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(
+          ctx.json({
+            store_type: 'SqlStore',
+            workspaces_enabled: false,
+            trace_archival_enabled: false,
+            multipart_uploads_enabled: false,
+            multipart_downloads_enabled: true,
+          }),
+        );
+      }),
+    );
+
+    test('should return true', async () => {
+      const { result } = renderHook(() => useMultipartDownloadsEnabled(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+  });
+
+  describe('when backend returns an error', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.status(500));
+      }),
+    );
+
+    test('should return false', async () => {
+      const { result } = renderHook(() => useMultipartDownloadsEnabled(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe('when backend omits multipart download support information', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, trace_archival_enabled: false }));
+      }),
+    );
+
+    test('should return false for older servers', async () => {
+      const { result } = renderHook(() => useMultipartDownloadsEnabled(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+});
+
 // Helper component to test useWorkspacesEnabled
 const WorkspacesTestComponent = () => {
   const { workspacesEnabled, loading } = useWorkspacesEnabled();
@@ -189,6 +249,11 @@ const WorkspacesTestComponent = () => {
       <span data-testid="workspaces-enabled">{workspacesEnabled ? 'true' : 'false'}</span>
     </div>
   );
+};
+
+const MultipartDownloadsTestComponent = () => {
+  const multipartDownloadsEnabled = useMultipartDownloadsEnabled();
+  return <span data-testid="multipart-downloads-enabled">{multipartDownloadsEnabled ? 'true' : 'false'}</span>;
 };
 
 // Helper to create a fresh QueryClient for each test
@@ -315,6 +380,45 @@ describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
 
       // While still loading (fetch not complete), should return false
       expect(getWorkspacesEnabledSync()).toBe(false);
+    });
+  });
+});
+
+describe('getMultipartDownloadsEnabledSync', () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+  });
+
+  afterEach(() => {
+    resetServerInfoCache();
+    queryClient.clear();
+  });
+
+  describe('when server returns multipart downloads enabled', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(
+          ctx.json({
+            store_type: 'SqlStore',
+            workspaces_enabled: false,
+            trace_archival_enabled: false,
+            multipart_uploads_enabled: false,
+            multipart_downloads_enabled: true,
+          }),
+        );
+      }),
+    );
+
+    test('should return true from the cached server-info response', async () => {
+      renderWithProviders(<MultipartDownloadsTestComponent />, queryClient);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('multipart-downloads-enabled').textContent).toBe('true');
+      });
+
+      expect(getMultipartDownloadsEnabledSync()).toBe(true);
     });
   });
 });

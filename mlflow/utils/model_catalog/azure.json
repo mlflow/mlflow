@@ -2094,7 +2094,7 @@
     "gpt-5.4-mini": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 272000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2110,12 +2110,12 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-07-31"
     },
     "gpt-5.4-mini-2026-03-17": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 272000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2131,12 +2131,12 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-07-31"
     },
     "gpt-5.4-nano": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 272000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2152,12 +2152,12 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-07-31"
     },
     "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 272000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2173,7 +2173,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-07-31"
     },
     "gpt-5.5": {
       "mode": "chat",

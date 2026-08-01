@@ -632,6 +632,17 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
+#: Specifies whether client-side MCP tool auto-discovery is enabled.
+#: When ``True`` (default), omitting ``tools`` on MCP server version create
+#: allows Python client helpers to best-effort scrape the first usable
+#: ``server_json.remotes[]`` URL via ``mlflow[mcp]`` before sending the create
+#: request. When ``False``, omitted ``tools`` are sent/stored as null unless
+#: the caller provides an explicit tools value.
+#: (default: ``True``)
+MLFLOW_ENABLE_MCP_TOOL_DISCOVERY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MCP_TOOL_DISCOVERY", True
+)
+
 #: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
 #: This controls how long ONE individual predict/predict_stream request can take before timing out.
 #: If your model inference takes longer than this (e.g., long-running agent queries that take
@@ -864,6 +875,13 @@ MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
 MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
+
+#: Base URL for the judge model endpoint used by the ``sap-ai-core:/`` provider.
+#: Supports both ``http://`` (for egress-gateway routing) and ``https://``.
+#: Aligns with the ``base_url`` parameter on ``mlflow.genai.make_judge``.
+#: Example: ``http://egress-gw.cluster.local/v2/inference/deployments/<id>/chat/completions``
+#: Required when using ``sap-ai-core:/<model>`` as the judge model URI. (default: unset)
+MLFLOW_GENAI_JUDGE_BASE_URL = _EnvironmentVariable("MLFLOW_GENAI_JUDGE_BASE_URL", str, None)
 
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if

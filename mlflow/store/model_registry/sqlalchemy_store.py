@@ -1135,7 +1135,7 @@ class SqlAlchemyStore(AbstractStore):
                 are accessed from the resulting ``SqlModelVersion`` object.
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         query_options = self._get_eager_model_version_query_options() if eager else []
         conditions = [
             SqlModelVersion.name == name,
@@ -1458,7 +1458,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1486,7 +1486,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         _validate_tag_name(key)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1521,7 +1521,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         _validate_model_alias_name_reserved(alias)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)
