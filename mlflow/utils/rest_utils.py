@@ -278,7 +278,11 @@ def http_request(
         headers["Authorization"] = auth_str
 
     if host_creds.client_cert_path is not None:
-        kwargs["cert"] = host_creds.client_cert_path
+        kwargs["cert"] = (
+             (host_creds.client_cert_path, host_creds.client_key_path)
+             if host_creds.client_key_path is not None
+             else host_creds.client_cert_path
+         )
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
@@ -726,7 +730,10 @@ class MlflowHostCreds:
             If this is set to true ``server_cert_path`` must not be set.
         client_cert_path: Path to ssl client cert file (.pem).
             Sets the cert param of the ``requests.request``
-            function (see https://requests.readthedocs.io/en/master/api/).
+            function for mtls (see https://requests.readthedocs.io/en/master/api/).
+        client_key_path: Path to ssl client cert file (.pem).
+            Sets the key param of the ``requests.request``
+            function for mtls (see https://requests.readthedocs.io/en/master/api/).
         server_cert_path: Path to a CA bundle to use.
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
@@ -756,6 +763,7 @@ class MlflowHostCreds:
         client_secret=None,
         use_secret_scope_token=False,
         workspace_id=None,
+        client_key_path=None,
     ):
         if not host:
             raise MlflowException(
@@ -773,6 +781,16 @@ class MlflowHostCreds:
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if client_cert_path is not None and (client_key_path is None):
+            raise MlflowException(
+                message=(
+                    "When 'client_cert_path' is set to a path to a mtls certificate true"
+                    "'client_key_path' must be set! This error may have occurred because the "
+                    "'MLFLOW_TRACKING_CLIENT_CERT_PATH' environment variable is both set "
+                    "and the 'MLFLOW_TRACKING_CLIENT_KEY_PATH' environment variable is not set"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.host = host
         self.username = username
         self.password = password
@@ -781,6 +799,7 @@ class MlflowHostCreds:
         self.auth = auth
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
+        self.client_key_path = client_key_path
         self.server_cert_path = server_cert_path
         self.use_databricks_sdk = use_databricks_sdk
         self.databricks_auth_profile = databricks_auth_profile

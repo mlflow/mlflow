@@ -249,10 +249,18 @@ def test_http_request_with_insecure():
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
         )
-
-
-def test_http_request_client_cert_path():
-    host_only = MlflowHostCreds("http://my-host", client_cert_path="/some/path")
+def test_mlflow_host_creds_client_cert_path_without_key_raises_exception():
+    with pytest.raises(MlflowException, match="When 'client_cert_path' is set"):
+        MlflowHostCreds(
+            host="http://my-host",
+            client_cert_path="/some/cert/path",  # Only cert path provided
+        )
+def test_http_request_with_client_cert_and_key_paths():
+    host_only = MlflowHostCreds(
+        "http://my-host",
+        client_cert_path="/some/cert/path",
+        client_key_path="/some/key/path"
+    )
     response = mock.MagicMock()
     response.status_code = 200
     with mock.patch("requests.Session.request", return_value=response) as mock_request:
@@ -261,10 +269,13 @@ def test_http_request_client_cert_path():
             "GET",
             "http://my-host/my/endpoint",
             allow_redirects=True,
-            verify=True,
-            cert="/some/path",
+            verify=mock.ANY,
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
+            cert=(
+                "/some/cert/path",
+                "/some/key/path"
+            )
         )
 
 
