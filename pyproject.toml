@@ -460,7 +460,9 @@ example-rules = [
 ]
 
 [tool.clint.per-file-ignores]
-"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage"]
+# These rules guard against crashes on Databricks Serverless, which only runs `mlflow/`
+# production code (never tests), so they're scoped to `mlflow/`.
+"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage", "unsafe-version-parse"]
 "^(?!mlflow/|tests/).*$" = ["unnamed-thread", "unnamed-thread-pool"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
