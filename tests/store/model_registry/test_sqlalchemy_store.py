@@ -1840,6 +1840,21 @@ def test_delete_model_version_deletes_alias(store):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
+def test_delete_model_version_deletes_alias_with_string_version(store):
+    model_name = "DeleteModelVersionDeletesAliasStr_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    # The REST API serializes version as a string in the proto request, so
+    # the store must handle string versions when cleaning up aliases.
+    store.delete_model_version(model_name, "2")
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {}
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered model alias test_alias not found.",
+    ):
+        store.get_model_version_by_alias(model_name, "test_alias")
+
+
 def test_delete_model_deletes_alias(store):
     model_name = "DeleteModelDeletesAlias_TestMod"
     _setup_and_test_aliases(store, model_name)

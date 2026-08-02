@@ -1258,6 +1258,10 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = updated_time
+            # `version` may arrive as a string (e.g. from the REST API, where the proto
+            # field is a string), while `alias.version` is an integer column, so cast
+            # before comparing to avoid leaving a dangling alias behind.
+            version = _validate_model_version(version)
             aliases = sql_registered_model.registered_model_aliases
             for alias in aliases:
                 if alias.version == version:
