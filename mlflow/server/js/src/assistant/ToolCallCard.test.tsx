@@ -3,7 +3,15 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { ToolCallCard, ToolCallGroup, groupStatus, toolNameSummary, type ToolCallPart } from './ToolCallCard';
+import {
+  ToolCallCard,
+  ToolCallGroup,
+  fencedBlock,
+  groupStatus,
+  toolInputSummary,
+  toolNameSummary,
+  type ToolCallPart,
+} from './ToolCallCard';
 
 const renderCard = (part: ToolCallPart) =>
   renderWithIntl(
@@ -37,6 +45,16 @@ describe('ToolCallCard', () => {
   test('summarizes trace_id with its jq_filter', () => {
     renderCard(toolCall({ name: 'trace_analyse', input: { trace_id: 'tr-1', jq_filter: '.data.spans' } }));
     expect(screen.getByText('tr-1 · .data.spans')).toBeInTheDocument();
+  });
+
+  test('truncates long input summaries before rendering the collapsed header', () => {
+    const summary = toolInputSummary(toolCall({ input: { command: 'x'.repeat(300) } }));
+    expect(summary).toContain('truncated, 60 more chars');
+    expect(summary.length).toBeLessThan(300);
+  });
+
+  test('uses a longer markdown fence when content contains backticks', () => {
+    expect(fencedBlock('before ``` after', 'json')).toBe('````json\nbefore ``` after\n````');
   });
 
   test.each([
@@ -98,6 +116,16 @@ describe('ToolCallCard', () => {
 
     await user.click(screen.getByText('Bash'));
     await waitFor(() => expect(document.body.textContent).toContain('truncated, 1000 more chars'));
+  });
+});
+
+describe('fencedBlock', () => {
+  test('uses the standard triple-backtick fence when the body has no backtick runs', () => {
+    expect(fencedBlock('{"ok":true}', 'json')).toBe('```json\n{"ok":true}\n```');
+  });
+
+  test('uses a longer fence than any backtick run in the body', () => {
+    expect(fencedBlock('before ``` inside ```` after')).toBe('`````\nbefore ``` inside ```` after\n`````');
   });
 });
 

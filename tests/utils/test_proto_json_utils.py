@@ -112,6 +112,10 @@ def test_message_to_json():
     parse_dict(json_dict, new_proto_message)
     assert original_proto_message == new_proto_message
 
+    compact_json = message_to_json(original_proto_message, pretty=False)
+    assert "\n" not in compact_json
+    assert json.loads(compact_json) == json_dict
+
     test_message = ParseTextIntoProto(
         """
         field_int32: 11
@@ -194,6 +198,12 @@ def test_message_to_json():
         },
         "[mlflow.ExtensionMessage.field_extended_int64]": "100",
     }
+
+    json_with_int64_strings = json.loads(
+        message_to_json(test_message, convert_int64_to_number=False)
+    )
+    assert json_with_int64_strings["field_int64"] == "12"
+    assert json_with_int64_strings["field_inner_message"][0]["field_inner_int64"] == "101"
     new_test_message = SampleMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message

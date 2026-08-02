@@ -373,6 +373,35 @@ async def test_astream_ignores_config_stored_api_key(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_astream_uses_first_model_when_unconfigured(tmp_path):
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"providers": {}}))
+    clear_config_cache()
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=_list_models_stub,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+    lines = [_sse(_delta(content="ok")), b"data: [DONE]\n"]
+    session, calls = _make_aiohttp_session([lines])
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", cfg),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert calls[0]["url"] == "http://localhost:9999/v1/chat/completions"
+    assert calls[0]["json"]["model"] == "model-a"
+    clear_config_cache()
+
+
+@pytest.mark.asyncio
 async def test_astream_uses_tracking_uri_via_custom_chat_url_builder(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(json.dumps({"providers": {"gw_test": {"model": "ep-1"}}}))
@@ -411,6 +440,27 @@ def test_list_models_raises_not_implemented_when_no_fn():
     )
     with pytest.raises(NotImplementedError, match="Model listing is not supported"):
         provider.list_models()
+
+
+def test_list_models_passes_supplied_api_key():
+    captured = {}
+
+    def list_models(base_url: str, api_key: str | None = None) -> list[str]:
+        captured["base_url"] = base_url
+        captured["api_key"] = api_key
+        return ["model-a"]
+
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=list_models,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+
+    assert provider.list_models(api_key="sk-test") == ["model-a"]
+    assert captured == {"base_url": "http://localhost:9999", "api_key": "sk-test"}
 
 
 @pytest.mark.asyncio

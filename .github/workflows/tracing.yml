@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
 
       # Install mlflow-tracing SDK from the current directory
       - name: Install mlflow-tracing SDK

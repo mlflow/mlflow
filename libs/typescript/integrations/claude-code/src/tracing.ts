@@ -13,6 +13,15 @@ import {
 
 import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
 import {
+  LLM_COST_ATTRIBUTE,
+  TRACE_COST_METADATA,
+  calculateCost,
+  setModelRates,
+  sumCosts,
+  type LlmCost,
+} from './pricing.js';
+import { loadCatalogRates } from './modelCatalog.js';
+import {
   extractTextContent,
   findFinalAssistantResponse,
   findLastUserMessageIndex,
@@ -385,6 +394,17 @@ function createLlmAndToolSpans(
 
       setTokenUsageAttribute(llmSpan, usage);
 
+      // Compute cost from model + usage on every backend. Databricks does not
+      // compute it server-side, and the OSS server's computation
+      // (sqlalchemy_store.log_spans) never sees these spans because the TS SDK
+      // exports trace data as an artifact blob. If the SDK adopts the span-row
+      // export, scope this to Databricks like Python's
+      // should_compute_cost_client_side().
+      const cost = calculateCost(model, usage);
+      if (cost) {
+        llmSpan.setAttribute(LLM_COST_ATTRIBUTE, cost);
+      }
+
       llmSpan.setOutputs({
         type: 'message',
         role: 'assistant',
@@ -485,6 +505,10 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
 
     const convStartNs = parseTimestampToNs(lastUserEntry.timestamp);
 
+    // Prefer fresh rates from the published model catalog (filesystem TTL cache);
+    // calculateCost falls back to the bundled snapshot when unavailable.
+    setModelRates(await loadCatalogRates());
+
     const parentSpan = startSpan({
       name: 'claude_code_conversation',
       inputs: { prompt: userPromptText },
@@ -530,6 +554,17 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         );
         if (claudeCodeVersion) {
           metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;
+        }
+
+        // Aggregate per-call costs (including sub-agents, which share this trace)
+        // into a trace-level total so the trace's cost column is populated.
+        const traceCost = sumCosts(
+          Array.from(trace.spanDict.values())
+            .map((span) => span.getAttribute(LLM_COST_ATTRIBUTE) as LlmCost | undefined)
+            .filter((c): c is LlmCost => c != null),
+        );
+        if (traceCost) {
+          metadata[TRACE_COST_METADATA] = JSON.stringify(traceCost);
         }
 
         trace.info.traceMetadata = metadata;

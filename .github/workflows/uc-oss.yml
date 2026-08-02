@@ -41,13 +41,13 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/setup-python
+      - uses: $/.github/actions/setup-python
 
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
 
-      - uses: ./.github/actions/setup-java
+      - uses: $/.github/actions/setup-java
 
       - name: Clone UnityCatalog at tag v0.4.1
         run: |
