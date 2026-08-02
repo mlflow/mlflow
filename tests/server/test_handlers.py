@@ -24,6 +24,9 @@ from mlflow.entities import (
     TraceInfo,
     TraceState,
     ViewType,
+    Webhook,
+    WebhookEvent,
+    WebhookStatus,
 )
 from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
@@ -51,6 +54,7 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
+from mlflow.entities.webhook import WebhookAction, WebhookEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import (
     MlflowException,
@@ -66,6 +70,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewStatus,
 )
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+from mlflow.protos import webhooks_pb2 as WebhookStatusProto
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -138,7 +143,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     TraceLocation,
 )
-from mlflow.protos.webhooks_pb2 import ListWebhooks
+from mlflow.protos.webhooks_pb2 import ListWebhooks, UpdateWebhook
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     ARTIFACTS_ONLY_ENV_VAR,
@@ -233,6 +238,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_review_queue,
+    _update_webhook,
     _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
@@ -3132,6 +3138,52 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_update_webhook_without_status_preserves_status(
+    mock_get_request_message, mock_model_registry_store
+):
+    # A client omitting `status` (e.g. only renaming a webhook) must not overwrite the
+    # existing status. An unset proto2 enum field reads as its first declared value
+    # (ACTIVE), so the handler must use HasField to distinguish "unset" from ACTIVE.
+    mock_get_request_message.return_value = UpdateWebhook(webhook_id="wh-1", name="new-name")
+    webhook = Webhook(
+        webhook_id="wh-1",
+        name="old-name",
+        url="http://example.com/hook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        creation_timestamp=1,
+        last_updated_timestamp=1,
+        status=WebhookStatus.DISABLED,
+    )
+    mock_model_registry_store.update_webhook.return_value = webhook
+
+    _update_webhook("wh-1")
+
+    _, kwargs = mock_model_registry_store.update_webhook.call_args
+    assert kwargs["status"] is None
+    assert kwargs["name"] == "new-name"
+
+
+def test_update_webhook_with_explicit_status(mock_get_request_message, mock_model_registry_store):
+    mock_get_request_message.return_value = UpdateWebhook(
+        webhook_id="wh-1", status=WebhookStatusProto.DISABLED
+    )
+    webhook = Webhook(
+        webhook_id="wh-1",
+        name="name",
+        url="http://example.com/hook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        creation_timestamp=1,
+        last_updated_timestamp=1,
+        status=WebhookStatus.DISABLED,
+    )
+    mock_model_registry_store.update_webhook.return_value = webhook
+
+    _update_webhook("wh-1")
+
+    _, kwargs = mock_model_registry_store.update_webhook.call_args
+    assert kwargs["status"] == WebhookStatus.DISABLED
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):

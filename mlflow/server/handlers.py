@@ -3475,7 +3475,15 @@ def _update_webhook(webhook_id: str):
             else None
         ),
         secret=request_message.secret or None,
-        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+        # NB: An unset proto2 enum field reads as its first declared value (ACTIVE), so
+        # checking truthiness of `request_message.status` would treat requests without a
+        # status as "set to ACTIVE" and overwrite the webhook's existing status. Use
+        # HasField to only update the status when it was explicitly provided.
+        status=(
+            WebhookStatus.from_proto(request_message.status)
+            if request_message.HasField("status")
+            else None
+        ),
     )
     response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
     return _wrap_response(response_message)
