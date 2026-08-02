@@ -732,6 +732,18 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
 
 
 @pytest.mark.parametrize(
+    "flavor",
+    ["sklearn", "pytorch", "pyspark.ml"],
+)
+def test_is_autologging_integration_supported_when_version_is_none(flavor):
+    module_name = FLAVOR_TO_MODULE_NAME[flavor]
+    with mock.patch(module_name + ".__version__", None):
+        # A None version (e.g. Serverless environments without package metadata) must not
+        # crash; treat it as supported, matching the PackageNotFoundError fallback.
+        assert is_flavor_supported_for_associated_package_versions(flavor) is True
+
+
+@pytest.mark.parametrize(
     ("flavor", "module_version", "expected_result"),
     [
         ("pyspark.ml", "99.0.0.dev0", False),

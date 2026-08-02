@@ -77,6 +77,12 @@ def is_flavor_supported_for_associated_package_versions(flavor_name, check_max_v
             # For this case, we assume the package version is supported by MLflow.
             return True
 
+    # Some environments (e.g. Serverless) may not expose a package version, in which case
+    # the version is reported as None. Assume the package is supported rather than crashing
+    # on Version(None) below.
+    if actual_version is None:
+        return True
+
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
     if module_name == "pyspark" and is_in_databricks_runtime():
         actual_version = _strip_dev_version_suffix(actual_version)
