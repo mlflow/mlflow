@@ -86,10 +86,23 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
 
   // Force-end the drag if the mouse leaves the browser window entirely,
   // since native mouseup never fires in that case.
+  const isDispatchingRef = useRef(false);
   useEffect(() => {
     if (!isDragging) return;
 
     const forceStopDrag = () => {
+      if (isDispatchingRef.current) return; // avoid re-entrant loop from our own dispatch
+      isDispatchingRef.current = true;
+
+      // Dispatch a synthetic mouseup so DraggableCore's own document-level
+      // listener runs its native cleanup and internal state reset, instead
+      // of only patching our wrapper's state via onStopDrag.
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+
+      isDispatchingRef.current = false;
+
+      // Safety net in case DraggableCore's listeners were already detached
+      // and didn't invoke onStop as part of the dispatch above.
       onStopDrag();
     };
 
