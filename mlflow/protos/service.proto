@@ -537,6 +537,27 @@ service MlflowService {
     };
   }
 
+  // Generate a presigned URL for downloading an artifact directly from cloud storage.
+  // The server uses its own credentials to sign the URL, enabling clients (including the
+  // MLflow UI) to download artifacts without needing direct cloud storage read permissions
+  // and without streaming bytes through the tracking server.
+  rpc createPresignedDownloadUrl(CreatePresignedDownloadUrl) returns (CreatePresignedDownloadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/presigned-download-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Presigned Download URL"
+    };
+  }
+
   // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory(GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -3702,6 +3723,31 @@ message CreatePresignedUploadUrl {
   }
 }
 
+message CreatePresignedDownloadUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ID that owns the artifact. Must be provided.
+  optional string run_id = 1;
+
+  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
+  // Must be provided.
+  optional string path = 2;
+
+  // URL expiration time in seconds (default: 300).
+  optional int64 expiration = 3;
+
+  message Response {
+    // Presigned URL for direct artifact download.
+    optional string presigned_url = 1;
+
+    // Optional headers for the download request (empty for standard S3 GET).
+    map<string, string> headers = 2;
+
+    // Size of the artifact in bytes, when available.
+    optional int64 file_size = 3;
+  }
+}
+
 // Metadata of a single artifact file or directory.
 message FileInfo {
   // Path relative to the root artifact directory run.
@@ -5524,6 +5570,8 @@ enum BudgetTargetScope {
   TARGET_SCOPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
   GLOBAL = 1;
   WORKSPACE = 2;
+  // Applies only to requests routed to a specific gateway endpoint
+  ENDPOINT = 3;
 }
 
 // Action to take when a budget is exceeded
@@ -5761,7 +5809,7 @@ message GatewayBudgetPolicy {
   optional double budget_amount = 3;
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
-  // Scope of the budget (GLOBAL or WORKSPACE)
+  // Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
   optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
   optional BudgetAction budget_action = 6;
@@ -5773,6 +5821,9 @@ message GatewayBudgetPolicy {
   optional string last_updated_by = 9;
   // Last update timestamp in milliseconds
   optional int64 last_updated_at = 10;
+  // Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+  // for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+  optional string target_value = 11;
 }
 
 message CreateGatewayBudgetPolicy {
@@ -5782,6 +5833,9 @@ message CreateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 4;
   optional BudgetAction budget_action = 5;
   optional string created_by = 6;
+  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+  // scope.
+  optional string target_value = 7;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5804,6 +5858,9 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 5;
   optional BudgetAction budget_action = 6;
   optional string updated_by = 7;
+  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+  // scope.
+  optional string target_value = 8;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;

@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
-import { generatePath } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { generatePath, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
 
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
@@ -25,16 +25,10 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableIssueDetection: jest.fn(),
 }));
 
-// Mock IssueDetectionModal
-jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
-  IssueDetectionModal: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="issue-detection-modal">
-      <button data-testid="close-modal" onClick={onClose}>
-        Close
-      </button>
-    </div>
-  ),
-}));
+const TracesTabStub = () => {
+  const location = useLocation();
+  return <div data-testid="traces-tab-stub">{location.search}</div>;
+};
 
 // Mock useLocalStorage to prevent guidance popovers from showing in tests
 jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
@@ -90,7 +84,10 @@ describe('ExperimentGenAIOverviewPage', () => {
         <DesignSystemProvider>
           <TestRouter
             history={history}
-            routes={[testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview)]}
+            routes={[
+              testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview),
+              testRoute(<TracesTabStub />, RoutePaths.experimentPageTabTraces),
+            ]}
             initialEntries={[initialUrl]}
           />
         </DesignSystemProvider>
@@ -327,7 +324,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
 
-    it('should open issue detection modal when button is clicked', async () => {
+    it('should navigate to the traces tab with detectIssues param when button is clicked', async () => {
       mockShouldEnableIssueDetection.mockReturnValue(true);
       const user = userEvent.setup();
       renderComponent();
@@ -338,31 +335,7 @@ describe('ExperimentGenAIOverviewPage', () => {
 
       await user.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
 
-      await waitFor(() => {
-        expect(screen.getByTestId('issue-detection-modal')).toBeInTheDocument();
-      });
-    });
-
-    it('should close issue detection modal when close is triggered', async () => {
-      mockShouldEnableIssueDetection.mockReturnValue(true);
-      const user = userEvent.setup();
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('issue-detection-modal')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByTestId('close-modal'));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('issue-detection-modal')).not.toBeInTheDocument();
-      });
+      expect(await screen.findByTestId('traces-tab-stub')).toHaveTextContent('?detectIssues=true');
     });
   });
 

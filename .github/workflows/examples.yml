@@ -70,7 +70,7 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/free-disk-space
+      - uses: $/.github/actions/free-disk-space
       - name: Check diff
         id: check-diff
         if: github.event_name == 'pull_request'
@@ -90,8 +90,8 @@ jobs:
           echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
+      - uses: $/.github/actions/setup-python
+      - uses: $/.github/actions/setup-pyenv
 
       - name: Install dependencies
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'

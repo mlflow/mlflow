@@ -4,7 +4,7 @@ import { useDatasetRecordsPageQuery } from './useDatasetRecordsPageQuery';
 import { useDatasetRecordsUrlState } from './useDatasetRecordsUrlState';
 import { useBulkRecordSelection } from './useBulkRecordSelection';
 import { useDebouncedSearchInput } from './useDebouncedSearchInput';
-import { usePersistedTableColumns } from './usePersistedTableColumns';
+import { usePersistedTablePreferences } from './usePersistedTablePreferences';
 import {
   DEFAULT_RECORD_PAGE_SIZE,
   DEFAULT_VISIBLE_RECORD_COLUMNS,
@@ -24,7 +24,7 @@ export interface UseDatasetRecordsControllerResult {
   records: ReturnType<typeof useDatasetRecordsPageQuery>;
   selectedRecord: DatasetRecord | undefined;
   bulk: ReturnType<typeof useBulkRecordSelection>;
-  columns: ReturnType<typeof usePersistedTableColumns<RecordColumnId>>;
+  tablePrefs: ReturnType<typeof usePersistedTablePreferences<RecordColumnId>>;
   /**
    * Debounced search input wired to URL state. The controller flushes any pending write
    * before a page-index transition so a mid-debounce keystroke doesn't clobber the
@@ -90,7 +90,7 @@ export const useDatasetRecordsController = ({
     }
   }, [records.isLoading, records.totalRecords, url.pageIndex, setPageIndex]);
 
-  const columns = usePersistedTableColumns({
+  const tablePrefs = usePersistedTablePreferences({
     experimentId,
     datasetId,
     allColumns: RECORD_COLUMN_IDS,
@@ -139,7 +139,7 @@ export const useDatasetRecordsController = ({
     records,
     selectedRecord,
     bulk,
-    columns,
+    tablePrefs,
     searchInput,
     setPageIndex,
     flags: { hasActiveSearch, hasNoRecordsAtAll, hasNoSearchResults },

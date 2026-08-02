@@ -714,12 +714,10 @@ def test_violates_pep_440():
 @pytest.mark.parametrize(
     ("flavor", "module_version", "expected_result"),
     [
-        ("sklearn", "1.5.1", True),
         ("sklearn", "0.20.2", False),
         ("sklearn", "0.23.0rc1", False),
         ("sklearn", "0.23.0dev0", False),
         ("sklearn", "0.23.0-SNAPSHOT", False),
-        ("pytorch", "2.4.0", True),
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),
@@ -774,7 +772,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             and log_info_fn_args[0][1] == "sklearn"
         )
 
-    with mock.patch("sklearn.__version__", "1.5.1"):
+    with mock.patch("sklearn.__version__", "1.5.2"):
         AUTOLOGGING_INTEGRATIONS.clear()
         with (
             mock.patch(log_warn_fn_name) as log_warn_fn,

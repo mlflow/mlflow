@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from unittest import mock
@@ -730,3 +731,215 @@ def test_model_log_with_metadata(onnx_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def _stub_session(mock_session, active_providers=None, raise_on_providers=None):
+    # _OnnxModelWrapper.__init__ asserts len(self.rt.get_inputs()) >= 1, reads
+    # inp.name/inp.type and outp.name, and calls get_providers() to detect runtime
+    # fallback. Configure the mocked InferenceSession's return value so construction
+    # completes.
+    #   - active_providers: what the constructed session reports as actually activated;
+    #     default echoes the providers the (final) session was constructed with.
+    #   - raise_on_providers: if given, an InferenceSession(...) call whose providers equal
+    #     this list raises RuntimeError (simulating a provider that fails to initialize,
+    #     e.g. TensorRT without libnvinfer); other calls return the stub session.
+    inp = mock.Mock()
+    inp.name, inp.type = "input", "tensor(float)"
+    outp = mock.Mock()
+    outp.name = "output"
+    session = mock_session.return_value
+    session.get_inputs.return_value = [inp]
+    session.get_outputs.return_value = [outp]
+
+    def _construct(*args, **kwargs):
+        if raise_on_providers is not None and kwargs.get("providers") == raise_on_providers:
+            raise RuntimeError("simulated provider init failure (e.g. missing libnvinfer)")
+        return session
+
+    mock_session.side_effect = _construct
+
+    def _get_providers():
+        if active_providers is not None:
+            return active_providers
+        # Echo whatever providers the session was last constructed with.
+        _, kwargs = mock_session.call_args
+        return kwargs.get("providers") or ["CPUExecutionProvider"]
+
+    session.get_providers.side_effect = _get_providers
+
+
+def test_onnx_model_load_honors_declared_execution_providers(onnx_model, model_path):
+    mlflow.onnx.save_model(
+        onnx_model, model_path, onnx_execution_providers=["CPUExecutionProvider"]
+    )
+    with mock.patch("onnxruntime.InferenceSession") as mock_session:
+        _stub_session(mock_session)
+        mlflow.pyfunc.load_model(model_path)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+
+
+def test_onnx_model_load_warns_when_declared_provider_unavailable(onnx_model, model_path, caplog):
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    # The "mlflow" logger sets propagate=False, so caplog's root handler does not see
+    # records. Attach caplog's handler directly to the mlflow.onnx logger
+    # (mirrors tests/server/test_security.py:84-92).
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            _stub_session(mock_session)
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+    assert "CUDAExecutionProvider" in caplog.text
+
+
+def test_onnx_model_load_coerces_string_provider_metadata(onnx_model, model_path):
+    # Malformed/legacy metadata may store a single provider as a bare string rather than a
+    # list. Without coercion the loader would iterate over its characters and silently fall
+    # back to CPU; the guard normalizes it to a one-element list.
+    mlflow.onnx.save_model(onnx_model, model_path, onnx_execution_providers="CUDAExecutionProvider")
+    with (
+        mock.patch("onnxruntime.InferenceSession") as mock_session,
+        mock.patch(
+            "onnxruntime.get_available_providers",
+            return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+    ):
+        _stub_session(mock_session)
+        mlflow.pyfunc.load_model(model_path)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CUDAExecutionProvider"]
+
+
+def test_onnx_model_load_warns_on_runtime_provider_fallback(onnx_model, model_path, caplog):
+    # A requested provider can be compiled into onnxruntime (so it appears in
+    # get_available_providers()) yet fail to initialize at runtime -- e.g. a CUDA
+    # driver/runtime mismatch -- causing a silent fallback to CPU. The loader compares
+    # requested vs actually-activated providers and warns on the drop.
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            # CUDA is "available" but the session activates CPU only (runtime init failed).
+            _stub_session(mock_session, active_providers=["CPUExecutionProvider"])
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    # We still requested CUDA (it passed the available-providers filter)...
+    assert kwargs["providers"] == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    # ...but the runtime-fallback warning fires because it was not activated, and since
+    # nothing accelerated survived the warning says inference runs on CPU.
+    assert "CUDAExecutionProvider" in caplog.text
+    assert "failed to initialize at runtime" in caplog.text
+    assert "Inference will run on CPU." in caplog.text
+
+
+def test_onnx_model_load_warns_but_keeps_gpu_when_only_some_providers_drop(
+    onnx_model, model_path, caplog
+):
+    # When onnxruntime drops one requested provider (e.g. TensorRT) but a GPU provider
+    # (CUDA) survives, the model still runs on GPU. The warning must report the drop
+    # without claiming acceleration was lost.
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=[
+            "TensorrtExecutionProvider",
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=[
+                    "TensorrtExecutionProvider",
+                    "CUDAExecutionProvider",
+                    "CPUExecutionProvider",
+                ],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            # TensorRT is dropped at runtime but CUDA survives -> still on GPU.
+            _stub_session(
+                mock_session,
+                active_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            )
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    assert "TensorrtExecutionProvider" in caplog.text
+    assert "failed to initialize at runtime" in caplog.text
+    # CUDA survived, so the message must NOT claim CPU-only.
+    assert "Inference will still use the remaining accelerated provider(s)." in caplog.text
+    assert "Inference will run on CPU." not in caplog.text
+
+
+def test_onnx_model_load_falls_back_to_cpu_when_provider_construction_raises(
+    onnx_model, model_path, caplog
+):
+    # Some providers raise during construction rather than silently dropping -- e.g.
+    # TensorRT without libnvinfer, or CUDA driver/runtime mismatch. The loader must not
+    # regress a previously-loadable model into a hard failure: it retries on CPU and warns.
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            # Constructing with the GPU providers raises; the CPU-only retry succeeds.
+            _stub_session(
+                mock_session,
+                active_providers=["CPUExecutionProvider"],
+                raise_on_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            )
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    # Two constructions: the failing GPU attempt, then the CPU fallback.
+    assert mock_session.call_count == 2
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+    assert "falling back to CPU" in caplog.text

@@ -8,6 +8,7 @@ import { AssistantFloatingButton } from './AssistantFloatingButton';
 const mockOpenPanel = jest.fn();
 let mockAssistant: { isLocalServer: boolean; isPanelOpen: boolean; openPanel: jest.Mock };
 let mockObstructionWidth: number;
+let mockObstructionHeight: number;
 
 jest.mock('./AssistantContext', () => ({
   useAssistant: () => mockAssistant,
@@ -15,6 +16,7 @@ jest.mock('./AssistantContext', () => ({
 
 jest.mock('./useFloatingObstruction', () => ({
   useFloatingObstructionWidth: () => mockObstructionWidth,
+  useFloatingObstructionHeight: () => mockObstructionHeight,
 }));
 
 jest.mock('../telemetry/hooks/useLogTelemetryEvent', () => ({
@@ -34,6 +36,7 @@ describe('AssistantFloatingButton', () => {
     mockOpenPanel.mockClear();
     mockAssistant = { isLocalServer: true, isPanelOpen: false, openPanel: mockOpenPanel };
     mockObstructionWidth = 0;
+    mockObstructionHeight = 0;
   });
 
   test('auto-opens the panel once on first load', () => {
@@ -78,6 +81,14 @@ describe('AssistantFloatingButton', () => {
   test('stays visible (repositioned) when a right-side surface is open', () => {
     mockObstructionWidth = 600;
     renderFab();
+    expect(screen.getByRole('button', { name: 'MLflow Assistant' })).toBeInTheDocument();
+  });
+
+  test('lifts (stays visible) when a bottom-pinned action bar is registered', () => {
+    mockObstructionHeight = 80;
+    renderFab();
+    // The button rises above the bar rather than hiding; the bottom-inset math runs with a
+    // real number (regression guard: an undefined height would make `bottom` NaN).
     expect(screen.getByRole('button', { name: 'MLflow Assistant' })).toBeInTheDocument();
   });
 });
