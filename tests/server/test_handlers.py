@@ -263,7 +263,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -3022,6 +3022,42 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
     call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_search_experiments_without_max_results_uses_default(
+    mock_get_request_message, mock_tracking_store
+):
+    # Regression test: an unset proto2 `max_results` reads as 0, which previously became
+    # an explicit `max_results=0` store call that was rejected as a non-positive page size,
+    # making requests without `max_results` fail with INVALID_PARAMETER_VALUE.
+    search_experiments_proto = SearchExperiments()
+    assert search_experiments_proto.max_results == 0
+
+    mock_get_request_message.return_value = search_experiments_proto
+    mock_tracking_store.search_experiments.return_value = PagedList([], None)
+
+    _search_experiments()
+
+    # The store must receive the documented server-side default instead of 0
+    mock_tracking_store.search_experiments.assert_called_once()
+    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
+    assert call_kwargs.get("max_results") == SEARCH_MAX_RESULTS_DEFAULT
+
+
+@pytest.mark.parametrize("max_results", [0, -5])
+def test_search_experiments_rejects_non_positive_max_results(
+    mock_get_request_message, mock_tracking_store, max_results
+):
+    search_experiments_proto = SearchExperiments()
+    search_experiments_proto.max_results = max_results
+
+    mock_get_request_message.return_value = search_experiments_proto
+    mock_tracking_store.search_experiments.return_value = PagedList([], None)
+
+    response = _search_experiments()
+    assert response.status_code == 400
+    assert "max_results" in response.get_data(as_text=True)
+    mock_tracking_store.search_experiments.assert_not_called()
 
 
 def test_search_registered_models_empty_page_token(

@@ -2512,9 +2512,23 @@ def _search_experiments():
         },
     )
 
+    # NB: An unset proto2 int field reads as 0 (never None), so passing
+    # `request_message.max_results` through directly would treat requests without
+    # `max_results` as `max_results=0` and reject them. Use HasField to fall back to the
+    # documented server-side default, and reject explicit non-positive page sizes.
+    max_results = (
+        request_message.max_results if request_message.HasField("max_results") else None
+    )
+    if max_results is not None and max_results <= 0:
+        raise MlflowException(
+            f"Invalid value {max_results} for parameter 'max_results' supplied. "
+            "It must be a positive integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
-        max_results=request_message.max_results,
+        max_results=max_results or SEARCH_MAX_RESULTS_DEFAULT,
         order_by=request_message.order_by,
         filter_string=request_message.filter,
         page_token=request_message.page_token or None,
