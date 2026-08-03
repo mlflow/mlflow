@@ -163,11 +163,11 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
           fetch-depth: 2
 
-      - uses: $/.github/actions/free-disk-space
-      - uses: $/.github/actions/setup-python
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
-      - uses: $/.github/actions/setup-node
+      - uses: ./.github/actions/setup-node
 
       - name: Parse review arguments
         id: prompt

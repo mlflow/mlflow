@@ -49,10 +49,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: $/.github/actions/untracked
-      - uses: $/.github/actions/setup-python # Required for running a tracking server
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: $/.github/actions/setup-node
+        uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -103,7 +103,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Node.js
-        uses: $/.github/actions/setup-node
+        uses: ./.github/actions/setup-node
         with:
           node-version: 24
       - name: Install dependencies
