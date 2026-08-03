@@ -1,9 +1,6 @@
-import importlib.metadata
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
-
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
@@ -26,6 +23,7 @@ from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -63,7 +61,7 @@ def autolog(
         disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
             enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
-    if Version(importlib.metadata.version("openai")).major < 1:
+    if (version := get_installed_version("openai")) is not None and version.major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).

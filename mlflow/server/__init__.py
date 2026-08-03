@@ -1,5 +1,4 @@
 import importlib
-import importlib.metadata
 import logging
 import os
 import secrets
@@ -58,6 +57,7 @@ from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
 )
+from mlflow.utils import get_installed_version
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -66,7 +66,8 @@ from mlflow.version import VERSION
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
+_flask_version = get_installed_version("flask")
+IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
 
 is_running_as_server = (
     "gunicorn" in sys.modules
