@@ -5231,24 +5231,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             _bulk_upsert(session, SqlSpan, all_span_rows)
 
             # --- Phase 4: Fetch trace finalization markers ---
-            trace_ids_with_token_usage = [
+            trace_ids_with_token_usage = {
                 tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_token_usage
-            ]
-            trace_ids_with_cost = [
+            }
+            trace_ids_with_cost = {
                 tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_cost
-            ]
-            trace_ids_with_session = [
+            }
+            trace_ids_with_session = {
                 tid for tid in all_trace_ids if trace_aggregates[tid].session_id
-            ]
+            }
 
             # Traces where start_trace() has already written the authoritative values.
             # log_spans() must not accumulate on top of those to avoid double-counting.
             finalized_trace_ids: set[str] = set()
             if trace_ids_with_token_usage or trace_ids_with_cost or trace_ids_with_session:
-                all_finalized_ids = list(
-                    set(trace_ids_with_token_usage)
-                    | set(trace_ids_with_cost)
-                    | set(trace_ids_with_session)
+                all_finalized_ids = sorted(
+                    trace_ids_with_token_usage | trace_ids_with_cost | trace_ids_with_session
                 )
                 rows = (
                     session
@@ -5261,17 +5259,34 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 finalized_trace_ids.update(row.request_id for row in rows)
 
+            authoritative_token_usage_ids = {
+                trace_id
+                for trace_id in trace_ids_with_token_usage & finalized_trace_ids
+                if any(
+                    getattr(existing_traces[trace_id], column) is not None
+                    for column in TOKEN_COLUMN_BY_KEY.values()
+                )
+            }
+            authoritative_cost_ids = {
+                trace_id
+                for trace_id in trace_ids_with_cost & finalized_trace_ids
+                if any(
+                    getattr(existing_traces[trace_id], column) is not None
+                    for column in COST_COLUMN_BY_KEY.values()
+                )
+            }
+
             # For traces that existed before this call, the batch-local aggregate is not
             # authoritative: a rollup parent and its children may arrive in separate
             # batches (e.g. BatchSpanProcessor exports of a distributed trace), and
             # accumulating per-batch sums onto the stored value would double-count.
             # Fetch the trace's already-stored spans so Phase 5 can recompute the
             # tree-aware aggregate over the full span tree (stored + batch).
-            recompute_trace_ids = [
-                tid
-                for tid in set(trace_ids_with_token_usage) | set(trace_ids_with_cost)
-                if tid not in created_trace_ids
-            ]
+            recompute_token_usage_ids = (
+                trace_ids_with_token_usage - created_trace_ids - authoritative_token_usage_ids
+            )
+            recompute_cost_ids = trace_ids_with_cost - created_trace_ids - authoritative_cost_ids
+            recompute_trace_ids = recompute_token_usage_ids | recompute_cost_ids
             stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             if recompute_trace_ids:
@@ -5285,7 +5300,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         SqlSpan.content,
                     )
                     .filter(
-                        SqlSpan.trace_id.in_(recompute_trace_ids),
+                        SqlSpan.trace_id.in_(sorted(recompute_trace_ids)),
                         SqlSpan.content != "",
                     )
                     .all()
@@ -5301,22 +5316,24 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     except (json.JSONDecodeError, AttributeError):
                         _logger.debug("Skipping malformed span content for span %s", row_span_id)
                         continue
-                    stored_usage_nodes[row_trace_id].append(
-                        _span_aggregation_node(
-                            row_span_id,
-                            row_parent_span_id,
-                            row_attributes,
-                            SpanAttributeKey.CHAT_USAGE,
+                    if row_trace_id in recompute_token_usage_ids:
+                        stored_usage_nodes[row_trace_id].append(
+                            _span_aggregation_node(
+                                row_span_id,
+                                row_parent_span_id,
+                                row_attributes,
+                                SpanAttributeKey.CHAT_USAGE,
+                            )
                         )
-                    )
-                    stored_cost_nodes[row_trace_id].append(
-                        _span_aggregation_node(
-                            row_span_id,
-                            row_parent_span_id,
-                            row_attributes,
-                            SpanAttributeKey.LLM_COST,
+                    if row_trace_id in recompute_cost_ids:
+                        stored_cost_nodes[row_trace_id].append(
+                            _span_aggregation_node(
+                                row_span_id,
+                                row_parent_span_id,
+                                row_attributes,
+                                SpanAttributeKey.LLM_COST,
+                            )
                         )
-                    )
 
             # --- Phase 5: Per-trace updates (UPDATE + merges) ---
             # Iterate trace_ids in sorted order, and within each trace emit
@@ -5375,11 +5392,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
                 # start_trace() values take precedence over values inferred from spans.
                 if aggregated_token_usage := agg.aggregated_token_usage:
-                    has_finalized_token_usage = trace_id in finalized_trace_ids and any(
-                        getattr(sql_trace_info, column) is not None
-                        for column in TOKEN_COLUMN_BY_KEY.values()
-                    )
-                    if not has_finalized_token_usage:
+                    if trace_id not in authoritative_token_usage_ids:
                         if trace_id in created_trace_ids:
                             trace_token_usage = aggregated_token_usage
                         else:
@@ -5398,11 +5411,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                                     update_dict[getattr(SqlTraceInfo, column)] = value
 
                 if aggregated_cost := agg.aggregated_cost:
-                    has_finalized_cost = trace_id in finalized_trace_ids and any(
-                        getattr(sql_trace_info, column) is not None
-                        for column in COST_COLUMN_BY_KEY.values()
-                    )
-                    if not has_finalized_cost:
+                    if trace_id not in authoritative_cost_ids:
                         if trace_id in created_trace_ids:
                             recorded_cost = aggregated_cost
                         else:
