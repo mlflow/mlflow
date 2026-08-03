@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 from importlib import import_module
+from unittest.mock import Mock
 
 import pytest
 import sqlalchemy as sa
@@ -870,8 +871,8 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
         assert len(trace_dimension_updates) == expected_page_count
         for statement, executemany in trace_dimension_updates:
             assert " WHERE " in statement
-            assert " IN (" in statement
-            assert executemany is False
+            assert "REQUEST_ID" in statement
+            assert executemany is True
 
         expected_assessment_page_count = (
             assessment_count + MIGRATION_MODULE._BATCH_SIZE - 1
@@ -992,7 +993,7 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
 
         with pytest.raises(
             RuntimeError,
-            match="1 assessments rows have no trace_info row",
+            match="assessments row references missing trace_info row 'missing-trace'",
         ):
             command.upgrade(config, REVISION)
 
@@ -1062,16 +1063,62 @@ def test_trace_analytics_migration_accepts_null_dimension_attributes(tmp_path):
         engine.dispose()
 
 
-def test_trace_analytics_backfill_batch_validation_rejects_mismatched_values():
-    with pytest.raises(
-        RuntimeError,
-        match="trace backfill validation failed for 'trace-1': mismatched columns input_tokens",
-    ):
-        MIGRATION_MODULE._validate_backfill_batch(
-            "trace",
-            {"trace-1": {"input_tokens": 10.0, "total_cost": None}},
-            {"trace-1": {"input_tokens": None, "total_cost": None}},
-        )
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, {}),
+        ({}, {}),
+        (
+            {SpanAttributeKey.MODEL: "model", SpanAttributeKey.MODEL_PROVIDER: None},
+            {SpanAttributeKey.MODEL: "model", SpanAttributeKey.MODEL_PROVIDER: None},
+        ),
+        (json.dumps({SpanAttributeKey.MODEL: "model"}), {SpanAttributeKey.MODEL: "model"}),
+    ],
+)
+def test_validated_dimension_attributes(value, expected):
+    assert (
+        MIGRATION_MODULE._validated_dimension_attributes(value, ("trace-1", "span-1")) == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("not-json", "malformed JSON"),
+        (json.dumps(["model"]), "unsupported content"),
+        ({"custom.dimension": "value"}, "custom.dimension"),
+        ({SpanAttributeKey.MODEL: 123}, SpanAttributeKey.MODEL),
+    ],
+)
+def test_validated_dimension_attributes_rejects_unsupported_values(value, match):
+    with pytest.raises(RuntimeError, match=match):
+        MIGRATION_MODULE._validated_dimension_attributes(value, ("trace-1", "span-1"))
+
+
+@pytest.mark.parametrize(
+    ("supports_sane_rowcount", "rowcount", "raises"),
+    [
+        (True, 2, False),
+        (True, 1, True),
+        (False, -1, False),
+    ],
+)
+def test_execute_backfill_updates_validates_supported_rowcounts(
+    supports_sane_rowcount, rowcount, raises
+):
+    result = Mock(rowcount=rowcount)
+    result.supports_sane_multi_rowcount.return_value = supports_sane_rowcount
+    bind = Mock()
+    bind.execute.return_value = result
+    updates = [{"id": 1}, {"id": 2}]
+
+    if raises:
+        with pytest.raises(RuntimeError, match="trace backfill updated 1 of 2 rows"):
+            MIGRATION_MODULE._execute_backfill_updates(bind, "update", updates, "trace")
+    else:
+        MIGRATION_MODULE._execute_backfill_updates(bind, "update", updates, "trace")
+
+    bind.execute.assert_called_once_with("update", updates)
 
 
 @pytest.mark.parametrize(
