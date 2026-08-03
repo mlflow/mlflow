@@ -9303,6 +9303,10 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
+  "dJbsSP": {
+    "defaultMessage": "No assessments to display.",
+    "description": "Empty state text for the custom view assessment board when it has no cards"
+  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
@@ -13186,10 +13190,6 @@
   "tatySQ": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
-  },
-  "tdmVWN": {
-    "defaultMessage": "While deleting an experiment run, an error occurred.",
-    "description": "Experiment tracking > delete run modal > error message"
   },
   "tiQptW": {
     "defaultMessage": "Learn more",

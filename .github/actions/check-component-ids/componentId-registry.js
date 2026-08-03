@@ -2429,6 +2429,7 @@ module.exports = {
   "shared.model-trace-explorer.cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.total-cost.tag": "",
+  "shared.model-trace-explorer.custom-view.markdown.link": "",
   "shared.model-trace-explorer.expand": "",
   "shared.model-trace-explorer.expectation-array-item-tag": "",
   "shared.model-trace-explorer.expectation-learn-more-link": "",

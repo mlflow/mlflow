@@ -8,10 +8,10 @@ import logging
 from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.trace import Tracer, TracerProvider
-from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _get_tracer, get_current_context
+from mlflow.utils import get_installed_version
 
 _logger = logging.getLogger(__name__)
 _agno_instrumentor = None
@@ -34,10 +34,8 @@ except ImportError:
 
 def _is_agno_v2() -> bool:
     """Check if Agno V2 (>= 2.0.0) is installed."""
-    try:
-        return Version(_meta.version("agno")).major >= 2
-    except _meta.PackageNotFoundError:
-        return False
+    version = get_installed_version("agno")
+    return version is not None and version.major >= 2
 
 
 def _bridge_parent_context(context):

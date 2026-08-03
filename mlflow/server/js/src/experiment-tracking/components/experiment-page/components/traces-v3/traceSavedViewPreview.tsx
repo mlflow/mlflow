@@ -101,10 +101,13 @@ export const useSavedViewPreview = ({
   const override = useCallback(() => {
     const previousColumns = ownColumns;
     const previousSort = ownSort;
-    // Nothing decoded (e.g. Override clicked before allColumns finished loading, or a view saved
-    // against an incompatible schema): don't silently exit preview claiming success — tell the user
-    // and stay in preview so they can retry once columns resolve.
-    if (!columns && !sort) {
+    // The URL carried non-empty column/sort state but neither decoded (e.g. Override clicked before
+    // allColumns finished loading, or a view saved against an incompatible schema): don't silently
+    // exit preview claiming success — tell the user and stay in preview so they can retry. When the
+    // link intentionally has no columns/sort (a time-range- or filter-only view, or an all-columns-
+    // deselected view whose empty `selectedColumns` decodes to nothing), there is nothing to adopt,
+    // so fall through and let Override simply exit preview rather than erroring.
+    if ((Boolean(rawColumns) || Boolean(rawSort)) && !columns && !sort) {
       Utils.displayGlobalErrorNotification(
         intl.formatMessage({
           defaultMessage: 'This view could not be applied. Try again in a moment.',
@@ -143,7 +146,19 @@ export const useSavedViewPreview = ({
       </span>,
       5,
     );
-  }, [columns, sort, ownColumns, ownSort, setSelectedColumns, setTableSort, exitPreview, theme.spacing.sm, intl]);
+  }, [
+    columns,
+    sort,
+    rawColumns,
+    rawSort,
+    ownColumns,
+    ownSort,
+    setSelectedColumns,
+    setTableSort,
+    exitPreview,
+    theme.spacing.sm,
+    intl,
+  ]);
 
   // Drop the preview without writing anything; the user's own state resurfaces untouched.
   const discard = useCallback(() => {
