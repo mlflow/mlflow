@@ -6,14 +6,18 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
+import importlib
+import inspect
 import logging
 import os
 import time
 from contextlib import contextmanager
+from types import ModuleType
 from typing import Any
 
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -29,7 +33,38 @@ _ERROR_MSG = (
     "Please install it with `pip install databricks-agents`."
 )
 
+_DATASET_VERSIONING_ERROR_MSG = (
+    "Dataset versioning requires a compatible prerelease build of the "
+    "`databricks-agents` package. Install the Databricks-provided wheel and retry."
+)
+
 _DATABRICKS_CONFIG_PROFILE_ENV_VAR = "DATABRICKS_CONFIG_PROFILE"
+
+
+def _get_databricks_agents_datasets_module(
+    require_dataset_versioning: bool = False,
+) -> ModuleType:
+    try:
+        db_datasets = importlib.import_module("databricks.agents.datasets")
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+
+    if require_dataset_versioning:
+        dataset_class = getattr(db_datasets, "Dataset", None)
+        get_dataset_fn = getattr(db_datasets, "get_dataset", None)
+        try:
+            get_dataset_parameters = inspect.signature(get_dataset_fn).parameters
+        except (TypeError, ValueError):
+            get_dataset_parameters = {}
+
+        if (
+            dataset_class is None
+            or not hasattr(dataset_class, "list_versions")
+            or "version" not in get_dataset_parameters
+        ):
+            raise ImportError(_DATASET_VERSIONING_ERROR_MSG)
+
+    return db_datasets
 
 
 @contextmanager
@@ -158,6 +193,42 @@ def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
                 "Use 'dataset_id' for unambiguous retrieval.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+
+def _resolve_dataset_version_arg(
+    version: int | EvaluationDatasetVersion | None,
+) -> int | None:
+    if isinstance(version, EvaluationDatasetVersion):
+        return version.version
+    return version
+
+
+def _entity_to_databricks_dataset(entity: EntityEvaluationDataset):
+    """Convert a search result into a loadable databricks-agents dataset handle."""
+    version = getattr(entity, "version", None)
+    db_datasets = _get_databricks_agents_datasets_module(
+        require_dataset_versioning=version not in (None, "")
+    )
+    dataset_class = getattr(db_datasets, "Dataset", None)
+    if dataset_class is None or not hasattr(dataset_class, "from_dict"):
+        return entity
+
+    payload: dict[str, Any] = {
+        "dataset_id": entity.dataset_id,
+        "name": entity.name,
+        "digest": entity.digest,
+        "source_type": "databricks-uc-table",
+        "is_uc_native": getattr(entity, "is_uc_native", None),
+    }
+    if isinstance(version, int):
+        version = {"version": version}
+    if version not in (None, ""):
+        payload["version"] = version
+
+    dataset = dataset_class.from_dict(payload)
+    if "version" in payload and getattr(dataset, "version", None) in (None, ""):
+        dataset.version = payload["version"]
+    return dataset
 
 
 @deprecated_parameter("uc_table_name", "name")
@@ -317,6 +388,7 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
+    version: int | EvaluationDatasetVersion | None = None,
 ) -> "EvaluationDataset":
     """
     Get the dataset with the given name or ID.
@@ -325,6 +397,8 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
+        version: The immutable Databricks dataset version to retrieve. This can be an integer
+            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
@@ -367,14 +441,17 @@ def get_dataset(
 
     if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
-        try:
-            from databricks.agents.datasets import get_dataset as db_get
-
-            with _databricks_profile_env():
-                return EvaluationDataset(db_get(name))
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
+        resolved_version = _resolve_dataset_version_arg(version)
+        db_datasets = _get_databricks_agents_datasets_module(
+            require_dataset_versioning=version is not None
+        )
+        with _databricks_profile_env():
+            if version is not None:
+                return EvaluationDataset(db_datasets.get_dataset(name, version=resolved_version))
+            return EvaluationDataset(db_datasets.get_dataset(name))
     else:
+        if version is not None:
+            raise NotImplementedError("`version` is only supported for Databricks datasets.")
         _validate_non_databricks_get_params(name, dataset_id)
 
         if name is not None:
@@ -554,6 +631,10 @@ def search_datasets(
         SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         max_results,
     )
+    if is_databricks:
+        return [
+            EvaluationDataset(_entity_to_databricks_dataset(dataset)) for dataset in mlflow_datasets
+        ]
     return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
 
 
@@ -767,6 +848,7 @@ def remove_dataset_from_experiments(
 
 __all__ = [
     "EvaluationDataset",
+    "EvaluationDatasetVersion",
     "add_dataset_to_experiments",
     "create_dataset",
     "delete_dataset",
