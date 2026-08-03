@@ -568,23 +568,9 @@ def _backfill_span_analytics():
             break
 
         span_keys = [(row.trace_id, row.span_id) for row in batch]
-        span_key_filter = sa.or_(
-            *(
-                sa.and_(span_metrics.c.trace_id == trace_id, span_metrics.c.span_id == span_id)
-                for trace_id, span_id in span_keys
-            )
-        )
         metrics_by_span = {span_key: {} for span_key in span_keys}
         for row in bind.execute(
-            sa.select(
-                span_metrics.c.trace_id,
-                span_metrics.c.span_id,
-                span_metrics.c.key,
-                span_metrics.c.value,
-            ).where(
-                span_key_filter,
-                span_metrics.c.key.in_(list(_COST_COLUMNS)),
-            )
+            _span_metrics_for_keys_query(span_metrics, span_keys, bind.dialect.name)
         ):
             span_key = (row.trace_id, row.span_id)
             if span_key in metrics_by_span:
@@ -778,6 +764,40 @@ def _validated_dimension_attributes(value, span_key):
             f"span {span_key!r}: {details}"
         )
     return value
+
+
+def _span_metrics_for_keys_query(span_metrics, span_keys, dialect_name):
+    columns = [
+        span_metrics.c.trace_id,
+        span_metrics.c.span_id,
+        span_metrics.c.key,
+        span_metrics.c.value,
+    ]
+    if dialect_name == "mssql":
+        batch_keys = sa.values(
+            sa.column("trace_id", span_metrics.c.trace_id.type),
+            sa.column("span_id", span_metrics.c.span_id.type),
+            name="span_keys",
+        ).data(span_keys)
+        return (
+            sa
+            .select(*columns)
+            .select_from(
+                span_metrics.join(
+                    batch_keys,
+                    sa.and_(
+                        span_metrics.c.trace_id == batch_keys.c.trace_id,
+                        span_metrics.c.span_id == batch_keys.c.span_id,
+                    ),
+                )
+            )
+            .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
+        )
+
+    return sa.select(*columns).where(
+        sa.tuple_(span_metrics.c.trace_id, span_metrics.c.span_id).in_(span_keys),
+        span_metrics.c.key.in_(list(_COST_COLUMNS)),
+    )
 
 
 def _execute_backfill_updates(bind, update_stmt, updates, entity):
