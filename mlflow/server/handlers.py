@@ -3475,7 +3475,11 @@ def _update_webhook(webhook_id: str):
             else None
         ),
         secret=request_message.secret or None,
-        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+        status=(
+            WebhookStatus.from_proto(request_message.status)
+            if request_message.HasField("status")
+            else None
+        ),
     )
     response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
     return _wrap_response(response_message)

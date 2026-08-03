@@ -161,6 +161,7 @@ def test_update_webhook_partial(client: MlflowClient):
         url="https://example.com/original",
         events=events,
         description="Original description",
+        status=WebhookStatus.DISABLED,
     )
     # Update only the name
     updated_webhook = client.update_webhook(
@@ -171,6 +172,7 @@ def test_update_webhook_partial(client: MlflowClient):
     assert updated_webhook.url == "https://example.com/original"
     assert updated_webhook.events == events
     assert updated_webhook.description == "Original description"
+    assert updated_webhook.status == WebhookStatus.DISABLED
 
 
 def test_update_webhook_not_found(client: MlflowClient):
