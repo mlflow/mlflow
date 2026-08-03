@@ -56,16 +56,16 @@ def _workspace_column():
 
 def upgrade():
     _validate_required_trace_joins()
+    _validate_dimension_attributes()
     _add_analytics_columns()
     _backfill_trace_analytics()
     _backfill_span_analytics()
     _backfill_assessment_analytics()
     _validate_backfill()
-    _validate_dimension_attributes()
-    _cleanup_legacy_analytics()
-    _drop_dimension_attributes()
     _create_rollup_tables()
     _create_analytics_indexes()
+    _cleanup_legacy_analytics()
+    _drop_dimension_attributes()
 
 
 def downgrade():

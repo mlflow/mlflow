@@ -359,6 +359,33 @@ def _index_columns(inspector, table_name):
     return {index["name"]: index["column_names"] for index in inspector.get_indexes(table_name)}
 
 
+def test_trace_analytics_migration_operation_order(monkeypatch):
+    expected_operations = [
+        "_validate_required_trace_joins",
+        "_validate_dimension_attributes",
+        "_add_analytics_columns",
+        "_backfill_trace_analytics",
+        "_backfill_span_analytics",
+        "_backfill_assessment_analytics",
+        "_validate_backfill",
+        "_create_rollup_tables",
+        "_create_analytics_indexes",
+        "_cleanup_legacy_analytics",
+        "_drop_dimension_attributes",
+    ]
+    actual_operations = []
+    for operation in expected_operations:
+        monkeypatch.setattr(
+            MIGRATION_MODULE,
+            operation,
+            lambda operation=operation: actual_operations.append(operation),
+        )
+
+    MIGRATION_MODULE.upgrade()
+
+    assert actual_operations == expected_operations
+
+
 def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_path, caplog):
     engine, config = _prepare_database(tmp_path)
     try:
