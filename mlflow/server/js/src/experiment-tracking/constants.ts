@@ -87,6 +87,7 @@ export const MLFLOW_RUN_COLOR_TAG = 'mlflow.runColor';
 export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
+export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE_SWEEP = 'genai_evaluate_sweep';
 export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
 export const MLFLOW_RUN_TYPE_VALUE_TEST = 'test';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
@@ -113,6 +114,7 @@ export enum RunPageTabName {
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',
   EVALUATIONS = 'evaluations',
+  EVALUATION_SWEEP = 'evaluation-sweep',
 }
 
 export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';

@@ -23,6 +23,9 @@ export const useRunViewActiveTab = (): RunPageTabName => {
   if (tabParam === 'issues') {
     return RunPageTabName.ISSUES;
   }
+  if (tabParam === 'evaluation-sweep') {
+    return RunPageTabName.EVALUATION_SWEEP;
+  }
   if (tabParam?.match(/^(artifactPath|artifacts)/)) {
     return RunPageTabName.ARTIFACTS;
   }

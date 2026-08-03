@@ -19,6 +19,7 @@ import { RunViewArtifactTab } from './RunViewArtifactTab';
 import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
 import { RunViewIssuesTab } from './RunViewIssuesTab';
 import { RunViewOverview } from './RunViewOverview';
+import { RunViewSweepTab } from './sweep/RunViewSweepTab';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import type { ReduxState } from '../../../redux-types';
@@ -216,6 +217,8 @@ export const RunPage = (props: RunPageProps) => {
             jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
           />
         );
+      case RunPageTabName.EVALUATION_SWEEP:
+        return <RunViewSweepTab latestMetrics={latestMetrics} />;
     }
 
     if (renderCustomOverview) {
