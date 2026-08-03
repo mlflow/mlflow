@@ -374,12 +374,12 @@ def test_trace_analytics_migration_operation_order(monkeypatch):
         "_drop_dimension_attributes",
     ]
     actual_operations = []
+
+    def record(operation):
+        return lambda: actual_operations.append(operation)
+
     for operation in expected_operations:
-        monkeypatch.setattr(
-            MIGRATION_MODULE,
-            operation,
-            lambda operation=operation: actual_operations.append(operation),
-        )
+        monkeypatch.setattr(MIGRATION_MODULE, operation, record(operation))
 
     MIGRATION_MODULE.upgrade()
 
@@ -460,6 +460,14 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
             else:
                 assert isinstance(column_type, sa.String)
                 assert column_type.length == 8000
+        for column_name in (
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        ):
+            assert isinstance(trace_columns[column_name]["type"], sa.BigInteger)
         assert "dimension_attributes" not in {
             column["name"] for column in inspector.get_columns("spans")
         }
@@ -509,10 +517,10 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
                     "trace-explicit",
                     _LONG_TRACE_NAME,
                     _LONG_SESSION_ID,
-                    12.0,
-                    7.0,
-                    18.0,
-                    3.0,
+                    12,
+                    7,
+                    18,
+                    3,
                     1.25,
                     2.5,
                     3.75,
@@ -670,6 +678,17 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
             )
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 5
             assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 6
+            trace_metadata = _table(conn, "trace_request_metadata")
+            token_usage = conn.execute(
+                sa.select(trace_metadata.c.value).where(
+                    trace_metadata.c.request_id == "trace-explicit",
+                    trace_metadata.c.key == TraceMetadataKey.TOKEN_USAGE,
+                )
+            ).scalar_one()
+            assert token_usage == (
+                '{"input_tokens": 12, "output_tokens": 7, "total_tokens": 18, '
+                '"cache_read_input_tokens": 3}'
+            )
             spans = _table(conn, "spans")
             dimensions = conn.execute(
                 sa.select(spans.c.dimension_attributes).where(spans.c.span_id == "span-explicit")
@@ -1067,3 +1086,26 @@ def test_trace_analytics_backfill_batch_validation_rejects_mismatched_values():
 )
 def test_trace_analytics_migration_finite_float_conversion(value, expected):
     assert MIGRATION_MODULE._finite_float_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0, 0),
+        (100.0, 100),
+        ("100", 100),
+        (Decimal("100.0"), 100),
+        (-(2**63), -(2**63)),
+        (2**63 - 1, 2**63 - 1),
+        (None, None),
+        (True, None),
+        (1.5, None),
+        (float("nan"), None),
+        (float("inf"), None),
+        (-(2**63) - 1, None),
+        (2**63, None),
+        ("not-a-number", None),
+    ],
+)
+def test_trace_analytics_migration_token_count_conversion(value, expected):
+    assert MIGRATION_MODULE._token_count_or_none(value) == expected

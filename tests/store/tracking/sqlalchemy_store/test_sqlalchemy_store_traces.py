@@ -4437,6 +4437,7 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
         "output_tokens": 50,
         "total_tokens": 150,
     }
+    assert all(type(value) is int for value in trace_info.token_usage.values())
 
     # verify loaded trace has same token usage
     traces = store.batch_get_traces([trace_id])
@@ -5203,6 +5204,14 @@ def test_start_trace_writes_authoritative_token_columns(store: SqlAlchemyStore) 
             sql_trace_info.output_tokens,
             sql_trace_info.total_tokens,
         ) == (100, 50, 150)
+        assert all(
+            type(value) is int
+            for value in (
+                sql_trace_info.input_tokens,
+                sql_trace_info.output_tokens,
+                sql_trace_info.total_tokens,
+            )
+        )
         assert (
             session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
             == 0
@@ -5262,7 +5271,7 @@ def test_trace_info_synthesizes_reserved_fields_from_authoritative_columns(
     assert result.tags[TraceTagKey.TRACE_NAME] == "authoritative-name"
     assert result.tags["custom-tag"] == "custom-value"
     assert result.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "authoritative-session"
-    assert json.loads(result.trace_metadata[TraceMetadataKey.TOKEN_USAGE]) == {"total_tokens": 12}
+    assert result.trace_metadata[TraceMetadataKey.TOKEN_USAGE] == '{"total_tokens": 12}'
     assert json.loads(result.trace_metadata[TraceMetadataKey.COST]) == {CostKey.TOTAL_COST: 0.25}
     assert result.trace_metadata["custom-metadata"] == "custom-value"
 

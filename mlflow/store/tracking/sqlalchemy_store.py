@@ -183,6 +183,7 @@ from mlflow.store.tracking.utils.trace_analytics import (
     assessment_aggregate,
     bounded_model_dimension,
     finite_float_or_none,
+    token_count_or_none,
 )
 from mlflow.store.tracking.utils.trace_archival import (
     _TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE,
@@ -5392,7 +5393,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                             )
                         if trace_token_usage:
                             for key, column in TOKEN_COLUMN_BY_KEY.items():
-                                value = finite_float_or_none(trace_token_usage.get(key))
+                                value = token_count_or_none(trace_token_usage.get(key))
                                 if value is not None:
                                     update_dict[getattr(SqlTraceInfo, column)] = value
 
