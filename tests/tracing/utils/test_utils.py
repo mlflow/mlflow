@@ -902,8 +902,8 @@ def test_non_databricks_model_not_repriced_as_databricks():
     )
     assert result is not None, "gpt-4o cost must resolve without provider"
     assert result[CostKey.INPUT_COST] > 0
-    # sanity: gpt-4o input price is $2.50/1M, so 1k tokens => ~$0.0025
-    # databricks/... would give a completely different price; confirm it's not that
+    # Confirm the result matches what litellm returns directly, ruling out any
+    # accidental databricks-provider repricing:
     from litellm import cost_per_token as _cpt
 
     expected_input, _ = _cpt(model="gpt-4o", prompt_tokens=1_000, completion_tokens=500)
