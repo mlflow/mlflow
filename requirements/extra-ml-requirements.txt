@@ -71,7 +71,9 @@ sentence-transformers
 # Required by mlflow.anthropic
 anthropic
 # Required by mlflow.ag2
-ag2
+# ag2 1.0.0 is a rewrite that renames the top-level module from `autogen` to `ag2` and
+# drops `runtime_logging`, which mlflow.ag2 autologging is built on.
+ag2<1
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
 # which causes auto-logging tests to fail.
