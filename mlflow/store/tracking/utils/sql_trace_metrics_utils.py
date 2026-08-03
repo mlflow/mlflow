@@ -21,6 +21,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
+    _apply_postgres_trace_first_span_query,
+)
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
@@ -413,8 +416,9 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
     return query
 
 
-def _apply_postgres_trace_first_span_query(query: Query, filters: list[str] | None) -> Query:
-    """Materialize filtered trace IDs before joining spans on PostgreSQL."""
+def _partition_span_metric_filters(
+    filters: list[str] | None,
+) -> tuple[list[str], list[str]]:
     trace_filters = []
     span_filters = []
     for filter_string in filters or []:
@@ -425,18 +429,7 @@ def _apply_postgres_trace_first_span_query(query: Query, filters: list[str] | No
             else trace_filters
         )
         target.append(filter_string)
-
-    query = _apply_filters(query, trace_filters, MetricViewType.SPANS)
-    metric_trace_ids = (
-        query
-        .with_entities(SqlTraceInfo.request_id.label("trace_id"))
-        .cte("metric_trace_ids")
-        .prefix_with("MATERIALIZED")
-    )
-    query = query.session.query(SqlSpan).join(
-        metric_trace_ids, SqlSpan.trace_id == metric_trace_ids.c.trace_id
-    )
-    return _apply_filters(query, span_filters, MetricViewType.SPANS)
+    return trace_filters, span_filters
 
 
 def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -> Query:
@@ -698,7 +691,10 @@ def query_metrics(
         List of MetricDataPoint objects
     """
     if view_type == MetricViewType.SPANS and db_type == db_types.POSTGRES:
-        query = _apply_postgres_trace_first_span_query(query, filters)
+        trace_filters, span_filters = _partition_span_metric_filters(filters)
+        query = _apply_filters(query, trace_filters, view_type)
+        query = _apply_postgres_trace_first_span_query(query)
+        query = _apply_filters(query, span_filters, view_type)
     else:
         # Apply view-specific initial join
         query = _apply_view_initial_join(query, view_type)
