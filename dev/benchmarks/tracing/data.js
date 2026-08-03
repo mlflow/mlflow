@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785751587686,
+  "lastUpdate": 1785785042620,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18143,6 +18143,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.183580000003,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47610280+NeriCarcasci@users.noreply.github.com",
+            "name": "Neri Carcasci",
+            "username": "NeriCarcasci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94b88ab7bd4cac253c003196550da9236645012a",
+          "message": "refactor: Centralize Python `/server-info` fetching and caching (#24678)\n\nSigned-off-by: Neri Carcasci <nericarcasci@gmail.com>",
+          "timestamp": "2026-08-03T15:22:34-04:00",
+          "tree_id": "e3922a921111dee67dfa1e4b984028478d57ad15",
+          "url": "https://github.com/mlflow/mlflow/commit/94b88ab7bd4cac253c003196550da9236645012a"
+        },
+        "date": 1785785041099,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.22755254999589,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 18.45096499999954,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.96624755357227,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.052537240742684,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.287993092593684,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.516653799993492,
             "unit": "ms"
           }
         ]
