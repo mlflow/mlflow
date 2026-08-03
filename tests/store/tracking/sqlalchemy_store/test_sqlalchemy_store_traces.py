@@ -478,6 +478,99 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
         )
 
 
+@pytest.mark.parametrize(
+    ("metadata_key", "first_value", "second_value", "other_key", "other_value"),
+    [
+        (
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.INPUT_TOKENS: 1, TokenUsageKey.TOTAL_TOKENS: 3},
+            {TokenUsageKey.OUTPUT_TOKENS: 2, TokenUsageKey.TOTAL_TOKENS: 4},
+            TraceMetadataKey.COST,
+            {CostKey.TOTAL_COST: 0.1},
+        ),
+        (
+            TraceMetadataKey.COST,
+            {CostKey.INPUT_COST: 0.1, CostKey.TOTAL_COST: 0.3},
+            {CostKey.OUTPUT_COST: 0.2, CostKey.TOTAL_COST: 0.4},
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.TOTAL_TOKENS: 10},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("comparator", "value_kind", "expected"),
+    [
+        ("=", "canonical", {"first"}),
+        ("!=", "canonical", {"second"}),
+        ("=", "reversed", set()),
+        ("!=", "reversed", {"first", "second"}),
+        ("IS NOT NULL", None, {"first", "second"}),
+        ("IS NULL", None, {"other", "absent"}),
+    ],
+)
+def test_search_traces_filters_reserved_metadata_from_authoritative_columns(
+    store: SqlAlchemyStore,
+    metadata_key: str,
+    first_value: dict[str, int | float],
+    second_value: dict[str, int | float],
+    other_key: str,
+    other_value: dict[str, int | float],
+    comparator: str,
+    value_kind: str | None,
+    expected: set[str],
+):
+    exp_id = store.create_experiment(f"search-reserved-{metadata_key}")
+    for trace_id, request_time, metadata in (
+        ("first", 1, {metadata_key: json.dumps(first_value)}),
+        ("second", 2, {metadata_key: json.dumps(second_value)}),
+        ("other", 3, {other_key: json.dumps(other_value)}),
+        ("absent", 4, {}),
+    ):
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=request_time,
+            trace_metadata=metadata,
+        )
+
+    value = {
+        "canonical": json.dumps(first_value),
+        "reversed": json.dumps(dict(reversed(first_value.items()))),
+        None: None,
+    }[value_kind]
+    filter_string = f"metadata.`{metadata_key}` {comparator}"
+    if value is not None:
+        filter_string += f" '{value}'"
+    traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+
+    assert {trace.trace_id for trace in traces} == expected
+
+
+@pytest.mark.parametrize("metadata_key", [TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST])
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE"])
+def test_search_traces_rejects_pattern_matching_for_reserved_metadata(
+    store: SqlAlchemyStore, metadata_key: str, comparator: str
+):
+    exp_id = store.create_experiment(f"reject-reserved-{metadata_key}-{comparator}")
+
+    with pytest.raises(MlflowException, match="is not supported for reserved metadata"):
+        store.search_traces(
+            [exp_id],
+            filter_string=f"metadata.`{metadata_key}` {comparator} '%total%'",
+        )
+
+
+@pytest.mark.parametrize("metadata_key", [TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST])
+def test_search_traces_rejects_ordering_by_reserved_metadata(
+    store: SqlAlchemyStore, metadata_key: str
+):
+    exp_id = store.create_experiment(f"reject-reserved-order-{metadata_key}")
+
+    with pytest.raises(MlflowException, match="Ordering by reserved metadata"):
+        store.search_traces([exp_id], order_by=[f"metadata.`{metadata_key}` ASC"])
+
+
 def test_search_traces_raise_if_max_results_arg_is_invalid(store):
     with pytest.raises(
         MlflowException,
