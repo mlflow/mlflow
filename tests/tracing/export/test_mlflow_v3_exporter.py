@@ -262,11 +262,14 @@ def test_export_catch_failure_with_batch_span_processor(monkeypatch):
     assert any("Failed to start trace" in msg for msg in warning_calls)
 
 
+@pytest.mark.timeout(20)
 @pytest.mark.parametrize("is_async", [True, False])
 def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
