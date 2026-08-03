@@ -36,6 +36,12 @@ export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 
 /**
+ * Enable the Traces V4 tab in the experiment page. V3 is the fallback when disabled.
+ * Hardcoded on for OSS to mount the ported V4 traces tab (PR1).
+ */
+export const shouldUseTracesV4Tab = () => true;
+
+/**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
 export const isLoggedModelsFilteringAndSortingEnabled = () => false;
