@@ -6,6 +6,9 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.environment_variables import (
+    MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS,
+)
 from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
@@ -75,11 +78,23 @@ class OnlineTraceCheckpointManager:
         failing traces. If the checkpoint is older than MAX_LOOKBACK_MS, uses
         current_time - MAX_LOOKBACK_MS instead to skip over old problematic traces.
 
+        Also subtracts a completion buffer from the current time when computing the
+        window's upper bound, mirroring the buffer used by
+        OnlineSessionCheckpointManager. Traces are indexed by start time
+        (trace.timestamp_ms), so a trace that starts near the end of a scan window can
+        still be IN_PROGRESS when that window is scanned. Since the checkpoint only
+        ever moves forward, advancing it past such a trace's start timestamp would
+        cause that trace to be silently skipped forever, even after it finishes. The
+        buffer excludes recently-started traces from the current scan so they are
+        picked up on a later pass once they have had time to reach a terminal status.
+
         Returns:
             OnlineTraceScoringTimeWindow with min and max trace timestamps.
             min_trace_timestamp_ms is the checkpoint if it exists and is within the
             lookback period, otherwise now - MAX_LOOKBACK_MS.
-            max_trace_timestamp_ms is the current time.
+            max_trace_timestamp_ms is the current time minus the trace completion
+            buffer, clamped to min_trace_timestamp_ms so the window is never
+            inverted and the checkpoint never moves backward.
         """
         current_time_ms = int(time.time() * 1000)
         checkpoint = self.get_checkpoint()
@@ -92,7 +107,17 @@ class OnlineTraceCheckpointManager:
         else:
             min_trace_timestamp_ms = min_lookback_time_ms
 
+        buffer_seconds = max(0, MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.get())
+        # Clamp to min_trace_timestamp_ms so the window is never inverted. Without the
+        # clamp, a checkpoint more recent than (now - buffer), e.g. one written by a
+        # version of this scheduler without the buffer, would produce a window whose
+        # upper bound precedes the checkpoint; persisting that upper bound would move
+        # the checkpoint backward and re-score already-processed traces.
+        max_trace_timestamp_ms = max(
+            min_trace_timestamp_ms, current_time_ms - buffer_seconds * 1000
+        )
+
         return OnlineTraceScoringTimeWindow(
             min_trace_timestamp_ms=min_trace_timestamp_ms,
-            max_trace_timestamp_ms=current_time_ms,
+            max_trace_timestamp_ms=max_trace_timestamp_ms,
         )

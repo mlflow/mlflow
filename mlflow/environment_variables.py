@@ -1564,6 +1564,17 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
+#: Default buffer time in seconds subtracted from the current time when computing the trace
+#: scoring scan window's upper bound. Traces that started within this buffer are excluded from
+#: the current scan and picked up on a later pass, giving still-running traces time to reach a
+#: terminal status before the checkpoint advances past their start timestamp. Without this
+#: buffer, a trace that is still IN_PROGRESS when its start-time window is scanned is silently
+#: skipped forever, since the scheduler's checkpoint only ever moves forward.
+#: (default: ``120`` (2 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS", int, 2 * 60
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
