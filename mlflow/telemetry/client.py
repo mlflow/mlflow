@@ -49,12 +49,10 @@ _DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 # resolving Databricks credentials in `_forward_to_databricks`. A first-time import from
 # the consumer re-enters the post-import-hook finders installed on `sys.meta_path` (both
 # MLflow's and, inside Databricks Runtime, dbruntime's). Those finders hold a hook-registry
-# lock across the re-entry, so the consumer can deadlock (AB-BA) against a user thread that
-# is itself part-way through an import and holds CPython's import locks. Loading these at
-# `import mlflow` time leaves the consumer with plain `sys.modules` lookups.
-_DATABRICKS_SDK_WARM_UP_MODULES = (
-    "databricks.sdk",
-)
+# lock across the re-entry, so the consumer can deadlock against a user thread that is
+# itself part-way through an import and holds CPython's import locks (inverted lock order).
+# Loading these at `import mlflow` time leaves the consumer with plain `sys.modules` lookups.
+_DATABRICKS_SDK_WARM_UP_MODULES = ("databricks.sdk",)
 
 # Needs its own entry because `databricks.sdk` deliberately does not import it: it is only
 # reached by `runtime_native_auth`, which defers it until `WorkspaceClient()` actually runs,
