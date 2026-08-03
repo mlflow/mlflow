@@ -10,6 +10,7 @@ import pytest
 import sqlalchemy as sa
 from alembic import command
 from sqlalchemy import event
+from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
@@ -794,9 +795,11 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             assessment_count = conn.execute(
                 sa.select(sa.func.count()).select_from(assessments)
             ).scalar_one()
+            span_count = conn.execute(sa.select(sa.func.count()).select_from(spans)).scalar_one()
 
         trace_dimension_updates = []
         assessment_updates = []
+        span_metric_lookups = []
 
         def capture_analytics_updates(
             _conn, _cursor, statement, _parameters, _context, executemany
@@ -808,6 +811,12 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 trace_dimension_updates.append((normalized_statement, executemany))
             elif normalized_statement.startswith("UPDATE ASSESSMENTS"):
                 assessment_updates.append((normalized_statement, executemany))
+            elif (
+                normalized_statement.startswith("SELECT")
+                and "FROM SPAN_METRICS" in normalized_statement
+                and "(SPAN_METRICS.TRACE_ID, SPAN_METRICS.SPAN_ID) IN" in normalized_statement
+            ):
+                span_metric_lookups.append(normalized_statement)
 
         with engine.connect() as connection:
             config.attributes["connection"] = connection
@@ -844,6 +853,12 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 )
             )
             assert executemany is True
+
+        expected_span_page_count = (
+            span_count + MIGRATION_MODULE._BATCH_SIZE - 1
+        ) // MIGRATION_MODULE._BATCH_SIZE
+        assert len(span_metric_lookups) == expected_span_page_count
+        assert all(" OR " not in statement for statement in span_metric_lookups)
 
         truncation_logs = [
             record.getMessage()
@@ -1047,6 +1062,77 @@ def test_validated_dimension_attributes(value, expected):
 def test_validated_dimension_attributes_rejects_unsupported_values(value, match):
     with pytest.raises(RuntimeError, match=match):
         MIGRATION_MODULE._validated_dimension_attributes(value, ("trace-1", "span-1"))
+
+
+@pytest.mark.parametrize(
+    ("dialect_name", "dialect", "expected_sql"),
+    [
+        ("sqlite", sqlite.dialect(), "IN (VALUES"),
+        ("postgresql", postgresql.dialect(), " IN (("),
+        ("mysql", mysql.dialect(), " IN (("),
+        ("mssql", mssql.dialect(), "JOIN (VALUES"),
+    ],
+)
+def test_span_metrics_for_keys_query_uses_compact_composite_lookup(
+    dialect_name, dialect, expected_sql
+):
+    span_metrics = sa.table(
+        "span_metrics",
+        sa.column("trace_id", sa.String(50)),
+        sa.column("span_id", sa.String(50)),
+        sa.column("key", sa.String(250)),
+        sa.column("value", sa.Float()),
+    )
+    span_keys = [("trace-1", f"span-{i}") for i in range(MIGRATION_MODULE._BATCH_SIZE)]
+
+    query = MIGRATION_MODULE._span_metrics_for_keys_query(span_metrics, span_keys, dialect_name)
+    compiled = query.compile(dialect=dialect, compile_kwargs={"render_postcompile": True})
+    sql = str(compiled)
+
+    assert expected_sql in sql
+    assert " OR " not in sql
+    assert len(compiled.params) == (
+        2 * MIGRATION_MODULE._BATCH_SIZE + len(MIGRATION_MODULE._COST_COLUMNS)
+    )
+
+
+def test_span_metrics_for_keys_query_matches_exact_pairs():
+    metadata = sa.MetaData()
+    span_metrics = sa.Table(
+        "span_metrics",
+        metadata,
+        sa.Column("trace_id", sa.String(50), nullable=False),
+        sa.Column("span_id", sa.String(50), nullable=False),
+        sa.Column("key", sa.String(250), nullable=False),
+        sa.Column("value", sa.Float()),
+    )
+    engine = sa.create_engine("sqlite://")
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(
+            span_metrics.insert(),
+            [
+                {"trace_id": trace_id, "span_id": span_id, "key": key, "value": value}
+                for trace_id, span_id, key, value in (
+                    ("trace-1", "span-1", CostKey.INPUT_COST, 1.0),
+                    ("trace-1", "span-2", CostKey.INPUT_COST, 2.0),
+                    ("trace-2", "span-1", CostKey.INPUT_COST, 3.0),
+                    ("trace-2", "span-2", CostKey.INPUT_COST, 4.0),
+                    ("trace-1", "span-1", "unrelated", 5.0),
+                )
+            ],
+        )
+
+        rows = conn.execute(
+            MIGRATION_MODULE._span_metrics_for_keys_query(
+                span_metrics, [("trace-1", "span-1"), ("trace-2", "span-2")], "sqlite"
+            )
+        ).all()
+
+    assert {(row.trace_id, row.span_id, row.key, row.value) for row in rows} == {
+        ("trace-1", "span-1", CostKey.INPUT_COST, 1.0),
+        ("trace-2", "span-2", CostKey.INPUT_COST, 4.0),
+    }
 
 
 @pytest.mark.parametrize(
