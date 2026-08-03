@@ -1014,7 +1014,7 @@ class DatabricksTracingRestStore(RestStore):
                 created_by=dataset_dict.get("created_by"),
                 last_updated_by=dataset_dict.get("last_updated_by"),
                 version=dataset_dict.get("version"),
-                is_uc_native=dataset_dict.get("is_uc_native"),
+                _is_uc_native=dataset_dict.get("is_uc_native"),
             )
             datasets.append(dataset)
 

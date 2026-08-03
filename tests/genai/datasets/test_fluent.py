@@ -495,7 +495,7 @@ def test_search_datasets_databricks_preserves_version_for_loading(
                 created_time=123456789,
                 last_update_time=123456789,
                 version={"version": 7},
-                is_uc_native=True,
+                _is_uc_native=True,
             )
         ],
         None,

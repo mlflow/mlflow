@@ -56,7 +56,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         created_by: str | None = None,
         last_updated_by: str | None = None,
         version: dict[str, Any] | int | None = None,
-        is_uc_native: bool | None = None,
+        _is_uc_native: bool | None = None,
     ):
         """Initialize the EvaluationDataset."""
         self.dataset_id = dataset_id
@@ -68,7 +68,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self.created_by = created_by
         self.last_updated_by = last_updated_by
         self.version = version
-        self.is_uc_native = is_uc_native
+        self._is_uc_native = _is_uc_native
         self._experiment_ids = None
         self._records = None
 
@@ -595,8 +595,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         })
         if self.version is not None:
             result["version"] = self.version
-        if self.is_uc_native is not None:
-            result["is_uc_native"] = self.is_uc_native
 
         result["records"] = [record.to_dict() for record in self.records]
 
@@ -628,7 +626,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
             version=data.get("version"),
-            is_uc_native=data.get("is_uc_native"),
         )
         if "experiment_ids" in data:
             dataset._experiment_ids = data["experiment_ids"]

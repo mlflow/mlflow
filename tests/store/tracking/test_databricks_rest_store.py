@@ -1869,7 +1869,7 @@ def test_search_datasets_basic():
         assert result[0].created_by == "user@example.com"
         assert result[0].last_updated_by == "user@example.com"
         assert result[0].version["version"] == 7
-        assert result[0].is_uc_native is True
+        assert result[0]._is_uc_native is True
         assert result.token is None
 
 

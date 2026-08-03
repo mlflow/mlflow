@@ -218,7 +218,7 @@ def _entity_to_databricks_dataset(entity: EntityEvaluationDataset):
         "name": entity.name,
         "digest": entity.digest,
         "source_type": "databricks-uc-table",
-        "is_uc_native": getattr(entity, "is_uc_native", None),
+        "is_uc_native": entity._is_uc_native,
     }
     if isinstance(version, int):
         version = {"version": version}

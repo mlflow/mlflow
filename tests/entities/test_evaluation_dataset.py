@@ -60,6 +60,23 @@ def test_evaluation_dataset_timestamps_required():
     assert dataset.last_update_time == 987654321
 
 
+def test_evaluation_dataset_uc_native_marker_is_internal():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=987654321,
+        _is_uc_native=True,
+    )
+    dataset._experiment_ids = []
+    dataset._records = []
+
+    assert dataset._is_uc_native is True
+    assert not hasattr(dataset, "is_uc_native")
+    assert {"is_uc_native", "_is_uc_native"}.isdisjoint(dataset.to_dict())
+
+
 def test_evaluation_dataset_experiment_ids_setter():
     dataset = EvaluationDataset(
         dataset_id="dataset123",
@@ -161,7 +178,6 @@ def test_evaluation_dataset_to_from_dict():
         created_by="user1",
         last_updated_by="user2",
         version={"version": 7, "created_by": "user1"},
-        is_uc_native=True,
     )
     dataset.experiment_ids = ["exp1", "exp2"]
 
@@ -187,7 +203,6 @@ def test_evaluation_dataset_to_from_dict():
     assert data["created_by"] == "user1"
     assert data["last_updated_by"] == "user2"
     assert data["version"] == {"version": 7, "created_by": "user1"}
-    assert data["is_uc_native"] is True
     assert data["experiment_ids"] == ["exp1", "exp2"]
     assert len(data["records"]) == 1
     assert data["records"][0]["inputs"]["question"] == "What is MLflow?"
@@ -204,7 +219,6 @@ def test_evaluation_dataset_to_from_dict():
     assert dataset2.created_by == dataset.created_by
     assert dataset2.last_updated_by == dataset.last_updated_by
     assert dataset2.version == dataset.version
-    assert dataset2.is_uc_native == dataset.is_uc_native
     assert dataset2._experiment_ids == ["exp1", "exp2"]
     assert dataset2.experiment_ids == ["exp1", "exp2"]
     assert len(dataset2._records) == 1
