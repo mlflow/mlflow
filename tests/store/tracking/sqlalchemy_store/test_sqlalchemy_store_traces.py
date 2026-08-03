@@ -5043,6 +5043,47 @@ def test_log_spans_token_usage_redelivered_span_not_double_counted(
     }
 
 
+@contextlib.contextmanager
+def _capture_stored_span_content_queries(store: SqlAlchemyStore):
+    queries = []
+
+    def capture_query(_conn, _cursor, statement, parameters, _context, _executemany):
+        normalized_statement = " ".join(statement.upper().split())
+        if (
+            normalized_statement.startswith("SELECT")
+            and "SPANS.CONTENT" in normalized_statement
+            and "FROM SPANS" in normalized_statement
+        ):
+            queries.append((normalized_statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_query)
+    try:
+        yield queries
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_query)
+
+
+def _span_with_usage_and_cost(trace_id: str, span_id: int, value: int) -> Span:
+    return create_test_span(
+        trace_id,
+        name=f"llm-{span_id}",
+        span_id=span_id,
+        parent_id=None,
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": value,
+                "output_tokens": value,
+                "total_tokens": value * 2,
+            },
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": value / 10,
+                "output_cost": value / 10,
+                "total_cost": value / 5,
+            },
+        },
+    )
+
+
 @pytest.mark.parametrize(
     ("db_type", "expected_clause"),
     [
@@ -5305,6 +5346,112 @@ def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStor
     # Cost unchanged
     stored_cost = json.loads(trace_info.trace_metadata[TraceMetadataKey.COST])
     assert stored_cost == authoritative_cost
+
+
+def test_log_spans_skips_stored_spans_for_authoritative_analytics(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_skip_finalized_analytics_recomputation")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    _create_trace(
+        store,
+        trace_id,
+        experiment_id,
+        trace_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(experiment_id, [_span_with_usage_and_cost(trace_id, 1, 100)])
+
+    assert queries == []
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == authoritative_usage
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == authoritative_cost
+
+
+@pytest.mark.parametrize("authoritative_group", ["token_usage", "cost", None])
+def test_log_spans_recomputes_missing_finalized_analytics_group(
+    store: SqlAlchemyStore, authoritative_group: str | None
+) -> None:
+    experiment_id = store.create_experiment(
+        f"test_recompute_missing_finalized_analytics_{authoritative_group}"
+    )
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    trace_metadata = {}
+    if authoritative_group == "token_usage":
+        trace_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(authoritative_usage)
+    elif authoritative_group == "cost":
+        trace_metadata[TraceMetadataKey.COST] = json.dumps(authoritative_cost)
+    _create_trace(store, trace_id, experiment_id, trace_metadata=trace_metadata)
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(experiment_id, [_span_with_usage_and_cost(trace_id, 1, 2)])
+
+    assert len(queries) == 1
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == (
+        authoritative_usage
+        if authoritative_group == "token_usage"
+        else {"input_tokens": 2, "output_tokens": 2, "total_tokens": 4}
+    )
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == (
+        authoritative_cost
+        if authoritative_group == "cost"
+        else {"input_cost": 0.2, "output_cost": 0.2, "total_cost": 0.4}
+    )
+
+
+def test_log_spans_only_recomputes_non_authoritative_traces_in_batch(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_selective_analytics_recomputation")
+    authoritative_trace_id = f"tr-{uuid.uuid4().hex}"
+    recomputed_trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    _create_trace(
+        store,
+        authoritative_trace_id,
+        experiment_id,
+        trace_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+    store.log_spans(experiment_id, [_span_with_usage_and_cost(recomputed_trace_id, 1, 1)])
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(
+            experiment_id,
+            [
+                _span_with_usage_and_cost(authoritative_trace_id, 1, 100),
+                _span_with_usage_and_cost(recomputed_trace_id, 2, 2),
+            ],
+        )
+
+    assert len(queries) == 1
+    query_parameters = repr(queries[0][1])
+    assert recomputed_trace_id in query_parameters
+    assert authoritative_trace_id not in query_parameters
+    assert store.get_trace_info(authoritative_trace_id).token_usage == authoritative_usage
+    recomputed_trace_info = store.get_trace_info(recomputed_trace_id)
+    assert recomputed_trace_info.token_usage == {
+        "input_tokens": 3,
+        "output_tokens": 3,
+        "total_tokens": 6,
+    }
+    assert json.loads(recomputed_trace_info.trace_metadata[TraceMetadataKey.COST]) == {
+        "input_cost": pytest.approx(0.3),
+        "output_cost": pytest.approx(0.3),
+        "total_cost": pytest.approx(0.6),
+    }
 
 
 def test_log_spans_infers_session_missing_from_finalized_trace(store: SqlAlchemyStore) -> None:
