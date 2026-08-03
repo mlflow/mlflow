@@ -47,9 +47,9 @@ const StatCardApi = {
       icon: z.enum(ICON_NAMES).describe('The icon to display next to the value.').optional(),
       tone: z
         .enum(TONES)
-        .default('info')
         .describe('The color tone applied to the icon (info/success/warning/danger).')
-        .optional(),
+        .optional()
+        .default('info'),
       weight: z.number().describe('Relative flex weight when placed directly inside a Row/Column.').optional(),
     })
     .strict(),

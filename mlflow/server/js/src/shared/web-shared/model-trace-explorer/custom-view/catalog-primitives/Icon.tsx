@@ -112,8 +112,10 @@ const DS_ICON_BY_NAME = {
 
 const DEFAULT_ICON: ComponentType = CircleOutlineIcon;
 
+// `name` is an unconstrained DynamicString, so an inherited key like "constructor" would resolve
+// to a non-component and crash the render. `Object.hasOwn` keeps those on the default-icon path.
 const resolveDsIcon = (name: string): ComponentType =>
-  name in DS_ICON_BY_NAME ? DS_ICON_BY_NAME[name as keyof typeof DS_ICON_BY_NAME] : DEFAULT_ICON;
+  Object.hasOwn(DS_ICON_BY_NAME, name) ? DS_ICON_BY_NAME[name as keyof typeof DS_ICON_BY_NAME] : DEFAULT_ICON;
 
 /** Sorted list of supported icon names (used by the catalog schema + prompt). */
 export const ICON_NAMES: string[] = Object.keys(DS_ICON_BY_NAME).sort();

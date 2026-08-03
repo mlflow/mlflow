@@ -33,8 +33,8 @@ const AssessmentCardApi = {
       sentiment: z
         .enum(SENTIMENTS)
         .describe('Verdict polarity: positive (green), negative/error (red), neutral (gray).')
-        .default('neutral')
-        .optional(),
+        .optional()
+        .default('neutral'),
     })
     .strict(),
 } satisfies ComponentApi;

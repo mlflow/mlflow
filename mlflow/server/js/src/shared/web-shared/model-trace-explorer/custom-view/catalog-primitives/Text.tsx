@@ -15,7 +15,7 @@ const HEADING_STYLE = {
   h5: { fontSize: 16, lineHeight: '22px', fontWeight: 600 },
 } satisfies Record<string, { fontSize: number; lineHeight: string; fontWeight: number }>;
 
-const isHeadingVariant = (value: string): value is keyof typeof HEADING_STYLE => value in HEADING_STYLE;
+const isHeadingVariant = (value: string): value is keyof typeof HEADING_STYLE => Object.hasOwn(HEADING_STYLE, value);
 
 const HEADING_ELEMENT_LEVEL: Record<keyof typeof HEADING_STYLE, 1 | 2 | 3 | 4 | 5> = {
   h1: 1,

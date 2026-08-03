@@ -9303,6 +9303,10 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
+  "dJbsSP": {
+    "defaultMessage": "No assessments to display.",
+    "description": "Empty state text for the custom view assessment board when it has no cards"
+  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
