@@ -45,6 +45,7 @@ import {
 } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
+import { useIntl } from '@databricks/i18n';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -80,6 +81,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const intl = useIntl();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
@@ -132,6 +134,18 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           componentId="mlflow.eval-runs.parent-child-expand-button"
           size="small"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          aria-expanded={isExpanded}
+          aria-label={
+            isExpanded
+              ? intl.formatMessage({
+                  defaultMessage: 'Collapse child runs',
+                  description: 'Aria label to collapse child runs',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'Expand child runs',
+                  description: 'Aria label to expand child runs',
+                })
+          }
           onClick={handleExpanderClick}
           type="link"
         />
