@@ -324,10 +324,6 @@ from mlflow.store.artifact.artifact_repo import (
     StreamUploadMixin,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.mlflow_artifacts_repo import (
-    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
-    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
-)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -382,6 +378,13 @@ from mlflow.utils.providers import (
     get_all_providers,
     get_models,
     get_provider_config_response,
+)
+from mlflow.utils.server_info import (
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_STORE_TYPE,
+    SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -6807,9 +6810,9 @@ def _get_server_info():
             )
 
     return jsonify({
-        "store_type": store_type,
-        "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-        "trace_archival_enabled": trace_archival_enabled,
+        SERVER_INFO_STORE_TYPE: store_type,
+        SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
+        SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
     })
