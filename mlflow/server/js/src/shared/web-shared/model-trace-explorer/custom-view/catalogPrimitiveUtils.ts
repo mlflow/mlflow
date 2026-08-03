@@ -4,7 +4,8 @@ export const asString = (value: unknown): string => (typeof value === 'string' ?
 /** JSON.stringify that never throws — falls back to a JSON string for String(value). */
 export const safeJsonStringify = (value: unknown): string => {
   try {
-    return JSON.stringify(value ?? null);
+    // Functions and symbols serialize to `undefined`, which would break the `string` contract.
+    return JSON.stringify(value ?? null) ?? 'null';
   } catch {
     return JSON.stringify(String(value));
   }

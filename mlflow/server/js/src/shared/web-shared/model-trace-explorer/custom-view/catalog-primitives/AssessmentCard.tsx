@@ -46,9 +46,11 @@ export const AssessmentCard: ReactComponentImplementation = createComponentImple
 
     const sentiment: Sentiment = isSentiment(props.sentiment) ? props.sentiment : 'neutral';
     const name = asString(props.name);
-    const value = props.value ? asString(props.value) : undefined;
-    const rationale = props.rationale ? asString(props.rationale) : undefined;
-    const source = props.source ? asString(props.source) : undefined;
+    // Assessment values are `string | number | boolean | null | string[]`, so a falsy-but-valid
+    // verdict (e.g. `false` or a `0` score) must still render its badge.
+    const value = props.value != null ? asString(props.value) : undefined;
+    const rationale = props.rationale != null ? asString(props.rationale) : undefined;
+    const source = props.source != null ? asString(props.source) : undefined;
 
     const accentBySentiment: Record<Sentiment, string> = {
       positive: theme.colors.green500,

@@ -17,6 +17,14 @@ const HEADING_STYLE = {
 
 const isHeadingVariant = (value: string): value is keyof typeof HEADING_STYLE => value in HEADING_STYLE;
 
+const HEADING_ELEMENT_LEVEL: Record<keyof typeof HEADING_STYLE, 1 | 2 | 3 | 4 | 5> = {
+  h1: 1,
+  h2: 2,
+  h3: 3,
+  h4: 4,
+  h5: 5,
+};
+
 export const Text: ReactComponentImplementation = createComponentImplementation(TextApi, ({ props }) => {
   const text = asString(props.text);
   const variant = typeof props.variant === 'string' ? props.variant : 'body';
@@ -24,11 +32,17 @@ export const Text: ReactComponentImplementation = createComponentImplementation(
   const flexStyle = weight !== undefined ? { flex: `${weight}`, minWidth: 0 } : undefined;
 
   if (isHeadingVariant(variant)) {
-    // h1–h3 map to a Title element for semantics; h4/h5 use the explicit size
-    // on a lower-emphasis Title level so the override drives the visual size.
+    // `level` only picks the Title's visual emphasis, and the explicit HEADING_STYLE size
+    // overrides it anyway, so h4/h5 can share level 3. `elementLevel` renders the heading
+    // element for the requested variant so the document outline stays accurate.
     const level = variant === 'h1' ? 1 : variant === 'h2' ? 2 : 3;
     return (
-      <Typography.Title level={level} withoutMargins css={{ ...flexStyle, ...HEADING_STYLE[variant] }}>
+      <Typography.Title
+        level={level}
+        elementLevel={HEADING_ELEMENT_LEVEL[variant]}
+        withoutMargins
+        css={{ ...flexStyle, ...HEADING_STYLE[variant] }}
+      >
         {text}
       </Typography.Title>
     );

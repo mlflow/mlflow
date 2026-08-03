@@ -99,6 +99,10 @@
               "description": "The color tone applied to the icon.",
               "enum": ["info", "success", "warning", "danger"],
               "default": "info"
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
             }
           },
           "required": ["component", "value", "label"]
