@@ -336,7 +336,8 @@ def get_dataset(
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
         version: The immutable Databricks dataset version to retrieve. This can be an integer
-            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``.
+            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``. This
+            parameter is not supported in non-Databricks environments.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
