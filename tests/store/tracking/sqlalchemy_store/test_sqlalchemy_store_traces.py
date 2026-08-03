@@ -1807,6 +1807,39 @@ def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
     assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ('feedback.session_quality = "good"', set()),
+        ("feedback.session_quality IS NOT NULL", set()),
+        ("feedback.session_quality IS NULL", {"searched-trace"}),
+    ],
+)
+def test_search_traces_session_scoped_assessment_is_limited_to_requested_experiments(
+    store: SqlAlchemyStore,
+    filter_string: str,
+    expected_trace_ids: set[str],
+):
+    searched_experiment_id = store.create_experiment("searched-experiment")
+    other_experiment_id = store.create_experiment("other-experiment")
+    session_metadata = {TraceMetadataKey.TRACE_SESSION: "shared-session"}
+    _create_trace(store, "searched-trace", searched_experiment_id, trace_metadata=session_metadata)
+    _create_trace(store, "other-trace", other_experiment_id, trace_metadata=session_metadata)
+    store.create_assessment(
+        Feedback(
+            trace_id="other-trace",
+            name="session_quality",
+            value="good",
+            source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+            metadata=session_metadata,
+        )
+    )
+
+    traces, _ = store.search_traces([searched_experiment_id], filter_string=filter_string)
+
+    assert {trace.request_id for trace in traces} == expected_trace_ids
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 
