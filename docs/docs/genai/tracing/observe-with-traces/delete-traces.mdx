@@ -10,7 +10,7 @@ Deleting a trace cannot be undone. Ensure that the parameters provided to the `d
 :::
 
 :::warning Not supported for Databricks Unity Catalog traces
-`delete_traces()` does not support traces stored in Databricks Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying table using SQL. Target the base OTel spans table (for example `<prefix>_otel_spans`), not `_trace_metadata` or `_trace_unified`, which are views and cannot be deleted from.
+`delete_traces()` does not support traces stored in Databricks Unity Catalog. To remove UC-stored traces, delete rows directly from the underlying table using SQL.
 :::
 
 ## Deleting traces from MLflow UI
