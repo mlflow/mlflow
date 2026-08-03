@@ -73,6 +73,8 @@ anthropic
 # Required by mlflow.ag2
 # ag2 1.0.0 is a rewrite that renames the top-level module from `autogen` to `ag2` and
 # drops `runtime_logging`, which mlflow.ag2 autologging is built on.
+# TODO: Consider migrating to ag2 1.x, which emits OpenTelemetry spans natively via
+# `ag2.middleware.builtin.TelemetryMiddleware`, and remove this pin.
 ag2<1
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
