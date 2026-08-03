@@ -71,6 +71,10 @@ def _is_in_databricks() -> bool:
 
 
 def _detect_environment() -> str | None:
+    # Check for MLflow demo deployment (e.g. demo.mlflow.org) before generic docker detection
+    if os.environ.get("MLFLOW_DEPLOYMENT_ENV") == "demo":
+        return Environment.DEMO.value
+
     for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
         if env_var in os.environ:
             return environment.value
@@ -94,11 +98,15 @@ def is_telemetry_disabled() -> bool:
     try:
         if _IS_MLFLOW_TESTING_TELEMETRY:
             return False
+        # NB: _IS_IN_DATABRICKS is intentionally NOT a disable signal here. When the
+        # tracking URI is databricks:// or databricks-uc://, telemetry is forwarded
+        # to the workspace's own ingestion endpoint (see TelemetryClient._forward_to_databricks).
+        # The non-Databricks (OSS) ingestion path is separately guarded in
+        # TelemetryClient._process_records so it is never hit from inside DBR.
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
             or _IS_IN_CI_ENV_OR_TESTING
-            or _IS_IN_DATABRICKS
             or _IS_MLFLOW_DEV_VERSION
         )
     except Exception as e:

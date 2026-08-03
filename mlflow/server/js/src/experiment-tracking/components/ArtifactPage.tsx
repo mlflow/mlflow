@@ -249,8 +249,8 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   render() {
     return (
       <RequestStateWrapper
+        // prettier-ignore
         requestIds={this.listArtifactRequestIds}
-        // eslint-disable-next-line no-trailing-spaces
       >
         {this.renderArtifactView}
       </RequestStateWrapper>

@@ -19,9 +19,13 @@ from mlflow.entities import (
     GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
     GatewayModelDefinition,
     GatewayModelLinkageType,
     GatewaySecretInfo,
+    GuardrailAction,
+    GuardrailStage,
     RoutingStrategy,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
@@ -41,6 +45,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
     SqlGatewayEndpointTag,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlOnlineScoringConfig,
@@ -74,9 +80,11 @@ def set_kek_passphrase(monkeypatch):
 
 def _cleanup_database(store: SqlAlchemyStore):
     """Clean up gateway-specific tables after each test."""
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
+            SqlGatewayGuardrailConfig,
+            SqlGatewayGuardrail,
             SqlGatewayBudgetPolicy,
             SqlGatewayEndpointTag,
             SqlGatewayEndpointBinding,
@@ -340,7 +348,7 @@ def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemySto
         )
         session.flush()
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
             attempt_mutation(session)
 
@@ -2446,6 +2454,760 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
         assert policy.budget_action == action
 
 
+def _create_endpoint_for_budget(store, name):
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+    return endpoint.endpoint_id
+
+
+def test_create_budget_policy_endpoint_scope(store: SqlAlchemyStore):
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-create")
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    assert policy.target_scope == BudgetTargetScope.ENDPOINT
+    assert policy.target_value == endpoint_id
+
+    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.ENDPOINT
+    assert fetched.target_value == endpoint_id
+
+
+def test_create_budget_policy_target_value_defaults_none_for_global(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    assert policy.target_value is None
+    assert store.get_budget_policy(policy.budget_policy_id).target_value is None
+
+
+def test_create_budget_policy_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    # An ENDPOINT policy pointing at a nonexistent endpoint would never match any
+    # request, so creation must fail instead of persisting a dead policy.
+    with pytest.raises(MlflowException, match="not found"):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.ENDPOINT,
+            budget_action=BudgetAction.REJECT,
+            target_value="ep-missing",
+        )
+
+
+def test_update_budget_policy_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-exists")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_value="ep-missing",
+        )
+    assert store.get_budget_policy(created.budget_policy_id).target_value == endpoint_id
+
+
+def test_update_budget_policy_set_target_value(store: SqlAlchemyStore):
+    old_endpoint_id = _create_endpoint_for_budget(store, "budget-ep-old")
+    new_endpoint_id = _create_endpoint_for_budget(store, "budget-ep-new")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=old_endpoint_id,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_value=new_endpoint_id,
+    )
+    assert updated.target_value == new_endpoint_id
+    assert updated.target_scope == BudgetTargetScope.ENDPOINT
+
+
+def test_update_budget_policy_clears_target_value_when_scope_changes(store: SqlAlchemyStore):
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-clear")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.GLOBAL,
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    assert updated.target_value is None
+
+
+def test_list_budget_policies_includes_target_value(store: SqlAlchemyStore):
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-listed")
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    policies = store.list_budget_policies()
+    target_values = {p.target_value for p in policies}
+    assert endpoint_id in target_values
+
+
+def test_create_budget_policy_endpoint_scope_requires_target_value(store: SqlAlchemyStore):
+    # Store layer enforces the invariant even when the REST handler is bypassed.
+    with pytest.raises(MlflowException, match="target_value is required"):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.ENDPOINT,
+            budget_action=BudgetAction.REJECT,
+        )
+
+
+@pytest.mark.parametrize("target_scope", [BudgetTargetScope.GLOBAL, BudgetTargetScope.WORKSPACE])
+def test_create_budget_policy_untargeted_drops_stray_target_value(
+    store: SqlAlchemyStore, target_scope
+):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=target_scope,
+        budget_action=BudgetAction.ALERT,
+        target_value="stray-target",
+    )
+    assert policy.target_value is None
+    assert store.get_budget_policy(policy.budget_policy_id).target_value is None
+
+
+def test_update_budget_policy_change_to_endpoint_without_target_raises(store: SqlAlchemyStore):
+    # Regression: switching a GLOBAL policy to ENDPOINT scope without supplying a
+    # target_value must not persist a silently non-enforcing policy
+    # (target_scope=ENDPOINT + target_value=None).
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+    )
+    with pytest.raises(MlflowException, match="target_value is required"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.ENDPOINT,
+        )
+    # The policy is unchanged and still enforces as GLOBAL.
+    reloaded = store.get_budget_policy(created.budget_policy_id)
+    assert reloaded.target_scope == BudgetTargetScope.GLOBAL
+    assert reloaded.target_value is None
+
+
+def test_update_budget_policy_change_to_endpoint_with_target_succeeds(store: SqlAlchemyStore):
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-switch")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.ENDPOINT,
+        target_value=endpoint_id,
+    )
+    assert updated.target_scope == BudgetTargetScope.ENDPOINT
+    assert updated.target_value == endpoint_id
+
+
+def test_update_budget_policy_amount_only_preserves_endpoint_scope(store: SqlAlchemyStore):
+    # Updating an unrelated field on an ENDPOINT policy must not trip the invariant.
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-amount")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=250.0,
+    )
+    assert updated.budget_amount == 250.0
+    assert updated.target_scope == BudgetTargetScope.ENDPOINT
+    assert updated.target_value == endpoint_id
+
+
+def test_update_budget_policy_target_ignored_on_untargeted_policy(store: SqlAlchemyStore):
+    # Setting a target on a policy that stays GLOBAL/WORKSPACE is a no-op: untargeted
+    # policies can never carry a target_value.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_value="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    assert updated.target_value is None
+
+
+# =============================================================================
+# Guardrail Tests
+# =============================================================================
+
+
+def _create_scorer(store: SqlAlchemyStore, endpoint_name: str | None = None):
+    """Helper to create a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    ep_name = endpoint_name or f"guardrail-ep-{name_suffix}"
+    endpoint = _create_gateway_endpoint(store, ep_name)
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+
+    return store.register_scorer(experiment_id, f"safety-judge-{name_suffix}", serialized_scorer)
+
+
+def _create_scorer_versions(store: SqlAlchemyStore):
+    """Helper to create multiple versions of a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    endpoint = _create_gateway_endpoint(store, f"guardrail-ep-{name_suffix}")
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+    scorer_name = f"safety-judge-{name_suffix}"
+
+    serialized_scorer_v1 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+    serialized_scorer_v2 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input still safe?",
+        }
+    })
+
+    scorer_v1 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v1)
+    scorer_v2 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v2)
+    return scorer_v1, scorer_v2
+
+
+def test_create_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+        created_by="test-user",
+    )
+
+    assert isinstance(guardrail, GatewayGuardrail)
+    assert guardrail.guardrail_id.startswith("gr-")
+    assert guardrail.name == "test-guardrail"
+    assert guardrail.scorer.scorer_id == scorer.scorer_id
+    assert guardrail.scorer.scorer_version == scorer.scorer_version
+    assert guardrail.stage == GuardrailStage.BEFORE
+    assert guardrail.action == GuardrailAction.VALIDATION
+    assert guardrail.created_by == "test-user"
+    assert guardrail.last_updated_by == "test-user"
+    assert guardrail.created_at > 0
+    assert guardrail.last_updated_at > 0
+
+
+def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.AFTER,
+        action=GuardrailAction.SANITIZATION,
+    )
+
+    assert guardrail.stage == GuardrailStage.AFTER
+    assert guardrail.action == GuardrailAction.SANITIZATION
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Scorer with ID 'missing-scorer' not found"):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id="missing-scorer",
+            scorer_version=1,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer with ID '{scorer.scorer_id}' and version 999 not found",
+    ):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=999,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+
+def test_get_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    created = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    fetched = store.get_gateway_guardrail(created.guardrail_id)
+
+    assert fetched.guardrail_id == created.guardrail_id
+    assert fetched.scorer.scorer_id == scorer.scorer_id
+    assert fetched.scorer.scorer_version == scorer.scorer_version
+    assert fetched.stage == GuardrailStage.BEFORE
+    assert fetched.action == GuardrailAction.VALIDATION
+
+
+def test_get_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail("gr-nonexistent")
+
+
+def test_delete_gateway_guardrail(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_gateway_guardrail(guardrail.guardrail_id)
+
+
+def test_delete_gateway_guardrail_not_found(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_gateway_guardrail("gr-nonexistent")
+
+
+def test_list_gateway_guardrails(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for stage in GuardrailStage:
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=stage,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    result = store.list_gateway_guardrails()
+    assert len(result) == 2
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_empty(store: SqlAlchemyStore):
+    result = store.list_gateway_guardrails()
+    assert result == []
+    assert result.token is None
+
+
+def test_list_gateway_guardrails_pagination(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    for _ in range(3):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+    page1 = store.list_gateway_guardrails(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_gateway_guardrails(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = sorted([g.guardrail_id for g in page1] + [g.guardrail_id for g in page2])
+    assert len(all_ids) == 3
+    assert len(set(all_ids)) == 3
+
+
+def test_add_guardrail_to_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-endpoint-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+        created_by="test-user",
+    )
+
+    assert isinstance(config, GatewayGuardrailConfig)
+    assert config.endpoint_id == endpoint.endpoint_id
+    assert config.guardrail_id == guardrail.guardrail_id
+    assert config.execution_order == 5
+    assert config.created_by == "test-user"
+
+
+def test_add_guardrail_to_endpoint_null_execution_order(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-order-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    config = store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    assert config.execution_order is None
+
+
+def test_add_guardrail_to_endpoint_duplicate_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-dup-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    with pytest.raises(MlflowException, match="already added"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_update_endpoint_guardrail_config(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-update-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=5,
+    )
+
+    updated = store.update_endpoint_guardrail_config(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+        execution_order=10,
+    )
+
+    assert updated.execution_order == 10
+    assert updated.guardrail_id == guardrail.guardrail_id
+
+
+def test_update_endpoint_guardrail_config_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-upd-nf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_endpoint_guardrail_config(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+            execution_order=1,
+        )
+
+
+def test_add_guardrail_to_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id="e-nonexistent",
+            guardrail_id=guardrail.guardrail_id,
+        )
+
+
+def test_add_nonexistent_guardrail_to_endpoint_raises(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-noguard-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_remove_guardrail_from_endpoint(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-remove-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.remove_guardrail_from_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_remove_guardrail_from_endpoint_not_found(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-removenf-{uuid.uuid4().hex[:8]}")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.remove_guardrail_from_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id="gr-nonexistent",
+        )
+
+
+def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-list-{uuid.uuid4().hex[:8]}")
+
+    guardrails = [
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+        for _ in range(3)
+    ]
+
+    configs = [
+        store.add_guardrail_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            guardrail_id=g.guardrail_id,
+            execution_order=(i + 1) * 10,
+        )
+        for i, g in enumerate(guardrails)
+    ]
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 3
+    assert [c.execution_order for c in configs] == [10, 20, 30]
+    assert [c.guardrail_id for c in configs] == [g.guardrail_id for g in guardrails]
+    for config, guardrail in zip(configs, guardrails):
+        assert config.guardrail is not None
+        assert config.guardrail.guardrail_id == guardrail.guardrail_id
+        assert config.guardrail.stage == GuardrailStage.BEFORE
+
+
+def test_list_endpoint_guardrail_configs_null_order_sorts_last(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-last-{uuid.uuid4().hex[:8]}")
+
+    guardrail_with_order = store.create_gateway_guardrail(
+        name="test-guardrail-with-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+    guardrail_null_order = store.create_gateway_guardrail(
+        name="test-guardrail-null-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_null_order.guardrail_id,
+    )
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_with_order.guardrail_id,
+        execution_order=5,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 2
+    assert configs[0].execution_order == 5
+    assert configs[0].guardrail_id == guardrail_with_order.guardrail_id
+    assert configs[1].execution_order is None
+    assert configs[1].guardrail_id == guardrail_null_order.guardrail_id
+
+
+def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
+    endpoint = _create_gateway_endpoint(store, f"gr-empty-{uuid.uuid4().hex[:8]}")
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_list_endpoint_guardrail_configs_nonexistent_endpoint(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="not found"):
+        store.list_endpoint_guardrail_configs("e-nonexistent")
+
+
+def test_delete_guardrail_cascades_to_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_guardrail(guardrail.guardrail_id)
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert configs == []
+
+
+def test_delete_endpoint_cascades_to_guardrail_configs(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-ep-cascade-{uuid.uuid4().hex[:8]}")
+
+    guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail.guardrail_id,
+    )
+
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Guardrail itself should still exist
+    fetched = store.get_gateway_guardrail(guardrail.guardrail_id)
+    assert fetched.guardrail_id == guardrail.guardrail_id
+
+
 # =============================================================================
 # sum_gateway_trace_cost Tests
 # =============================================================================
@@ -2506,7 +3268,7 @@ def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-basic")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
         _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
 
@@ -2518,7 +3280,7 @@ def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-non-gw")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
         _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
 
@@ -2530,7 +3292,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-window")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
         _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
         _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
@@ -2541,7 +3303,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
 
 
 def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Create two experiments in different workspaces
         exp_ws_a = SqlExperiment(
             name=f"cost-ws-a-{uuid.uuid4().hex}",
@@ -2581,3 +3343,22 @@ def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
 def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
     total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert total == 0.0
+
+
+def test_sum_gateway_trace_cost_endpoint_filter(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-endpoint")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(session, exp_id, "t-ep1", 1000, [("s1", 0.10)], endpoint_id="ep-1")
+        _insert_trace_with_cost(session, exp_id, "t-ep2", 1000, [("s1", 0.25)], endpoint_id="ep-2")
+
+    total_ep1 = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, endpoint_id="ep-1")
+    assert abs(total_ep1 - 0.10) < 1e-9
+
+    total_ep2 = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, endpoint_id="ep-2")
+    assert abs(total_ep2 - 0.25) < 1e-9
+
+    # No endpoint filter includes both.
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 0.35) < 1e-9

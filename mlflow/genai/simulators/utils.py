@@ -5,18 +5,19 @@ import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
+import pydantic
+
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _create_message_from_databricks_response,
     call_chat_completions,
-    create_litellm_message_from_databricks_response,
     serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import is_databricks_uri
 
@@ -54,16 +55,12 @@ def invoke_model_without_tracing(
     messages: list[ChatMessage],
     num_retries: int = 3,
     inference_params: dict[str, Any] | None = None,
-    response_format: type | None = None,
+    response_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
     Invoke a model without tracing. This method will delete the last trace created by the
     invocation, if any.
     """
-    import litellm
-
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
     with delete_trace_if_created():
         if model_uri in (_DATABRICKS_DEFAULT_JUDGE_MODEL, _DATABRICKS_AGENTIC_JUDGE_MODEL):
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
@@ -84,43 +81,18 @@ def invoke_model_without_tracing(
                 raise MlflowException("Empty response from Databricks managed endpoint")
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            return create_litellm_message_from_databricks_response(parsed_json).content
+            return _create_message_from_databricks_response(parsed_json).content
 
-        provider, model_name = _parse_model_uri(model_uri)
+        from mlflow.genai.scorers.llm_backend import ScorerLLMClient
 
-        litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
-
-        kwargs = {
-            "messages": litellm_messages,
-            "max_retries": num_retries,
-            "drop_params": True,
-        }
-
-        if provider == "gateway":
-            config = get_gateway_litellm_config(model_name)
-            kwargs["api_base"] = config.api_base
-            kwargs["api_key"] = config.api_key
-            kwargs["model"] = config.model
-            if config.extra_headers:
-                kwargs["extra_headers"] = config.extra_headers
-        else:
-            kwargs["model"] = f"{provider}/{model_name}"
-        if inference_params:
-            kwargs.update(inference_params)
-        if response_format is not None:
-            kwargs["response_format"] = response_format
-
-        try:
-            response = litellm.completion(**kwargs)
-            return response.choices[0].message.content
-        except Exception as e:
-            error_str = str(e)
-            if inference_params and "Unsupported value: 'temperature'" in error_str:
-                kwargs.pop("temperature", None)
-                response = litellm.completion(**kwargs)
-                return response.choices[0].message.content
-            else:
-                raise
+        backend = ScorerLLMClient(model_uri)
+        message_dicts = [{"role": msg.role, "content": msg.content} for msg in messages]
+        return backend.complete(
+            message_dicts,
+            response_format=response_format,
+            num_retries=num_retries,
+            **(inference_params or {}),
+        )
 
 
 def format_history(history: list[dict[str, Any]]) -> str | None:

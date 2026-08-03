@@ -885,6 +885,7 @@ def test_dataset_lifecycle_workflow(experiments):
 
 
 def test_error_handling_filestore_backend(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     file_uri = f"file://{tmp_path}"
     mlflow.set_tracking_uri(file_uri)
 
@@ -1519,6 +1520,7 @@ def test_dataset_experiment_associations(experiments):
 
 
 def test_dataset_associations_filestore_blocking(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,

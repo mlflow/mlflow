@@ -18,22 +18,9 @@ Please use the reporting process described below instead.
 
 ## Reporting a Vulnerability
 
-When finding a security vulnerability in MLflow, please perform the following actions:
+When finding a security vulnerability in MLflow, please report it through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new). Include detailed information about the security vulnerability, evidence that supports the relevance of the finding, and any reproducibility instructions for independent confirmation. Do not disclose vulnerability details publicly until coordinated disclosure has been completed.
 
-- [Open an issue](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=bug&template=bug_report_template.md&title=%5BBUG%5D%20Security%20Vulnerability) on the MLflow repository. Ensure that you use `[BUG] Security Vulnerability` as the title and _do not_ mention any vulnerability details in the issue post.
-- Send a notification [email](mailto:mlflow-oss-maintainers@googlegroups.com) to `mlflow-oss-maintainers@googlegroups.com` that contains, at a minimum:
-  - The link to the filed issue stub.
-  - Your GitHub handle.
-  - Detailed information about the security vulnerability, evidence that supports the relevance of the finding and any reproducibility instructions for independent confirmation.
+> [!WARNING]
+> Do not open regular GitHub issues for security vulnerabilities. Any security vulnerability reported as a normal issue will be automatically closed.
 
-This first stage of reporting is to ensure that a rapid validation can occur without wasting the time and effort of a reporter. Future communication and vulnerability resolution will be conducted after validating
-the veracity of the reported issue.
-
-An MLflow maintainer will, after validating the report:
-
-- Acknowledge the [bug](ISSUE_POLICY.md#bug-reports) during [triage](ISSUE_TRIAGE.rst)
-- Mark the issue as `priority/critical-urgent`
-- Open a draft [GitHub Security Advisory](https://docs.github.com/en/code-security/security-advisories/creating-a-security-advisory)
-  to discuss the vulnerability details in private.
-
-The private Security Advisory will be used to confirm the issue, prepare a fix, and publicly disclose it after the fix has been released.
+MLflow maintainers will review and validate your report within the associated [GitHub Security Advisory](https://docs.github.com/en/code-security/security-advisories/creating-a-security-advisory), using it to coordinate private discussion of the vulnerability details, develop a fix, and publicly disclose the issue after the fix has been released.

@@ -27,6 +27,7 @@ export const EvaluationCellEvaluateButton = ({
     return (
       <Tooltip
         componentId="mlflow.experiment-tracking.evaluation-cell.evaluate-all"
+        disableHoverableContent={false}
         content={
           <FormattedMessage
             description="Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"

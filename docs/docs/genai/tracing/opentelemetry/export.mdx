@@ -66,6 +66,9 @@ Click on the following icons to learn more about how to set up OpenTelemetry exp
     <SmallLogoCard link="https://docs.lightstep.com/docs/collector-home-page">
         <span>![ServiceNow Logo](/images/logos/servicenow-logo.avif)</span>
     </SmallLogoCard>
+    <SmallLogoCard link="https://docs.middleware.io/open-telemetry/otel-getting-started">
+        <span>![Middleware Logo](/images/logos/middleware-logo.svg)</span>
+    </SmallLogoCard>
 </CardGroup>
 
 ## Dual Export
@@ -89,6 +92,19 @@ with mlflow.start_span(name="foo") as span:
     span.set_inputs({"a": 1})
     span.set_outputs({"b": 2})
 ```
+
+## GenAI Semantic Convention Format
+
+By default, exported traces use MLflow's internal attribute format (`mlflow.*`). To export traces in the [OpenTelemetry GenAI Semantic Convention](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/) format (`gen_ai.*`), set the `MLFLOW_ENABLE_OTEL_GENAI_SEMCONV` environment variable:
+
+```python
+import os
+
+os.environ["MLFLOW_ENABLE_OTEL_GENAI_SEMCONV"] = "true"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+```
+
+This translates span types, model info, token usage, and messages into the standard `gen_ai.*` attributes before export. See [GenAI Semantic Conventions](/genai/tracing/opentelemetry/genai-semconv) for the full details and mapping reference.
 
 ## Metrics Export
 

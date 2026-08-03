@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
-const QUERY_PARAM_KEY = 'selectedRunUuid';
+export const SELECTED_RUN_UUID_QUERY_PARAM = 'selectedRunUuid';
 
 /**
  * Query param-powered hook that returns the selected run uuid.
@@ -9,17 +9,17 @@ const QUERY_PARAM_KEY = 'selectedRunUuid';
 export const useSelectedRunUuid = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const selectedRunUuid = searchParams.get(QUERY_PARAM_KEY) ?? undefined;
+  const selectedRunUuid = searchParams.get(SELECTED_RUN_UUID_QUERY_PARAM) ?? undefined;
 
   const setSelectedRunUuid = useCallback(
     (selectedRunUuid: string | undefined) => {
       setSearchParams(
         (params) => {
           if (selectedRunUuid === undefined) {
-            params.delete(QUERY_PARAM_KEY);
+            params.delete(SELECTED_RUN_UUID_QUERY_PARAM);
             return params;
           }
-          params.set(QUERY_PARAM_KEY, selectedRunUuid);
+          params.set(SELECTED_RUN_UUID_QUERY_PARAM, selectedRunUuid);
           return params;
         },
         { replace: true },

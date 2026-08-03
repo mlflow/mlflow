@@ -20,10 +20,12 @@ def setup():
     _logger.info("Extracting UI assets to %s", target_dir)
     subprocess.check_call(["tar", "xzf", tar_path, "-C", target_dir])
 
-    # Generate demo data
+    # Generate demo data. Always refresh so the preview app reflects the latest
+    # demo content (e.g. new trace types) even if the SQLite database persisted
+    # from a previous deploy with stale demo data.
     os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
     _logger.info("Generating demo data...")
-    generate_all_demos()
+    generate_all_demos(refresh=True)
     _logger.info("Demo data generated.")
 
 

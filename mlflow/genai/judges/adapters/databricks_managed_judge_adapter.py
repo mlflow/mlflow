@@ -6,8 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
-    import litellm
-
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage, ToolDefinition
 
@@ -186,11 +184,11 @@ def _parse_databricks_judge_response(
     )
 
 
-def create_litellm_message_from_databricks_response(
+def _create_message_from_databricks_response(
     response_data: dict[str, Any],
-) -> Any:
+) -> "ChatMessage":
     """
-    Convert Databricks OpenAI-style response to litellm Message.
+    Convert Databricks OpenAI-style response to a ChatMessage.
 
     Handles both string content and reasoning model outputs.
 
@@ -198,12 +196,12 @@ def create_litellm_message_from_databricks_response(
         response_data: Parsed JSON response from Databricks.
 
     Returns:
-        litellm.Message object.
+        ChatMessage object.
 
     Raises:
         ValueError: If response format is invalid.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
     choices = response_data.get("choices", [])
     if not choices:
@@ -211,21 +209,8 @@ def create_litellm_message_from_databricks_response(
 
     message_data = choices[0].get("message", {})
 
-    # Create litellm Message with tool calls if present
-    tool_calls_data = message_data.get("tool_calls")
-    tool_calls = None
-    if tool_calls_data:
-        tool_calls = [
-            litellm.ChatCompletionMessageToolCall(
-                id=tc["id"],
-                type=tc.get("type", "function"),
-                function=litellm.Function(
-                    name=tc["function"]["name"],
-                    arguments=tc["function"]["arguments"],
-                ),
-            )
-            for tc in tool_calls_data
-        ]
+    # tool_calls come as plain dicts; ChatMessage.__post_init__ auto-converts to ToolCall
+    tool_calls = message_data.get("tool_calls")
 
     content = message_data.get("content")
     if isinstance(content, list):
@@ -234,7 +219,11 @@ def create_litellm_message_from_databricks_response(
         ]
         content = "\n".join(content_parts) if content_parts else None
 
-    return litellm.Message(
+    # ChatMessage requires content when tool_calls is absent; use empty string as fallback
+    if content is None and not tool_calls:
+        content = ""
+
+    return ChatMessage(
         role=message_data.get("role", "assistant"),
         content=content,
         tool_calls=tool_calls,
@@ -242,7 +231,7 @@ def create_litellm_message_from_databricks_response(
 
 
 def _run_databricks_agentic_loop(
-    messages: list["litellm.Message"],
+    messages: list["ChatMessage"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
@@ -255,7 +244,7 @@ def _run_databricks_agentic_loop(
     tool-calling loop until the LLM produces a final answer.
 
     Args:
-        messages: Initial litellm Message objects for the conversation.
+        messages: Initial ChatMessage objects for the conversation.
         trace: Optional trace for tool calling. If provided, enables tool use.
         on_final_answer: Callback to process the final LLM response content.
             Receives the content string (or None if empty) and should return
@@ -307,7 +296,7 @@ def _run_databricks_agentic_loop(
                 raise MlflowException("Empty response from Databricks judge")
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            message = create_litellm_message_from_databricks_response(parsed_json)
+            message = _create_message_from_databricks_response(parsed_json)
 
             if not message.tool_calls:
                 return on_final_answer(message.content)
@@ -348,14 +337,13 @@ def _invoke_databricks_default_judge(
     Raises:
         MlflowException: If databricks-agents is not installed or max iterations exceeded.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
     try:
-        # Convert initial prompt to litellm Messages (same pattern as litellm adapter)
         if isinstance(prompt, str):
-            messages = [litellm.Message(role="user", content=prompt)]
+            messages = [ChatMessage(role="user", content=prompt)]
         else:
-            messages = [litellm.Message(role=msg.role, content=msg.content) for msg in prompt]
+            messages = [ChatMessage(role=msg.role, content=msg.content) for msg in prompt]
 
         # Define callback to parse final answer into Feedback
         def parse_judge_response(content: str | None) -> Feedback:
@@ -387,7 +375,7 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
     ) -> bool:
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         if input_params.base_url is not None or input_params.extra_headers is not None:
             raise MlflowException(
                 "base_url and extra_headers are not supported for Databricks Managed Judge. "

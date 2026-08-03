@@ -8,7 +8,6 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import gepa
@@ -21,7 +20,6 @@ EVAL_RESULTS_FILE = "eval_results.json"
 SCORES_FILE = "scores.json"
 
 
-@experimental(version="3.5.0")
 class GepaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt adapter that uses GEPA (Genetic-Pareto) optimization algorithm

@@ -22,14 +22,14 @@ const backgroundLinkTimeoutMs = 10000;
 const possibleTypes: Record<string, string[]> = {};
 
 export const graphqlFetch = async (uri: any, options: any): Promise<Response> => {
-  const headers = new Headers({
+  const headers = {
     ...options.headers,
-  });
+  };
 
   const resolvedUri = typeof uri === 'string' ? getAjaxUrl(uri) : uri;
 
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-  return fetch(resolvedUri, { ...options, headers }).then((res) => res);
+  return fetch(resolvedUri, { ...options, headers: new Headers(headers) }).then((res) => res);
 };
 
 const apolloCache = new InMemoryCache({

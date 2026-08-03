@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -11,6 +12,11 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
+
+_logger = logging.getLogger(__name__)
+
+_DATABRICKS_PROVIDERS = {"databricks", "endpoints"}
 
 
 @dataclass
@@ -86,11 +92,12 @@ class AdapterInvocationOutput:
     cost: float | None = None
 
 
-class BaseJudgeAdapter(ABC):
-    """
-    Abstract base class for judge model adapters.
-    """
+# ---------------------------------------------------------------------------
+# Base adapter
+# ---------------------------------------------------------------------------
 
+
+class BaseJudgeAdapter(ABC):
     @classmethod
     @abstractmethod
     def is_applicable(
@@ -109,20 +116,62 @@ class BaseJudgeAdapter(ABC):
             True if this adapter can handle the model and prompt type, False otherwise.
         """
 
-    @abstractmethod
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        """Invoke the adapter with Databricks telemetry recording.
+
+        Subclasses implement ``_invoke`` with the actual invocation logic.
+        This method wraps it with success/failure telemetry for
+        databricks/endpoints providers.
         """
-        Invoke the judge model using this adapter.
+        is_databricks = (
+            ":/" in input_params.model_uri and input_params.model_provider in _DATABRICKS_PROVIDERS
+        )
 
-        Args:
-            input_params: The input parameters for the invocation.
+        try:
+            output = self._invoke(input_params)
 
-        Returns:
-            The output from the invocation including feedback and metadata.
+            if is_databricks:
+                try:
+                    from mlflow.genai.judges.utils.telemetry_utils import (
+                        _record_judge_model_usage_success_databricks_telemetry,
+                    )
 
-        Raises:
-            MlflowException: If the invocation fails.
-        """
+                    _record_judge_model_usage_success_databricks_telemetry(
+                        request_id=output.request_id,
+                        model_provider=input_params.model_provider,
+                        endpoint_name=input_params.model_name,
+                        num_prompt_tokens=output.num_prompt_tokens,
+                        num_completion_tokens=output.num_completion_tokens,
+                    )
+                except Exception:
+                    _logger.debug("Failed to record judge model usage success telemetry")
+
+            return output
+
+        except MlflowException as e:
+            if is_databricks:
+                try:
+                    from mlflow.genai.judges.utils.telemetry_utils import (
+                        _record_judge_model_usage_failure_databricks_telemetry,
+                    )
+
+                    _record_judge_model_usage_failure_databricks_telemetry(
+                        model_provider=input_params.model_provider,
+                        endpoint_name=input_params.model_name,
+                        error_code=e.error_code or "UNKNOWN",
+                        error_message=str(e),
+                    )
+                except Exception:
+                    _logger.debug("Failed to record judge model usage failure telemetry")
+            raise
+
+    @abstractmethod
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        """Subclass extension point — implement the actual invocation logic."""
 
 
-__all__ = ["BaseJudgeAdapter", "AdapterInvocationInput", "AdapterInvocationOutput"]
+__all__ = [
+    "BaseJudgeAdapter",
+    "AdapterInvocationInput",
+    "AdapterInvocationOutput",
+]

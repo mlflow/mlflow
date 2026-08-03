@@ -21,6 +21,9 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
+  createExpectationColumnId,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -29,17 +32,18 @@ import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGrou
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const GROUP_PRIORITY = [
-  TracesTableColumnGroup.INFO,
-  TracesTableColumnGroup.ASSESSMENT,
+  TracesTableColumnGroup.BASE,
   TracesTableColumnGroup.EXPECTATION,
+  TracesTableColumnGroup.ASSESSMENT,
+  TracesTableColumnGroup.INFO,
   TracesTableColumnGroup.TAG,
 ] as const;
 
+/** Preferred order *within* the BASE group by column ID */
+const BASE_COLUMN_PRIORITY = [TRACE_ID_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID] as const;
+
 /** Preferred order *within* the INFO group by column ID */
 const INFO_COLUMN_PRIORITY = [
-  TRACE_ID_COLUMN_ID,
-  INPUTS_COLUMN_ID,
-  RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
   USER_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
@@ -53,14 +57,21 @@ const INFO_COLUMN_LAST = [ISSUES_COLUMN_ID] as const;
 /** Preferred order *within* the ASSESSMENT group by column ID */
 const ASSESSMENT_COLUMN_PRIORITY = [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT] as const;
 
+/** Preferred order *within* the EXPECTATION group by column ID */
+const EXPECTATION_COLUMN_PRIORITY = [createExpectationColumnId('expected_response')] as const;
+
 const groupRank: Record<TracesTableColumnGroup, number> = Object.fromEntries(
   GROUP_PRIORITY.map((grp, idx) => [grp, idx]),
 ) as any;
 
+const baseColumnRank: Record<string, number> = Object.fromEntries(BASE_COLUMN_PRIORITY.map((id, idx) => [id, idx]));
 const infoColumnRank: Record<string, number> = Object.fromEntries(INFO_COLUMN_PRIORITY.map((id, idx) => [id, idx]));
 
 const assessmentColumnRank: Record<string, number> = Object.fromEntries(
   ASSESSMENT_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
+);
+const expectationColumnRank: Record<string, number> = Object.fromEntries(
+  EXPECTATION_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
 );
 
 export function sortGroupedColumns(
@@ -92,13 +103,34 @@ export function sortGroupedColumns(
       if (colB.id === INPUTS_COLUMN_ID) return 1;
     }
 
-    // 1) Compare their groups by precomputed rank
+    // 1) Compare their groups by precomputed rank.
     const groupA = colA.group ?? TracesTableColumnGroup.INFO;
     const groupB = colB.group ?? TracesTableColumnGroup.INFO;
     const groupComparison = groupRank[groupA] - groupRank[groupB];
     if (groupComparison !== 0) return groupComparison;
 
-    // 2) Same group: INFO
+    // 2) Same group: within-group ordering, in GROUP_PRIORITY order
+    if (groupA === TracesTableColumnGroup.BASE) {
+      const rankA = baseColumnRank[colA.id] ?? Infinity;
+      const rankB = baseColumnRank[colB.id] ?? Infinity;
+      if (rankA !== rankB) return rankA - rankB;
+      return colA.label.localeCompare(colB.label);
+    }
+
+    if (groupA === TracesTableColumnGroup.EXPECTATION) {
+      const rankA = expectationColumnRank[colA.id] ?? Infinity;
+      const rankB = expectationColumnRank[colB.id] ?? Infinity;
+      if (rankA !== rankB) return rankA - rankB;
+      return colA.label.localeCompare(colB.label);
+    }
+
+    if (groupA === TracesTableColumnGroup.ASSESSMENT) {
+      const rankA = assessmentColumnRank[colA.id] ?? Infinity;
+      const rankB = assessmentColumnRank[colB.id] ?? Infinity;
+      if (rankA !== rankB) return rankA - rankB;
+      return colA.label.localeCompare(colB.label);
+    }
+
     if (groupA === TracesTableColumnGroup.INFO) {
       // Columns in INFO_COLUMN_LAST should always appear at the end
       const isLastA = INFO_COLUMN_LAST.includes(colA.id as (typeof INFO_COLUMN_LAST)[number]);
@@ -112,20 +144,7 @@ export function sortGroupedColumns(
       return colA.label.localeCompare(colB.label);
     }
 
-    // 3) Same group: ASSESSMENT
-    if (groupA === TracesTableColumnGroup.ASSESSMENT) {
-      const rankA = assessmentColumnRank[colA.id] ?? Infinity;
-      const rankB = assessmentColumnRank[colB.id] ?? Infinity;
-      if (rankA !== rankB) return rankA - rankB;
-      return colA.label.localeCompare(colB.label);
-    }
-
-    // 4) Same group: EXPECTATION
-    if (groupA === TracesTableColumnGroup.EXPECTATION) {
-      return colA.label.localeCompare(colB.label);
-    }
-
-    // 5) Same group: TAG (or any other fallback)
+    // TAG (or any other fallback)
     return colA.label.localeCompare(colB.label);
   });
 }
@@ -196,6 +215,10 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
+    case GIT_BRANCH_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.source.git.branch'];
+    case GIT_COMMIT_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.source.git.commit'];
     default:
       // Return null for unknown column IDs to avoid breaking the UI
       return null;

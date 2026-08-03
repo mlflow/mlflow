@@ -37,6 +37,7 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    _MLFLOW_ENABLE_UC_TRACE_UPSELL,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -58,6 +59,7 @@ from mlflow.tracing.provider import (
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -241,6 +243,17 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    if (
+        _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
+        and trace_location is None
+        and is_databricks_uri(_resolve_tracking_uri())
+        and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
+    ):
+        if is_newly_created:
+            show_new_experiment_upsell()
+        else:
+            show_existing_experiment_upsell()
+
     if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
             catalog_name=trace_location.catalog_name,
@@ -279,12 +292,24 @@ def set_experiment(
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
 ) -> None:
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+    from mlflow.exceptions import MlflowTracingException
+    from mlflow.tracing.provider import (
+        _MLFLOW_TRACE_USER_DESTINATION,
+        is_tracing_enabled,
+        provider,
+    )
 
-    # If the tracer provider has already been initialized, reset it so the
-    # next trace re-derives the correct processor chain from the new experiment.
+    # If the tracer provider has already been initialized, reset it so the next
+    # trace re-derives the correct processor chain from the new experiment. Skip
+    # when disabled: reset() would flip `once` off and silently re-enable tracing
+    # the user turned off (#24209). Default to resetting if the state check errors.
     if provider.once._done:
-        provider.reset()
+        try:
+            tracing_enabled = is_tracing_enabled()
+        except MlflowTracingException:
+            tracing_enabled = True
+        if tracing_enabled:
+            provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
@@ -461,7 +486,7 @@ def start_run(
             unspecified. If a new run is created and ``run_name`` is not specified,
             a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-        parent_run_id: If specified, the current run will be nested under the the run with
+        parent_run_id: If specified, the current run will be nested under the run with
             the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
@@ -983,16 +1008,25 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # Flush ALL batch span processors and their exporters' async queues.
+    # When set_destination() is called multiple times, each call creates a new
+    # tracer provider, processor, and exporter. The registry tracks all of them
+    # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
     try:
-        trace_exporter = _get_trace_exporter()
+        flush_all_batch_processors(terminate=terminate)
     except Exception as e:
-        _logger.debug(f"Failed to get trace exporter: {e}", exc_info=True)
-        return
+        _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
+
+    # When batch processor is disabled (no registry entries), the current exporter
+    # may still have an _async_queue that needs draining (SimpleSpanProcessor path).
     try:
-        if hasattr(trace_exporter, "_async_queue"):
-            trace_exporter._async_queue.flush(terminate=terminate)
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
-        _logger.error(f"Failed to flush trace async logging: {e}")
+        _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -2284,6 +2318,7 @@ def create_experiment(
     name: str,
     artifact_location: str | None = None,
     tags: dict[str, Any] | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> str:
     """
     Create an experiment.
@@ -2293,6 +2328,10 @@ def create_experiment(
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
+        trace_location: Optional UC trace location to link to the experiment. Must be an instance
+            of ``mlflow.entities.trace_location.UnityCatalog(...)``. If ``table_prefix`` is not
+            set, it defaults to the experiment ID. Note: call ``mlflow.set_experiment`` afterward
+            to activate the experiment and sync the trace provider.
 
     Returns:
         String ID of the created experiment.
@@ -2328,7 +2367,32 @@ def create_experiment(
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().create_experiment(name, artifact_location, tags)
+    client = MlflowClient()
+    experiment_id = client.create_experiment(name, artifact_location, tags)
+
+    if trace_location is not None:
+        experiment = client.get_experiment(experiment_id)
+
+        if trace_location.table_prefix is None:
+            trace_location = UnityCatalog(
+                catalog_name=trace_location.catalog_name,
+                schema_name=trace_location.schema_name,
+                table_prefix=experiment_id,
+            )
+
+        try:
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=trace_location,
+            )
+        except MlflowException as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment '{name}' (ID: {experiment_id}) was created "
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
+                f"{e.message} Please delete the experiment and retry."
+            ) from e
+
+    return experiment_id
 
 
 def delete_experiment(experiment_id: str) -> None:
@@ -3843,7 +3907,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

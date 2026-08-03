@@ -47,15 +47,20 @@ def autolog(
     _memory_method = (
         "_save_to_memory" if CREWAI_VERSION >= Version("1.10.0") else "_create_long_term_memory"
     )
+    # crewai 1.14.5 renamed the module and class: base_agent_executor_mixin.CrewAgentExecutorMixin
+    # -> base_agent_executor.BaseAgentExecutor
+    _executor_path = (
+        "crewai.agents.agent_builder.base_agent_executor.BaseAgentExecutor"
+        if CREWAI_VERSION >= Version("1.14.5")
+        else "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin"
+    )
     class_method_map = {
         "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
         "crewai.Agent": ["execute_task"],
         "crewai.Task": ["execute_sync"],
         "crewai.LLM": ["call"],
         "crewai.Flow": ["kickoff"],
-        "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin": [
-            _memory_method
-        ],
+        _executor_path: [_memory_method],
     }
     standalone_method_map = {}
 

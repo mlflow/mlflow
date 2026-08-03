@@ -314,7 +314,9 @@ def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
     # Create and start threads
     threads = []
     for i in range(2):
-        thread = threading.Thread(target=link_prompt, args=[f"test_prompt_{i + 1}"])
+        thread = threading.Thread(
+            name=f"test-link-prompt-{i + 1}", target=link_prompt, args=[f"test_prompt_{i + 1}"]
+        )
         threads.append(thread)
         thread.start()
 
@@ -519,7 +521,9 @@ def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
     # Execute concurrent linking
     threads = []
     for prompt_name in ["test_prompt_1", "test_prompt_2"]:
-        thread = threading.Thread(target=link_prompt, args=(prompt_name,))
+        thread = threading.Thread(
+            name=f"test-link-prompt-{prompt_name}", target=link_prompt, args=(prompt_name,)
+        )
         threads.append(thread)
         thread.start()
 

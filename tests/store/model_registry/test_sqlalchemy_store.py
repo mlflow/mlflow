@@ -1,3 +1,4 @@
+import concurrent.futures
 import shutil
 import time
 import uuid
@@ -1122,6 +1123,75 @@ def test_search_model_versions_by_tag(store):
     assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
 
+def _assert_workspace_in_main_queries(captured_sql, table_name, context_label):
+    """Assert that every main search query (ORDER BY + LIMIT) includes workspace in WHERE."""
+    main_queries = [s for s in captured_sql if "ORDER BY" in s and table_name in s and "LIMIT" in s]
+    assert main_queries, f"No main search query found for {context_label}"
+    for sql in main_queries:
+        where_clause = sql.split("WHERE", 1)[-1] if "WHERE" in sql else ""
+        assert "workspace" in where_clause.lower(), (
+            f"{context_label} missing workspace predicate in WHERE — "
+            f"causes full table scan on (workspace, ...) PK:\n{sql}"
+        )
+
+
+def test_search_model_versions_includes_workspace_predicate(store):
+    from sqlalchemy import event
+
+    name = "test_ws_predicate_mv"
+    _rm_maker(store, name)
+    _mv_maker(store, name=name, source="A/B", tags=[ModelVersionTag("t1", "abc")])
+
+    for filter_string in [
+        f"name = '{name}'",
+        "tag.t1 = 'abc'",
+        f"name = '{name}' AND tag.t1 = 'abc'",
+    ]:
+        captured_sql: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            captured_sql.append(statement)
+
+        event.listen(store.engine, "before_cursor_execute", _capture)
+        try:
+            store.search_model_versions(filter_string)
+        finally:
+            event.remove(store.engine, "before_cursor_execute", _capture)
+
+        _assert_workspace_in_main_queries(
+            captured_sql, "model_versions", f"search_model_versions('{filter_string}')"
+        )
+
+
+def test_search_registered_models_includes_workspace_predicate(store):
+    from sqlalchemy import event
+
+    name = "test_ws_predicate_rm"
+    _rm_maker(store, name, tags=[RegisteredModelTag("t1", "abc")])
+
+    for filter_string in [
+        f"name = '{name}'",
+        "tag.t1 = 'abc'",
+        f"name = '{name}' AND tag.t1 = 'abc'",
+    ]:
+        captured_sql: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            captured_sql.append(statement)
+
+        event.listen(store.engine, "before_cursor_execute", _capture)
+        try:
+            store.search_registered_models(filter_string)
+        finally:
+            event.remove(store.engine, "before_cursor_execute", _capture)
+
+        _assert_workspace_in_main_queries(
+            captured_sql,
+            "registered_models",
+            f"search_registered_models('{filter_string}')",
+        )
+
+
 def _search_registered_models(store, filter_string, max_results=10, order_by=None, page_token=None):
     result = store.search_registered_models(
         filter_string=filter_string,
@@ -1637,6 +1707,27 @@ def test_set_model_version_tag(store):
             name2, "I am not a version", ModelVersionTag(key="key", value="value")
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_model_version_uses_validated_version(store, monkeypatch):
+    # Regression test: the version returned by ``_validate_model_version`` must be threaded
+    # into the SqlModelVersion query filter. If callers discard the coerced value and reuse
+    # the original string, the VARCHAR-vs-INTEGER comparison fails on backends like PostgreSQL
+    # that don't apply implicit type coercion the way SQLite does. Because SQLite tolerates the
+    # mismatch, asserting the query result alone wouldn't catch a regression, so we patch the
+    # validator to return a different version and assert that version is the one queried.
+    name = "GetModelVersionValidatedVersion_TestMod"
+    _rm_maker(store, name)
+    _mv_maker(store, name)  # version 1
+    _mv_maker(store, name)  # version 2
+
+    monkeypatch.setattr(
+        "mlflow.store.model_registry.sqlalchemy_store._validate_model_version",
+        lambda version: 2,
+    )
+    # Pass "1" but the patched validator returns 2; the fix must query on the returned value.
+    mv = store.get_model_version(name, "1")
+    assert mv.version == 2
 
 
 def test_delete_model_version_tag(store):
@@ -2420,3 +2511,29 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+
+
+def test_create_model_version_concurrent(store):
+    name = "test_concurrent_mv"
+    _rm_maker(store, name)
+
+    num_threads = 4
+    versions_per_thread = 5
+    results = []
+
+    def create_versions():
+        return [
+            store.create_model_version(name, "path/to/source", uuid.uuid4().hex).version
+            for _ in range(versions_per_thread)
+        ]
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=num_threads, thread_name_prefix="create_model_version"
+    ) as executor:
+        futures = [executor.submit(create_versions) for _ in range(num_threads)]
+        for f in concurrent.futures.as_completed(futures):
+            results.extend(f.result())
+
+    # All versions should be unique
+    assert len(results) == len(set(results))
+    assert len(results) == num_threads * versions_per_thread

@@ -58,7 +58,6 @@ const HighlightedText = React.memo(({ text, highlight }: { text: string; highlig
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-/* eslint-disable complexity */
 export const EvaluationTextCellRenderer = ({
   value,
   context,

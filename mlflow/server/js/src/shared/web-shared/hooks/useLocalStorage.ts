@@ -28,6 +28,7 @@ export function buildStorageKeyByParams({ key, version }: Omit<UseLocalStoragePa
  *
  * @param {string} key - The key to retrieve the value from localStorage.
  * @param {number} version - The version of the storage key.
+ * @param {boolean} scoped - Indicates whether the storage key is scoped to the user and organization (ignored in OSS).
  * @param {*} initialValue - The initial value to return if the value is not found or cannot be parsed.
  * @returns {*} - The retrieved value or the initial value if not found or cannot be parsed.
  *
@@ -41,9 +42,10 @@ export function buildStorageKeyByParams({ key, version }: Omit<UseLocalStoragePa
  * const nonExistentValue = getLocalStorageItem("email", 0.1, true, null);
  * // Returns null as the initial value is used since the key "email" is not found.
  */
-export const getLocalStorageItem = <T>(key: string, version: number, initialValue: T): T => {
+export const getLocalStorageItem = <T>(key: string, version: number, scoped: boolean, initialValue: T): T => {
   const fullKey = buildStorageKey(key, version);
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     const item = window.localStorage.getItem(fullKey);
     return item ? JSON.parse(item) : initialValue;
   } catch (error) {
@@ -57,7 +59,7 @@ export const getLocalStorageItem = <T>(key: string, version: number, initialValu
  * For details see {@link getLocalStorageItem}.
  */
 export function getLocalStorageItemByParams<T>({ key, version, initialValue }: UseLocalStorageParams<T>): T {
-  return getLocalStorageItem(key, version, initialValue);
+  return getLocalStorageItem(key, version, false, initialValue);
 }
 
 /**
@@ -80,6 +82,7 @@ export function getLocalStorageItemByParams<T>({ key, version, initialValue }: U
 export const setLocalStorageItem = <T>(
   key: string,
   version: number,
+  scoped: boolean,
   value: T,
   onFailure?: (error: unknown) => void,
 ): void => {
@@ -87,6 +90,7 @@ export const setLocalStorageItem = <T>(
   const valueToSet = JSON.stringify(value);
 
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     localStorage.setItem(fullKey, valueToSet);
   } catch (error) {
     onFailure?.(error);
@@ -103,7 +107,7 @@ export function setLocalStorageItemByParams<T>(
   value: T,
   onFailure?: (error: unknown) => void,
 ) {
-  setLocalStorageItem(key, version, value, onFailure);
+  setLocalStorageItem(key, version, false, value, onFailure);
 }
 
 /**
@@ -113,14 +117,14 @@ export function setLocalStorageItemByParams<T>(
  */
 export function useLocalStorage<T>({ key, version, initialValue, onFailure }: UseLocalStorageParams<T>) {
   const [storedValue, setStoredValue] = useState<T>(() => {
-    return getLocalStorageItem<T>(key, version, initialValue);
+    return getLocalStorageItem<T>(key, version, false, initialValue);
   });
 
   const setValue = useCallback(
     (value: T | ((prev: T) => T)) => {
       setStoredValue((prev) => {
         const newValue = value instanceof Function ? value(prev) : value;
-        setLocalStorageItem<T>(key, version, newValue, onFailure);
+        setLocalStorageItem<T>(key, version, false, newValue, onFailure);
         return newValue;
       });
     },

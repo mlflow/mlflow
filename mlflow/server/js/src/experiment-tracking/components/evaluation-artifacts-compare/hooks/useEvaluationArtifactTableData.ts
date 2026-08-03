@@ -65,7 +65,6 @@ export const useEvaluationArtifactTableData = (
   groupByCols: string[],
   outputColumn: string,
 ): UseEvaluationArtifactTableDataResult =>
-  // eslint-disable-next-line complexity
   useMemo(() => {
     /**
      * End results, i.e. table rows

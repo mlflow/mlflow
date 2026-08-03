@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import logging
+import pathlib
 import shutil
+from typing import TYPE_CHECKING, Any
 
 from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
@@ -8,6 +12,9 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+
+if TYPE_CHECKING:
+    import transformers
 
 _logger = logging.getLogger(__name__)
 
@@ -75,6 +82,63 @@ def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
         processor.save_pretrained(
             path.joinpath(_COMPONENTS_BINARY_DIR_NAME, _PROCESSOR_BINARY_DIR_NAME)
         )
+
+
+def save_pipeline_components(
+    path: pathlib.Path,
+    pipeline: transformers.Pipeline,
+    flavor_conf: dict[str, Any],
+    processor: transformers.ProcessorMixin | None = None,
+) -> None:
+    """
+    Save only the pipeline components (tokenizer, feature extractor, etc.) without the
+    model weights. Used when saving a PEFT model with a local base model path reference.
+    """
+    component_dir = path.joinpath(_COMPONENTS_BINARY_DIR_NAME)
+    for name in flavor_conf.get(FlavorKey.COMPONENTS, []):
+        getattr(pipeline, name).save_pretrained(component_dir.joinpath(name))
+
+    if processor:
+        processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
+
+
+def load_model_and_components_from_local_base_path(
+    path: pathlib.Path,
+    flavor_conf: dict[str, Any],
+    accelerate_conf: dict[str, Any],
+    device: str | int | None = None,
+    base_model_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Load the base model from an external local path and pipeline components from the
+    MLflow artifact directory. Used when a PEFT model was saved with a local base model
+    path reference via the ``base_model_path`` parameter.
+
+    Args:
+        path: The local path containing MLflow model artifacts
+        flavor_conf: The flavor configuration
+        accelerate_conf: The configuration for the accelerate library
+        device: The device to load the model onto
+        base_model_path: Optional override for the base model path stored in the flavor
+            config. When provided, the base model is loaded from this path instead of
+            the path stored at save time.
+    """
+    loaded = {}
+
+    base_model_path = base_model_path or flavor_conf[FlavorKey.MODEL_LOCAL_BASE]
+    loaded[FlavorKey.MODEL] = _load_model(base_model_path, flavor_conf, accelerate_conf, device)
+
+    components = flavor_conf.get(FlavorKey.COMPONENTS, [])
+    if FlavorKey.PROCESSOR_TYPE in flavor_conf:
+        components.append("processor")
+
+    for component_key in components:
+        component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
+        loaded[component_key] = _load_component(
+            flavor_conf, component_key, local_path=component_path
+        )
+
+    return loaded
 
 
 def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):

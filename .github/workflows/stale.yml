@@ -9,6 +9,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   stale:
     if: github.repository == 'mlflow/mlflow'

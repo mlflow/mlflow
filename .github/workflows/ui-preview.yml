@@ -27,12 +27,12 @@ defaults:
 env:
   COMMENT_MARKER: "<!-- ui-preview -->"
 
+permissions: {}
+
 jobs:
   notify:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -70,9 +70,7 @@ jobs:
           fi
 
   build:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false &&
       github.event_name == 'push'
       || (
         github.event.action != 'closed'
@@ -85,11 +83,17 @@ jobs:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           # For PRs, check out the merge ref so the preview reflects what the UI
           # will look like after merge. For push events, falls back to github.sha.
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+          # checkout v7 blocks fork PR checkout on `pull_request_target` by
+          # default; opt in since this job builds the UI preview from fork code.
+          # Safe: it has no secrets (only `contents: read`), and the `author_association`
+          # guard above restricts it to OWNER/MEMBER/COLLABORATOR PRs.
+          allow-unsafe-pr-checkout: true
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
@@ -150,22 +154,18 @@ jobs:
           name: app-deploy
           path: /tmp/app-deploy/
           retention-days: 1
+          if-no-files-found: error
 
   deploy:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false
     needs: build
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write
     timeout-minutes: 30
-    env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Download app files
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: app-deploy
           path: /tmp/app-deploy
@@ -179,6 +179,10 @@ jobs:
       - name: Create or update app
         id: app
         env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
           APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
         run: |
@@ -209,6 +213,25 @@ jobs:
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
 
+      - name: Grant preview access
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+        run: |
+          # An app is only reachable by its creator (this service principal) and
+          # workspace admins by default, so non-admin maintainers get a 403 on the
+          # preview URL. Grant CAN_USE to everyone with workspace access.
+          # `update-permissions` is additive and idempotent, so running it on every
+          # deploy also backfills apps created before this step existed.
+          databricks apps update-permissions "$APP_NAME" --json '{
+            "access_control_list": [
+              {"group_name": "users", "permission_level": "CAN_USE"}
+            ]
+          }'
+
       - name: Configure app environment
         env:
           APP_URL: ${{ steps.app.outputs.url }}
@@ -220,12 +243,64 @@ jobs:
 
       - name: Upload files and deploy
         env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
           WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
           databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
           databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
+
+      - name: Restart app to load the new code
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+        run: |
+          # `apps deploy` restarts the app process and re-extracts the UI assets,
+          # but reuses the existing Python env, so the freshly built wheel is not
+          # reinstalled and backend code changes never take effect. Stop then start
+          # the app so the env is rebuilt from the deployed source.
+          echo "Stopping app..."
+          databricks apps stop "$APP_NAME"
+          for i in $(seq 1 40); do
+            STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+            echo "Compute state: $STATE"
+            if [ "$STATE" = "STOPPED" ]; then
+              break
+            elif [ "$STATE" = "ERROR" ]; then
+              echo "::error::Compute entered ERROR state while stopping"
+              exit 1
+            fi
+            sleep 15
+          done
+          if [ "$STATE" != "STOPPED" ]; then
+            echo "::error::Timed out waiting for compute to stop (last state: $STATE)"
+            exit 1
+          fi
+
+          echo "Starting app..."
+          databricks apps start "$APP_NAME"
+          for i in $(seq 1 40); do
+            STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+            echo "Compute state: $STATE"
+            if [ "$STATE" = "ACTIVE" ]; then
+              break
+            elif [ "$STATE" = "ERROR" ]; then
+              echo "::error::Compute entered ERROR state"
+              exit 1
+            fi
+            sleep 15
+          done
+          if [ "$STATE" != "ACTIVE" ]; then
+            echo "::error::Timed out waiting for compute to become ACTIVE (last state: $STATE)"
+            exit 1
+          fi
 
       - name: Print app URL
         if: github.event_name == 'push'
@@ -273,20 +348,15 @@ jobs:
           fi
 
   cleanup:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      false
-      && github.event_name != 'push'
+      github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write
     timeout-minutes: 10
-    env:
-      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Install Databricks CLI
         run: |
@@ -296,6 +366,10 @@ jobs:
 
       - name: Delete app
         env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then

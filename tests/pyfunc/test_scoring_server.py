@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pydantic
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from packaging.version import Version
 from sklearn import datasets
 
@@ -172,9 +172,9 @@ def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = knn.KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return ModelWithData(model=knn_model, inference_data=X)
+    logreg_model = logreg_module.LogisticRegression()
+    logreg_model.fit(X, y)
+    return ModelWithData(model=logreg_model, inference_data=X)
 
 
 @pytest.fixture(scope="module")
@@ -827,7 +827,6 @@ def test_scoring_server_client(sklearn_model, model_path):
             port=port,
             host="127.0.0.1",
             timeout=timeout,
-            enable_mlserver=False,
             synchronous=False,
         )
 

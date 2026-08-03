@@ -43,6 +43,7 @@ export const MlflowSidebarWorkflowSwitch = ({
   return (
     <Tooltip
       componentId="mlflow.sidebar.workflow_switch.tooltip"
+      disableHoverableContent={false}
       content={
         <FormattedMessage
           defaultMessage="Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems."

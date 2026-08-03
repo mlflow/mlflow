@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
@@ -10,7 +11,8 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     BudgetUnit,
 )
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus
 from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
@@ -28,19 +30,30 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
+    GenAIEvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+    McpRegistryRegisterServerFromUrlEvent,
     MergeRecordsEvent,
     OptimizePromptsJobEvent,
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    TraceAttachmentsEvent,
+    UpdateIssueEvent,
 )
+from mlflow.tracing.attachments import Attachment
 
 
 @pytest.mark.parametrize(
@@ -140,6 +153,11 @@ def test_event_name():
     assert PromptOptimizationEvent.name == "prompt_optimization"
     assert SimulateConversationEvent.name == "simulate_conversation"
     assert DiscoverIssuesEvent.name == "discover_issues"
+    assert UpdateIssueEvent.name == "update_issue"
+    assert GatewayCreateGuardrailEvent.name == "gateway_create_guardrail"
+    assert GatewayUpdateGuardrailEvent.name == "gateway_update_guardrail"
+    assert GatewayDeleteGuardrailEvent.name == "gateway_delete_guardrail"
+    assert GatewayCreateModelDefinitionEvent.name == "gateway_create_model_definition"
 
 
 def test_start_trace_parse_format_native():
@@ -476,6 +494,25 @@ def test_gateway_create_secret_parse_params(arguments, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
+        (
+            {"model_name": "gpt-4o", "provider": "openai"},
+            {"model_name": "gpt-4o", "provider": "openai"},
+        ),
+        (
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+            {"model_name": "claude-3-5-sonnet", "provider": "anthropic"},
+        ),
+        ({"model_name": None, "provider": None}, {"model_name": None, "provider": None}),
+        ({}, {"model_name": None, "provider": None}),
+    ],
+)
+def test_gateway_create_model_definition_parse_params(arguments, expected_params):
+    assert GatewayCreateModelDefinitionEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
         ({"provider": "openai"}, {"filter_by_provider": True}),
         ({"provider": "anthropic"}, {"filter_by_provider": True}),
         ({"provider": None}, {"filter_by_provider": False}),
@@ -532,6 +569,45 @@ def test_gateway_create_budget_policy_parse_params(arguments, expected_params):
     assert GatewayCreateBudgetPolicyEvent.parse(arguments) == expected_params
 
 
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"stage": "BEFORE", "action": "VALIDATION"},
+            {"stage": "BEFORE", "action": "VALIDATION"},
+        ),
+        (
+            {"stage": "AFTER", "action": "SANITIZATION", "action_endpoint_id": "e-123"},
+            {"stage": "AFTER", "action": "SANITIZATION"},
+        ),
+        (
+            {},
+            {"stage": None, "action": None},
+        ),
+    ],
+)
+def test_gateway_create_guardrail_parse_params(arguments, expected_params):
+    assert GatewayCreateGuardrailEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"stage": "BEFORE", "action": "VALIDATION"},
+            {"stage": "BEFORE", "action": "VALIDATION"},
+        ),
+        (
+            {"stage": "AFTER", "action": "SANITIZATION", "execution_order": 2},
+            {"stage": "AFTER", "action": "SANITIZATION"},
+        ),
+        ({}, {"stage": None, "action": None}),
+    ],
+)
+def test_gateway_update_guardrail_parse_params(arguments, expected_params):
+    assert GatewayUpdateGuardrailEvent.parse(arguments) == expected_params
+
+
 def test_gateway_list_budget_policies_parse_params():
     assert GatewayListBudgetPoliciesEvent.parse({}) is None
 
@@ -571,22 +647,42 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
     ("arguments", "expected_params"),
     [
         (
-            {"model": "openai:/gpt-4", "traces": [Mock(), Mock()], "categories": ["hallucination"]},
-            {"model": "openai:/gpt-4", "trace_count": 2, "categories": ["hallucination"]},
+            {
+                "model": "openai:/gpt-4",
+                "traces": [Mock(), Mock()],
+                "categories": ["hallucination"],
+                "run_id": "run-1",
+            },
+            {
+                "model": "openai:/gpt-4",
+                "trace_count": 2,
+                "categories": ["hallucination"],
+                "source_run_id": "run-1",
+            },
         ),
         (
             {"model": "databricks:/dbrx", "traces": [Mock()], "categories": None},
-            {"model": "databricks:/dbrx", "trace_count": 1, "categories": None},
+            {
+                "model": "databricks:/dbrx",
+                "trace_count": 1,
+                "categories": None,
+                "source_run_id": None,
+            },
         ),
         (
             {"model": None, "traces": [], "categories": ["accuracy", "safety"]},
-            {"model": None, "trace_count": 0, "categories": ["accuracy", "safety"]},
+            {
+                "model": None,
+                "trace_count": 0,
+                "categories": ["accuracy", "safety"],
+                "source_run_id": None,
+            },
         ),
         (
             {"traces": None, "categories": []},
-            {"model": None, "trace_count": 0, "categories": []},
+            {"model": None, "trace_count": 0, "categories": [], "source_run_id": None},
         ),
-        ({}, {"model": None, "trace_count": 0, "categories": None}),
+        ({}, {"model": None, "trace_count": 0, "categories": None, "source_run_id": None}),
     ],
 )
 def test_discover_issues_parse_params(arguments, expected_params):
@@ -632,7 +728,12 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=100,
                 total_cost_usd=2.5,
             ),
-            {"issue_count": 3, "total_traces_analyzed": 100, "total_cost_usd": 2.5},
+            {
+                "issue_count": 3,
+                "total_traces_analyzed": 100,
+                "total_cost_usd": 2.5,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
@@ -652,7 +753,12 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=50,
                 total_cost_usd=1.0,
             ),
-            {"issue_count": 1, "total_traces_analyzed": 50, "total_cost_usd": 1.0},
+            {
+                "issue_count": 1,
+                "total_traces_analyzed": 50,
+                "total_cost_usd": 1.0,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
@@ -662,19 +768,257 @@ def test_discover_issues_parse_params(arguments, expected_params):
                 total_traces_analyzed=10,
                 total_cost_usd=0.0,
             ),
-            {"issue_count": 0, "total_traces_analyzed": 10, "total_cost_usd": 0.0},
+            {
+                "issue_count": 0,
+                "total_traces_analyzed": 10,
+                "total_cost_usd": 0.0,
+                "triage_run_id": "run",
+            },
         ),
         (
             DiscoverIssuesResult(
                 issues=[],
-                triage_run_id="run",
+                triage_run_id=None,
                 summary="summary",
                 total_traces_analyzed=0,
                 total_cost_usd=None,
             ),
-            {"issue_count": 0, "total_traces_analyzed": 0, "total_cost_usd": None},
+            {
+                "issue_count": 0,
+                "total_traces_analyzed": 0,
+                "total_cost_usd": None,
+                "triage_run_id": None,
+            },
         ),
     ],
 )
 def test_discover_issues_parse_result(result, expected_params):
     assert DiscoverIssuesEvent.parse_result(result) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        # String values pass through; name/description tracked as booleans
+        (
+            {"status": "pending", "name": "Test Issue", "description": "Desc", "severity": "high"},
+            {"status": "pending", "has_name": True, "has_description": True, "severity": "high"},
+        ),
+        # Enum values are converted to their string value
+        (
+            {
+                "status": IssueStatus.RESOLVED,
+                "name": "Issue",
+                "description": "Desc",
+                "severity": IssueSeverity.MEDIUM,
+            },
+            {"status": "resolved", "has_name": True, "has_description": True, "severity": "medium"},
+        ),
+        # Missing fields: status/severity None, has_name/has_description False
+        (
+            {},
+            {"status": None, "has_name": False, "has_description": False, "severity": None},
+        ),
+    ],
+)
+def test_update_issue_parse_params(arguments, expected_params):
+    assert UpdateIssueEvent.name == "update_issue"
+    assert UpdateIssueEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("source_run_id", "expected_params"),
+    [
+        ("run-123", {"source_run_id": "run-123"}),
+        (None, {"source_run_id": None}),
+    ],
+)
+def test_update_issue_parse_result(source_run_id, expected_params):
+    mock_issue = Mock()
+    mock_issue.source_run_id = source_run_id
+    assert UpdateIssueEvent.parse_result(mock_issue) == expected_params
+
+
+def test_update_issue_parse_result_none():
+    assert UpdateIssueEvent.parse_result(None) == {}
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_eval_data_type"),
+    [
+        ({"data": [{"inputs": {"q": "a"}}]}, "list[dict]"),
+        ({"data": pd.DataFrame([{"inputs": {"q": "a"}}])}, "pd.DataFrame"),
+        ({"data": "unexpected_type"}, "unknown"),
+        ({"data": None}, None),
+        ({}, None),
+    ],
+)
+def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data_type):
+    result = GenAIEvaluateEvent.parse(arguments)
+    assert result.get("eval_data_type") == expected_eval_data_type
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected"),
+    [
+        (
+            {
+                "attachments": {
+                    "a": Attachment(content_type="image/png", content_bytes=b"img1"),
+                    "b": Attachment(content_type="audio/wav", content_bytes=b"audio"),
+                    "c": Attachment(content_type="image/png", content_bytes=b"img2"),
+                }
+            },
+            {"content_types": {"image/png": 2, "audio/wav": 1}},
+        ),
+        ({"attachments": {}}, None),
+        ({}, None),
+    ],
+)
+def test_trace_attachments_event_parse(arguments, expected):
+    assert TraceAttachmentsEvent.parse(arguments) == expected
+
+
+# --- MCP Server Registry Event Tests ---
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "server_json": {
+                    "name": "test",
+                    "version": "1.0.0",
+                    "remotes": [{"url": "http://x"}],
+                },
+                "source": "https://github.com/test",
+                "status": MCPStatus.ACTIVE,
+                "tools": [Mock(), Mock()],
+            },
+            {
+                "status": "active",
+                "has_source": True,
+                "num_tools": 2,
+                "has_remotes": True,
+            },
+        ),
+        (
+            {
+                "server_json": {"name": "test", "version": "1.0.0"},
+                "source": None,
+                "status": MCPStatus.DRAFT,
+                "tools": None,
+            },
+            {
+                "status": "draft",
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+        (
+            {
+                "server_json": {"name": "test", "version": "1.0.0"},
+                "status": "draft",
+            },
+            {
+                "status": "draft",
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+        (
+            {},
+            {
+                "status": "draft",
+                "has_source": False,
+                "num_tools": None,
+                "has_remotes": False,
+            },
+        ),
+    ],
+)
+def test_mcp_registry_create_server_version_parse_params(arguments, expected_params):
+    assert McpRegistryCreateServerVersionEvent.name == "mcp_registry_create_server_version"
+    assert McpRegistryCreateServerVersionEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"url": "https://example.com/server.json"},
+            {"url_scheme": "https"},
+        ),
+        (
+            {"url": "http://example.com/server.json"},
+            {"url_scheme": "http"},
+        ),
+        (
+            {"url": "file:///tmp/server.json"},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": "/tmp/server.json"},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": ""},
+            {"url_scheme": "file"},
+        ),
+        (
+            {},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": "C:\\Users\\test\\server.json"},
+            {"url_scheme": "file"},
+        ),
+        (
+            {"url": "ssh://git@github.com/org/repo.git"},
+            {"url_scheme": "other"},
+        ),
+        (
+            {"url": "git://github.com/org/repo.git"},
+            {"url_scheme": "other"},
+        ),
+    ],
+)
+def test_mcp_registry_register_server_from_url_parse_params(arguments, expected_params):
+    assert McpRegistryRegisterServerFromUrlEvent.name == "mcp_registry_register_server_from_url"
+    assert McpRegistryRegisterServerFromUrlEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "transport_type": MCPRemoteTransportType.STREAMABLE_HTTP,
+                "server_alias": "production",
+            },
+            {"transport_type": "streamable-http", "uses_alias": True},
+        ),
+        (
+            {
+                "transport_type": MCPRemoteTransportType.SSE,
+                "server_version": "1.0.0",
+                "server_alias": None,
+            },
+            {"transport_type": "sse", "uses_alias": False},
+        ),
+        (
+            {"transport_type": None, "server_alias": None},
+            {"transport_type": None, "uses_alias": False},
+        ),
+        (
+            {},
+            {"transport_type": None, "uses_alias": False},
+        ),
+    ],
+)
+def test_mcp_registry_create_access_endpoint_parse_params(arguments, expected_params):
+    assert McpRegistryCreateAccessEndpointEvent.name == "mcp_registry_create_access_endpoint"
+    assert McpRegistryCreateAccessEndpointEvent.parse(arguments) == expected_params

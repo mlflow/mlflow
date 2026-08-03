@@ -25,6 +25,7 @@ from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    ContextUtilization,
     Faithfulness,
     NoiseSensitivity,
     NonLLMContextPrecisionWithReference,
@@ -290,6 +291,7 @@ class ResponseGroundedness(RagasScorer):
 __all__ = [
     # RAG metrics
     "ContextPrecision",
+    "ContextUtilization",
     "NonLLMContextPrecisionWithReference",
     "ContextRecall",
     "NonLLMContextRecall",

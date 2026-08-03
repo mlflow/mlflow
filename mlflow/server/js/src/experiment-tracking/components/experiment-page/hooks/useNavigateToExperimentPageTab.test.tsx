@@ -1,8 +1,10 @@
+/* eslint-disable jest/no-standalone-expect */
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { useEffect } from 'react';
 import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import { useNavigateToExperimentPageTab } from './useNavigateToExperimentPageTab';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../common/utils/RoutingTestUtils';
-import { createMLflowRoutePath, useParams } from '../../../../common/utils/RoutingUtils';
+import { createMLflowRoutePath, useLocation, useParams } from '../../../../common/utils/RoutingUtils';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
@@ -28,6 +30,9 @@ jest.mock('../../../../common/contexts/WorkflowTypeContext', () => ({
 jest.setTimeout(60000); // Larger timeout for integration testing
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableExperimentOverviewTab: jest.fn().mockReturnValue(true),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(true),
 }));
@@ -40,8 +45,18 @@ describe('useNavigateToExperimentPageTab', () => {
     }),
   );
 
+  const locationSpyFn = jest.fn<(url: string) => void>();
+  const LocationSpy = () => {
+    const location = useLocation();
+    useEffect(() => {
+      locationSpyFn([location.pathname, location.search].join(''));
+    }, [location]);
+    return null;
+  };
+
   beforeEach(() => {
     server.resetHandlers();
+    locationSpyFn.mockClear();
   });
 
   const { history } = setupTestRouter();
@@ -85,7 +100,20 @@ describe('useNavigateToExperimentPageTab', () => {
     const TestExperimentTabsPage = () => {
       // /experiments/:experimentId/:tabName
       const { tabName } = useParams();
-      return <span>experiment page displaying {tabName} tab</span>;
+      return (
+        <>
+          <LocationSpy />
+          <span>experiment page displaying {tabName} tab</span>
+        </>
+      );
+    };
+    const TestExperimentOverviewPage = () => {
+      return (
+        <>
+          <LocationSpy />
+          <span>experiment page displaying overview tab</span>
+        </>
+      );
     };
     const queryClient = new QueryClient();
     return render(
@@ -94,6 +122,10 @@ describe('useNavigateToExperimentPageTab', () => {
         routes={[
           testRoute(<TestExperimentPage />, createMLflowRoutePath('/experiments/:experimentId')),
           testRoute(<TestExperimentTabsPage />, createMLflowRoutePath('/experiments/:experimentId/:tabName')),
+          testRoute(
+            <TestExperimentOverviewPage />,
+            createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab'),
+          ),
         ]}
         initialEntries={[initialRoute]}
       />,
@@ -122,6 +154,7 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying overview tab')).toBeInTheDocument();
+    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
   });
 
   test('should redirect to the traces tab on custom development experiment kind', async () => {
@@ -133,6 +166,7 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying runs tab')).toBeInTheDocument();
+    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=machine_learning'));
   });
 
   test('should redirect to the traces tab on GenAI experiment kind when using FileStore', async () => {
@@ -148,5 +182,6 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying traces tab')).toBeInTheDocument();
+    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
   });
 });

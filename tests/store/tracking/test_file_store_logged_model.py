@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.skip(reason="FileStore is no longer supported")
+
 import time
 import uuid
 from dataclasses import dataclass

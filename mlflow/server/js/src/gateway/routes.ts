@@ -60,7 +60,10 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string, options?: { tab?: string; startTime?: string; endTime?: string }) {
+  static getEndpointDetailsRoute(
+    endpointId: string,
+    options?: { tab?: string; startTime?: string; endTime?: string; filters?: string[] },
+  ) {
     const path = generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
     if (!options) return path;
     const params = new URLSearchParams();
@@ -70,6 +73,7 @@ class GatewayRoutes {
       params.set('startTime', options.startTime);
       params.set('endTime', options.endTime);
     }
+    options.filters?.forEach((f) => params.append('filter', f));
     const query = params.toString();
     return query ? `${path}?${query}` : path;
   }

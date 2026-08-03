@@ -75,9 +75,11 @@ def get_metric_class(metric_name: str):
         raise MlflowException.invalid_parameter_value(DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE) from e
     except AttributeError:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Unknown metric: '{metric_name}'. Could not import '{class_name}' from "
-            f"'{module_path}'. Available pre-configured metrics: {available_metrics}"
+            f"'{module_path}'. Available pre-configured metrics: {available_metrics}",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 

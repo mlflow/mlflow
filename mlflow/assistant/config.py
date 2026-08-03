@@ -25,6 +25,7 @@ class SkillsConfig(BaseModel):
 class ProviderConfig(BaseModel):
     model: str = "default"
     selected: bool = False
+    base_url: str | None = None
     permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
@@ -63,9 +64,14 @@ class AssistantConfig(BaseModel):
             return cls()
 
     def save(self) -> None:
-        """Save the assistant configuration to disk."""
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        """Save the assistant configuration to disk.
 
+        The config holds only non-secret settings (selected provider, model,
+        permissions, project paths). Provider API keys are never stored here;
+        assistant-managed LLM Connection credentials live in the AI Gateway
+        secrets store instead.
+        """
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_PATH, "w") as f:
             f.write(self.model_dump_json(indent=2))
 
@@ -97,6 +103,7 @@ class AssistantConfig(BaseModel):
         provider_name: str,
         model: str,
         permissions: PermissionsConfig | None = None,
+        base_url: str | None = None,
     ) -> None:
         """Set or update a provider configuration and mark it as selected.
 
@@ -104,22 +111,48 @@ class AssistantConfig(BaseModel):
             provider_name: The provider name (e.g., "claude_code").
             model: The model to use.
             permissions: Permission settings (None = keep existing/use defaults).
+            base_url: Optional base URL for the provider (e.g., Ollama server URL).
         """
         # Update or create the provider
         if provider_name in self.providers:
             self.providers[provider_name].model = model
             if permissions is not None:
                 self.providers[provider_name].permissions = permissions
+            if base_url is not None:
+                self.providers[provider_name].base_url = base_url
         else:
             self.providers[provider_name] = ProviderConfig(
                 model=model,
                 selected=False,
+                base_url=base_url,
                 permissions=permissions or PermissionsConfig(),
             )
 
         # Mark this provider as selected and deselect others
         for name, provider in self.providers.items():
             provider.selected = name == provider_name
+
+    def update_provider(
+        self,
+        provider_name: str,
+        model: str | None = None,
+        permissions: PermissionsConfig | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        if provider_name not in self.providers:
+            self.providers[provider_name] = ProviderConfig(
+                model=model or "default",
+                selected=False,
+                base_url=base_url,
+                permissions=permissions or PermissionsConfig(),
+            )
+            return
+        if model is not None:
+            self.providers[provider_name].model = model
+        if permissions is not None:
+            self.providers[provider_name].permissions = permissions
+        if base_url is not None:
+            self.providers[provider_name].base_url = base_url
 
 
 __all__ = [

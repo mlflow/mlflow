@@ -1,12 +1,3 @@
-"""
-E2E integration tests for async scorer invocation via the MLflow server.
-
-These tests spin up a real MLflow server with job execution enabled and test
-the full flow of invoking scorers on traces asynchronously.
-
-The MLflow AI Gateway is mocked to avoid real LLM calls during testing.
-"""
-
 import json
 import os
 import signal
@@ -279,7 +270,7 @@ def mock_gateway_server():
 
     port = get_safe_port()
     server = HTTPServer(("127.0.0.1", port), MockGatewayHandler)
-    thread = threading.Thread(target=server.serve_forever)
+    thread = threading.Thread(name="scorer-invocation-server", target=server.serve_forever)
     thread.daemon = True
     thread.start()
     yield f"http://127.0.0.1:{port}"

@@ -1,12 +1,22 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
-import { Empty, ParagraphSkeleton, DangerIcon, Spacer, Drawer } from '@databricks/design-system';
+import {
+  Empty,
+  ParagraphSkeleton,
+  DangerIcon,
+  Spacer,
+  Drawer,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+} from '@databricks/design-system';
+import { useLogTelemetryEvent } from '../../../../../telemetry/hooks/useLogTelemetryEvent';
 import type {
   TracesTableColumn,
   TraceActions,
   GetTraceFunction,
   TableFilter,
+  TraceTablePageSource,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   shouldUseTracesV4API,
@@ -16,7 +26,11 @@ import {
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
   SESSION_ID_METADATA_KEY,
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
 } from '@databricks/web-shared/model-trace-explorer';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -29,7 +43,6 @@ import {
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
-  getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
   useFilters,
   getTracesTagKeys,
@@ -44,13 +57,25 @@ import {
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  getSimulationColumnsToAdd,
+  isSqlWarehouseTimeoutError,
+  shouldUseInfinitePaginatedTraces,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
   useIsInsideGenAiTraceTableRowSelectionProvider,
-} from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+} from '@databricks/web-shared/genai-traces-table';
+import { FormattedMessage } from 'react-intl';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
-import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { SharedViewBanner } from '../saved-views/SharedViewBanner';
+import {
+  TRACE_SHARE_URL_PARAM_KEY,
+  TraceLiveViewStateProvider,
+  TracePreviewActionsProvider,
+  urlHasCapturedTraceViewState,
+} from './TracesV3SavedViews';
+import { useSavedViewPreview } from './traceSavedViewPreview';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
@@ -61,6 +86,7 @@ import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AddToReviewQueueDropdown } from '../../../../pages/experiment-review-queue/AddToReviewQueueDropdown';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import {
@@ -68,7 +94,8 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
+import { useCountInfo } from './hooks/useCountInfo';
+import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 
 const JudgeContextProvider = ({
   children,
@@ -106,6 +133,8 @@ const ContextProviders = ({
   );
 };
 
+const firedCountTelemetryForExperiments = new Set<string>();
+
 const TracesV3LogsImpl = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
@@ -117,11 +146,13 @@ const TracesV3LogsImpl = React.memo(
     forceGroupBySession = false,
     initialGroupBySession = false,
     columnStorageKeyPrefix,
-    detectIssuesButtonComponentId,
+    pageSource = 'experiment-traces',
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    toolbarCornerAddons,
+    enableSavedViews = false,
     drawerWidth,
   }: {
     /**
@@ -141,14 +172,25 @@ const TracesV3LogsImpl = React.memo(
      */
     columnStorageKeyPrefix?: string;
     /**
-     * Optional component ID for the detect issues button.
-     * Use this to differentiate between traces and sessions contexts.
+     * Optional param to differentiate the context of the traces table
+     * Currently used to log different componentIds for the detect issues button
      */
-    detectIssuesButtonComponentId?: string;
+    pageSource?: TraceTablePageSource;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    // Rendered in the toolbar's top-right corner, above the sampled-count badge, for page-level
+    // controls (saved views) that should sit apart from the filter/sort/column cluster. Wrapped in
+    // the same live-view-state provider as addons so a "Save" placed here captures live columns/sort.
+    toolbarCornerAddons?: React.ReactNode;
+    // Whether this mount hosts the saved-views feature (Views/Share menu). Only the Traces tab
+    // (TracesV3View) does. Gates the shared-view preview: the `traceViewShareKey` URL param is shared
+    // across tabs, so without this flag every other consumer of TracesV3Logs (chat sessions, select-
+    // traces modal, gateway pages, ...) would show the "you're viewing a shared view" banner and
+    // disable its column controls whenever such a key is in the URL. Defaults to false so those pages
+    // opt out by omission.
+    enableSavedViews?: boolean;
     drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
@@ -163,11 +205,10 @@ const TracesV3LogsImpl = React.memo(
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
-    const enableTraceInsights = shouldEnableTraceInsights();
+    const enableTraceInsights = false;
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
-    const { showIssueDetectionNotification, notificationContextHolder } =
-      useIssueDetectionNotification(singleExperimentId);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -188,7 +229,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const isQueryDisabled = false;
-    const usesV4APIs = true;
+    const usesV4APIs = shouldUseTracesV4API();
 
     const getTrace = getTraceV3;
 
@@ -274,6 +315,96 @@ const TracesV3LogsImpl = React.memo(
       asc: false,
     });
 
+    // Saved-view preview override: when a shared view is open (its share key + serialized
+    // columns/sort ride in the URL), render the view's columns/sort in the table WITHOUT writing to
+    // the user's persisted state. Only an explicit "Override my view" adopts the preview; "Discard"
+    // drops the share params and returns to the user's own state.
+    const rawPreviewColumns = searchParams.get('selectedColumns') ?? undefined;
+    const rawPreviewSort = searchParams.get('sort') ?? undefined;
+    // Require actual view state to preview, not just the key's presence: a genuine share link always
+    // carries some captured state (columns, sort, time range, filter, ...) — see buildTraceViewQuery
+    // — whereas a bare or garbage share key carries none. Gating on the state avoids showing the
+    // "you're viewing a shared view" banner (and disabling the column controls) for a key that
+    // resolves to nothing. Checks the full captured param set (not just columns/sort) so a
+    // time-range- or filter-only shared view still previews.
+    const previewActive =
+      enableSavedViews &&
+      Boolean(searchParams.get(TRACE_SHARE_URL_PARAM_KEY)) &&
+      urlHasCapturedTraceViewState(searchParams);
+    // Leave preview by dropping only the share key — NOT by navigating to the bare route. Override
+    // writes columns/sort via the table setters first (which, when table-state persistence is in
+    // URL mode, write the selectedColumns/sort params); a bare-route navigation would clobber those
+    // writes. A functional setSearchParams updater composes with the setters' writes instead.
+    const exitPreview = useCallback(() => {
+      setSearchParams(
+        (params) => {
+          params.delete(TRACE_SHARE_URL_PARAM_KEY);
+          return params;
+        },
+        { replace: true },
+      );
+    }, [setSearchParams]);
+    const preview = useSavedViewPreview({
+      active: previewActive,
+      rawColumns: rawPreviewColumns,
+      rawSort: rawPreviewSort,
+      allColumns,
+      // The user's OWN selection (not the preview) — snapshotted for the override Undo.
+      ownColumns: selectedColumns,
+      ownSort: tableSort,
+      setSelectedColumns,
+      setTableSort,
+      exitPreview,
+    });
+
+    // Lets the user hide the shared-view banner WITHOUT leaving the view (Override/Discard stay
+    // reachable from the Views menu). Ephemeral: keyed on the active share key so opening a different
+    // view re-shows its banner, and reset once preview ends. Does NOT touch `preview.active`, so the
+    // view stays applied and column controls stay disabled while dismissed.
+    const activeShareKey = searchParams.get(TRACE_SHARE_URL_PARAM_KEY);
+    const [dismissedShareKey, setDismissedShareKey] = useState<string | null>(null);
+    const bannerDismissed = preview.active && dismissedShareKey === activeShareKey;
+
+    // Expose the preview actions to the Views dropdown (rendered as a corner addon), so Override /
+    // Discard remain reachable there after the banner is dismissed.
+    const previewActions = useMemo(
+      () => ({ active: preview.active, override: preview.override, discard: preview.discard }),
+      [preview.active, preview.override, preview.discard],
+    );
+
+    const effectiveColumns = preview.active && preview.columns ? preview.columns : selectedColumns;
+    const effectiveSort = preview.active && preview.sort ? preview.sort : tableSort;
+
+    // While previewing a saved view, feed the toolbar the preview's columns/sort (so its counter,
+    // checkboxes and sort indicator match the body) and neutralize its mutating callbacks. This
+    // DIVERGES from the runs shared-view, where the toolbar edits the live state freely during a
+    // preview. Runs can allow that because it loads the shared view INTO the one live uiState, so
+    // an edit is both visible and safely discardable (persistence is paused, not the state frozen).
+    // Traces has two decoupled stores — the body renders preview columns decoded from the URL, while
+    // the toolbar's setters write the user's own selection to local storage — so a mid-preview edit
+    // would be invisible (wrong store shown) and, for select-all-in-group, mis-based (diff built from
+    // the preview count but written against the user's real selection). Editing resumes on Override
+    // (adopt the preview) or Discard (drop it). The controls also render disabled during preview
+    // (columnControlsDisabled below) so the inert state is visible; the no-ops are a safety net in
+    // case any path fires a setter while disabled.
+    const noopColumns = useCallback<typeof setSelectedColumns>(() => {}, []);
+    const noopSort = useCallback<typeof setTableSort>(() => {}, []);
+    const toolbarSelectedColumns = preview.active ? effectiveColumns : selectedColumns;
+    const toolbarTableSort = effectiveSort;
+    const toolbarToggleColumns = preview.active ? noopColumns : toggleColumns;
+    const toolbarSetSelectedColumns = preview.active ? noopColumns : setSelectedColumns;
+    const toolbarSetTableSort = preview.active ? noopSort : setTableSort;
+
+    // Expose the user's live column/sort selection to the saved-views "Save" action, which renders
+    // inside this tree via toolbarAddons. Capture the user's OWN state (selectedColumns/tableSort),
+    // NOT the preview override, so re-saving while previewing a shared view snapshots the user's
+    // current selection rather than the previewed one. The traces table persists these to local
+    // storage (not the URL) with URL persistence off, so without this the save would capture nothing.
+    const liveSavedViewState = useMemo(
+      () => ({ selectedColumnIds: selectedColumns.map((col) => col.id), tableSort }),
+      [selectedColumns, tableSort],
+    );
+
     // Set the initial time filter when there are no traces
     const { isInitialTimeFilterLoading } = useSetInitialTimeFilter({
       locations: traceSearchLocations,
@@ -288,6 +419,9 @@ const TracesV3LogsImpl = React.memo(
       isLoading: traceInfosLoading,
       isFetching: traceInfosFetching,
       error: traceInfosError,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     } = useSearchMlflowTraces({
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
@@ -295,9 +429,27 @@ const TracesV3LogsImpl = React.memo(
       filters: combinedFilters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
-      tableSort,
+      // Use the preview sort when a saved view is open so the fetched row order matches the sort
+      // indicator the table body shows (which also renders effectiveSort); otherwise the header
+      // would show the preview's sort while rows stayed ordered by the user's own sort.
+      tableSort: effectiveSort,
       disabled: isQueryDisabled,
     });
+
+    useEffect(() => {
+      if (searchParams.get('detectIssues') !== 'true' || disableActions || traceInfosLoading) {
+        return;
+      }
+      setIsIssueDetectionModalOpen(true);
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete('detectIssues');
+          return next;
+        },
+        { replace: true },
+      );
+    }, [searchParams, setSearchParams, disableActions, traceInfosLoading]);
 
     const deleteTracesMutation = useDeleteTracesMutation();
 
@@ -317,6 +469,7 @@ const TracesV3LogsImpl = React.memo(
     const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
+    const renderCustomAddToReviewQueueDropdown = AddToReviewQueueDropdown;
 
     const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
 
@@ -330,6 +483,7 @@ const TracesV3LogsImpl = React.memo(
       return {
         deleteTracesAction,
         exportToEvals: true,
+        addToReviewQueue: true,
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -357,14 +511,60 @@ const TracesV3LogsImpl = React.memo(
       RunJudgesModal,
     ]);
 
-    const countInfo = useMemo(() => {
-      return {
-        currentCount: traceInfos?.length,
-        logCountLoading: traceInfosLoading,
-        totalCount: totalCount,
-        maxAllowedCount: getEvalTabTotalTracesLimit(),
-      };
-    }, [traceInfos, totalCount, traceInfosLoading]);
+    const countInfo = useCountInfo({
+      experimentIds,
+      timeRange,
+      traceInfos,
+      metadataTraceInfos: evaluatedTraces
+        .map((trace) => trace.traceInfo)
+        .filter((traceInfo): traceInfo is NonNullable<(typeof evaluatedTraces)[number]['traceInfo']> =>
+          Boolean(traceInfo),
+        ),
+      traceInfosLoading,
+      metadataTotalCount: totalCount,
+      disabled: isQueryDisabled,
+      countSessions: forceGroupBySession,
+    });
+
+    const logTelemetryEvent = useLogTelemetryEvent();
+
+    const { data: allTimeTraceCountMetrics, isLoading: allTimeTraceCountLoading } = useTraceMetricsQuery({
+      experimentIds: singleExperimentId ? [singleExperimentId] : [],
+      viewType: MetricViewType.TRACES,
+      metricName: TraceMetricKey.TRACE_COUNT,
+      aggregations: [{ aggregation_type: AggregationType.COUNT }],
+      enabled:
+        shouldUseInfinitePaginatedTraces() &&
+        !isQueryDisabled &&
+        !!singleExperimentId &&
+        !firedCountTelemetryForExperiments.has(singleExperimentId),
+    });
+    const allTimeTotalCount = allTimeTraceCountMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT];
+
+    useEffect(() => {
+      if (
+        !allTimeTraceCountLoading &&
+        singleExperimentId &&
+        !firedCountTelemetryForExperiments.has(singleExperimentId)
+      ) {
+        firedCountTelemetryForExperiments.add(singleExperimentId);
+        logTelemetryEvent({
+          componentId: 'mlflow.traces-tab.trace-count',
+          componentType: DesignSystemEventProviderComponentTypes.Card,
+          componentViewId: singleExperimentId,
+          eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+          value: JSON.stringify({
+            totalTraces: allTimeTotalCount,
+          }),
+        });
+      }
+    }, [allTimeTraceCountLoading, allTimeTotalCount, singleExperimentId, logTelemetryEvent]);
+
+    const assessmentCountMetrics = useAssessmentCountMetrics({
+      experimentIds,
+      timeRange,
+      disabled: isQueryDisabled,
+    });
 
     // Loading state:
     // - Show skeleton only during initial metadata loading (or initial time filter loading for empty check)
@@ -375,14 +575,15 @@ const TracesV3LogsImpl = React.memo(
 
     const tableError = traceInfosError || metadataError;
     const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
-    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || traceInfosFetching);
+    // When fetching the next page of infinite results, keep the existing rows visible
+    // and preserve scroll position instead of showing the loading skeleton.
+    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
       if (!enableTraceInsights && isTableEmpty) {
         return (
-          <>
-            <Spacer />
+          <div css={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <TracesV3EmptyState
               experimentIds={experimentIds}
               loggedModelId={loggedModelId}
@@ -401,18 +602,22 @@ const TracesV3LogsImpl = React.memo(
                 assessmentInfos={assessmentInfos}
                 setFilters={setFilters}
                 filters={filters}
-                selectedColumns={selectedColumns}
-                tableSort={tableSort}
+                selectedColumns={effectiveColumns}
+                tableSort={effectiveSort}
                 onTraceTagsEdit={showEditTagsModalForTrace}
                 isTableLoading={isTableLoading}
                 isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
-          </>
+          </div>
         );
       }
-      // Default traces view with optional navigation
+      // Default traces view
       return (
         <div
           css={{
@@ -446,7 +651,16 @@ const TracesV3LogsImpl = React.memo(
                     defaultMessage: 'Fetching traces failed',
                     description: 'Evaluation review > evaluations list > error state title',
                   })}
-                  description={tableError.message}
+                  description={
+                    isSqlWarehouseTimeoutError(tableError)
+                      ? intl.formatMessage({
+                          defaultMessage:
+                            'The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.',
+                          description:
+                            'Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse',
+                        })
+                      : tableError.message
+                  }
                 />
               </div>
             ) : (
@@ -464,12 +678,16 @@ const TracesV3LogsImpl = React.memo(
                   assessmentInfos={assessmentInfos}
                   setFilters={setFilters}
                   filters={filters}
-                  selectedColumns={selectedColumns}
-                  tableSort={tableSort}
+                  selectedColumns={effectiveColumns}
+                  tableSort={effectiveSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
                   searchQuery={searchQuery}
+                  fetchNextPage={fetchNextPage}
+                  hasNextPage={hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
+                  assessmentCountMetrics={assessmentCountMetrics}
                 />
               </ContextProviders>
             )}
@@ -482,23 +700,45 @@ const TracesV3LogsImpl = React.memo(
     const tableContent = (
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        renderAddToReviewQueueDropdown={renderCustomAddToReviewQueueDropdown}
         DrawerComponent={AssistantAwareDrawer}
         drawerWidth={drawerWidth}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
+          getTrace={getTrace}
           isGroupedBySession={forceGroupBySession || isGroupedBySession}
         >
           <div
             css={{
-              overflowY: 'hidden',
+              overflow: 'hidden',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
             }}
           >
+            {preview.active && !bannerDismissed && (
+              <SharedViewBanner
+                componentId="mlflow.traces.shared_view"
+                message={
+                  <FormattedMessage
+                    defaultMessage="You're viewing a shared view. Your changes won't be saved unless you override your own view."
+                    description="Traces page > shared view banner explaining that changes are not persisted while previewing"
+                  />
+                }
+                overrideLabel={
+                  <FormattedMessage
+                    defaultMessage="Override my view"
+                    description="Traces shared view banner > button that adopts the shared view into the user's own view"
+                  />
+                }
+                onOverride={preview.override}
+                onDiscard={preview.discard}
+                onDismiss={() => setDismissedShareKey(activeShareKey)}
+              />
+            )}
             <GenAITracesTableToolbar
-              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
+              pageSource={pageSource}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -509,16 +749,34 @@ const TracesV3LogsImpl = React.memo(
               tableFilterOptions={tableFilterOptions}
               countInfo={countInfo}
               traceActions={traceActions}
-              tableSort={tableSort}
-              setTableSort={setTableSort}
+              tableSort={toolbarTableSort}
+              setTableSort={toolbarSetTableSort}
               allColumns={allColumns}
-              selectedColumns={selectedColumns}
-              toggleColumns={toggleColumns}
-              setSelectedColumns={setSelectedColumns}
+              selectedColumns={toolbarSelectedColumns}
+              toggleColumns={toolbarToggleColumns}
+              setSelectedColumns={toolbarSetSelectedColumns}
+              columnControlsDisabled={preview.active}
               isMetadataLoading={isMetadataLoading}
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
-              addons={toolbarAddons}
+              addons={
+                toolbarAddons ? (
+                  <TraceLiveViewStateProvider value={liveSavedViewState}>{toolbarAddons}</TraceLiveViewStateProvider>
+                ) : (
+                  toolbarAddons
+                )
+              }
+              cornerAddons={
+                toolbarCornerAddons ? (
+                  <TracePreviewActionsProvider value={previewActions}>
+                    <TraceLiveViewStateProvider value={liveSavedViewState}>
+                      {toolbarCornerAddons}
+                    </TraceLiveViewStateProvider>
+                  </TracePreviewActionsProvider>
+                ) : (
+                  toolbarCornerAddons
+                )
+              }
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
@@ -529,17 +787,16 @@ const TracesV3LogsImpl = React.memo(
           </div>
           {!disableActions && isIssueDetectionModalOpen && (
             <IssueDetectionModal
+              key={singleExperimentId}
               onClose={() => setIsIssueDetectionModalOpen(false)}
               experimentId={singleExperimentId}
               initialSelectedTraceIds={Object.entries(rowSelection)
                 .filter(([, isSelected]) => isSelected)
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
-              onSubmitSuccess={showIssueDetectionNotification}
               defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
-          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

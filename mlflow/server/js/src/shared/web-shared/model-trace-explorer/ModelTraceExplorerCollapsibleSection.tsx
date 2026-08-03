@@ -32,7 +32,6 @@ export const ModelTraceExplorerCollapsibleSection = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: theme.borders.borderRadiusMd,
       }}
     >
       <div
@@ -43,12 +42,8 @@ export const ModelTraceExplorerCollapsibleSection = ({
           gap: theme.spacing.xs,
           padding: withBorder ? theme.spacing.sm : 0,
           background: withBorder ? headerBackground : undefined,
-          borderTopLeftRadius: theme.borders.borderRadiusMd,
-          borderTopRightRadius: theme.borders.borderRadiusMd,
-          borderBottomLeftRadius: expanded ? 0 : theme.borders.borderRadiusMd,
-          borderBottomRightRadius: expanded ? 0 : theme.borders.borderRadiusMd,
-          border: withBorder ? `1px solid ${borderColor}` : undefined,
           marginBottom: withBorder ? 0 : theme.spacing.sm,
+          borderBlock: withBorder ? `1px solid ${borderColor}` : undefined,
         }}
       >
         <Button
@@ -65,10 +60,6 @@ export const ModelTraceExplorerCollapsibleSection = ({
       {expanded && (
         <div
           css={{
-            border: withBorder ? `1px solid ${borderColor}` : undefined,
-            borderTop: 'none',
-            borderBottomLeftRadius: withBorder ? theme.borders.borderRadiusMd : undefined,
-            borderBottomRightRadius: withBorder ? theme.borders.borderRadiusMd : undefined,
             padding: withBorder ? theme.spacing.sm : 0,
             background: contentBackground,
           }}

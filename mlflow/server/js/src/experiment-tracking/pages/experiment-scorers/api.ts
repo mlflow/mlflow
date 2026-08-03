@@ -39,7 +39,10 @@ export interface ListScorersResponse {
 /**
  * Get scheduled scorers for an experiment
  */
-export async function listScheduledScorers(experimentId: string) {
+export async function listScheduledScorers(
+  experimentId: string,
+  paginationParams?: { page_size?: number; page_token?: string },
+) {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
   return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/list?${params.toString()}`))

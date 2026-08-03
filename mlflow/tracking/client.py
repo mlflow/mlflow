@@ -18,7 +18,8 @@ import threading
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -29,6 +30,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    Link,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -41,10 +43,14 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     Trace,
+    TraceArchivalConfig,
     ViewType,
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -106,10 +112,11 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.fluent import _flush_pending_async_trace_writes, start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -334,7 +341,11 @@ class MlflowClient:
         return self._get_workspace_client().list_workspaces()
 
     def create_workspace(
-        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Create a new workspace.
 
@@ -342,12 +353,20 @@ class MlflowClient:
             name: The workspace name (alphanumeric, hyphens, underscores only).
             description: Optional description of the workspace.
             default_artifact_root: Optional artifact root URI; falls back to server default.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
+                Use ``TraceArchivalConfig.location`` to set the archival storage URI/root and
+                ``TraceArchivalConfig.retention`` to set the archived-trace retention duration such
+                as ``30d`` or ``12h``. Leave fields as ``None`` to omit them from the create
+                request.
 
         Returns:
             The newly created workspace.
         """
         return self._get_workspace_client().create_workspace(
-            name, description, default_artifact_root=default_artifact_root
+            name,
+            description,
+            default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
 
     def get_workspace(self, name: str) -> Workspace:
@@ -356,7 +375,11 @@ class MlflowClient:
         return self._get_workspace_client().get_workspace(name)
 
     def update_workspace(
-        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Update metadata for an existing workspace.
 
@@ -364,12 +387,20 @@ class MlflowClient:
             name: The name of the workspace to update.
             description: New description, or ``None`` to leave unchanged.
             default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
+                Use ``TraceArchivalConfig.location`` to update the archival storage URI/root and
+                ``TraceArchivalConfig.retention`` to update the archived-trace retention duration
+                such as ``30d`` or ``12h``. Use an empty string to clear an existing value, or
+                leave fields as ``None`` to keep the current value unchanged.
 
         Returns:
             The updated workspace.
         """
         return self._get_workspace_client().update_workspace(
-            name, description, default_artifact_root=default_artifact_root
+            name,
+            description,
+            default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
 
     def delete_workspace(self, name: str, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
@@ -1102,7 +1133,6 @@ class MlflowClient:
         """
         return self._tracking_client.link_traces_to_run(trace_ids, run_id)
 
-    @experimental(version="3.5.0")
     def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Unlink multiple traces from a run by removing entity associations.
@@ -1352,13 +1382,16 @@ class MlflowClient:
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
-    def get_trace(self, trace_id: str, display=True) -> Trace:
+    def get_trace(self, trace_id: str, display=True, flush: bool = False) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
 
         Args:
             trace_id: String ID of the trace to fetch.
             display: If ``True``, display the trace on the notebook.
+            flush: If ``True``, flush any pending async trace writes before fetching.
+                Useful in tests or scripts where async logging may not have completed.
+                Default to ``False``.
 
         Returns:
             The retrieved :py:class:`Trace <mlflow.entities.Trace>`.
@@ -1378,6 +1411,9 @@ class MlflowClient:
                 "the search_traces() API."
             )
 
+        if flush:
+            _flush_pending_async_trace_writes()
+
         trace = self._tracing_client.get_trace(trace_id)
         if display:
             get_display_handler().display_traces([trace])
@@ -1395,6 +1431,7 @@ class MlflowClient:
         include_spans: bool = True,
         model_id: str | None = None,
         locations: list[str] | None = None,
+        flush: bool = False,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1416,6 +1453,8 @@ class MlflowClient:
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
+            flush: If ``True``, flush any pending async trace writes before searching.
+                Useful in tests or scripts to ensure all traces are visible. Default to ``False``.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1427,6 +1466,9 @@ class MlflowClient:
         """
         _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
         _validate_list_param("locations", locations, allow_none=True)
+
+        if flush:
+            _flush_pending_async_trace_writes()
 
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
@@ -1449,6 +1491,8 @@ class MlflowClient:
         tags: dict[str, str] | None = None,
         experiment_id: str | None = None,
         start_time_ns: int | None = None,
+        run_id: str | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new trace object and start a root span under it.
@@ -1477,6 +1521,10 @@ class MlflowClient:
                 ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
                 environment variable, or the default experiment as defined by the tracking server.
             start_time_ns: The start time of the trace in nanoseconds since the UNIX epoch.
+            run_id: The ID of the MLflow run to associate with the trace. If provided, the
+                trace will be linked to this run.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the root span.
 
         Returns:
             An :py:class:`Span <mlflow.entities.Span>` object
@@ -1520,6 +1568,7 @@ class MlflowClient:
                 "and create all traces using `MlflowClient.start_trace()`.",
                 error_code=BAD_REQUEST,
             )
+        metadata = {TraceMetadataKey.SOURCE_RUN: run_id} if run_id is not None else None
 
         return start_span_no_context(
             name=name,
@@ -1527,8 +1576,10 @@ class MlflowClient:
             inputs=inputs,
             attributes=attributes,
             tags=tags,
+            metadata=metadata,
             experiment_id=experiment_id,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
@@ -1612,6 +1663,7 @@ class MlflowClient:
         inputs: Any | None = None,
         attributes: dict[str, Any] | None = None,
         start_time_ns: int | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
@@ -1687,6 +1739,8 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the span.
 
         Returns:
             An :py:class:`mlflow.entities.Span` object representing the span.
@@ -1754,6 +1808,7 @@ class MlflowClient:
             inputs=inputs,
             attributes=attributes,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
@@ -3226,8 +3281,11 @@ class MlflowClient:
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
 
-            # Sanitize key to use in filename (replace / with # to avoid subdirectories)
-            sanitized_key = re.sub(r"/", "#", key)
+            # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
+            # '#' was previously used here but is rejected by validate_path_is_safe(),
+            # making artifacts with slash-containing keys impossible to download.
+            # '~' is an unreserved character (RFC 3986 §2.3) and passes path safety checks.
+            sanitized_key = re.sub(r"/", "~", key)
             filename_uuid = str(uuid.uuid4())
             # Use + as separator instead of % to avoid conflicts with URL encoding.
             # The frontend supports both + and % delimiters for backwards compatibility.
@@ -6709,3 +6767,220 @@ class MlflowClient:
             WebhookTestResult indicating success/failure and response details.
         """
         return self._get_registry_client().test_webhook(webhook_id, event)
+
+    # ---------------------------------------------------------------------------
+    # MCP Server Registry
+    # ---------------------------------------------------------------------------
+
+    def create_mcp_server(
+        self,
+        name: str,
+        description: str | None = None,
+        icons: list[MCPIcon] | None = None,
+    ) -> MCPServer:
+        return self._tracking_client.store.create_mcp_server(
+            name=name,
+            description=description,
+            icons=icons,
+        )
+
+    def get_mcp_server(self, name: str) -> MCPServer:
+        return self._tracking_client.store.get_mcp_server(name=name)
+
+    def search_mcp_servers(
+        self,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServer]:
+        return self._tracking_client.store.search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server(
+        self,
+        name: str,
+        display_name: str | None = NOT_SET,
+        description: str | None = NOT_SET,
+        icons: list[MCPIcon] | None = NOT_SET,
+    ) -> MCPServer:
+        return self._tracking_client.store.update_mcp_server(
+            name=name,
+            display_name=display_name,
+            description=description,
+            icons=icons,
+        )
+
+    def delete_mcp_server(self, name: str) -> None:
+        self._tracking_client.store.delete_mcp_server(name=name)
+
+    def create_mcp_server_version(
+        self,
+        server_json: dict[str, Any],
+        source: str | None = None,
+        status: MCPStatus | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+
+        resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
+        return self._tracking_client.store.create_mcp_server_version(
+            server_json=server_json,
+            source=source,
+            status=status,
+            tools=resolved_tools,
+            connect_options=connect_options,
+        )
+
+    def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version(name=name, version=version)
+
+    def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version_by_alias(name=name, alias=alias)
+
+    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_latest_mcp_server_version(name=name)
+
+    def search_mcp_server_versions(
+        self,
+        name: str,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServerVersion]:
+        return self._tracking_client.store.search_mcp_server_versions(
+            name=name,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server_version(
+        self,
+        name: str,
+        version: str,
+        status: MCPStatus | None = NOT_SET,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
+    ) -> MCPServerVersion:
+        return self._tracking_client.store.update_mcp_server_version(
+            name=name,
+            version=version,
+            status=status,
+            tools=tools,
+            connect_options=connect_options,
+        )
+
+    def refresh_mcp_server_version_tools(
+        self,
+        name: str,
+        version: str,
+        mcp_server_access_headers: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+
+        current = self.get_mcp_server_version(name=name, version=version)
+        discovered_tools = discover_tools_for_server_json(
+            server_json=current.server_json,
+            headers=mcp_server_access_headers,
+        )
+        if dry_run:
+            return replace(current, tools=discovered_tools)
+        return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
+
+    def delete_mcp_server_version(self, name: str, version: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
+
+    def create_mcp_access_endpoint(
+        self,
+        server_name: str,
+        url: str,
+        transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.create_mcp_access_endpoint(
+            server_name=server_name,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
+        return self._tracking_client.store.get_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def search_mcp_access_endpoints(
+        self,
+        server_name: str | None = None,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPAccessEndpoint]:
+        return self._tracking_client.store.search_mcp_access_endpoints(
+            server_name=server_name,
+            server_version=server_version,
+            server_alias=server_alias,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_access_endpoint(
+        self,
+        server_name: str,
+        endpoint_id: str,
+        url: str | None = NOT_SET,
+        transport_type: MCPRemoteTransportType | None = NOT_SET,
+        server_version: str | None = NOT_SET,
+        server_alias: str | None = NOT_SET,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.update_mcp_access_endpoint(
+            server_name=server_name,
+            endpoint_id=endpoint_id,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
+        self._tracking_client.store.delete_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_tag(name=name, key=key, value=value)
+
+    def delete_mcp_server_tag(self, name: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_tag(name=name, key=key)
+
+    def set_mcp_server_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_version_tag(
+            name=name, version=version, key=key, value=value
+        )
+
+    def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version_tag(
+            name=name, version=version, key=key
+        )
+
+    def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
+        self._tracking_client.store.set_mcp_server_alias(name=name, alias=alias, version=version)
+
+    def delete_mcp_server_alias(self, name: str, alias: str) -> None:
+        self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)

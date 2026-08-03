@@ -102,6 +102,8 @@ To learn more about the span object and its schema, continue to the [Span Concep
 
 `TraceData` (Spans) are relatively large objects compared to `TraceInfo`, because they contain rich information about each execution step, such as the full message history input to an LLM call. MLflow stores each span as a separate row in the `spans` table, with the full span content serialized as JSON. This approach enables efficient retrieval and querying of span data within the same transactional store.
 
+When a trace contains [Attachments](/genai/tracing/observe-with-traces/multimodal#trace-attachments) (binary content like images, audio, or PDFs), a directory is created in artifact storage for that trace under an `attachments/` path. The binary content is stored there as separate files, while the span data contains only lightweight `mlflow-attachment://` reference URIs. This keeps the span data small while supporting rich media content.
+
 :::note
-Prior to MLflow 3.3.0, spans were stored in artifact storage (e.g., S3, local filesystem) rather than in the database. Starting from MLflow 3.3.0, spans are stored directly in the database for improved query performance and transactional consistency.
+Prior to MLflow 3.3.0, spans were stored in artifact storage (e.g., S3, local filesystem) rather than in the database. Starting from MLflow 3.3.0, spans are stored directly in the database for improved query performance and transactional consistency. Attachments continue to use artifact storage.
 :::

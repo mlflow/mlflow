@@ -32,7 +32,9 @@ export interface UseToolCallChartsSectionDataResult {
  *
  * @returns Tool names, error rates, loading state, and error state
  */
-export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResult {
+export function useToolCallChartsSectionData({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseToolCallChartsSectionDataResult {
   const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
@@ -47,6 +49,7 @@ export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResu
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
+    enabled,
   });
 
   // Extract tool names and calculate overall error rates

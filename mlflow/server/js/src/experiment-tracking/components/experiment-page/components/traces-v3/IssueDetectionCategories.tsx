@@ -1,8 +1,5 @@
 import React from 'react';
 import {
-  useDesignSystemTheme,
-  Typography,
-  Checkbox,
   SearchIcon,
   ShieldIcon,
   LightningIcon,
@@ -91,70 +88,3 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
 ];
 
 export const ALL_ISSUE_CATEGORIES: IssueCategory[] = ISSUE_CATEGORY_DEFINITIONS.map((def) => def.id);
-
-interface IssueCategoryCardProps {
-  category: IssueCategoryDefinition;
-  isSelected: boolean;
-  onToggle: (categoryId: IssueCategory, isChecked: boolean) => void;
-}
-
-const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelected, onToggle }) => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: theme.spacing.md,
-        padding: theme.spacing.md,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        cursor: 'pointer',
-        transition: 'background-color 0.2s',
-        '&:hover': {
-          backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-        },
-      }}
-      onClick={() => onToggle(category.id, !isSelected)}
-    >
-      <Checkbox
-        componentId={`mlflow.traces.issue-detection-modal.category.${category.id}`}
-        isChecked={isSelected}
-        onChange={(checked) => onToggle(category.id, checked)}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <div css={{ color: theme.colors.textSecondary, marginTop: 2 }}>{category.icon}</div>
-      <div css={{ flex: 1 }}>
-        <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
-          {category.title}
-        </Typography.Text>
-        <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-          {category.description}
-        </Typography.Text>
-      </div>
-    </div>
-  );
-};
-
-interface IssueCategoryListProps {
-  selectedCategories: Set<IssueCategory>;
-  onToggle: (categoryId: IssueCategory, isChecked: boolean) => void;
-}
-
-export const IssueCategoryList: React.FC<IssueCategoryListProps> = ({ selectedCategories, onToggle }) => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {ISSUE_CATEGORY_DEFINITIONS.map((category) => (
-        <IssueCategoryCard
-          key={category.id}
-          category={category}
-          isSelected={selectedCategories.has(category.id)}
-          onToggle={onToggle}
-        />
-      ))}
-    </div>
-  );
-};

@@ -1,5 +1,25 @@
 {
   "name": "@databricks/eslint-plugin",
   "version": "1.0.0",
-  "main": "index.js"
+  "main": "index.js",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.8",
+    "@typescript-eslint/eslint-plugin": "8.46.2",
+    "@typescript-eslint/parser": "8.46.2",
+    "@typescript-eslint/rule-tester": "8.46.2",
+    "@typescript-eslint/utils": "8.46.2",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "eslint-plugin-react": "7.33.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@swc-node/register": "^1.10.9",
+    "@swc/core": "^1.15.11"
+  }
 }

@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import CompareRunPage from './CompareRunPage';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
+
 import { setupServer } from '../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
