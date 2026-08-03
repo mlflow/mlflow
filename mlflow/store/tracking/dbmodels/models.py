@@ -831,23 +831,23 @@ class SqlTraceInfo(Base):
     """
     Denormalized session identifier used by trace analytics queries.
     """
-    input_tokens = Column(Float(precision=53), nullable=True)
+    input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized input token usage used by trace analytics queries.
     """
-    output_tokens = Column(Float(precision=53), nullable=True)
+    output_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized output token usage used by trace analytics queries.
     """
-    total_tokens = Column(Float(precision=53), nullable=True)
+    total_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized total token usage used by trace analytics queries.
     """
-    cache_read_input_tokens = Column(Float(precision=53), nullable=True)
+    cache_read_input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized cache-read token usage used by trace analytics queries.
     """
-    cache_creation_input_tokens = Column(Float(precision=53), nullable=True)
+    cache_creation_input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized cache-creation token usage used by trace analytics queries.
     """

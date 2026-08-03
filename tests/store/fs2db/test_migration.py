@@ -158,6 +158,8 @@ def test_traces(clients: Clients) -> None:
             assert json.loads(dst_trace.info.trace_metadata[key]) == json.loads(
                 src_trace.info.trace_metadata[key]
             )
+        dst_token_usage = json.loads(dst_trace.info.trace_metadata[TraceMetadataKey.TOKEN_USAGE])
+        assert all(type(value) is int for value in dst_token_usage.values())
 
     engine = create_engine(dst.tracking_uri)
     with engine.connect() as conn:

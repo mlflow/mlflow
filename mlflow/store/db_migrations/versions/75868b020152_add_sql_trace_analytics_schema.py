@@ -9,6 +9,7 @@ Create Date: 2026-07-22 00:00:00.000000
 import json
 import logging
 import math
+from decimal import Decimal, InvalidOperation
 
 import sqlalchemy as sa
 from alembic import op
@@ -30,6 +31,8 @@ depends_on = None
 _logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 250
+_BIGINT_MIN = -(2**63)
+_BIGINT_MAX = 2**63 - 1
 _MODEL_DIMENSION_MAX_LENGTH = 500
 _TOKEN_COLUMNS = {
     TokenUsageKey.INPUT_TOKENS: "input_tokens",
@@ -144,11 +147,11 @@ def _add_analytics_columns():
             sa.String(length=8000).with_variant(sa.Text(), "mysql"),
             nullable=True,
         ),
-        sa.Column("input_tokens", sa.Float(precision=53), nullable=True),
-        sa.Column("output_tokens", sa.Float(precision=53), nullable=True),
-        sa.Column("total_tokens", sa.Float(precision=53), nullable=True),
-        sa.Column("cache_read_input_tokens", sa.Float(precision=53), nullable=True),
-        sa.Column("cache_creation_input_tokens", sa.Float(precision=53), nullable=True),
+        sa.Column("input_tokens", sa.BigInteger(), nullable=True),
+        sa.Column("output_tokens", sa.BigInteger(), nullable=True),
+        sa.Column("total_tokens", sa.BigInteger(), nullable=True),
+        sa.Column("cache_read_input_tokens", sa.BigInteger(), nullable=True),
+        sa.Column("cache_creation_input_tokens", sa.BigInteger(), nullable=True),
         sa.Column("input_cost", sa.Float(precision=53), nullable=True),
         sa.Column("output_cost", sa.Float(precision=53), nullable=True),
         sa.Column("total_cost", sa.Float(precision=53), nullable=True),
@@ -502,7 +505,7 @@ def _backfill_trace_analytics():
                 trace_metrics.c.key.in_(list(_TOKEN_COLUMNS)),
             )
         ):
-            metrics_by_trace[row.request_id][_TOKEN_COLUMNS[row.key]] = _finite_float_or_none(
+            metrics_by_trace[row.request_id][_TOKEN_COLUMNS[row.key]] = _token_count_or_none(
                 row.value
             )
 
@@ -513,7 +516,7 @@ def _backfill_trace_analytics():
             token_usage = _json_object(values.get(TraceMetadataKey.TOKEN_USAGE))
             tokens = {
                 column: metrics_by_trace[trace_id].get(
-                    column, _finite_float_or_none(token_usage.get(key))
+                    column, _token_count_or_none(token_usage.get(key))
                 )
                 for key, column in _TOKEN_COLUMNS.items()
             }
@@ -951,7 +954,7 @@ def _reconstruct_legacy_analytics():
             token_usage = {
                 key: value
                 for key, column in _TOKEN_COLUMNS.items()
-                if (value := _finite_float_or_none(row[column])) is not None
+                if (value := _token_count_or_none(row[column])) is not None
             }
             if token_usage:
                 metadata_rows.append({
@@ -1097,6 +1100,22 @@ def _finite_float_or_none(value):
     except (TypeError, ValueError):
         return None
     return value if math.isfinite(value) else None
+
+
+def _token_count_or_none(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        value = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if (
+        not value.is_finite()
+        or value != value.to_integral_value()
+        or not _BIGINT_MIN <= value <= _BIGINT_MAX
+    ):
+        return None
+    return int(value)
 
 
 def _bounded_string_or_none(value, max_length):
