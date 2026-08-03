@@ -9456,6 +9456,63 @@ def _get_search_experiments_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
+_TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY = {
+    TraceMetadataKey.TOKEN_USAGE: TOKEN_COLUMN_BY_KEY,
+    TraceMetadataKey.COST: COST_COLUMN_BY_KEY,
+}
+
+
+def _get_trace_analytics_metadata_filter(
+    key: str, comparator: str, value: str | None
+) -> ColumnElement[bool]:
+    columns_by_item_key = {
+        item_key: getattr(SqlTraceInfo, column)
+        for item_key, column in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY[key].items()
+    }
+    metadata_exists = or_(*(column.isnot(None) for column in columns_by_item_key.values()))
+    if comparator == "IS NULL":
+        return ~metadata_exists
+    if comparator == "IS NOT NULL":
+        return metadata_exists
+    if comparator not in ("=", "!="):
+        raise MlflowException.invalid_parameter_value(
+            f"Comparator '{comparator}' is not supported for reserved metadata '{key}'. "
+            "Only '=', '!=', 'IS NULL', and 'IS NOT NULL' are supported."
+        )
+
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        parsed = None
+
+    converter = token_count_or_none if key == TraceMetadataKey.TOKEN_USAGE else finite_float_or_none
+    normalized = (
+        {
+            item_key: converted
+            for item_key in columns_by_item_key
+            if (converted := converter(parsed.get(item_key))) is not None
+        }
+        if isinstance(parsed, dict) and set(parsed).issubset(columns_by_item_key)
+        else {}
+    )
+    # Preserve equality against the exact JSON string synthesized for compatibility metadata.
+    canonical_value = json.dumps(normalized)
+    value_is_canonical = bool(normalized) and value == canonical_value
+    if value_is_canonical:
+        value_matches = and_(
+            *(
+                and_(column.isnot(None), column == normalized[item_key])
+                if item_key in normalized
+                else column.is_(None)
+                for item_key, column in columns_by_item_key.items()
+            )
+        )
+    else:
+        value_matches = sqlalchemy.false()
+
+    return value_matches if comparator == "=" else and_(metadata_exists, ~value_matches)
+
+
 def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by trace_id for tie-breaking.
@@ -9470,6 +9527,14 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             order_by_clause
         )
 
+        if (
+            SearchTraceUtils.is_request_metadata(key_type, "=")
+            and key in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"Ordering by reserved metadata '{key}' is not supported because it is "
+                "represented by multiple columns."
+            )
         if SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
@@ -9626,6 +9691,14 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
                             SqlTraceInfo.session_id, value
                         )
                     )
+                continue
+            if (
+                SearchTraceUtils.is_request_metadata(key_type, comparator)
+                and key_name in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
+            ):
+                attribute_filters.append(
+                    _get_trace_analytics_metadata_filter(key_name, comparator, value)
+                )
                 continue
             # Check if this is a run_id filter (stored as SOURCE_RUN in metadata)
             if (
