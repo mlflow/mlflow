@@ -1493,6 +1493,15 @@ _MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_I
 #: (default: ``False``)
 _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
 
+
+#: Internal flag to import the Databricks SDK at ``import mlflow`` time inside Databricks, so
+#: the telemetry consumer thread never performs a first-time import of it. Must be set before
+#: ``import mlflow`` to take effect.
+#: (default: ``False``)
+_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK = _BooleanEnvironmentVariable(
+    "_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK", False
+)
+
 #: Internal environment variable to indicate which SGI is being used,
 #: e.g. "uvicorn" or "gunicorn".
 #: This should never be set by users or explicitly.
