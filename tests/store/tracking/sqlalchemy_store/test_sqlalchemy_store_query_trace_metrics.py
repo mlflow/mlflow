@@ -27,8 +27,12 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
+from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
+)
+from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
+    _apply_filters,
+    _partition_span_metric_filters,
 )
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
@@ -52,10 +56,13 @@ def test_postgres_span_query_materializes_trace_filters_before_span_join(
     store: SqlAlchemyStore,
 ):
     with store.ManagedSessionMaker() as session:
-        query = _apply_postgres_trace_first_span_query(
-            store._trace_query(session),
-            ["trace.status = 'OK'", "span.status = 'ERROR'"],
-        )
+        trace_filters, span_filters = _partition_span_metric_filters([
+            "trace.status = 'OK'",
+            "span.status = 'ERROR'",
+        ])
+        query = _apply_filters(store._trace_query(session), trace_filters, MetricViewType.SPANS)
+        query = _apply_postgres_trace_first_span_query(query)
+        query = _apply_filters(query, span_filters, MetricViewType.SPANS)
         statement = str(query.statement.compile(dialect=postgresql.dialect()))
 
     join_position = statement.index("FROM spans JOIN metric_trace_ids")
