@@ -908,7 +908,7 @@ describe('TracesV4PageContent', () => {
       expect(search.get('dir')).toBe('asc');
       expect(search.get('startTimeLabel')).toBe('LAST_7_DAYS');
       expect(search.getAll('tag')).toContain('env=prod');
-    });
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('the shared v3 CUSTOM time bounds are honored on mount and preserved across an in-tab action', async () => {
       const start = '2025-01-01T00:00:00.000Z';
