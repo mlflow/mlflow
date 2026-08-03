@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -212,8 +212,7 @@ def test_evaluation_dataset_list_versions(mock_managed_dataset):
     ]
 
     dataset = EvaluationDataset(mock_managed_dataset)
-    with patch("mlflow.genai.datasets._get_databricks_agents_datasets_module"):
-        versions = dataset.list_versions()
+    versions = dataset.list_versions()
 
     assert versions == [
         EvaluationDatasetVersion(version=1),

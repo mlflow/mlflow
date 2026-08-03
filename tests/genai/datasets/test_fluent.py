@@ -670,28 +670,6 @@ def test_get_dataset_by_version_uses_versioning_sdk(monkeypatch):
     assert calls == [("catalog.schema.table", 2), ("catalog.schema.table", 3)]
 
 
-def test_dataset_versioning_requires_compatible_sdk(monkeypatch):
-    class LegacyAgentsDataset:
-        pass
-
-    def db_get_dataset(name):
-        return LegacyAgentsDataset()
-
-    monkeypatch.setitem(
-        sys.modules,
-        "databricks.agents.datasets",
-        SimpleNamespace(Dataset=LegacyAgentsDataset, get_dataset=db_get_dataset),
-    )
-    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
-
-    dataset = get_dataset(name="catalog.schema.table")
-    assert isinstance(dataset, EvaluationDataset)
-    with pytest.raises(ImportError, match="Dataset versioning requires a compatible prerelease"):
-        get_dataset(name="catalog.schema.table", version=1)
-    with pytest.raises(ImportError, match="Dataset versioning requires a compatible prerelease"):
-        dataset.list_versions()
-
-
 def test_create_dataset_with_user_tag(experiments):
     dataset = create_dataset(
         name="test_user_attribution",

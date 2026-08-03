@@ -254,12 +254,8 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 "Dataset versions are only supported for Databricks datasets."
             )
 
-        from mlflow.genai.datasets import (
-            _databricks_profile_env,
-            _get_databricks_agents_datasets_module,
-        )
+        from mlflow.genai.datasets import _databricks_profile_env
 
-        _get_databricks_agents_datasets_module(require_dataset_versioning=True)
         with _databricks_profile_env():
             versions = self._databricks_dataset.list_versions()
         return [
