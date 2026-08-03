@@ -3849,10 +3849,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
             return _build_trace_infos_from_rows(session, [trace_row])[0]
 
-    def _get_sql_trace_info(self, session, trace_id, workspace=None) -> SqlTraceInfo:
+    def _get_sql_trace_info(
+        self, session, trace_id, workspace=None, *, for_update=False
+    ) -> SqlTraceInfo:
         sql_trace_info = (
             self
-            ._trace_query(session, workspace=workspace)
+            ._trace_query(
+                session,
+                for_update_or_delete=for_update,
+                workspace=workspace,
+            )
             .filter(SqlTraceInfo.request_id == trace_id)
             .one_or_none()
         )
@@ -4659,7 +4665,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, assessment.trace_id)
-            sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id)
+            sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id, for_update=True)
             sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
             sql_assessment.experiment_id = sql_trace_info.experiment_id
             sql_assessment.trace_timestamp_ms = sql_trace_info.timestamp_ms
@@ -5340,12 +5346,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            # --- Phase 1: Batch-fetch all existing trace infos (1 query) ---
+            # --- Phase 1: Lock and batch-fetch all existing trace infos (1 query) ---
             existing_traces = {
                 t.request_id: t
                 for t in self
-                ._trace_query(session)
+                ._trace_query(session, for_update_or_delete=True)
                 .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
+                .order_by(SqlTraceInfo.request_id)
                 .all()
             }
 
@@ -5398,8 +5405,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         existing_traces = {
                             t.request_id: t
                             for t in self
-                            ._trace_query(session)
+                            ._trace_query(session, for_update_or_delete=True)
                             .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
+                            .order_by(SqlTraceInfo.request_id)
                             .all()
                         }
 
@@ -5560,12 +5568,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # Skip if start_trace() has already written the authoritative timestamp
                 # and duration (indicated by TRACE_INFO_FINALIZED flag).
                 update_dict = {}
+                trace_timestamp_may_change = False
                 if trace_id not in finalized_trace_ids:
                     timestamp_update_expr = case(
                         (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                         else_=SqlTraceInfo.timestamp_ms,
                     )
                     update_dict[SqlTraceInfo.timestamp_ms] = timestamp_update_expr
+                    trace_timestamp_may_change = sql_trace_info.timestamp_ms > min_start_ms
                 if max_end_ms is not None and trace_id not in finalized_trace_ids:
                     update_dict[SqlTraceInfo.execution_time_ms] = (
                         case(
@@ -5662,6 +5672,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                             update_dict,
                             # Skip session synchronization for performance — we don't
                             # use the ORM object afterward.
+                            synchronize_session=False,
+                        )
+                    )
+                if trace_timestamp_may_change:
+                    (
+                        session
+                        .query(SqlAssessments)
+                        .filter(SqlAssessments.trace_id == trace_id)
+                        .update(
+                            {SqlAssessments.trace_timestamp_ms: min_start_ms},
                             synchronize_session=False,
                         )
                     )

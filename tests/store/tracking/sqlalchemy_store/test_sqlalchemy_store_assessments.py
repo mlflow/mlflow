@@ -1,8 +1,11 @@
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 
+import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
 from mlflow.entities import (
     AssessmentSource,
     AssessmentSourceType,
@@ -15,10 +18,11 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.store.tracking.dbmodels.models import SqlAssessments
+from mlflow.store.db.db_types import MYSQL, SQLITE
+from mlflow.store.tracking.dbmodels.models import SqlAssessments, SqlSpan
 from mlflow.utils.time import get_current_time_millis
 
-from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
+from tests.store.tracking.sqlalchemy_store.conftest import _create_trace, create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -92,6 +96,103 @@ def test_create_and_get_assessment(store_and_trace_info):
     assert retrieved_expectation.span_id == "span-456"
     assert retrieved_expectation.trace_id == trace_info.request_id
     assert retrieved_expectation.valid
+
+
+def test_log_spans_syncs_assessment_trace_timestamp(store):
+    exp_id = store.create_experiment("sync-assessment-trace-timestamp")
+    trace_id = "tr-sync-assessment-trace-timestamp"
+    store.log_spans(
+        exp_id,
+        [create_test_span(trace_id, span_id=1, start_ns=2_000_000_000)],
+    )
+    assessment = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="quality",
+            value=True,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        )
+    )
+
+    store.log_spans(
+        exp_id,
+        [create_test_span(trace_id, span_id=2, start_ns=1_000_000_000)],
+    )
+
+    with store.ManagedSessionMaker() as session:
+        sql_assessment = session.get(SqlAssessments, assessment.assessment_id)
+        assert sql_assessment.trace_timestamp_ms == 1000
+    assert store.get_trace_info(trace_id).timestamp_ms == 1000
+
+
+def test_create_assessment_racing_with_earlier_span_uses_updated_trace_timestamp(
+    store, monkeypatch
+):
+    if store.db_type in (MYSQL, SQLITE):
+        pytest.skip(f"{store.db_type} does not support this concurrent row-lock test")
+
+    exp_id = store.create_experiment("concurrent-assessment-trace-timestamp")
+    trace_id = "tr-concurrent-assessment-trace-timestamp"
+    store.log_spans(
+        exp_id,
+        [create_test_span(trace_id, span_id=1, start_ns=2_000_000_000)],
+    )
+
+    assessment_has_trace_lock = Event()
+    release_assessment = Event()
+    log_worker_started = Event()
+    log_spans_started = Event()
+    original_get_sql_trace_info = store._get_sql_trace_info
+
+    def get_sql_trace_info_and_hold_lock(*args, **kwargs):
+        sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
+        if kwargs.get("for_update"):
+            assessment_has_trace_lock.set()
+            assert release_assessment.wait(timeout=10)
+        return sql_trace_info
+
+    original_bulk_upsert = sqlalchemy_store_module._bulk_upsert
+
+    def bulk_upsert_and_signal(session, model, rows):
+        if model is SqlSpan:
+            log_spans_started.set()
+        return original_bulk_upsert(session, model, rows)
+
+    monkeypatch.setattr(store, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock)
+    monkeypatch.setattr(sqlalchemy_store_module, "_bulk_upsert", bulk_upsert_and_signal)
+
+    feedback = Feedback(
+        trace_id=trace_id,
+        name="quality",
+        value=True,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+
+    def log_earlier_span():
+        log_worker_started.set()
+        store.log_spans(
+            exp_id,
+            [create_test_span(trace_id, span_id=2, start_ns=1_000_000_000)],
+        )
+
+    with ThreadPoolExecutor(
+        max_workers=2, thread_name_prefix="test-assessment-trace-timestamp"
+    ) as executor:
+        create_future = executor.submit(store.create_assessment, feedback)
+        assert assessment_has_trace_lock.wait(timeout=10)
+        log_future = executor.submit(log_earlier_span)
+        assert log_worker_started.wait(timeout=10)
+        try:
+            assert not log_spans_started.wait(timeout=0.5)
+        finally:
+            release_assessment.set()
+        assessment = create_future.result(timeout=10)
+        log_future.result(timeout=10)
+
+    with store.ManagedSessionMaker() as session:
+        sql_assessment = session.get(SqlAssessments, assessment.assessment_id)
+        assert sql_assessment.trace_timestamp_ms == 1000
+    assert store.get_trace_info(trace_id).timestamp_ms == 1000
 
 
 def test_get_assessment_errors(store_and_trace_info):
