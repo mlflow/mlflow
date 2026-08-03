@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 from urllib.parse import quote
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -126,11 +127,11 @@ class RestMCPServerRegistryMixin:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -139,14 +140,16 @@ class RestMCPServerRegistryMixin:
                 "server_json must contain 'name' and 'version' keys"
             )
         body: dict[str, Any] = {"server_json": server_json}
-        if display_name is not None:
-            body["display_name"] = display_name
         if source is not None:
             body["source"] = source
         if status is not None:
             body["status"] = str(status)
-        if tools is not None:
-            body["tools"] = [t.to_dict() for t in tools]
+        # Mirror update: NOT_SET → omit field (store null, no discovery);
+        # None → JSON null (store null, no discovery); list/[] → as-is.
+        if tools is not NOT_SET:
+            body["tools"] = None if tools is None else [t.to_dict() for t in tools]
+        if connect_options is not None:
+            body["connect_options"] = {k: asdict(v) for k, v in connect_options.items()}
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
         return MCPServerVersion.from_dict(data)
 
@@ -199,18 +202,22 @@ class RestMCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         body: dict[str, Any] = {}
-        if display_name is not NOT_SET:
-            body["display_name"] = display_name
         if status is not NOT_SET:
             body["status"] = str(status) if status is not None else None
         if tools is not NOT_SET:
             body["tools"] = None if tools is None else [t.to_dict() for t in tools]
+        if connect_options is not NOT_SET:
+            body["connect_options"] = (
+                {k: asdict(v) for k, v in connect_options.items()}
+                if connect_options is not None
+                else None
+            )
         data = self._mcp_request(
             "PATCH", f"{_server_path(name)}/versions/{_encode_path_param(version)}", json=body
         )
@@ -268,7 +275,14 @@ class RestMCPServerRegistryMixin:
             params["server_version"] = server_version
         if server_alias is not None:
             params["server_alias"] = server_alias
-        path = f"{_server_path(server_name)}/endpoints" if server_name else "/endpoints"
+        if server_name is None:
+            path = "/endpoints"
+        elif isinstance(server_name, str) and server_name.strip():
+            path = f"{_server_path(server_name)}/endpoints"
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "server_name must be a non-empty string when provided"
+            )
         data = self._mcp_request("GET", path, params=params)
         try:
             if not isinstance(data, dict):

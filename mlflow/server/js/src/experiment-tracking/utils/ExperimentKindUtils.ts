@@ -167,3 +167,23 @@ export const getExperimentKindForWorkflowType = (workflowType: WorkflowType): Ex
   }
   return ExperimentKind.CUSTOM_MODEL_DEVELOPMENT;
 };
+
+export const getWorkflowTypeForExperimentKind = (
+  experimentKind: ExperimentKind | undefined,
+): WorkflowType | undefined => {
+  switch (experimentKind) {
+    case ExperimentKind.GENAI_DEVELOPMENT:
+    case ExperimentKind.GENAI_DEVELOPMENT_INFERRED:
+      return WorkflowType.GENAI;
+    case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT:
+    case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED:
+    case ExperimentKind.FINETUNING:
+    case ExperimentKind.REGRESSION:
+    case ExperimentKind.CLASSIFICATION:
+    case ExperimentKind.FORECASTING:
+    case ExperimentKind.AUTOML:
+      return WorkflowType.MACHINE_LEARNING;
+    default:
+      return undefined;
+  }
+};

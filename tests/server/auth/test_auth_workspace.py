@@ -4028,3 +4028,29 @@ def test_mcp_server_delete_grants_workspace_isolated(tmp_path, monkeypatch):
         assert perm.name == MANAGE.name
 
     auth_store.engine.dispose()
+
+
+def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-list-ws.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.grant_user_permission(username, "mcp_server", "com.test/a", MANAGE.name)
+    with workspace_context.WorkspaceContext("team-b"):
+        auth_store.grant_user_permission(username, "mcp_server", "com.test/b", READ.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        perms = auth_store.list_mcp_server_permissions(username)
+        assert sorted(p.name for p in perms) == ["com.test/a"]
+
+    with workspace_context.WorkspaceContext("team-b"):
+        perms = auth_store.list_mcp_server_permissions(username)
+        assert sorted(p.name for p in perms) == ["com.test/b"]
+
+    auth_store.engine.dispose()

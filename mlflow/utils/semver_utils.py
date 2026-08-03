@@ -14,12 +14,14 @@ _RELEASE_PRERELEASE_SORT_KEY = "2"
 _ASCII_CODE_WIDTH = 3
 _TEXT_IDENTIFIER_TERMINATOR = "000"
 # Recommended SemVer 2.0.0 regex from semver.org, adapted for Python.
+# Use ``[0-9]`` instead of ``\d`` so Unicode digits (e.g. Arabic-Indic ``٢``)
+# are rejected — SemVer 2.0.0 numeric identifiers are ASCII digits only.
 _SEMVER_RE = re.compile(
-    r"^(?P<major>0|[1-9]\d*)"
-    r"\.(?P<minor>0|[1-9]\d*)"
-    r"\.(?P<patch>0|[1-9]\d*)"
-    r"(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"^(?P<major>0|[1-9][0-9]*)"
+    r"\.(?P<minor>0|[1-9][0-9]*)"
+    r"\.(?P<patch>0|[1-9][0-9]*)"
+    r"(?:-(?P<prerelease>(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?"
     r"(?:\+(?P<buildmetadata>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 
