@@ -423,17 +423,7 @@ def test_search_datasets_single_page(mock_client):
     assert mock_client.search_datasets.call_count == 1
 
 
-def test_search_datasets_databricks(mock_databricks_environment, mock_client, monkeypatch):
-    class MockAgentsDataset:
-        @classmethod
-        def from_dict(cls, payload):
-            return SimpleNamespace(**payload)
-
-    monkeypatch.setitem(
-        sys.modules,
-        "databricks.agents.datasets",
-        SimpleNamespace(Dataset=MockAgentsDataset),
-    )
+def test_search_datasets_databricks(mock_databricks_environment, mock_client):
     datasets = [
         EntityEvaluationDataset(
             dataset_id="id1",
@@ -458,34 +448,7 @@ def test_search_datasets_databricks(mock_databricks_environment, mock_client, mo
     assert call_kwargs.get("order_by") is None
 
 
-def test_search_datasets_databricks_preserves_version_for_loading(
-    mock_databricks_environment, mock_client, monkeypatch
-):
-    class MockAgentsDataset:
-        def __init__(self, **payload):
-            self.__dict__.update(payload)
-
-        @classmethod
-        def from_dict(cls, payload):
-            payload = dict(payload)
-            if isinstance(payload.get("version"), dict):
-                payload["version"] = SimpleNamespace(**payload["version"])
-            return cls(**payload)
-
-        def list_versions(self):
-            return []
-
-        def to_df(self):
-            return pd.DataFrame({"loaded_version": [self.version.version]})
-
-    def db_get_dataset(name, version=None):
-        return MockAgentsDataset(name=name, version=version)
-
-    monkeypatch.setitem(
-        sys.modules,
-        "databricks.agents.datasets",
-        SimpleNamespace(Dataset=MockAgentsDataset, get_dataset=db_get_dataset),
-    )
+def test_search_datasets_databricks_preserves_version(mock_databricks_environment, mock_client):
     mock_client.search_datasets.return_value = PagedList(
         [
             EntityEvaluationDataset(
@@ -495,7 +458,6 @@ def test_search_datasets_databricks_preserves_version_for_loading(
                 created_time=123456789,
                 last_update_time=123456789,
                 version={"version": 7},
-                _is_uc_native=True,
             )
         ],
         None,
@@ -504,8 +466,6 @@ def test_search_datasets_databricks_preserves_version_for_loading(
     result = search_datasets(experiment_ids=["exp1"])
 
     assert result[0].version == 7
-    assert result[0].source.version == 7
-    assert result[0].to_df().to_dict(orient="records") == [{"loaded_version": 7}]
 
 
 def test_get_dataset_version_non_databricks_unsupported(monkeypatch):

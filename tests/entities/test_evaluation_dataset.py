@@ -60,23 +60,6 @@ def test_evaluation_dataset_timestamps_required():
     assert dataset.last_update_time == 987654321
 
 
-def test_evaluation_dataset_uc_native_marker_is_internal():
-    dataset = EvaluationDataset(
-        dataset_id="dataset123",
-        name="test_dataset",
-        digest="digest123",
-        created_time=123456789,
-        last_update_time=987654321,
-        _is_uc_native=True,
-    )
-    dataset._experiment_ids = []
-    dataset._records = []
-
-    assert dataset._is_uc_native is True
-    assert not hasattr(dataset, "is_uc_native")
-    assert {"is_uc_native", "_is_uc_native"}.isdisjoint(dataset.to_dict())
-
-
 def test_evaluation_dataset_experiment_ids_setter():
     dataset = EvaluationDataset(
         dataset_id="dataset123",

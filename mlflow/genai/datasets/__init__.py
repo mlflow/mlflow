@@ -203,34 +203,6 @@ def _resolve_dataset_version_arg(
     return version
 
 
-def _entity_to_databricks_dataset(entity: EntityEvaluationDataset):
-    """Convert a search result into a loadable databricks-agents dataset handle."""
-    version = getattr(entity, "version", None)
-    db_datasets = _get_databricks_agents_datasets_module(
-        require_dataset_versioning=version not in (None, "")
-    )
-    dataset_class = getattr(db_datasets, "Dataset", None)
-    if dataset_class is None or not hasattr(dataset_class, "from_dict"):
-        return entity
-
-    payload: dict[str, Any] = {
-        "dataset_id": entity.dataset_id,
-        "name": entity.name,
-        "digest": entity.digest,
-        "source_type": "databricks-uc-table",
-        "is_uc_native": entity._is_uc_native,
-    }
-    if isinstance(version, int):
-        version = {"version": version}
-    if version not in (None, ""):
-        payload["version"] = version
-
-    dataset = dataset_class.from_dict(payload)
-    if "version" in payload and getattr(dataset, "version", None) in (None, ""):
-        dataset.version = payload["version"]
-    return dataset
-
-
 @deprecated_parameter("uc_table_name", "name")
 def create_dataset(
     name: str | None = None,
@@ -631,10 +603,6 @@ def search_datasets(
         SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         max_results,
     )
-    if is_databricks:
-        return [
-            EvaluationDataset(_entity_to_databricks_dataset(dataset)) for dataset in mlflow_datasets
-        ]
     return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
 
 
