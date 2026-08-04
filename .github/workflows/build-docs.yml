@@ -86,6 +86,14 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.ref }}
+      # Release branches are cut before this script lands on them, so run the copy
+      # from the ref this workflow was dispatched from, not the one being built.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          path: tools
+          sparse-checkout: dev/build_docs.py
+          sparse-checkout-cone-mode: false
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-python
@@ -97,9 +105,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          uv run dev/build_docs.py $DRY_RUN_FLAG release-post
+          uv run tools/dev/build_docs.py $DRY_RUN_FLAG release-post
       - name: Build docs
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          uv run dev/build_docs.py $DRY_RUN_FLAG build-docs --gtm-id GTM-N6WMTTJ
+          uv run tools/dev/build_docs.py $DRY_RUN_FLAG build-docs --gtm-id GTM-N6WMTTJ
