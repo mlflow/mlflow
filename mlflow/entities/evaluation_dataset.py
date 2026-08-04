@@ -164,6 +164,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             root_span = trace.data._get_root_span()
             inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+            if isinstance(inputs, list):
+                # Traces following the OpenTelemetry GenAI convention store the chat input as
+                # a bare array of messages, but a record's inputs must be a dict.
+                inputs = {"messages": inputs}
             outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}

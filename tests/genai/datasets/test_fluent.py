@@ -1271,6 +1271,28 @@ def test_trace_without_root_span_inputs(client, experiment):
     assert df.iloc[0]["expectations"] is None or df.iloc[0]["expectations"] == {}
 
 
+def test_trace_with_list_root_span_inputs(client, experiment):
+    messages = [{"role": "user", "content": "What is MLflow?"}]
+    with mlflow.start_run(experiment_id=experiment):
+        with mlflow.start_span(name="list_inputs_trace") as span:
+            span.set_inputs(messages)
+            span.set_outputs({"answer": "MLflow is an ML platform"})
+            trace_id = span.trace_id
+
+    trace = client.get_trace(trace_id)
+
+    dataset = create_dataset(
+        name="list_inputs_test",
+        experiment_id=experiment,
+    )
+
+    dataset.merge_records([trace])
+
+    df = dataset.to_df()
+    assert len(df) == 1
+    assert df.iloc[0]["inputs"] == {"messages": messages}
+
+
 def test_error_handling_invalid_trace_types(client, experiment):
     dataset = create_dataset(
         name="error_test",

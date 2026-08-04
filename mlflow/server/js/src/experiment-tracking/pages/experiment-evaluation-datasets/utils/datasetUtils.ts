@@ -40,11 +40,15 @@ export const extractDatasetInfoFromTraces = (traces: ModelTrace[]) => {
       }
     }
 
+    const inputs =
+      isV3ModelTraceSpan(rootSpan) || isV4ModelTraceSpan(rootSpan)
+        ? tryDeserializeAttribute(getSpanAttribute(rootSpan.attributes, 'mlflow.spanInputs') as string)
+        : rootSpan.inputs;
+
     return {
-      inputs:
-        isV3ModelTraceSpan(rootSpan) || isV4ModelTraceSpan(rootSpan)
-          ? tryDeserializeAttribute(getSpanAttribute(rootSpan.attributes, 'mlflow.spanInputs') as string)
-          : rootSpan.inputs,
+      // traces following the OpenTelemetry GenAI convention store the chat input as
+      // a bare array of messages, but a record's inputs must be an object
+      inputs: Array.isArray(inputs) ? { messages: inputs } : inputs,
       expectations,
       source: {
         source_type: 'TRACE',

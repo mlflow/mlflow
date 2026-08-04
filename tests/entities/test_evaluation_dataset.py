@@ -499,6 +499,27 @@ def test_process_trace_records_with_dict_outputs():
     assert record_dicts[0]["source"]["source_data"]["trace_id"] == "trace1"
 
 
+def test_process_trace_records_with_list_inputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    messages = [{"role": "user", "content": "What is MLflow?"}]
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs=messages,
+        outputs={"answer": "MLflow is a platform"},
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert record_dicts[0]["inputs"] == {"messages": messages}
+
+
 def test_process_trace_records_with_string_outputs():
     dataset = EvaluationDataset(
         dataset_id="dataset123",
