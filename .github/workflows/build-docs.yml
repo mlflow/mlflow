@@ -1,0 +1,69 @@
+name: build-docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to checkout from (e.g., branch-3.0)"
+        required: true
+      release_post:
+        description: "Create a release post on mlflow/mlflow-website"
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: "Skip push and PR creation"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          repositories: mlflow-legacy-website,mlflow-website
+          owner: mlflow
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+      # Create the release post first. It's cheap, and a failure in the long docs
+      # build shouldn't prevent the post from being opened.
+      - name: Create release post
+        if: inputs.release_post
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          uv run dev/build_docs.py $DRY_RUN_FLAG release-post
+      - name: Build docs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          uv run dev/build_docs.py $DRY_RUN_FLAG build-docs --gtm-id GTM-N6WMTTJ
