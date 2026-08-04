@@ -144,7 +144,6 @@ CREATE TABLE secrets (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -159,7 +158,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -176,7 +174,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -194,11 +191,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) NOT NULL,
-	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -667,6 +663,7 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
+
 CREATE TABLE mcp_server_version_tags (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -780,6 +777,7 @@ CREATE TABLE spans (
 	total_cost FLOAT,
 	model_name VARCHAR(500),
 	model_provider VARCHAR(500),
+	dimension_attributes_state SMALLINT,
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
@@ -862,4 +860,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-

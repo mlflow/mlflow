@@ -144,7 +144,6 @@ CREATE TABLE secrets (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id BIGINT NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -159,7 +158,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id BIGINT NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -176,7 +174,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id BIGINT NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -194,11 +191,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) NOT NULL,
-	PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -773,12 +769,12 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (((`end_time_unix_nano` - `start_time_unix_nano`))) STORED,
 	content LONGTEXT NOT NULL,
-	dimension_attributes JSON,
 	input_cost DOUBLE,
 	output_cost DOUBLE,
 	total_cost DOUBLE,
 	model_name VARCHAR(500),
 	model_provider VARCHAR(500),
+	dimension_attributes_state SMALLINT,
 	PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
