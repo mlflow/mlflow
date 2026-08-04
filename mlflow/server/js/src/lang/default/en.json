@@ -4155,6 +4155,10 @@
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
   },
+  "GpoXrL": {
+    "defaultMessage": "Analyze",
+    "description": "Button label for analyzing an evaluation run with Assistant"
+  },
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -8002,6 +8006,10 @@
   "Xn0LxG": {
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
+  },
+  "Xo3L6r": {
+    "defaultMessage": "Analyze evaluation run with Assistant",
+    "description": "Tooltip for the assistant analyze button in the evaluation run toolbar"
   },
   "XpiGwc": {
     "defaultMessage": "Select a queue to get started",
