@@ -55,19 +55,32 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - name: Read release version
+        id: version
+        run: |
+          echo "value=$(uv version --short)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: mlflow/mlflow-website
           path: website
+      # `docs/` holds ~105 published versions; a publish touches at most three of
+      # them, so fetch only those. Every path the script writes must be listed here:
+      # entries outside the sparse set carry skip-worktree, and files written under
+      # them can be silently dropped from the commit.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: mlflow/mlflow-legacy-website
           path: legacy-website
-      - uses: ./.github/actions/free-disk-space
+          sparse-checkout: |
+            /docs/versions.json
+            /docs/latest/
+            /docs/${{ steps.version.outputs.value }}*/
+          sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
       - name: Test release-post
         run: |
@@ -75,6 +88,25 @@ jobs:
       - name: Test build-docs
         run: |
           uv run dev/build_docs.py --dry-run build-docs --website-dir legacy-website
+      # The sparse checkout leaves the other ~100 version directories as
+      # skip-worktree entries. Fail loudly if that ever turns into staged deletions.
+      - name: Check the commit only touches this release
+        working-directory: legacy-website
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git show --shortstat --format= HEAD
+          paths="$(git show --name-only --format= HEAD)"
+          unexpected="$(echo "$paths" | grep -vE "^docs/(versions\.json|latest/|${VERSION}[^/]*/)" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "::error::Commit touches paths outside this release:"
+            echo "$unexpected"
+            exit 1
+          fi
+          if ! echo "$paths" | grep -q "^docs/${VERSION}/"; then
+            echo "::error::Commit is missing docs/${VERSION}/ - the sparse checkout excluded it"
+            exit 1
+          fi
 
   run:
     if: github.event_name == 'workflow_dispatch'
@@ -96,6 +128,12 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - name: Read release version
+        id: version
+        run: |
+          echo "value=$(uv version --short)" >> "$GITHUB_OUTPUT"
       # `persist-credentials: true` keeps the App token in `http.extraheader` so the
       # script can push without ever handling the token itself.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -104,15 +142,19 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repository: mlflow/mlflow-website
           path: website
+      # See the `test` job for why the sparse set must cover every path written.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
           repository: mlflow/mlflow-legacy-website
           path: legacy-website
-      - uses: ./.github/actions/free-disk-space
+          sparse-checkout: |
+            /docs/versions.json
+            /docs/latest/
+            /docs/${{ steps.version.outputs.value }}*/
+          sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
       # Create the release post first. It's cheap, and a failure in the long docs
       # build shouldn't prevent the post from being opened.
