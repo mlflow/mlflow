@@ -42,40 +42,18 @@ class Repo:
             root = Path(tmp) / "repo"
             subprocess.check_call([*cmd, url, root])
             instance = cls(repo, root, default_branch=branch, token=token)
-            instance._configure_identity()
+            instance.git("config", "user.name", "mlflow-app[bot]")
+            instance.git("config", "user.email", "mlflow-app[bot]@users.noreply.github.com")
             yield instance
-
-    def _configure_identity(self) -> None:
-        self.git("config", "user.name", "mlflow-app[bot]")
-        self.git("config", "user.email", "mlflow-app[bot]@users.noreply.github.com")
-
-    @property
-    def branch(self) -> str:
-        output = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=self.root, text=True
-        )
-        return output.strip()
 
     def git(self, *args: str) -> None:
         subprocess.check_call(["git", *args], cwd=self.root)
-
-    def checkout_new(self, branch: str) -> None:
-        self.git("checkout", "-b", branch)
-
-    def add_all(self) -> None:
-        self.git("add", "-A")
 
     def has_changes(self) -> bool:
         result = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=self.root)
         return result.returncode != 0
 
-    def commit(self, message: str) -> None:
-        self.git("commit", "-m", message)
-
-    def push(self) -> None:
-        self.git("push", "origin", self.branch)
-
-    def create_pr(self, *, title: str, body: str) -> str:
+    def create_pr(self, *, head: str, title: str, body: str) -> str:
         if not self.token:
             raise ValueError("Cannot create PR without a token")
         env = {**os.environ, "GH_TOKEN": self.token}
@@ -87,7 +65,7 @@ class Repo:
                 "--repo",
                 self.repo,
                 "--head",
-                self.branch,
+                head,
                 "--base",
                 self.default_branch,
                 "--title",
@@ -125,7 +103,7 @@ def build_docs(args: argparse.Namespace) -> None:
         token=args.token,
     ) as website_repo:
         branch_name = f"docs-{release_version}-{uuid.uuid4().hex[:8]}"
-        website_repo.checkout_new(branch_name)
+        website_repo.git("checkout", "-b", branch_name)
 
         version = Version(release_version)
 
@@ -144,25 +122,24 @@ def build_docs(args: argparse.Namespace) -> None:
         # Update versions.json
         _update_versions_json(website_repo.root / "docs" / "versions.json", version)
 
-        website_repo.add_all()
+        website_repo.git("add", "-A")
 
         if not website_repo.has_changes():
             print("No changes to commit, skipping.")
             return
 
-        website_repo.commit("Add docs")
+        website_repo.git("commit", "-m", "Add docs")
 
         if args.dry_run:
             return
 
-        website_repo.push()
-
-        if args.token:
-            pr_url = website_repo.create_pr(
-                title=f"Add documentation for {release_version}",
-                body="",
-            )
-            print(f"Created {pr_url}")
+        website_repo.git("push", "origin", branch_name)
+        pr_url = website_repo.create_pr(
+            head=branch_name,
+            title=f"Add documentation for {release_version}",
+            body="",
+        )
+        print(f"Created {pr_url}")
 
 
 def _remove_stale_prereleases(docs_root: Path, version: Version) -> None:
@@ -219,32 +196,31 @@ def release_post(args: argparse.Namespace) -> None:
         token=args.token,
     ) as website_repo:
         branch_name = f"release-post-{release_version}-{uuid.uuid4().hex[:8]}"
-        website_repo.checkout_new(branch_name)
+        website_repo.git("checkout", "-b", branch_name)
 
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         name = f"{today}-{release_version}-release.md"
         post_path = website_repo.root / "website" / "releases" / name
         post_path.write_text(_render_release_post(Version(release_version)))
 
-        website_repo.add_all()
+        website_repo.git("add", "-A")
 
         if not website_repo.has_changes():
             print("No changes to commit, skipping.")
             return
 
-        website_repo.commit("Add release post")
+        website_repo.git("commit", "-m", "Add release post")
 
         if args.dry_run:
             return
 
-        website_repo.push()
-
-        if args.token:
-            pr_url = website_repo.create_pr(
-                title=f"Add release post for {release_version}",
-                body="Be sure to fill in the contents",
-            )
-            print(f"Created {pr_url}")
+        website_repo.git("push", "origin", branch_name)
+        pr_url = website_repo.create_pr(
+            head=branch_name,
+            title=f"Add release post for {release_version}",
+            body="Be sure to fill in the contents",
+        )
+        print(f"Created {pr_url}")
 
 
 def _render_release_post(version: Version) -> str:
