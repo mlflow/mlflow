@@ -49,7 +49,7 @@ export const RunViewEvaluationsTabArtifacts = ({
 
   const noEvaluationTablesLogged = data?.length === 0;
   const showCompareSelector = !shouldEnableImprovedEvalRunsComparison();
-  const showToolbar = showCompareSelector || actions;
+  const showToolbar = showCompareSelector || Boolean(actions);
 
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
