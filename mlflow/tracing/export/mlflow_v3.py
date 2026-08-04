@@ -119,7 +119,9 @@ class MlflowV3SpanExporter(SpanExporter):
         spans_by_experiment = defaultdict(list)
 
         for span in spans:
-            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
+            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(
+                span.context.trace_id
+            )
             if mlflow_trace_id is None:
                 continue
             span_id = encode_span_id(span.context.span_id)
@@ -176,10 +178,14 @@ class MlflowV3SpanExporter(SpanExporter):
 
             self._do_export_trace(manager, span)
 
-    def _do_export_trace(self, manager: InMemoryTraceManager, span: ReadableSpan) -> None:
+    def _do_export_trace(
+        self, manager: InMemoryTraceManager, span: ReadableSpan
+    ) -> None:
         manager_trace = manager.pop_trace(span.context.trace_id)
         if manager_trace is None:
-            _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+            _logger.debug(
+                f"Trace for root span {span} not found. Skipping full export."
+            )
             return
 
         if manager_trace.is_remote_trace and not self._store_supports_log_spans:
@@ -245,20 +251,31 @@ class MlflowV3SpanExporter(SpanExporter):
         2. Upload the trace data to blob storage using the returned trace info.
         """
         returned_trace_info = None
-        try:
-            if trace:
-                add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
+        if not trace:
+            _logger.warning("No trace or trace info provided, unable to export")
+            return
 
-                if self._should_log_spans_to_artifacts(returned_trace_info):
-                    self._client._upload_trace_data(returned_trace_info, trace.data)
-            else:
-                _logger.warning("No trace or trace info provided, unable to export")
+        try:
+            add_size_stats_to_trace_metadata(trace)
+            returned_trace_info = self._client.start_trace(trace.info)
         except Exception as e:
             _logger.warning(
                 f"Failed to send trace to MLflow backend: {e}",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
+
+        if returned_trace_info and self._should_log_spans_to_artifacts(
+            returned_trace_info
+        ):
+            try:
+                self._client._upload_trace_data(returned_trace_info, trace.data)
+            except Exception as e:
+                _logger.warning(
+                    f"Trace {returned_trace_info.trace_id} was created, but its span data failed to "
+                    f"upload ({e}). The trace will appear empty in the MLflow UI. Check that the "
+                    "tracking server's artifact store is reachable and credentialed.",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
         # Upload attachments in a separate try-except so trace data still lands
         # even if attachment upload fails. Runs regardless of span storage mode —
@@ -307,8 +324,8 @@ class MlflowV3SpanExporter(SpanExporter):
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self) -> bool:
-        # During evaluate, the eval harness relies on the generated trace objects,
-        # so we should not log traces asynchronously.
+        # During evaluate or assertion tests, the harness relies on the generated
+        # trace objects being immediately available, so log synchronously.
         if maybe_get_request_id(is_evaluate=True):
             return False
 
@@ -329,4 +346,7 @@ class MlflowV3SpanExporter(SpanExporter):
         Whether to log spans to artifacts. Overridden by UC table exporter to False.
         """
         # We only log traces to artifacts when the tracking store doesn't support span logging
-        return trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value
+        return (
+            trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+            != SpansLocation.TRACKING_STORE.value
+        )
