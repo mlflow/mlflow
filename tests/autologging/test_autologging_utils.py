@@ -1,3 +1,4 @@
+import importlib
 import inspect
 import sys
 import time
@@ -883,8 +884,6 @@ def test_is_flavor_supported_returns_true_when_flavor_module_not_installed(monke
     Uses monkeypatch so the test is portable — it exercises the ModuleNotFoundError branch
     regardless of whether 'langchain' is installed in the test environment.
     """
-    import importlib
-
     original_import = importlib.import_module
 
     def fake_import_absent(name, *args, **kwargs):
@@ -906,8 +905,6 @@ def test_is_flavor_supported_reraises_unrelated_module_not_found(monkeypatch):
     This prevents masking genuine installation errors where the flavor itself is
     present but broken (e.g. one of its own dependencies is missing).
     """
-    import importlib
-
     original_import = importlib.import_module
 
     def fake_import_transitive(name, *args, **kwargs):
@@ -923,3 +920,24 @@ def test_is_flavor_supported_reraises_unrelated_module_not_found(monkeypatch):
 
     with pytest.raises(ModuleNotFoundError, match="some_unrelated_dep"):
         is_flavor_supported_for_associated_package_versions("langchain")
+
+
+def test_is_flavor_supported_returns_true_when_dotted_module_parent_not_installed(monkeypatch):
+    """For dotted mappings like gemini -> "google.genai", importing the module when the
+    top-level package is entirely absent raises ModuleNotFoundError with e.name set to the
+    parent ("google"), not the full dotted path. The prefix check must treat this as the
+    flavor's own module being absent and skip the version check.
+    """
+    assert FLAVOR_TO_MODULE_NAME["gemini"] == "google.genai"
+
+    original_import = importlib.import_module
+
+    def fake_import_parent_absent(name, *args, **kwargs):
+        if name == "google.genai":
+            raise ModuleNotFoundError("No module named 'google'", name="google")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import_parent_absent)
+
+    result = is_flavor_supported_for_associated_package_versions("gemini")
+    assert result is True
