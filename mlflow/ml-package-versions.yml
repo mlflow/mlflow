@@ -954,11 +954,11 @@ pydantic_ai:
     unsupported: [">=2.0.0,<2.5.0"]
     requirements:
       ">= 0.0.0": ["mcp"]
-      # pydantic-ai < 1.0.0 does `from opentelemetry._events import Event`, but doesn't
+      # pydantic-ai < 2.0.0 does `from opentelemetry._events import Event`, but doesn't
       # cap opentelemetry-api, so it floats to 1.44.0 which removed the `_events` module,
       # breaking collection with `ModuleNotFoundError: No module named 'opentelemetry._events'`.
-      # pydantic-ai >= 1.0.0 either caps the api itself or switched to `opentelemetry._logs`.
-      "< 1.0.0": ["opentelemetry-api<1.44"]
+      # pydantic-ai >= 2.0.0 no longer imports `opentelemetry._events`.
+      "< 2.0.0": ["opentelemetry-api<1.44"]
     run: pytest tests/pydantic_ai
     test_tracing_sdk: true
     test_every_n_versions: 10
