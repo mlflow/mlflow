@@ -38,6 +38,7 @@ import {
 } from '../../../common/utils/FeatureUtils';
 import {
   MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE_SWEEP,
   MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
   MLFLOW_RUN_TYPE_VALUE_TEST,
 } from '../../constants';
@@ -417,6 +418,16 @@ export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
           <FormattedMessage
             defaultMessage="Issue detection"
             description="Type pill text for an issue-detection run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    case MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE_SWEEP:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.sweep" color="lemon" css={pillCss}>
+          <ChartLineIcon />
+          <FormattedMessage
+            defaultMessage="Sweep"
+            description="Type pill text for an evaluation sweep run in the evaluation runs table"
           />
         </Tag>
       );

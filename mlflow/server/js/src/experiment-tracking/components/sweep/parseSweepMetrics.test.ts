@@ -1,6 +1,6 @@
 import { describe, test, expect } from '@jest/globals';
 
-import type { MetricEntitiesByName } from '../../../types';
+import type { MetricEntitiesByName } from '../../types';
 import { findBestConfigs, parseSweepMetrics } from './parseSweepMetrics';
 
 const metrics = (values: Record<string, number>): MetricEntitiesByName =>

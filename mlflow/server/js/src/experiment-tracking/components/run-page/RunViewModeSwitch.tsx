@@ -2,10 +2,10 @@ import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE_SWEEP, RunPageTabName } from '../../constants';
+import { RunPageTabName } from '../../constants';
 import { getPreservedQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
@@ -49,12 +49,6 @@ const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
   [RunPageTabName.ARTIFACTS]: (
     <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
   ),
-  [RunPageTabName.EVALUATION_SWEEP]: (
-    <FormattedMessage
-      defaultMessage="Evaluation sweep"
-      description="Run details page > tab selector > evaluation sweep tab"
-    />
-  ),
 };
 
 export interface RunViewModeSwitchProps {
@@ -81,17 +75,6 @@ export const RunViewModeSwitch = ({
   const [searchParams] = useSearchParams();
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
-
-  // The evaluation sweep tab is only meaningful on the parent run of a sweep, which is the only
-  // run carrying the sweep's aggregated per-config results.
-  const isEvaluateSweepRun = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE_SWEEP;
-  const tabs = useMemo(
-    () =>
-      isEvaluateSweepRun && !visibleTabs.includes(RunPageTabName.EVALUATION_SWEEP)
-        ? [...visibleTabs, RunPageTabName.EVALUATION_SWEEP]
-        : visibleTabs,
-    [isEvaluateSweepRun, visibleTabs],
-  );
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
@@ -127,7 +110,7 @@ export const RunViewModeSwitch = ({
       }}
     >
       <Tabs.List>
-        {tabs.map((tabName) => (
+        {visibleTabs.map((tabName) => (
           <Tabs.Trigger key={tabName} value={tabName}>
             {TAB_LABELS[tabName]}
           </Tabs.Trigger>

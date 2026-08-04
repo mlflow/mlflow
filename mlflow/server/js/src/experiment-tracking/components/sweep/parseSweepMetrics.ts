@@ -1,4 +1,4 @@
-import type { MetricEntitiesByName } from '../../../types';
+import type { MetricEntitiesByName } from '../../types';
 
 /**
  * Parses the summary metrics that `mlflow.genai.evaluate_sweep` flattens onto its parent run
