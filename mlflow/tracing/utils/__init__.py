@@ -29,7 +29,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.constant import (
     CostKey as CostKey,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -490,6 +489,8 @@ def maybe_get_serving_request_id() -> str | None:
 
     Returns ``None`` outside model serving, where a client request ID has no meaning.
     """
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
     if not is_in_databricks_model_serving_environment():
         return None
 
