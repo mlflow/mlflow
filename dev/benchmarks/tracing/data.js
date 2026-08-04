@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785831588523,
+  "lastUpdate": 1785869969296,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18413,6 +18413,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.751723799997535,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mprahl@users.noreply.github.com",
+            "name": "Matthew Prahl",
+            "username": "mprahl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d87c8210b0b4d49a4fc73c5c01ddc6b5621b8a40",
+          "message": "Optimize SQL trace info materialization (#24880)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-08-04T18:58:09Z",
+          "tree_id": "e8373cf6ee2c50b2b33f7442aeb5008f79f0d753",
+          "url": "https://github.com/mlflow/mlflow/commit/d87c8210b0b4d49a4fc73c5c01ddc6b5621b8a40"
+        },
+        "date": 1785869968455,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.25174755000023,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.467127037036636,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.590576208633796,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.422902350877903,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.729311784000288,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.32759999999746,
             "unit": "ms"
           }
         ]
