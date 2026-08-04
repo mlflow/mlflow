@@ -2192,6 +2192,8 @@ module.exports = {
   // -- mlflow.run-view --
   "mlflow.run-view.compare-button": "",
   "mlflow.run-view.compare-button.tooltip": "",
+  "mlflow.run-view-evaluations.analyze-button": "",
+  "mlflow.run-view-evaluations.analyze-button.tooltip": "",
 
   // -- mlflow.run_details --
   "mlflow.run_details.header.register-model-button.tooltip": "",

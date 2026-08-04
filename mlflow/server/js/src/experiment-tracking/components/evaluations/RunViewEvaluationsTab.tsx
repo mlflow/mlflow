@@ -1,8 +1,7 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
@@ -73,6 +72,7 @@ import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useC
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
+import { RunViewEvaluationAnalyzeButton } from './RunViewEvaluationAnalyzeButton';
 
 const ContextProviders = ({
   children,
@@ -428,6 +428,7 @@ const RunViewEvaluationsTabInner = ({
                 isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
                 isGroupedBySession={isGroupedBySession}
                 onToggleSessionGrouping={onToggleSessionGrouping}
+                addons={<RunViewEvaluationAnalyzeButton runUuid={runUuid} />}
               />
               {
                 // prettier-ignore
