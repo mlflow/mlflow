@@ -19,6 +19,7 @@ from opentelemetry.trace import (
 
 from mlflow.entities import LiveSpan, SpanType
 from mlflow.entities.span import create_mlflow_span
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -42,8 +43,6 @@ def _get_opentelemetry_tracer_class():
             # In haystack < 3, `OpenTelemetryTracer` ships in the core package
             from haystack.tracing import OpenTelemetryTracer
         except ImportError as e:
-            from mlflow.exceptions import MlflowException
-
             raise MlflowException(
                 "MLflow haystack autologging requires the `opentelemetry-haystack` package "
                 "when using haystack >= 3. Please run `pip install opentelemetry-haystack`."
