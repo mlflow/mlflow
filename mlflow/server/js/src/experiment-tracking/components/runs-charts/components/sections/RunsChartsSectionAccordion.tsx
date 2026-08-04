@@ -316,6 +316,23 @@ export const RunsChartsSectionAccordion = ({
     return { sectionsToRender: compareRunSectionsFiltered, chartsToRender: compareRunChartsFiltered };
   }, [search, compareRunCharts, compareRunSections]);
 
+  /**
+   * Pre-compute and memoize the charts belonging to each section. Without this,
+   * the inner filter creates a new array on every render, causing downstream
+   * components (and their expensive empty-chart checks) to recompute unnecessarily.
+   */
+  const sectionChartsMap = useMemo(() => {
+    const map = new Map<string, RunsChartsCardConfig[]>();
+    (sectionsToRender || []).forEach((sectionConfig) => {
+      const sectionCharts = (chartsToRender || []).filter((config: RunsChartsCardConfig) => {
+        const section = (config as RunsChartsBarCardConfig).metricSectionId;
+        return !config.deleted && section === sectionConfig.uuid;
+      });
+      map.set(sectionConfig.uuid, sectionCharts);
+    });
+    return map;
+  }, [sectionsToRender, chartsToRender]);
+
   const isSearching = search !== '';
 
   if (!compareRunSections || !compareRunCharts) {
@@ -366,10 +383,7 @@ export const RunsChartsSectionAccordion = ({
     <div>
       <MetricChartsAccordion activeKey={activeKey} onActiveKeyChange={onActivePanelChange}>
         {(sectionsToRender || []).map((sectionConfig: ChartSectionConfig, index: number) => {
-          const sectionCharts = (chartsToRender || []).filter((config: RunsChartsCardConfig) => {
-            const section = (config as RunsChartsBarCardConfig).metricSectionId;
-            return !config.deleted && section === sectionConfig.uuid;
-          });
+          const sectionCharts = sectionChartsMap.get(sectionConfig.uuid) ?? [];
 
           return (
             <Accordion.Panel
