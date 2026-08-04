@@ -81,7 +81,7 @@ class _DatabricksScheduledScorerConfig(_DatabricksManagedScorerPayload):
     name: str
     sample_rate: float | None = None
     filter_string: str | None = None
-    scorer_version: int = 1
+    scorer_version: int | None = None
 
     @classmethod
     def from_scorer(
@@ -681,7 +681,10 @@ class DatabricksStore(AbstractScorerStore):
                 registered_payload[field] = current_payload[field]
             else:
                 registered_payload.pop(field, None)
-        registered_payload["scorer_version"] = configs[index].scorer_version
+        if configs[index].scorer_version is not None:
+            registered_payload["scorer_version"] = configs[index].scorer_version
+        else:
+            registered_payload.pop("scorer_version", None)
         configs[index] = _DatabricksScheduledScorerConfig.model_validate(registered_payload)
         return configs
 
@@ -729,9 +732,7 @@ class DatabricksStore(AbstractScorerStore):
         experiment_id: str | None = None,
     ) -> Scorer:
         """Update scheduling fields without changing the current scorer definition."""
-        experiment_id = self._resolve_experiment_id(
-            experiment_id or (scorer._experiment_id if scorer is not None else None)
-        )
+        experiment_id = self._resolve_experiment_id(experiment_id)
         configs = self._list_current_scorer_configs(experiment_id)
         index = self._find_scorer_config_index(configs, name)
         if index is None:
