@@ -22,22 +22,14 @@ _GIT_PUSH_TIMEOUT = 30 * 60
 class Repo:
     """A website repository checkout that this script commits and pushes to.
 
-    `actions/checkout` creates the checkout and owns its credentials, so no token
-    is handled here. `gh` picks up `$GH_TOKEN` from the environment.
+    The caller provides the checkout, its credentials and the committer identity;
+    `gh` picks up `$GH_TOKEN` from the environment.
     """
 
     def __init__(self, repo: str, root: Path, *, default_branch: str = "main"):
         self.repo = repo
         self.root = root
         self.default_branch = default_branch
-
-    @classmethod
-    def open(cls, repo: str, root: Path, *, default_branch: str = "main") -> Repo:
-        instance = cls(repo, root, default_branch=default_branch)
-        # `actions/checkout` doesn't configure a committer
-        instance.git("config", "user.name", "mlflow-app[bot]")
-        instance.git("config", "user.email", "mlflow-app[bot]@users.noreply.github.com")
-        return instance
 
     def git(self, *args: str, timeout: int = _GIT_TIMEOUT) -> None:
         subprocess.check_call(["git", *args], cwd=self.root, timeout=timeout)
@@ -85,7 +77,7 @@ def build_docs(args: argparse.Namespace) -> None:
     subprocess.check_call(["npm", "ci"], cwd=docs_dir, env=env)
     subprocess.check_call(["npm", "run", "build-all", "--", "--use-npm"], cwd=docs_dir, env=env)
 
-    website_repo = Repo.open("mlflow/mlflow-legacy-website", Path(args.website_dir).resolve())
+    website_repo = Repo("mlflow/mlflow-legacy-website", Path(args.website_dir).resolve())
     branch_name = f"docs-{release_version}-{uuid.uuid4().hex[:8]}"
     website_repo.git("checkout", "-q", "-b", branch_name)
 
@@ -175,7 +167,7 @@ def release_post(args: argparse.Namespace) -> None:
     release_version = _read_version(mlflow_dir)
     print(f"Creating release post for MLflow {release_version}")
 
-    website_repo = Repo.open("mlflow/mlflow-website", Path(args.website_dir).resolve())
+    website_repo = Repo("mlflow/mlflow-website", Path(args.website_dir).resolve())
     branch_name = f"release-post-{release_version}-{uuid.uuid4().hex[:8]}"
     website_repo.git("checkout", "-q", "-b", branch_name)
 
