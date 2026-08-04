@@ -58,6 +58,7 @@ jest.mock('@tanstack/react-virtual', () => {
         getTotalSize: () => opts.count * 360,
         measureElement: () => {},
         options: { scrollMargin: opts.scrollMargin ?? 0 },
+        options: { scrollMargin: opts.scrollMargin ?? 0 },
       };
     },
   };
