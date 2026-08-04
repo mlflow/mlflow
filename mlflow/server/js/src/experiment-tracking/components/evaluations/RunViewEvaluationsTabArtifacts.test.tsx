@@ -20,6 +20,10 @@ jest.mock('./hooks/useSavePendingEvaluationAssessments', () => ({
   useSavePendingEvaluationAssessments: () => ({}),
 }));
 
+jest.mock('./EvaluationRunCompareSelector', () => ({
+  EvaluationRunCompareSelector: () => <div data-testid="evaluation-run-compare-selector" />,
+}));
+
 jest.mock('../../../common/utils/MarkdownUtils', () => ({
   useMarkdownConverter: () => (markdown?: string) => markdown || '',
 }));
@@ -69,6 +73,22 @@ describe('RunViewEvaluationsTabArtifacts', () => {
     renderComponent(<button type="button">Analyze</button>);
 
     expect(screen.getByRole('button', { name: 'Analyze' })).toBeInTheDocument();
+    expect(screen.getByTestId('artifact-evaluation-table')).toBeInTheDocument();
+  });
+
+  it('hides the toolbar when improved comparison is enabled and there are no actions', () => {
+    renderComponent();
+
+    expect(screen.queryByTestId('evaluation-run-compare-selector')).not.toBeInTheDocument();
+    expect(screen.getByTestId('artifact-evaluation-table')).toBeInTheDocument();
+  });
+
+  it('renders the compare selector when improved comparison is disabled', () => {
+    mockShouldEnableImprovedEvalRunsComparison = false;
+
+    renderComponent();
+
+    expect(screen.getByTestId('evaluation-run-compare-selector')).toBeInTheDocument();
     expect(screen.getByTestId('artifact-evaluation-table')).toBeInTheDocument();
   });
 });
