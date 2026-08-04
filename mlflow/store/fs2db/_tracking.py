@@ -71,10 +71,11 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.utils.trace_analytics import (
+    PROMOTED_TRACE_METADATA_KEYS,
     analytics_columns_from_metadata,
     assessment_aggregate,
 )
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TraceTagKey
 
 _logger = logging.getLogger(__name__)
 
@@ -475,11 +476,7 @@ def _migrate_traces_for_experiment(
         trace_name = tags.pop(TraceTagKey.TRACE_NAME, None)
         request_metadata = read_tag_files(trace_dir / FileStore.TRACE_TRACE_METADATA_FOLDER_NAME)
         analytics_columns = analytics_columns_from_metadata(request_metadata)
-        for key in (
-            TraceMetadataKey.TRACE_SESSION,
-            TraceMetadataKey.TOKEN_USAGE,
-            TraceMetadataKey.COST,
-        ):
+        for key in PROMOTED_TRACE_METADATA_KEYS:
             request_metadata.pop(key, None)
 
         session.add(

@@ -21,6 +21,11 @@ COST_COLUMN_BY_KEY = {
     CostKey.OUTPUT_COST: "output_cost",
     CostKey.TOTAL_COST: "total_cost",
 }
+PROMOTED_TRACE_METADATA_KEYS = frozenset({
+    TraceMetadataKey.TRACE_SESSION,
+    TraceMetadataKey.TOKEN_USAGE,
+    TraceMetadataKey.COST,
+})
 
 
 def finite_float_or_none(value: Any) -> float | None:

@@ -176,6 +176,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 )
 from mlflow.store.tracking.utils.trace_analytics import (
     COST_COLUMN_BY_KEY,
+    PROMOTED_TRACE_METADATA_KEYS,
     TOKEN_COLUMN_BY_KEY,
     analytics_columns_from_metadata,
     assessment_aggregate,
@@ -3696,11 +3697,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
-            for key in (
-                TraceMetadataKey.TRACE_SESSION,
-                TraceMetadataKey.TOKEN_USAGE,
-                TraceMetadataKey.COST,
-            ):
+            for key in PROMOTED_TRACE_METADATA_KEYS:
                 request_metadata.pop(key, None)
 
             # Signal that start_trace() has finalized top-level trace fields. Optional analytics
@@ -7841,11 +7838,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             ]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
-            for key in (
-                TraceMetadataKey.TRACE_SESSION,
-                TraceMetadataKey.TOKEN_USAGE,
-                TraceMetadataKey.COST,
-            ):
+            for key in PROMOTED_TRACE_METADATA_KEYS:
                 request_metadata.pop(key, None)
 
             # Emit metadata rows in sorted key order to keep PK-index lock acquisition
@@ -7893,11 +7886,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             analytics_columns = analytics_columns_from_metadata(request_metadata)
             for column, value in analytics_columns.items():
                 setattr(sql_trace_info, column, value)
-            for key in (
-                TraceMetadataKey.TRACE_SESSION,
-                TraceMetadataKey.TOKEN_USAGE,
-                TraceMetadataKey.COST,
-            ):
+            for key in PROMOTED_TRACE_METADATA_KEYS:
                 request_metadata.pop(key, None)
 
             tags = dict(tags)

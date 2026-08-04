@@ -105,10 +105,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.tracking.utils.trace_analytics import (
+    PROMOTED_TRACE_METADATA_KEYS,
     assessment_aggregate,
     compatibility_metadata_from_columns,
 )
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -887,12 +888,7 @@ class SqlTraceInfo(Base):
         trace_metadata = {
             m.key: m.value
             for m in self.request_metadata
-            if m.key
-            not in {
-                TraceMetadataKey.TRACE_SESSION,
-                TraceMetadataKey.TOKEN_USAGE,
-                TraceMetadataKey.COST,
-            }
+            if m.key not in PROMOTED_TRACE_METADATA_KEYS
         }
         trace_metadata.update(compatibility_metadata_from_columns(self))
 
