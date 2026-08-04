@@ -30,6 +30,79 @@ def upgrade(url):
         mlflow.store.db.utils._upgrade_db(engine)
 
 
+@commands.command("prepopulate-trace-analytics")
+@click.argument("url", envvar="MLFLOW_TRACKING_URI")
+@click.option(
+    "--batch-size",
+    type=click.IntRange(min=1, max=250),
+    default=250,
+    show_default=True,
+    help=(
+        "Number of rows processed per committed transaction. The 250-row limit bounds lock "
+        "duration and stays below supported-database parameter limits."
+    ),
+)
+def prepopulate_trace_analytics(url, batch_size):
+    """
+    Prepopulate denormalized trace analytics columns before a database upgrade.
+
+    URL may instead be supplied through MLFLOW_TRACKING_URI to keep credentials out of process
+    arguments and shell history.
+
+    This command is safe to rerun after interruption. A rerun scans from the beginning but skips
+    rows that are already correct. It does not advance the Alembic revision or remove legacy
+    analytics data. The final `mlflow db upgrade` is still required and remains the authoritative
+    validation and cleanup step.
+
+    Adding the columns requires brief exclusive table locks. Run the command during a low-traffic
+    period; it fails quickly if those locks cannot be acquired.
+
+    Always take a database backup before changing the schema.
+    """
+    import sqlalchemy.exc
+
+    import mlflow.store.db.utils
+    from mlflow.store.db.trace_analytics_prepopulation import (
+        prepopulate_trace_analytics as prepopulate,
+    )
+
+    engine = None
+    try:
+        engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+        click.echo("Prepopulating denormalized trace analytics columns...")
+
+        def report_progress(entity, entity_stats):
+            click.echo(
+                f"{entity.capitalize()} progress: "
+                f"scanned={entity_stats.scanned}, updated={entity_stats.updated}"
+            )
+
+        stats = prepopulate(
+            engine,
+            batch_size=batch_size,
+            progress_callback=report_progress,
+        )
+        for entity, entity_stats in (
+            ("Traces", stats.traces),
+            ("Spans", stats.spans),
+            ("Assessments", stats.assessments),
+        ):
+            click.echo(f"{entity}: scanned={entity_stats.scanned}, updated={entity_stats.updated}")
+        click.echo(
+            "Prepopulation completed without advancing the Alembic revision. "
+            "Run `mlflow db upgrade` during the final upgrade."
+        )
+    except (RuntimeError, ValueError) as e:
+        raise click.ClickException(str(e)) from e
+    except sqlalchemy.exc.SQLAlchemyError as e:
+        # Driver messages can contain the supplied DSN, including credentials. Keep the CLI error
+        # credential-safe; the chained exception remains available to callers that log tracebacks.
+        raise click.ClickException(f"Database operation failed ({type(e).__name__}).") from e
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
 @commands.command("migrate-to-default-workspace")
 @click.argument("url")
 @click.option(
