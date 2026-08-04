@@ -4,12 +4,37 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LazyPlot } from '../LazyPlot';
 import type { RunEntity } from '../../types';
+import { useDynamicPlotSize } from '../runs-charts/components/RunsCharts.common';
 import { buildSweepChartData, buildTradeoffPoints, type SweepChartPoint } from './sweepChartData';
 
 const CHART_HEIGHT = 320;
-const CHART_MIN_WIDTH = 420;
+const CHART_PREFERRED_WIDTH = 420;
 
 const PLOT_CONFIG = { responsive: true, displaylogo: false, displayModeBar: false } as const;
+
+/**
+ * Wraps a plot in a size-observed container.
+ *
+ * Plotly fixes a plot's width when it first draws, so a chart laid out before its flex container
+ * has settled keeps that stale width and paints content outside the plot area until the view is
+ * reset (a double-click). Feeding the observed width back into the layout, together with
+ * `autosize`, keeps each plot matched to its card.
+ */
+const SizedPlot = ({ data, layout }: { data: unknown[]; layout: Record<string, unknown> }) => {
+  const { setContainerDiv, layoutWidth } = useDynamicPlotSize();
+
+  return (
+    <div ref={setContainerDiv} css={{ width: '100%', height: CHART_HEIGHT }}>
+      <LazyPlot
+        data={data}
+        layout={{ ...layout, autosize: true, height: CHART_HEIGHT, width: layoutWidth }}
+        config={PLOT_CONFIG}
+        useResizeHandler
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
+  );
+};
 
 /**
  * Charts comparing the configurations of `mlflow.genai.evaluate_sweep` runs.
@@ -32,8 +57,10 @@ const ChartCard = ({ title, children }: { title: React.ReactNode; children: Reac
   return (
     <div
       css={{
-        flex: `1 1 ${CHART_MIN_WIDTH}px`,
-        minWidth: CHART_MIN_WIDTH,
+        // Prefer two cards per row, but `minWidth: 0` lets a card shrink below that when the panel
+        // is narrow (the runs page shows these beside the runs table) instead of overflowing it.
+        flex: `1 1 ${CHART_PREFERRED_WIDTH}px`,
+        minWidth: 0,
         padding: theme.spacing.sm,
         border: `1px solid ${theme.colors.borderDecorative}`,
         borderRadius: theme.general.borderRadiusBase,
@@ -79,23 +106,20 @@ const ScorerIntervalChart = ({ points, scorer }: { points: SweepChartPoint[]; sc
   }, [points, scorer, theme.colors.primary]);
 
   return (
-    <LazyPlot
+    <SizedPlot
       data={plotData}
       layout={{
-        height: CHART_HEIGHT,
-        margin: { t: 8, r: 8, b: 80, l: 48 },
+        margin: { t: 8, r: 16, b: 80, l: 56 },
         showlegend: false,
         xaxis: { automargin: true, tickangle: -30 },
         yaxis: {
+          automargin: true,
           title: intl.formatMessage({
             defaultMessage: 'Score',
             description: 'Evaluation runs page > sweep charts > scorer interval chart > y axis title',
           }),
         },
       }}
-      config={PLOT_CONFIG}
-      useResizeHandler
-      style={{ width: '100%' }}
     />
   );
 };
@@ -128,18 +152,14 @@ const PerConfigBarChart = ({
   }, [points, valueOf, hoverFormat, theme.colors.primary]);
 
   return (
-    <LazyPlot
+    <SizedPlot
       data={plotData}
       layout={{
-        height: CHART_HEIGHT,
-        margin: { t: 8, r: 8, b: 80, l: 56 },
+        margin: { t: 8, r: 16, b: 80, l: 64 },
         showlegend: false,
         xaxis: { automargin: true, tickangle: -30 },
-        yaxis: { title: axisTitle, rangemode: 'tozero' },
+        yaxis: { automargin: true, title: axisTitle, rangemode: 'tozero' },
       }}
-      config={PLOT_CONFIG}
-      useResizeHandler
-      style={{ width: '100%' }}
     />
   );
 };
@@ -166,11 +186,27 @@ const TradeoffChart = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const plotData = useMemo(() => {
+  const { plotData, ranges } = useMemo(() => {
     const tradeoffs = buildTradeoffPoints(points, scorer, costOf);
     const frontier = tradeoffs.filter((point) => point.isOnFrontier).sort((a, b) => a.cost - b.cost);
 
-    return [
+    // Each point carries its config name as a text label, which Plotly draws outside the marker and
+    // does not include in the autoscaled range, so the outermost labels get clipped. Pad the ranges
+    // to leave room for them.
+    const costs = tradeoffs.map((point) => point.cost);
+    const scores = tradeoffs.map((point) => point.ciHigh ?? point.score);
+    const scoreLows = tradeoffs.map((point) => point.ciLow ?? point.score);
+    const pad = (values: number[], fraction: number) => {
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      // A single point (or identical values) has no spread to scale, so fall back to a flat pad.
+      const spread = max - min || Math.abs(max) || 1;
+      return { min: min - spread * fraction, max: max + spread * fraction };
+    };
+    const costRange = pad(costs, 0.18);
+    const scoreRange = { min: pad(scoreLows, 0.12).min, max: pad(scores, 0.12).max };
+
+    const data = [
       {
         x: frontier.map((point) => point.cost),
         y: frontier.map((point) => point.score),
@@ -186,7 +222,14 @@ const TradeoffChart = ({
         text: tradeoffs.map((point) => point.label),
         type: 'scatter' as const,
         mode: 'markers+text' as const,
-        textposition: 'top center' as const,
+        // Centred labels on the outermost points overhang the plot edge, and the x range cannot be
+        // padded below zero for a near-free config. Anchor those labels inward instead.
+        textposition: tradeoffs.map((point) => {
+          if (point.cost === Math.min(...costs)) {
+            return 'top right';
+          }
+          return point.cost === Math.max(...costs) ? 'top left' : 'top center';
+        }),
         textfont: { size: 10, color: theme.colors.textSecondary },
         marker: {
           size: 12,
@@ -208,26 +251,31 @@ const TradeoffChart = ({
         showlegend: false,
       },
     ];
+
+    return { plotData: data, ranges: { cost: costRange, score: scoreRange } };
   }, [points, scorer, costOf, xHoverFormat, theme.colors]);
 
   return (
-    <LazyPlot
+    <SizedPlot
       data={plotData}
       layout={{
-        height: CHART_HEIGHT,
-        margin: { t: 16, r: 16, b: 48, l: 56 },
+        margin: { t: 24, r: 24, b: 56, l: 64 },
         hovermode: 'closest',
-        xaxis: { title: xAxisTitle, rangemode: 'tozero' },
+        xaxis: {
+          automargin: true,
+          title: xAxisTitle,
+          // Cost and latency are never negative, so don't pad below zero.
+          range: [Math.max(0, ranges.cost.min), ranges.cost.max],
+        },
         yaxis: {
+          automargin: true,
+          range: [ranges.score.min, ranges.score.max],
           title: intl.formatMessage({
             defaultMessage: 'Score',
             description: 'Evaluation runs page > sweep charts > tradeoff chart > y axis title',
           }),
         },
       }}
-      config={PLOT_CONFIG}
-      useResizeHandler
-      style={{ width: '100%' }}
     />
   );
 };
