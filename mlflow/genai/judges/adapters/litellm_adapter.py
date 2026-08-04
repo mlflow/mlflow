@@ -62,26 +62,30 @@ def is_litellm_rate_limit_retries_disabled() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# RetryAdapter registry
+# RateLimitRetryAdapter registry
 #
 # Each integration that has its own internal 429-retry mechanism registers a
-# RetryAdapter here. eval_retry_context() in rate_limiter.py iterates this
-# registry and disables only the adapters whose matches() returns True,
-# allowing 429s to propagate up to MLflow's own call_with_retry / AIMD logic.
+# RateLimitRetryAdapter here. eval_retry_context() in rate_limiter.py iterates
+# this registry and disables only the adapters whose is_adapter_active() returns
+# True, allowing 429s to propagate up to MLflow's own call_with_retry / AIMD logic.
 #
 # To register a new adapter:
-#   from mlflow.genai.judges.adapters.litellm_adapter import register_retry_adapter, RetryAdapter
-#   register_retry_adapter(RetryAdapter(name="myprovider", matches=..., disable_internal_retries=...))
+#   from mlflow.genai.judges.adapters.litellm_adapter import (
+#       register_retry_adapter, RateLimitRetryAdapter
+#   )
+#   register_retry_adapter(RateLimitRetryAdapter(
+#       name="myprovider", is_adapter_active=..., disable_internal_retries=...
+#   ))
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class RetryAdapter:
+class RateLimitRetryAdapter:
     """Descriptor for a provider that has its own internal 429-retry mechanism.
 
     Attributes:
         name: Human-readable identifier (used in debug logging).
-        matches: Zero-argument callable returning True when this adapter is
+        is_adapter_active: Zero-argument callable returning True when this adapter is
             active in the current environment (e.g. package installed and the
             active tracking URI targets that provider).
         disable_internal_retries: Context manager that suppresses the
@@ -89,55 +93,41 @@ class RetryAdapter:
     """
 
     name: str
-    matches: Callable[[], bool]
+    is_adapter_active: Callable[[], bool]
     disable_internal_retries: Callable[[], contextlib.AbstractContextManager]
 
 
-_RETRY_ADAPTER_REGISTRY: list[RetryAdapter] = []
+# Keep RetryAdapter as an alias for backwards compatibility
+RetryAdapter = RateLimitRetryAdapter
+
+_RETRY_ADAPTER_REGISTRY: list[RateLimitRetryAdapter] = []
 
 
-def register_retry_adapter(adapter: RetryAdapter) -> None:
-    """Register a RetryAdapter so eval_retry_context() can disable it."""
+def register_retry_adapter(adapter: RateLimitRetryAdapter) -> None:
+    """Register a RateLimitRetryAdapter so eval_retry_context() can disable it.
+
+    Deduplicates by name — registering an adapter with the same name as an
+    existing entry replaces the existing entry.
+    """
+    for i, existing in enumerate(_RETRY_ADAPTER_REGISTRY):
+        if existing.name == adapter.name:
+            _RETRY_ADAPTER_REGISTRY[i] = adapter
+            return
     _RETRY_ADAPTER_REGISTRY.append(adapter)
 
 
-def get_retry_adapters() -> list[RetryAdapter]:
-    """Return the registered RetryAdapters (read-only view for callers)."""
+def get_retry_adapters() -> list[RateLimitRetryAdapter]:
+    """Return the registered RateLimitRetryAdapters (read-only view for callers)."""
     return list(_RETRY_ADAPTER_REGISTRY)
 
 
-def _is_databricks_tracking_uri() -> bool:
-    try:
-        import mlflow
-
-        return mlflow.get_tracking_uri().startswith("databricks")
-    except Exception:
-        return False
-
-
-@contextlib.contextmanager
-def _disable_databricks_429_retry() -> Iterator[None]:
-    from mlflow.utils.rest_utils import disable_429_retry
-
-    with disable_429_retry():
-        yield
-
-
-# --- Built-in registrations ---
+# --- Built-in registration: LiteLLM ---
 
 register_retry_adapter(
-    RetryAdapter(
+    RateLimitRetryAdapter(
         name="litellm",
-        matches=lambda: _is_litellm_available(),
+        is_adapter_active=lambda: _is_litellm_available(),
         disable_internal_retries=disable_litellm_rate_limit_retries,
-    )
-)
-
-register_retry_adapter(
-    RetryAdapter(
-        name="databricks-sdk",
-        matches=lambda: _is_databricks_tracking_uri(),
-        disable_internal_retries=_disable_databricks_429_retry,
     )
 )
 

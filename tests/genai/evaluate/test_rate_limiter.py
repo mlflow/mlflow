@@ -13,10 +13,10 @@ from mlflow.genai.evaluation.rate_limiter import (
     eval_retry_context,
     is_rate_limit_error,
 )
+from mlflow.genai.judges.adapters.databricks_adapter import _disable_databricks_429_retry
 from mlflow.genai.judges.adapters.litellm_adapter import (
-    RetryAdapter,
+    RateLimitRetryAdapter,
     _get_litellm_retry_policy,
-    _disable_databricks_429_retry,
     disable_litellm_rate_limit_retries,
     is_litellm_rate_limit_retries_disabled,
 )
@@ -381,14 +381,14 @@ def test_call_with_retry_reports_throttle_and_success():
 # Both built-in adapters forced active so tests don't depend on litellm
 # being installed or a Databricks tracking URI being configured.
 _BOTH_ADAPTERS_ACTIVE = [
-    RetryAdapter(
+    RateLimitRetryAdapter(
         name="litellm",
-        matches=lambda: True,
+        is_adapter_active=lambda: True,
         disable_internal_retries=disable_litellm_rate_limit_retries,
     ),
-    RetryAdapter(
+    RateLimitRetryAdapter(
         name="databricks-sdk",
-        matches=lambda: True,
+        is_adapter_active=lambda: True,
         disable_internal_retries=_disable_databricks_429_retry,
     ),
 ]

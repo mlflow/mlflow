@@ -251,12 +251,16 @@ class OnlineTraceScoringProcessor:
         # Import evaluation modules lazily to avoid pulling in pandas at module load
         # time, which would break the skinny client.
         from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _log_assessments, _parse_rate_limit
-        from mlflow.genai.evaluation.harness import _compute_eval_scores
-        from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter, eval_retry_context
+        from mlflow.genai.evaluation.harness import (
+            _compute_eval_scores,
+            _log_assessments,
+            _make_rate_limiter,
+            _parse_rate_limit,
+        )
+        from mlflow.genai.evaluation.rate_limiter import eval_retry_context
 
         predict_rps, adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
-        rate_limiter = RPSRateLimiter(predict_rps or 10.0, adaptive=adaptive or True)
+        rate_limiter = _make_rate_limiter(predict_rps, adaptive=adaptive)
         max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
 
         def _score_with_rate_limiting(eval_item, scorers):
@@ -279,7 +283,9 @@ class OnlineTraceScoringProcessor:
                     continue
                 eval_item = EvalItem.from_trace(task.trace)
                 future = executor.submit(
-                    _score_with_rate_limiting, eval_item, task.scorers
+                    _score_with_rate_limiting,
+                    eval_item=eval_item,
+                    scorers=task.scorers,
                 )
                 futures[future] = task
 
