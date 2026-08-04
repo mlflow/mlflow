@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785785042620,
+  "lastUpdate": 1785814142836,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18197,6 +18197,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.516653799993492,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gauthierpiarrette@gmail.com",
+            "name": "Gauthier Piarrette",
+            "username": "gauthierpiarrette"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22a5cdedbc365781465d7d98e1d2a9829f4f4e39",
+          "message": "Serialize concurrent `SqlAlchemyStore.log_spans` calls for the same trace (#24516)\n\nSigned-off-by: Gauthier Piarrette <gauthierpiarrette@gmail.com>",
+          "timestamp": "2026-08-04T11:27:37+08:00",
+          "tree_id": "a2b83b699259a05e7f4a67fa921b14076a0be9c2",
+          "url": "https://github.com/mlflow/mlflow/commit/22a5cdedbc365781465d7d98e1d2a9829f4f4e39"
+        },
+        "date": 1785814141330,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.2795460500009,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 20.794589750001016,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 17.761440212499657,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 19.06502077777756,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 18.8075545999997,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.447288599998501,
             "unit": "ms"
           }
         ]
