@@ -270,6 +270,20 @@ def test_schema_inference_on_pandas_series():
         assert len(_infer_schema(s).input_names()) == 1
 
 
+def test_schema_inference_on_pandas_string_dtype():
+    # pandas 3.0 infers string columns as the dedicated StringDtype by default
+    # instead of numpy object. Schema inference must still map it to DataType.string.
+    schema = _infer_schema(pd.Series(["a", "b", "c"], dtype=pd.StringDtype()))
+    assert schema == Schema([ColSpec(DataType.string)])
+
+    schema = _infer_schema(pd.DataFrame({"text": pd.array(["a", "b"], dtype=pd.StringDtype())}))
+    assert schema == Schema([ColSpec(DataType.string, "text")])
+
+    # missing values yield an optional column
+    schema = _infer_schema(pd.Series(["a", None], dtype=pd.StringDtype(), name="input"))
+    assert schema == Schema([ColSpec(DataType.string, name="input", required=False)])
+
+
 def test_get_tensor_shape(dict_of_ndarrays):
     assert all(-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values())
 
