@@ -5,7 +5,13 @@
  * `from './AssistantService'` imports keep resolving every symbol.
  */
 
-import type { AssistantConfig, AssistantConfigUpdate, HealthCheckResult, InstallSkillsResponse, ProvidersResponse } from './types';
+import type {
+  AssistantConfig,
+  AssistantConfigUpdate,
+  HealthCheckResult,
+  InstallSkillsResponse,
+  ProvidersResponse,
+} from './types';
 import { API_BASE } from './transports/shared';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
