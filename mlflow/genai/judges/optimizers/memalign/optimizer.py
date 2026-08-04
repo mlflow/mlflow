@@ -500,6 +500,11 @@ class MemoryAugmentedJudge(Judge):
                 # aligned_judge_v2 now only retains feedback from
                 # `set(all_traces) - set(bad_traces)`
         """
+        # A judge loaded from the registry holds only trace IDs until its episodic memory is
+        # reconstructed. Without this, the check below would find nothing to remove and
+        # silently return an unchanged judge that still contains the retracted feedback.
+        self._lazy_init()
+
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
         if not any(

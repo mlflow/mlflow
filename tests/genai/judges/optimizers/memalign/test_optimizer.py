@@ -24,7 +24,9 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     EXAMPLES_SECTION_HEADER,
     GUIDELINES_SECTION_HEADER,
 )
+from mlflow.genai.scorers import get_scorer
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
+from mlflow.tracking.fluent import _get_experiment_id
 
 _HUMAN_SOURCE = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1")
 
@@ -1308,6 +1310,115 @@ def test_realign_after_unalign_roundtrip(sample_judge, sample_traces):
 
         assert set(judge_v3._episodic_trace_ids) == v1_trace_ids
         assert len(judge_v3._episodic_memory) == v1_episodic_count
+
+
+# =============================================================================
+# End-to-end lifecycle tests
+#
+# These drive the sequences a user actually performs and score at the end. The
+# older round-trip tests stop at state assertions, which no longer implies the
+# judge scores correctly now that scoring runs through a per-call copy of the
+# base judge.
+# =============================================================================
+
+
+def _mock_scoring_call(judge_name: str, model: str, value="yes"):
+    """Patch InstructionsJudge.__call__ and capture the instructions it ran on."""
+    feedback = Feedback(
+        name=judge_name,
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model),
+        value=value,
+        rationale="Test rationale",
+    )
+    captured: list[str] = []
+
+    def capture(self, **kwargs):
+        captured.append(self._instructions)
+        return feedback
+
+    return patch.object(InstructionsJudge, "__call__", capture), captured
+
+
+def test_unalign_then_realign_then_score(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        optimizer = MemAlignOptimizer()
+
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        unaligned = judge_v1.unalign(traces=sample_traces[:3])
+        assert unaligned._episodic_memory == []
+
+        judge_v3 = optimizer.align(unaligned, sample_traces[:3])
+        assert len(judge_v3._episodic_memory) == 3
+
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patcher:
+            result = judge_v3(inputs="test input", outputs="test output")
+
+        # Memory rebuilt by the re-align reaches the prompt, and scoring still works.
+        assert len(captured) == 1
+        assert "Guideline A" in captured[0]
+        assert "Example Judgements" in captured[0]
+        assert result.value == "yes"
+
+
+def test_register_then_load_then_score(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        optimizer = MemAlignOptimizer()
+        aligned = optimizer.align(sample_judge, sample_traces[:3])
+
+        aligned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+        assert isinstance(loaded, MemoryAugmentedJudge)
+        # Episodic memory is reconstructed lazily from the persisted trace IDs.
+        assert loaded._embedder is None
+        assert len(loaded._episodic_trace_ids) == 3
+
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patcher:
+            result = loaded(inputs="test input", outputs="test output")
+
+        # Semantic memory survived the round trip and episodic memory was rebuilt from
+        # the persisted trace IDs, so both reach the prompt the loaded judge scores with.
+        assert len(captured) == 1
+        assert "Guideline A" in captured[0]
+        assert "Example Judgements" in captured[0]
+        assert result.value == "yes"
+        assert result.metadata["retrieved_example_trace_ids"] == [sample_traces[0].info.trace_id]
+
+
+def test_register_then_load_then_unalign_then_score(sample_judge, sample_traces):
+    # unalign() must reconstruct episodic memory before filtering. A freshly loaded judge
+    # holds only trace IDs, so reading _episodic_memory directly would find nothing to
+    # remove and silently hand back an unchanged judge.
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        optimizer = MemAlignOptimizer()
+        aligned = optimizer.align(sample_judge, sample_traces[:3])
+
+        aligned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+        assert loaded._episodic_memory == []
+
+        updated = loaded.unalign(traces=[sample_traces[0]])
+
+        assert updated is not loaded
+        assert set(updated._episodic_trace_ids) == {
+            sample_traces[1].info.trace_id,
+            sample_traces[2].info.trace_id,
+        }
+        assert len(updated._episodic_memory) == 2
+        assert all(
+            ex._trace_id != sample_traces[0].info.trace_id for ex in updated._episodic_memory
+        )
+
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patcher:
+            result = updated(inputs="test input", outputs="test output")
+
+        assert len(captured) == 1
+        assert result.value == "yes"
 
 
 def test_align_dedupes_traces_within_a_single_call(sample_judge, sample_traces):
