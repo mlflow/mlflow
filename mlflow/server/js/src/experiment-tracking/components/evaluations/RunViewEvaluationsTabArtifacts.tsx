@@ -48,6 +48,8 @@ export const RunViewEvaluationsTabArtifacts = ({
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
 
   const noEvaluationTablesLogged = data?.length === 0;
+  const showCompareSelector = !shouldEnableImprovedEvalRunsComparison();
+  const showToolbar = showCompareSelector || actions;
 
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
@@ -124,18 +126,17 @@ export const RunViewEvaluationsTabArtifacts = ({
         overflowY: 'hidden',
       }}
     >
-      {(!shouldEnableImprovedEvalRunsComparison() || actions) && (
+      {showToolbar && (
         <div
           css={{
             width: '100%',
             padding: `${theme.spacing.xs}px 0`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
             gap: theme.spacing.sm,
           }}
         >
-          {!shouldEnableImprovedEvalRunsComparison() ? (
+          {showCompareSelector && (
             <div css={{ flex: 1, minWidth: 0 }}>
               <EvaluationRunCompareSelector
                 experimentId={experimentId}
@@ -144,10 +145,10 @@ export const RunViewEvaluationsTabArtifacts = ({
                 setCompareToRunUuid={setCompareToRunUuid}
               />
             </div>
-          ) : (
-            <div css={{ flex: 1 }} />
           )}
-          {actions && <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{actions}</div>}
+          {actions && (
+            <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>{actions}</div>
+          )}
         </div>
       )}
       {getOverviewTableComponent()}
