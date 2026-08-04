@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "The branch, tag or SHA to checkout from (e.g., branch-3.0)"
+        description: "Branch, tag or SHA to build from. Must contain dev/build_docs.py, i.e. be cut after it landed (e.g., branch-3.16). Cherry-pick it onto older release branches to publish their docs."
         required: true
       release_post:
         description: "Create a release post on mlflow/mlflow-website"
@@ -43,7 +43,7 @@ env:
 
 jobs:
   # Exercise both commands end-to-end on PRs that touch the script or this workflow.
-  # `--dry-run` clones the website repos and commits locally, but skips push and PR
+  # `--dry-run` commits to the website checkouts locally but skips push and PR
   # creation, so no token is required.
   test:
     if: github.event_name == 'pull_request'
@@ -96,14 +96,6 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.ref }}
-      # Release branches are cut before this script lands on them, so run the copy
-      # from the ref this workflow was dispatched from, not the one being built.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-          path: tools
-          sparse-checkout: dev/build_docs.py
-          sparse-checkout-cone-mode: false
       # `persist-credentials: true` keeps the App token in `http.extraheader` so the
       # script can push without ever handling the token itself.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -129,11 +121,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          uv run tools/dev/build_docs.py $DRY_RUN_FLAG release-post --website-dir website
+          uv run dev/build_docs.py $DRY_RUN_FLAG release-post --website-dir website
       - name: Build docs
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          uv run tools/dev/build_docs.py $DRY_RUN_FLAG build-docs \
+          uv run dev/build_docs.py $DRY_RUN_FLAG build-docs \
             --gtm-id GTM-N6WMTTJ \
             --website-dir legacy-website
