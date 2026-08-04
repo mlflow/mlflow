@@ -129,17 +129,7 @@ def build_docs(args: argparse.Namespace) -> None:
 
         version = Version(release_version)
 
-        # Clean up release candidate docs when publishing a final release
-        if not version.is_prerelease:
-            for p in (website_repo.root / "docs").iterdir():
-                if not p.is_dir():
-                    continue
-                try:
-                    v = Version(p.name)
-                except InvalidVersion:
-                    continue
-                if v.is_prerelease and v.base_version == version.base_version:
-                    shutil.rmtree(p)
+        _remove_stale_prereleases(website_repo.root / "docs", version)
 
         # Copy built docs. `build-all.py` produces a separate build per target
         # (e.g. `build/3.11.1` and `build/latest`), each with its own baseUrl,
@@ -173,6 +163,22 @@ def build_docs(args: argparse.Namespace) -> None:
                 body="",
             )
             print(f"Created {pr_url}")
+
+
+def _remove_stale_prereleases(docs_root: Path, version: Version) -> None:
+    """Drop release candidate docs for `version` once the final release is published."""
+    if version.is_prerelease:
+        return
+
+    for p in docs_root.iterdir():
+        if not p.is_dir():
+            continue
+        try:
+            v = Version(p.name)
+        except InvalidVersion:
+            continue
+        if v.is_prerelease and v.base_version == version.base_version:
+            shutil.rmtree(p)
 
 
 def _version_targets(version: Version, website_root: Path) -> list[str]:
@@ -218,14 +224,7 @@ def release_post(args: argparse.Namespace) -> None:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         name = f"{today}-{release_version}-release.md"
         post_path = website_repo.root / "website" / "releases" / name
-
-        if "rc" in release_version:
-            base_version = release_version.split("rc")[0]
-            content = _RC_TEMPLATE.format(version=release_version, base_version=base_version)
-        else:
-            content = _RELEASE_TEMPLATE.format(version=release_version)
-
-        post_path.write_text(content)
+        post_path.write_text(_render_release_post(Version(release_version)))
 
         website_repo.add_all()
 
@@ -246,6 +245,12 @@ def release_post(args: argparse.Namespace) -> None:
                 body="Be sure to fill in the contents",
             )
             print(f"Created {pr_url}")
+
+
+def _render_release_post(version: Version) -> str:
+    if version.is_prerelease:
+        return _RC_TEMPLATE.format(version=version, base_version=version.base_version)
+    return _RELEASE_TEMPLATE.format(version=version)
 
 
 _RELEASE_TEMPLATE = """\
@@ -314,6 +319,8 @@ def main() -> None:
             build_docs(args)
         case "release-post":
             release_post(args)
+        case _:
+            raise ValueError(f"Unexpected command: {args.command!r}")
 
 
 if __name__ == "__main__":
