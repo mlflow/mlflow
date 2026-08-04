@@ -96,6 +96,8 @@ def build_docs(args: argparse.Namespace) -> None:
     # Copy built docs. `build-all.py` produces a separate build per target
     # (e.g. `build/3.11.1` and `build/latest`), each with its own baseUrl,
     # so we must copy from the matching directory rather than reusing one source.
+    # It names them with the raw version, which agrees with `str(Version(...))`
+    # only while releases stay PEP 440 canonical.
     for dest_name in _version_targets(version, website_repo.root):
         src = docs_dir / "build" / dest_name
         dst = website_repo.root / "docs" / dest_name
