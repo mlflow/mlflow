@@ -29,7 +29,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.ref }}
-  # Superseded PR pushes are safe to cancel, but a dispatched release build isn't.
+  # Cancel superseded PR runs, never a release build.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
@@ -42,9 +42,7 @@ env:
   DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
 
 jobs:
-  # Exercise both commands end-to-end on PRs that touch the script or this workflow.
-  # `--dry-run` commits to the website checkouts locally but skips push and PR
-  # creation, so no token is required.
+  # Both commands, end-to-end. `--dry-run` skips push and PR creation, so no token.
   test:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -66,10 +64,9 @@ jobs:
           persist-credentials: false
           repository: mlflow/mlflow-website
           path: website
-      # `docs/` holds ~105 published versions; a publish touches at most three of
-      # them, so fetch only those. Every path the script writes must be listed here:
-      # entries outside the sparse set carry skip-worktree, and files written under
-      # them can be silently dropped from the commit.
+      # Fetch only the ~3 of ~105 version directories a publish writes. Anything
+      # missing here is skip-worktree, and files written under it are silently
+      # dropped from the commit.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
@@ -88,8 +85,7 @@ jobs:
       - name: Test build-docs
         run: |
           uv run dev/build_docs.py --dry-run build-docs --website-dir legacy-website
-      # The sparse checkout leaves the other ~100 version directories as
-      # skip-worktree entries. Fail loudly if that ever turns into staged deletions.
+      # The ~100 skip-worktree directories must never become staged deletions.
       - name: Check the commit only touches this release
         working-directory: legacy-website
         env:
@@ -134,8 +130,7 @@ jobs:
         id: version
         run: |
           echo "value=$(uv version --short)" >> "$GITHUB_OUTPUT"
-      # `persist-credentials: true` keeps the App token in `http.extraheader` so the
-      # script can push without ever handling the token itself.
+      # `persist-credentials` keeps the token in `http.extraheader`, out of the URL.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
@@ -156,8 +151,7 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
-      # Create the release post first. It's cheap, and a failure in the long docs
-      # build shouldn't prevent the post from being opened.
+      # First because it's cheap, and shouldn't be lost to a docs build failure.
       - name: Create release post
         if: inputs.release_post
         env:
