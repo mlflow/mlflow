@@ -237,7 +237,11 @@ class MemoryAugmentedJudge(Judge):
         # Create a copy of the base judge for scoring. This preserves the base judge's
         # full invocation flow (agentic tool-calling for {{ trace }} judges, standard for
         # {{ inputs }}/{{ outputs }} judges) while allowing dynamic instruction augmentation.
-        self._scoring_judge = copy.deepcopy(effective_base_judge)
+        # Copy self._base_judge, which __init__ already unwrapped: on incremental alignment
+        # base_judge is the previous MemoryAugmentedJudge, and copying that wrapper would
+        # delegate scoring through its stale inner memory and ignore the per-call
+        # instructions applied by the outer judge.
+        self._scoring_judge = copy.deepcopy(self._base_judge)
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)

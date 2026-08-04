@@ -262,8 +262,6 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
 
         # Mock the scoring judge to return a Feedback result
-        from mlflow.entities.assessment import Feedback
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
         mock_feedback = Feedback(
             name=sample_judge.name,
@@ -562,9 +560,6 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
         # Mock mlflow.get_trace and predict module for the call
         trace_map = {t.info.trace_id: t for t in sample_traces[:2]}
 
-        from mlflow.entities.assessment import Feedback
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-
         mock_feedback = Feedback(
             name=sample_judge.name,
             source=AssessmentSource(
@@ -621,9 +616,6 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
                 return first_trace
             return None
 
-        from mlflow.entities.assessment import Feedback
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-
         mock_feedback = Feedback(
             name=sample_judge.name,
             source=AssessmentSource(
@@ -677,9 +669,6 @@ def test_judge_call_delegates_to_scoring_judge(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
 
-        from mlflow.entities.assessment import Feedback
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-
         mock_feedback = Feedback(
             name=sample_judge.name,
             source=AssessmentSource(
@@ -711,9 +700,6 @@ def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge,
 
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
-
-        from mlflow.entities.assessment import Feedback
-        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
         mock_feedback = Feedback(
             name=sample_judge.name,
@@ -900,6 +886,44 @@ def test_aligned_judge_does_not_mutate_base_judge_instructions(sample_judge, sam
 
         mock_invoke.assert_called_once()
         assert sample_judge.instructions == original_instructions
+
+
+def test_incremental_alignment_scores_through_unwrapped_base_judge(sample_judge, sample_traces):
+    # Re-aligning passes the previous MemoryAugmentedJudge in as base_judge. The scoring
+    # judge must be the unwrapped InstructionsJudge, not that wrapper: delegating to the
+    # wrapper would score through its stale inner memory and drop the per-call
+    # instructions the outer judge applies.
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+
+        assert isinstance(judge_v3._scoring_judge, InstructionsJudge)
+        assert not isinstance(judge_v3._scoring_judge, MemoryAugmentedJudge)
+
+        # The re-aligned judge scores with its combined memory, applied once.
+        invoked_instructions = []
+        feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=sample_judge.model
+            ),
+            value="yes",
+            rationale="Test",
+        )
+
+        def capture(self, **kwargs):
+            invoked_instructions.append(self._instructions)
+            return feedback
+
+        with patch.object(InstructionsJudge, "__call__", capture):
+            judge_v3(inputs="test input", outputs="test output")
+
+        assert len(invoked_instructions) == 1
+        assert "Guideline A" in invoked_instructions[0]
+        assert "Example Judgements" in invoked_instructions[0]
 
 
 def test_aligned_judge_reports_base_criterion_in_guideline_metadata(sample_judge, sample_traces):
