@@ -114,6 +114,44 @@ def _extract_scorer_value(result: Any) -> Any:
     return result
 
 
+def flatten_scorers(scorers: list[Any]) -> list[Any]:
+    """Expand ensemble scorers into their sub-scorers, recursively.
+
+    Callers that classify scorers by type -- required-column pre-validation, usage
+    telemetry -- must see through an ensemble to the scorers that actually run, otherwise
+    an ensemble wrapping built-in judges is treated as an opaque custom scorer and its
+    sub-scorers' input requirements go unchecked.
+    """
+    flattened = []
+    for scorer in scorers:
+        if getattr(scorer, "kind", None) == ScorerKind.ENSEMBLE:
+            flattened.extend(flatten_scorers(scorer._scorers))
+        else:
+            flattened.append(scorer)
+    return flattened
+
+
+def _is_feedbacks_mode(ensemble_fn: Callable[..., Any]) -> bool:
+    """Whether ``ensemble_fn`` opts into receiving full ``Feedback`` objects.
+
+    The aggregate input is passed positionally, so only the name of the first accepted
+    parameter selects the mode -- a ``feedbacks`` keyword elsewhere in the signature (e.g.
+    ``fn(values, feedbacks=None)``) must not flip it. Callables with no introspectable
+    signature (C builtins like ``max``) default to values-mode rather than raising.
+    """
+    try:
+        params = inspect.signature(ensemble_fn).parameters
+    except (ValueError, TypeError):
+        return False
+    positional = (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.VAR_POSITIONAL,
+    )
+    first = next((p for p in params.values() if p.kind in positional), None)
+    return first is not None and first.name == "feedbacks"
+
+
 @dataclass
 class SerializedScorer:
     """
@@ -1141,6 +1179,17 @@ class Scorer(BaseModel):
                 copy.description = self.description
             if self.aggregations is not None:
                 copy.aggregations = self.aggregations
+        elif self.kind == ScorerKind.ENSEMBLE:
+            # Copy each sub-scorer through its own _create_copy so kind-specific handling
+            # still applies; a deepcopy of `_scorers` would recurse infinitely on a
+            # third-party sub-scorer holding an `instructor`-wrapped client.
+            copy = make_scorer_ensemble(
+                name=self.name,
+                scorers=[s._create_copy() for s in self._scorers],
+                ensemble_fn=self._ensemble_fn_name or self._ensemble_fn,
+                description=self.description,
+                aggregations=self.aggregations,
+            )
         else:
             copy = self.model_copy(deep=True)
         # Duplicate the cached dump so modifications to the copy don't affect the original
@@ -1495,6 +1544,17 @@ class EnsembleScorer(Scorer):
         except Exception as e:
             return Feedback(name=sub_scorer.name, error=e)
 
+    def _describe_failed_sub_scorers(self, sub_feedbacks: list[Feedback]) -> str:
+        # Built-in ensemble fns reject a missing value, and their generic "returned no value"
+        # message loses the underlying cause. Name the sub-scorers that failed and quote their
+        # errors so the aggregate failure stays actionable.
+        failures = [
+            f"'{fb.name}': {fb.error.error_message or fb.error.error_code}"
+            for fb in sub_feedbacks
+            if fb.error is not None
+        ]
+        return "; ".join(failures)
+
     def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Feedback]:
         # feedbacks-mode ensemble fns and the sub-feedbacks metadata both need a real
         # Feedback per sub-scorer; bare-value returns are wrapped and named after the scorer.
@@ -1543,17 +1603,9 @@ class EnsembleScorer(Scorer):
         results = [self._run_sub_scorer(s, kwargs) for s in self._scorers]
         values = [_extract_scorer_value(r) for r in results]
 
-        # Dispatch mode is chosen by the ensemble_fn's parameter name: the default (values-mode)
-        # passes the list of extracted primitive values, while a fn whose parameter is named
-        # "feedbacks" receives the full Feedback objects instead (value + rationale + source +
-        # error). Some callables (C builtins like max) expose no signature; default to
-        # values-mode rather than raising.
-        try:
-            params = inspect.signature(self._ensemble_fn).parameters
-            feedbacks_mode = "feedbacks" in params
-        except (ValueError, TypeError):
-            feedbacks_mode = False
+        feedbacks_mode = _is_feedbacks_mode(self._ensemble_fn)
         sub_feedbacks = self._normalize_to_feedbacks(results, values)
+        sub_metadata = self._build_sub_feedbacks_metadata(sub_feedbacks)
 
         if not feedbacks_mode:
             for sub_scorer, value in zip(self._scorers, values):
@@ -1565,9 +1617,18 @@ class EnsembleScorer(Scorer):
                     )
 
         agg_input = sub_feedbacks if feedbacks_mode else values
-        result = self._ensemble_fn(agg_input)
-
-        sub_metadata = self._build_sub_feedbacks_metadata(sub_feedbacks)
+        try:
+            result = self._ensemble_fn(agg_input)
+        except Exception as e:
+            # Attach the sub-scorer provenance to the failure so a crashed sub-scorer is
+            # debuggable: without this, a built-in fn's generic "returned no value" error
+            # hides both which sub-scorer failed and why.
+            failures = self._describe_failed_sub_scorers(sub_feedbacks)
+            suffix = f" Failed sub-scorers -- {failures}." if failures else ""
+            raise MlflowException.invalid_parameter_value(
+                f"Ensemble scorer '{self.name}' failed to aggregate its sub-scorer "
+                f"results: {e}{suffix}"
+            ) from e
 
         if isinstance(result, Feedback):
             if result.name == DEFAULT_FEEDBACK_NAME:
@@ -1578,6 +1639,7 @@ class EnsembleScorer(Scorer):
         return Feedback(name=self.name, value=result, metadata=sub_metadata)
 
 
+@experimental(version="3.15.0")
 def make_scorer_ensemble(
     *,
     name: str,
@@ -1586,7 +1648,8 @@ def make_scorer_ensemble(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
 ) -> EnsembleScorer:
-    """Create a scorer that runs several sub-scorers and aggregates their results.
+    """
+    Create a scorer that runs several sub-scorers and aggregates their results.
 
     Args:
         name: Name of the ensemble scorer (and of the emitted Feedback).
@@ -1650,9 +1713,10 @@ def make_scorer_ensemble(
             declared = getattr(s, "feedback_value_type", None)
             if declared is not None and not is_bool_feedback_type(declared):
                 raise MlflowException.invalid_parameter_value(
-                    f"Ensemble function '{fn_name}' requires boolean sub-scorer values, "
-                    f"but sub-scorer '{s.name}' declares a non-boolean feedback_value_type "
-                    f"({declared!r}). Use majority_vote for categorical scorers."
+                    f"Ensemble function '{fn_name}' requires sub-scorer values with a "
+                    f"yes/no reading, but sub-scorer '{s.name}' declares a "
+                    f"feedback_value_type of {declared!r}. Use majority_vote for other "
+                    f"categorical scorers."
                 )
 
     agg = EnsembleScorer(name=name, description=description, aggregations=aggregations)

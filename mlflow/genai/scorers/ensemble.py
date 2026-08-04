@@ -12,9 +12,28 @@ from typing import Any, Callable, Literal, get_args, get_origin
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 
 NUMERIC_ENSEMBLES: set[str] = {"mean", "minimum", "maximum"}
 BOOL_ENSEMBLES: set[str] = {"agg_all", "agg_any"}
+
+
+def _coerce_to_bool(value: Any) -> bool | None:
+    """Map a sub-scorer value onto a bool, or ``None`` when it has no boolean reading.
+
+    Built-in judges return ``Literal["yes", "no"]`` rather than a bool, so the boolean
+    reducers accept the same affirmative/negative vocabulary the judges normalize to
+    (``CategoricalRating`` is a ``StrEnum``, so it compares equal to its string value).
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _AFFIRMATIVE_VALUES:
+            return True
+        if normalized in _NEGATIVE_VALUES:
+            return False
+    return None
 
 
 def _require_numeric(values: list[Any]) -> None:
@@ -29,28 +48,35 @@ def _require_numeric(values: list[Any]) -> None:
             )
 
 
-def _require_bool(values: list[Any]) -> None:
-    # agg_all/agg_any are boolean reducers; reject non-bool values (e.g. "no"/"yes" strings,
-    # which are all truthy) rather than silently returning a misleading result.
-    for v in values:
-        if not isinstance(v, bool):
+def _as_bools(values: list[Any]) -> list[bool]:
+    # agg_all/agg_any are boolean reducers, so never fall back to Python truthiness: a bare
+    # `all(["no", "no"])` is True because non-empty strings are truthy. Coerce each value to
+    # an explicit bool and reject anything with no boolean reading.
+    bools = []
+    for value in values:
+        coerced = _coerce_to_bool(value)
+        if coerced is None:
             raise MlflowException.invalid_parameter_value(
-                f"This ensemble function requires boolean sub-scorer values, but got a value "
-                f"of type {type(v).__name__}. Use majority_vote for categorical values."
+                f"This ensemble function requires boolean sub-scorer values, but got "
+                f"{value!r} (type {type(value).__name__}), which has no yes/no reading. "
+                f"Use majority_vote for other categorical values."
             )
+        bools.append(coerced)
+    return bools
 
 
 def is_bool_feedback_type(feedback_value_type) -> bool:
     """Whether a declared ``feedback_value_type`` denotes a boolean value.
 
     Used to validate sub-scorers up front against boolean built-ins (agg_all/agg_any). A
-    ``Literal[...]`` is boolean only when every member is a bool. Unknown/unannotated types
-    return False (caller treats them as non-bool).
+    ``Literal[...]`` qualifies when every member has a boolean reading, which includes the
+    ``Literal["yes", "no"]`` that built-in judges declare. Unknown/unannotated types return
+    False (caller treats them as non-bool).
     """
     if feedback_value_type is bool:
         return True
     if get_origin(feedback_value_type) is Literal:
-        return all(isinstance(arg, bool) for arg in get_args(feedback_value_type))
+        return all(_coerce_to_bool(arg) is not None for arg in get_args(feedback_value_type))
     return False
 
 
@@ -121,15 +147,13 @@ def maximum(values: list[Any]) -> Feedback:
 
 def agg_all(values: list[Any]) -> Feedback:
     _require_complete(values)
-    _require_bool(values)
-    result = all(values)
+    result = all(_as_bools(values))
     return Feedback(value=result, rationale=f"all() over {len(values)} scorers = {result}")
 
 
 def agg_any(values: list[Any]) -> Feedback:
     _require_complete(values)
-    _require_bool(values)
-    result = any(values)
+    result = any(_as_bools(values))
     return Feedback(value=result, rationale=f"any() over {len(values)} scorers = {result}")
 
 

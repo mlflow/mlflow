@@ -1,5 +1,6 @@
 import json
 from typing import Literal
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -9,15 +10,18 @@ import mlflow.genai.scorers as _public_scorers
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.base import (
     EnsembleScorer,
     Scorer,
     ScorerKind,
     _extract_scorer_value,
+    flatten_scorers,
     make_scorer_ensemble,
 )
-from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.genai.scorers.builtin_scorers import Correctness, Safety
 from mlflow.genai.scorers.ensemble import (
     BUILTIN_ENSEMBLES,
     agg_all,
@@ -116,14 +120,33 @@ def test_numeric_builtins_reject_non_numeric(fn, values):
 @pytest.mark.parametrize(
     "values",
     [
-        pytest.param(["yes", "no"], id="strings"),
+        pytest.param(["maybe", "no"], id="unmappable_string"),
         pytest.param([1, 2], id="ints_not_bool"),
         pytest.param([True, 1], id="mixed_bool_int"),
     ],
 )
-def test_bool_builtins_reject_non_bool(fn, values):
-    with pytest.raises(MlflowException, match="boolean"):
+def test_bool_builtins_reject_values_without_yes_no_reading(fn, values):
+    with pytest.raises(MlflowException, match="yes/no reading"):
         fn(values)
+
+
+@pytest.mark.parametrize(
+    ("fn", "values", "expected"),
+    [
+        # Built-in judges return Literal["yes","no"], not bools. Truthiness would make every
+        # non-empty string True, so "no" must read as False.
+        pytest.param(agg_all, ["yes", "no"], False, id="agg_all-yes_no"),
+        pytest.param(agg_all, ["yes", "yes"], True, id="agg_all-all_yes"),
+        pytest.param(agg_any, ["no", "no"], False, id="agg_any-all_no"),
+        pytest.param(agg_any, ["no", "yes"], True, id="agg_any-one_yes"),
+        pytest.param(agg_all, [CategoricalRating.YES, "yes"], True, id="agg_all-rating_enum"),
+        pytest.param(agg_all, ["YES", " yes "], True, id="agg_all-case_and_space"),
+        pytest.param(agg_all, ["pass", True], True, id="agg_all-affirmative-synonym"),
+    ],
+)
+def test_bool_builtins_coerce_categorical_yes_no(fn, values, expected):
+    result = fn(values)
+    assert result.value is expected
 
 
 def test_builtin_registry_maps_names():
@@ -235,6 +258,49 @@ def test_ensemble_resilient_to_sub_scorer_failure():
     sub = json.loads(fb.metadata[EnsembleScorer._SUB_FEEDBACKS_METADATA_KEY])
     crashed = next(e for e in sub if e["assessment_name"] == "_boom")
     assert crashed["feedback"]["error"]["error_code"] == "ValueError"
+
+
+def test_builtin_ensemble_failure_names_the_crashed_sub_scorer():
+    @scorer
+    def _boom(outputs) -> bool:
+        raise ValueError("kaboom")
+
+    # Built-in fns treat a missing sub-scorer value as fatal. The raised error must still
+    # identify which sub-scorer failed and why, rather than only "returned no value".
+    agg = make_scorer_ensemble(name="e", scorers=[_always_true, _boom], ensemble_fn="agg_all")
+    with pytest.raises(MlflowException, match="_boom.*kaboom"):
+        agg(outputs="x")
+
+
+@pytest.mark.parametrize(
+    ("ensemble_fn", "expects_feedbacks"),
+    [
+        pytest.param(lambda values: values, False, id="values"),
+        pytest.param(lambda feedbacks: feedbacks, True, id="feedbacks"),
+        # The aggregate input is passed positionally, so a `feedbacks` keyword that is not
+        # the first parameter must not flip the mode.
+        pytest.param(lambda values, feedbacks=None: values, False, id="feedbacks-not-first"),
+        pytest.param(lambda feedbacks, values=None: feedbacks, True, id="feedbacks-first"),
+    ],
+)
+def test_dispatch_mode_follows_first_positional_parameter(ensemble_fn, expects_feedbacks):
+    agg = make_scorer_ensemble(name="d", scorers=[_num_len], ensemble_fn=ensemble_fn)
+    received = agg(outputs="abcd").value
+    assert isinstance(received[0], Feedback) is expects_feedbacks
+
+
+def test_ensemble_create_copy_recurses_into_sub_scorers():
+    # Sub-scorers must be copied through their own _create_copy rather than deep-copied
+    # wholesale: a deepcopy recurses infinitely on a third-party sub-scorer that holds an
+    # `instructor`-wrapped client.
+    sub = Safety()
+    agg = make_scorer_ensemble(name="c", scorers=[sub], ensemble_fn="majority_vote")
+    copy = agg._create_copy()
+    assert isinstance(copy, EnsembleScorer)
+    assert copy.name == "c"
+    assert copy._ensemble_fn_name == "majority_vote"
+    assert isinstance(copy._scorers[0], Safety)
+    assert copy._scorers[0] is not sub
 
 
 def test_ensemble_custom_callable_on_values():
@@ -415,6 +481,54 @@ def test_ensemble_in_evaluate(is_in_databricks):
     assert "ensemble/mean" in result.metrics
 
 
+@pytest.mark.parametrize(
+    ("scorers", "expected_names"),
+    [
+        pytest.param([_always_true], ["_always_true"], id="plain"),
+        pytest.param(
+            [make_scorer_ensemble(name="e", scorers=[_always_true], ensemble_fn="agg_all")],
+            ["_always_true"],
+            id="ensemble",
+        ),
+        pytest.param(
+            [
+                make_scorer_ensemble(
+                    name="outer",
+                    scorers=[
+                        make_scorer_ensemble(
+                            name="inner", scorers=[_always_true], ensemble_fn="agg_all"
+                        ),
+                        _always_false,
+                    ],
+                    ensemble_fn="agg_all",
+                )
+            ],
+            ["_always_true", "_always_false"],
+            id="nested-ensemble",
+        ),
+    ],
+)
+def test_flatten_scorers_expands_ensembles(scorers, expected_names):
+    assert [s.name for s in flatten_scorers(scorers)] == expected_names
+
+
+def test_ensemble_sub_scorer_missing_columns_is_reported_upfront(is_in_databricks):
+    # Correctness requires `expectations`, which this dataset lacks. The warning must fire
+    # for a sub-scorer wrapped in an ensemble, not just a top-level built-in scorer.
+    data = pd.DataFrame({"inputs": [{"q": "a"}], "outputs": ["a"]})
+    agg = make_scorer_ensemble(
+        name="ensemble", scorers=[Correctness()], ensemble_fn="majority_vote"
+    )
+    with mock.patch("mlflow.genai.evaluation.base.valid_data_for_builtin_scorers") as mock_valid:
+        try:
+            mlflow.genai.evaluate(data=data, scorers=[agg])
+        except Exception:
+            pass
+    mock_valid.assert_called_once()
+    passed_scorers = mock_valid.call_args[0][1]
+    assert [type(s).__name__ for s in passed_scorers] == ["Correctness"]
+
+
 # ---------------------------------------------------------------------------
 # Categorical / Literal values and feedback_value_type validation
 # ---------------------------------------------------------------------------
@@ -501,7 +615,11 @@ def test_is_numeric_feedback_type(feedback_type, expected):
         pytest.param(int, False, id="int"),
         pytest.param(float, False, id="float"),
         pytest.param(Literal[1, 2, 3], False, id="literal_numeric"),
-        pytest.param(Literal["yes", "no"], False, id="literal_str"),
+        # Built-in judges declare Literal["yes","no"], which has a yes/no reading and so
+        # is usable with the boolean reducers.
+        pytest.param(Literal["yes", "no"], True, id="literal_yes_no"),
+        pytest.param(Literal["pass", "fail"], True, id="literal_pass_fail"),
+        pytest.param(Literal["great", "terrible"], False, id="literal_unmappable_str"),
         pytest.param(str, False, id="str"),
         pytest.param(None, False, id="none"),
     ],
@@ -510,18 +628,36 @@ def test_is_bool_feedback_type(feedback_type, expected):
     assert is_bool_feedback_type(feedback_type) is expected
 
 
-def test_bool_builtin_rejects_literal_judge_upfront():
-    # Safety declares feedback_value_type == Literal["yes","no"]; agg_all must reject it early.
-    with pytest.raises(MlflowException, match="boolean"):
-        make_scorer_ensemble(name="x", scorers=[Safety()], ensemble_fn="agg_all")
+def test_bool_builtin_accepts_literal_yes_no_judge():
+    # "all judges must pass" over built-in judges is the primary agg_all use case. Safety
+    # declares Literal["yes","no"], which has a yes/no reading, so it must not be rejected.
+    agg = make_scorer_ensemble(name="x", scorers=[Safety()], ensemble_fn="agg_all")
+    assert agg.name == "x"
 
 
-def test_agg_all_at_call_time_rejects_non_bool_values():
-    # A decorator scorer declares no feedback_value_type, so the up-front check is skipped;
-    # agg_all still rejects the non-bool string value ("yes") at call time.
+def test_bool_builtin_rejects_non_boolean_literal_judge_upfront():
+    judge = make_judge(
+        name="grade",
+        instructions="Grade {{ outputs }}.",
+        model="openai:/gpt-4",
+        feedback_value_type=Literal["great", "terrible"],
+    )
+    with pytest.raises(MlflowException, match="yes/no reading"):
+        make_scorer_ensemble(name="x", scorers=[judge], ensemble_fn="agg_all")
+
+
+def test_agg_all_coerces_yes_no_at_call_time():
+    # A decorator scorer declares no feedback_value_type, so the up-front check is skipped.
+    # "yes" must still read as True rather than relying on string truthiness.
     agg = make_scorer_ensemble(name="a", scorers=[_label], ensemble_fn="agg_all")
-    with pytest.raises(MlflowException, match="boolean"):
-        agg(outputs="yes")
+    assert agg(outputs="yes").value is True
+    assert agg(outputs="no").value is False
+
+
+def test_agg_all_at_call_time_rejects_values_without_yes_no_reading():
+    agg = make_scorer_ensemble(name="a", scorers=[_label], ensemble_fn="agg_all")
+    with pytest.raises(MlflowException, match="yes/no reading"):
+        agg(outputs="maybe")
 
 
 # ---------------------------------------------------------------------------
