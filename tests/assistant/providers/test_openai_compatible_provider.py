@@ -229,6 +229,7 @@ def test_build_usage_event_remaps_cache_tokens_and_prices():
         "prompt_tokens": 35257,
         "completion_tokens": 5,
         "total_tokens": 35262,
+        "cache_read_tokens": 100,
         "total_cost_usd": 0.1319,
     }
 
@@ -276,7 +277,10 @@ async def test_astream_emits_content_deltas(provider):
 
 
 @pytest.mark.asyncio
-async def test_astream_requests_usage_via_stream_options(provider):
+async def test_astream_omits_stream_options(provider):
+    # stream_options is an OpenAI-only field. The assistant must not send it: a
+    # gateway route backed by Anthropic forwards it to /v1/messages, which 400s on
+    # the unknown field. The gateway self-injects it per-provider where accepted.
     lines = [_sse(_delta(content="hi")), b"data: [DONE]\n"]
     session, calls = _make_aiohttp_session([lines])
 
@@ -286,7 +290,7 @@ async def test_astream_requests_usage_via_stream_options(provider):
     ):
         _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
 
-    assert calls[0]["json"]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in calls[0]["json"]
 
 
 @pytest.mark.asyncio
@@ -332,7 +336,7 @@ async def test_astream_strips_think_blocks_from_stream(provider):
 
 
 @pytest.mark.asyncio
-async def test_astream_uses_api_key_header(tmp_path):
+async def test_astream_ignores_config_stored_api_key(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(
         json.dumps({
@@ -364,7 +368,36 @@ async def test_astream_uses_api_key_header(tmp_path):
     ):
         _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
     assert calls[0]["url"] == "http://gateway.example/v1/chat/completions"
-    assert calls[0]["headers"] == {"Authorization": "Bearer sk-abc"}
+    assert calls[0]["headers"] == {}
+    clear_config_cache()
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_first_model_when_unconfigured(tmp_path):
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"providers": {}}))
+    clear_config_cache()
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=_list_models_stub,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+    lines = [_sse(_delta(content="ok")), b"data: [DONE]\n"]
+    session, calls = _make_aiohttp_session([lines])
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", cfg),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert calls[0]["url"] == "http://localhost:9999/v1/chat/completions"
+    assert calls[0]["json"]["model"] == "model-a"
     clear_config_cache()
 
 
@@ -409,6 +442,27 @@ def test_list_models_raises_not_implemented_when_no_fn():
         provider.list_models()
 
 
+def test_list_models_passes_supplied_api_key():
+    captured = {}
+
+    def list_models(base_url: str, api_key: str | None = None) -> list[str]:
+        captured["base_url"] = base_url
+        captured["api_key"] = api_key
+        return ["model-a"]
+
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI",
+        description="d",
+        list_models_fn=list_models,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+
+    assert provider.list_models(api_key="sk-test") == ["model-a"]
+    assert captured == {"base_url": "http://localhost:9999", "api_key": "sk-test"}
+
+
 @pytest.mark.asyncio
 async def test_astream_yields_error_on_http_error(provider):
     session, _calls = _make_aiohttp_session([[b""]], status=500)
@@ -429,6 +483,134 @@ async def test_astream_yields_error_on_http_error(provider):
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "boom" in errors[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_error_on_empty_truncated_stream(provider):
+    # The gateway commits a 200 before proxying upstream, so an upstream failure
+    # (e.g. a bad API key) truncates the body instead of returning a non-200. When
+    # the failure happens before any token streams, the body is empty and ends with
+    # no terminal signal: surface an error rather than a silent `done`.
+    lines: list[bytes] = []
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "empty response" in errors[0].data["error"]
+    assert not any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_surfaces_gateway_error_chunk(provider):
+    # When an upstream failure happens mid-stream (after the gateway committed a
+    # 200), safe_stream emits `data: {"error": {"message", "type"}}`. We must
+    # surface that real message, not discard it and fall through to the generic
+    # empty-response error, which would misattribute the cause (e.g. blame a bad
+    # API key when the key was valid and something else failed).
+    lines = [_sse({"error": {"message": "Rate limit exceeded", "type": "RateLimitError"}})]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "Rate limit exceeded" in errors[0].data["error"]
+    assert "empty response" not in errors[0].data["error"]
+    assert not any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_error_chunk_without_message_falls_back_to_raw(provider):
+    # A malformed error frame (no usable "message") must still surface something
+    # concrete rather than "error: None" or the misleading generic empty-response text.
+    lines = [_sse({"error": {"code": 500}})]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "None" not in errors[0].data["error"]
+    assert "500" in errors[0].data["error"]
+    assert not any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_productive_stream_without_terminal_is_not_flagged(provider):
+    # Key false-positive guard: an OpenAI-compatible server that streams content but
+    # emits neither [DONE] nor a finish_reason (out of spec, but real) must NOT be
+    # flagged as truncated. Any produced output is treated as a successful turn.
+    lines = [_sse(_delta(content="a complete answer"))]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert any(e.type == EventType.DONE for e in events)
+    # Also assert the content actually streamed through — otherwise a regression that
+    # silently dropped the delta would still pass the no-error / done checks above.
+    deltas = [e.data["event"]["delta"]["text"] for e in events if e.type == EventType.STREAM_EVENT]
+    assert deltas == ["a complete answer"]
+
+
+@pytest.mark.asyncio
+async def test_astream_empty_stream_with_terminal_is_not_flagged(provider):
+    # An intentionally empty completion that still signals a normal terminal
+    # ([DONE] or finish_reason) is a valid turn, not a truncation.
+    lines = [_sse({"choices": [{"delta": {}, "index": 0, "finish_reason": "stop"}]})]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_usage_only_stream_is_not_flagged(provider):
+    # Some backends emit a trailing usage-summary chunk (choices empty) after a
+    # [DONE] the gateway strips. A usage report means the server did real work,
+    # so it counts as a signal and must not be flagged as truncated.
+    lines = [_sse({"choices": [], "usage": {"prompt_tokens": 3, "completion_tokens": 5}})]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_role_only_stream_is_flagged(provider):
+    # A stream whose ONLY chunk is a role preamble (no content, tool_calls,
+    # finish_reason, or [DONE]) and then closes is a truncation, not a completion:
+    # the server opened a message and dropped the connection before finishing it.
+    # This is intentionally flagged; a role delta alone is not treated as signal.
+    lines = [_sse({"choices": [{"delta": {"role": "assistant"}, "index": 0}]})]
+    session, _calls = _make_aiohttp_session([lines])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "empty response" in errors[0].data["error"]
+    assert not any(e.type == EventType.DONE for e in events)
 
 
 # ---------------------------------------------------------------------------

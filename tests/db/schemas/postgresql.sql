@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	target_value VARCHAR(255),
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
@@ -320,7 +321,6 @@ CREATE TABLE mcp_server_versions (
 	version_patch INTEGER NOT NULL,
 	version_prerelease_sort_key VARCHAR(512) NOT NULL,
 	server_json JSON NOT NULL,
-	display_name VARCHAR(256),
 	status VARCHAR(20) DEFAULT 'draft'::character varying NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
@@ -448,7 +448,7 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT 0 NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 

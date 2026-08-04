@@ -18,7 +18,8 @@ import threading
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -49,7 +50,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -6820,17 +6821,20 @@ class MlflowClient:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+
+        resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
         return self._tracking_client.store.create_mcp_server_version(
             server_json=server_json,
-            display_name=display_name,
             source=source,
             status=status,
-            tools=tools,
+            tools=resolved_tools,
+            connect_options=connect_options,
         )
 
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
@@ -6862,17 +6866,35 @@ class MlflowClient:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
             version=version,
-            display_name=display_name,
             status=status,
             tools=tools,
+            connect_options=connect_options,
         )
+
+    def refresh_mcp_server_version_tools(
+        self,
+        name: str,
+        version: str,
+        mcp_server_access_headers: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+
+        current = self.get_mcp_server_version(name=name, version=version)
+        discovered_tools = discover_tools_for_server_json(
+            server_json=current.server_json,
+            headers=mcp_server_access_headers,
+        )
+        if dry_run:
+            return replace(current, tools=discovered_tools)
+        return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._tracking_client.store.delete_mcp_server_version(name=name, version=version)

@@ -292,6 +292,15 @@ The MLflow client caches artifact location information on a per-run basis.
 It is therefore not recommended to alter a run's artifact location before it has terminated.
 :::
 
+:::note
+With proxied artifact access, artifact downloads from the MLflow UI also stream through the tracking server.
+Since MLflow 3.15.0, when run artifacts are instead stored directly on supported storage (currently Amazon S3,
+as with [non-proxied artifact access](#tracking-server-no-proxy)), the MLflow UI downloads artifacts directly
+from the storage via presigned URLs, bypassing the tracking server. See
+[Presigned URLs for direct artifact downloads](/self-hosting/architecture/artifact-store#presigned-download-urls)
+for details.
+:::
+
 #### Use tracking server w/o proxying artifacts access \{#tracking-server-no-proxy}
 
 In some cases, you may want to directly access remote storage without proxying through the tracking server.
@@ -349,6 +358,23 @@ See the following example of a client REST call in Python attempting to list exp
 # Launch the artifact-only server
 mlflow server --artifacts-only ...
 ```
+
+When workspaces are enabled, the artifact-only server must use the same logical workspace provider
+as the tracking server so it can validate `X-MLFLOW-WORKSPACE` before accessing storage. Configure
+the provider explicitly with `--workspace-store-uri`:
+
+```bash
+mlflow server \
+  --artifacts-only \
+  --enable-workspaces \
+  --workspace-store-uri postgresql://user:pass@host/mlflow \
+  --artifacts-destination s3://mlflow-artifacts
+```
+
+In this mode, MLflow initializes the workspace provider for request validation but does not
+initialize the tracking or model registry stores. Tracking and workspace-management APIs remain
+disabled. If the workspace header is omitted, the provider's default workspace is used; unknown
+workspaces and requests without a resolvable default are rejected.
 
 ```python
 import requests
@@ -524,6 +550,13 @@ But reject sources like:
 ## Handling timeout when uploading/downloading large artifacts
 
 When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit, the server will terminate the request, resulting in a request failure on the client side.
+
+:::note
+Since MLflow 3.15.0, when run artifacts are stored directly on supported storage (currently Amazon S3), the MLflow UI
+downloads them via presigned URLs instead of streaming them through the tracking server, avoiding these timeouts for
+UI downloads. See [Presigned URLs for direct artifact downloads](/self-hosting/architecture/artifact-store#presigned-download-urls)
+for details.
+:::
 
 Example client code:
 

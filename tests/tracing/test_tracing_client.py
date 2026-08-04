@@ -1,3 +1,4 @@
+import contextvars
 import json
 import uuid
 from unittest.mock import Mock, patch
@@ -162,6 +163,37 @@ def test_batch_get_traces_without_location():
     assert traces == ["trace1"]
     mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
+_REQUEST_CTX = contextvars.ContextVar("request_ctx", default=None)
+
+
+def test_batch_get_traces_propagates_contextvars():
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE},
+    )
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
+
+    captured = []
+
+    def batch_get_traces(ids, location=None):
+        captured.append(_REQUEST_CTX.get())
+        return ["trace1"]
+
+    mock_store.batch_get_traces.side_effect = batch_get_traces
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        _REQUEST_CTX.set("tenant-b")
+        traces = client.batch_get_traces(["id1"])
+
+    assert traces == ["trace1"]
+    assert captured == ["tenant-b"]
 
 
 def test_batch_get_traces_without_location_for_archive_repo():

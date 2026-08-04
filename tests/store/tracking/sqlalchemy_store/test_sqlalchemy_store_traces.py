@@ -2,6 +2,7 @@ import contextlib
 import json
 import random
 import re
+import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -1045,6 +1046,133 @@ def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
     assert len(traces) == 2
     assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+
+def test_search_traces_span_filters_deduplicate_matching_spans(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_filter_dedup")
+    trace_id = "trace1"
+    _create_trace(store, trace_id, exp_id)
+
+    span1 = create_test_span_with_content(
+        trace_id,
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span2 = create_test_span_with_content(
+        trace_id,
+        name="second_match",
+        span_id=222,
+        custom_attributes={"response": "needle again"},
+    )
+
+    store.log_spans(exp_id, [span1, span2])
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert [t.request_id for t in traces] == [trace_id]
+
+
+def test_search_traces_span_filters_remain_experiment_scoped(store: SqlAlchemyStore):
+    target_exp_id = store.create_experiment("target_exp")
+    other_exp_id = store.create_experiment("other_exp")
+
+    _create_trace(store, "target-trace", target_exp_id, request_time=1000)
+    _create_trace(store, "other-trace", other_exp_id, request_time=1000)
+
+    matching_span = create_test_span_with_content(
+        "other-trace",
+        name="other_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    store.log_spans(other_exp_id, [matching_span])
+
+    traces, _ = store.search_traces([target_exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert traces == []
+
+
+def test_search_traces_span_filters_respect_trace_time_window(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_time_window")
+    early_trace_id = "trace-early"
+    late_trace_id = "trace-late"
+
+    _create_trace(store, early_trace_id, exp_id, request_time=1000)
+    _create_trace(store, late_trace_id, exp_id, request_time=2000)
+
+    early_matching_span = create_test_span_with_content(
+        early_trace_id,
+        name="early_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    late_non_matching_span = create_test_span_with_content(
+        late_trace_id,
+        name="late_non_match",
+        span_id=222,
+        custom_attributes={"prompt": "different"},
+    )
+    store.log_spans(exp_id, [early_matching_span])
+    store.log_spans(exp_id, [late_non_matching_span])
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='timestamp >= 1500 AND timestamp < 2500 AND trace.text ILIKE "%needle%"',
+    )
+    assert traces == []
+
+
+def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_correlated_exists")
+
+    with store.ManagedSessionMaker() as session:
+        cases_orderby, parsed_orderby, sorting_joins = (
+            sqlalchemy_store_module._get_orderby_clauses_for_search_traces([], session)
+        )
+        stmt = store._trace_query(session)
+        if cases_orderby:
+            stmt = stmt.add_columns(*cases_orderby)
+
+        (
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        ) = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            (
+                "timestamp >= 20000 AND timestamp > 25000 AND timestamp < 30000 "
+                'AND trace.text ILIKE "%needle%"'
+            ),
+            session,
+            store._get_dialect(),
+        )
+        stmt = store._apply_trace_filter_clauses(
+            stmt,
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        )
+
+        for join_target in sorting_joins:
+            stmt = stmt.outerjoin(join_target)
+
+        stmt = stmt.filter(SqlTraceInfo.experiment_id.in_([int(exp_id)])).order_by(*parsed_orderby)
+        compiled_sql = str(
+            stmt.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+    assert "exists (select *" in compiled_sql
+    assert "spans.trace_id = trace_info.request_id" in compiled_sql
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled_sql
+    assert "spans.start_time_unix_nano >= 15000000000" in compiled_sql
+    assert "spans.start_time_unix_nano <" not in compiled_sql
+    assert "join spans" not in compiled_sql
+    assert "select distinct spans.trace_id as request_id" not in compiled_sql
 
 
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
@@ -4747,6 +4875,200 @@ def test_log_spans_token_usage_redelivered_span_not_double_counted(
     }
 
 
+@pytest.mark.parametrize(
+    ("db_type", "expected_clause"),
+    [
+        (POSTGRES, "FOR UPDATE"),
+        (MYSQL, "FOR UPDATE"),
+        (MSSQL, "WITH (UPDLOCK, ROWLOCK)"),
+    ],
+)
+def test_trace_row_lock_query_locks_only_trace_rows(
+    store: SqlAlchemyStore, db_type: str, expected_clause: str
+) -> None:
+    # The lock log_spans() takes must compile to the backend's row-lock clause. It must not join
+    # experiments the way the workspace-aware _trace_query() does, because locking through that
+    # join would also lock the experiment row and serialize every trace in the experiment.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    exp_id = store.create_experiment(f"trace-row-lock-{db_type}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, exp_id)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._trace_row_lock_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert expected_clause in sql
+    assert "JOIN" not in sql
+    assert "ORDER BY" in sql
+
+
+def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> None:
+    # Concurrent log_spans() calls for the same trace must serialize on the trace row, so the
+    # recompute-and-overwrite of the trace-level token usage cannot lose an update. Traces
+    # created by the same call are not visible to other transactions and need no lock.
+    experiment_id = store.create_experiment("test_log_spans_locks_preexisting_traces")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    with mock.patch.object(
+        store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+    ) as mock_lock:
+        # The trace does not exist yet: it is created by this call, so no lock is taken.
+        store.log_spans(experiment_id, [_span(1, 100)])
+        mock_lock.assert_not_called()
+
+        # The trace now pre-exists: the next batch must lock its row before writing spans.
+        store.log_spans(experiment_id, [_span(2, 200)])
+        mock_lock.assert_called_once()
+        assert mock_lock.call_args.args[1] == [trace_id]
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
+@pytest.mark.parametrize(
+    ("db_type", "locking"),
+    [
+        (POSTGRES, False),
+        (MYSQL, True),
+        (MSSQL, False),
+    ],
+)
+def test_stored_span_rows_query_locking_read_only_on_mysql(
+    store: SqlAlchemyStore, db_type: str, locking: bool
+) -> None:
+    # Under MySQL REPEATABLE READ a plain SELECT reads from the snapshot taken at the
+    # transaction's first read, which predates the trace row lock, so the recompute must be a
+    # locking read there. The other backends read committed data once the lock wait ends.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._stored_span_rows_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert ("FOR UPDATE" in sql) == locking
+
+
+def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemyStore) -> None:
+    # Two log_spans() calls for the same pre-existing trace, held at a barrier inside the lock
+    # helper so both take their transaction snapshot before either acquires the trace row lock.
+    # The call that loses the lock race must still see the winner's committed span in its
+    # recompute, otherwise the last write drops the other batch's usage.
+    experiment_id = store.create_experiment("test_log_spans_concurrent_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(1, 100)])
+
+    barrier = threading.Barrier(2, timeout=30)
+    original = SqlAlchemyStore._trace_row_lock_query
+
+    def synchronized(self, session, trace_ids):
+        barrier.wait()
+        return original(self, session, trace_ids)
+
+    with mock.patch.object(SqlAlchemyStore, "_trace_row_lock_query", synchronized):
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_spans_race") as executor:
+            futures = [
+                executor.submit(store.log_spans, experiment_id, [_span(2, 200)]),
+                executor.submit(store.log_spans, experiment_id, [_span(3, 300)]),
+            ]
+            for future in futures:
+                future.result(timeout=60)
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 600
+
+
+def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) -> None:
+    # The usage recompute must only read spans for traces whose row this call locked, otherwise
+    # it can observe a concurrent log_spans() call's uncommitted spans. Guards the derivation of
+    # the recompute trace IDs from the locked pre-existing ones against a future refactor.
+    experiment_id = store.create_experiment("test_log_spans_recompute_reads_locked_traces")
+    preexisting_trace_id = f"tr-{uuid.uuid4().hex}"
+    new_trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(trace_id: str, span_id: int, total: int, trace_num: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            trace_num=trace_num,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(preexisting_trace_id, 1, 100, 111)])
+
+    with (
+        mock.patch.object(
+            store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+        ) as mock_lock,
+        mock.patch.object(
+            store, "_stored_span_rows_query", wraps=store._stored_span_rows_query
+        ) as mock_stored,
+    ):
+        # The trace created by this call carries usage too, so a recompute derived from every
+        # trace in the batch would read its spans without having locked its row.
+        store.log_spans(
+            experiment_id,
+            [_span(preexisting_trace_id, 2, 200, 111), _span(new_trace_id, 3, 300, 222)],
+        )
+
+    mock_lock.assert_called_once()
+    mock_stored.assert_called_once()
+    locked_trace_ids = set(mock_lock.call_args.args[1])
+    assert locked_trace_ids == {preexisting_trace_id}
+    assert set(mock_stored.call_args.args[1]) <= locked_trace_ids
+
+    assert store.get_trace_info(preexisting_trace_id).token_usage["total_tokens"] == 300
+    assert store.get_trace_info(new_trace_id).token_usage["total_tokens"] == 300
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
@@ -5977,6 +6299,52 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_find_completed_sessions_with_span_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions_with_span_filter")
+
+    # Session A should match, and duplicate matching spans on the first trace
+    # should not duplicate the returned session.
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    span_a1 = create_test_span_with_content(
+        "trace_a1",
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span_a2 = create_test_span_with_content(
+        "trace_a1",
+        name="second_match",
+        span_id=112,
+        custom_attributes={"response": "needle again"},
+    )
+    store.log_spans(exp_id, [span_a1, span_a2])
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string='trace.text ILIKE "%needle%"',
+    )
+
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
 
 
 def _archive_traces(
