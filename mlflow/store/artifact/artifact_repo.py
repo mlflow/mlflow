@@ -86,6 +86,20 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         return try_func(new_creds)
 
 
+def _is_object_within_path(object_path: str, dest_path: str) -> bool:
+    """
+    Whether an object listed by an object store belongs to ``dest_path``.
+
+    Object stores match prefixes as raw strings, so listing ``foo`` also returns objects under
+    sibling paths such as ``foobar/``. Enforce a ``/`` boundary to exclude them, while still
+    matching ``dest_path`` itself so that deleting a single object keeps working.
+    """
+    dest_path = dest_path.rstrip("/")
+    if not dest_path:
+        return True
+    return object_path == dest_path or object_path.startswith(dest_path + "/")
+
+
 def _sanitize_path_component_for_windows(component: str) -> str:
     """
     Sanitize a path component by replacing Windows-invalid characters with underscores.

@@ -506,6 +506,20 @@ def test_delete_artifacts_directory(mock_client):
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
 
 
+def test_delete_artifacts_leaves_sibling_paths_sharing_a_prefix(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+
+    blob_props = BlobProperties()
+    blob_props.name = posixpath.join(TEST_ROOT_PATH, "foo/file")
+    sibling_blob_props = BlobProperties()
+    sibling_blob_props.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+    mock_client.get_container_client().list_blobs.return_value = [blob_props, sibling_blob_props]
+
+    repo.delete_artifacts("foo")
+
+    mock_client.get_container_client().delete_blob.assert_called_once_with(blob_props.name)
+
+
 def test_delete_artifacts_nonexistent_path(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 

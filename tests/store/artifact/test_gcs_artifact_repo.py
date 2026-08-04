@@ -295,8 +295,8 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
 
 
 def test_delete_artifacts(mock_client):
-    experiment_root_path = "/experiment_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, client=mock_client)
+    experiment_root_path = "experiment_id"
+    repo = GCSArtifactRepository(f"gs://test_bucket/{experiment_root_path}", client=mock_client)
 
     def delete_file():
         del obj_mock.name
@@ -304,7 +304,7 @@ def test_delete_artifacts(mock_client):
         return obj_mock
 
     obj_mock = mock.Mock()
-    run_id_path = experiment_root_path + "run_id/"
+    run_id_path = experiment_root_path + "/run_id/"
     file_path = "file"
     attrs = {"name": run_id_path + file_path, "size": 1, "delete.side_effect": delete_file}
     obj_mock.configure_mock(**attrs)
@@ -341,6 +341,26 @@ def test_delete_artifacts(mock_client):
     repo.delete_artifacts()
     artifact_file_names = [obj.path for obj in repo.list_artifacts()]
     assert not artifact_file_names
+
+
+def test_delete_artifacts_leaves_sibling_paths_sharing_a_prefix(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/experiment_id", client=mock_client)
+
+    target = mock.Mock()
+    target.configure_mock(name="experiment_id/foo/file")
+    sibling = mock.Mock()
+    sibling.configure_mock(name="experiment_id/foobar/keep")
+
+    mock_method_chain(
+        mock_client,
+        ["bucket", "list_blobs"],
+        return_value=[target, sibling],
+    )
+
+    repo.delete_artifacts("foo")
+
+    target.delete.assert_called_once()
+    sibling.delete.assert_not_called()
 
 
 def test_gcs_mpu_arguments():
