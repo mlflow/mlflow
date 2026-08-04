@@ -103,6 +103,8 @@ export const RunViewEvaluationsTabArtifacts = ({
   };
 
   if (noEvaluationTablesLogged) {
+    // Toolbar actions operate on logged evaluation results, so keep the empty state focused
+    // when no artifact table rows exist.
     return (
       <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Empty

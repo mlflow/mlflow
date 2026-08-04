@@ -50,14 +50,20 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   useGenAiTraceEvaluationArtifacts: () => ({ data: undefined, isLoading: false }),
 }));
 
-const renderComponent = (actions?: React.ReactNode) =>
+const renderComponent = ({
+  actions,
+  data = [{} as RunEvaluationTracesDataEntry],
+}: {
+  actions?: React.ReactNode;
+  data?: RunEvaluationTracesDataEntry[];
+} = {}) =>
   renderWithIntl(
     <DesignSystemProvider>
       <RunViewEvaluationsTabArtifacts
         experimentId="experiment-1"
         runUuid="run-123"
         runDisplayName="Run 123"
-        data={[{} as RunEvaluationTracesDataEntry]}
+        data={data}
         actions={actions}
       />
     </DesignSystemProvider>,
@@ -70,7 +76,7 @@ describe('RunViewEvaluationsTabArtifacts', () => {
   });
 
   it('renders toolbar actions for artifact-backed evaluation runs', () => {
-    renderComponent(<button type="button">Analyze</button>);
+    renderComponent({ actions: <button type="button">Analyze</button> });
 
     expect(screen.getByRole('button', { name: 'Analyze' })).toBeInTheDocument();
     expect(screen.getByTestId('artifact-evaluation-table')).toBeInTheDocument();
@@ -81,6 +87,14 @@ describe('RunViewEvaluationsTabArtifacts', () => {
 
     expect(screen.queryByTestId('evaluation-run-compare-selector')).not.toBeInTheDocument();
     expect(screen.getByTestId('artifact-evaluation-table')).toBeInTheDocument();
+  });
+
+  it('suppresses toolbar actions when no evaluation tables are logged', () => {
+    renderComponent({ actions: <button type="button">Analyze</button>, data: [] });
+
+    expect(screen.getByText('No evaluation tables logged')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Analyze' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('artifact-evaluation-table')).not.toBeInTheDocument();
   });
 
   it('renders the compare selector when improved comparison is disabled', () => {
