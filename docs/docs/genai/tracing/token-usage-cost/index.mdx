@@ -1,6 +1,7 @@
 ---
 sidebar_position: 7
 sidebar_label: Token Usage and Cost
+description: Automatically track LLM token usage and cost within MLflow traces to monitor and optimize resource consumption.
 ---
 
 import Tabs from "@theme/Tabs";
@@ -52,7 +53,7 @@ uv run mlflow server
 </Tabs>
 </TabsWrapper>
 
-:::tip What is the GenAI extra?
+:::tip[What is the GenAI extra?]
 
 The `[genai]` extra enables other powerful features such as <ins>[AI Gateway](/genai/governance/ai-gateway)</ins>, <ins>[Automatic Evaluation](/genai/eval-monitor/automatic-evaluations/)</ins>, and <ins>[Prompt Optimization](/genai/prompt-registry/optimize-prompts)</ins>. It is recommended to start your MLflow server with the extra installed, even if you don't need cost tracking.
 
@@ -220,6 +221,10 @@ Token usage and cost tracking is supported for most MLflow tracing integrations.
 
 :::tip
 Some providers or models may not return token usage information. In these cases, the `token_usage` and `cost` fields will be `None`.
+
+Cost can also appear as $0.00 even when token counts are tracked correctly. This happens when the model name recorded on the span has no matching entry in LiteLLM's price table. Databricks serving-endpoint names (for example, `databricks-claude-opus-4-8`) are one such case: LiteLLM cannot infer the provider from the bare endpoint name, so it returns no price.
+
+In either case, you can [set the token and cost attributes directly on the span](#manually-setting-token-and-cost-information).
 :::
 
 ### Manually Setting Token and Cost Information

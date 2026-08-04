@@ -22,7 +22,7 @@ def asyncify(is_async):
                         # Run the original async function in a separate thread. This is a workaround
                         # for the fact that we cannot use asyncio.run here because an event loop is
                         # already running in the main thread.
-                        with ThreadPoolExecutor() as executor:
+                        with ThreadPoolExecutor(thread_name_prefix="async-helper") as executor:
                             future = executor.submit(asyncio.run, original(*og_args, **og_kwargs))
                             return future.result()
 

@@ -15,14 +15,36 @@ import { beforeEach } from '@jest/globals';
 import { it } from '@jest/globals';
 import { expect } from '@jest/globals';
 import { ScorerEvaluationScope } from './constants';
+import {
+  createTraceLocationForExperiment,
+  createTraceLocationForDestinationPath,
+} from '@databricks/web-shared/genai-traces-table';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 
 jest.mock('./useEvaluateTraces');
 jest.mock('./SampleScorerOutputPanelRenderer');
+jest.mock('./SampleScorerTracesToEvaluatePicker', () => ({
+  SampleScorerTracesToEvaluatePicker: () => null,
+}));
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  isRunningAgenticJudgesEnabled: () => false,
+  isRunningAllScorerTemplatesEnabled: () => false,
+  isEvaluatingSessionsInScorersEnabled: () => false,
+  isScorerModelSelectionEnabled: () => false,
+  shouldSupportRunningDatabricksProviderJudgesFromUI: () => true,
+}));
+jest.mock('../../../gateway/utils/gatewayUtils', () => ({
+  ModelProvider: { GATEWAY: 'gateway', DATABRICKS: 'databricks', OTHER: 'other' },
+  getModelProvider: (model: string | undefined) => {
+    if (!model || model.startsWith('gateway:/')) return 'gateway';
+    if (model.startsWith('databricks:/')) return 'databricks';
+    return 'other';
+  },
+}));
+const experimentId = 'exp-123';
 
 const mockedUseEvaluateTraces = jest.mocked(useEvaluateTraces);
 const mockedRenderer = jest.mocked(SampleScorerOutputPanelRenderer);
-
-const experimentId = 'exp-123';
 
 function createMockTrace(traceId: string): ModelTrace {
   return {
@@ -52,6 +74,7 @@ interface TestWrapperProps {
   onScorerFinished?: () => void;
   selectedItemIds?: string[];
   onSelectedItemIdsChange?: (itemIds: string[]) => void;
+  isSessionLevelScorer?: boolean;
 }
 
 function TestWrapper({
@@ -59,12 +82,14 @@ function TestWrapper({
   onScorerFinished,
   selectedItemIds = [],
   onSelectedItemIdsChange = jest.fn(),
+  isSessionLevelScorer,
 }: TestWrapperProps) {
   const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
       instructions: 'Test instructions',
       llmTemplate: LLM_TEMPLATE.CUSTOM,
+      isInstructionsJudge: true,
       sampleRate: 100,
       scorerType: 'llm',
       model: 'gateway:/some-model',
@@ -81,6 +106,7 @@ function TestWrapper({
           onScorerFinished={onScorerFinished}
           selectedItemIds={selectedItemIds}
           onSelectedItemIdsChange={onSelectedItemIdsChange}
+          isSessionLevelScorer={isSessionLevelScorer}
         />
       </FormProvider>
     </IntlProvider>
@@ -327,6 +353,140 @@ describe('SampleScorerOutputPanelContainer', () => {
       rendererProps.handleRunScorer();
 
       expect(onScorerFinished).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Run scorer disabled reason precedence', () => {
+    // Helper to get the tooltip from the last renderer call
+    const getDisabledTooltip = () => {
+      const lastCall = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1];
+      return lastCall[0].runScorerDisabledTooltip;
+    };
+
+    it('should show "enter instructions" before "select traces" for instructions judge with no instructions', () => {
+      // Both: no instructions AND no traces selected
+      renderComponent({
+        defaultValues: { instructions: '', isInstructionsJudge: true, llmTemplate: LLM_TEMPLATE.CUSTOM },
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/enter instructions/i);
+    });
+
+    it('should show "unsupported template" as highest precedence (before session-level and select traces)', () => {
+      // Unsupported template AND session-level AND no traces selected — unsupported template wins
+      renderComponent({
+        defaultValues: {
+          isInstructionsJudge: false,
+          llmTemplate: LLM_TEMPLATE.EQUIVALENCE,
+          instructions: 'some instructions',
+          evaluationScope: ScorerEvaluationScope.SESSIONS,
+        },
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/not yet supported/i);
+    });
+
+    it('should show "session level not supported" before "enter instructions" and "select traces"', () => {
+      // Session-level AND no instructions AND no traces — session-level wins over instructions/traces
+      renderComponent({
+        defaultValues: {
+          instructions: '',
+          isInstructionsJudge: true,
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+        },
+        isSessionLevelScorer: true,
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/session/i);
+    });
+
+    it('should show "select traces" when judge config is valid but no traces selected', () => {
+      // Valid instructions judge, but no traces
+      renderComponent({
+        defaultValues: {
+          instructions: 'Evaluate the response',
+          isInstructionsJudge: true,
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+        },
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/select traces/i);
+    });
+
+    it('should not be disabled when judge config is valid and traces are selected', () => {
+      renderComponent({
+        defaultValues: {
+          instructions: 'Evaluate the response',
+          isInstructionsJudge: true,
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+        },
+        selectedItemIds: ['trace-1'],
+      });
+
+      const lastCall = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1];
+      expect(lastCall[0].isRunScorerDisabled).toBe(false);
+      expect(lastCall[0].runScorerDisabledTooltip).toBeUndefined();
+    });
+
+    it('should show "session level not supported" for session-level scorer with valid config', () => {
+      renderComponent({
+        defaultValues: {
+          instructions: 'Evaluate the session',
+          isInstructionsJudge: true,
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+        },
+        isSessionLevelScorer: true,
+        selectedItemIds: ['trace-1'],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/session/i);
+    });
+
+    it('should show "trace variable not supported" for instructions containing {{ trace }}', () => {
+      // isRunningAgenticJudgesEnabled is mocked to false
+      renderComponent({
+        defaultValues: {
+          instructions: 'Evaluate {{ trace }} for quality',
+          isInstructionsJudge: true,
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+        },
+        selectedItemIds: ['trace-1'],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/trace variable/i);
+    });
+
+    it('should show "guidelines empty" before "select traces" for guidelines template with no guidelines', () => {
+      renderComponent({
+        defaultValues: {
+          isInstructionsJudge: false,
+          llmTemplate: LLM_TEMPLATE.GUIDELINES,
+          guidelines: '',
+          instructions: '',
+        },
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/guidelines.*empty/i);
+    });
+
+    it('should show "unsupported template" for retrieval relevance (caught by unsupported template check)', () => {
+      // RETRIEVAL_RELEVANCE has no ASSESSMENT_NAME_TEMPLATE_MAPPING entry,
+      // so isUnsupportedTemplate fires before the specific retrieval relevance check
+      renderComponent({
+        defaultValues: {
+          isInstructionsJudge: false,
+          llmTemplate: LLM_TEMPLATE.RETRIEVAL_RELEVANCE,
+          instructions: '',
+        },
+        selectedItemIds: [],
+      });
+
+      expect(getDisabledTooltip()).toMatch(/not yet supported/i);
     });
   });
 });

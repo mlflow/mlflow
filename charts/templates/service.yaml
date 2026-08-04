@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- $portName := ternary "https" "http" .Values.tls.enabled }}
+  ports:
+    - port: {{ .Values.server.value_options.port }}
+      targetPort: {{ $portName }}
+      protocol: TCP
+      name: {{ $portName }}
+  selector:
+    {{- include "mlflow.selectorLabels" . | nindent 4 }}

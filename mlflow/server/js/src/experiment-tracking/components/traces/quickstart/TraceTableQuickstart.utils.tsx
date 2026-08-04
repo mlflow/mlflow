@@ -16,6 +16,171 @@ export type QUICKSTART_FLAVOR =
   | 'gemini'
   | 'custom';
 
+export const PYTHON_FRAMEWORK_OPTIONS: { key: QUICKSTART_FLAVOR; label: string }[] = [
+  { key: 'openai', label: 'OpenAI' },
+  { key: 'anthropic', label: 'Anthropic' },
+  { key: 'langchain', label: 'LangChain' },
+  { key: 'langgraph', label: 'LangGraph' },
+  { key: 'dspy', label: 'DSPy' },
+  { key: 'litellm', label: 'LiteLLM' },
+  { key: 'gemini', label: 'Gemini' },
+  { key: 'bedrock', label: 'Bedrock' },
+  { key: 'crewai', label: 'CrewAI' },
+  { key: 'custom', label: 'Custom' },
+];
+
+export const TS_FRAMEWORK_OPTIONS: { key: string; label: string }[] = [
+  { key: 'openai', label: 'OpenAI' },
+  { key: 'anthropic', label: 'Anthropic' },
+  { key: 'gemini', label: 'Gemini' },
+  { key: 'vercel', label: 'Vercel AI SDK' },
+  { key: 'custom', label: 'Custom' },
+];
+
+export const getPythonConnectCode = (trackingUri: string, experimentName: string) =>
+  `import mlflow
+
+# Specify the tracking server URI, e.g. http://localhost:5000
+mlflow.set_tracking_uri("${trackingUri}")
+mlflow.set_experiment("${experimentName}")`;
+
+export const TS_INSTALL_CODE = 'npm install @mlflow/core';
+
+export const OTEL_INSTALL_CODE =
+  'pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http';
+
+export const getOtelEnvCode = (trackingUri: string, experimentId: string) =>
+  `export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${trackingUri}/v1/traces
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=${experimentId}`;
+
+export const OTEL_INSTRUMENT_CODE = `from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+# Endpoint and headers are picked up from the env vars set above.
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(provider)
+
+# Instrument your application using any OpenTelemetry SDK or auto-instrumentation.
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("my-app") as span:
+    span.set_attribute("input", "hello")
+    # ... your application logic ...`;
+
+export const getTsConnectCode = (trackingUri: string, experimentId: string) =>
+  `import * as mlflow from '@mlflow/core';
+
+mlflow.init({
+  // Specify the tracking server URI, e.g. http://localhost:5000
+  trackingUri: '${trackingUri}',
+  experimentId: '${experimentId}',
+});`;
+
+export const getTsFrameworkCode = (trackingUri: string, experimentId: string) =>
+  ({
+    openai: {
+      install: 'npm install @mlflow/openai openai',
+      code: `import { OpenAI } from 'openai';
+import { tracedOpenAI } from '@mlflow/openai';
+
+// Wrap the OpenAI client with the tracedOpenAI function
+const client = tracedOpenAI(new OpenAI());
+
+// Invoke the client as usual
+const response = await client.chat.completions.create({
+  model: 'gpt-5-nano',
+  messages: [
+    { role: 'system', content: 'You are a helpful weather assistant.' },
+    { role: 'user', content: "What's the weather like in Seattle?" },
+  ],
+});`,
+    },
+    anthropic: {
+      install: 'npm install @mlflow/anthropic @anthropic-ai/sdk',
+      code: `import Anthropic from '@anthropic-ai/sdk';
+import { tracedAnthropic } from '@mlflow/anthropic';
+
+// Wrap the Anthropic client with the tracedAnthropic function
+const client = tracedAnthropic(new Anthropic());
+
+// Invoke the client as usual
+const message = await client.messages.create({
+  model: 'claude-sonnet-4-5',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: 'Hello, Claude' }],
+});`,
+    },
+    gemini: {
+      install: 'npm install @mlflow/gemini @google/genai',
+      code: `import { GoogleGenAI } from '@google/genai';
+import { tracedGemini } from '@mlflow/gemini';
+
+// Wrap the GoogleGenAI client with the tracedGemini function
+const client = tracedGemini(new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+
+// Invoke the client as usual
+const response = await client.models.generateContent({
+  model: 'gemini-2.5-flash',
+  contents: 'What is the capital of France?',
+});`,
+    },
+    vercel: {
+      install:
+        'npm install @mlflow/vercel ai @ai-sdk/openai @opentelemetry/exporter-trace-otlp-proto @opentelemetry/sdk-trace-node',
+      code: `import { MLflowSpanProcessor } from '@mlflow/vercel';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const provider = new NodeTracerProvider({
+  spanProcessors: [
+    new MLflowSpanProcessor(
+      new OTLPTraceExporter({
+        url: '${trackingUri}/api/2.0/otel/v1/traces',
+        headers: { 'x-mlflow-experiment-id': '${experimentId}' },
+      }),
+    ),
+  ],
+});
+provider.register();
+
+// Pass experimental_telemetry: { isEnabled: true } to record traces
+const { text } = await generateText({
+  model: openai('gpt-5-nano'),
+  prompt: 'What is MLflow?',
+  experimental_telemetry: { isEnabled: true },
+});
+
+console.log(text);`,
+    },
+    custom: {
+      install: '',
+      code: `// Wrap any async function with mlflow.trace for automatic tracing
+const processRequest = mlflow.trace(
+  async (userInput: string) => {
+    // Your application logic here
+    const response = await callYourAPI(userInput);
+
+    // Log custom attributes
+    mlflow.setAttributes({
+      user_input_length: userInput.length,
+      response_type: typeof response
+    });
+
+    return response;
+  },
+  { name: 'process-user-request' }
+);
+
+// Use the traced function
+const result = await processRequest("Hello, MLflow!");
+console.log("Processed:", result);`,
+    },
+  }) satisfies Record<string, { install: string; code: string }>;
+
 export const QUICKSTART_CONTENT: Record<
   QUICKSTART_FLAVOR,
   {
@@ -49,7 +214,7 @@ messages = [
 ]
 
 # Inputs and outputs of the API request will be logged in a trace
-client.chat.completions.create(model="gpt-4o-mini", messages=messages)`,
+client.chat.completions.create(model="gpt-5-nano", messages=messages)`,
   },
   langchain: {
     // the autologging integration was really introduced in
@@ -98,7 +263,7 @@ from typing import Annotated
 mlflow.langchain.autolog()
 
 # Ensure that the "OPENAI_API_KEY" environment variable is set
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5-nano")
 
 # Define a minimal LangGraph workflow
 class GraphState(dict):
@@ -157,7 +322,7 @@ mlflow.dspy.autolog()
 
 # Configure the LLM to use. Please ensure that
 # the OPENAI_API_KEY environment variable is set
-lm = dspy.LM("openai/gpt-4o-mini")
+lm = dspy.LM("openai/gpt-5-nano")
 dspy.configure(lm=lm)
 
 # Define a simple chain-of-thought model and run it
@@ -237,7 +402,7 @@ from autogen import AssistantAgent, UserProxyAgent
 mlflow.autogen.autolog()
 
 # Ensure that the "OPENAI_API_KEY" environment variable is set
-llm_config = { "model": "gpt-4o-mini", "api_key": os.environ["OPENAI_API_KEY"] }
+llm_config = { "model": "gpt-5-nano", "api_key": os.environ["OPENAI_API_KEY"] }
 assistant = AssistantAgent("assistant", llm_config = llm_config)
 user_proxy = UserProxyAgent("user_proxy", code_execution_config = False)
 
@@ -266,7 +431,7 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # Inputs and outputs of API calls will be logged as a trace
 message = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Hello, Claude"},
@@ -294,7 +459,7 @@ bedrock = boto3.client(
     region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
 )
 
-model = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+model = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 messages = [{ "role": "user", "content": [{"text": "Hello!"}]}]
 
 # All intermediate executions within the chat session will be logged
@@ -319,7 +484,7 @@ mlflow.litellm.autolog()
 messages = [{"role": "user", "content": "Hello!"}]
 
 # Inputs and outputs of the API request will be logged in a trace
-litellm.completion(model="gpt-4o-mini", messages=messages)`,
+litellm.completion(model="gpt-5-nano", messages=messages)`,
   },
   gemini: {
     minVersion: '2.18.0',
@@ -340,7 +505,7 @@ mlflow.gemini.autolog()
 client = genai.Client(api_key="GEMINI_API_KEY")
 
 # Inputs and outputs of the API request will be logged in a trace
-client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
+client.models.generate_content(model="gemini-2.5-flash", contents="Hello!")`,
   },
   custom: {
     minVersion: '2.14.3',

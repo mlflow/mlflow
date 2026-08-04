@@ -8,14 +8,20 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
 from mlflow.server.otel_api import otel_router
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
-def _build_otlp_payload():
+def _build_otlp_payload(resource_attrs=None):
     request = ExportTraceServiceRequest()
-    span = request.resource_spans.add().scope_spans.add().spans.add()
+    resource_span = request.resource_spans.add()
+    if resource_attrs:
+        for key, value in resource_attrs.items():
+            attr = resource_span.resource.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+    span = resource_span.scope_spans.add().spans.add()
     span.trace_id = b"\x00" * 16
     span.span_id = b"\x01" * 8
     span.name = "span"
@@ -115,6 +121,51 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
     assert workspace_context.get_request_workspace() is None
 
 
+def test_otlp_endpoint_links_trace_to_run(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore:
+        def __init__(self):
+            self.calls = []
+            self.link_calls = []
+
+        def log_spans(self, experiment_id, spans):
+            self.calls.append((experiment_id, spans))
+
+        def link_traces_to_run(self, trace_ids, run_id):
+            self.link_calls.append((trace_ids, run_id))
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: tracking_store,
+    )
+
+    client = _make_test_client()
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+            "X-MLflow-Run-Id": "run-123",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(tracking_store.calls) == 1
+
+    experiment_id, spans = tracking_store.calls[0]
+    assert experiment_id == "42"
+    assert len(spans) == 1
+    assert spans[0].parent_id is None
+
+    assert len(tracking_store.link_calls) == 1
+    trace_ids, run_id = tracking_store.link_calls[0]
+    assert trace_ids == [spans[0].trace_id]
+    assert run_id == "run-123"
+
+
 def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 
@@ -153,6 +204,41 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     assert "Active workspace is required" in response.json()["message"]
 
 
+def test_otlp_endpoint_run_linking_error_is_logged(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    logged_messages = []
+
+    class DummyTrackingStore:
+        def log_spans(self, experiment_id, spans):
+            pass
+
+        def link_traces_to_run(self, trace_ids, run_id):
+            raise Exception("linking failed")
+
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: DummyTrackingStore(),
+    )
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._logger.exception",
+        lambda message: logged_messages.append(message),
+    )
+
+    client = _make_test_client()
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+            "X-MLflow-Run-Id": "run-123",
+        },
+    )
+
+    assert response.status_code == 200
+    assert logged_messages == ["Failed to link OpenTelemetry traces to MLflow run"]
+
+
 def test_otlp_invalid_content_type(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
 
@@ -163,12 +249,12 @@ def test_otlp_invalid_content_type(monkeypatch):
 
     client = _make_test_client()
 
-    # Test with wrong content type
+    # Test with unsupported content type
     response = client.post(
         OTLP_TRACES_PATH,
         data=_build_otlp_payload(),
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
             "X-MLflow-Experiment-Id": "42",
         },
     )
@@ -207,7 +293,7 @@ def test_otlp_invalid_protobuf_data(monkeypatch):
         },
     )
     assert response.status_code == 400
-    assert "Invalid OpenTelemetry protobuf format" in response.json()["detail"]
+    assert "Invalid OpenTelemetry format" in response.json()["detail"]
 
 
 def test_otlp_empty_resource_spans(monkeypatch):
@@ -264,3 +350,43 @@ def test_otlp_conversion_error(monkeypatch):
     )
     assert response.status_code == 422
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
+
+
+def test_otlp_resource_attributes_preserved(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore:
+        def __init__(self):
+            self.logged_spans = []
+
+        def log_spans(self, experiment_id, spans):
+            self.logged_spans.extend(spans)
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: tracking_store,
+    )
+
+    client = _make_test_client()
+    resource_attrs = {
+        "service.name": "my-service",
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "opentelemetry",
+    }
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(resource_attrs=resource_attrs),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(tracking_store.logged_spans) == 1
+    span = tracking_store.logged_spans[0]
+    res = dict(span._span.resource.attributes)
+    assert res["service.name"] == "my-service"
+    assert res["telemetry.sdk.language"] == "python"
+    assert res["telemetry.sdk.name"] == "opentelemetry"

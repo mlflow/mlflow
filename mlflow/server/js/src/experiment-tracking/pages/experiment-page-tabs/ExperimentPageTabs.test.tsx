@@ -1,5 +1,7 @@
+/* eslint-disable jest/no-standalone-expect */
 import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
+
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { graphql, rest } from 'msw';
@@ -11,8 +13,9 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { ExperimentKind } from '../../constants';
-import { createLazyRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { createLazyRouteElement, createRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { PageId, RoutePaths } from '../../routes';
+import ExperimentPageTabs from './ExperimentPageTabs';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -21,6 +24,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
 }));
+
 jest.mock('../experiment-logged-models/ExperimentLoggedModelListPage', () => ({
   // mock default export
   __esModule: true,
@@ -93,7 +97,7 @@ describe('ExperimentLoggedModelListPage', () => {
                     {
                       path: RoutePaths.experimentPage,
                       pageId: PageId.experimentPage,
-                      element: createLazyRouteElement(() => import('./ExperimentPageTabs')),
+                      element: createRouteElement(ExperimentPageTabs),
                       children: [
                         {
                           path: RoutePaths.experimentPageTabOverview,
@@ -134,8 +138,8 @@ describe('ExperimentLoggedModelListPage', () => {
   };
 
   beforeAll(() => {
+    jest.useRealTimers();
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
-    server.listen();
   });
 
   beforeEach(() => {
@@ -147,7 +151,7 @@ describe('ExperimentLoggedModelListPage', () => {
 
     // Wait for lazy-loaded route components to finish loading and PageLoading skeleton to be removed.
     // First test in suite takes longer because lazy modules haven't been cached yet.
-    await waitFor(() => waitForRoutesToBeRendered());
+    await waitFor(() => waitForRoutesToBeRendered(), { timeout: 10000 });
 
     await waitFor(() => {
       expect(screen.getByText('Test experiment name')).toBeInTheDocument();

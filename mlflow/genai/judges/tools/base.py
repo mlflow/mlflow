@@ -10,10 +10,8 @@ from typing import Any
 
 from mlflow.entities.trace import Trace
 from mlflow.types.llm import ToolDefinition
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class JudgeTool(ABC):
     """
     Abstract base class for tools that can be used by MLflow judges.

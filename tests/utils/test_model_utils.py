@@ -3,7 +3,7 @@ import sys
 from unittest import mock
 
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from sklearn import datasets
 
 import mlflow.sklearn
@@ -20,9 +20,9 @@ def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = knn.KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return knn_model
+    logreg_model = logreg_module.LogisticRegression()
+    logreg_model.fit(X, y)
+    return logreg_model
 
 
 @pytest.fixture

@@ -151,6 +151,18 @@ class AbstractJobStore(ABC):
         """
 
     @abstractmethod
+    def update_status_details(self, job_id: str, status_details: dict[str, Any]) -> None:
+        """
+        Update job status details.
+
+        Merges the provided status details with existing job status details.
+
+        Args:
+            job_id: The ID of the job to update
+            status_details: Status details to merge into existing job status details
+        """
+
+    @abstractmethod
     def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
         """
         Delete finalized jobs based on the provided filters. Used by ``mlflow gc``.

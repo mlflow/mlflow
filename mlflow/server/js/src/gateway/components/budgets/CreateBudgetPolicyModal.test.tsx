@@ -1,6 +1,6 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
 
@@ -82,5 +82,55 @@ describe('CreateBudgetPolicyModal', () => {
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 
     expect(screen.getByText('Budget limit reached')).toBeInTheDocument();
+  });
+
+  test('does not propagate unhandled rejection when submit fails (e.g. 403)', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    // Lazy-construct the rejection so it isn't created at mock-setup time
+    // (which would briefly look unhandled before the modal awaits it).
+    const rejectingMutateAsync = jest
+      .fn()
+      .mockImplementation(() => Promise.reject(new Error('You do not have permission to access this resource.')));
+    jest.mocked(useCreateBudgetPolicy).mockReturnValue({
+      mutateAsync: rejectingMutateAsync,
+      isLoading: false,
+      error: null,
+      reset: jest.fn(),
+    } as any);
+
+    const unhandledRejections: unknown[] = [];
+    const handler = (event: PromiseRejectionEvent) => {
+      // Suppress the runtime's default behavior so a reintroduced unhandled
+      // rejection surfaces as a clean assertion failure below rather than
+      // crashing the whole jest worker.
+      event.preventDefault();
+      unhandledRejections.push(event.reason);
+    };
+    window.addEventListener('unhandledrejection', handler);
+
+    try {
+      renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={onClose} onSuccess={onSuccess} />);
+
+      const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+      await userEvent.type(amountInput, '50');
+
+      const createButton = screen.getByRole('button', { name: 'Create' });
+      await userEvent.click(createButton);
+
+      // `unhandledrejection` is dispatched asynchronously, so a regression
+      // could fire it on a later turn. Wait for the rejected mutation to be
+      // observed, then advance one macrotask so any pending rejection event
+      // has had a chance to run before we assert.
+      await waitFor(() => expect(rejectingMutateAsync).toHaveBeenCalledTimes(1));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandledRejections).toEqual([]);
+      // Modal stays open and onSuccess does not fire on failure.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('unhandledrejection', handler);
+    }
   });
 });

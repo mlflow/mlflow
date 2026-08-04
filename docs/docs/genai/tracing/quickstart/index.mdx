@@ -1,3 +1,7 @@
+---
+description: Get started with MLflow Tracing in under 10 minutes by enabling tracing for a simple LLM application.
+---
+
 import ImageBox from '@site/src/components/ImageBox';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -5,12 +9,26 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Zap, FlaskConical, TestTube } from "lucide-react";
+import { Zap, TestTube, Search } from "lucide-react";
 
 # Tracing Quickstart
 
-:::tip MLflow Assistant
-Need help setting up tracing? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can add MLflow tracing to your project automatically.
+:::tip[MLflow Assistant]
+
+Need help setting up tracing? Try [MLflow Assistant](/genai/getting-started/try-assistant) - a powerful AI assistant that can add MLflow tracing to your project automatically.
+
+:::
+
+:::tip[Set up Tracing with the MLflow CLI]
+
+From inside your project's Git repository, run a single command to install the MLflow skills and instrument your app for tracing — no manual setup:
+
+```bash
+uvx mlflow@latest agent setup
+```
+
+Prefer to set things up manually? Read on below.
+
 :::
 
 This quickstart guide will walk you through setting up a simple LLM application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
@@ -44,7 +62,7 @@ To connect your LLM application or AI agent to the MLflow server, you will need 
 <Tabs groupId="programming-language">
 <TabItem value="python" label="Python(OpenAI)" default>
 ```bash
-pip install --upgrade 'mlflow[genai]' openai>=1.0.0
+pip install --upgrade mlflow openai>=1.0.0
 ```
 </TabItem>
 
@@ -80,7 +98,11 @@ from openai import OpenAI
 mlflow.set_tracking_uri("http://localhost:5000")
 
 # Specify the experiment you just created for your LLM application or AI agent.
+# The positional argument is the experiment name. To attach to an existing
+# experiment by its numeric ID, pass it with the experiment_id keyword (a numeric
+# value passed positionally is treated as a name, not an ID):
 mlflow.set_experiment("My Application")
+# mlflow.set_experiment(experiment_id="1234567890123456")
 
 # Enable automatic tracing for all OpenAI API calls.
 mlflow.openai.autolog()
@@ -168,7 +190,7 @@ For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTe
 
 After running the code above, go to the MLflow UI and select the "My Application" experiment, and then select the "Traces" tab. It should show the newly created trace.
 
-:::tip Learn More About Tracing UI
+:::tip[Learn More About Tracing UI]
 
 The "Traces" page includes rich information about the trace and supports various actions such as searching, filtering, adding feedbacks, and more. See [View Traces](/genai/tracing/observe-with-traces/ui) for comprehensive guide about how to get the most out of the MLflow Tracing UI.
 
@@ -204,7 +226,7 @@ Many LLM applications and AI agents maintain multi-turn conversations with users
         )
 
         # Your chat logic here
-        return generate_response(message)
+        return f"Echo: {message[-1]['content'] if message else ''}"
     ```
 
   </TabItem>
@@ -241,13 +263,6 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
 
 <TilesGrid>
   <TileCard
-    icon={TestTube}
-    title="Evaluation Quickstart"
-    description="Learn how to systematically evaluate your GenAI application's quality with LLM judges and automated testing"
-    href="/genai/eval-monitor/quickstart"
-    linkText="Start evaluating →"
-  />
-  <TileCard
     icon={Zap}
     title="Automatic Tracing"
     description="Explore one-line automatic tracing for popular LLM and AI agent frameworks"
@@ -255,10 +270,17 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
     linkText="Enable auto-tracing →"
   />
   <TileCard
-    icon={FlaskConical}
-    title="Quality Test Traces"
-    description="Run quality evaluations on your logged traces to ensure response accuracy"
-    href="/genai/eval-monitor/running-evaluation/traces/"
-    linkText="Evaluate traces →"
+    icon={Search}
+    title="Automatic Issue Detection"
+    description="Use AI to automatically identify quality and operational issues across your traces"
+    href="/genai/eval-monitor/ai-insights/detect-issues"
+    linkText="Detect issues →"
+  />
+  <TileCard
+    icon={TestTube}
+    title="Evaluation Quickstart"
+    description="Learn how to systematically evaluate your GenAI application's quality with LLM judges and automated testing"
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
   />
 </TilesGrid>

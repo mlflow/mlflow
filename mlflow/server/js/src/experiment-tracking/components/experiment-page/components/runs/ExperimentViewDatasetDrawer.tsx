@@ -244,27 +244,60 @@ const ExperimentViewDatasetDrawerImpl = ({
                     </div>
                   }
                 />
-                <Typography.Title
-                  level={4}
-                  color="secondary"
-                  css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}
-                  title={fullProfile}
-                >
-                  {datasetWithTags.dataset.profile && datasetWithTags.dataset.profile !== 'null' ? (
-                    datasetWithTags.dataset.profile.length > MAX_PROFILE_LENGTH ? (
-                      `${datasetWithTags.dataset.profile.substring(0, MAX_PROFILE_LENGTH)} ...`
-                    ) : (
-                      datasetWithTags.dataset.profile
-                    )
-                  ) : (
+                {datasetWithTags.dataset.profile && datasetWithTags.dataset.profile !== 'null' ? (
+                  (() => {
+                    try {
+                      const parsed = JSON.parse(datasetWithTags.dataset.profile);
+                      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                        return (
+                          <div css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}>
+                            {Object.entries(parsed).map(([key, value]) => {
+                              const isObject = value !== null && typeof value === 'object';
+                              const displayValue = isObject ? JSON.stringify(value) : String(value);
+                              const truncatedValue =
+                                displayValue.length > MAX_PROFILE_LENGTH
+                                  ? `${displayValue.substring(0, MAX_PROFILE_LENGTH)} ...`
+                                  : displayValue;
+
+                              return (
+                                <Typography.Hint key={key} css={{ display: 'block', marginBottom: 2 }}>
+                                  {key.replace(/_/g, ' ')}: <strong>{truncatedValue}</strong>
+                                </Typography.Hint>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                    } catch {
+                      // Fall through to raw display
+                    }
+                    return (
+                      <Typography.Title
+                        level={4}
+                        color="secondary"
+                        css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}
+                        title={fullProfile}
+                      >
+                        {datasetWithTags.dataset.profile.length > MAX_PROFILE_LENGTH
+                          ? `${datasetWithTags.dataset.profile.substring(0, MAX_PROFILE_LENGTH)} ...`
+                          : datasetWithTags.dataset.profile}
+                      </Typography.Title>
+                    );
+                  })()
+                ) : (
+                  <Typography.Title
+                    level={4}
+                    color="secondary"
+                    css={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.xs }}
+                  >
                     <FormattedMessage
                       defaultMessage="No profile available"
                       description="Text for no profile available in the experiment run dataset drawer"
                     />
-                  )}
-                </Typography.Title>
+                  </Typography.Title>
+                )}
               </div>
-              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={tags} experimentId={experimentId} />
+              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
             </div>
             <div css={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <ExperimentViewDatasetDigest datasetWithTags={datasetWithTags} />

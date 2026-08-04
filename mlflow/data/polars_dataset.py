@@ -5,6 +5,11 @@ from inspect import isclass
 from typing import Any, Final, TypedDict
 
 import polars as pl
+from packaging.version import Version
+
+if Version(pl.__version__).major < 1:
+    raise ImportError(f"mlflow.data.polars_dataset requires polars>=1.0.0, found {pl.__version__}")
+
 from polars.datatypes.classes import DataType as PolarsDataType
 from polars.datatypes.classes import DataTypeClass as PolarsDataTypeClass
 

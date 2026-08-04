@@ -1,6 +1,10 @@
 ---
+title: Tracing Gemini
+description: Trace Google Gemini model interactions with MLflow for full observability into LLM calls, token usage, and response quality.
 sidebar_position: 9
 sidebar_label: Gemini
+keywords: [gemini, google, tracing, mlflow, llm]
+image: /images/llms/gemini/gemini-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -39,7 +43,7 @@ MLflow trace automatically captures the following information about Gemini calls
 <Tabs>
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' google-generativeai
+pip install mlflow google-generativeai
 ```
 </TabItem>
 <TabItem value="typescript" label="JS / TS">

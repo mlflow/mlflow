@@ -11,7 +11,7 @@ interface ModelDefinitionConfigSectionProps {
   selectedModelDefinitionId?: string;
   onModelDefinitionSelect: (modelDefinitionId: string) => void;
   error?: string;
-  componentIdPrefix?: string;
+  componentId?: string;
   children?: React.ReactNode;
 }
 
@@ -21,7 +21,7 @@ export const ModelDefinitionConfigSection = ({
   selectedModelDefinitionId,
   onModelDefinitionSelect,
   error,
-  componentIdPrefix = 'mlflow.gateway.model-definition-config',
+  componentId = 'mlflow.gateway.model-definition-config',
   children,
 }: ModelDefinitionConfigSectionProps) => {
   const { theme } = useDesignSystemTheme();
@@ -36,7 +36,7 @@ export const ModelDefinitionConfigSection = ({
           <FormattedMessage defaultMessage="Model configuration" description="Label for model configuration section" />
         </FormUI.Label>
         <Radio.Group
-          componentId={`${componentIdPrefix}.mode`}
+          componentId={`${componentId}.mode`}
           name="modelDefinitionMode"
           value={mode}
           onChange={(e) => onModeChange(e.target.value as ModelDefinitionMode)}

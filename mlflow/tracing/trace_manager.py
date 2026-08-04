@@ -11,6 +11,7 @@ from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class _Trace:
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
     is_remote_trace: bool = False
+    workspace: str | None = None
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -49,6 +51,7 @@ class ManagerTrace:
     trace: Trace
     prompts: Sequence[PromptVersion]
     is_remote_trace: bool = False
+    workspace: str | None = None
 
 
 class InMemoryTraceManager:
@@ -89,7 +92,11 @@ class InMemoryTraceManager:
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
-            self._traces[trace_info.trace_id] = _Trace(trace_info, is_remote_trace=is_remote_trace)
+            self._traces[trace_info.trace_id] = _Trace(
+                trace_info,
+                is_remote_trace=is_remote_trace,
+                workspace=get_request_workspace(),
+            )
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
 
     def register_span(self, span: LiveSpan):
@@ -167,6 +174,16 @@ class InMemoryTraceManager:
         """
         return self._otel_id_to_mlflow_trace_id.get(otel_trace_id)
 
+    def has_open_spans(self, otel_trace_id: int) -> bool:
+        """Return True if any span in the trace has not yet ended."""
+        mlflow_trace_id = self.get_mlflow_trace_id_from_otel_id(otel_trace_id)
+        if mlflow_trace_id is None:
+            return False
+        with self.get_trace(mlflow_trace_id) as trace:
+            if trace is None:
+                return False
+            return any(span.end_time_ns is None for span in trace.span_dict.values())
+
     def set_trace_metadata(self, trace_id: str, key: str, value: str):
         """
         Set the trace metadata for the given request ID.
@@ -189,6 +206,7 @@ class InMemoryTraceManager:
                 trace=internal_trace.to_mlflow_trace(),
                 prompts=internal_trace.prompts,
                 is_remote_trace=internal_trace.is_remote_trace,
+                workspace=internal_trace.workspace,
             )
 
     def _check_timeout_update(self):

@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.docstring_param_order import DocstringParamOrder
 
 
-def test_docstring_param_order(index_path: Path) -> None:
+def test_docstring_param_order(index: SymbolIndex) -> None:
     code = """
 # Bad
 def f(x: int, y: str) -> None:
@@ -24,7 +25,7 @@ def f(a: int, b: str) -> None:
     '''
 """
     config = Config(select={DocstringParamOrder.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, DocstringParamOrder) for v in violations)
     assert violations[0].range == Range(Position(2, 0))

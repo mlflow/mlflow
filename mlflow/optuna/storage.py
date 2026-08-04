@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import uuid
+import weakref
 from collections.abc import Container, Sequence
 from typing import Any
 
@@ -42,6 +43,33 @@ mlflow_optuna_status_map = {
     "FAILED": TrialState.FAIL,
     "SCHEDULED": TrialState.WAITING,
 }
+
+
+def _periodic_flush_worker(
+    ref: "weakref.ref[MlflowStorage]",
+    stop_event: threading.Event,
+    flush_interval: float,
+) -> None:
+    """Background thread that periodically flushes batched data.
+
+    Uses a weak reference so the thread does not prevent garbage collection
+    of the owning MlflowStorage instance.  When the instance is collected
+    the weak reference returns None and the loop exits.
+    """
+    while not stop_event.wait(timeout=min(0.1, flush_interval / 10)):
+        obj = ref()
+        if obj is None:
+            break
+        try:
+            current_time = time.time()
+            if current_time - obj._last_flush_time >= obj._batch_flush_interval:
+                obj.flush_all_batches()
+                obj._last_flush_time = current_time
+        except Exception:
+            # Sleep longer on error to avoid tight retry loop
+            stop_event.wait(timeout=1.0)
+        finally:
+            del obj
 
 
 class MlflowStorage(BaseStorage):
@@ -86,12 +114,21 @@ class MlflowStorage(BaseStorage):
         self._batch_lock = threading.RLock()
         self._last_flush_time = time.time()
 
-        # Flag to indicate if the worker should stop - must be defined BEFORE starting the thread
-        self._stop_worker = False
+        # Event to signal the worker thread to stop
+        self._stop_event = threading.Event()
 
-        # Start a background thread for periodic flushing
+        # Register a weak-ref callback that fires the stop event when this
+        # instance is garbage-collected, so the flush thread exits promptly.
+        # Pass the Event object directly (not a bound method on self) to avoid
+        # preventing GC via a reference cycle.
+        stop = self._stop_event
+        weakref.finalize(self, stop.set)
+
+        # Start a background thread for periodic flushing using a weak reference
+        # so the thread does not prevent garbage collection of this instance.
         self._flush_thread = threading.Thread(
-            target=self._periodic_flush_worker,
+            target=_periodic_flush_worker,
+            args=(weakref.ref(self), self._stop_event, self._batch_flush_interval),
             daemon=True,
             name=f"mlflow_optuna_batch_flush_worker_{uuid.uuid4().hex[:8]}",
         )
@@ -107,9 +144,12 @@ class MlflowStorage(BaseStorage):
         # Remove thread-related attributes that can't be pickled
         state.pop("_batch_lock", None)
         state.pop("_flush_thread", None)
+        state.pop("_stop_event", None)
 
         # Store the configuration but not the actual lock/thread
-        state["_thread_running"] = hasattr(self, "_flush_thread") and self._flush_thread.is_alive()
+        state["_thread_running"] = hasattr(self, "_flush_thread") and (
+            self._flush_thread is not None and self._flush_thread.is_alive()
+        )
 
         return state
 
@@ -130,42 +170,8 @@ class MlflowStorage(BaseStorage):
 
         # If we're on a worker node, we should disable automatic background flushing
         # because it could cause issues with multiple threads trying to write to MLflow
-        self._stop_worker = True
-
-    def __del__(self):
-        """Ensure all queued data is flushed before destroying the object."""
-        # Set the stop flag
-        if hasattr(self, "_stop_worker"):
-            self._stop_worker = True
-
-        # Join the thread if it exists and is alive
-        if hasattr(self, "_flush_thread") and self._flush_thread.is_alive():
-            try:
-                self._flush_thread.join(timeout=5.0)
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-        # Flush any remaining data
-        if hasattr(self, "_batch_queue"):
-            try:
-                self.flush_all_batches()
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-    def _periodic_flush_worker(self):
-        """Background worker that periodically flushes batched data."""
-        while not self._stop_worker:
-            try:
-                time.sleep(min(0.1, self._batch_flush_interval / 10))  # Sleep in small increments
-
-                # Check if it's time to flush
-                current_time = time.time()
-                if current_time - self._last_flush_time >= self._batch_flush_interval:
-                    self.flush_all_batches()
-                    self._last_flush_time = current_time
-            except Exception:
-                # Catch any exceptions to prevent thread crashes
-                time.sleep(1.0)  # Sleep a bit longer if there was an error
+        self._stop_event = threading.Event()
+        self._stop_event.set()  # Don't start flushing on deserialized workers
 
     def _queue_batch_operation(
         self,

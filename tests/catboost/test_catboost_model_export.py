@@ -456,7 +456,10 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, name="model", input_example=inference_dataframe.head(3)
+            model,
+            name="model",
+            input_example=inference_dataframe.head(3),
+            skops_trusted_types=["catboost.core.CatBoostRegressor"],
         )
 
     inference_payload = load_serving_example(model_info.model_uri)

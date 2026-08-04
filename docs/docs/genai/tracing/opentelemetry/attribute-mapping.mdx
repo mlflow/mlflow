@@ -23,6 +23,7 @@ MLflow includes built-in translators for the following frameworks and convention
 - [Spring AI](#spring-ai)
 - [Google ADK](#google-adk)
 - [LiveKit Agents](#livekit-agents)
+- [Laminar](#laminar)
 - [VoltAgent](#voltagent)
 
 ## Translated Span Attributes
@@ -288,6 +289,49 @@ LiveKit uses a combination of heuristics to determine span type:
 Also supports GenAI event-based input/output extraction (see [GenAI table above](#opentelemetry-genai-semantic-conventions)).
 
 **Token Usage:** Same as GenAI semantic conventions (`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`).
+
+---
+
+### Laminar
+
+Based on [Laminar](https://www.lmnr.ai/) telemetry.
+
+**Span Type** (from `lmnr.span.type`):
+
+| Source Value      | MLflow Span Type |
+| ----------------- | ---------------- |
+| `LLM`             | `LLM`            |
+| `TOOL`            | `TOOL`           |
+| `DEFAULT`         | `CHAIN`          |
+| `PIPELINE`        | `CHAIN`          |
+| `EXECUTOR`        | `AGENT`          |
+| `EVALUATOR`       | `EVALUATOR`      |
+| `HUMAN_EVALUATOR` | `EVALUATOR`      |
+| `EVALUATION`      | `EVALUATOR`      |
+| `CACHED`          | `LLM`            |
+
+**Inputs / Outputs:**
+
+| Source Attributes  | MLflow Attribute     |
+| ------------------ | -------------------- |
+| `lmnr.span.input`  | `mlflow.spanInputs`  |
+| `lmnr.span.output` | `mlflow.spanOutputs` |
+
+**Token Usage:**
+
+| Source Attribute                   | MLflow Token Field |
+| ---------------------------------- | ------------------ |
+| `gen_ai.usage.input_tokens`        | `input_tokens`     |
+| `gen_ai.usage.output_tokens`       | `output_tokens`    |
+| _(calculated from input + output)_ | `total_tokens`     |
+
+**Model:**
+
+| Source Attribute        | MLflow Attribute      |
+| ----------------------- | --------------------- |
+| `gen_ai.response.model` | `mlflow.llm.model`    |
+| `gen_ai.request.model`  | `mlflow.llm.model`    |
+| `gen_ai.system`         | `mlflow.llm.provider` |
 
 ---
 

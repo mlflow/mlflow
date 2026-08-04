@@ -92,6 +92,7 @@ export const ModelListTable = ({
           description: 'Column title for model name in the registered model page',
         }),
         accessorKey: 'name',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => (
           <Link
             componentId="mlflow.model_registry.model_list.model_name_link"
@@ -113,6 +114,7 @@ export const ModelListTable = ({
           description: 'Column title for latest model version in the registered model page',
         }),
         accessorKey: 'latest_versions',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue, row: { original } }) => {
           const { name } = original;
           const latestVersions = getValue() as ModelVersionInfoEntity[];
@@ -135,6 +137,7 @@ export const ModelListTable = ({
           defaultMessage: 'Aliased versions',
           description: 'Column title for aliased versions in the registered model page',
         }),
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ row: { original: modelEntity } }) => {
           return <ModelsTableAliasedVersionsCell model={modelEntity} />;
         },
@@ -151,6 +154,7 @@ export const ModelListTable = ({
             defaultMessage: 'Staging',
             description: 'Column title for staging phase version in the registered model page',
           }),
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ row: { original } }) => {
             const { latest_versions, name } = original;
             const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.STAGING);
@@ -166,6 +170,7 @@ export const ModelListTable = ({
             defaultMessage: 'Production',
             description: 'Column title for production phase version in the registered model page',
           }),
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ row: { original } }) => {
             const { latest_versions, name } = original;
             const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.PRODUCTION);
@@ -185,6 +190,7 @@ export const ModelListTable = ({
         }),
         accessorKey: 'user_id',
         enableSorting: false,
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue, row: { original } }) => {
           return <span title={getValue() as string}>{getValue()}</span>;
         },
@@ -198,6 +204,7 @@ export const ModelListTable = ({
           description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue(), intl)}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
@@ -209,6 +216,7 @@ export const ModelListTable = ({
         }),
         enableSorting: false,
         accessorKey: 'tags',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => {
           return <ModelListTagsCell tags={getValue() as KeyValueEntity[]} />;
         },

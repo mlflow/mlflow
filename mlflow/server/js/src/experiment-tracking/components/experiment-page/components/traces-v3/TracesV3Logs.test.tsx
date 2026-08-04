@@ -18,7 +18,10 @@ import {
   TracesTableColumnType,
   TracesTableColumnGroup,
   FilterOperator,
+  shouldUseInfinitePaginatedTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
@@ -26,6 +29,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import * as useCountInfoModule from './hooks/useCountInfo';
 
 // Overriding default timeout for OSS tests
 // eslint-disable-next-line no-restricted-syntax
@@ -46,8 +50,21 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
     useFilters: jest.fn(),
     useTableSort: jest.fn(),
     invalidateMlflowSearchTracesCache: jest.fn(),
+    shouldUseInfinitePaginatedTraces: jest.fn(),
   };
 });
+
+jest.mock('./hooks/useAssessmentCountMetrics', () => ({
+  useAssessmentCountMetrics: jest.fn(() => undefined),
+}));
+
+jest.mock('../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
+  useTraceMetricsQuery: jest.fn(() => ({ data: undefined, isLoading: false })),
+}));
+
+jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
+  useLogTelemetryEvent: jest.fn(() => jest.fn()),
+}));
 
 jest.mock('./hooks/useSetInitialTimeFilter', () => ({
   useSetInitialTimeFilter: jest.fn(),
@@ -70,7 +87,6 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
-
 jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
   MlflowService: {
     getExperimentTraceInfoV3: jest.fn(),
@@ -83,11 +99,16 @@ jest.mock('./TracesV3EmptyState', () => ({
   TracesV3EmptyState: jest.fn(() => null),
 }));
 
+// Mock useLocalStorage to prevent guidance popovers from showing in tests
+jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
+  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
+}));
+
 jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
   ExportTracesToDatasetModal: jest.fn(() => null),
 }));
 
-const renderComponent = (props = {}) => {
+const renderComponent = (props = {}, initialEntries?: string[]) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -96,6 +117,7 @@ const renderComponent = (props = {}) => {
 
   return render(
     <TestRouter
+      initialEntries={initialEntries}
       routes={[
         testRoute(
           <IntlProvider locale="en">
@@ -429,6 +451,12 @@ describe('TracesV3Logs', () => {
       renderComponent({ additionalFilters });
       await waitForRoutesToBeRendered();
 
+      expect(useMlflowTracesTableMetadata).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          networkFilters: additionalFilters,
+        }),
+      );
+
       // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
       await waitFor(() => {
         expect(searchTracesMock).toHaveBeenCalledWith(
@@ -437,6 +465,64 @@ describe('TracesV3Logs', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Count mode', () => {
+    it('counts sessions only for forced chat session views', async () => {
+      const useCountInfoSpy = jest.spyOn(useCountInfoModule, 'useCountInfo').mockReturnValue({
+        currentCount: 2,
+        logCountLoading: false,
+        totalCount: 5,
+        maxAllowedCount: Infinity,
+      });
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      const defaultView = renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: false,
+        }),
+      );
+
+      defaultView.unmount();
+      useCountInfoSpy.mockClear();
+
+      const chatSessionsView = renderComponent({ forceGroupBySession: true });
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: true,
+        }),
+      );
+
+      chatSessionsView.unmount();
+      useCountInfoSpy.mockRestore();
     });
   });
 
@@ -503,6 +589,194 @@ describe('TracesV3Logs', () => {
       await waitForRoutesToBeRendered();
 
       expect(TracesV3EmptyState).toHaveBeenCalled();
+    });
+  });
+
+  describe('Trace count telemetry', () => {
+    let mockLogTelemetryEvent: jest.Mock;
+
+    beforeEach(() => {
+      mockLogTelemetryEvent = jest.fn();
+      jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
+      jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+      jest.mocked(useTraceMetricsQuery).mockReturnValue({
+        data: { data_points: [{ values: { COUNT: 42 } }] },
+        isLoading: false,
+      } as any);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+    });
+
+    it('logs trace count telemetry once for a single experiment', async () => {
+      renderComponent({ experimentIds: ['telemetry-single-exp'] });
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => {
+        expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+        expect(mockLogTelemetryEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            componentId: 'mlflow.traces-tab.trace-count',
+            componentViewId: 'telemetry-single-exp',
+            value: JSON.stringify({ totalTraces: 42 }),
+          }),
+        );
+      });
+    });
+
+    it('does not log trace count telemetry for multi-experiment views', async () => {
+      renderComponent({ experimentIds: ['telemetry-multi-exp-1', 'telemetry-multi-exp-2'] });
+      await waitForRoutesToBeRendered();
+
+      expect(mockLogTelemetryEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: 'mlflow.traces-tab.trace-count' }),
+      );
+    });
+  });
+
+  describe('saved-view preview', () => {
+    // The column-count Tag renders its digits as separate text nodes and its componentId isn't
+    // surfaced as a testid, so locate the column-selector trigger button (which carries the
+    // "Columns N/M" label) and assert on its combined text content.
+    const getColumnsButton = () =>
+      screen.getAllByRole('button').find((el) => (el.textContent ?? '').startsWith('Columns'));
+
+    const sharedViewBannerText = /You're viewing a shared view/;
+
+    // request_time + execution_duration exist as columns; the user has only request_time selected.
+    const previewColumns = [
+      {
+        id: REQUEST_TIME_COLUMN_ID,
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Request Time',
+      },
+      {
+        id: 'execution_duration',
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Duration',
+      },
+    ];
+
+    beforeEach(() => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: previewColumns,
+        totalCount: 1,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [{ trace_id: 'test-trace-1' }],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+    });
+
+    it('renders the toolbar column count from the preview, not the user’s own selection', async () => {
+      // User owns 1 column (the default mock); the shared view in the URL selects 2. The toolbar
+      // counter must reflect the previewed 2/2, matching the body — not the user's 1.
+      renderComponent({ enableSavedViews: true }, [
+        `/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`,
+      ]);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns2/2'));
+      // The column control is disabled during preview — editing is deferred to Override/Discard.
+      expect(getColumnsButton()).toBeDisabled();
+      // The shared-view banner is shown on a page that hosts saved views.
+      expect(screen.getByText(sharedViewBannerText)).toBeInTheDocument();
+    });
+
+    it('shows the user’s own column count (not a preview) when no shared view is open', async () => {
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      // Outside preview the control is editable.
+      expect(getColumnsButton()).not.toBeDisabled();
+    });
+
+    it('does not enter preview for a bare share key carrying no view state', async () => {
+      // A garbage/deleted share key has no selectedColumns/sort in the URL, so there's nothing to
+      // preview. Presence of the key alone must not enter preview mode: the user keeps their own
+      // column count and the control stays editable (no misleading "shared view" state).
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=does-not-exist']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      expect(getColumnsButton()).not.toBeDisabled();
+    });
+
+    it('enters preview for a share link carrying only a time range (no columns or sort)', async () => {
+      // buildTraceViewQuery also serializes startTime/endTime/filter, so a view that captures only a
+      // time range still carries real state. previewActive must gate on the full captured param set,
+      // not just columns/sort — otherwise this link would skip preview and enable the controls.
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=v-time&startTime=2026-01-01T00:00:00.000Z']);
+      await waitForRoutesToBeRendered();
+
+      // In preview the column control is disabled (editing is deferred to Override/Discard), even
+      // though the link carried no columns of its own — the user's own columns show, read-only.
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
+
+    it('enters preview for a share link with an empty selectedColumns value (all columns deselected)', async () => {
+      // captureTraceViewState/buildTraceViewQuery treat an empty-string value as captured (present),
+      // so `selectedColumns=` is a real view — every column deselected. The state check uses `!== null`
+      // (not truthiness) so this still enters preview rather than silently skipping it.
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=v-empty&selectedColumns=']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
+
+    it('does not preview on a page that does not host saved views, even with a shared-view URL', async () => {
+      // Regression for the sessions-page bleed: TracesV3Logs is reused (e.g. by the Chat Sessions
+      // page, SelectTracesModal, gateway pages) without the saved-views feature. A traceViewShareKey
+      // in the URL — shared across tabs — must NOT put those pages into preview: no banner, and the
+      // column control stays editable showing the user's own selection. `enableSavedViews` defaults
+      // to false, so this is the default behavior for every non–Traces-tab consumer.
+      renderComponent({}, [`/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`]);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      expect(getColumnsButton()).not.toBeDisabled();
+      expect(screen.queryByText(sharedViewBannerText)).not.toBeInTheDocument();
+    });
+
+    it('does not preview on the chat-sessions view even with a shared-view URL', async () => {
+      // The Chat Sessions page mounts TracesV3Logs with forceGroupBySession and no saved-views UI.
+      // The shared-view banner/disabled-controls must not bleed into it.
+      renderComponent({ forceGroupBySession: true }, [
+        `/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`,
+      ]);
+      await waitForRoutesToBeRendered();
+
+      expect(screen.queryByText(sharedViewBannerText)).not.toBeInTheDocument();
+      await waitFor(() => expect(getColumnsButton()).not.toBeDisabled());
     });
   });
 });

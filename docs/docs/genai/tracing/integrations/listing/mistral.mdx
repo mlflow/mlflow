@@ -1,6 +1,10 @@
 ---
+title: Tracing Mistral
+description: Trace Mistral AI model interactions with MLflow for full observability into LLM calls, token usage, and response quality.
 sidebar_position: 10.5
 sidebar_label: Mistral
+keywords: [mistral, tracing, mlflow, llm]
+image: /images/llms/mistral/mistral-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -31,7 +35,7 @@ MLflow automatically captures the following information about Mistral calls:
 <StepHeader number={1} title="Install Dependencies" />
 
 ```bash
-pip install 'mlflow[genai]' mistralai
+pip install mlflow mistralai
 ```
 
 <StepHeader number={2} title="Start MLflow Server" />

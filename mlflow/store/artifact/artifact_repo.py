@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import posixpath
+import re
 import tempfile
 import traceback
 import uuid
@@ -9,21 +10,24 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadPart,
 )
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
 from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
@@ -31,7 +35,12 @@ from mlflow.utils.async_logging.async_artifacts_logging_queue import (
     AsyncArtifactsLoggingQueue,
 )
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
+from mlflow.utils.os import is_windows
+from mlflow.utils.uri import validate_path_within_directory
 from mlflow.utils.validation import bad_path_message, path_not_unique
+
+if TYPE_CHECKING:
+    from mlflow.entities.span import Span
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -43,6 +52,13 @@ assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 _logger = logging.getLogger(__name__)
+# Chunk size for streaming artifact uploads and downloads (1 MB).
+ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
+
+# Precompiled regex for sanitizing Windows-invalid characters in path components (Windows only).
+# Backslash is included: artifact paths are POSIX-style (only "/" separates components), so a
+# literal "\" inside a component is part of the name and is invalid in a Windows filename.
+_WINDOWS_INVALID_CHARS_REGEX = re.compile(r'[<>:"|?*\\]') if is_windows() else None
 
 
 def _truncate_error(err: str, max_length: int = 10_000) -> str:
@@ -68,6 +84,55 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         )
         new_creds = creds_func()
         return try_func(new_creds)
+
+
+def _sanitize_path_component_for_windows(component: str) -> str:
+    """
+    Sanitize a path component by replacing Windows-invalid characters with underscores.
+
+    Windows does not allow these characters in filenames: < > : " | ? * \\
+    (Note: / is the POSIX path separator and is handled separately by splitting the path.
+    A literal \\ inside a component is not a separator here and is sanitized as invalid.)
+
+    This function does not handle Windows reserved names (CON, PRN, AUX, NUL, COM1-9,
+    LPT1-9, CONIN$, CONOUT$). Artifact paths with these names are rare in practice, but
+    would cause issues if encountered on Windows.
+
+    Args:
+        component: A single path component (filename or directory name).
+
+    Returns:
+        The sanitized path component with invalid characters replaced by underscores.
+    """
+    # A None regex means we're not on Windows, so leave the component untouched.
+    if _WINDOWS_INVALID_CHARS_REGEX is None:
+        return component
+    return _WINDOWS_INVALID_CHARS_REGEX.sub("_", component)
+
+
+def _sanitize_path_for_windows(path: str) -> str:
+    """
+    Sanitize a POSIX-style path by replacing Windows-invalid characters in each component.
+
+    This function only performs sanitization on Windows. On other platforms, the path
+    is returned unchanged.
+
+    Args:
+        path: A POSIX-style path (using / as separator).
+
+    Returns:
+        The sanitized path with invalid characters replaced, or the original path if not
+        on Windows or if the path is empty.
+    """
+    if not is_windows() or not path:
+        return path
+
+    components = path.split("/")
+    sanitized_components = [_sanitize_path_component_for_windows(comp) for comp in components]
+    # Rejoin with "/" rather than posixpath.join, which would drop a leading empty component and
+    # turn an absolute path like "/etc/passwd" into a relative one on Windows (it stays absolute
+    # on POSIX). Preserving it keeps the containment check in _create_download_destination honest.
+    return "/".join(sanitized_components)
 
 
 @developer_stable
@@ -202,6 +267,10 @@ class ArtifactRepository:
         resulting destination path is `<dst_local_dir_path>/dir1/file1.txt`. Local directories are
         created for the resulting destination location if they do not exist.
 
+        Note: This method normalizes path separators and validates that the resulting destination
+        stays within `dst_local_dir_path` on all platforms. On Windows it additionally sanitizes
+        characters that are invalid in filenames on that platform.
+
         Args:
             src_artifact_path: A relative, POSIX-style path referring to an artifact stored
                 within the repository's artifact root location. `src_artifact_path` should be
@@ -216,12 +285,31 @@ class ArtifactRepository:
             for downloading the artifact specified by `src_artifact_path`.
         """
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
-        dirpath = posixpath.dirname(src_artifact_path)
-        local_dir_path = os.path.join(dst_local_dir_path, dirpath)
-        local_file_path = os.path.join(dst_local_dir_path, src_artifact_path)
+        src_artifact_path = _sanitize_path_for_windows(src_artifact_path)
+        # os.path.normpath() converts forward slashes (/) to OS-specific separators (\\ on Windows)
+        if dirpath := posixpath.dirname(src_artifact_path):
+            local_dir_path = os.path.join(dst_local_dir_path, os.path.normpath(dirpath))
+        else:
+            local_dir_path = dst_local_dir_path
+        local_file_path = os.path.join(dst_local_dir_path, os.path.normpath(src_artifact_path))
+
+        validate_path_within_directory(dst_local_dir_path, local_file_path)
+
         if not os.path.exists(local_dir_path):
             os.makedirs(local_dir_path, exist_ok=True)
         return local_file_path
+
+    def get_local_path(self, artifact_path: str) -> str | None:
+        """
+        Return a safe absolute filesystem path for the specified artifact when it is already
+        directly accessible by the server.
+
+        Backends that cannot safely expose a local filesystem path should return ``None`` and rely
+        on ``download_artifacts()`` to materialize the artifact locally. Backends that support
+        local paths should raise their usual exceptions for missing or invalid artifacts rather than
+        silently returning ``None``.
+        """
+        return None
 
     def _iter_artifacts_recursive(self, path):
         dir_content = [
@@ -306,7 +394,12 @@ class ArtifactRepository:
         if is_dir:
             for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
-                    os.makedirs(os.path.join(dst_path, file_info.path), exist_ok=True)
+                    sanitized_path = _sanitize_path_for_windows(file_info.path)
+                    normalized_path = os.path.join(dst_path, os.path.normpath(sanitized_path))
+                    # A malicious listing with ".." segments or an absolute path must not create
+                    # directories outside the destination.
+                    validate_path_within_directory(dst_path, normalized_path)
+                    os.makedirs(normalized_path, exist_ok=True)
                 else:
                     fut = _download_file(file_info.path, dst_path)
                     futures[fut] = file_info.path
@@ -337,14 +430,26 @@ class ArtifactRepository:
                 template.format(path=path, error=error, traceback=tracebacks[path])
                 for path, error in failed_downloads.items()
             )
+            error_codes = {
+                e.error_code
+                for e in failed_downloads.values()
+                if isinstance(e, MlflowException) and e.error_code != "INTERNAL_ERROR"
+            }
+            error_code = (
+                ErrorCode.Value(error_codes.pop()) if len(error_codes) == 1 else INTERNAL_ERROR
+            )
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
                     f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
-                )
+                ),
+                error_code=error_code,
             )
 
-        return os.path.join(dst_path, artifact_path)
+        if artifact_path:
+            sanitized_path = _sanitize_path_for_windows(artifact_path)
+            return os.path.join(dst_path, os.path.normpath(sanitized_path))
+        return dst_path
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
@@ -395,6 +500,29 @@ class ArtifactRepository:
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
+    def download_archived_trace_data(self) -> TraceData:
+        """
+        Download archived trace data from ``traces.pb``.
+
+        Returns:
+            The archived trace data. If the archived payload is missing, returns an empty
+            ``TraceData`` so callers can continue surfacing trace metadata.
+        """
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+            try:
+                self._download_file(TRACE_ARCHIVAL_FILENAME, temp_file)
+            except Exception:
+                _logger.warning(
+                    "Archived trace payload is missing for path=%s; returning empty spans.",
+                    TRACE_ARCHIVAL_FILENAME,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                return TraceData(spans=[])
+            return TraceData(spans=_try_read_trace_data_pb(temp_file))
+
     def download_trace_attachment(self, path: str) -> bytes:
         _validate_attachment_path(path)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -410,6 +538,38 @@ class ArtifactRepository:
             trace_data: The json-serialized trace data to upload.
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
+            self.log_artifact(temp_file)
+
+    def upload_archived_trace_data(self, trace_data: TraceData) -> None:
+        """
+        Upload archived trace data as OTLP protobuf to ``traces.pb``.
+
+        Args:
+            trace_data: The archived trace data as a ``TraceData`` object.
+        """
+        from mlflow.exceptions import MlflowTraceArchivalMalformedTrace
+        from mlflow.tracing.otel.otel_archival import spans_to_traces_data_pb
+
+        if not isinstance(trace_data, TraceData):
+            raise MlflowException.invalid_parameter_value(
+                "Archived trace data must be a TraceData object."
+            )
+        try:
+            data = spans_to_traces_data_pb(trace_data.spans)
+        except (MlflowException, TypeError, ValueError) as e:
+            raise MlflowTraceArchivalMalformedTrace(str(e)) from e
+        self.upload_archived_trace_data_bytes(data)
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        """
+        Upload serialized archived trace data bytes to ``traces.pb``.
+
+        Backends can override this hook to avoid the default temp-file staging path when their
+        storage SDK supports in-memory uploads or more efficient multipart transfer primitives.
+        Overriding is useful for remote object stores where direct byte uploads can reduce local
+        disk I/O and let the backend apply transport-specific optimizations.
+        """
+        with _write_local_temp_trace_data_pb_file(data) as temp_file:
             self.log_artifact(temp_file)
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
@@ -428,6 +588,16 @@ def write_local_temp_trace_data_file(trace_data: str):
         yield temp_file
 
 
+@contextmanager
+def _write_local_temp_trace_data_pb_file(data: bytes):
+    from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+        temp_file.write_bytes(data)
+        yield temp_file
+
+
 def try_read_trace_data(trace_data_path):
     if not os.path.exists(trace_data_path):
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
@@ -438,6 +608,20 @@ def try_read_trace_data(trace_data_path):
     try:
         return json.loads(data)
     except json.decoder.JSONDecodeError as e:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
+
+
+def _try_read_trace_data_pb(trace_data_path) -> list["Span"]:
+    from mlflow.tracing.otel.otel_archival import traces_data_pb_to_spans
+
+    if not os.path.exists(trace_data_path):
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
+    data = Path(trace_data_path).read_bytes()
+    if not data:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path)
+    try:
+        return traces_data_pb_to_spans(data)
+    except Exception as e:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 
@@ -517,6 +701,71 @@ class MultipartDownloadMixin(ABC):
         """
 
 
+class PresignedUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support presigned
+    URL uploads, i.e. generating presigned URLs for direct upload to cloud storage.
+    """
+
+    @abstractmethod
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to cloud storage.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+
+
+class StreamUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support streaming
+    uploads directly from a binary stream, avoiding an intermediate temp-file copy
+    in the server handler.
+    """
+
+    @abstractmethod
+    def log_artifact_from_stream(
+        self,
+        stream: BinaryIO,
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        """
+        Log artifact contents from a binary stream.
+
+        Args:
+            stream: Readable binary stream containing the artifact contents.
+            artifact_file_name: Artifact filename to log. Any directory components are
+                ignored; use ``artifact_path`` to specify the destination directory.
+            artifact_path: Directory within the run's artifact directory in which to log
+                the artifact.
+        """
+
+    @abstractmethod
+    async def log_artifact_from_async_stream(
+        self,
+        chunks: AsyncIterable[bytes],
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        """
+        Log artifact contents from an async chunk stream.
+
+        Args:
+            chunks: Async iterable yielding binary chunks containing the artifact contents.
+            artifact_file_name: Artifact filename to log. Any directory components are
+                ignored; use ``artifact_path`` to specify the destination directory.
+            artifact_path: Directory within the run's artifact directory in which to log
+                the artifact.
+        """
+
+
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
@@ -532,7 +781,9 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

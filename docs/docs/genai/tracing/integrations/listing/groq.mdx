@@ -1,6 +1,10 @@
 ---
+title: Tracing Groq
+description: Trace Groq LLM API calls with MLflow for full observability into high-speed model inference and token usage.
 sidebar_position: 11
 sidebar_label: Groq
+keywords: [groq, tracing, mlflow, llm, inference]
+image: /images/llms/groq/groq-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -30,7 +34,7 @@ MLflow automatically captures the following information about Groq calls:
 <StepHeader number={1} title="Install Dependencies" />
 
 ```bash
-pip install 'mlflow[genai]' groq
+pip install mlflow groq
 ```
 
 <StepHeader number={2} title="Start MLflow Server" />

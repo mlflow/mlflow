@@ -199,6 +199,7 @@ export const DetailsOverviewParamsTable = ({
             {
               id: 'key',
               accessorKey: 'key',
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               header: () => (
                 <FormattedMessage
                   defaultMessage="Parameter"
@@ -210,6 +211,7 @@ export const DetailsOverviewParamsTable = ({
             },
             {
               id: 'value',
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               header: () => (
                 <FormattedMessage
                   defaultMessage="Value"
@@ -219,6 +221,7 @@ export const DetailsOverviewParamsTable = ({
               accessorKey: 'value',
               enableResizing: false,
               meta: { styles: { paddingLeft: 0 } },
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               cell: ({ row }) => (
                 <ExpandableParamValueCell
                   name={row.original.key}

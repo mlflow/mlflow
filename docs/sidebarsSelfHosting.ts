@@ -81,6 +81,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'security/role-based-access-control',
+          label: 'Role-Based Access Control',
+        },
+        {
+          type: 'doc',
           id: 'security/sso',
           label: 'SSO (Single Sign-On)',
         },
@@ -94,7 +99,17 @@ const sidebarsSelfHosting: SidebarsConfig = {
           id: 'security/kubernetes',
           label: 'Kubernetes Authentication',
         },
+        {
+          type: 'doc',
+          id: 'security/secure-installs',
+          label: 'Secure Installs',
+        },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'kubernetes-helm',
+      label: 'Deploying MLflow on Kubernetes (Helm)',
     },
     {
       type: 'category',

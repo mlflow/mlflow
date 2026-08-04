@@ -135,6 +135,7 @@ const chartsUIStateReducer = (state: ExperimentEvaluationRunsChartsUIConfigurati
 
 // This function is async on purpose to accommodate potential asynchoronous storage mechanisms (e.g. IndexedDB) in the future
 const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
+  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
   const serializedData = localStorage.getItem(createLocalStorageKey(storeIdentifier));
   if (!serializedData) {
     return undefined;
@@ -151,6 +152,7 @@ const saveDataToStorage = async (
   storeIdentifier: string,
   dataToPersist: ExperimentEvaluationRunsChartsUIConfiguration,
 ) => {
+  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
   localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
 };
 

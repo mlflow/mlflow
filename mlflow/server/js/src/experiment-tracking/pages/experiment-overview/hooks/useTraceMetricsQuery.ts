@@ -7,6 +7,9 @@ import {
   type QueryTraceMetricsResponse,
   type MetricAggregation,
 } from '@databricks/web-shared/model-trace-explorer';
+import { shouldUseTracesV4API } from '@databricks/web-shared/genai-traces-table';
+import { shouldEnableBatchedTokenMetricQueries } from '../../../../common/utils/FeatureUtils';
+import { useSqlWarehouseContextSafe } from '../../experiment-page-tabs/SqlWarehouseContext';
 
 const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
 
@@ -25,12 +28,42 @@ async function queryTraceMetrics(params: QueryTraceMetricsRequest): Promise<Quer
     .catch(catchNetworkErrorIfExists);
 }
 
+/**
+ * Query aggregated trace metrics via the V4 Databricks API.
+ */
+async function queryTraceMetricsV4(
+  params: QueryTraceMetricsRequest,
+  sqlWarehouseId?: string | null,
+): Promise<QueryTraceMetricsResponse> {
+  const { experiment_ids, ...rest } = params;
+  const v4Payload = {
+    ...rest,
+    locations: experiment_ids.map((id) => ({
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: id },
+    })),
+    ...(sqlWarehouseId ? { sql_warehouse_id: sqlWarehouseId } : {}),
+  };
+  return fetchOrFail(getAjaxUrl('ajax-api/4.0/mlflow/traces/metrics'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(v4Payload),
+  })
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
+}
+
 interface UseTraceMetricsQueryParams {
   experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   viewType: MetricViewType;
-  metricName: string;
+  /** @deprecated Use metricNames instead. */
+  metricName?: string;
+  /** The name(s) of the metric(s) to query. Replaces metricName. */
+  metricNames?: string[];
   aggregations: MetricAggregation[];
   /** Optional: Time interval for grouping. If not provided, no time grouping is applied. */
   timeIntervalSeconds?: number;
@@ -48,16 +81,30 @@ export function useTraceMetricsQuery({
   endTimeMs,
   viewType,
   metricName,
+  metricNames,
   aggregations,
   timeIntervalSeconds,
   filters,
   dimensions,
   enabled = true,
 }: UseTraceMetricsQueryParams) {
+  const useV4 = shouldUseTracesV4API();
+  const sqlWarehouseContext = useSqlWarehouseContextSafe();
+  const sqlWarehouseId = sqlWarehouseContext?.warehouseId;
+
+  // When batching is enabled, auto-promote metricName (singular) to metricNames (plural)
+  // so the backend always receives metric_names, even for single-metric queries.
+  const isBatchingEnabled = Boolean(shouldEnableBatchedTokenMetricQueries());
+  const resolvedMetricNames = metricNames ?? (isBatchingEnabled && metricName ? [metricName] : undefined);
+  const resolvedMetricName = resolvedMetricNames ? undefined : metricName;
+
+  const hasMetric = !!resolvedMetricNames?.length || !!resolvedMetricName;
+
   const queryParams: QueryTraceMetricsRequest = {
     experiment_ids: experimentIds,
     view_type: viewType,
-    metric_name: metricName,
+    metric_name: resolvedMetricName,
+    metric_names: resolvedMetricNames,
     aggregations,
     time_interval_seconds: timeIntervalSeconds,
     start_time_ms: startTimeMs,
@@ -66,7 +113,14 @@ export function useTraceMetricsQuery({
     dimensions,
   };
 
-  return useQuery({
+  // V4 backend requires start_time_ms, end_time_ms, and sql_warehouse_id; disable queries that omit them.
+  const queryEnabled =
+    experimentIds.length > 0 &&
+    hasMetric &&
+    enabled &&
+    (!useV4 || (startTimeMs !== undefined && endTimeMs !== undefined && !!sqlWarehouseId));
+
+  const result = useQuery({
     queryKey: [
       TRACE_METRICS_QUERY_KEY,
       experimentIds,
@@ -74,16 +128,22 @@ export function useTraceMetricsQuery({
       endTimeMs,
       viewType,
       metricName,
+      metricNames,
       aggregations,
       timeIntervalSeconds,
       filters,
       dimensions,
+      sqlWarehouseId,
     ],
     queryFn: async () => {
-      const response = await queryTraceMetrics(queryParams);
-      return response;
+      if (useV4) {
+        return queryTraceMetricsV4(queryParams, sqlWarehouseId);
+      }
+      return queryTraceMetrics(queryParams);
     },
-    enabled: experimentIds.length > 0 && enabled,
+    enabled: queryEnabled,
     refetchOnWindowFocus: false,
   });
+
+  return { ...result, isLoading: result.isLoading && queryEnabled };
 }

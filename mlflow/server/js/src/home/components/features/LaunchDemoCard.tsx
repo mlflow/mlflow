@@ -25,7 +25,6 @@ export const LaunchDemoCard = () => {
       setWorkflowType(WorkflowType.GENAI);
       navigate(url);
     } catch (error) {
-      console.error('Failed to generate demo:', error);
       navigate('/experiments');
     } finally {
       setIsLoading(false);

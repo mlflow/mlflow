@@ -27,7 +27,8 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
+from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -44,8 +45,16 @@ _logger = logging.getLogger(__name__)
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
-# Environment variable name for the job name set in job subprocesses
+# Environment variable names for job execution
 MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
+MLFLOW_SERVER_JOB_ID_ENV_VAR = "_MLFLOW_SERVER_JOB_ID"
+MLFLOW_SERVER_JOB_PARAMS_ENV_VAR = "_MLFLOW_SERVER_JOB_PARAMS"
+MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR = "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"
+MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR = (
+    "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH"
+)
+MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR = "_MLFLOW_ORIGINAL_PARENT_PID"
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
@@ -98,8 +107,16 @@ class JobResult:
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:
+    raw_parent_pid = os.environ.get(MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR)
+    try:
+        parent_pid = int(raw_parent_pid) if raw_parent_pid is not None else 0
+    except (TypeError, ValueError):
+        parent_pid = 0
+    if parent_pid <= 0:
+        parent_pid = os.getppid()
     while True:
-        if os.getppid() == 1:
+        current_parent_pid = os.getppid()
+        if current_parent_pid == 1 or current_parent_pid != parent_pid:
             os._exit(1)
         time.sleep(poll_interval)
 
@@ -129,7 +146,8 @@ def _start_huey_consumer_proc(
 
     cmd = [
         sys.executable,
-        shutil.which("huey_consumer.py"),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._huey_consumer.huey_instance",
         "-w",
         str(max_job_parallelism),
@@ -147,6 +165,7 @@ def _start_huey_consumer_proc(
         synchronous=False,
         extra_env={
             MLFLOW_HUEY_INSTANCE_KEY: huey_instance_key,
+            MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid()),
         },
     )
 
@@ -230,10 +249,12 @@ def _exec_job_in_subproc(
     job_env = {
         **os.environ,
         MLFLOW_SERVER_JOB_NAME_ENV_VAR: job_name,
-        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+        MLFLOW_SERVER_JOB_ID_ENV_VAR: job_id,
+        MLFLOW_SERVER_JOB_PARAMS_ENV_VAR: json.dumps(params),
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: function_fullname,
+        MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: result_file,
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: transient_error_classes_file,
+        MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid()),
         **(extra_envs or {}),
     }
 
@@ -345,8 +366,10 @@ def _exec_job(
         else:
             lock = None
 
+        job_started = False
         try:
             job_store.start_job(job_id)
+            job_started = True
 
             fn_fullname = get_job_fn_fullname(job_name)
             function = _load_function(fn_fullname)
@@ -383,6 +406,27 @@ def _exec_job(
             else:
                 _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
                 job_store.fail_job(job_id, job_result.error)
+        except Exception as exc:
+            # If start_job succeeded but a subsequent step raises an unexpected error,
+            # fail the job so it doesn't remain stuck in RUNNING state.
+            # Note: RetryTask is raised intentionally by _exponential_backoff_retry to
+            # schedule a Huey retry, not a real error - skip fail_job in that case.
+            from huey.exceptions import RetryTask
+
+            if job_started and not isinstance(exc, RetryTask):
+                _logger.error(
+                    f"Job {job_id} ({job_name}) encountered an unexpected error: {exc!r}",
+                    exc_info=True,
+                )
+                try:
+                    job_store.fail_job(job_id, repr(exc))
+                except Exception as fail_exc:
+                    _logger.error(
+                        f"Job {job_id} ({job_name}) failed to transition to FAILED state via "
+                        f"fail_job: {fail_exc!r}",
+                        exc_info=True,
+                    )
+            raise
         finally:
             if lock is not None:
                 lock.release()
@@ -515,10 +559,12 @@ def _launch_periodic_tasks_consumer() -> None:
 def _start_periodic_tasks_consumer_proc():
     cmd = [
         sys.executable,
-        shutil.which("huey_consumer.py"),
+        "-m",
+        "huey.bin.huey_consumer",
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),
+        "-f",
     ]
 
     # Add quiet flag unless DEBUG logging is explicitly requested,
@@ -531,17 +577,24 @@ def _start_periodic_tasks_consumer_proc():
         cmd,
         capture_output=False,
         synchronous=False,
+        extra_env={MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid())},
     )
 
 
 def _launch_job_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
     return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow.server.jobs._job_runner",
         ],
-        env={**os.environ, **env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
     )
 
 
@@ -575,9 +628,10 @@ def _load_function(fullname: str) -> Callable[..., Any]:
             f"Module not found for function '{fullname}'",
         )
     except AttributeError:
-        # Function doesn't exist in the module
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Function not found in module for '{fullname}'",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 
@@ -740,3 +794,18 @@ def register_periodic_tasks(huey_instance) -> None:
             _logger.exception(f"Online scoring scheduler failed: {e!r}")
 
     _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")
+
+    @huey_instance.periodic_task(crontab(minute="*/1"))
+    # Prevent concurrent execution if scheduler takes longer than 1 minute.
+    @huey_instance.lock_task("trace-archival-scheduler-lock")
+    def trace_archival_scheduler():
+        """Runs every minute and delegates scheduling cadence to the archival service."""
+        try:
+            run_trace_archival_scheduler()
+        except Exception as e:
+            _logger.exception(f"Trace archival scheduler failed: {e!r}")
+
+    _logger.info(
+        "Registered trace_archival_scheduler periodic task (polls every 1 minute and "
+        "no-ops when trace archival is disabled or unconfigured)"
+    )

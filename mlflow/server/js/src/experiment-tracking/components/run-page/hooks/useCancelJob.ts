@@ -30,7 +30,7 @@ export const useCancelJob = () => {
             status: 'KILLED',
           });
         } catch (e) {
-          console.error('Failed to update run status after job cancellation:', e);
+          // fail silently — status will reconcile on next poll
         }
       }
 

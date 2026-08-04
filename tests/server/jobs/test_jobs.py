@@ -1,4 +1,5 @@
 import concurrent.futures
+import json
 import multiprocessing
 import os
 import time
@@ -7,9 +8,11 @@ from unittest import mock
 
 import pytest
 
+import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
     TransientError,
@@ -18,7 +21,19 @@ from mlflow.server.jobs import (
     job,
     submit_job,
 )
-from mlflow.server.jobs.utils import _enqueue_unfinished_jobs
+from mlflow.server.jobs._job_subproc_entry import _main
+from mlflow.server.jobs.utils import (
+    MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR,
+    MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+    MLFLOW_SERVER_JOB_PARAMS_ENV_VAR,
+    MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
+    _enqueue_unfinished_jobs,
+    _exec_job,
+    _exec_job_in_subproc,
+    _exit_when_orphaned,
+    _start_huey_consumer_proc,
+)
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -32,13 +47,12 @@ from tests.server.jobs.helpers import (
     wait_job_finalize,
 )
 
-# TODO: Remove `pytest.mark.xfail` after fixing flakiness
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
 
 
-@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+@pytest.fixture(params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
 def workspaces_enabled(request, monkeypatch):
     """
     Run every test in this module with workspaces disabled and enabled to cover both code paths.
@@ -452,8 +466,6 @@ def test_job_timeout(monkeypatch, tmp_path):
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
-    import mlflow.store.jobs.sqlalchemy_store
-
     monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
     with _setup_job_runner(
         monkeypatch,
@@ -530,7 +542,10 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 def check_python_env_fn():
     import openai
 
-    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
+    from mlflow.server.jobs.utils import (
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+        MLFLOW_SERVER_JOB_NAME_ENV_VAR,
+    )
     from mlflow.utils import PYTHON_VERSION
 
     assert PYTHON_VERSION == "3.11.9"
@@ -538,7 +553,7 @@ def check_python_env_fn():
 
     assert os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR) == "python_env_checker"
     assert (
-        os.environ.get("_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME")
+        os.environ.get(MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR)
         == "tests.server.jobs.test_jobs.check_python_env_fn"
     )
 
@@ -575,7 +590,9 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
         except MlflowException:
             return "failed"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=5, thread_name_prefix="test-concurrent-jobs"
+    ) as executor:
         futures = [executor.submit(try_start_job) for _ in range(5)]
         results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
@@ -584,6 +601,28 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
 
     final_job = store.get_job(job.job_id)
     assert final_job.status == JobStatus.RUNNING
+
+
+def test_exec_job_fails_job_on_unexpected_error(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+    handlers._job_store = store
+
+    try:
+        # "no_such_job" is not in _job_name_to_fn_fullname_map, so
+        # get_job_fn_fullname() raises after start_job() transitions the job to RUNNING.
+        job = store.create_job("no_such_job", "{}")
+        workspace = job.workspace
+
+        with pytest.raises(MlflowException, match="Invalid job name"):
+            _exec_job(job.job_id, workspace, "no_such_job", {}, None)
+
+        # The job must be FAILED, not stuck in RUNNING
+        assert store.get_job(job.job_id).status == JobStatus.FAILED
+    finally:
+        handlers._job_store.engine.dispose()
+        handlers._job_store = None
 
 
 def test_cancel_job(monkeypatch, tmp_path: Path):
@@ -854,7 +893,6 @@ def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enab
         assert job.parsed_result == expected_workspace
 
 
-@pytest.mark.parametrize("workspaces_enabled", [False], indirect=True)
 def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
@@ -880,3 +918,173 @@ def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
         mock_submit.assert_called_once()
         _, workspace, *_ = mock_submit.call_args[0]
         assert workspace is None
+
+
+def test_update_status_details(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    assert job.status_details is None
+
+    store.update_status_details(job.job_id, {"stage": "preprocessing"})
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_details == {"stage": "preprocessing"}
+
+    store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_details == {"stage": "processing", "progress": "50%"}
+
+
+def test_update_status_details_merges_with_existing(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+
+    store.update_status_details(job.job_id, {"stage": "preprocessing", "step": "1"})
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_details == {"stage": "preprocessing", "step": "1"}
+
+    store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "50%"}
+
+    store.update_status_details(job.job_id, {"progress": "100%"})
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "100%"}
+
+
+def test_update_status_details_on_nonexistent_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    with pytest.raises(MlflowException, match="Job .+ not found"):
+        store.update_status_details("nonexistent-job-id", {"stage": "test"})
+
+
+def test_exit_when_orphaned_exits_when_parent_pid_changes():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "123"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
+        mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_exits_when_already_orphaned():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "123"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "not-a-pid"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
+        mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_called_once_with(1)
+
+
+def test_start_huey_consumer_proc_passes_original_parent_pid():
+    with (
+        mock.patch("mlflow.server.jobs.utils.os.getpid", return_value=321),
+        mock.patch("mlflow.utils.process._exec_cmd") as mock_exec_cmd,
+    ):
+        _start_huey_consumer_proc("basic_job_fun", 3)
+
+    assert mock_exec_cmd.call_count == 1
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "321"
+
+
+def test_exec_job_in_subproc_passes_original_parent_pid(tmp_path: Path):
+    mock_job_store = mock.Mock()
+    result_path = tmp_path / "result.json"
+    result_path.write_text(
+        json.dumps({"succeeded": True, "result": "3", "is_transient_error": None, "error": None})
+    )
+    mock_popen = mock.MagicMock()
+    mock_popen.__enter__.return_value = mock_popen
+    mock_popen.__exit__.return_value = False
+    mock_popen.poll.return_value = 0
+    mock_popen.returncode = 0
+
+    with (
+        mock.patch("mlflow.server.jobs.utils.os.getpid", return_value=654),
+        mock.patch("mlflow.server.jobs.utils.subprocess.Popen", return_value=mock_popen) as popen,
+    ):
+        job_result = _exec_job_in_subproc(
+            function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+            params={"x": 1, "y": 2},
+            python_env=None,
+            transient_error_classes=None,
+            timeout=None,
+            tmpdir=str(tmp_path),
+            job_store=mock_job_store,
+            job_id="job-1",
+            job_name="basic_job_fun",
+            workspace=None,
+        )
+
+    assert job_result is not None
+    assert job_result.succeeded is True
+    assert job_result.result == "3"
+    assert popen.call_args.kwargs["env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "654"
+
+
+def test_subproc_entry_telemetry(tmp_path, monkeypatch):
+    result_path = str(tmp_path / "result.json")
+    transient_error_path = tmp_path / "transient_errors.txt"
+    transient_error_path.write_text("")
+    monkeypatch.setenv(
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+        "tests.server.jobs.test_jobs.basic_job_fun",
+    )
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_PARAMS_ENV_VAR, json.dumps({"x": 1, "y": 2}))
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR, result_path)
+    monkeypatch.setenv(
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR, str(transient_error_path)
+    )
+
+    mock_client = mock.Mock()
+    with (
+        mock.patch(
+            "mlflow.server.jobs._job_subproc_entry.set_telemetry_client"
+        ) as mock_set_telemetry,
+        mock.patch(
+            "mlflow.server.jobs._job_subproc_entry.get_telemetry_client",
+            return_value=mock_client,
+        ),
+        mock.patch("mlflow.server.jobs._job_subproc_entry._exit_when_orphaned"),
+    ):
+        _main()
+
+    mock_set_telemetry.assert_called_once()
+    mock_client.flush.assert_called_once()

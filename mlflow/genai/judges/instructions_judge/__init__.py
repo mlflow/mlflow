@@ -89,6 +89,7 @@ class InstructionsJudge(Judge):
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
+    _include_timing_in_conversation: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -102,6 +103,7 @@ class InstructionsJudge(Judge):
         inference_params: dict[str, Any] | None = None,
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
+        include_timing_in_conversation: bool = False,
         **kwargs,
     ):
         """
@@ -129,10 +131,13 @@ class InstructionsJudge(Judge):
             extra_headers: Optional dictionary of additional HTTP headers to include in
                            requests to the LLM provider. Can be used for authentication,
                            tracking, or other custom requirements.
+            include_timing_in_conversation: If True, append timing information (duration and
+                           slowest spans) to assistant responses in conversation. Useful for
+                           latency-aware evaluation. Default is False for backward compatibility.
             kwargs: Additional configuration parameters
         """
-        # TODO: Allow aggregations once we support boolean/numeric judge outputs
-        super().__init__(name=name, description=description, aggregations=[], **kwargs)
+        aggregations = kwargs.pop("aggregations", None)
+        super().__init__(name=name, description=description, aggregations=aggregations, **kwargs)
 
         if not name or not isinstance(name, str):
             raise MlflowException(
@@ -170,6 +175,7 @@ class InstructionsJudge(Judge):
         self._inference_params = inference_params
         self._base_url = base_url
         self._extra_headers = extra_headers
+        self._include_timing_in_conversation = include_timing_in_conversation
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -426,11 +432,17 @@ class InstructionsJudge(Judge):
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
-        # *and* they require the message to have non-empty content (empty string is not allowed)
+        # *and* they require the message to have non-empty content (empty string is not allowed).
+        # The empty case must explicitly point at the tools, or the judge LLM can self-grade
+        # this chat instead of inspecting the trace.
         return (
             "\n".join(user_message_parts)
             if user_message_parts
-            else "Follow the instructions from the first message"
+            else (
+                "Use the tools to inspect the trace and return the JSON rating per the system "
+                "message. This message and your tool calls in this chat are not the input or "
+                "response being judged. The trace lives only behind the tools."
+            )
         )
 
     def _build_template_values(
@@ -470,7 +482,7 @@ class InstructionsJudge(Judge):
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
         try:
-            return json.dumps(value, default=str, indent=2)
+            return json.dumps(value, default=str, indent=2, ensure_ascii=False)
         except Exception:
             return str(value)
 
@@ -545,7 +557,9 @@ class InstructionsJudge(Judge):
         if session is not None and session:
             self._validate_session(session)
             conversation = resolve_conversation_from_session(
-                session, include_tool_calls=self._include_tool_calls_in_conversation
+                session,
+                include_tool_calls=self._include_tool_calls_in_conversation,
+                include_timing=self._include_timing_in_conversation,
             )
             if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
                 expectations = resolve_expectations_from_session(expectations, session)
@@ -622,7 +636,7 @@ class InstructionsJudge(Judge):
 
         response_format = self._create_response_format_model()
 
-        return invoke_judge_model(
+        feedback = invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
@@ -633,6 +647,10 @@ class InstructionsJudge(Judge):
             base_url=self._base_url,
             extra_headers=self._extra_headers,
         )
+        # Surface the judge instructions in assessment metadata so the UI can
+        # show the criterion that was evaluated alongside each result.
+        feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}
+        return feedback
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
         output_fields = self.get_output_fields()
@@ -745,24 +763,59 @@ class InstructionsJudge(Judge):
 
         Supports all FeedbackValueType types:
         - PbValueType: str, int, float, bool
+        - Optional[PbValueType] / PbValueType | None (from anyOf-with-null top-level schema)
         - Literal types (from enum)
         - dict[str, PbValueType] (from object with additionalProperties)
         - list[PbValueType] (from array with items)
         """
-        if not isinstance(serialized, dict) or "type" not in serialized:
+        if not isinstance(serialized, dict):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid feedback_value_type serialization: {serialized}"
             )
 
-        schema_type = serialized["type"]
-
-        # Map JSON Schema types back to Python types
+        # Map JSON Schema types back to Python types (defined here for the anyOf branch below)
         type_map = {
             "string": str,
             "integer": int,
             "number": float,
             "boolean": bool,
         }
+
+        # Handle anyOf-with-null: produced by Pydantic for Optional[T] / T | None
+        if "anyOf" in serialized and "type" not in serialized:
+            any_of = serialized.get("anyOf")
+            if not isinstance(any_of, list):
+                raise MlflowException.invalid_parameter_value(
+                    "Invalid feedback_value_type serialization: "
+                    f"'anyOf' must be a list: {serialized}"
+                )
+
+            null_schemas = [s for s in any_of if isinstance(s, dict) and s.get("type") == "null"]
+            non_null_schemas = [
+                s for s in any_of if isinstance(s, dict) and s.get("type") != "null"
+            ]
+
+            if (
+                len(null_schemas) == 1
+                and len(non_null_schemas) == 1
+                and "type" in non_null_schemas[0]
+            ):
+                inner_type = type_map.get(non_null_schemas[0]["type"])
+                if inner_type is not None:
+                    return inner_type | None
+
+            raise MlflowException.invalid_parameter_value(
+                "Invalid feedback_value_type serialization for anyOf-with-null. "
+                "Expected exactly one null schema and one non-null schema with a supported "
+                f"primitive type: {serialized}"
+            )
+
+        if "type" not in serialized:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid feedback_value_type serialization: {serialized}"
+            )
+
+        schema_type = serialized["type"]
 
         # Handle enum (Literal types)
         if "enum" in serialized:

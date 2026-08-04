@@ -42,7 +42,11 @@ describe('useWorkspaces', () => {
   it('fetches workspaces from API and returns them when enabled', async () => {
     fetchAPIMock.mockResolvedValue({
       workspaces: [
-        { name: 'default', description: 'Default workspace' },
+        {
+          name: 'default',
+          description: 'Default workspace',
+          trace_archival_config: { location: 's3://archive/default', retention: '30d' },
+        },
         { name: 'team-a', description: 'Team A workspace' },
         { name: 'team-b', description: null },
       ],
@@ -59,13 +63,23 @@ describe('useWorkspaces', () => {
       name: 'default',
       description: 'Default workspace',
       default_artifact_root: null,
+      trace_archival_config: {
+        location: 's3://archive/default',
+        retention: '30d',
+      },
     });
     expect(result.current.workspaces[1]).toEqual({
       name: 'team-a',
       description: 'Team A workspace',
       default_artifact_root: null,
+      trace_archival_config: null,
     });
-    expect(result.current.workspaces[2]).toEqual({ name: 'team-b', description: null, default_artifact_root: null });
+    expect(result.current.workspaces[2]).toEqual({
+      name: 'team-b',
+      description: null,
+      default_artifact_root: null,
+      trace_archival_config: null,
+    });
     expect(result.current.isError).toBe(false);
   });
 

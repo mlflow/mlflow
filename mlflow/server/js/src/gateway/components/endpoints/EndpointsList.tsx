@@ -1,22 +1,29 @@
 import { useMemo, useState } from 'react';
 import {
-  CloudModelIcon,
+  Alert,
+  Button,
+  Checkbox,
   Empty,
   Input,
   SearchIcon,
   Spinner,
   Table,
+  TableCell,
   TableHeader,
   TableRow,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { Link } from '../../../common/utils/RoutingUtils';
+import GatewayRoutes from '../../routes';
 import { useEndpointsListData } from '../../hooks/useEndpointsListData';
+import { useDuplicateEndpoints } from '../../hooks/useDuplicateEndpoints';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
 import { EndpointsColumnsButton, EndpointsColumn, DEFAULT_VISIBLE_COLUMNS } from './EndpointsColumnsButton';
 import { EndpointBindingsDrawer } from './EndpointBindingsDrawer';
-import { DeleteEndpointModal } from './DeleteEndpointModal';
+import { BulkDeleteEndpointModal } from './BulkDeleteEndpointModal';
 import { EndpointRow } from './EndpointRow';
+import { QuickStartTemplates, QuickStartTemplatesCompact } from './QuickStartTemplates';
 import type { Endpoint, EndpointBinding } from '../../types';
 
 interface EndpointsListProps {
@@ -29,22 +36,69 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<EndpointsFilter>({ providers: [] });
   const [visibleColumns, setVisibleColumns] = useState<EndpointsColumn[]>(DEFAULT_VISIBLE_COLUMNS);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [bindingsDrawerEndpoint, setBindingsDrawerEndpoint] = useState<{
     endpointId: string;
     endpointName: string;
     bindings: EndpointBinding[];
   } | null>(null);
-  const [deleteModalEndpoint, setDeleteModalEndpoint] = useState<Endpoint | null>(null);
+  const [deleteModalEndpoints, setDeleteModalEndpoints] = useState<Endpoint[]>([]);
 
   const { endpoints, filteredEndpoints, isLoading, availableProviders, getBindingsForEndpoint, refetch } =
     useEndpointsListData({ searchFilter, filter });
 
-  const handleDeleteClick = (endpoint: Endpoint) => {
-    setDeleteModalEndpoint(endpoint);
+  const { duplicateEndpoints, isLoading: isDuplicating, error: duplicateError } = useDuplicateEndpoints();
+
+  const selectedEndpoints = useMemo(
+    () => filteredEndpoints.filter((ep) => rowSelection[ep.endpoint_id]),
+    [filteredEndpoints, rowSelection],
+  );
+
+  const selectedCount = selectedEndpoints.length;
+  const allSelected = filteredEndpoints.length > 0 && filteredEndpoints.every((ep) => rowSelection[ep.endpoint_id]);
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setRowSelection({});
+    } else {
+      const next: Record<string, boolean> = {};
+      filteredEndpoints.forEach((ep) => {
+        next[ep.endpoint_id] = true;
+      });
+      setRowSelection(next);
+    }
+  };
+
+  const handleSelectRow = (endpointId: string) => {
+    setRowSelection((prev) => {
+      const next = { ...prev };
+      if (next[endpointId]) {
+        delete next[endpointId];
+      } else {
+        next[endpointId] = true;
+      }
+      return next;
+    });
+  };
+
+  const handleDuplicateClick = async () => {
+    try {
+      const allNames = endpoints.map((ep) => ep.name);
+      await duplicateEndpoints(selectedEndpoints, allNames);
+      setRowSelection({});
+    } catch {
+      // Error state is set by useDuplicateEndpoints and displayed via the Alert below
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteModalEndpoints(selectedEndpoints);
   };
 
   const handleDeleteSuccess = () => {
-    setDeleteModalEndpoint(null);
+    setDeleteModalEndpoints([]);
+    setRowSelection({});
     refetch();
     onEndpointDeleted?.();
   };
@@ -66,25 +120,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     }
 
     if (endpoints.length === 0) {
-      return (
-        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Empty
-            image={<CloudModelIcon />}
-            title={
-              <FormattedMessage
-                defaultMessage="No endpoints created"
-                description="Empty state title for endpoints list"
-              />
-            }
-            description={
-              <FormattedMessage
-                defaultMessage='Use the "Create endpoint" button to create a new endpoint'
-                description="Empty state message for endpoints list explaining how to create"
-              />
-            }
-          />
-        </div>
-      );
+      return <QuickStartTemplates />;
     }
 
     return null;
@@ -110,6 +146,18 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {endpoints.length > 0 && <QuickStartTemplatesCompact />}
+      {duplicateError && (
+        <Alert
+          componentId="mlflow.gateway.endpoints-list.duplicate-error"
+          type="error"
+          message={formatMessage({
+            defaultMessage: 'Failed to duplicate some endpoints. Please try again.',
+            description: 'Gateway > Endpoints list > Duplicate error message',
+          })}
+          closable={false}
+        />
+      )}
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Input
           componentId="mlflow.gateway.endpoints-list.search"
@@ -125,6 +173,48 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         />
         <EndpointsFilterButton availableProviders={availableProviders} filter={filter} onFilterChange={setFilter} />
         <EndpointsColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
+        <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
+          <Link componentId="mlflow.gateway.endpoints-list.create-link" to={GatewayRoutes.createEndpointPageRoute}>
+            <Button componentId="mlflow.gateway.endpoints.create-button" type="primary">
+              <FormattedMessage
+                defaultMessage="Create"
+                description="Gateway > Endpoints list > Create endpoint button"
+              />
+            </Button>
+          </Link>
+          <Button
+            componentId="mlflow.gateway.endpoints-list.duplicate-button"
+            disabled={selectedCount === 0 || isDuplicating}
+            loading={isDuplicating}
+            onClick={handleDuplicateClick}
+          >
+            {selectedCount > 0 ? (
+              <FormattedMessage
+                defaultMessage="Duplicate ({count})"
+                description="Gateway > Endpoints list > Duplicate button with count"
+                values={{ count: selectedCount }}
+              />
+            ) : (
+              <FormattedMessage defaultMessage="Duplicate" description="Gateway > Endpoints list > Duplicate button" />
+            )}
+          </Button>
+          <Button
+            componentId="mlflow.gateway.endpoints-list.delete-button"
+            disabled={selectedCount === 0}
+            danger
+            onClick={handleDeleteClick}
+          >
+            {selectedCount > 0 ? (
+              <FormattedMessage
+                defaultMessage="Delete ({count})"
+                description="Gateway > Endpoints list > Delete button with count"
+                values={{ count: selectedCount }}
+              />
+            ) : (
+              <FormattedMessage defaultMessage="Delete" description="Gateway > Endpoints list > Delete button" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <Table
@@ -141,6 +231,13 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         }}
       >
         <TableRow isHeader>
+          <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="mlflow.gateway.endpoints-list.select-all-checkbox"
+              isChecked={someSelected ? null : allSelected}
+              onChange={handleSelectAll}
+            />
+          </TableCell>
           <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
           </TableHeader>
@@ -169,10 +266,6 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
               <FormattedMessage defaultMessage="Created" description="Created column header" />
             </TableHeader>
           )}
-          <TableHeader
-            componentId="mlflow.gateway.endpoints-list.actions-header"
-            css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
-          />
         </TableRow>
         {filteredEndpoints.map((endpoint) => (
           <EndpointRow
@@ -180,6 +273,8 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
             endpoint={endpoint}
             bindings={getBindingsForEndpoint(endpoint.endpoint_id)}
             visibleColumns={visibleColumns}
+            isSelected={Boolean(rowSelection[endpoint.endpoint_id])}
+            onSelectChange={() => handleSelectRow(endpoint.endpoint_id)}
             onViewBindings={() =>
               setBindingsDrawerEndpoint({
                 endpointId: endpoint.endpoint_id,
@@ -187,7 +282,6 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                 bindings: getBindingsForEndpoint(endpoint.endpoint_id),
               })
             }
-            onDelete={() => handleDeleteClick(endpoint)}
           />
         ))}
       </Table>
@@ -199,11 +293,11 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
         onClose={() => setBindingsDrawerEndpoint(null)}
       />
 
-      <DeleteEndpointModal
-        open={deleteModalEndpoint !== null}
-        endpoint={deleteModalEndpoint}
-        bindings={deleteModalEndpoint ? getBindingsForEndpoint(deleteModalEndpoint.endpoint_id) : []}
-        onClose={() => setDeleteModalEndpoint(null)}
+      <BulkDeleteEndpointModal
+        open={deleteModalEndpoints.length > 0}
+        endpoints={deleteModalEndpoints}
+        getBindingsForEndpoint={getBindingsForEndpoint}
+        onClose={() => setDeleteModalEndpoints([])}
         onSuccess={handleDeleteSuccess}
       />
     </div>

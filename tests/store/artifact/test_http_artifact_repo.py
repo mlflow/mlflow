@@ -185,6 +185,49 @@ def test_log_artifact(
         mock_abort.assert_called_once()
 
 
+def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_repo, tmp_path):
+    file_path = tmp_path.joinpath("small.txt")
+    file_path.write_text("0")
+
+    with (
+        mock.patch.object(http_artifact_repo, "_is_multipart_upload_enabled", return_value=False),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.os.path.getsize",
+            side_effect=AssertionError("getsize should not be called"),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
+    ):
+        http_artifact_repo.log_artifact(file_path)
+
+    mock_put.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("ignore_tls", "expected_verify"),
+    [
+        (None, True),
+        ("true", False),
+        ("false", True),
+    ],
+)
+def test_upload_part_honors_s3_ignore_tls(tmp_path, monkeypatch, ignore_tls, expected_verify):
+    if ignore_tls is not None:
+        monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls)
+    local_file = tmp_path.joinpath("data.bin")
+    local_file.write_bytes(b"hello world")
+    credential = MultipartUploadCredential(url="https://host/part", part_number=1, headers={})
+    with (
+        mock.patch("requests.put", return_value=mock.Mock(headers={"ETag": "etag"})) as mock_put,
+        mock.patch("mlflow.store.artifact.http_artifact_repo.augmented_raise_for_status"),
+    ):
+        HttpArtifactRepository._upload_part(credential, str(local_file), size=5, start_byte=0)
+    mock_put.assert_called_once()
+    assert mock_put.call_args.kwargs.get("verify") is expected_verify
+
+
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
 def test_log_artifacts(http_artifact_repo, tmp_path, artifact_path):
     tmp_path_a = tmp_path.joinpath("a.txt")

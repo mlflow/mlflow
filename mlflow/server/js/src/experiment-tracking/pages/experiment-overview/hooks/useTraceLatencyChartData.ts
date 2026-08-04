@@ -40,7 +40,9 @@ export interface UseTraceLatencyChartDataResult {
  *
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
+export function useTraceLatencyChartData({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseTraceLatencyChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
   // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
@@ -61,6 +63,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
     ],
     timeIntervalSeconds,
     filters,
+    enabled,
   });
 
   // Fetch overall average latency (without time bucketing) for the header
@@ -76,6 +79,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
     metricName: TraceMetricKey.LATENCY,
     aggregations: [{ aggregation_type: AggregationType.AVG }],
     filters,
+    enabled,
   });
 
   const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);

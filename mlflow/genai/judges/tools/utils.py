@@ -7,10 +7,8 @@ different judge tool implementations.
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 def create_page_token(offset: int) -> str:
     """
     Create a page token from an offset value.
@@ -24,7 +22,6 @@ def create_page_token(offset: int) -> str:
     return str(offset)
 
 
-@experimental(version="3.4.0")
 def parse_page_token(page_token: str | None) -> int:
     """
     Parse a page token to extract the offset value.

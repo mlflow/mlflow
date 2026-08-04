@@ -11,7 +11,6 @@ import {
   Button,
   RefreshIcon,
   ToggleButton,
-  SparkleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -20,6 +19,7 @@ import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { DetectIssuesButton } from './components/DetectIssuesButton';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -27,6 +27,7 @@ import type {
   TracesTableColumn,
   TableFilter,
   TableFilterOptions,
+  TraceTablePageSource,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
@@ -40,6 +41,9 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
+  // Component for detect issues button
+  pageSource?: TraceTablePageSource;
+
   // Experiment metadata
   experimentId?: string;
 
@@ -60,6 +64,9 @@ interface GenAITracesTableToolbarProps {
   selectedColumns: TracesTableColumn[];
   toggleColumns: (newColumns: TracesTableColumn[]) => void;
   setSelectedColumns: (nextSelected: TracesTableColumn[]) => void;
+  // When set, the sort and column-selector controls render disabled. Used while previewing a saved
+  // view, where the toolbar shows the preview's columns/sort but editing is deferred to Override.
+  columnControlsDisabled?: boolean;
 
   // Actions
   traceActions?: TraceActions;
@@ -93,12 +100,17 @@ interface GenAITracesTableToolbarProps {
 
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
+  // Page-level controls (e.g. the saved-views selector) rendered in the top-right corner, above the
+  // sampled-count badge and separated from the filter/sort/column controls by the row's flex gap.
+  // Kept out of the filter cluster so a view — a container over those controls — reads as primary.
+  cornerAddons?: React.ReactNode;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
+      pageSource = 'experiment-traces',
       searchQuery,
       setSearchQuery,
       filters,
@@ -108,6 +120,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       selectedColumns,
       toggleColumns,
       setSelectedColumns,
+      columnControlsDisabled,
       assessmentInfos,
       experimentId,
       traceInfos,
@@ -125,6 +138,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       onToggleSessionGrouping,
       onDetectIssues,
       addons,
+      cornerAddons,
     } = props;
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -145,7 +159,10 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
         css={{
           display: 'flex',
           width: '100%',
-          alignItems: 'flex-end',
+          // With saved-views corner controls the right column is two rows tall (controls + count), so
+          // top-align the whole row to keep the controls and the corner controls on the same top line.
+          // Without them, keep the original flex-end so the sampled-count badge sits on the baseline.
+          alignItems: cornerAddons ? 'flex-start' : 'flex-end',
           gap: theme.spacing.sm,
           paddingBottom: `${theme.spacing.xs}px`,
         }}
@@ -175,6 +192,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             enableGrouping={shouldEnableTagGrouping()}
             isLoading={shouldDisplayLoadingState}
             isError={shouldDisplayErrorState}
+            disabled={columnControlsDisabled}
           />
 
           <EvaluationsOverviewColumnSelectorGrouped
@@ -184,6 +202,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             setSelectedColumns={setSelectedColumns}
             isLoading={shouldDisplayLoadingState}
             isError={shouldDisplayErrorState}
+            disabled={columnControlsDisabled}
           />
           {traceActions && experimentId && (
             <GenAITracesTableActions
@@ -218,21 +237,16 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             </Tooltip>
           )}
           {shouldEnableIssueDetection() && onDetectIssues && (
-            <Button
-              componentId="mlflow.traces-table.detect-issues-button"
+            <DetectIssuesButton
+              componentId={
+                pageSource === 'experiment-traces'
+                  ? 'mlflow.traces-table.detect-issues-button'
+                  : pageSource === 'chat-sessions'
+                    ? 'mlflow.chat-sessions.detect-issues-button'
+                    : 'mlflow.run-view-traces.detect-issues-button'
+              }
               onClick={onDetectIssues}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Detect issues in traces',
-                description: 'Aria label for the detect issues button in the traces table toolbar',
-              })}
-              type="primary"
-              icon={<SparkleIcon />}
-            >
-              <FormattedMessage
-                defaultMessage="Detect Issues"
-                description="Label for the detect issues button in the traces table toolbar"
-              />
-            </Button>
+            />
           )}
           {onRefresh && (
             <Tooltip
@@ -256,7 +270,21 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
           )}
           {addons}
         </TableFilterLayout>
-        <SampledInfoBadge countInfo={countInfo} />
+        {cornerAddons ? (
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: theme.spacing.sm,
+            }}
+          >
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>{cornerAddons}</div>
+            <SampledInfoBadge countInfo={countInfo} />
+          </div>
+        ) : (
+          <SampledInfoBadge countInfo={countInfo} />
+        )}
       </div>
     );
   },

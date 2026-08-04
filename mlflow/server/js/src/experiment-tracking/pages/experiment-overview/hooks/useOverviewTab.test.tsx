@@ -7,10 +7,25 @@ const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
 const mockUseLocation = jest.fn();
 
+function mockGeneratePath(pattern: string, params: Record<string, string>): string {
+  let result = pattern;
+  for (const [key, value] of Object.entries(params)) {
+    result = result.replace(`:${key}`, value);
+  }
+  return result;
+}
+
 jest.mock('@mlflow/mlflow/src/common/utils/RoutingUtils', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => mockUseParams(),
   useLocation: () => mockUseLocation(),
+  generatePath: mockGeneratePath,
+}));
+
+jest.mock('../../../routes', () => ({
+  RoutePaths: {
+    experimentPageTabOverview: '/experiments/:experimentId/overview/:overviewTab',
+  },
 }));
 
 describe('useOverviewTab', () => {

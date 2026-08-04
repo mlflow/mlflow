@@ -98,8 +98,7 @@ export function getArtifactContent<R = unknown>(artifactLocation: string, isBina
         fileReader.readAsText(blob);
       }
     } catch (error) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(error);
+      // fail silently
       reject(error);
     }
   });
@@ -120,6 +119,6 @@ export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: s
 };
 
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {
-  const artifactEndpointPath = 'get-artifact';
-  return getAjaxUrl(`${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`);
+  const artifactEndpointPath = getAjaxUrl('get-artifact');
+  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };

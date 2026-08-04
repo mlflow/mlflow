@@ -1,4 +1,5 @@
 import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -24,6 +25,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   enableImprovedComparison?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
 }) => {
+  const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(
@@ -72,7 +74,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   return (
     <>
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
+        <DropdownMenu.Trigger asChild disabled={noRunsSelected}>
           <Button
             type="primary"
             componentId="mlflow.eval-runs.actions-button"
@@ -99,7 +101,23 @@ export const ExperimentEvaluationRunsTableActions = ({
               <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
             </DropdownMenu.Item>
           )}
-          <DropdownMenu.Item componentId="mlflow.eval-runs.actions.delete" onClick={() => setDeleteModalVisible(true)}>
+          {/*
+            The Trigger above is disabled when no runs are selected, so this item is normally
+            unreachable in that state. We keep the item-level disabled guard (and tooltip, matching
+            Compare) as defense-in-depth: it stays correct if the Trigger is ever re-enabled, and it
+            prevents opening a "Delete 0 runs" modal.
+          */}
+          <DropdownMenu.Item
+            componentId="mlflow.eval-runs.actions.delete"
+            onClick={() => setDeleteModalVisible(true)}
+            disabled={noRunsSelected}
+            disabledReason={
+              <FormattedMessage
+                defaultMessage="Please select at least 1 run to delete"
+                description="Tooltip for disabled delete action in evaluation runs table actions"
+              />
+            }
+          >
             <FormattedMessage defaultMessage="Delete runs" description="Delete evaluation runs action" />
           </DropdownMenu.Item>
         </DropdownMenu.Content>

@@ -389,15 +389,15 @@ def test_evaluate_session_level_scorers_success():
         assert "session" in call_args.kwargs
         assert len(call_args.kwargs["session"]) == 2  # session has 2 traces
 
-        # Verify result contains assessments for first trace
-        assert "trace1" in result  # First trace (earliest timestamp)
-        assert len(result["trace1"]) == 1
-        assert result["trace1"][0].name == "test_scorer"
-        assert result["trace1"][0].value == 0.8
+        # Verify result is for first item
+        assert result.eval_item.trace.info.trace_id == "trace1"
+        assert len(result.assessments) == 1
+        assert result.assessments[0].name == "test_scorer"
+        assert result.assessments[0].value == 0.8
 
         # Verify session_id was added to metadata
-        assert result["trace1"][0].metadata is not None
-        assert result["trace1"][0].metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
+        assert result.assessments[0].metadata is not None
+        assert result.assessments[0].metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
 
 
 def test_evaluate_session_level_scorers_handles_scorer_error():
@@ -410,9 +410,9 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
     result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
     # Verify error feedback was created
-    assert "trace1" in result
-    assert len(result["trace1"]) == 1
-    feedback = result["trace1"][0]
+    assert result.eval_item.trace.info.trace_id == "trace1"
+    assert len(result.assessments) == 1
+    feedback = result.assessments[0]
     assert feedback.name == "failing_scorer"
     assert feedback.error is not None
     assert feedback.error.error_code == "SCORER_ERROR"
@@ -454,10 +454,10 @@ def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
         result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
         # Verify both feedbacks are stored
-        assert "trace1" in result
-        assert len(result["trace1"]) == 2
+        assert result.eval_item.trace.info.trace_id == "trace1"
+        assert len(result.assessments) == 2
         # Find feedbacks by name
-        feedback_by_name = {f.name: f for f in result["trace1"]}
+        feedback_by_name = {f.name: f for f in result.assessments}
         assert "multi_feedback_scorer/metric1" in feedback_by_name
         assert "multi_feedback_scorer/metric2" in feedback_by_name
         assert feedback_by_name["multi_feedback_scorer/metric1"].value == 0.7
@@ -488,13 +488,11 @@ def test_evaluate_session_level_scorers_first_trace_selection():
 
         result = evaluate_session_level_scorers("session1", session_items, [mock_scorer])
 
-        # Verify assessment is stored on trace1 (earliest request_time)
-        assert "trace1" in result
-        assert "trace2" not in result
-        assert "trace3" not in result
-        assert len(result["trace1"]) == 1
-        assert result["trace1"][0].name == "first_trace_scorer"
-        assert result["trace1"][0].value == 1.0
+        # Verify assessment is for trace1 (earliest request_time)
+        assert result.eval_item.trace.info.trace_id == "trace1"
+        assert len(result.assessments) == 1
+        assert result.assessments[0].name == "first_trace_scorer"
+        assert result.assessments[0].value == 1.0
 
 
 def test_evaluate_session_level_scorers_multiple_scorers():
@@ -537,10 +535,10 @@ def test_evaluate_session_level_scorers_multiple_scorers():
         assert mock_scorer2.run.call_count == 1
 
         # Verify result contains assessments from both scorers
-        assert "trace1" in result
-        assert len(result["trace1"]) == 2
+        assert result.eval_item.trace.info.trace_id == "trace1"
+        assert len(result.assessments) == 2
         # Find feedbacks by name
-        feedback_by_name = {f.name: f for f in result["trace1"]}
+        feedback_by_name = {f.name: f for f in result.assessments}
         assert "scorer1" in feedback_by_name
         assert "scorer2" in feedback_by_name
         assert feedback_by_name["scorer1"].value == 0.6
@@ -559,6 +557,7 @@ def test_evaluate_session_level_scorers_error_multiple_traces():
 
     result = evaluate_session_level_scorers("session-abc", session_items, [mock_scorer])
 
-    feedback = result["trace1"][0]
+    assert result.eval_item.trace.info.trace_id == "trace1"
+    feedback = result.assessments[0]
     assert feedback.error is not None
     assert feedback.metadata[TraceMetadataKey.TRACE_SESSION] == "session-abc"

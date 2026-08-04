@@ -1,27 +1,18 @@
 from __future__ import annotations
 
 import logging
-import threading
 from collections import defaultdict
-from typing import TYPE_CHECKING
-
-import pydantic
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
-    LLM_MAX_TOKENS,
-    NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
-
-if TYPE_CHECKING:
-    import litellm
 
 _logger = logging.getLogger(__name__)
 
@@ -55,61 +46,79 @@ def group_traces_by_session(
     return dict(groups)
 
 
-class _TokenCounter:
-    """Thread-safe accumulator for LLM token usage across pipeline phases."""
+def _compute_percentiles(values: list[float], percentiles: list[int | float]) -> list[float]:
+    """
+    Compute percentiles using NumPy if available, otherwise linear interpolation.
 
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.input_tokens = 0
-        self.output_tokens = 0
-        self.cost_usd = 0.0
+    This implementation matches NumPy's default linear interpolation method.
 
-    def track(self, response: litellm.ModelResponse) -> None:
-        with self._lock:
-            if response.usage:
-                self.input_tokens += response.usage.prompt_tokens or 0
-                self.output_tokens += response.usage.completion_tokens or 0
-            if hidden := getattr(response, "_hidden_params", None):
-                if cost := hidden.get("response_cost"):
-                    self.cost_usd += cost
+    Args:
+        values: List of numeric values to compute percentiles from.
+        percentiles: List of percentile values to compute (e.g., [50, 75, 90, 95, 99]).
 
-    def to_dict(self) -> dict[str, int | float]:
-        result = {}
-        total = self.input_tokens + self.output_tokens
-        if total > 0:
-            result["input_tokens"] = self.input_tokens
-            result["output_tokens"] = self.output_tokens
-            result["total_tokens"] = total
-        if self.cost_usd > 0:
-            result["cost_usd"] = round(self.cost_usd, 6)
+    Returns:
+        List of computed percentile values in the same order as requested.
+    """
+    if not values:
+        return []
+
+    try:
+        import numpy as np
+
+        return [float(p) for p in np.percentile(values, percentiles)]
+    except ImportError:
+        # Fall back to linear interpolation (matches NumPy's default method)
+        values_sorted = sorted(values)
+        n = len(values_sorted)
+        result = []
+
+        for p in percentiles:
+            # NumPy default: linear interpolation between data points
+            # Formula: value = lower + fraction * (upper - lower)
+            # where fraction comes from (n - 1) * p / 100
+            idx_float = (n - 1) * p / 100
+            idx_lower = int(idx_float)
+            idx_upper = min(idx_lower + 1, n - 1)
+
+            fraction = idx_float - idx_lower
+            lower_val = values_sorted[idx_lower]
+            upper_val = values_sorted[idx_upper]
+            result.append(lower_val + fraction * (upper_val - lower_val))
+
         return result
 
 
-@trace_disabled
-def _call_llm(
-    model: str,
-    messages: list[dict[str, str]],
-    *,
-    json_mode: bool = False,
-    response_format: type[pydantic.BaseModel] | None = None,
-    token_counter: _TokenCounter | None = None,
-) -> litellm.ModelResponse:
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float | int] | None:
+    """
+    Compute latency percentiles from a list of traces for relative threshold context.
 
-    use_format = response_format or ({"type": "json_object"} if json_mode else None)
-    response = _invoke_litellm(
-        litellm_model=convert_mlflow_uri_to_litellm(model),
-        messages=messages,
-        tools=[],
-        num_retries=NUM_RETRIES,
-        response_format=use_format,
-        include_response_format=use_format is not None,
-        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
-    )
-    if token_counter is not None:
-        token_counter.track(response)
-    return response
+    Args:
+        traces: List of traces to analyze.
+
+    Returns:
+        Dictionary with percentile values (p50, p75, p90, p95, p99) in seconds
+        and count as an integer, or None if no valid durations found.
+    """
+    durations_ms = [
+        trace.info.execution_duration
+        for trace in traces
+        if trace.info.execution_duration is not None
+    ]
+
+    if not durations_ms:
+        return None
+
+    durations_s = [d / 1000 for d in durations_ms]
+    percentile_values = _compute_percentiles(durations_s, [50, 75, 90, 95, 99])
+
+    return {
+        "p50": round(percentile_values[0], 2),
+        "p75": round(percentile_values[1], 2),
+        "p90": round(percentile_values[2], 2),
+        "p95": round(percentile_values[3], 2),
+        "p99": round(percentile_values[4], 2),
+        "count": len(durations_s),
+    }
 
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:
@@ -201,14 +210,35 @@ def collect_affected_trace_ids(
     return trace_ids
 
 
-def format_trace_content(trace: Trace) -> str:
+def format_trace_content(trace: Trace, include_timing: bool = False) -> str:
+    """
+    Format trace content for annotation prompts.
+
+    Args:
+        trace: The trace to format.
+        include_timing: If True, include timing information (duration and slowest spans).
+                       Should be enabled when latency detection is active.
+
+    Returns:
+        Formatted trace content string.
+    """
     from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+
+    # import here to avoid circular import
+    from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
 
     parts = []
     if request := trace.data.request:
         parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
     if response := trace.data.response:
         parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
+
+    if include_timing:
+        if timing_info := _extract_trace_timing_info(trace):
+            parts.append(f"Total duration: {timing_info['duration_s']:.2f}s")
+            if slowest_spans_formatted := timing_info["slowest_spans_formatted"]:
+                parts.append(f"Slowest spans: {slowest_spans_formatted}")
+
     if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
     if errors := extract_span_errors(trace):

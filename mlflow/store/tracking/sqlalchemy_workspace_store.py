@@ -26,17 +26,32 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlIssue,
+    SqlLabelSchema,
     SqlLoggedModel,
+    SqlMCPAccessEndpoint,
+    SqlMCPServer,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersion,
+    SqlMCPServerVersionTag,
     SqlOnlineScoringConfig,
+    SqlReviewQueue,
+    SqlReviewQueueItem,
+    SqlReviewQueueLabelSchema,
+    SqlReviewQueueUser,
     SqlRun,
+    SqlScorer,
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
 )
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 from mlflow.tracking._workspace.registry import get_workspace_store
@@ -55,10 +70,10 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     Workspace-aware variant of the SQLAlchemy tracking store.
     """
 
-    def __init__(self, db_uri, default_artifact_root):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
         self._workspace_provider = None
         self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
-        super().__init__(db_uri, default_artifact_root)
+        super().__init__(db_uri, default_artifact_root, read_db_uri=read_db_uri)
 
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
@@ -98,14 +113,42 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 SqlExperiment, SqlOnlineScoringConfig.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
 
+        if model is SqlScorer:
+            return query.join(
+                SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
+
+        if model is SqlLabelSchema:
+            return query.join(
+                SqlExperiment, SqlLabelSchema.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlReviewQueue:
+            return query.join(
+                SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model in (SqlReviewQueueUser, SqlReviewQueueItem, SqlReviewQueueLabelSchema):
+            # Children inherit the queue's workspace; scope through the parent
+            # `review_queues` -> `experiments` even though the store always
+            # reaches them via an already workspace-validated queue_id.
+            return (
+                query
+                .join(SqlReviewQueue, model.queue_id == SqlReviewQueue.queue_id)
+                .join(SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id)
+                .filter(SqlExperiment.workspace == workspace)
+            )
 
         if model in (
             SqlGatewaySecret,
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
             SqlGatewayBudgetPolicy,
+            SqlGatewayGuardrail,
+            SqlGatewayGuardrailConfig,
         ):
             return query.filter(model.workspace == workspace)
 
@@ -114,6 +157,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlGatewayEndpointModelMapping:
             return query.join(SqlGatewayEndpoint).filter(SqlGatewayEndpoint.workspace == workspace)
+
+        if model in (
+            SqlMCPServer,
+            SqlMCPServerVersion,
+            SqlMCPServerTag,
+            SqlMCPServerVersionTag,
+            SqlMCPServerAlias,
+            SqlMCPAccessEndpoint,
+        ):
+            return query.filter(model.workspace == workspace)
 
         return query
 
@@ -149,19 +202,31 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 error_code=INVALID_STATE,
             )
 
-    def _trace_query(self, session, for_update_or_delete=False):
+    def _trace_query(self, session, for_update_or_delete=False, workspace=None):
+        """
+        Return a workspace-scoped trace query.
+
+        Both plain reads and locking reads target `trace_info` directly via
+        `SqlAlchemyStore._get_query(..., SqlTraceInfo)` and scope results with an
+        `experiment_id IN (...)` subquery over experiments in the selected workspace. This keeps
+        the query shape anchored on trace rows rather than relying on a workspace-aware join
+        through experiments, which is especially important when applying row locks so the lock
+        lands directly on `trace_info` rows. Callers may pass an explicit workspace snapshot when
+        a multi-step write needs stable scoping across several queries.
+        """
+        workspace = workspace or self._get_active_workspace()
+        workspace_experiment_ids = (
+            session
+            .query(SqlExperiment.experiment_id)
+            .filter(SqlExperiment.workspace == workspace)
+            .subquery()
+        )
+        query = SqlAlchemyStore._get_query(self, session, SqlTraceInfo).filter(
+            SqlTraceInfo.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
+        )
         if for_update_or_delete:
-            workspace = self._get_active_workspace()
-            workspace_experiment_ids = (
-                session
-                .query(SqlExperiment.experiment_id)
-                .filter(SqlExperiment.workspace == workspace)
-                .subquery()
-            )
-            return SqlAlchemyStore._get_query(self, session, SqlTraceInfo).filter(
-                SqlTraceInfo.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
-            )
-        return super()._trace_query(session, for_update_or_delete=False)
+            return self._apply_trace_row_lock(query)
+        return query
 
     def _experiment_where_clauses(self):
         return [SqlExperiment.workspace == self._get_active_workspace()]
@@ -391,6 +456,19 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
 
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        provider = self._get_workspace_provider_instance()
+        return provider.resolve_trace_archival_config(
+            default_trace_archival_location,
+            default_retention,
+            self._get_active_workspace(),
+        )
+
     def _ensure_default_workspace_experiment(self) -> None:
         """
         Ensure the default experiment exists in the provider's default workspace when enabled.
@@ -413,12 +491,13 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if default_workspace is None:
             return
 
-        with workspace_context.WorkspaceContext(default_workspace.name):
-            if self.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
-                with self.ManagedSessionMaker() as session:
-                    self._create_default_experiment(
-                        session, workspace_override=default_workspace.name
-                    )
+        # ``_create_default_experiment`` is idempotent: the default-workspace branch delegates to
+        # the base store, whose insert tolerates experiment 0 already existing (verified by the
+        # global primary key). Calling it directly avoids a pre-check scoped to
+        # ``default_workspace.name``, which would misfire if that name ever diverged from
+        # ``DEFAULT_WORKSPACE_NAME`` (experiment 0 is always pinned to ``DEFAULT_WORKSPACE_NAME``).
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._create_default_experiment(session, workspace_override=default_workspace.name)
 
     def _create_default_experiment(self, session, workspace_override: str | None = None):
         workspace = workspace_override or self._get_active_workspace()
@@ -427,6 +506,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             # Use the context to create the default experiment in the default workspace
             # in case the default workspace was a workspace override. It's important to keep the
             # default workspace experiment ID as 0 to allow a user to disable workspaces later.
+            # The base store's insert is idempotent (it tolerates experiment 0 already existing and
+            # re-raises any other integrity failure), so this is safe to call on every startup.
             with workspace_context.WorkspaceContext(workspace):
                 return super()._create_default_experiment(session)
 

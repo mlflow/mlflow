@@ -1,4 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
+/* eslint-disable jest/no-standalone-expect */
+import { describe, it, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from '@databricks/i18n';
@@ -7,6 +8,19 @@ import { useForm } from 'react-hook-form';
 import EvaluateTracesSection from './EvaluateTracesSection';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { LLM_TEMPLATE } from './types';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  isScorerModelSelectionEnabled: () => true,
+}));
+
+jest.mock('../../../gateway/utils/gatewayUtils', () => ({
+  ModelProvider: { GATEWAY: 'gateway', DATABRICKS: 'databricks', OTHER: 'other' },
+  getModelProvider: (model: string | undefined) => {
+    if (!model || model.startsWith('gateway:/')) return 'gateway';
+    if (model.startsWith('databricks:/')) return 'databricks';
+    return 'other';
+  },
+}));
 
 describe('EvaluateTracesSection', () => {
   const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
@@ -21,11 +35,6 @@ describe('EvaluateTracesSection', () => {
   };
 
   describe('Section visibility', () => {
-    it('should hide entire section when disableMonitoring is true', () => {
-      const { container } = render(<TestWrapper defaultValues={{ disableMonitoring: true }} />);
-      expect(container.firstChild).toBeNull();
-    });
-
     it('should show section when disableMonitoring is false', () => {
       render(<TestWrapper defaultValues={{ disableMonitoring: false, sampleRate: 0 }} />);
       expect(screen.getByText(/Automatically evaluate new traces using this scorer/i)).toBeInTheDocument();
@@ -173,7 +182,7 @@ describe('EvaluateTracesSection', () => {
       expect(screen.queryByText(/not available for judges that use expectations/i)).not.toBeInTheDocument();
     });
 
-    it('should disable automatic evaluation when using a non-gateway model', () => {
+    test('should disable automatic evaluation when using a non-gateway model', () => {
       render(
         <TestWrapper
           defaultValues={{

@@ -18,6 +18,11 @@ if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
+    # A conversation message on the litellm path is either a litellm.Message or a plain
+    # dict — the injected multimodal image turn is a dict, since litellm.Message rejects
+    # list content.
+    _LiteLLMMessage = litellm.Message | dict
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
@@ -32,13 +37,12 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.genai.judges.utils.telemetry_utils import (
-    _record_judge_model_usage_failure_databricks_telemetry,
-    _record_judge_model_usage_success_databricks_telemetry,
-)
 from mlflow.genai.judges.utils.tool_calling_utils import (
+    _get_image_turn_tool_call_id,
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
+    _remove_oldest_tool_call_pair,
+    _to_litellm_image_turn,
 )
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -146,7 +150,7 @@ _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 def _invoke_litellm(
     litellm_model: str,
-    messages: list["litellm.Message"],
+    messages: list[_LiteLLMMessage],
     tools: list[dict[str, Any]],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None,
@@ -258,7 +262,21 @@ def _invoke_litellm_and_handle_tools(
 
     from mlflow.genai.judges.tools import list_judge_tools
 
-    messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+    # litellm.Message types content as str and rejects a multimodal list, so an initial
+    # message with list content is sent as a plain dict instead (dormant today since
+    # initial prompts are text-only, but ChatMessage.content may now be a list).
+    converted_messages: list[_LiteLLMMessage] = []
+    for msg in messages:
+        if isinstance(msg.content, list):
+            turn: dict[str, Any] = {"role": msg.role, "content": msg.content}
+            if msg.tool_call_id is not None:
+                turn["tool_call_id"] = msg.tool_call_id
+            if msg.name is not None:
+                turn["name"] = msg.name
+            converted_messages.append(turn)
+        else:
+            converted_messages.append(litellm.Message(role=msg.role, content=msg.content))
+    messages = converted_messages
 
     # Construct model URI and gateway params
     if provider == "gateway":
@@ -287,7 +305,7 @@ def _invoke_litellm_and_handle_tools(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _prune_messages_for_context_window() -> list[litellm.Message] | None:
+    def _prune_messages_for_context_window() -> list[_LiteLLMMessage] | None:
         if provider == "gateway":
             # For gateway provider, we don't know the underlying model,
             # so simply remove the oldest tool call pair.
@@ -383,8 +401,36 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
-            messages.extend(tool_response_messages)
+            from mlflow.types.llm import ToolCall as MlflowToolCall
+
+            mlflow_tool_calls = [
+                MlflowToolCall(
+                    id=tc.id,
+                    function={
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                )
+                for tc in message.tool_calls
+            ]
+            tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
+            litellm_tool_messages: list[_LiteLLMMessage] = []
+            for msg in tool_response_messages:
+                # An injected image user-turn carries multimodal LIST content, which the
+                # strict litellm.Message pydantic model (content: str) rejects. Send it as
+                # a provider-safe dict instead.
+                if _get_image_turn_tool_call_id(msg) is not None:
+                    litellm_tool_messages.append(_to_litellm_image_turn(msg))
+                else:
+                    litellm_tool_messages.append(
+                        litellm.Message(
+                            role=msg.role,
+                            content=msg.content,
+                            tool_call_id=msg.tool_call_id,
+                            name=msg.name,
+                        )
+                    )
+            messages.extend(litellm_tool_messages)
 
         except MlflowException:
             raise
@@ -424,35 +470,6 @@ def _extract_response_cost(response: "litellm.Completion") -> float | None:
         return hidden_params.get("response_cost")
 
 
-def _remove_oldest_tool_call_pair(
-    messages: list["litellm.Message"],
-) -> list["litellm.Message"] | None:
-    """
-    Remove the oldest assistant message with tool calls and its corresponding tool responses.
-
-    Args:
-        messages: List of LiteLLM message objects.
-
-    Returns:
-        Modified messages with oldest tool call pair removed, or None if no tool calls to remove.
-    """
-    result = next(
-        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
-        None,
-    )
-    if result is None:
-        return None
-
-    assistant_idx, assistant_msg = result
-    modified = messages[:]
-    modified.pop(assistant_idx)
-
-    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
-    return [
-        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
-    ]
-
-
 def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
     """
     Get the default Pydantic schema for judge evaluations.
@@ -473,10 +490,10 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
 
 
 def _prune_messages_exceeding_context_window_length(
-    messages: list["litellm.Message"],
+    messages: list[_LiteLLMMessage],
     model: str | None = None,
     max_tokens: int | None = None,
-) -> list["litellm.Message"] | None:
+) -> list[_LiteLLMMessage] | None:
     """
     Prune messages from history to stay under token limit.
 
@@ -485,12 +502,13 @@ def _prune_messages_exceeding_context_window_length(
     a single tool call pair (useful when the underlying model is unknown).
 
     Args:
-        messages: List of LiteLLM message objects.
+        messages: List of conversation messages (litellm.Message objects and/or plain
+            dicts for injected multimodal image turns).
         model: Model name for token counting. Required for token-based pruning.
         max_tokens: Maximum token limit. If None, removes the oldest tool call pair.
 
     Returns:
-        Pruned list of LiteLLM message objects, or None if no tool calls to remove.
+        Pruned list of messages, or None if no tool calls to remove.
     """
     import litellm
 
@@ -565,7 +583,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
     ) -> bool:
         return _is_litellm_available()
 
-    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.types.llm import ChatMessage
 
@@ -575,10 +593,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
             else input_params.prompt
         )
 
-        is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
-
         # Reject base_url / extra_headers for Databricks providers
-        if is_model_provider_databricks and (
+        if input_params.model_provider in ("databricks", "endpoints") and (
             input_params.base_url is not None or input_params.extra_headers is not None
         ):
             raise MlflowException(
@@ -587,78 +603,54 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        output = _invoke_litellm_and_handle_tools(
+            provider=input_params.model_provider,
+            model_name=input_params.model_name,
+            messages=messages,
+            trace=input_params.trace,
+            num_retries=input_params.num_retries,
+            response_format=input_params.response_format,
+            inference_params=input_params.inference_params,
+            base_url=input_params.base_url,
+            extra_headers=input_params.extra_headers,
+        )
+
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+
         try:
-            output = _invoke_litellm_and_handle_tools(
-                provider=input_params.model_provider,
-                model_name=input_params.model_name,
-                messages=messages,
-                trace=input_params.trace,
-                num_retries=input_params.num_retries,
-                response_format=input_params.response_format,
-                inference_params=input_params.inference_params,
-                base_url=input_params.base_url,
-                extra_headers=input_params.extra_headers,
-            )
+            response_dict = json.loads(cleaned_response, strict=False)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}"
+            ) from e
 
-            cleaned_response = _strip_markdown_code_blocks(output.response)
+        metadata = {}
+        if output.cost is not None:
+            metadata[AssessmentMetadataKey.JUDGE_COST] = output.cost
+        if output.num_prompt_tokens is not None:
+            metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
+        if output.num_completion_tokens is not None:
+            metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
+        metadata = metadata or None
 
-            try:
-                response_dict = json.loads(cleaned_response)
-            except json.JSONDecodeError as e:
-                raise MlflowException(
-                    f"Failed to parse response from judge model. Response: {output.response}"
-                ) from e
+        if "error" in response_dict:
+            raise MlflowException(f"Judge evaluation failed with error: {response_dict['error']}")
 
-            metadata = {}
-            if output.cost:
-                metadata[AssessmentMetadataKey.JUDGE_COST] = output.cost
-            if output.num_prompt_tokens:
-                metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
-            if output.num_completion_tokens:
-                metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
-            metadata = metadata or None
+        feedback = Feedback(
+            name=input_params.assessment_name,
+            value=response_dict["result"],
+            rationale=_sanitize_justification(response_dict.get("rationale", "")),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
+            ),
+            trace_id=input_params.trace.info.trace_id if input_params.trace is not None else None,
+            metadata=metadata,
+        )
 
-            if "error" in response_dict:
-                raise MlflowException(
-                    f"Judge evaluation failed with error: {response_dict['error']}"
-                )
-
-            feedback = Feedback(
-                name=input_params.assessment_name,
-                value=response_dict["result"],
-                rationale=_sanitize_justification(response_dict.get("rationale", "")),
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
-                ),
-                trace_id=input_params.trace.info.trace_id
-                if input_params.trace is not None
-                else None,
-                metadata=metadata,
-            )
-
-            if is_model_provider_databricks:
-                try:
-                    _record_judge_model_usage_success_databricks_telemetry(
-                        request_id=output.request_id,
-                        model_provider=input_params.model_provider,
-                        endpoint_name=input_params.model_name,
-                        num_prompt_tokens=output.num_prompt_tokens,
-                        num_completion_tokens=output.num_completion_tokens,
-                    )
-                except Exception:
-                    _logger.debug("Failed to record judge model usage success telemetry")
-
-            return AdapterInvocationOutput(feedback=feedback, cost=output.cost)
-
-        except MlflowException as e:
-            if is_model_provider_databricks:
-                try:
-                    _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=input_params.model_provider,
-                        endpoint_name=input_params.model_name,
-                        error_code=e.error_code or "UNKNOWN",
-                        error_message=str(e),
-                    )
-                except Exception:
-                    _logger.debug("Failed to record judge model usage failure telemetry")
-            raise
+        return AdapterInvocationOutput(
+            feedback=feedback,
+            request_id=output.request_id,
+            num_prompt_tokens=output.num_prompt_tokens,
+            num_completion_tokens=output.num_completion_tokens,
+            cost=output.cost,
+        )

@@ -70,6 +70,7 @@ export class LogQueue {
       });
 
       if (!response.ok) {
+        // eslint-disable-next-line no-console
         console.error(`[LogQueue] Failed to upload batch: ${response.status}`);
         this.queue.unshift(...records);
         return;
@@ -80,6 +81,7 @@ export class LogQueue {
         this.destroy();
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('[LogQueue] Error uploading batch:', error);
       this.queue.unshift(...records);
     }

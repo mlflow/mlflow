@@ -10,6 +10,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   cancel:
     runs-on: ubuntu-slim

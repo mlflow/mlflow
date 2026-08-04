@@ -267,11 +267,8 @@ class OnlineTraceScoringProcessor:
             for future in as_completed(futures):
                 task = futures[future]
                 try:
-                    if feedbacks := future.result():
+                    result = future.result()
+                    if feedbacks := result.assessments:
                         _log_assessments(trace=task.trace, assessments=feedbacks, run_id=None)
                 except Exception as e:
-                    _logger.warning(
-                        f"Failed to score trace {task.trace.info.trace_id}: {e}",
-                        exc_info=_logger.isEnabledFor(logging.DEBUG),
-                    )
                     self._log_error_assessments(e, task.scorers, task.trace)

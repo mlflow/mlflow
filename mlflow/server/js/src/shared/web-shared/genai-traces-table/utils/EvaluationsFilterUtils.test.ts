@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 
 import { filterEvaluationResults } from './EvaluationsFilterUtils';
+import { FilterOperator } from '../types';
 import type { AssessmentFilter, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from '../types';
 
 describe('filterEvaluationResults', () => {
@@ -166,6 +167,51 @@ describe('filterEvaluationResults', () => {
     expect(noResults[0]).toBe(evalsWithMultipleAssessments[1]);
   });
 
+  it.each([
+    {
+      description: '= matches string "1" against number 1',
+      operator: undefined,
+      expectedIndices: [0],
+    },
+    {
+      description: '!= excludes string "1" when filtering against number 1',
+      operator: FilterOperator.NOT_EQUALS,
+      expectedIndices: [1, 2],
+    },
+  ])('filters numeric string values: $description', ({ operator, expectedIndices }) => {
+    const makeEntry = (
+      assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
+    ): EvalTraceComparisonEntry => ({
+      currentRunValue: {
+        evaluationId: 'eval-1',
+        requestId: 'req-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: assessments,
+        metrics: {},
+      },
+    });
+
+    const evalsWithNumericStrings: EvalTraceComparisonEntry[] = [
+      makeEntry({ score: [{ name: 'score', stringValue: '1' }] }),
+      makeEntry({ score: [{ name: 'score', stringValue: '2' }] }),
+      makeEntry({ score: [{ name: 'score', stringValue: '3' }] }),
+    ];
+
+    const filter: AssessmentFilter[] = [
+      { assessmentName: 'score', filterValue: 1, filterOperator: operator, run: 'currentRun' },
+    ];
+
+    const results = filterEvaluationResults(evalsWithNumericStrings, filter, undefined, 'currentRun');
+    expect(results).toHaveLength(expectedIndices.length);
+    expectedIndices.forEach((idx, i) => {
+      expect(results[i]).toBe(evalsWithNumericStrings[idx]);
+    });
+  });
+
   it('filters on Error value to find assessments with errors', () => {
     const makeEntry = (
       assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
@@ -202,5 +248,138 @@ describe('filterEvaluationResults', () => {
     const errorResults = filterEvaluationResults(evalsWithErrors, errorFilter, undefined, 'currentRun');
     expect(errorResults).toHaveLength(1);
     expect(errorResults[0]).toBe(evalsWithErrors[1]);
+  });
+
+  it.each([
+    {
+      description: '= undefined returns traces with no assessments',
+      operator: undefined,
+      expectedIndices: [1],
+    },
+    {
+      description: '!= undefined returns traces that have assessments',
+      operator: FilterOperator.NOT_EQUALS,
+      expectedIndices: [0, 2],
+    },
+  ])('filters with undefined filterValue: $description', ({ operator, expectedIndices }) => {
+    const makeEntry = (
+      assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
+    ): EvalTraceComparisonEntry => ({
+      currentRunValue: {
+        evaluationId: 'eval-1',
+        requestId: 'req-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: assessments,
+        metrics: {},
+      },
+    });
+
+    const evalsWithMixedAssessments: EvalTraceComparisonEntry[] = [
+      makeEntry({ score: [{ name: 'score', stringValue: 'yes' }] }),
+      makeEntry({}),
+      makeEntry({ score: [{ name: 'score', stringValue: 'no' }] }),
+    ];
+
+    const filter: AssessmentFilter[] = [
+      { assessmentName: 'score', filterValue: undefined, filterOperator: operator, run: 'currentRun' },
+    ];
+
+    const results = filterEvaluationResults(evalsWithMixedAssessments, filter, undefined, 'currentRun');
+    expect(results).toHaveLength(expectedIndices.length);
+    expectedIndices.forEach((idx, i) => {
+      expect(results[i]).toBe(evalsWithMixedAssessments[idx]);
+    });
+  });
+
+  it('filter on search query matches trace evaluationId (trace_id)', () => {
+    const evalsWithTraceId: EvalTraceComparisonEntry[] = [
+      {
+        currentRunValue: {
+          evaluationId: '11301f0bdf2dfa5a762a4bac74b45db1',
+          requestId: 'req-1',
+          inputs: { input: 'some input' },
+          inputsId: '11301f0bdf2dfa5a762a4bac74b45db1',
+          outputs: {},
+          targets: {},
+          overallAssessments: [],
+          responseAssessmentsByName: {},
+          metrics: {},
+        },
+      },
+      {
+        currentRunValue: {
+          evaluationId: 'aabbccddaabbccddaabbccddaabbccdd',
+          requestId: 'req-2',
+          inputs: { input: 'other input' },
+          inputsId: 'aabbccddaabbccddaabbccddaabbccdd',
+          outputs: {},
+          targets: {},
+          overallAssessments: [],
+          responseAssessmentsByName: {},
+          metrics: {},
+        },
+      },
+    ];
+
+    // Search by full backend trace ID
+    const results = filterEvaluationResults(evalsWithTraceId, [], '11301f0bdf2dfa5a762a4bac74b45db1');
+    expect(results).toHaveLength(1);
+    expect(results[0]).toBe(evalsWithTraceId[0]);
+
+    // Search by partial backend trace ID
+    const partialResults = filterEvaluationResults(evalsWithTraceId, [], '11301f0b');
+    expect(partialResults).toHaveLength(1);
+    expect(partialResults[0]).toBe(evalsWithTraceId[0]);
+  });
+
+  it('filter on search query matches fullTraceId (V4 trace ID format)', () => {
+    const evalsWithFullTraceId: EvalTraceComparisonEntry[] = [
+      {
+        currentRunValue: {
+          evaluationId: '11301f0bdf2dfa5a762a4bac74b45db1',
+          requestId: 'req-1',
+          inputs: { input: 'some input' },
+          inputsId: '11301f0bdf2dfa5a762a4bac74b45db1',
+          outputs: {},
+          targets: {},
+          overallAssessments: [],
+          responseAssessmentsByName: {},
+          metrics: {},
+          fullTraceId: 'trace:/catalog.schema/11301f0bdf2dfa5a762a4bac74b45db1',
+        },
+      },
+      {
+        currentRunValue: {
+          evaluationId: 'aabbccddaabbccddaabbccddaabbccdd',
+          requestId: 'req-2',
+          inputs: { input: 'other input' },
+          inputsId: 'aabbccddaabbccddaabbccddaabbccdd',
+          outputs: {},
+          targets: {},
+          overallAssessments: [],
+          responseAssessmentsByName: {},
+          metrics: {},
+          fullTraceId: 'trace:/other.location/aabbccddaabbccddaabbccddaabbccdd',
+        },
+      },
+    ];
+
+    // Search by full V4 trace ID
+    const results = filterEvaluationResults(
+      evalsWithFullTraceId,
+      [],
+      'trace:/catalog.schema/11301f0bdf2dfa5a762a4bac74b45db1',
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]).toBe(evalsWithFullTraceId[0]);
+
+    // Search by catalog.schema (location part)
+    const locationResults = filterEvaluationResults(evalsWithFullTraceId, [], 'catalog.schema');
+    expect(locationResults).toHaveLength(1);
+    expect(locationResults[0]).toBe(evalsWithFullTraceId[0]);
   });
 });

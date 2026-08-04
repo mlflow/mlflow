@@ -8,6 +8,10 @@ import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 
+jest.mock('./ExperimentTraceLocationPath', () => ({
+  ExperimentTraceLocationPath: () => null,
+}));
+
 jest.mock('../../../components/experiment-page/hooks/useExperimentEvaluationRunsData', () => ({
   useExperimentEvaluationRunsData: jest.fn(() => ({ trainingRuns: [] })),
 }));
@@ -76,7 +80,6 @@ describe('ExperimentPageSideNav', () => {
       expect(screen.getByText('Agent versions')).toBeInTheDocument();
     },
   );
-
   test('should not render chat sessions or overview for non-genai', () => {
     renderTestComponent(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT, ExperimentPageTabName.Runs);
     expect(screen.queryByText('Sessions')).not.toBeInTheDocument();

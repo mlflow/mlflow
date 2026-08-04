@@ -13,9 +13,9 @@ const preprocess: Preprocessor = (options) => {
       return;
     }
     Object.keys(options.issues.exports[file]).forEach((exportIdentifier) => {
-      // Ignore unused exports starting with "oss_" because they are used in the OSS
+      // Ignore unused exports including "oss_" because they are used in the OSS
       // version. See above comment for explanation on why we are being conservative.
-      if (exportIdentifier.startsWith('oss_')) {
+      if (exportIdentifier.includes('oss_')) {
         // Reduce `exports` counter since the exit code is based on it.
         options.counters.exports -= 1;
         delete options.issues.exports[file][exportIdentifier];

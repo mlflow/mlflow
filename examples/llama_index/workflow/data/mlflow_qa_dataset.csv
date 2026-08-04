@@ -53,7 +53,7 @@ How MLflow decides model dependencies to be logged?,"MLflow automatically infers
 "What is ""flavor"" in MLflow?","In the MLflow ecosystem, flavors are designated wrappers for specific machine learning libraries, such as scikit-learn, pytorch, langchain, and abstracting the process of saving, loading, and handling models across different frameworks. They enable deployment tools to work with models from any ML library without specific integrations. Each flavor defines the behavior of the model for inference deployment, ensuring consistency."
 Is MLflow integrated with Pytorch?,"Yes, MLflow provides built-in support for PyTorch, offering APIs for simplified experiment tracking, model management, and effortless deployment."
 is MLflow integrated with DSPy?,"No, MLflow is not natively integrated with DSPy. You can track DSPy models using Custom Python Model feature, instead."
-How to start MLflow Deployment Server to proxy OpenAI and Claude APIs?,"To set up the MLflow Deployments Server, first install it with the command `pip install 'mlflow[genai]'`, and set your OpenAI and Anthropic API key as a n environment variable in your console. Then define a configuration YAML file for each endpoint like below:
+How to start MLflow Deployment Server to proxy OpenAI and Claude APIs?,"To set up the MLflow Deployments Server, first install it with the command `pip install 'mlflow'`, and set your OpenAI and Anthropic API key as a n environment variable in your console. Then define a configuration YAML file for each endpoint like below:
 ```config.yaml
 endpoints:
     - name: openai-chat

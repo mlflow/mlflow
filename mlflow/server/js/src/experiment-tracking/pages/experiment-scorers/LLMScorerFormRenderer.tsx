@@ -21,9 +21,9 @@ import {
 import { HighlightedTextArea } from './HighlightedTextArea';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
-import { isScorerModelSelectionEnabled } from '../../../common/utils/FeatureUtils';
+import { isScorerModelSelectionEnabled, isScorerOutputTypeSelectorEnabled } from '../../../common/utils/FeatureUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSection from './EvaluateTracesSection';
@@ -31,7 +31,6 @@ import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
 import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
-import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -206,6 +205,7 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
       <Controller
         name="name"
         control={control}
+        rules={{ required: true }}
         render={({ field }) => (
           <Input
             {...field}
@@ -233,6 +233,13 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   const intl = useIntl();
   const { watch } = useFormContext<LLMScorerFormData>();
   const scope = watch('evaluationScope');
+  const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
+
+  // Hide instructions section for built-in judges that don't support editing
+  // These templates use Python-specific variables not available in the UI
+  if (!isInstructionsJudge) {
+    return null;
+  }
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -243,14 +250,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     setValue('instructions', currentValue + variable, { shouldValidate: true });
   };
 
-  const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
   const isMemoryAugmented = watch('isMemoryAugmented') ?? false;
-
-  // Hide instructions section for built-in judges that don't support editing
-  // These templates use Python-specific variables not available in the UI
-  if (!isInstructionsJudge) {
-    return null;
-  }
 
   // Memory-augmented judges have instructions that include distilled guidelines
   // from alignment — these should not be edited through the UI.
@@ -299,7 +299,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        componentId="mlflow.experiment-scorers.add-variable-expectations"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ expectations }}');
@@ -479,7 +479,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  componentId="mlflow.experiment-scorers.guidelines-learn-more-link"
                   href={getLlmJudgeDocUrl()}
                   openInNewTab
                 >
@@ -495,7 +495,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  componentId="mlflow.experiment-scorers.guidelines-learn-more-link"
                   href={getLlmJudgeDocUrl()}
                   openInNewTab
                 >
@@ -516,7 +516,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
           <>
             <Input.TextArea
               {...field}
-              componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
+              componentId="mlflow.experiment-scorers.guidelines-text-area"
               id="mlflow-experiment-scorers-guidelines"
               readOnly={mode === SCORER_FORM_MODE.DISPLAY}
               rows={3}
@@ -557,10 +557,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
 
       const values = getValues();
       const updated = { ...values, [fieldName]: newValue };
-      const isComplete =
-        Boolean(updated.name) &&
-        Boolean(updated.model) &&
-        (!isEvaluatingSessionsInScorersEnabled() || Boolean(updated.evaluationScope));
+      const isComplete = Boolean(updated.name) && Boolean(updated.model) && Boolean(updated.evaluationScope);
 
       if (isComplete) {
         accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
@@ -571,11 +568,16 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
 
   const generalSection = (
     <>
-      {isEvaluatingSessionsInScorersEnabled() && (
-        <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
-      )}
+      <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
       <NameSection mode={mode} control={control} />
-      <ModelSectionRenderer mode={mode} control={control} setValue={setValue} onUserSelect={checkAndProgressGeneral} />
+      {isScorerModelSelectionEnabled() && (
+        <ModelSectionRenderer
+          mode={mode}
+          control={control}
+          setValue={setValue}
+          onUserSelect={checkAndProgressGeneral}
+        />
+      )}
     </>
   );
 
@@ -586,7 +588,9 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
       {!isGuidelinesTemplate(selectedTemplate) && (
         <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
       )}
-      {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
+      {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
+        <OutputTypeSection mode={mode} control={control} />
+      )}
     </>
   );
 
@@ -609,8 +613,10 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
         {!isGuidelinesTemplate(selectedTemplate) && (
           <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
         )}
-        {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
-        <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
+        {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
+          <OutputTypeSection mode={mode} control={control} />
+        )}
+        {isScorerModelSelectionEnabled() && <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />}
         <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
       </div>
     );

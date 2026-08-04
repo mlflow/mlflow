@@ -99,6 +99,8 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "issues.proto",
+    "label_schemas.proto",
+    "review_queues.proto",
     "webhooks.proto",
     "jobs.proto",
     "prompt_optimization.proto",
@@ -109,12 +111,15 @@ uc_proto_files = to_paths(
     "databricks_uc_registry_messages.proto",
     "databricks_uc_registry_service.proto",
     "databricks_filesystem_service.proto",
-    "unity_catalog_oss_messages.proto",
-    "unity_catalog_oss_service.proto",
+    "unity_catalog_messages.proto",
+    "unity_catalog_service.proto",
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_tracing.proto")
+tracing_proto_files = to_paths(
+    "databricks_exception_with_details.proto",
+    "databricks_tracing.proto",
+)
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")
@@ -140,8 +145,8 @@ python_gencode_replacements = [
         "catalog_messages_pb2",
     ),
     (
-        "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
-        "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
+        "import unity_catalog_messages_pb2 as unity__catalog__messages__pb2",
+        "from . import unity_catalog_messages_pb2 as unity_catalog_messages_pb2",
     ),
     (
         "import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",
@@ -164,6 +169,14 @@ python_gencode_replacements = [
         "from . import issues_pb2 as issues__pb2",
     ),
     (
+        "import label_schemas_pb2 as label__schemas__pb2",
+        "from . import label_schemas_pb2 as label__schemas__pb2",
+    ),
+    (
+        "import review_queues_pb2 as review__queues__pb2",
+        "from . import review_queues_pb2 as review__queues__pb2",
+    ),
+    (
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
     ),
@@ -174,6 +187,11 @@ python_gencode_replacements = [
     (
         "import prompt_optimization_pb2 as prompt__optimization__pb2",
         "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
+    ),
+    (
+        "import databricks_exception_with_details_pb2 as databricks__exception__with__details__pb2",
+        "from . import databricks_exception_with_details_pb2 as databricks_exception_"
+        "with_details_pb2",
     ),
 ]
 
