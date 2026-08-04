@@ -1153,6 +1153,32 @@ def test_serving_uc_bound_experiment_selects_uc_processor(
     mlflow.tracing.reset()
 
 
+@pytest.mark.parametrize("tracking_uri", ["databricks", "databricks://myprofile"])
+def test_serving_keeps_explicit_databricks_tracking_uri(
+    mock_databricks_serving_with_tracing_env, tracking_uri
+):
+    # Substituting "databricks" in serving must not discard a configured profile.
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value=tracking_uri,
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        assert processors[0].span_exporter._client.tracking_uri == tracking_uri
+
+    mlflow.tracing.reset()
+
+
 def test_serving_non_uc_experiment_retains_inference_table(
     mock_databricks_serving_with_tracing_env,
 ):

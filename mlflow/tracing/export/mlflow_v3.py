@@ -17,6 +17,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.inference_table import maybe_add_trace_to_serving_buffer
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -210,8 +211,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         # The inference-table exporter has its own path and does not reach here, so the serving
         # buffer is written at most once.
-        from mlflow.tracing.export.inference_table import maybe_add_trace_to_serving_buffer
-
         maybe_add_trace_to_serving_buffer(trace)
 
         workspace = manager_trace.workspace

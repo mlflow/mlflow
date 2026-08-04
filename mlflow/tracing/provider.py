@@ -825,13 +825,14 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
-            # The serving process tracking URI is not a databricks URI, so pin the exporter to
-            # databricks for UC ingestion to reach the backend.
-            uc_tracking_uri = (
-                "databricks"
-                if is_in_databricks_model_serving_environment()
-                else mlflow.get_tracking_uri()
-            )
+            # In model serving the process tracking URI defaults to the local store, which cannot
+            # reach the backend UC ingestion needs. An explicit databricks URI is kept as-is so a
+            # configured profile (databricks://<profile>) is not discarded.
+            uc_tracking_uri = mlflow.get_tracking_uri()
+            if is_in_databricks_model_serving_environment() and not (
+                uc_tracking_uri and is_databricks_uri(uc_tracking_uri)
+            ):
+                uc_tracking_uri = "databricks"
             exporter = DatabricksUCTableSpanExporter(tracking_uri=uc_tracking_uri)
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
