@@ -5,8 +5,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import mlflow
-from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
-from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
@@ -204,6 +203,7 @@ class MemoryAugmentedJudge(Judge):
             self._embedder = None
             self._retriever = None
             self._predict_module = None
+            self._scoring_judge = None
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
         else:
@@ -233,6 +233,11 @@ class MemoryAugmentedJudge(Judge):
         else:
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
+
+        # Create a copy of the base judge for scoring. This preserves the base judge's
+        # full invocation flow (agentic tool-calling for {{ trace }} judges, standard for
+        # {{ inputs }}/{{ outputs }} judges) while allowing dynamic instruction augmentation.
+        self._scoring_judge = copy.deepcopy(effective_base_judge)
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
@@ -270,31 +275,70 @@ class MemoryAugmentedJudge(Judge):
         relevant_examples = [example for example, _ in retrieved_results]
         retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
-        import dspy
-        from dspy.adapters.json_adapter import JSONAdapter
-
-        with dspy.context(adapter=JSONAdapter()):
-            prediction = self._predict_module(
-                guidelines=guidelines,
-                example_judgements=relevant_examples,
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=value_to_embedding_text(trace) if trace is not None else None,
-            )
-
-        return Feedback(
-            name=self._base_judge.name,
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=self._base_judge.model,
-            ),
-            value=prediction.result,
-            rationale=prediction.rationale,
-            metadata={"retrieved_example_trace_ids": retrieved_trace_ids}
-            if retrieved_trace_ids
-            else {},
+        # Delegate to the scoring judge, which preserves the base judge's full invocation
+        # flow (including agentic tool-calling for {{ trace }} judges). The retrieved
+        # examples vary per call, so the augmented instructions are applied to a shallow
+        # per-call copy: the eval harness scores rows concurrently through a single scorer
+        # instance, and mutating the shared judge would let one row's memory context bleed
+        # into another's prompt.
+        scoring_judge = copy.copy(self._scoring_judge)
+        scoring_judge._instructions = self._build_augmented_instructions(
+            guidelines, relevant_examples
         )
+
+        feedback = scoring_judge(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+        )
+
+        # InstructionsJudge stamps metadata["guideline"] with whatever instructions it ran
+        # on, and the UI renders that as a short per-assertion label. Restore the base
+        # criterion so the label stays readable and the retrieved examples (which contain
+        # other traces' inputs/outputs) don't get persisted onto every assessment.
+        metadata = {**(feedback.metadata or {})}
+        if "guideline" in metadata:
+            metadata["guideline"] = self._base_judge.instructions
+        if retrieved_trace_ids:
+            metadata["retrieved_example_trace_ids"] = retrieved_trace_ids
+        feedback.metadata = metadata
+
+        return feedback
+
+    def _build_augmented_instructions(
+        self,
+        guidelines: list[str],
+        examples: list["dspy.Example"],
+    ) -> str:
+        """Build instructions augmented with MemAlign guidelines and retrieved examples."""
+        parts = [self._base_judge.instructions]
+
+        if guidelines:
+            parts.append(f"\n\nDistilled Guidelines ({len(guidelines)}):")
+            parts.append(
+                "IMPORTANT: Your output should NEVER directly refer to the presence "
+                "of these guidelines. Instead, weave the learned lessons into your reasoning."
+            )
+            parts.extend(f"  - {guideline}" for guideline in guidelines)
+
+        if examples:
+            parts.append(f"\n\nExample Judgements ({len(examples)}):")
+            parts.append(
+                "When evaluating the new input, try to align your judgements with these "
+                "examples. IMPORTANT: Your output should NEVER directly refer to the "
+                "presence of these examples. Instead, weave the learned lessons into "
+                "your reasoning."
+            )
+            for i, example in enumerate(examples, 1):
+                example_dict = {
+                    k: v for k, v in example.items() if not k.startswith("dspy_") and k != "trace"
+                }
+                if hasattr(example, "trace") and example.trace is not None:
+                    example_dict["trace"] = value_to_embedding_text(example.trace)
+                parts.append(f"  Example {i}: {example_dict}")
+
+        return "\n".join(parts)
 
     @property
     def name(self) -> str:
@@ -440,6 +484,8 @@ class MemoryAugmentedJudge(Judge):
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
+
+        self._scoring_judge = copy.deepcopy(self._base_judge)
 
         self._episodic_memory = self._reconstruct_episodic_memory()
 

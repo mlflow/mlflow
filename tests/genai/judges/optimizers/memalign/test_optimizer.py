@@ -1,4 +1,6 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +12,7 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.optimizers import MemAlignOptimizer
 from mlflow.genai.judges.optimizers.memalign.optimizer import (
     _DATABRICKS_EMBEDDING_BATCH_SIZE,
@@ -258,11 +261,20 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
 
-        # Mock the predict module to return a result
-        mock_prediction = MagicMock()
-        mock_prediction.result = "yes"
-        mock_prediction.rationale = "Test rationale"
-        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+        # Mock the scoring judge to return a Feedback result
+        from mlflow.entities.assessment import Feedback
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+
+        mock_feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=sample_judge.model,
+            ),
+            value="yes",
+            rationale="Test rationale",
+        )
+        aligned_judge._scoring_judge = MagicMock(return_value=mock_feedback)
 
         assessment = aligned_judge(inputs="test input", outputs="test output")
         mocks["search"].assert_called_once()
@@ -549,6 +561,20 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
 
         # Mock mlflow.get_trace and predict module for the call
         trace_map = {t.info.trace_id: t for t in sample_traces[:2]}
+
+        from mlflow.entities.assessment import Feedback
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+
+        mock_feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=sample_judge.model,
+            ),
+            value="yes",
+            rationale="Test",
+        )
+
         with (
             patch(
                 "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
@@ -559,17 +585,21 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
             patch("dspy.retrievers.Embeddings"),
         ):
             mock_embedder_class.return_value = MagicMock()
-            mock_prediction = MagicMock()
-            mock_prediction.result = "yes"
-            mock_prediction.rationale = "Test"
-            mock_predict_instance = MagicMock(return_value=mock_prediction)
+            mock_predict_instance = MagicMock()
             mock_predict_class.return_value = mock_predict_instance
 
-            restored(inputs="test", outputs="test")
-
-            # Verify initialization happened
+            # Trigger lazy init, then mock the scoring judge before call completes
+            restored._lazy_init()
             assert restored._embedder is not None
             assert mock_get_trace.call_count == 2
+
+            # Patch on the class: __call__ copies the scoring judge per call, so an
+            # instance-level mock would not be the object that gets invoked.
+            with patch.object(
+                InstructionsJudge, "__call__", return_value=mock_feedback
+            ) as mock_scoring_call:
+                restored(inputs="test", outputs="test")
+                mock_scoring_call.assert_called_once()
 
 
 def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
@@ -591,21 +621,31 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
                 return first_trace
             return None
 
+        from mlflow.entities.assessment import Feedback
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+
+        mock_feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=sample_judge.model,
+            ),
+            value="yes",
+            rationale="Test",
+        )
+
         with (
             patch(
                 "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
                 side_effect=mock_get_trace_fn,
             ),
             patch("dspy.Embedder"),
-            patch("dspy.Predict") as mock_predict_class,
+            patch("dspy.Predict"),
             patch("dspy.retrievers.Embeddings"),
             patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
         ):
-            mock_prediction = MagicMock()
-            mock_prediction.result = "yes"
-            mock_prediction.rationale = "Test"
-            mock_predict_instance = MagicMock(return_value=mock_prediction)
-            mock_predict_class.return_value = mock_predict_instance
+            restored._lazy_init()
+            restored._scoring_judge = MagicMock(return_value=mock_feedback)
 
             restored(inputs="test", outputs="test")
 
@@ -630,28 +670,39 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
         assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
 
 
-def test_judge_call_uses_json_adapter(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]) as mocks:
+def test_judge_call_delegates_to_scoring_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Be concise"]) as mocks:
         mocks["search"].return_value = MagicMock(indices=[0])
 
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
 
-        mock_prediction = MagicMock()
-        mock_prediction.result = "yes"
-        mock_prediction.rationale = "Test rationale"
-        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+        from mlflow.entities.assessment import Feedback
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
-        with patch("dspy.context") as mock_context:
-            mock_context.return_value.__enter__ = MagicMock()
-            mock_context.return_value.__exit__ = MagicMock(return_value=False)
+        mock_feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=sample_judge.model,
+            ),
+            value="yes",
+            rationale="Test rationale",
+        )
+        invoked_instructions = []
+
+        def capture(self, **kwargs):
+            invoked_instructions.append(self._instructions)
+            return mock_feedback
+
+        with patch.object(InstructionsJudge, "__call__", capture):
             aligned_judge(inputs="test input", outputs="test output")
 
-            mock_context.assert_called_once()
-            adapter_arg = mock_context.call_args.kwargs["adapter"]
-            from dspy.adapters.json_adapter import JSONAdapter
-
-            assert isinstance(adapter_arg, JSONAdapter)
+        # The judge that was invoked carries instructions augmented with the guidelines.
+        assert len(invoked_instructions) == 1
+        assert "Be concise" in invoked_instructions[0]
+        # The shared scoring judge is left untouched, so context cannot bleed across calls.
+        assert "Be concise" not in aligned_judge._scoring_judge._instructions
 
 
 def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge, sample_traces):
@@ -661,19 +712,298 @@ def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge,
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
 
-        mock_prediction = MagicMock()
-        mock_prediction.result = "yes"
-        mock_prediction.rationale = "Test rationale"
-        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+        from mlflow.entities.assessment import Feedback
+        from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 
+        mock_feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=sample_judge.model,
+            ),
+            value="yes",
+            rationale="Test rationale",
+        )
         # Call with only trace - inputs/outputs should be extracted from trace
         test_trace = sample_traces[0]
-        aligned_judge(trace=test_trace)
+        with patch.object(
+            InstructionsJudge, "__call__", return_value=mock_feedback
+        ) as mock_scoring_call:
+            aligned_judge(trace=test_trace)
 
-        # Verify predict_module was called with extracted inputs/outputs
-        call_kwargs = aligned_judge._predict_module.call_args.kwargs
+        # Verify scoring judge was called with extracted inputs/outputs and the trace
+        call_kwargs = mock_scoring_call.call_args.kwargs
         assert call_kwargs["inputs"] == {"inputs": "input_0"}
         assert call_kwargs["outputs"] == {"outputs": "output_0"}
+        assert call_kwargs["trace"] is test_trace
+
+
+# =============================================================================
+# Trace-based (agentic) scoring preservation tests
+#
+# An aligned judge must keep the base judge's invocation mode. For a
+# {{ trace }} judge that means the Trace object still reaches
+# invoke_judge_model() so the judge tools can inspect child spans; the old
+# implementation flattened the trace to root-span text and scored through
+# dspy.Predict, so anything below the root span was invisible at scoring time.
+# =============================================================================
+
+
+@pytest.fixture
+def trace_judge():
+    return make_judge(
+        name="test_judge",
+        instructions="Evaluate whether {{ trace }} used the calculator tool correctly",
+        model="openai:/gpt-4",
+    )
+
+
+def _start_trace_with_tool_span(root_name: str, tool_output: str) -> str:
+    with mlflow.start_span(name=root_name) as root:
+        root.set_inputs({"question": "what is 2+2?"})
+        with mlflow.start_span(name="calculator", span_type="TOOL") as tool:
+            tool.set_inputs({"expression": "2+2"})
+            tool.set_outputs({"result": tool_output})
+        root.set_outputs({"answer": "the answer is 4"})
+    return mlflow.get_last_active_trace_id()
+
+
+@pytest.fixture
+def tool_traces():
+    traces = []
+    for i in range(2):
+        trace_id = _start_trace_with_tool_span(f"agent_{i}", tool_output="4")
+        _log_human_feedback(trace_id, value="yes", rationale=f"Tool used correctly {i}")
+        traces.append(mlflow.get_trace(trace_id))
+    return traces
+
+
+def test_aligned_trace_judge_passes_trace_to_invoke_judge_model(trace_judge, tool_traces):
+    # The Trace object itself must reach invoke_judge_model so that the judge tools can
+    # read child spans. The pre-fix implementation scored via dspy.Predict and passed only
+    # value_to_embedding_text(trace) (root request/response), so trace=None reached the
+    # model layer and child TOOL spans were unreachable.
+    with mock_apis(guidelines=["Check the tool result"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(trace_judge, tool_traces)
+
+        target_trace = tool_traces[0]
+        feedback = Feedback(
+            name=trace_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=trace_judge.model
+            ),
+            value="yes",
+            rationale="Tool call verified",
+        )
+        with patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            return_value=feedback,
+        ) as mock_invoke:
+            aligned_judge(trace=target_trace)
+
+        mock_invoke.assert_called_once()
+        assert mock_invoke.call_args.kwargs["trace"] is target_trace
+
+
+def test_aligned_trace_judge_keeps_agentic_system_prompt(trace_judge, tool_traces):
+    # Trace-based judges get the agentic system prompt that instructs the model to inspect
+    # the trace via tools. Delegating to a copy of the base judge preserves it; scoring
+    # through dspy.Predict did not produce this prompt at all.
+    with mock_apis(guidelines=["Check the tool result"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(trace_judge, tool_traces)
+
+        feedback = Feedback(
+            name=trace_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=trace_judge.model
+            ),
+            value="yes",
+            rationale="Tool call verified",
+        )
+        with patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            return_value=feedback,
+        ) as mock_invoke:
+            aligned_judge(trace=tool_traces[0])
+
+        system_message = mock_invoke.call_args.kwargs["prompt"][0].content
+        assert "To read the actual trace, you will need to use the" in system_message
+        # Memory context rides along in the same system prompt.
+        assert "Check the tool result" in system_message
+        assert "Example Judgements" in system_message
+
+
+def test_aligned_judge_preserves_feedback_value_type(sample_traces):
+    # A non-str feedback_value_type is enforced by the base judge's response_format. The
+    # pre-fix path built its own DSPy signature, so the aligned judge could not be relied
+    # on to honor the base judge's declared output type.
+    bool_judge = make_judge(
+        name="test_judge",
+        instructions="Is {{ outputs }} a correct answer to {{ inputs }}?",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+    )
+
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(bool_judge, sample_traces[:1])
+
+        feedback = Feedback(
+            name=bool_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=bool_judge.model
+            ),
+            value=True,
+            rationale="Correct",
+        )
+        with patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            return_value=feedback,
+        ) as mock_invoke:
+            result = aligned_judge(inputs="test input", outputs="test output")
+
+        response_format = mock_invoke.call_args.kwargs["response_format"]
+        assert response_format.model_fields["result"].annotation is bool
+        assert result.value is True
+
+
+def test_aligned_judge_does_not_mutate_base_judge_instructions(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Be concise"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        original_instructions = sample_judge.instructions
+
+        feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=sample_judge.model
+            ),
+            value="yes",
+            rationale="Test",
+        )
+        with patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            return_value=feedback,
+        ) as mock_invoke:
+            aligned_judge(inputs="test input", outputs="test output")
+
+        mock_invoke.assert_called_once()
+        assert sample_judge.instructions == original_instructions
+
+
+def test_aligned_judge_reports_base_criterion_in_guideline_metadata(sample_judge, sample_traces):
+    # InstructionsJudge stamps metadata["guideline"] with the instructions it ran on, and the
+    # UI renders that as a short per-assertion label (TestCaseDetail.tsx, rendererFunctions.tsx).
+    # It must stay the base criterion: the augmented text embeds retrieved examples, i.e. other
+    # traces' inputs/outputs, which would then be persisted onto every assessment.
+    with mock_apis(guidelines=["Be concise"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+        feedback = Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=sample_judge.model
+            ),
+            value="yes",
+            rationale="Test",
+        )
+        with patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            return_value=feedback,
+        ) as mock_invoke:
+            result = aligned_judge(inputs="test input", outputs="test output")
+
+        # The augmented context still reaches the model.
+        assert "Be concise" in mock_invoke.call_args.kwargs["prompt"][0].content
+
+        guideline_metadata = result.metadata["guideline"]
+        assert guideline_metadata == sample_judge.instructions
+        assert "Example Judgements" not in guideline_metadata
+        assert "input_0" not in guideline_metadata
+        # Retrieval metadata is still attached alongside.
+        assert result.metadata["retrieved_example_trace_ids"] == [sample_traces[0].info.trace_id]
+
+
+def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judge, sample_traces):
+    # The eval harness scores rows on a thread pool sharing one scorer instance
+    # (mlflow/genai/evaluation/harness.py:422-454), so two rows can be inside __call__ at
+    # once. Each row's prompt must carry only the examples retrieved for that row.
+    #
+    # The barrier sits at the start of _build_system_message, i.e. after both threads have
+    # published their per-call instructions but before either reads them back — the exact
+    # interleaving that a shared mutable _instructions attribute cannot survive.
+    with mock_apis(guidelines=[]) as mocks:
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+        assert mocks["embedder"] is not None
+
+    # Row 0 retrieves episodic example 0 ("input_0"); row 1 retrieves example 1 ("input_1").
+    index_by_row = {"row-0": [0], "row-1": [1]}
+    expected_example_text = {"row-0": "input_0", "row-1": "input_1"}
+    other_example_text = {"row-0": "input_1", "row-1": "input_0"}
+
+    barrier = threading.Barrier(2)
+    prompts: dict[str, str] = {}
+    prompts_lock = threading.Lock()
+
+    def retriever_side_effect(query, **kwargs):
+        row = "row-0" if "row-0" in str(query) else "row-1"
+        return MagicMock(indices=index_by_row[row])
+
+    original_build_system_message = InstructionsJudge._build_system_message
+
+    def barriered_build_system_message(self, is_trace_based):
+        barrier.wait(timeout=10)
+        return original_build_system_message(self, is_trace_based)
+
+    def invoke_side_effect(**kwargs):
+        user_message = kwargs["prompt"][1].content
+        row = "row-0" if "row-0" in user_message else "row-1"
+        with prompts_lock:
+            prompts[row] = kwargs["prompt"][0].content
+        return Feedback(
+            name=sample_judge.name,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=sample_judge.model
+            ),
+            value="yes",
+            rationale="Test",
+        )
+
+    aligned_judge._retriever = MagicMock(side_effect=retriever_side_effect)
+
+    with (
+        patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            side_effect=invoke_side_effect,
+        ),
+        patch.object(InstructionsJudge, "_build_system_message", barriered_build_system_message),
+        ThreadPoolExecutor(max_workers=2, thread_name_prefix="MemAlignRaceTest") as pool,
+    ):
+        futures = [
+            pool.submit(aligned_judge, inputs=row, outputs="out") for row in ("row-0", "row-1")
+        ]
+        for future in futures:
+            future.result(timeout=30)
+
+    assert set(prompts) == {"row-0", "row-1"}
+    for row, system_message in prompts.items():
+        assert expected_example_text[row] in system_message
+        assert other_example_text[row] not in system_message
 
 
 @pytest.mark.parametrize(
