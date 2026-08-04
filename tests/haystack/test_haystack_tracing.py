@@ -10,6 +10,8 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.exceptions import MlflowException
+from mlflow.haystack.autolog import _get_opentelemetry_tracer_class
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -216,9 +218,6 @@ def test_haystack_autolog_shared_provider_no_recursion(monkeypatch):
 
 
 def test_get_opentelemetry_tracer_class_error_when_unavailable(monkeypatch):
-    from mlflow.exceptions import MlflowException
-    from mlflow.haystack.autolog import _get_opentelemetry_tracer_class
-
     # Simulate an environment where neither `opentelemetry-haystack` (haystack >= 3) nor the
     # in-core `OpenTelemetryTracer` (haystack < 3) is available
     monkeypatch.setitem(sys.modules, "haystack_integrations.tracing.opentelemetry", None)
