@@ -13,6 +13,11 @@ from pathlib import Path
 
 from packaging.version import InvalidVersion, Version
 
+# Local git operations finish in seconds, even staging a full docs build. Pushing
+# one is the outlier, since it uploads thousands of files.
+_GIT_TIMEOUT = 5 * 60
+_GIT_PUSH_TIMEOUT = 30 * 60
+
 
 class Repo:
     """A website repository checkout that this script commits and pushes to.
@@ -34,8 +39,8 @@ class Repo:
         instance.git("config", "user.email", "mlflow-app[bot]@users.noreply.github.com")
         return instance
 
-    def git(self, *args: str) -> None:
-        subprocess.check_call(["git", *args], cwd=self.root)
+    def git(self, *args: str, timeout: int = _GIT_TIMEOUT) -> None:
+        subprocess.check_call(["git", *args], cwd=self.root, timeout=timeout)
 
     def has_changes(self) -> bool:
         result = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=self.root)
@@ -113,7 +118,7 @@ def build_docs(args: argparse.Namespace) -> None:
     if args.dry_run:
         return
 
-    website_repo.git("push", "origin", branch_name)
+    website_repo.git("push", "origin", branch_name, timeout=_GIT_PUSH_TIMEOUT)
     pr_url = website_repo.create_pr(
         head=branch_name,
         title=f"Add documentation for {release_version}",
@@ -190,7 +195,7 @@ def release_post(args: argparse.Namespace) -> None:
     if args.dry_run:
         return
 
-    website_repo.git("push", "origin", branch_name)
+    website_repo.git("push", "origin", branch_name, timeout=_GIT_PUSH_TIMEOUT)
     pr_url = website_repo.create_pr(
         head=branch_name,
         title=f"Add release post for {release_version}",
