@@ -50,7 +50,7 @@ jobs:
       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Resolve PR number
         id: ctx
@@ -143,7 +143,7 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: 5e5f9229e16b97822ea3349b31285370be36b4d1
+          ref: 6575d885c8c0d8840d81c5115417e5d759b262b8
           sparse-checkout: |
             nailaopus
           path: internal
