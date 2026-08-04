@@ -765,12 +765,12 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
 	content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	dimension_attributes NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	input_cost FLOAT(53),
 	output_cost FLOAT(53),
 	total_cost FLOAT(53),
 	model_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	model_provider VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	dimension_attributes_state SMALLINT,
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE

@@ -773,12 +773,12 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (((`end_time_unix_nano` - `start_time_unix_nano`))) STORED,
 	content LONGTEXT NOT NULL,
-	dimension_attributes JSON,
 	input_cost DOUBLE,
 	output_cost DOUBLE,
 	total_cost DOUBLE,
 	model_name VARCHAR(500),
 	model_provider VARCHAR(500),
+	dimension_attributes_state SMALLINT,
 	PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
