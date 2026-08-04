@@ -84,7 +84,7 @@ def build_docs(args: argparse.Namespace) -> None:
 
     website_repo = Repo.open("mlflow/mlflow-legacy-website", Path(args.website_dir).resolve())
     branch_name = f"docs-{release_version}-{uuid.uuid4().hex[:8]}"
-    website_repo.git("checkout", "-b", branch_name)
+    website_repo.git("checkout", "-q", "-b", branch_name)
 
     version = Version(release_version)
 
@@ -109,7 +109,8 @@ def build_docs(args: argparse.Namespace) -> None:
         print("No changes to commit, skipping.")
         return
 
-    website_repo.git("commit", "-m", "Add docs")
+    # `-q`: a docs publish creates ~6k files, and git lists every one of them
+    website_repo.git("commit", "-q", "-m", "Add docs")
 
     if args.dry_run:
         return
@@ -173,7 +174,7 @@ def release_post(args: argparse.Namespace) -> None:
 
     website_repo = Repo.open("mlflow/mlflow-website", Path(args.website_dir).resolve())
     branch_name = f"release-post-{release_version}-{uuid.uuid4().hex[:8]}"
-    website_repo.git("checkout", "-b", branch_name)
+    website_repo.git("checkout", "-q", "-b", branch_name)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     name = f"{today}-{release_version}-release.md"
@@ -186,7 +187,7 @@ def release_post(args: argparse.Namespace) -> None:
         print("No changes to commit, skipping.")
         return
 
-    website_repo.git("commit", "-m", "Add release post")
+    website_repo.git("commit", "-q", "-m", "Add release post")
 
     if args.dry_run:
         return
