@@ -33,12 +33,14 @@ export const RunViewEvaluationsTabArtifacts = ({
   runTags,
   runDisplayName,
   data,
+  actions,
 }: {
   experimentId: string;
   runUuid: string;
   runTags?: Record<string, KeyValueEntity>;
   runDisplayName: string;
   data: RunEvaluationTracesDataEntry[];
+  actions?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -122,19 +124,30 @@ export const RunViewEvaluationsTabArtifacts = ({
         overflowY: 'hidden',
       }}
     >
-      {!shouldEnableImprovedEvalRunsComparison() && (
+      {(!shouldEnableImprovedEvalRunsComparison() || actions) && (
         <div
           css={{
             width: '100%',
             padding: `${theme.spacing.xs}px 0`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: theme.spacing.sm,
           }}
         >
-          <EvaluationRunCompareSelector
-            experimentId={experimentId}
-            currentRunUuid={runUuid}
-            compareToRunUuid={compareToRunUuid}
-            setCompareToRunUuid={setCompareToRunUuid}
-          />
+          {!shouldEnableImprovedEvalRunsComparison() ? (
+            <div css={{ flex: 1, minWidth: 0 }}>
+              <EvaluationRunCompareSelector
+                experimentId={experimentId}
+                currentRunUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
+                setCompareToRunUuid={setCompareToRunUuid}
+              />
+            </div>
+          ) : (
+            <div css={{ flex: 1 }} />
+          )}
+          {actions && <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{actions}</div>}
         </div>
       )}
       {getOverviewTableComponent()}

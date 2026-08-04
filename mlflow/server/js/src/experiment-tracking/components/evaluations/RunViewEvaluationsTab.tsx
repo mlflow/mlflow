@@ -526,6 +526,7 @@ export const RunViewEvaluationsTab = ({
         runDisplayName={runDisplayName}
         data={artifactData}
         runTags={runTags}
+        actions={<RunViewEvaluationAnalyzeButton runUuid={runUuid} />}
       />
     );
   }
