@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 3.15.1 (2026-08-03)
+
+MLflow 3.15.1 is a patch release that includes bug fixes and documentation updates.
+
+Bug fixes:
+
+- [Model Registry] Skip `env_pack` on ARM client images (#24762) (#24835, @qyc)
+- [Scoring / Tracking] Harden version parsing against missing/non-PEP440 versions on Databricks Serverless (+ lint rule) (#24799) (#24813, @PattaraS)
+
+Documentation updates:
+
+- [Docs] Clarify scorer versioning documentation (#24769) (#24805, @nihalmenon)
+
 ## 3.15.0 (2026-07-31)
 
 MLflow 3.15.0 includes several major features and improvements

@@ -54,7 +54,7 @@ jobs:
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
-      - uses: $/.github/actions/setup-python
+      - uses: ./.github/actions/setup-python
 
       - name: Detect flaky tests
         env:
