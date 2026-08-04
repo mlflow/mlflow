@@ -11,7 +11,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from functools import reduce
+from functools import lru_cache, reduce
 from pathlib import PurePath
 from typing import Any, Iterable, TypedDict, TypeVar
 from urllib.parse import urlparse
@@ -73,6 +73,7 @@ from mlflow.entities.span import LazySpan
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_metrics import (
     MetricAggregation,
     MetricDataPoint,
@@ -221,6 +222,7 @@ from mlflow.tracing.utils.artifact_utils import (
     get_archive_uri_for_trace,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
+from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -3817,8 +3819,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             The TraceInfo object.
         """
         with self.ManagedSessionMaker() as session:
-            sql_trace_info = self._get_sql_trace_info(session, trace_id)
-            return sql_trace_info.to_mlflow_entity()
+            trace_row = (
+                self
+                ._trace_query(session)
+                .with_entities(*_TRACE_INFO_COLUMNS)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if trace_row is None:
+                raise MlflowException(
+                    f"Trace with ID '{trace_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return _build_trace_infos_from_rows(session, [trace_row])[0]
 
     def _get_sql_trace_info(self, session, trace_id, workspace=None) -> SqlTraceInfo:
         sql_trace_info = (
@@ -3955,11 +3968,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
                 order_by or [], session
             )
-            stmt = self._trace_query(session).options(
-                sqlalchemy.orm.selectinload(SqlTraceInfo.tags),
-                sqlalchemy.orm.selectinload(SqlTraceInfo.request_metadata),
-                sqlalchemy.orm.selectinload(SqlTraceInfo.assessments),
-            )
+            stmt = self._trace_query(session).with_entities(*_TRACE_INFO_COLUMNS)
             if cases_orderby:
                 stmt = stmt.add_columns(*cases_orderby)
 
@@ -3992,11 +4001,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results)
 
-            queried_results = stmt.all()
-            queried_traces = (
-                [row[0] for row in queried_results] if cases_orderby else queried_results
-            )
-            trace_infos = [t.to_mlflow_entity() for t in queried_traces]
+            trace_rows = stmt.all()
+            trace_infos = _build_trace_infos_from_rows(session, trace_rows)
 
             # Compute next search token
             if max_results == len(trace_infos):
@@ -9580,6 +9586,84 @@ def _get_search_experiments_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
+_TRACE_INFO_COLUMNS = tuple(SqlTraceInfo.__table__.columns)
+# Keep child-query IN clauses below SQLite and MSSQL bound-parameter limits.
+_TRACE_CHILD_QUERY_BATCH_SIZE = 500
+
+
+def _build_trace_infos_from_rows(session, trace_rows):
+    if not trace_rows:
+        return []
+
+    trace_ids = [row.request_id for row in trace_rows]
+    tags_by_trace = defaultdict(dict)
+    metadata_by_trace = defaultdict(dict)
+    assessments_by_trace = defaultdict(list)
+    for trace_id_batch in chunk_list(trace_ids, _TRACE_CHILD_QUERY_BATCH_SIZE):
+        for trace_id, key, value in session.execute(
+            select(SqlTraceTag.request_id, SqlTraceTag.key, SqlTraceTag.value).where(
+                SqlTraceTag.request_id.in_(trace_id_batch)
+            )
+        ):
+            tags_by_trace[trace_id][key] = value
+
+        for trace_id, key, value in session.execute(
+            select(SqlTraceMetadata.request_id, SqlTraceMetadata.key, SqlTraceMetadata.value).where(
+                SqlTraceMetadata.request_id.in_(trace_id_batch)
+            )
+        ):
+            metadata_by_trace[trace_id][key] = value
+
+        assessments = (
+            session.query(SqlAssessments).filter(SqlAssessments.trace_id.in_(trace_id_batch)).all()
+        )
+        for assessment in assessments:
+            assessments_by_trace[assessment.trace_id].append(assessment.to_mlflow_entity())
+
+    return [
+        TraceInfo(
+            trace_id=row.request_id,
+            trace_location=TraceLocation.from_experiment_id(str(row.experiment_id)),
+            request_time=row.timestamp_ms,
+            execution_duration=row.execution_time_ms,
+            state=TraceState(row.status),
+            tags=tags_by_trace[row.request_id],
+            trace_metadata=metadata_by_trace[row.request_id],
+            client_request_id=row.client_request_id,
+            request_preview=row.request_preview,
+            response_preview=row.response_preview,
+            assessments=assessments_by_trace[row.request_id],
+        )
+        for row in trace_rows
+    ]
+
+
+@lru_cache(maxsize=32)
+def _parse_trace_order_by(order_by_clause):
+    return SearchTraceUtils.parse_order_by_for_search_traces(order_by_clause)
+
+
+@dataclass(frozen=True, slots=True)
+class _ParsedTraceFilter:
+    key_type: str
+    key: str
+    value: Any
+    comparator: str
+
+
+@lru_cache(maxsize=64)
+def _parse_trace_filter(filter_string):
+    return tuple(
+        _ParsedTraceFilter(
+            key_type=clause.get("type"),
+            key=clause.get("key"),
+            value=clause.get("value"),
+            comparator=clause.get("comparator"),
+        )
+        for clause in SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    )
+
+
 def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by trace_id for tie-breaking.
@@ -9590,9 +9674,7 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     select_clauses = []
 
     for clause_id, order_by_clause in enumerate(order_by_list):
-        (key_type, key, ascending) = SearchTraceUtils.parse_order_by_for_search_traces(
-            order_by_clause
-        )
+        key_type, key, ascending = _parse_trace_order_by(order_by_clause)
 
         if SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
@@ -9678,12 +9760,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     run_id_filter = None
     span_start_time_lower_bound_ms = None
 
-    parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
-    for sql_statement in parsed_filters:
-        key_type = sql_statement.get("type")
-        key_name = sql_statement.get("key")
-        value = sql_statement.get("value")
-        comparator = sql_statement.get("comparator").upper()
+    for clause in _parse_trace_filter(filter_string):
+        key_type = clause.key_type
+        key_name = clause.key
+        value = clause.value
+        comparator = clause.comparator.upper()
 
         # Check if this is an issue filter (stored in assessments table)
         # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
