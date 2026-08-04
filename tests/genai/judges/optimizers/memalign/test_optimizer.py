@@ -491,7 +491,6 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         # Verify deferred components are None
         assert restored._base_signature is None
         assert restored._retriever is None
-        assert restored._scoring_judge is None
 
 
 def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sample_traces):
@@ -586,10 +585,9 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
             # Trigger lazy init, then mock the scoring judge before call completes
             restored._lazy_init()
             assert restored._embedder is not None
-            assert restored._scoring_judge is not None
             assert mock_get_trace.call_count == 2
 
-            # Patch on the class: __call__ copies the scoring judge per call, so an
+            # Patch on the class: __call__ copies the base judge per call, so an
             # instance-level mock would not be the object that gets invoked.
             with patch.object(
                 InstructionsJudge, "__call__", return_value=mock_feedback
@@ -664,7 +662,7 @@ def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sa
         assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
 
 
-def test_judge_call_delegates_to_scoring_judge(sample_judge, sample_traces):
+def test_judge_call_delegates_to_base_judge_copy(sample_judge, sample_traces):
     with mock_apis(guidelines=["Be concise"]) as mocks:
         mocks["search"].return_value = MagicMock(indices=[0])
 
@@ -692,8 +690,8 @@ def test_judge_call_delegates_to_scoring_judge(sample_judge, sample_traces):
         # The judge that was invoked carries instructions augmented with the guidelines.
         assert len(invoked_instructions) == 1
         assert "Be concise" in invoked_instructions[0]
-        # The shared scoring judge is left untouched, so context cannot bleed across calls.
-        assert "Be concise" not in aligned_judge._scoring_judge._instructions
+        # The shared base judge is left untouched, so context cannot bleed across calls.
+        assert "Be concise" not in aligned_judge._base_judge._instructions
 
 
 def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge, sample_traces):
@@ -891,9 +889,9 @@ def test_aligned_judge_does_not_mutate_base_judge_instructions(sample_judge, sam
 
 
 def test_incremental_alignment_scores_through_unwrapped_base_judge(sample_judge, sample_traces):
-    # Re-aligning passes the previous MemoryAugmentedJudge in as base_judge. The scoring
-    # judge must be the unwrapped InstructionsJudge, not that wrapper: delegating to the
-    # wrapper would score through its stale inner memory and drop the per-call
+    # Re-aligning passes the previous MemoryAugmentedJudge in as base_judge. The judge
+    # scored through must be the unwrapped InstructionsJudge, not that wrapper: delegating
+    # to the wrapper would score through its stale inner memory and drop the per-call
     # instructions the outer judge applies.
     with mock_apis(guidelines=["Guideline A"]) as mocks:
         mocks["search"].return_value = MagicMock(indices=[0])
@@ -902,8 +900,8 @@ def test_incremental_alignment_scores_through_unwrapped_base_judge(sample_judge,
         judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
         judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
 
-        assert isinstance(judge_v3._scoring_judge, InstructionsJudge)
-        assert not isinstance(judge_v3._scoring_judge, MemoryAugmentedJudge)
+        assert isinstance(judge_v3._base_judge, InstructionsJudge)
+        assert not isinstance(judge_v3._base_judge, MemoryAugmentedJudge)
 
         # The re-aligned judge scores with its combined memory, applied once.
         invoked_instructions = []

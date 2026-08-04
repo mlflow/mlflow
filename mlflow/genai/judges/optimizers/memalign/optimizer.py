@@ -200,14 +200,13 @@ class MemoryAugmentedJudge(Judge):
             self._base_signature = None
             self._embedder = None
             self._retriever = None
-            self._scoring_judge = None
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
         else:
             self._initialize_dspy_components(base_judge)
 
     def _initialize_dspy_components(self, base_judge: Judge | None = None) -> None:
-        """Initialize heavyweight DSPy components (embedder, memory index) and scoring judge."""
+        """Initialize heavyweight DSPy components (embedder, memory index)."""
         effective_base_judge = base_judge or self._base_judge
 
         self._base_signature = create_dspy_signature(effective_base_judge)
@@ -228,15 +227,6 @@ class MemoryAugmentedJudge(Judge):
         else:
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
-
-        # Create a copy of the base judge for scoring. This preserves the base judge's
-        # full invocation flow (agentic tool-calling for {{ trace }} judges, standard for
-        # {{ inputs }}/{{ outputs }} judges) while allowing dynamic instruction augmentation.
-        # Copy self._base_judge, which __init__ already unwrapped: on incremental alignment
-        # base_judge is the previous MemoryAugmentedJudge, and copying that wrapper would
-        # delegate scoring through its stale inner memory and ignore the per-call
-        # instructions applied by the outer judge.
-        self._scoring_judge = copy.deepcopy(self._base_judge)
 
     def __call__(
         self,
@@ -270,36 +260,31 @@ class MemoryAugmentedJudge(Judge):
         relevant_examples = [example for example, _ in retrieved_results]
         retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
-        # Delegate to the scoring judge, which preserves the base judge's full invocation
-        # flow (including agentic tool-calling for {{ trace }} judges). The retrieved
-        # examples vary per call, so the augmented instructions are applied to a shallow
-        # per-call copy: the eval harness scores rows concurrently through a single scorer
-        # instance, and mutating the shared judge would let one row's memory context bleed
-        # into another's prompt.
-        scoring_judge = copy.copy(self._scoring_judge)
+        # Score through a per-call copy of the base judge: this preserves its invocation flow
+        # (agentic tool-calling for {{ trace }} judges) while keeping the retrieved examples,
+        # which differ per call, off the judge shared by concurrently scored rows.
+        scoring_judge = copy.copy(self._base_judge)
         scoring_judge._instructions = self._build_augmented_instructions(
             guidelines, relevant_examples
         )
 
-        feedback = scoring_judge(
+        prediction = scoring_judge(
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
             trace=trace,
         )
 
-        # InstructionsJudge stamps metadata["guideline"] with whatever instructions it ran
-        # on, and the UI renders that as a short per-assertion label. Restore the base
-        # criterion so the label stays readable and the retrieved examples (which contain
-        # other traces' inputs/outputs) don't get persisted onto every assessment.
-        metadata = {**(feedback.metadata or {})}
+        # Reset metadata["guideline"], which the UI renders as a short per-assertion label, to
+        # the base criterion so retrieved examples aren't persisted onto every assessment.
+        metadata = {**(prediction.metadata or {})}
         if "guideline" in metadata:
             metadata["guideline"] = self._base_judge.instructions
         if retrieved_trace_ids:
             metadata["retrieved_example_trace_ids"] = retrieved_trace_ids
-        feedback.metadata = metadata
+        prediction.metadata = metadata
 
-        return feedback
+        return prediction
 
     def _build_augmented_instructions(
         self,
@@ -461,7 +446,7 @@ class MemoryAugmentedJudge(Judge):
 
         This method is called on first use (e.g., __call__) when the judge was created
         with _defer_init=True. It:
-        1. Creates the embedder and the scoring judge
+        1. Creates the embedder
         2. Fetches traces by ID and reconstructs episodic memory
         3. Builds the episodic memory search index
 
@@ -473,8 +458,6 @@ class MemoryAugmentedJudge(Judge):
         self._base_signature = create_dspy_signature(self._base_judge)
 
         self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
-
-        self._scoring_judge = copy.deepcopy(self._base_judge)
 
         self._episodic_memory = self._reconstruct_episodic_memory()
 
