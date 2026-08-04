@@ -394,7 +394,12 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const rowIndex = row.index;
+
+  // Use pre-calculated flat run index from table meta
+  // This index excludes group rows and provides a global position across all parents
+  const flatRunIndexMap = (table.options.meta as any)?.flatRunIndexMap;
+  const rowIndex = flatRunIndexMap?.[runUuid] ?? row.index;
+
   const runStatus = row.original.info.status;
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
