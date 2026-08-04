@@ -12,13 +12,11 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     _get_api_base_key,
-    construct_dspy_lm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
-    create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
     get_query_field,
@@ -202,7 +200,6 @@ class MemoryAugmentedJudge(Judge):
             self._base_signature = None
             self._embedder = None
             self._retriever = None
-            self._predict_module = None
             self._scoring_judge = None
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
@@ -210,9 +207,7 @@ class MemoryAugmentedJudge(Judge):
             self._initialize_dspy_components(base_judge)
 
     def _initialize_dspy_components(self, base_judge: Judge | None = None) -> None:
-        """Initialize heavyweight DSPy components (embedder, predict module, memory index)."""
-        import dspy
-
+        """Initialize heavyweight DSPy components (embedder, memory index) and scoring judge."""
         effective_base_judge = base_judge or self._base_judge
 
         self._base_signature = create_dspy_signature(effective_base_judge)
@@ -242,10 +237,6 @@ class MemoryAugmentedJudge(Judge):
         # delegate scoring through its stale inner memory and ignore the per-call
         # instructions applied by the outer judge.
         self._scoring_judge = copy.deepcopy(self._base_judge)
-
-        extended_signature = create_extended_signature(self._base_signature)
-        self._predict_module = dspy.Predict(extended_signature)
-        self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
     def __call__(
         self,
@@ -426,9 +417,9 @@ class MemoryAugmentedJudge(Judge):
         Override base _create_copy for Scorer.register().
 
         The base implementation uses model_copy(deep=True), which fails because
-        DSPy objects (_embedder, _retriever, _predict_module) contain thread locks
-        that can't be pickled. We create a new instance with _defer_init=True and
-        store trace IDs for lazy reconstruction.
+        DSPy objects (_embedder, _retriever) contain thread locks that can't be
+        pickled. We create a new instance with _defer_init=True and store trace
+        IDs for lazy reconstruction.
         """
         judge_copy = MemoryAugmentedJudge(
             base_judge=self._base_judge,
@@ -470,7 +461,7 @@ class MemoryAugmentedJudge(Judge):
 
         This method is called on first use (e.g., __call__) when the judge was created
         with _defer_init=True. It:
-        1. Creates DSPy components (embedder, predict module)
+        1. Creates the embedder and the scoring judge
         2. Fetches traces by ID and reconstructs episodic memory
         3. Builds the episodic memory search index
 
@@ -479,15 +470,9 @@ class MemoryAugmentedJudge(Judge):
         if self._embedder is not None:
             return
 
-        import dspy
-
         self._base_signature = create_dspy_signature(self._base_judge)
 
         self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
-
-        extended_signature = create_extended_signature(self._base_signature)
-        self._predict_module = dspy.Predict(extended_signature)
-        self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
         self._scoring_judge = copy.deepcopy(self._base_judge)
 

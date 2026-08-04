@@ -261,8 +261,6 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
 
-        # Mock the scoring judge to return a Feedback result
-
         mock_feedback = Feedback(
             name=sample_judge.name,
             source=AssessmentSource(
@@ -272,9 +270,14 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
             value="yes",
             rationale="Test rationale",
         )
-        aligned_judge._scoring_judge = MagicMock(return_value=mock_feedback)
+        # Patch on the class: __call__ scores through a per-call copy of the scoring
+        # judge, so an instance-level mock would not be the object that gets invoked.
+        with patch.object(
+            InstructionsJudge, "__call__", return_value=mock_feedback
+        ) as mock_scoring_call:
+            assessment = aligned_judge(inputs="test input", outputs="test output")
 
-        assessment = aligned_judge(inputs="test input", outputs="test output")
+        mock_scoring_call.assert_called_once()
         mocks["search"].assert_called_once()
         assert "retrieved_example_trace_ids" in assessment.metadata
         # Should return trace IDs, not indices
@@ -488,7 +491,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
         # Verify deferred components are None
         assert restored._base_signature is None
         assert restored._retriever is None
-        assert restored._predict_module is None
+        assert restored._scoring_judge is None
 
 
 def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sample_traces):
@@ -576,16 +579,14 @@ def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample
                 side_effect=lambda tid, **kwargs: trace_map.get(tid),
             ) as mock_get_trace,
             patch("dspy.Embedder") as mock_embedder_class,
-            patch("dspy.Predict") as mock_predict_class,
             patch("dspy.retrievers.Embeddings"),
         ):
             mock_embedder_class.return_value = MagicMock()
-            mock_predict_instance = MagicMock()
-            mock_predict_class.return_value = mock_predict_instance
 
             # Trigger lazy init, then mock the scoring judge before call completes
             restored._lazy_init()
             assert restored._embedder is not None
+            assert restored._scoring_judge is not None
             assert mock_get_trace.call_count == 2
 
             # Patch on the class: __call__ copies the scoring judge per call, so an
@@ -632,15 +633,16 @@ def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
                 side_effect=mock_get_trace_fn,
             ),
             patch("dspy.Embedder"),
-            patch("dspy.Predict"),
             patch("dspy.retrievers.Embeddings"),
             patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+            patch.object(
+                InstructionsJudge, "__call__", return_value=mock_feedback
+            ) as mock_scoring_call,
         ):
             restored._lazy_init()
-            restored._scoring_judge = MagicMock(return_value=mock_feedback)
-
             restored(inputs="test", outputs="test")
 
+            mock_scoring_call.assert_called_once()
             mock_logger.warning.assert_called_once()
             warning_msg = mock_logger.warning.call_args[0][0]
             assert "Could not find 2 traces" in warning_msg
