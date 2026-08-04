@@ -34,6 +34,9 @@ _BATCH_SIZE = 250
 _BIGINT_MIN = -(2**63)
 _BIGINT_MAX = 2**63 - 1
 _MODEL_DIMENSION_MAX_LENGTH = 500
+_DIMENSION_ATTRIBUTES_JSON_NULL_STATE = -1
+_DIMENSION_ATTRIBUTES_MODEL_KEY_BIT = 1
+_DIMENSION_ATTRIBUTES_PROVIDER_KEY_BIT = 2
 _TOKEN_COLUMNS = {
     TokenUsageKey.INPUT_TOKENS: "input_tokens",
     TokenUsageKey.OUTPUT_TOKENS: "output_tokens",
@@ -168,6 +171,7 @@ def _add_analytics_columns():
         sa.Column("total_cost", sa.Float(precision=53), nullable=True),
         sa.Column("model_name", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
         sa.Column("model_provider", sa.String(length=_MODEL_DIMENSION_MAX_LENGTH), nullable=True),
+        sa.Column("dimension_attributes_state", sa.SmallInteger(), nullable=True),
     ]
 
     if op.get_bind().dialect.name == "sqlite":
@@ -191,7 +195,14 @@ def _add_analytics_columns():
 
 def _drop_analytics_columns():
     columns_by_table = {
-        "spans": ["model_provider", "model_name", "total_cost", "output_cost", "input_cost"],
+        "spans": [
+            "dimension_attributes_state",
+            "model_provider",
+            "model_name",
+            "total_cost",
+            "output_cost",
+            "input_cost",
+        ],
         "assessments": [
             "is_numeric_value",
             "aggregate_value",
@@ -528,13 +539,17 @@ def _backfill_span_analytics():
             total_cost=sa.bindparam("total_cost"),
             model_name=sa.bindparam("model_name"),
             model_provider=sa.bindparam("model_provider"),
+            dimension_attributes_state=sa.bindparam("dimension_attributes_state"),
         )
     )
     truncation_counts = {"model_name": 0, "model_provider": 0}
     last_span_key = None
     while True:
         page_stmt = sa.select(
-            spans.c.trace_id, spans.c.span_id, spans.c.dimension_attributes
+            spans.c.trace_id,
+            spans.c.span_id,
+            spans.c.dimension_attributes,
+            spans.c.dimension_attributes.isnot(None).label("has_dimension_attributes"),
         ).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
@@ -580,6 +595,9 @@ def _backfill_span_analytics():
                 **{column: costs.get(column) for column in _COST_COLUMNS.values()},
                 "model_name": model_name,
                 "model_provider": model_provider,
+                "dimension_attributes_state": _dimension_attributes_state(
+                    row.dimension_attributes, row.has_dimension_attributes
+                ),
             }
             updates.append(update)
         _execute_backfill_updates(bind, update_stmt, updates, "span")
@@ -748,6 +766,22 @@ def _validated_dimension_attributes(value, span_key):
             f"span {span_key!r}: {details}"
         )
     return value
+
+
+def _dimension_attributes_state(value, has_dimension_attributes):
+    if not has_dimension_attributes:
+        return None
+    if isinstance(value, str):
+        value = json.loads(value)
+    if value is None:
+        return _DIMENSION_ATTRIBUTES_JSON_NULL_STATE
+
+    state = 0
+    if SpanAttributeKey.MODEL in value:
+        state |= _DIMENSION_ATTRIBUTES_MODEL_KEY_BIT
+    if SpanAttributeKey.MODEL_PROVIDER in value:
+        state |= _DIMENSION_ATTRIBUTES_PROVIDER_KEY_BIT
+    return state
 
 
 def _span_metrics_for_keys_query(span_metrics, span_keys, dialect_name):
@@ -968,12 +1002,32 @@ def _reconstruct_legacy_analytics():
         dimension_updates = []
         metric_rows = []
         for row in rows:
-            dimensions = {
-                SpanAttributeKey.MODEL: row["model_name"],
-                SpanAttributeKey.MODEL_PROVIDER: row["model_provider"],
-            }
-            dimensions = {key: value for key, value in dimensions.items() if value is not None}
-            if dimensions:
+            state = row["dimension_attributes_state"]
+            has_current_dimensions = any(
+                row[column] is not None for column in ("model_name", "model_provider")
+            )
+            if state == _DIMENSION_ATTRIBUTES_JSON_NULL_STATE and not has_current_dimensions:
+                dimensions = None
+            elif state is not None:
+                key_state = 0 if state == _DIMENSION_ATTRIBUTES_JSON_NULL_STATE else state
+                dimensions = {}
+                if key_state & _DIMENSION_ATTRIBUTES_MODEL_KEY_BIT or row["model_name"] is not None:
+                    dimensions[SpanAttributeKey.MODEL] = row["model_name"]
+                if (
+                    key_state & _DIMENSION_ATTRIBUTES_PROVIDER_KEY_BIT
+                    or row["model_provider"] is not None
+                ):
+                    dimensions[SpanAttributeKey.MODEL_PROVIDER] = row["model_provider"]
+            else:
+                dimensions = {
+                    key: row[column]
+                    for key, column in (
+                        (SpanAttributeKey.MODEL, "model_name"),
+                        (SpanAttributeKey.MODEL_PROVIDER, "model_provider"),
+                    )
+                    if row[column] is not None
+                }
+            if state is not None or dimensions:
                 dimension_updates.append({
                     "trace_id_param": row["trace_id"],
                     "span_id_param": row["span_id"],
