@@ -130,8 +130,7 @@ jobs:
         id: version
         run: |
           echo "value=$(uv version --short)" >> "$GITHUB_OUTPUT"
-      # `true` is required to push, and stores the token in `http.extraheader`,
-      # keeping it out of the remote URL.
+      # `true` is required for the script to push.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true

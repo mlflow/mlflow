@@ -17,9 +17,8 @@ from packaging.version import InvalidVersion, Version
 class Repo:
     """A website repository checkout that this script commits and pushes to.
 
-    The checkout is created by `actions/checkout`, which keeps the credentials in
-    `http.extraheader` rather than in the remote URL, so no token is handled here.
-    `gh` picks up `$GH_TOKEN` from the environment.
+    `actions/checkout` creates the checkout and owns its credentials, so no token
+    is handled here. `gh` picks up `$GH_TOKEN` from the environment.
     """
 
     def __init__(self, repo: str, root: Path, *, default_branch: str = "main"):
