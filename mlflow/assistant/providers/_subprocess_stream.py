@@ -57,13 +57,15 @@ class SubprocessLineStream:
         # reason -- writing a large prompt inline could block before the child
         # starts reading.
         pid = self._proc.pid
+        self._stdout_thread = threading.Thread(
+            target=self._pump_stdout, name=f"subprocess-stdout-{pid}", daemon=True
+        )
+        self._stderr_thread = threading.Thread(
+            target=self._drain_stderr, name=f"subprocess-stderr-{pid}", daemon=True
+        )
         self._threads = [
-            threading.Thread(
-                target=self._pump_stdout, name=f"subprocess-stdout-{pid}", daemon=True
-            ),
-            threading.Thread(
-                target=self._drain_stderr, name=f"subprocess-stderr-{pid}", daemon=True
-            ),
+            self._stdout_thread,
+            self._stderr_thread,
         ]
         if input_bytes is not None:
             self._threads.append(
@@ -143,7 +145,7 @@ class SubprocessLineStream:
 
     async def read_stderr(self) -> bytes:
         # stderr is fully buffered once its reader thread finishes.
-        await self._loop.run_in_executor(None, self._threads[1].join)
+        await self._loop.run_in_executor(None, self._stderr_thread.join)
         return bytes(self._stderr)
 
     def kill(self) -> None:

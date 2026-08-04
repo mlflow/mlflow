@@ -47,6 +47,21 @@ async def test_feeds_stdin_from_input_bytes():
     assert b"".join(lines) == b"HELLO"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only event loop regression")
+def test_streams_stdout_on_windows_selector_event_loop():
+    async def run():
+        stream = SubprocessLineStream([sys.executable, "-c", "print('ok')"])
+        lines = await _collect(stream)
+        assert await stream.wait() == 0
+        assert [line.strip() for line in lines] == [b"ok"]
+
+    loop = asyncio.SelectorEventLoop()
+    try:
+        loop.run_until_complete(run())
+    finally:
+        loop.close()
+
+
 @pytest.mark.asyncio
 async def test_stdout_push_blocks_when_queue_is_full():
     stream = SubprocessLineStream(
