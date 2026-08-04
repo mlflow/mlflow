@@ -24,6 +24,18 @@ from tests.store.artifact.constants import (
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_trace_archival_config(monkeypatch):
+    """Keep leaked trace archival config out of these tests.
+
+    Several tests here patch `get_artifact_repository` to return `None`. If an
+    earlier test leaves `MLFLOW_TRACE_ARCHIVAL_CONFIG` set, constructing a tracking
+    store reloads that config and runs archival validation against the mock, which
+    then fails far away from the code under test.
+    """
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+
+
 @pytest.mark.parametrize(
     ("uri", "expected"),
     [
@@ -116,8 +128,7 @@ def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
         )
 
 
-def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry(monkeypatch):
-    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():
     non_databricks_uri = "non_databricks_uri"
     artifact_location = "s3://blah_bucket/"
     with (
