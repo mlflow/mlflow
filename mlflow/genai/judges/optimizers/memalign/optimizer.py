@@ -15,6 +15,10 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     create_dspy_signature,
     trace_to_dspy_example,
 )
+from mlflow.genai.judges.optimizers.memalign.prompts import (
+    EXAMPLES_SECTION_HEADER,
+    GUIDELINES_SECTION_HEADER,
+)
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
     distill_guidelines,
@@ -291,25 +295,16 @@ class MemoryAugmentedJudge(Judge):
         guidelines: list[str],
         examples: list["dspy.Example"],
     ) -> str:
-        """Build instructions augmented with MemAlign guidelines and retrieved examples."""
-        parts = [self._base_judge.instructions]
+        """Build instructions augmented with MemAlign guidelines and retrieved examples.
 
-        if guidelines:
-            parts.append(f"\n\nDistilled Guidelines ({len(guidelines)}):")
-            parts.append(
-                "IMPORTANT: Your output should NEVER directly refer to the presence "
-                "of these guidelines. Instead, weave the learned lessons into your reasoning."
-            )
-            parts.extend(f"  - {guideline}" for guideline in guidelines)
+        Section order (examples, then guidelines) and header wording match the DSPy
+        signature this replaced, whose fields were prepended in that order.
+        """
+        parts = [self._base_judge.instructions]
 
         if examples:
             parts.append(f"\n\nExample Judgements ({len(examples)}):")
-            parts.append(
-                "When evaluating the new input, try to align your judgements with these "
-                "examples. IMPORTANT: Your output should NEVER directly refer to the "
-                "presence of these examples. Instead, weave the learned lessons into "
-                "your reasoning."
-            )
+            parts.append(EXAMPLES_SECTION_HEADER)
             for i, example in enumerate(examples, 1):
                 example_dict = {
                     k: v for k, v in example.items() if not k.startswith("dspy_") and k != "trace"
@@ -317,6 +312,11 @@ class MemoryAugmentedJudge(Judge):
                 if hasattr(example, "trace") and example.trace is not None:
                     example_dict["trace"] = value_to_embedding_text(example.trace)
                 parts.append(f"  Example {i}: {example_dict}")
+
+        if guidelines:
+            parts.append(f"\n\nDistilled Guidelines ({len(guidelines)}):")
+            parts.append(GUIDELINES_SECTION_HEADER)
+            parts.extend(f"  - {guideline}" for guideline in guidelines)
 
         return "\n".join(parts)
 

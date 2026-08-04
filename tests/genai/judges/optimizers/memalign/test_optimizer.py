@@ -20,6 +20,10 @@ from mlflow.genai.judges.optimizers.memalign.optimizer import (
     MemoryAugmentedJudge,
     _build_embedder,
 )
+from mlflow.genai.judges.optimizers.memalign.prompts import (
+    EXAMPLES_SECTION_HEADER,
+    GUIDELINES_SECTION_HEADER,
+)
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 
 _HUMAN_SOURCE = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1")
@@ -924,6 +928,29 @@ def test_incremental_alignment_scores_through_unwrapped_base_judge(sample_judge,
         assert len(invoked_instructions) == 1
         assert "Guideline A" in invoked_instructions[0]
         assert "Example Judgements" in invoked_instructions[0]
+
+
+def test_augmented_instructions_preserve_dspy_section_headers(sample_judge, sample_traces):
+    # The section headers are carried over verbatim from the DSPy InputField descriptions
+    # that used to carry this framing, and examples precede guidelines as they did in the
+    # prepended signature. Pinned so the prompt the judge sees does not drift silently.
+    with mock_apis(guidelines=["Be concise"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        instructions = aligned_judge._build_augmented_instructions(
+            ["Be concise"], aligned_judge._episodic_memory[:1]
+        )
+
+        assert GUIDELINES_SECTION_HEADER in instructions
+        assert EXAMPLES_SECTION_HEADER in instructions
+        assert instructions.startswith(sample_judge.instructions)
+        # Examples precede guidelines, matching the order the DSPy fields were prepended in.
+        assert instructions.index("Example Judgements (1):") < instructions.index(
+            "Distilled Guidelines (1):"
+        )
 
 
 def test_aligned_judge_reports_base_criterion_in_guideline_metadata(sample_judge, sample_traces):
