@@ -1091,10 +1091,6 @@
     "defaultMessage": "LLM-as-a-judge (Optimized)",
     "description": "Label for memory-augmented LLM scorer type"
   },
-  "2nzreL": {
-    "defaultMessage": "Best",
-    "description": "Run page > Evaluation sweep tab > Tag marking the best configuration for a scorer"
-  },
   "2o9Wfp": {
     "defaultMessage": "Auto-discover tools",
     "description": "Add tools modal title"
@@ -1286,6 +1282,10 @@
   "3zU3+M": {
     "defaultMessage": "Version",
     "description": "Header for version column in linked prompts table on logged model details page"
+  },
+  "4+930T": {
+    "defaultMessage": "Each point is one swept configuration. Error bars are 95% confidence intervals — configurations whose bars overlap are not distinguishable at that confidence.",
+    "description": "Evaluation runs page > sweep charts > section description"
   },
   "4+RPaz": {
     "defaultMessage": "Delete",
@@ -1995,6 +1995,10 @@
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
   },
+  "7ICNnq": {
+    "defaultMessage": "{scorer} vs latency",
+    "description": "Evaluation runs page > sweep charts > score vs latency chart title"
+  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -2347,10 +2351,6 @@
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
   },
-  "8ku6pI": {
-    "defaultMessage": "This run has no evaluation sweep summary metrics. They are logged to the sweep's parent run when the sweep completes.",
-    "description": "Run page > Evaluation sweep tab > Empty state description"
-  },
   "8l62sW": {
     "defaultMessage": "Set icons or override icons from server.json. Use 'light' or 'dark' for theme-specific icons, or 'any' for one that works in both.",
     "description": "Help text for icons in create MCP server modal"
@@ -2623,6 +2623,10 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9pglAF": {
+    "defaultMessage": "Score",
+    "description": "Evaluation runs page > sweep charts > scorer interval chart > y axis title"
+  },
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
@@ -2779,10 +2783,6 @@
     "defaultMessage": "e.g. get_weather",
     "description": "Placeholder for the tool function name input in the playground Tools card"
   },
-  "AK3Vz7": {
-    "defaultMessage": "Scorer",
-    "description": "Run page > Evaluation sweep tab > Scorer column header"
-  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -2934,6 +2934,10 @@
   "B/mYsr": {
     "defaultMessage": "View traces with this score",
     "description": "Link text to navigate to traces filtered by assessment score"
+  },
+  "B0TVpB": {
+    "defaultMessage": "Evaluation sweep comparison",
+    "description": "Evaluation runs page > sweep charts > section title"
   },
   "B1Upnc": {
     "defaultMessage": "Relevant",
@@ -3803,10 +3807,6 @@
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
   },
-  "F6HPC5": {
-    "defaultMessage": "Std dev",
-    "description": "Run page > Evaluation sweep tab > Standard deviation column header"
-  },
   "F8MqzZ": {
     "defaultMessage": "Path",
     "description": "Label for displaying the current experiment path"
@@ -3938,10 +3938,6 @@
   "FedDjX": {
     "defaultMessage": "1. Install MLflow with GenAI extras on the server",
     "description": "AI Gateway setup guide > Step 1 title"
-  },
-  "FfEs9h": {
-    "defaultMessage": "No sweep results",
-    "description": "Run page > Evaluation sweep tab > Empty state title"
   },
   "Fg/zU/": {
     "defaultMessage": "GenAI apps & agents",
@@ -4187,6 +4183,10 @@
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
   },
+  "GyI8IH": {
+    "defaultMessage": "{scorer} vs cost",
+    "description": "Evaluation runs page > sweep charts > score vs cost chart title"
+  },
   "GyyqO1": {
     "defaultMessage": "To submit:",
     "description": "Lead-in line of the popup shown when the playground Submit button is disabled"
@@ -4386,10 +4386,6 @@
   "HnSLPT": {
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record on the V2 dataset records page"
-  },
-  "HoFWIQ": {
-    "defaultMessage": "Latency p50",
-    "description": "Run page > Evaluation sweep tab > Latency p50 column header"
   },
   "Hq/PKm": {
     "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
@@ -4959,10 +4955,6 @@
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
   },
-  "KLjVF2": {
-    "defaultMessage": "Highest mean for this scorer. Other configurations are also tagged when their confidence intervals overlap, since those results are not distinguishable at 95% confidence.",
-    "description": "Run page > Evaluation sweep tab > Best configuration tag tooltip"
-  },
   "KM8a8Y": {
     "defaultMessage": "Source",
     "description": "MCP compare source heading"
@@ -5234,6 +5226,10 @@
   "LiW/yM": {
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
+  },
+  "Ljhw86": {
+    "defaultMessage": "Latency p50 (ms)",
+    "description": "Evaluation runs page > sweep charts > latency axis title"
   },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
@@ -6327,10 +6323,6 @@
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
   },
-  "QMexTQ": {
-    "defaultMessage": "Configuration",
-    "description": "Run page > Evaluation sweep tab > Configuration column header"
-  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -6486,6 +6478,10 @@
   "R1kmVV": {
     "defaultMessage": "Couldn't load reviewers. Try again.",
     "description": "Review queue: reviewers roster failed to load"
+  },
+  "R1nDCl": {
+    "defaultMessage": "Cost per request",
+    "description": "Evaluation runs page > sweep charts > cost chart title"
   },
   "R28jzs": {
     "defaultMessage": "Action",
@@ -7767,6 +7763,10 @@
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
   },
+  "We9acS": {
+    "defaultMessage": "Cost per request (USD)",
+    "description": "Evaluation runs page > sweep charts > cost axis title"
+  },
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
     "description": "Experiment dataset drawer > digest > label and value"
@@ -7903,6 +7903,10 @@
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
   },
+  "X5rEFZ": {
+    "defaultMessage": "Sweep",
+    "description": "Type pill text for an evaluation sweep run in the evaluation runs table"
+  },
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
@@ -8018,10 +8022,6 @@
   "Xe+MXn": {
     "defaultMessage": "Prompt alias deleted",
     "description": "Webhook event label"
-  },
-  "XelPpp": {
-    "defaultMessage": "Latency p99",
-    "description": "Run page > Evaluation sweep tab > Latency p99 column header"
   },
   "XfsPd4": {
     "defaultMessage": "Save prompt",
@@ -8706,10 +8706,6 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
-  },
-  "ad/lod": {
-    "defaultMessage": "Latency p90",
-    "description": "Run page > Evaluation sweep tab > Latency p90 column header"
   },
   "adOmg9": {
     "defaultMessage": "Add more traces for broader coverage",
@@ -9935,10 +9931,6 @@
     "defaultMessage": "Cancel",
     "description": "Issue detection progress > Cancel button"
   },
-  "fokeo5": {
-    "defaultMessage": "Each configuration was evaluated repeatedly to estimate a confidence interval per scorer. Latency and cost are per request, aggregated across every repeat.",
-    "description": "Run page > Evaluation sweep tab > Section description"
-  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -10002,10 +9994,6 @@
   "g1HlIL": {
     "defaultMessage": "View in Unity Catalog",
     "description": "Overflow-menu item linking to the V2 evaluation dataset's table page in Unity Catalog"
-  },
-  "g1xcEn": {
-    "defaultMessage": "Mean",
-    "description": "Run page > Evaluation sweep tab > Scorer mean column header"
   },
   "g2tInh": {
     "defaultMessage": "Source type: {typeLabel}",
@@ -10495,6 +10483,10 @@
     "defaultMessage": "Error",
     "description": "Model trace header > status label > error"
   },
+  "hp3B1o": {
+    "defaultMessage": "This sweep logged no latency or cost data, so only quality is shown. Cost requires a provider that reports token usage.",
+    "description": "Evaluation runs page > sweep charts > missing latency and cost notice"
+  },
   "hpAK1G": {
     "defaultMessage": "Created by:",
     "description": "Label for created by"
@@ -10746,10 +10738,6 @@
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
-  },
-  "ij/+R7": {
-    "defaultMessage": "Evaluation sweep",
-    "description": "Run details page > tab selector > evaluation sweep tab"
   },
   "ijHH2H": {
     "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
@@ -11811,6 +11799,10 @@
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
   },
+  "nFCB+I": {
+    "defaultMessage": "{scorer} by configuration",
+    "description": "Evaluation runs page > sweep charts > per-scorer chart title"
+  },
   "nH5645": {
     "defaultMessage": "Package arguments",
     "description": "Package arguments label"
@@ -12587,10 +12579,6 @@
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
   },
-  "qsLNk/": {
-    "defaultMessage": "Cost/req",
-    "description": "Run page > Evaluation sweep tab > Cost per request column header"
-  },
   "qskex0": {
     "defaultMessage": "Conversation completeness",
     "description": "LLM template option"
@@ -12839,10 +12827,6 @@
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
   },
-  "rplnyt": {
-    "defaultMessage": "Configuration comparison ({count})",
-    "description": "Run page > Evaluation sweep tab > Section title with the number of configurations"
-  },
   "rpqN8U": {
     "defaultMessage": "Dataset",
     "description": "Header title for the dataset column in the logged model list table"
@@ -12850,6 +12834,10 @@
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
+  },
+  "rspsJX": {
+    "defaultMessage": "Latency p50",
+    "description": "Evaluation runs page > sweep charts > latency chart title"
   },
   "rstugP": {
     "defaultMessage": "Max Tokens",
@@ -12954,6 +12942,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFpgAh": {
+    "defaultMessage": "Score",
+    "description": "Evaluation runs page > sweep charts > tradeoff chart > y axis title"
   },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
@@ -14342,10 +14334,6 @@
   "z0hCh+": {
     "defaultMessage": "— model's natural-language response.",
     "description": "Description of the Text mode in the response_format info popover"
-  },
-  "z2D/Ib": {
-    "defaultMessage": "95% CI",
-    "description": "Run page > Evaluation sweep tab > Confidence interval column header"
   },
   "z2Gyuw": {
     "defaultMessage": "MLflow Model",
