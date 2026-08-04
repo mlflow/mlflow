@@ -17,13 +17,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils.credentials import get_default_host_creds
-from mlflow.utils.rest_utils import http_request
+from mlflow.utils.server_info import (
+    SERVER_INFO_ENDPOINT,
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    fetch_server_info,
+)
 
 _logger = logging.getLogger(__name__)
 
-_SERVER_INFO_ENDPOINT = "/api/3.0/mlflow/server-info"
-SERVER_INFO_MULTIPART_UPLOADS_ENABLED = "multipart_uploads_enabled"
-SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED = "multipart_downloads_enabled"
 # resolve_uri always embeds this service root; strip it to recover the deployment base URL
 # used for /server-info (which lives beside /api/2.0, not under it).
 _ARTIFACTS_SERVICE_ROOT = "/api/2.0/mlflow-artifacts/artifacts"
@@ -142,16 +144,9 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                 return self._server_capabilities
 
             try:
-                response = http_request(
-                    host_creds=self._artifact_server_host_creds,
-                    endpoint=_SERVER_INFO_ENDPOINT,
-                    method="GET",
-                    timeout=3,
-                    max_retries=0,
-                    raise_on_status=False,
-                )
+                response = fetch_server_info(self._artifact_server_host_creds)
                 if response.status_code == 200:
-                    data = response.json()
+                    data = response.data
                     self._server_capabilities = {
                         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: data.get(
                             SERVER_INFO_MULTIPART_UPLOADS_ENABLED, False
@@ -164,14 +159,14 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                     _logger.debug(
                         "Failed to fetch multipart capabilities from %s (status=%s); "
                         "defaulting to disabled.",
-                        _SERVER_INFO_ENDPOINT,
+                        SERVER_INFO_ENDPOINT,
                         response.status_code,
                     )
                     self._server_capabilities = {}
             except Exception:
                 _logger.debug(
                     "Failed to fetch multipart capabilities from %s; defaulting to disabled.",
-                    _SERVER_INFO_ENDPOINT,
+                    SERVER_INFO_ENDPOINT,
                     exc_info=True,
                 )
                 self._server_capabilities = {}
