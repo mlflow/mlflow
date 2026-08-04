@@ -46,7 +46,7 @@ import {
   RESULT_ASSESSMENT_NAME,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
-import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { useAssistant, useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
@@ -99,6 +99,7 @@ const RunViewEvaluationsTabInner = ({
   showRefreshButton = false,
   hideCompareSelector = false,
   runType,
+  canUseAssistant,
 }: {
   experimentId: string;
   runUuid: string;
@@ -109,6 +110,7 @@ const RunViewEvaluationsTabInner = ({
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
   runType?: string;
+  canUseAssistant?: boolean;
 }) => {
   const isRegressionTest = runType === MLFLOW_RUN_TYPE_VALUE_TEST;
   const { theme } = useDesignSystemTheme();
@@ -428,7 +430,7 @@ const RunViewEvaluationsTabInner = ({
                 isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
                 isGroupedBySession={isGroupedBySession}
                 onToggleSessionGrouping={onToggleSessionGrouping}
-                addons={<RunViewEvaluationAnalyzeButton runUuid={runUuid} />}
+                addons={canUseAssistant ? <RunViewEvaluationAnalyzeButton runUuid={runUuid} /> : undefined}
               />
               {
                 // prettier-ignore
@@ -501,6 +503,9 @@ export const RunViewEvaluationsTab = ({
   hideCompareSelector?: boolean;
 }) => {
   const runType = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value;
+  // Gate toolbar slots before creating the React element: the Analyze button can render null
+  // when Assistant is unavailable, but a null-rendering element is still truthy to toolbar callers.
+  const { canUseAssistant } = useAssistant();
 
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -526,7 +531,7 @@ export const RunViewEvaluationsTab = ({
         runDisplayName={runDisplayName}
         data={artifactData}
         runTags={runTags}
-        actions={<RunViewEvaluationAnalyzeButton runUuid={runUuid} />}
+        actions={canUseAssistant ? <RunViewEvaluationAnalyzeButton runUuid={runUuid} /> : undefined}
       />
     );
   }
@@ -541,6 +546,7 @@ export const RunViewEvaluationsTab = ({
       showRefreshButton={showRefreshButton}
       hideCompareSelector={hideCompareSelector}
       runType={runType}
+      canUseAssistant={canUseAssistant}
     />
   );
 };
