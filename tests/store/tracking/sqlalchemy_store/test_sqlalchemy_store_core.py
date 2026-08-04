@@ -68,7 +68,7 @@ def db_types_and_drivers():
             yield db_type, driver
 
 
-@pytest.mark.parametrize(("db_type", "driver"), db_types_and_drivers())
+@pytest.mark.parametrize(("db_type", "driver"), list(db_types_and_drivers()))
 def test_correct_db_type_from_uri(db_type, driver):
     assert extract_db_type_from_uri(f"{db_type}+{driver}://...") == db_type
     # try the driver-less version, which will revert SQLAlchemy to the default driver

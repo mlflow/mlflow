@@ -65,6 +65,7 @@ class Provider(str, Enum):
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
     PORTKEY = "portkey"
+    SAP_AI_CORE = "sap-ai-core"
 
     @classmethod
     def values(cls):

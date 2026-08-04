@@ -1,18 +1,21 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { IssuesTabEmptyState } from './IssuesTabEmptyState';
+import { IssueDetectionLowResultsCallout } from './IssueDetectionLowResultsCallout';
 import { IssueCard } from './IssueCard';
 import { IssueTracesPanel } from './IssueTracesPanel';
 import { IssueStatusFilter, type IssueStatusFilterValue } from './IssueStatusFilter';
 import { useSearchIssuesQuery, type Issue } from './hooks/useSearchIssuesQuery';
 import { useSelectedIssueId } from './hooks/useSelectedIssueId';
+import { isJobComplete, useFetchJobStatus } from './hooks/useFetchJobStatus';
 
 export interface RunViewIssuesTabProps {
   runUuid: string;
   experimentId: string;
+  jobId?: string;
 }
 
-export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProps) => {
+export const RunViewIssuesTab = ({ runUuid, experimentId, jobId }: RunViewIssuesTabProps) => {
   const { theme } = useDesignSystemTheme();
   const [statusFilter, setStatusFilter] = useState<IssueStatusFilterValue>('pending');
   const issueCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -21,6 +24,11 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
     experimentId,
     sourceRunId: runUuid,
   });
+  const { status: jobStatus, error: jobStatusError } = useFetchJobStatus({
+    jobId,
+    enabled: Boolean(jobId),
+  });
+  const showLowResultsCallout = !jobId || isJobComplete(jobStatus) || Boolean(jobStatusError);
 
   const filteredIssues = useMemo(() => {
     if (statusFilter === 'all') {
@@ -100,6 +108,11 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
         }}
       >
         <IssuesTabEmptyState />
+        {showLowResultsCallout && (
+          <div css={{ maxWidth: 560, marginTop: theme.spacing.md }}>
+            <IssueDetectionLowResultsCallout issueCount={0} />
+          </div>
+        )}
       </div>
     );
   }
