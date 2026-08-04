@@ -124,7 +124,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing.xs,
-        paddingLeft: level > 0 ? level * theme.spacing.lg : undefined,
+        paddingLeft: level > 0 ? (level + 1) * theme.spacing.lg : undefined,
       }}
       onClick={handleClick}
       onMouseDown={(e) => e.stopPropagation()}
