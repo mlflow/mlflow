@@ -1106,6 +1106,7 @@ module.exports = {
   "mlflow.eval-runs.group-expand-button": "",
   "mlflow.eval-runs.group-tag": "",
   "mlflow.eval-runs.header": "",
+  "mlflow.eval-runs.parent-child-expand-button": "",
   "mlflow.eval-runs.issue-detection-run-icon-tooltip": "",
   "mlflow.eval-runs.model-version-cell": "",
   "mlflow.eval-runs.model-version-cell-tooltip": "",
