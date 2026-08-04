@@ -1,8 +1,8 @@
-const { getCloseReason } = require("./auto-close-pr.js");
+const { getPrAction } = require("./auto-close-pr.js");
 
 module.exports = async ({ context, github }) => {
-  const closeReason = await getCloseReason({ github, context });
-  if (closeReason) {
+  const action = await getPrAction({ github, context });
+  if (action.closeReason) {
     console.log("PR will be auto-closed. Skipping labeling.");
     return;
   }

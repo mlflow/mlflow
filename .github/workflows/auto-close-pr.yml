@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types:
       - opened
+      - edited
+      - reopened
+      - ready_for_review
 
 defaults:
   run:
@@ -14,13 +17,12 @@ permissions: {}
 jobs:
   auto-close-pr:
     if: >-
-      !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
-      && github.event.pull_request.user.type != 'Bot'
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       pull-requests: write
-      issues: read
+      issues: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
