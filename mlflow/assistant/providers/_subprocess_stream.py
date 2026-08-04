@@ -16,12 +16,14 @@ port), it runs correctly on any loop and does not perturb uvicorn's serving loop
 """
 
 import asyncio
+import concurrent.futures
 import subprocess
 import threading
 from pathlib import Path
 
 # Sentinel pushed onto the queue when stdout reaches EOF.
 _EOF = object()
+_QUEUE_MAX_SIZE = 100
 
 
 class SubprocessLineStream:
@@ -34,11 +36,13 @@ class SubprocessLineStream:
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
         input_bytes: bytes | None = None,
+        queue_max_size: int = _QUEUE_MAX_SIZE,
     ):
         self._loop = asyncio.get_running_loop()
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue: asyncio.Queue = asyncio.Queue(maxsize=queue_max_size)
         self._stderr = bytearray()
         self._killed = False
+        self._closed = threading.Event()
         self._proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
@@ -85,18 +89,33 @@ class SubprocessLineStream:
     def killed(self) -> bool:
         return self._killed
 
-    def _push(self, item: object) -> None:
-        # The loop is closed only after the request is torn down, by which point
-        # nothing awaits the queue; drop the item rather than raise on the thread.
+    def _push(self, item: object) -> bool:
+        # Block the stdout thread when the async consumer falls behind. This lets
+        # the OS pipe apply backpressure to chatty CLI processes instead of
+        # growing this queue without bound.
         try:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, item)
+            future = asyncio.run_coroutine_threadsafe(self._queue.put(item), self._loop)
         except RuntimeError:
-            pass
+            return False
+
+        while True:
+            try:
+                future.result(timeout=0.1)
+                return True
+            except concurrent.futures.TimeoutError:
+                if self._closed.is_set() or self._loop.is_closed() or not self._loop.is_running():
+                    future.cancel()
+                    return False
+            except (concurrent.futures.CancelledError, RuntimeError):
+                return False
 
     def _pump_stdout(self) -> None:
-        for line in self._proc.stdout:
-            self._push(line)
-        self._push(_EOF)
+        try:
+            for line in self._proc.stdout:
+                if not self._push(line):
+                    return
+        finally:
+            self._push(_EOF)
 
     def _drain_stderr(self) -> None:
         self._stderr.extend(self._proc.stderr.read())
@@ -110,11 +129,14 @@ class SubprocessLineStream:
             pass
 
     async def lines(self) -> "asyncio.AsyncGenerator[bytes, None]":
-        while True:
-            item = await self._queue.get()
-            if item is _EOF:
-                return
-            yield item
+        try:
+            while True:
+                item = await self._queue.get()
+                if item is _EOF:
+                    return
+                yield item
+        finally:
+            self._closed.set()
 
     async def wait(self) -> int:
         return await self._loop.run_in_executor(None, self._proc.wait)

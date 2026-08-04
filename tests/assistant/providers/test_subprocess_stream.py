@@ -1,4 +1,6 @@
+import asyncio
 import sys
+import threading
 
 import pytest
 
@@ -43,6 +45,44 @@ async def test_feeds_stdin_from_input_bytes():
     await stream.wait()
 
     assert b"".join(lines) == b"HELLO"
+
+
+@pytest.mark.asyncio
+async def test_stdout_push_blocks_when_queue_is_full():
+    stream = SubprocessLineStream(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        queue_max_size=1,
+    )
+
+    first_push_finished = threading.Event()
+    second_push_finished = threading.Event()
+
+    def push_first_line():
+        assert stream._push(b"first\n") is True
+        first_push_finished.set()
+
+    def push_second_line():
+        assert stream._push(b"second\n") is True
+        second_push_finished.set()
+
+    first_thread = threading.Thread(target=push_first_line, name="test-push-first-line")
+    thread = threading.Thread(target=push_second_line, name="test-push-second-line")
+    first_thread.start()
+    await asyncio.wait_for(asyncio.to_thread(first_push_finished.wait), timeout=1)
+    thread.start()
+
+    await asyncio.sleep(0.1)
+    assert second_push_finished.is_set() is False
+
+    lines = stream.lines()
+    assert await anext(lines) == b"first\n"
+    await asyncio.wait_for(asyncio.to_thread(second_push_finished.wait), timeout=1)
+    await lines.aclose()
+
+    stream.kill()
+    await stream.wait()
+    first_thread.join(timeout=1)
+    thread.join(timeout=1)
 
 
 @pytest.mark.asyncio

@@ -200,14 +200,14 @@ async def test_astream_surfaces_non_empty_error_for_empty_exception():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             side_effect=NotImplementedError(),
-        ) as mock_exec,
+        ) as mock_ctor,
     ):
         provider = CodexProvider()
         events = [e async for e in provider.astream("hi", "http://localhost:5000")]
 
-    mock_exec.assert_called_once()
+    mock_ctor.assert_called_once()
     error_events = [e for e in events if e.type == EventType.ERROR]
     assert len(error_events) == 1
     assert error_events[0].data["error"] == "NotImplementedError()"
