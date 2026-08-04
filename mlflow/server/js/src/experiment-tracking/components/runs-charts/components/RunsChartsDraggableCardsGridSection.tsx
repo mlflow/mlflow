@@ -39,7 +39,7 @@ const VIRTUALIZATION_THRESHOLD = 50;
 /**
  * Helper to find the nearest scrollable ancestor element for an element.
  */
-const getScrollParent = (node: HTMLElement | null): HTMLElement | window | null => {
+const getScrollParent = (node: HTMLElement | null): HTMLElement | typeof window | null => {
   if (!node) {
     return null;
   }
@@ -57,7 +57,7 @@ const getScrollParent = (node: HTMLElement | null): HTMLElement | window | null 
 /**
  * Helper to calculate the top offset (scrollMargin) of the grid relative to its scroll parent.
  */
-const getScrollMargin = (gridEl: HTMLElement | null, scrollEl: HTMLElement | window | null): number => {
+const getScrollMargin = (gridEl: HTMLElement | null, scrollEl: HTMLElement | typeof window | null): number => {
   if (!gridEl || !scrollEl || scrollEl === window) {
     if (gridEl && scrollEl === window) {
       const rect = gridEl.getBoundingClientRect();
@@ -377,7 +377,10 @@ export const RunsChartsDraggableCardsGridSection = memo(
 
     const gapSize = theme.spacing.sm;
 
-    const getScrollEl = useCallback(() => getScrollParent(gridBoxRef.current), []);
+    const getScrollEl = useCallback(() => {
+      const scrollParent = getScrollParent(gridBoxRef.current);
+      return scrollParent instanceof HTMLElement ? scrollParent : null;
+    }, []);
 
     const rowVirtualizer = useVirtualizer({
       count: isLargeGrid ? rows.length : 0,
