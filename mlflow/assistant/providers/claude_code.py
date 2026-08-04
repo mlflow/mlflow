@@ -449,7 +449,7 @@ class ClaudeCodeProvider(AssistantProvider):
         # as a CLI arg. The system prompt (~10k chars) is written to a temp file and
         # referenced with --append-system-prompt-file. Both avoid overflowing the
         # Windows cmd.exe 8191-char command-line limit, which the npm `claude.CMD`
-        # shim is subject to (see issue #24406).
+        # shim is subject to (see https://github.com/mlflow/mlflow/issues/24406).
         cmd = [
             claude_path,
             "-p",
