@@ -93,13 +93,15 @@ jobs:
         run: |
           git show --shortstat --format= HEAD
           paths="$(git show --name-only --format= HEAD)"
-          unexpected="$(echo "$paths" | grep -vE "^docs/(versions\.json|latest/|${VERSION}[^/]*/)" || true)"
+          # Here-strings, not pipes: `grep -q` exits on the first match, and the
+          # resulting EPIPE would fail the pipeline under `pipefail`.
+          unexpected="$(grep -vE "^docs/(versions\.json|latest/|${VERSION}[^/]*/)" <<< "$paths" || true)"
           if [ -n "$unexpected" ]; then
             echo "::error::Commit touches paths outside this release:"
             echo "$unexpected"
             exit 1
           fi
-          if ! echo "$paths" | grep -q "^docs/${VERSION}/"; then
+          if ! grep -q "^docs/${VERSION}/" <<< "$paths"; then
             echo "::error::Commit is missing docs/${VERSION}/ - the sparse checkout excluded it"
             exit 1
           fi
