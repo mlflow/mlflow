@@ -10,9 +10,10 @@ of the box (see https://github.com/mlflow/mlflow/issues/24405).
 
 ``SubprocessLineStream`` sidesteps the event loop entirely: it spawns with
 ``subprocess.Popen`` and pumps the pipes on plain threads, handing lines back to
-the caller's running loop via ``call_soon_threadsafe``. Because it never creates
-an asyncio subprocess transport (and never associates a socket with a completion
-port), it runs correctly on any loop and does not perturb uvicorn's serving loop.
+the caller's running loop through a bounded ``asyncio.Queue`` using thread-safe
+coroutine scheduling. Because it never creates an asyncio subprocess transport
+(and never associates a socket with a completion port), it runs correctly on any
+loop and does not perturb uvicorn's serving loop.
 """
 
 import asyncio
