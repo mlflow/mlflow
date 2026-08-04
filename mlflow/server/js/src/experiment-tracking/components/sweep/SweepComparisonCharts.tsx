@@ -5,12 +5,16 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { LazyPlot } from '../LazyPlot';
 import type { RunEntity } from '../../types';
 import { useDynamicPlotSize } from '../runs-charts/components/RunsCharts.common';
-import { buildSweepChartData, buildTradeoffPoints, type SweepChartPoint } from './sweepChartData';
+import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
+import { buildSweepChartData, buildTradeoffPoints, type SweepChartPoint, type SweepRunSeries } from './sweepChartData';
 
 const CHART_HEIGHT = 320;
 const CHART_PREFERRED_WIDTH = 420;
 
 const PLOT_CONFIG = { responsive: true, displaylogo: false, displayModeBar: false } as const;
+
+/** Legend above the plot, so adding runs does not squeeze the plotting area horizontally. */
+const LEGEND_LAYOUT = { orientation: 'h', y: 1.12, x: 0, font: { size: 10 } } as const;
 
 /**
  * Wraps a plot in a size-observed container.
@@ -74,44 +78,78 @@ const ChartCard = ({ title, children }: { title: React.ReactNode; children: Reac
   );
 };
 
-/** Mean per config for one scorer, with the 95% confidence interval as an asymmetric error bar. */
-const ScorerIntervalChart = ({ points, scorer }: { points: SweepChartPoint[]; scorer: string }) => {
-  const { theme } = useDesignSystemTheme();
+/**
+ * Mean per config for one scorer, with the 95% confidence interval as an asymmetric error bar.
+ *
+ * Configs share the x-axis and each sweep run is its own series, so comparing the same config
+ * across runs is a vertical read at one tick rather than hunting through interleaved labels.
+ */
+const ScorerIntervalChart = ({
+  runSeries,
+  configNames,
+  scorer,
+  showLegend,
+  getRunColor,
+}: {
+  runSeries: SweepRunSeries[];
+  configNames: string[];
+  scorer: string;
+  showLegend: boolean;
+  getRunColor: (runUuid: string) => string;
+}) => {
   const intl = useIntl();
 
-  const plotData = useMemo(() => {
-    const withScorer = points.filter((point) => point.scorers[scorer]?.mean !== undefined);
-    const means = withScorer.map((point) => point.scorers[scorer].mean as number);
+  const plotData = useMemo(
+    () =>
+      runSeries.flatMap((series) => {
+        const withScorer = series.points.filter((point) => point.scorers[scorer]?.mean !== undefined);
+        if (withScorer.length === 0) {
+          return [];
+        }
+        const means = withScorer.map((point) => point.scorers[scorer].mean as number);
+        const color = getRunColor(series.runUuid);
 
-    return [
-      {
-        x: withScorer.map((point) => point.label),
-        y: means,
-        type: 'scatter' as const,
-        mode: 'markers' as const,
-        marker: { size: 10, color: theme.colors.primary },
-        error_y: {
-          type: 'data' as const,
-          symmetric: false,
-          // Plotly wants distances from the point, not absolute bounds.
-          array: withScorer.map((point, i) => (point.scorers[scorer].ciHigh ?? means[i]) - means[i]),
-          arrayminus: withScorer.map((point, i) => means[i] - (point.scorers[scorer].ciLow ?? means[i])),
-          color: theme.colors.primary,
-          thickness: 1.5,
-          width: 6,
-        },
-        hovertemplate: '%{x}<br>%{y:.3f}<extra></extra>',
-      },
-    ];
-  }, [points, scorer, theme.colors.primary]);
+        return [
+          {
+            x: withScorer.map((point) => point.config),
+            y: means,
+            name: series.runName,
+            type: 'scatter' as const,
+            mode: 'markers' as const,
+            marker: { size: 10, color },
+            error_y: {
+              type: 'data' as const,
+              symmetric: false,
+              // Plotly wants distances from the point, not absolute bounds.
+              array: withScorer.map((point, i) => (point.scorers[scorer].ciHigh ?? means[i]) - means[i]),
+              arrayminus: withScorer.map((point, i) => means[i] - (point.scorers[scorer].ciLow ?? means[i])),
+              color,
+              thickness: 1.5,
+              width: 6,
+            },
+            hovertemplate: `%{x}<br>%{y:.3f}<extra>${series.runName}</extra>`,
+          },
+        ];
+      }),
+    [runSeries, scorer, getRunColor],
+  );
 
   return (
     <SizedPlot
       data={plotData}
       layout={{
         margin: { t: 8, r: 16, b: 80, l: 56 },
-        showlegend: false,
-        xaxis: { automargin: true, tickangle: -30 },
+        showlegend: showLegend,
+        legend: LEGEND_LAYOUT,
+        // Pin the categories so every chart orders configs identically, and so a config missing
+        // from one run still holds its slot instead of shifting the other series along.
+        xaxis: {
+          automargin: true,
+          tickangle: -30,
+          type: 'category',
+          categoryorder: 'array',
+          categoryarray: configNames,
+        },
         yaxis: {
           automargin: true,
           title: intl.formatMessage({
@@ -124,40 +162,60 @@ const ScorerIntervalChart = ({ points, scorer }: { points: SweepChartPoint[]; sc
   );
 };
 
-/** Bar chart of a single per-config measure (cost or one latency percentile). */
+/** Grouped bar chart of a single per-config measure (cost or one latency percentile), one group per run. */
 const PerConfigBarChart = ({
-  points,
+  runSeries,
+  configNames,
   valueOf,
   axisTitle,
   hoverFormat,
+  showLegend,
+  getRunColor,
 }: {
-  points: SweepChartPoint[];
+  runSeries: SweepRunSeries[];
+  configNames: string[];
   valueOf: (point: SweepChartPoint) => number | undefined;
   axisTitle: string;
   hoverFormat: string;
+  showLegend: boolean;
+  getRunColor: (runUuid: string) => string;
 }) => {
-  const { theme } = useDesignSystemTheme();
-
-  const plotData = useMemo(() => {
-    const withValue = points.filter((point) => valueOf(point) !== undefined);
-    return [
-      {
-        x: withValue.map((point) => point.label),
-        y: withValue.map((point) => valueOf(point) as number),
-        type: 'bar' as const,
-        marker: { color: theme.colors.primary },
-        hovertemplate: `%{x}<br>${hoverFormat}<extra></extra>`,
-      },
-    ];
-  }, [points, valueOf, hoverFormat, theme.colors.primary]);
+  const plotData = useMemo(
+    () =>
+      runSeries.flatMap((series) => {
+        const withValue = series.points.filter((point) => valueOf(point) !== undefined);
+        if (withValue.length === 0) {
+          return [];
+        }
+        return [
+          {
+            x: withValue.map((point) => point.config),
+            y: withValue.map((point) => valueOf(point) as number),
+            name: series.runName,
+            type: 'bar' as const,
+            marker: { color: getRunColor(series.runUuid) },
+            hovertemplate: `%{x}<br>${hoverFormat}<extra>${series.runName}</extra>`,
+          },
+        ];
+      }),
+    [runSeries, valueOf, hoverFormat, getRunColor],
+  );
 
   return (
     <SizedPlot
       data={plotData}
       layout={{
         margin: { t: 8, r: 16, b: 80, l: 64 },
-        showlegend: false,
-        xaxis: { automargin: true, tickangle: -30 },
+        showlegend: showLegend,
+        legend: LEGEND_LAYOUT,
+        barmode: 'group',
+        xaxis: {
+          automargin: true,
+          tickangle: -30,
+          type: 'category',
+          categoryorder: 'array',
+          categoryarray: configNames,
+        },
         yaxis: { automargin: true, title: axisTitle, rangemode: 'tozero' },
       }}
     />
@@ -176,12 +234,14 @@ const TradeoffChart = ({
   costOf,
   xAxisTitle,
   xHoverFormat,
+  getRunColor,
 }: {
   points: SweepChartPoint[];
   scorer: string;
   costOf: (point: SweepChartPoint) => number | undefined;
   xAxisTitle: string;
   xHoverFormat: string;
+  getRunColor: (runUuid: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -234,9 +294,9 @@ const TradeoffChart = ({
         marker: {
           size: 12,
           // Frontier configs are filled; dominated ones are hollow, so the defensible choices read
-          // at a glance without needing the legend.
-          color: tradeoffs.map((point) => (point.isOnFrontier ? theme.colors.primary : 'transparent')),
-          line: { color: theme.colors.primary, width: 2 },
+          // at a glance. Outline colour matches the owning run, as in the other charts.
+          color: tradeoffs.map((point) => (point.isOnFrontier ? getRunColor(point.runUuid) : 'transparent')),
+          line: { color: tradeoffs.map((point) => getRunColor(point.runUuid)), width: 2 },
         },
         error_y: {
           type: 'data' as const,
@@ -253,7 +313,7 @@ const TradeoffChart = ({
     ];
 
     return { plotData: data, ranges: { cost: costRange, score: scoreRange } };
-  }, [points, scorer, costOf, xHoverFormat, theme.colors]);
+  }, [points, scorer, costOf, xHoverFormat, theme.colors, getRunColor]);
 
   return (
     <SizedPlot
@@ -287,10 +347,14 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const { points, scorerNames } = useMemo(() => buildSweepChartData(runs), [runs]);
+  const { points, runSeries, configNames, scorerNames } = useMemo(() => buildSweepChartData(runs), [runs]);
+  // Reuse the run colours from the runs table, so a run reads the same in both.
+  const getRunColor = useGetExperimentRunColor();
 
   const anyCost = points.some((point) => point.costPerRequestUsd !== undefined);
   const anyLatency = points.some((point) => point.latency?.p50 !== undefined);
+  // With one sweep the legend would just repeat the run name already shown in the table.
+  const showLegend = runSeries.length > 1;
 
   if (points.length === 0) {
     return null;
@@ -336,7 +400,13 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
               { scorer },
             )}
           >
-            <ScorerIntervalChart points={points} scorer={scorer} />
+            <ScorerIntervalChart
+              runSeries={runSeries}
+              configNames={configNames}
+              scorer={scorer}
+              showLegend={showLegend}
+              getRunColor={getRunColor}
+            />
           </ChartCard>
         ))}
 
@@ -350,10 +420,13 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
             }
           >
             <PerConfigBarChart
-              points={points}
+              runSeries={runSeries}
+              configNames={configNames}
               valueOf={costOfPoint}
               axisTitle={axisTitles.cost}
               hoverFormat="$%{y:.4f}"
+              showLegend={showLegend}
+              getRunColor={getRunColor}
             />
           </ChartCard>
         )}
@@ -368,10 +441,13 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
             }
           >
             <PerConfigBarChart
-              points={points}
+              runSeries={runSeries}
+              configNames={configNames}
               valueOf={latencyOfPoint}
               axisTitle={axisTitles.latency}
               hoverFormat="%{y:.0f} ms"
+              showLegend={showLegend}
+              getRunColor={getRunColor}
             />
           </ChartCard>
         )}
@@ -394,6 +470,7 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
                 costOf={costOfPoint}
                 xAxisTitle={axisTitles.cost}
                 xHoverFormat="$%{x:.4f}"
+                getRunColor={getRunColor}
               />
             </ChartCard>
           ),
@@ -414,6 +491,7 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
                 costOf={latencyOfPoint}
                 xAxisTitle={axisTitles.latency}
                 xHoverFormat="%{x:.0f} ms"
+                getRunColor={getRunColor}
               />
             </ChartCard>
           ),

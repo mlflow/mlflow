@@ -13,18 +13,30 @@ import { parseSweepMetrics, type SweepConfigRow } from './parseSweepMetrics';
 
 /** One swept configuration, ready to plot. */
 export interface SweepChartPoint {
-  /** Config name as the sweep logged it. */
+  /** Config name as the sweep logged it. This is the x-axis category. */
   config: string;
   /** Display label: the config name, prefixed with the run name when several runs are plotted. */
   label: string;
   runUuid: string;
+  runName: string;
   scorers: SweepConfigRow['scorersByName'];
   latency?: SweepConfigRow['latency'];
   costPerRequestUsd?: number;
 }
 
+/** The configs of one sweep run, grouped so each run can be plotted as its own series. */
+export interface SweepRunSeries {
+  runUuid: string;
+  runName: string;
+  points: SweepChartPoint[];
+}
+
 export interface SweepChartData {
   points: SweepChartPoint[];
+  /** One entry per sweep run, in the order the runs were given. */
+  runSeries: SweepRunSeries[];
+  /** Every config name seen across all plotted runs, sorted — the shared x-axis categories. */
+  configNames: string[];
   /** Every scorer seen across all plotted runs, sorted. */
   scorerNames: string[];
 }
@@ -51,31 +63,46 @@ export const buildSweepChartData = (runs: RunEntity[]): SweepChartData => {
   const prefixWithRunName = sweepRuns.length > 1;
 
   const points: SweepChartPoint[] = [];
+  const runSeries: SweepRunSeries[] = [];
+  const configNames = new Set<string>();
   const scorerNames = new Set<string>();
 
   for (const run of sweepRuns) {
     const parsed = parseSweepMetrics(metricsByKey(run));
     parsed.scorerNames.forEach((scorer) => scorerNames.add(scorer));
 
-    for (const config of parsed.configs) {
-      const runName = run.info.runName ?? run.info.runUuid;
-      points.push({
+    const runName = run.info.runName ?? run.info.runUuid;
+    const seriesPoints = parsed.configs.map((config) => {
+      configNames.add(config.config);
+      return {
         config: config.config,
         label: prefixWithRunName ? `${runName} / ${config.config}` : config.config,
         runUuid: run.info.runUuid,
+        runName,
         scorers: config.scorersByName,
         latency: config.latency,
         costPerRequestUsd: config.costPerRequestUsd,
-      });
+      };
+    });
+
+    if (seriesPoints.length > 0) {
+      runSeries.push({ runUuid: run.info.runUuid, runName, points: seriesPoints });
+      points.push(...seriesPoints);
     }
   }
 
-  return { points, scorerNames: [...scorerNames].sort((a, b) => a.localeCompare(b)) };
+  return {
+    points,
+    runSeries,
+    configNames: [...configNames].sort((a, b) => a.localeCompare(b)),
+    scorerNames: [...scorerNames].sort((a, b) => a.localeCompare(b)),
+  };
 };
 
 /** A config's score against a cost or latency axis, for the tradeoff charts. */
 export interface TradeoffPoint {
   label: string;
+  runUuid: string;
   score: number;
   ciLow?: number;
   ciHigh?: number;
@@ -103,7 +130,9 @@ export const buildTradeoffPoints = (
     if (stats?.mean === undefined || cost === undefined) {
       return [];
     }
-    return [{ label: point.label, score: stats.mean, ciLow: stats.ciLow, ciHigh: stats.ciHigh, cost }];
+    return [
+      { label: point.label, runUuid: point.runUuid, score: stats.mean, ciLow: stats.ciLow, ciHigh: stats.ciHigh, cost },
+    ];
   });
 
   return candidates.map((candidate) => ({

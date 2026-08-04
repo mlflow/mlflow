@@ -42,6 +42,8 @@ describe('buildSweepChartData', () => {
   test('returns nothing when no run is a sweep', () => {
     expect(buildSweepChartData([run('plain', undefined, { accuracy: 0.9 })])).toEqual({
       points: [],
+      runSeries: [],
+      configNames: [],
       scorerNames: [],
     });
   });
@@ -82,6 +84,38 @@ describe('buildSweepChartData', () => {
     expect(points[0].label).toBe('gpt-4o');
   });
 
+  test('groups points into one series per sweep run', () => {
+    const { runSeries } = buildSweepChartData([
+      sweepRun('sweep-1', TWO_CONFIG_METRICS),
+      sweepRun('sweep-2', { 'gpt-4o/correctness/mean': 0.8 }),
+    ]);
+
+    // One series per run is what lets each run be coloured and legended separately.
+    expect(runSeries.map((series) => series.runName)).toEqual(['sweep-1', 'sweep-2']);
+    expect(runSeries[0].points).toHaveLength(2);
+    expect(runSeries[1].points).toHaveLength(1);
+  });
+
+  test('collects config names as shared x-axis categories', () => {
+    const { configNames } = buildSweepChartData([
+      sweepRun('sweep-1', { 'gpt-4o/correctness/mean': 0.9, 'llama/correctness/mean': 0.6 }),
+      // 'claude' appears only in the second run; every config still gets an axis slot.
+      sweepRun('sweep-2', { 'gpt-4o/correctness/mean': 0.8, 'claude/correctness/mean': 0.85 }),
+    ]);
+
+    expect(configNames).toEqual(['claude', 'gpt-4o', 'llama']);
+  });
+
+  test('omits a sweep run whose metrics parsed to nothing', () => {
+    const { runSeries } = buildSweepChartData([
+      sweepRun('empty-sweep', { unrelated: 1 }),
+      sweepRun('sweep-1', { 'gpt-4o/correctness/mean': 0.9 }),
+    ]);
+
+    // An empty series would claim a legend entry and a colour for no plotted points.
+    expect(runSeries.map((series) => series.runName)).toEqual(['sweep-1']);
+  });
+
   test('collects scorers across runs that swept different scorers', () => {
     const { scorerNames } = buildSweepChartData([
       sweepRun('sweep-1', { 'a/safety/mean': 1 }),
@@ -97,6 +131,7 @@ describe('buildTradeoffPoints', () => {
     config: label,
     label,
     runUuid: `${label}-uuid`,
+    runName: 'sweep-1',
     scorers: { correctness: { mean } },
     costPerRequestUsd: cost,
   });
@@ -138,12 +173,14 @@ describe('buildTradeoffPoints', () => {
       config: 'no-cost',
       label: 'no-cost',
       runUuid: 'x',
+      runName: 'sweep-1',
       scorers: { correctness: { mean: 0.99 } },
     };
     const noScorer: SweepChartPoint = {
       config: 'no-scorer',
       label: 'no-scorer',
       runUuid: 'y',
+      runName: 'sweep-1',
       scorers: {},
       costPerRequestUsd: 0.001,
     };
@@ -157,6 +194,7 @@ describe('buildTradeoffPoints', () => {
       config: 'fast',
       label: 'fast',
       runUuid: 'a',
+      runName: 'sweep-1',
       scorers: { correctness: { mean: 0.7 } },
       latency: { p50: 100 },
     };
@@ -164,6 +202,7 @@ describe('buildTradeoffPoints', () => {
       config: 'slow',
       label: 'slow',
       runUuid: 'b',
+      runName: 'sweep-1',
       scorers: { correctness: { mean: 0.6 } },
       latency: { p50: 500 },
     };
