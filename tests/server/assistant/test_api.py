@@ -168,15 +168,13 @@ def make_client():
         app = FastAPI()
         app.include_router(assistant_router)
 
-        async def mock_require_localhost():
-            pass
-
-        app.dependency_overrides[_require_localhost] = mock_require_localhost
         p1 = patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider)
         p2 = patch("mlflow.server.assistant.api.list_providers", return_value=[provider])
+        p3 = patch("mlflow.server.assistant.api._is_localhost", return_value=True)
         p1.start()
         p2.start()
-        started.extend([p1, p2])
+        p3.start()
+        started.extend([p1, p2, p3])
         return TestClient(app)
 
     yield _make

@@ -421,7 +421,7 @@ async def test_astream_uses_first_model_when_unconfigured(tmp_path):
             return_value=session,
         ),
     ):
-        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        _ = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     assert calls[0]["url"] == "http://localhost:9999/v1/chat/completions"
     assert calls[0]["json"]["model"] == "model-a"
@@ -524,7 +524,7 @@ async def test_astream_yields_error_on_empty_truncated_stream(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "empty response" in errors[0].data["error"]
@@ -544,7 +544,7 @@ async def test_astream_surfaces_gateway_error_chunk(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "Rate limit exceeded" in errors[0].data["error"]
@@ -562,7 +562,7 @@ async def test_astream_error_chunk_without_message_falls_back_to_raw(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "None" not in errors[0].data["error"]
@@ -581,7 +581,7 @@ async def test_astream_productive_stream_without_terminal_is_not_flagged(provide
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     assert not any(e.type == EventType.ERROR for e in events)
     assert any(e.type == EventType.DONE for e in events)
     # Also assert the content actually streamed through — otherwise a regression that
@@ -600,7 +600,7 @@ async def test_astream_empty_stream_with_terminal_is_not_flagged(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     assert not any(e.type == EventType.ERROR for e in events)
     assert any(e.type == EventType.DONE for e in events)
 
@@ -616,7 +616,7 @@ async def test_astream_usage_only_stream_is_not_flagged(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     assert not any(e.type == EventType.ERROR for e in events)
     assert any(e.type == EventType.DONE for e in events)
 
@@ -633,7 +633,7 @@ async def test_astream_role_only_stream_is_flagged(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "empty response" in errors[0].data["error"]

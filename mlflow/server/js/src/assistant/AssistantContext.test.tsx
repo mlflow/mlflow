@@ -667,12 +667,6 @@ describe('AssistantContext — a new message supersedes a pending permission pro
 });
 
 describe('AssistantContext — provider-gated transport routing', () => {
-  beforeEach(() => {
-    // Gateway setup-completeness probes the AI Gateway endpoints; resolve it so refreshConfig
-    // doesn't throw (which would reset clientCarriesHistory). The configured model is 'm'.
-    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'm' }] } as any);
-  });
-
   it('routes the MLflow Gateway provider to the stateless fetch transport (no session_id)', async () => {
     mockGetConfig.mockResolvedValue(gatewayConfig);
     const { result } = await renderAssistant();
