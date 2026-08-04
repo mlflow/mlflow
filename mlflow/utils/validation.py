@@ -230,6 +230,11 @@ def _validate_trace_archival_repository_support(
     from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 
     artifact_repo = get_artifact_repository(location)
+    if artifact_repo is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "did not resolve to an artifact repository."
+        )
     if isinstance(artifact_repo, DatabricksArtifactRepository):
         raise MlflowException.invalid_parameter_value(
             f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
