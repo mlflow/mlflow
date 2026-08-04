@@ -64,9 +64,8 @@ class Repo:
 
 
 def _read_version(repo_root: Path) -> str:
-    # `uv version` outputs "<name> <version>", e.g. "mlflow 3.11.0"
-    output = subprocess.check_output(["uv", "version"], cwd=repo_root, text=True)
-    return output.strip().split()[-1]
+    output = subprocess.check_output(["uv", "version", "--short"], cwd=repo_root, text=True)
+    return output.strip()
 
 
 def build_docs(args: argparse.Namespace) -> None:
