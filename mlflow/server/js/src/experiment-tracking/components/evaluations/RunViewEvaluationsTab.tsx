@@ -46,7 +46,7 @@ import {
   RESULT_ASSESSMENT_NAME,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
-import { useAssistant, useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
@@ -501,7 +501,6 @@ export const RunViewEvaluationsTab = ({
   hideCompareSelector?: boolean;
 }) => {
   const runType = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value;
-  const { canUseAssistant } = useAssistant();
 
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -527,7 +526,7 @@ export const RunViewEvaluationsTab = ({
         runDisplayName={runDisplayName}
         data={artifactData}
         runTags={runTags}
-        actions={canUseAssistant ? <RunViewEvaluationAnalyzeButton runUuid={runUuid} /> : undefined}
+        actions={<RunViewEvaluationAnalyzeButton runUuid={runUuid} />}
       />
     );
   }
