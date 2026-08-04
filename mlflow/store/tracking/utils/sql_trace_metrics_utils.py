@@ -704,6 +704,8 @@ def query_metrics(
         query = query.filter(SqlTraceInfo.session_id.isnot(None))
 
     agg_column = _get_column_to_aggregate(view_type, metric_name)
+    if view_type == MetricViewType.SPANS and metric_name in _SPAN_COST_COLUMNS:
+        query = query.filter(agg_column.isnot(None))
 
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []

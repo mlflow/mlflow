@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import Query
 
 from mlflow.entities import (
     Assessment,
@@ -26,6 +27,7 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
+from mlflow.store.db import db_types
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
@@ -33,6 +35,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     _apply_filters,
     _partition_span_metric_filters,
+    query_metrics,
 )
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
@@ -69,6 +72,44 @@ def test_postgres_span_query_materializes_trace_filters_before_span_join(
     assert "WITH metric_trace_ids AS MATERIALIZED" in statement
     assert statement.index("trace_info.status") < join_position
     assert statement.index("WHERE spans.status") > join_position
+
+
+@pytest.mark.parametrize(
+    ("metric_name", "column_name"),
+    [
+        (SpanMetricKey.INPUT_COST, "input_cost"),
+        (SpanMetricKey.OUTPUT_COST, "output_cost"),
+        (SpanMetricKey.TOTAL_COST, "total_cost"),
+    ],
+)
+def test_postgres_span_cost_query_filters_null_metric_values(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    metric_name: str,
+    column_name: str,
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(str(query.statement.compile(dialect=postgresql.dialect())))
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session),
+            metric_name=metric_name,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=None,
+            filters=None,
+            time_interval_seconds=None,
+            max_results=100,
+        )
+
+    assert len(statements) == 1
+    assert f"spans.{column_name} IS NOT NULL" in statements[0]
 
 
 def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
