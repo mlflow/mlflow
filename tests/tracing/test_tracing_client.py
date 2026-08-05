@@ -706,9 +706,7 @@ def test_get_trace_resolves_uc_location_from_active_experiment():
 def test_resolve_uc_trace_id_passes_through_already_qualified_id():
     from mlflow.tracing.fluent import _resolve_uc_trace_id
 
-    with patch(
-        "mlflow.tracing.client.TracingClient._resolve_uc_trace_location"
-    ) as mock_resolve:
+    with patch("mlflow.tracing.client.TracingClient._resolve_uc_trace_location") as mock_resolve:
         assert _resolve_uc_trace_id("trace:/cat.sch.tbl/tr-abc") == "trace:/cat.sch.tbl/tr-abc"
 
     mock_resolve.assert_not_called()
@@ -718,10 +716,8 @@ def test_resolve_uc_trace_id_passes_through_when_no_uc_location():
     from mlflow.tracing.fluent import _resolve_uc_trace_id
 
     with (
-        patch(
-            "mlflow.tracing.client.TracingClient._resolve_uc_trace_location", return_value=None
-        ),
+        patch("mlflow.tracing.client.TracingClient._resolve_uc_trace_location", return_value=None),
         patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
-        patch("mlflow.tracing.client._get_store", return_value=Mock()),
+        patch("mlflow.tracing.client._get_store"),
     ):
         assert _resolve_uc_trace_id("tr-abc") == "tr-abc"
