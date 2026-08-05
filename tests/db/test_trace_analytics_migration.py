@@ -795,8 +795,8 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
         assert len(trace_dimension_updates) == expected_page_count
         for statement, executemany in trace_dimension_updates:
             assert " WHERE " in statement
-            assert " IN (" in statement
-            assert executemany is False
+            assert "REQUEST_ID =" in statement
+            assert executemany is True
 
         expected_assessment_page_count = (
             assessment_count + MIGRATION_MODULE._BATCH_SIZE - 1
