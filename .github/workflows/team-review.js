@@ -1,13 +1,13 @@
 const STATS_ISSUE_NUMBER = 19428;
 const MEMBERS = [
   "B-Step62",
-  "daniellok-db",
   "harupy",
   "kriscon-db",
-  "PattaraS",
-  "serena-ruan",
-  "TomeHirata",
   "aaronteo-db",
+  "joshuawong-db",
+  "tanghaoji",
+  "mprahl",
+  "HumairAK",
 ];
 
 async function loadStats(github, owner, repo) {

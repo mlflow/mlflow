@@ -363,6 +363,7 @@ mlflow.entities.BudgetTargetScope.to_proto
 mlflow.entities.BudgetUnit
 mlflow.entities.BudgetUnit.from_proto
 mlflow.entities.BudgetUnit.to_proto
+mlflow.entities.ConnectOptionSettings
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -728,6 +729,7 @@ mlflow.entities.mcp_server.MCPRemoteTransportType
 mlflow.entities.mcp_server.MCPServer
 mlflow.entities.mcp_server.MCPStatus
 mlflow.entities.mcp_server.MCPTool
+mlflow.entities.mcp_server_version.ConnectOptionSettings
 mlflow.entities.mcp_server_version.MCPServerVersion
 mlflow.entities.metric.Metric
 mlflow.entities.model_registry.ModelVersion
@@ -1021,6 +1023,7 @@ mlflow.genai.labeling.labeling.ReviewApp
 mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
+mlflow.genai.make_scorer_ensemble
 mlflow.genai.optimize.BasePromptOptimizer
 mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.GepaPromptOptimizer
@@ -1149,6 +1152,8 @@ mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
 mlflow.genai.scorers.UserFrustration
 mlflow.genai.scorers.UserFrustration.model_post_init
+mlflow.genai.scorers.agg_all
+mlflow.genai.scorers.agg_any
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
@@ -1284,6 +1289,11 @@ mlflow.genai.scorers.guardrails.ToxicLanguage
 mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
 mlflow.genai.scorers.list_scorers
+mlflow.genai.scorers.majority_vote
+mlflow.genai.scorers.make_scorer_ensemble
+mlflow.genai.scorers.maximum
+mlflow.genai.scorers.mean
+mlflow.genai.scorers.minimum
 mlflow.genai.scorers.phoenix.Hallucination
 mlflow.genai.scorers.phoenix.Hallucination.model_post_init
 mlflow.genai.scorers.phoenix.QA

@@ -100,7 +100,7 @@ def test_expected_tags_logged_when_using_conda():
 
 
 @pytest.mark.usefixtures("patch_user")
-@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.parametrize("use_start_run", ["0", "1"])
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
 def test_run_local_git_repo(
     local_git_repo, local_git_repo_uri, use_start_run, version, monkeypatch
@@ -170,7 +170,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
         )
 
 
-@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.parametrize("use_start_run", ["0", "1"])
 @pytest.mark.usefixtures("patch_user")
 def test_run(use_start_run):
     submitted_run = mlflow.projects.run(

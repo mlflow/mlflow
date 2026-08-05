@@ -33,6 +33,7 @@ class Annotation:
     attempts: int
     applied: bool
     note: str
+    rationale: str = ""
 
 
 def _split_nodeid(nodeid: str) -> tuple[str, list[str]] | None:
@@ -114,20 +115,26 @@ def _import_insert_line(tree: ast.Module) -> int:
     return line
 
 
-def annotate_file(path: Path, qualifiers: list[str], attempts: int, report_ref: str) -> Annotation:
+def annotate_file(
+    path: Path, qualifiers: list[str], attempts: int, report_ref: str, rationale: str = ""
+) -> Annotation:
     func = qualifiers[-1]
-    nodeid = f"{path}::{'::'.join(qualifiers)}"
+    # Use a posix path in the nodeid so it is stable across platforms (a Windows `Path`
+    # stringifies with backslashes) and renders as a clickable path in the PR body.
+    nodeid = f"{path.as_posix()}::{'::'.join(qualifiers)}"
     source = path.read_text()
     try:
         tree = ast.parse(source)
     except SyntaxError:
-        return Annotation(nodeid, str(path), func, attempts, False, "file did not parse")
+        return Annotation(nodeid, str(path), func, attempts, False, "file did not parse", rationale)
 
     node = _find_funcdef(tree, qualifiers)
     if node is None:
-        return Annotation(nodeid, str(path), func, attempts, False, "function not found")
+        return Annotation(nodeid, str(path), func, attempts, False, "function not found", rationale)
     if _already_flaky(node):
-        return Annotation(nodeid, str(path), func, attempts, False, "already marked flaky")
+        return Annotation(
+            nodeid, str(path), func, attempts, False, "already marked flaky", rationale
+        )
 
     # Insert above the first decorator if present, else above the def line. Indent from
     # the def's column (node.col_offset), NOT the decorator expression's col_offset —
@@ -149,7 +156,7 @@ def annotate_file(path: Path, qualifiers: list[str], attempts: int, report_ref: 
     if import_at is not None:
         lines.insert(import_at, "import pytest\n")
     path.write_text("".join(lines))
-    return Annotation(nodeid, str(path), func, attempts, True, "annotated")
+    return Annotation(nodeid, str(path), func, attempts, True, "annotated", rationale)
 
 
 def main() -> None:
@@ -168,12 +175,20 @@ def main() -> None:
 
     results: list[Annotation] = []
     for entry in classified:
-        verdict = entry.get("verdict", {})
+        # `or {}` (not a dict default) so an explicitly-null `verdict` is handled too —
+        # `.get(..., {})` only substitutes when the key is absent, not when it is null.
+        verdict = entry.get("verdict") or {}
         if verdict.get("action") != "annotate" or not entry.get("test"):
             continue
+        # The classifier's rationale is surfaced in the PR body so a reviewer sees *why*
+        # each test was judged a retry-safe flake. It may be missing or null in
+        # `classified.json`; coerce to a string so the report builder never sees None.
+        rationale = str(verdict.get("rationale") or "")
         split = _split_nodeid(entry["test"])
         if split is None:
-            results.append(Annotation(entry["test"], "", "", 0, False, "unparsable nodeid"))
+            results.append(
+                Annotation(entry["test"], "", "", 0, False, "unparsable nodeid", rationale)
+            )
             continue
         rel_path, qualifiers = split
         path = Path(rel_path)
@@ -183,18 +198,28 @@ def main() -> None:
         repo_root = Path.cwd().resolve()
         if not path.resolve().is_relative_to(repo_root):
             results.append(
-                Annotation(entry["test"], rel_path, qualifiers[-1], 0, False, "path outside repo")
+                Annotation(
+                    entry["test"],
+                    rel_path,
+                    qualifiers[-1],
+                    0,
+                    False,
+                    "path outside repo",
+                    rationale,
+                )
             )
             continue
         if not path.exists():
             results.append(
-                Annotation(entry["test"], rel_path, qualifiers[-1], 0, False, "file missing")
+                Annotation(
+                    entry["test"], rel_path, qualifiers[-1], 0, False, "file missing", rationale
+                )
             )
             continue
         # Default to 3 attempts when the classifier approved a retry but left `attempts`
         # null (or 0) — `or 3` covers both, since a retry with <2 attempts is a no-op.
         attempts = verdict.get("attempts") or 3
-        results.append(annotate_file(path, qualifiers, attempts, args.report_ref))
+        results.append(annotate_file(path, qualifiers, attempts, args.report_ref, rationale))
 
     applied = [r for r in results if r.applied]
     skipped = [r for r in results if not r.applied]
@@ -207,7 +232,12 @@ def main() -> None:
         lines = ["# Flaky annotations applied", ""]
         if applied:
             lines.append("Added `@pytest.mark.flaky` to:")
-            lines += [f"- `{r.nodeid}` — `attempts={r.attempts}`" for r in applied]
+            for r in applied:
+                lines.append(f"- `{r.nodeid}` — `attempts={r.attempts}`")
+                # Surface the classifier's reasoning inline so a reviewer can judge whether
+                # the retry is warranted without cross-referencing the report.
+                if r.rationale:
+                    lines.append(f"  - _Why:_ {r.rationale}")
         else:
             lines.append("No new annotations applied.")
         if skipped:

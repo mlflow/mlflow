@@ -480,6 +480,30 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
     return context.request_id
 
 
+def maybe_get_serving_request_id() -> str | None:
+    """Best-effort Databricks model-serving client request ID for the current request.
+
+    Reads the request ID from the prediction context, falling back to the ``X-Request-Id`` header
+    for streaming responses where no prediction context is active. Returns ``None`` when there is
+    no request ID rather than aborting, so callers can use it purely to key the serving buffer.
+
+    Returns ``None`` outside model serving, where a client request ID has no meaning.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
+    if not is_in_databricks_model_serving_environment():
+        return None
+
+    if request_id := maybe_get_request_id():
+        return request_id
+
+    from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY, _get_flask_request
+
+    if flask_request := _get_flask_request():
+        return flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
+    return None
+
+
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
     if context := _try_get_prediction_context():
         return context.dependencies_schemas
