@@ -35,8 +35,11 @@ describe('CompareRunPage', () => {
       return res(ctx.status(404), ctx.json({ message: 'Run was not found' }));
     }),
     searchRunsSuccess: rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
-      searchRunsRequestBodies.push(req.body as any);
-      return res(ctx.json({ runs: [] }));
+      const requestBody = req.body as { filter?: string };
+      searchRunsRequestBodies.push(requestBody);
+      // Echo back every run ID present in the filter so that none appear to be missing
+      const runUuids = Array.from(requestBody.filter?.matchAll(/'([^']+)'/g) ?? []).map(([, runUuid]) => runUuid);
+      return res(ctx.json({ runs: runUuids.map((runUuid) => ({ info: { run_uuid: runUuid } })) }));
     }),
     searchRunsFailure: rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
       return res(ctx.status(404), ctx.json({ message: 'Run was not found' }));
@@ -121,13 +124,40 @@ describe('CompareRunPage', () => {
     });
   });
 
-  test('should render error when run is not found', async () => {
+  test('should render error when the request for runs fails', async () => {
     server.resetHandlers(apiHandlers.searchRunsFailure, apiHandlers.artifactsSuccess, apiHandlers.experimentsSuccess);
     renderTestComponent();
 
     await waitFor(() => {
       expect(screen.getByText(/Run was not found/)).toBeInTheDocument();
     });
+  });
+
+  test('should render error when a compared run is missing from the search results', async () => {
+    // Searching for a run that does not exist succeeds and omits it from the results
+    server.resetHandlers(
+      rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) =>
+        res(ctx.json({ runs: [{ info: { run_uuid: 'experiment123456789_run1' } }] })),
+      ),
+      apiHandlers.artifactsSuccess,
+      apiHandlers.experimentsSuccess,
+    );
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Runs were not found: experiment123456789_run2/)).toBeInTheDocument();
+    });
+  });
+
+  test('should not request runs when there are none to compare', async () => {
+    renderTestComponent(createPageUrl({ runUuids: [] }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Comparing 0 runs from 1 experiment/i)).toBeInTheDocument();
+    });
+    // An empty `run_id IN ()` filter is rejected by the server, so no search should be made
+    expect(searchRunsRequestBodies).toHaveLength(0);
+    expect(getRunRequestCount).toBe(0);
   });
 
   test('should fetch all compared runs using a single search request', async () => {

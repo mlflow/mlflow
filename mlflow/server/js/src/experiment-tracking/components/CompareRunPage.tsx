@@ -70,6 +70,10 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
   fetchRuns() {
     const { runUuids, experimentIds } = this.props;
 
+    if (runUuids.length < 1) {
+      return [];
+    }
+
     if (runUuids.length > COMPARE_RUNS_SEARCH_RUN_LIMIT) {
       return runUuids.map((runUuid) => {
         const perRunRequestId = getUUID();
@@ -94,6 +98,18 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
           maxResults: runUuids.length,
         }),
       )
+      .then(({ value }: { value: { runs?: { info: { runUuid: string } }[] } }) => {
+        // Unlike getRunApi, searching for a run that does not exist succeeds and simply
+        // omits it from the results, so surface the missing runs as an error instead of
+        // rendering an incomplete comparison.
+        const foundRunUuids = new Set((value?.runs ?? []).map(({ info }) => info.runUuid));
+        const missingRunUuids = runUuids.filter((runUuid) => !foundRunUuids.has(runUuid));
+        if (missingRunUuids.length > 0) {
+          this.setState({
+            requestError: new Error(`Runs were not found: ${missingRunUuids.join(', ')}`),
+          });
+        }
+      })
       .catch((requestError: Error | ErrorWrapper) => {
         this.setState({ requestError });
       });
