@@ -37,17 +37,24 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
         raise MlflowException.invalid_parameter_value(
             "The `scorers` argument must be a list of scorers. If you are unsure about which "
             "scorer to use, you can specify `scorers=mlflow.genai.scorers.get_all_scorers()` "
-            "to jump start with all available built-in scorers."
+            "to jump start with all available built-in scorers, or use a preset like "
+            "`scorers=[Agent()]` for a curated set."
         )
 
     if len(scorers) == 0:
         return []
 
+    from mlflow.genai.scorers.preset import Preset
+
     valid_scorers = []
     legacy_metrics = []
 
     for scorer in scorers:
-        if isinstance(scorer, Scorer):
+        # Preset is not a Scorer subclass — check it first to expand into individual scorers.
+        if isinstance(scorer, Preset):
+            for s in scorer:
+                valid_scorers.append(s)
+        elif isinstance(scorer, Scorer):
             valid_scorers.append(scorer)
         else:
             if IS_DBX_AGENTS_INSTALLED:
