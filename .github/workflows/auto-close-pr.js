@@ -359,11 +359,12 @@ async function getPrAction({ github, context, includeReadyIssueRouting = true })
   console.log(`PR #${prNumber} is valid for ready issue #${issue.number}.`);
   if (!includeReadyIssueRouting) return {};
 
+  const issueToAssign = assigneeLogins.length === 0 ? issue.number : undefined;
   if (context.payload.pull_request.draft) {
     console.log(
       `PR #${prNumber} is draft. Deferring "${TEAM_REVIEW_LABEL}" until ready_for_review.`
     );
-    return {};
+    return { issueToAssign };
   }
 
   if (hasTeamReviewLabel) {
@@ -373,7 +374,7 @@ async function getPrAction({ github, context, includeReadyIssueRouting = true })
   // shouldAutoClose only controls enforcement. Ready-issue routing applies once
   // per valid non-bot PR, including maintainers and Databricks authors.
   return {
-    issueToAssign: assigneeLogins.length === 0 ? issue.number : undefined,
+    issueToAssign,
     addTeamReview: !hasTeamReviewLabel,
   };
 }
