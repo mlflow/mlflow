@@ -188,7 +188,7 @@ export class Span implements ISpan {
         new SpanLink({
           traceId: link.traceId,
           spanId: link.spanId,
-          attributes: link.attributes ? { ...link.attributes } : undefined,
+          attributes: { ...link.attributes },
         }),
     );
   }
@@ -400,7 +400,7 @@ export class LiveSpan extends Span {
       new SpanLink({
         traceId: link.traceId,
         spanId: link.spanId,
-        attributes: link.attributes ? { ...link.attributes } : undefined,
+        attributes: { ...link.attributes },
       }),
     );
   }

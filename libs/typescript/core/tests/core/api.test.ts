@@ -2,6 +2,7 @@ import { MlflowClient } from '../../src/clients';
 import * as mlflow from '../../src';
 import { SpanType } from '../../src/core/constants';
 import { LiveSpan } from '../../src/core/entities/span';
+import { SpanLink } from '../../src/core/entities/span_link';
 import { SpanStatus, SpanStatusCode } from '../../src/core/entities/span_status';
 import { TraceState } from '../../src/core/entities/trace_state';
 import { convertHrTimeToMs } from '../../src/core/utils';
@@ -77,12 +78,18 @@ describe('API', () => {
     });
 
     it('should create a span with other options', async () => {
+      const link = new SpanLink({
+        traceId: 'tr-0123456789abcdef0123456789abcdef',
+        spanId: '0123456789abcdef',
+        attributes: { relationship: 'triggered_by' },
+      });
       const span = mlflow.startSpan({
         name: 'test-span',
         spanType: SpanType.LLM,
         inputs: { prompt: 'Hello, world!' },
         attributes: { model: 'gpt-4' },
         startTimeNs: 1e9, // 1 second
+        links: [link],
       });
       span.end({
         outputs: { response: 'Hello, world!' },
@@ -110,6 +117,10 @@ describe('API', () => {
       expect(loggedSpan.endTime?.[0]).toBe(3);
       expect(loggedSpan.endTime?.[1]).toBe(0);
       expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
+      expect(loggedSpan.links).toHaveLength(1);
+      expect(loggedSpan.links[0].traceId).toBe('tr-0123456789abcdef0123456789abcdef');
+      expect(loggedSpan.links[0].spanId).toBe('0123456789abcdef');
+      expect(loggedSpan.links[0].attributes).toEqual({ relationship: 'triggered_by' });
     });
 
     it('should create a span with an exception', async () => {
