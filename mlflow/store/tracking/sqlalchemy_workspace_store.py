@@ -131,7 +131,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlAssessmentDailyRollup,
             SqlTraceRollupRebuild,
         ):
-            return query.filter(model.workspace == workspace)
+            return query.join(
+                SqlExperiment, model.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
 
         if model is SqlLabelSchema:
             return query.join(

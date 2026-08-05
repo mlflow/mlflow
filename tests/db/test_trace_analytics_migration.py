@@ -10,7 +10,6 @@ from alembic import command
 from sqlalchemy import event
 
 from mlflow.store.db.utils import _get_alembic_config
-from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracing.constant import (
     CostKey,
@@ -19,7 +18,6 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 REVISION = "75868b020152"
 PREVIOUS_REVISION = "a8b9c0d1e2f3"
@@ -378,15 +376,12 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             "sql_assessment_daily_rollups",
             "sql_trace_rollup_rebuild_queue",
         ):
-            workspace_column = next(
-                column
-                for column in inspector.get_columns(table_name)
-                if column["name"] == "workspace"
-            )
-            workspace_type = workspace_column["type"]
-            assert isinstance(workspace_type, sa.String)
-            assert workspace_type.length == 63
-            assert workspace_column["nullable"] is False
+            assert "workspace" not in {
+                column["name"] for column in inspector.get_columns(table_name)
+            }
+        assert inspector.get_pk_constraint("sql_trace_rollup_rebuild_queue")[
+            "constrained_columns"
+        ] == ["experiment_id", "rollup_day", "rollup_family"]
 
         span_indexes = _index_columns(inspector, "spans")
         assert span_indexes["idx_spans_cost_trace_time_cover"] == [
@@ -427,7 +422,6 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             "sql_trace_metric_daily_rollups": (
                 "idx_trace_rollups_lookup",
                 [
-                    "workspace",
                     "experiment_id",
                     "rollup_day",
                     "metric_name",
@@ -438,7 +432,6 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             "sql_span_cost_daily_rollups": (
                 "idx_span_cost_rollups_lookup",
                 [
-                    "workspace",
                     "experiment_id",
                     "rollup_day",
                     "metric_name",
@@ -449,7 +442,7 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             ),
             "sql_assessment_daily_rollups": (
                 "idx_assessment_rollups_lookup",
-                ["workspace", "experiment_id", "rollup_day", "metric_name", "grouping_set"],
+                ["experiment_id", "rollup_day", "metric_name", "grouping_set"],
             ),
         }
         for table_name, (index_name, columns) in rollup_indexes.items():
@@ -523,7 +516,6 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
 
         with engine.begin() as conn:
             common_rollup_values = {
-                "workspace": "team-a",
                 "experiment_id": 1,
                 "rollup_day": date(2026, 7, 22),
                 "metric_name": "total_cost",
@@ -540,60 +532,22 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
                 _table(conn, "sql_trace_rollup_rebuild_queue")
                 .insert()
                 .values(
-                    workspace="team-a",
                     experiment_id=1,
                     rollup_day=date(2026, 7, 22),
                     rollup_family="trace_metrics",
                 )
             )
-
-            defaulted_rollup_values = {
-                key: value for key, value in common_rollup_values.items() if key != "workspace"
-            }
-            defaulted_rollup_values["experiment_id"] = 2
             for table_name in (
                 "sql_trace_metric_daily_rollups",
                 "sql_span_cost_daily_rollups",
                 "sql_assessment_daily_rollups",
+                "sql_trace_rollup_rebuild_queue",
             ):
-                table = _table(conn, table_name)
-                conn.execute(table.insert().values(**defaulted_rollup_values))
                 assert (
                     conn.execute(
-                        sa.select(table.c.workspace).where(table.c.experiment_id == 2)
+                        sa.select(sa.func.count()).select_from(_table(conn, table_name))
                     ).scalar_one()
-                    == DEFAULT_WORKSPACE_NAME
-                )
-                conn.execute(table.delete().where(table.c.experiment_id == 2))
-
-            rebuild_queue = _table(conn, "sql_trace_rollup_rebuild_queue")
-            conn.execute(
-                rebuild_queue.insert().values(
-                    experiment_id=2,
-                    rollup_day=date(2026, 7, 22),
-                    rollup_family="trace_metrics",
-                )
-            )
-            assert (
-                conn.execute(
-                    sa.select(rebuild_queue.c.workspace).where(rebuild_queue.c.experiment_id == 2)
-                ).scalar_one()
-                == DEFAULT_WORKSPACE_NAME
-            )
-            conn.execute(rebuild_queue.delete().where(rebuild_queue.c.experiment_id == 2))
-
-        moved = migrate_to_default_workspace(engine)
-        for table_name in (
-            "sql_trace_metric_daily_rollups",
-            "sql_span_cost_daily_rollups",
-            "sql_assessment_daily_rollups",
-            "sql_trace_rollup_rebuild_queue",
-        ):
-            assert moved[table_name] == 1
-            with engine.connect() as conn:
-                assert (
-                    conn.execute(sa.select(_table(conn, table_name).c.workspace)).scalar_one()
-                    == "default"
+                    == 1
                 )
     finally:
         engine.dispose()

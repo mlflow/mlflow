@@ -921,12 +921,6 @@ class SqlTraceMetricDailyRollup(Base):
     __tablename__ = "sql_trace_metric_daily_rollups"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
-    workspace = Column(
-        String(63),
-        nullable=False,
-        default=DEFAULT_WORKSPACE_NAME,
-        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
-    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -944,7 +938,6 @@ class SqlTraceMetricDailyRollup(Base):
         PrimaryKeyConstraint("id", name="sql_trace_metric_daily_rollups_pk"),
         Index(
             "idx_trace_rollups_lookup",
-            "workspace",
             "experiment_id",
             "rollup_day",
             "metric_name",
@@ -958,12 +951,6 @@ class SqlSpanCostDailyRollup(Base):
     __tablename__ = "sql_span_cost_daily_rollups"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
-    workspace = Column(
-        String(63),
-        nullable=False,
-        default=DEFAULT_WORKSPACE_NAME,
-        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
-    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -979,7 +966,6 @@ class SqlSpanCostDailyRollup(Base):
         PrimaryKeyConstraint("id", name="sql_span_cost_daily_rollups_pk"),
         Index(
             "idx_span_cost_rollups_lookup",
-            "workspace",
             "experiment_id",
             "rollup_day",
             "metric_name",
@@ -995,12 +981,6 @@ class SqlAssessmentDailyRollup(Base):
     __tablename__ = "sql_assessment_daily_rollups"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
-    workspace = Column(
-        String(63),
-        nullable=False,
-        default=DEFAULT_WORKSPACE_NAME,
-        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
-    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -1014,7 +994,6 @@ class SqlAssessmentDailyRollup(Base):
         PrimaryKeyConstraint("id", name="sql_assessment_daily_rollups_pk"),
         Index(
             "idx_assessment_rollups_lookup",
-            "workspace",
             "experiment_id",
             "rollup_day",
             "metric_name",
@@ -1026,19 +1005,12 @@ class SqlAssessmentDailyRollup(Base):
 class SqlTraceRollupRebuild(Base):
     __tablename__ = "sql_trace_rollup_rebuild_queue"
 
-    workspace = Column(
-        String(63),
-        nullable=False,
-        default=DEFAULT_WORKSPACE_NAME,
-        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
-    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     rollup_family = Column(String(50), nullable=False)
 
     __table_args__ = (
         PrimaryKeyConstraint(
-            "workspace",
             "experiment_id",
             "rollup_day",
             "rollup_family",

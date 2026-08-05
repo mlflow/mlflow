@@ -44,15 +44,6 @@ _COST_COLUMNS = {
 }
 
 
-def _workspace_column():
-    return sa.Column(
-        "workspace",
-        sa.String(length=63),
-        nullable=False,
-        server_default=sa.text("'default'"),
-    )
-
-
 def upgrade():
     _validate_required_trace_joins()
     _add_analytics_columns()
@@ -197,7 +188,6 @@ def _create_rollup_tables():
             autoincrement=True,
             nullable=False,
         ),
-        _workspace_column(),
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("rollup_day", sa.Date(), nullable=False),
         sa.Column("metric_name", sa.String(length=250), nullable=False),
@@ -220,7 +210,6 @@ def _create_rollup_tables():
             autoincrement=True,
             nullable=False,
         ),
-        _workspace_column(),
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("rollup_day", sa.Date(), nullable=False),
         sa.Column("metric_name", sa.String(length=250), nullable=False),
@@ -241,7 +230,6 @@ def _create_rollup_tables():
             autoincrement=True,
             nullable=False,
         ),
-        _workspace_column(),
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("rollup_day", sa.Date(), nullable=False),
         sa.Column("metric_name", sa.String(length=250), nullable=False),
@@ -254,12 +242,10 @@ def _create_rollup_tables():
     )
     op.create_table(
         "sql_trace_rollup_rebuild_queue",
-        _workspace_column(),
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("rollup_day", sa.Date(), nullable=False),
         sa.Column("rollup_family", sa.String(length=50), nullable=False),
         sa.PrimaryKeyConstraint(
-            "workspace",
             "experiment_id",
             "rollup_day",
             "rollup_family",
@@ -273,7 +259,6 @@ def _create_analytics_indexes():
         "idx_trace_rollups_lookup",
         "sql_trace_metric_daily_rollups",
         [
-            "workspace",
             "experiment_id",
             "rollup_day",
             "metric_name",
@@ -285,7 +270,6 @@ def _create_analytics_indexes():
         "idx_span_cost_rollups_lookup",
         "sql_span_cost_daily_rollups",
         [
-            "workspace",
             "experiment_id",
             "rollup_day",
             "metric_name",
@@ -298,7 +282,7 @@ def _create_analytics_indexes():
     op.create_index(
         "idx_assessment_rollups_lookup",
         "sql_assessment_daily_rollups",
-        ["workspace", "experiment_id", "rollup_day", "metric_name", "grouping_set"],
+        ["experiment_id", "rollup_day", "metric_name", "grouping_set"],
     )
 
     span_index_options = {}

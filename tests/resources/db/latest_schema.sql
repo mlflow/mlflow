@@ -143,7 +143,6 @@ CREATE TABLE secrets (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -158,7 +157,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -175,7 +173,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -193,11 +190,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) NOT NULL,
-	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 

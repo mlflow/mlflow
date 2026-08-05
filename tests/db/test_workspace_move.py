@@ -172,34 +172,34 @@ def test_move_all_experiments_no_filter(tracking_store, workspace_store, engine)
     assert result.row_count >= 2
 
 
-def test_move_experiment_cascades_to_analytics_tables(tracking_store, workspace_store, engine):
+def test_move_experiment_preserves_inherited_analytics_ownership(
+    tracking_store, workspace_store, engine
+):
     _create_workspace(workspace_store, "team-a")
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         moved_experiment_id = int(tracking_store.create_experiment("move-exp"))
         retained_experiment_id = int(tracking_store.create_experiment("retain-exp"))
 
     rollup_day = date(2026, 7, 27)
-    rollup_tables = (
-        SqlTraceMetricDailyRollup.__table__,
-        SqlSpanCostDailyRollup.__table__,
-        SqlAssessmentDailyRollup.__table__,
+    rollup_models = (
+        SqlTraceMetricDailyRollup,
+        SqlSpanCostDailyRollup,
+        SqlAssessmentDailyRollup,
     )
-    rebuild_queue = SqlTraceRollupRebuild.__table__
+    analytics_models = (*rollup_models, SqlTraceRollupRebuild)
     with engine.begin() as conn:
         for experiment_id in (moved_experiment_id, retained_experiment_id):
             values = {
-                "workspace": DEFAULT_WORKSPACE_NAME,
                 "experiment_id": experiment_id,
                 "rollup_day": rollup_day,
                 "metric_name": "total_cost",
                 "grouping_set": "global",
                 "sample_count": 1,
             }
-            for table in rollup_tables:
-                conn.execute(table.insert().values(**values))
+            for model in rollup_models:
+                conn.execute(model.__table__.insert().values(**values))
             conn.execute(
-                rebuild_queue.insert().values(
-                    workspace=DEFAULT_WORKSPACE_NAME,
+                SqlTraceRollupRebuild.__table__.insert().values(
                     experiment_id=experiment_id,
                     rollup_day=rollup_day,
                     rollup_family="trace_metrics",
@@ -216,12 +216,14 @@ def test_move_experiment_cascades_to_analytics_tables(tracking_store, workspace_
     )
     assert dry_run_result.names == ["move-exp"]
     with engine.connect() as conn:
-        for table in (*rollup_tables, rebuild_queue):
+        for model in analytics_models:
             assert (
                 conn.execute(
-                    sa.select(table.c.workspace).where(table.c.experiment_id == moved_experiment_id)
+                    sa.select(sa.func.count()).where(
+                        model.experiment_id.in_([moved_experiment_id, retained_experiment_id])
+                    )
                 ).scalar_one()
-                == DEFAULT_WORKSPACE_NAME
+                == 2
             )
 
     result = move_resources(
@@ -234,22 +236,15 @@ def test_move_experiment_cascades_to_analytics_tables(tracking_store, workspace_
 
     assert result.names == ["move-exp"]
     assert result.row_count == 1
-    with engine.connect() as conn:
-        for table in (*rollup_tables, rebuild_queue):
-            workspaces = dict(
-                conn.execute(
-                    sa.select(table.c.experiment_id, table.c.workspace).where(
-                        table.c.experiment_id.in_([
-                            moved_experiment_id,
-                            retained_experiment_id,
-                        ])
-                    )
-                ).all()
-            )
-            assert workspaces == {
-                moved_experiment_id: "team-a",
-                retained_experiment_id: DEFAULT_WORKSPACE_NAME,
-            }
+    for workspace, expected_experiment_id in (
+        ("team-a", moved_experiment_id),
+        (DEFAULT_WORKSPACE_NAME, retained_experiment_id),
+    ):
+        with WorkspaceContext(workspace):
+            with tracking_store.ManagedSessionMaker() as session:
+                for model in analytics_models:
+                    rows = tracking_store._get_query(session, model).all()
+                    assert [row.experiment_id for row in rows] == [expected_experiment_id]
 
 
 # ---------------------------------------------------------------------------

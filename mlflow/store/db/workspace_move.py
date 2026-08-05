@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 
 from mlflow.store.db.workspace_utils import (
-    EXPERIMENT_WORKSPACE_CHILD_TABLES,
     MODEL_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
@@ -75,10 +74,6 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
         name_column=SqlExperiment.name.key,
         tag_model=SqlExperimentTag,
         tag_join_column=SqlExperimentTag.experiment_id.key,
-        keyed_child_tables=tuple(
-            (table_name, SqlExperiment.experiment_id.key)
-            for table_name in EXPERIMENT_WORKSPACE_CHILD_TABLES
-        ),
     ),
     SqlRegisteredModel: _ResourceSpec(
         model=SqlRegisteredModel,

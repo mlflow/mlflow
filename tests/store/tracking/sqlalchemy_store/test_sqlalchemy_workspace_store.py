@@ -149,10 +149,16 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, db_uri, monke
     ],
 )
 def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, model):
-    def create_row(workspace):
+    experiment_ids = {}
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            experiment_ids[workspace] = int(
+                workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            )
+
+    def create_row(experiment_id):
         values = {
-            "workspace": workspace,
-            "experiment_id": 1,
+            "experiment_id": experiment_id,
             "rollup_day": date(2026, 1, 1),
         }
         if model is SqlTraceRollupRebuild:
@@ -162,13 +168,13 @@ def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, mode
         return model(**values)
 
     with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
-        session.add_all([create_row("team-a"), create_row("team-b")])
+        session.add_all(create_row(experiment_id) for experiment_id in experiment_ids.values())
 
     for workspace in ("team-a", "team-b"):
         with WorkspaceContext(workspace):
             with workspace_tracking_store.ManagedSessionMaker() as session:
                 rows = workspace_tracking_store._get_query(session, model).all()
-                assert [row.workspace for row in rows] == [workspace]
+                assert [row.experiment_id for row in rows] == [experiment_ids[workspace]]
 
 
 def test_experiments_are_workspace_scoped(workspace_tracking_store):
