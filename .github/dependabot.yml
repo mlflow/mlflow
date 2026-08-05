@@ -21,6 +21,8 @@ updates:
       # Batch low-risk bumps into a single PR, and leave major bumps on their
       # own so a CI failure points at one action.
       actions-minor:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
