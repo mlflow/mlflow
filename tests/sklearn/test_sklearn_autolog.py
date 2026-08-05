@@ -1839,18 +1839,20 @@ def test_autolog_pos_label_used_for_training_metric():
     assert training_metrics == expected_training_metrics
 
 
+@pytest.mark.skipif(
+    not _is_plotting_supported(),
+    reason="`_get_classifier_artifacts` returns no artifacts when plotting is unsupported",
+)
 def test_get_classifier_artifacts_respects_pos_label():
     X = np.array([[1, 0], [0, 1], [1, 0], [1, 1], [1, 1], [1, 2]])
-    y = np.array(
-        [
-            "Negative_label",
-            "Negative_label",
-            "Negative_label",
-            "Negative_label",
-            "Positive_label",
-            "Positive_label",
-        ]
-    )
+    y = np.array([
+        "Negative_label",
+        "Negative_label",
+        "Negative_label",
+        "Negative_label",
+        "Positive_label",
+        "Positive_label",
+    ])
     model = sklearn.linear_model.LogisticRegression()
     model.fit(X, y)
 
@@ -1861,27 +1863,24 @@ def test_get_classifier_artifacts_respects_pos_label():
     assert roc_artifact.arguments["pos_label"] == "Positive_label"
     assert pr_artifact.arguments["pos_label"] == "Positive_label"
 
-    if _is_plotting_supported():
-        roc_artifact.function(**roc_artifact.arguments)
-        plt.close()
-        pr_artifact.function(**pr_artifact.arguments)
-        plt.close()
+    roc_artifact.function(**roc_artifact.arguments)
+    plt.close()
+    pr_artifact.function(**pr_artifact.arguments)
+    plt.close()
 
 
 def test_autolog_pos_label_used_for_classifier_artifact_curves():
     mlflow.sklearn.autolog(pos_label="Positive_label")
 
     X = np.array([[1, 0], [0, 1], [1, 0], [1, 1], [1, 1], [1, 2]])
-    y = np.array(
-        [
-            "Negative_label",
-            "Negative_label",
-            "Negative_label",
-            "Negative_label",
-            "Positive_label",
-            "Positive_label",
-        ]
-    )
+    y = np.array([
+        "Negative_label",
+        "Negative_label",
+        "Negative_label",
+        "Negative_label",
+        "Positive_label",
+        "Positive_label",
+    ])
     model = sklearn.linear_model.LogisticRegression()
 
     with mlflow.start_run() as run:
