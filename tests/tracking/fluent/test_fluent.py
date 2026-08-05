@@ -2464,6 +2464,16 @@ def test_log_model_updates_active_run_outputs():
         model_ids = _get_model_ids_for_new_metric_if_exist(active, 0)
         assert model_ids == [model_info.model_id]
 
+        # Logging a second model should append to the existing outputs (the
+        # else branch), not overwrite them
+        model_info_2 = mlflow.pyfunc.log_model(name="model_2", python_model=Model())
+
+        assert len(active.outputs.model_outputs) == 2
+        assert active.outputs.model_outputs[1].model_id == model_info_2.model_id
+
+        model_ids = _get_model_ids_for_new_metric_if_exist(active, 0)
+        assert model_ids == [model_info.model_id, model_info_2.model_id]
+
 
 def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
     # Create an experiment with a tag
