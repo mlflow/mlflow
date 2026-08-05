@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 def evaluate(
     data: "EvaluationDatasetTypes",
-    scorers: list[Scorer],
+    scorers: list[Scorer] | None = None,
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
 ) -> "EvaluationResult":
@@ -217,6 +217,27 @@ def evaluate(
             scorers=[Safety()],
         )
 
+    **4. Run different scorers on different rows.**
+
+    A `scorers` column names extra scorers to run on that row alone. Names must refer to
+    built-in scorers or scorers registered to the experiment. The `scorers` argument still
+    applies to every row, and may be omitted when every scorer is declared per row.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import Correctness
+
+        mlflow.genai.evaluate(
+            data=[
+                # Graded by Correctness and Safety.
+                {"inputs": {...}, "expectations": {...}, "scorers": ["safety"]},
+                # Graded by Correctness only.
+                {"inputs": {...}, "expectations": {...}},
+            ],
+            scorers=[Correctness()],
+        )
+
     Args:
         data: Dataset for the evaluation. Must be one of the following formats:
 
@@ -261,10 +282,15 @@ def evaluate(
             Optional columns:
                 - tags (optional): Column containing a dictionary of tags. The tags will be logged
                                    to the respective traces.
+                - scorers (optional): Column containing a list of scorer names to run on that
+                                      row only, in addition to the `scorers` argument. Each name
+                                      must be a built-in scorer or a scorer registered to the
+                                      experiment.
 
         scorers: A list of Scorer objects that produces evaluation scores from
             inputs, outputs, and other additional contexts. MLflow provides pre-defined
-            scorers, but you can also define custom ones.
+            scorers, but you can also define custom ones. Optional when every scorer is
+            declared per row via the `scorers` column.
 
         predict_fn: The target function to be evaluated. The specified function will be
             executed for each row in the input dataset, and outputs will be used for

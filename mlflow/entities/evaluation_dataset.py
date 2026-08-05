@@ -8,7 +8,7 @@ from mlflow.data import Dataset
 from mlflow.data.evaluation_dataset_source import EvaluationDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record import DatasetRecord, fold_record_scorers_into_tags
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
@@ -227,6 +227,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
                 - List of Trace objects
 
+                A record may also carry a 'scorers' list naming scorers to run on that
+                record alone during evaluation. Only names are accepted, and each must
+                refer to a built-in scorer or a scorer registered to the experiment.
+
         Returns:
             Self for method chaining
 
@@ -266,6 +270,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             record_dicts = records
 
         self._validate_record_dicts(record_dicts)
+
+        fold_record_scorers_into_tags(record_dicts)
 
         self._infer_source_types(record_dicts)
 

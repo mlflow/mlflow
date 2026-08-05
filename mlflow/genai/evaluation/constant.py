@@ -34,6 +34,7 @@ class InputDatasetColumn:
     TAGS = "tags"
     TRACE = "trace"
     SOURCE = "source"
+    SCORERS = "scorers"
 
 
 # Result Dataframe column names

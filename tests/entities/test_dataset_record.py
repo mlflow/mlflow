@@ -2,8 +2,14 @@ import json
 
 import pytest
 
-from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record import (
+    DATASET_RECORD_SCORERS_TAG,
+    DatasetRecord,
+    fold_record_scorers_into_tags,
+    validate_record_scorer_names,
+)
 from mlflow.entities.dataset_record_source import DatasetRecordSource
+from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import DatasetRecord as ProtoDatasetRecord
 from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
@@ -463,3 +469,88 @@ def test_dataset_record_complex_inputs():
 
     assert record3.inputs == complex_data
     assert record3.expectations == record.expectations
+
+
+def _record(**kwargs) -> DatasetRecord:
+    return DatasetRecord(
+        dataset_id="dataset123",
+        dataset_record_id="rec123",
+        inputs={"question": "What is MLflow?"},
+        created_time=123456789,
+        last_update_time=123456789,
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    ("tag_value", "expected"),
+    [
+        ("safety", ["safety"]),
+        ("safety,correctness", ["safety", "correctness"]),
+        ("safety , correctness", ["safety", "correctness"]),
+        ("", []),
+        (None, []),
+    ],
+)
+def test_dataset_record_scorers_property(tag_value: str | None, expected: list[str]):
+    tags = {} if tag_value is None else {DATASET_RECORD_SCORERS_TAG: tag_value}
+    assert _record(tags=tags).scorers == expected
+
+
+def test_dataset_record_scorers_property_without_tags():
+    assert _record().scorers == []
+
+
+def test_fold_record_scorers_into_tags():
+    records = [
+        {"inputs": {"q": "a"}, "scorers": ["safety", "correctness"]},
+        {"inputs": {"q": "b"}, "tags": {"team": "search"}, "scorers": ["safety"]},
+        {"inputs": {"q": "c"}},
+    ]
+
+    fold_record_scorers_into_tags(records)
+
+    assert records == [
+        {"inputs": {"q": "a"}, "tags": {DATASET_RECORD_SCORERS_TAG: "safety,correctness"}},
+        {
+            "inputs": {"q": "b"},
+            "tags": {"team": "search", DATASET_RECORD_SCORERS_TAG: "safety"},
+        },
+        {"inputs": {"q": "c"}},
+    ]
+
+
+@pytest.mark.parametrize("empty", [[], None, float("nan")])
+def test_fold_record_scorers_into_tags_drops_empty_scorers(empty):
+    records = [{"inputs": {"q": "a"}, "scorers": empty}]
+
+    fold_record_scorers_into_tags(records)
+
+    assert records == [{"inputs": {"q": "a"}}]
+
+
+def test_fold_record_scorers_into_tags_replaces_nan_tags():
+    records = [{"inputs": {"q": "a"}, "tags": float("nan"), "scorers": ["safety"]}]
+
+    fold_record_scorers_into_tags(records)
+
+    assert records == [
+        {"inputs": {"q": "a"}, "tags": {DATASET_RECORD_SCORERS_TAG: "safety"}},
+    ]
+
+
+def test_validate_record_scorer_names_rejects_bare_string():
+    with pytest.raises(MlflowException, match=r"got the string 'safety'"):
+        validate_record_scorer_names("safety")
+
+
+def test_validate_record_scorer_names_rejects_non_list():
+    with pytest.raises(MlflowException, match=r"must be a list of scorer names, got dict"):
+        validate_record_scorer_names({"name": "safety"})
+
+
+def test_validate_record_scorer_names_rejects_scorer_object():
+    from mlflow.genai.scorers import Safety
+
+    with pytest.raises(MlflowException, match=r"Pass the scorer's registered name"):
+        validate_record_scorer_names([Safety()])
