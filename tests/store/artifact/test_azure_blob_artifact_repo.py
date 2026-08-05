@@ -570,3 +570,19 @@ def test_delete_artifacts_folder_with_nested_folders_and_files(mock_client):
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_3.name)
+
+
+def test_delete_artifacts_does_not_delete_sibling_prefix_artifacts(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+
+    blob_foo = BlobProperties()
+    blob_foo.name = posixpath.join(TEST_ROOT_PATH, "foo/file1")
+    blob_foobar = BlobProperties()
+    blob_foobar.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+
+    mock_client.get_container_client().list_blobs.return_value = [blob_foo, blob_foobar]
+
+    repo.delete_artifacts("foo")
+
+    mock_client.get_container_client().delete_blob.assert_called_once_with(blob_foo.name)
+

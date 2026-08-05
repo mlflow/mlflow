@@ -546,3 +546,29 @@ def test_retryable_log_artifacts(throw, tmp_path):
             gcs_refreshed_bucket_mock.blob.assert_not_called()
             mock_gcs_client_factory.assert_not_called()
             mock_gcs_credentials_factory.assert_not_called()
+
+
+def test_delete_artifacts_does_not_delete_sibling_prefix_artifacts():
+    gcs_client_mock = mock.Mock()
+    gcs_bucket_mock = mock.Mock()
+    gcs_client_mock.bucket.return_value = gcs_bucket_mock
+
+    blob_foo = mock.Mock(name="blob_foo")
+    blob_foo.name = "root/foo/file.txt"
+
+    blob_foobar = mock.Mock(name="blob_foobar")
+    blob_foobar.name = "root/foobar/keep.txt"
+
+    gcs_bucket_mock.list_blobs.return_value = [blob_foo, blob_foobar]
+
+    repo = GCSArtifactRepository(
+        artifact_uri="gs://test_bucket/root",
+        client=gcs_client_mock,
+    )
+
+    repo.delete_artifacts("foo")
+
+    gcs_bucket_mock.list_blobs.assert_called_once_with(prefix="root/foo")
+    blob_foo.delete.assert_called_once()
+    blob_foobar.delete.assert_not_called()
+

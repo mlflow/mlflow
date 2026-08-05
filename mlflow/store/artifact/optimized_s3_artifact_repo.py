@@ -23,7 +23,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     _validate_chunk_size_aws,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
-from mlflow.utils.file_utils import read_chunk
+from mlflow.utils.file_utils import is_subpath_or_equal, read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
@@ -337,7 +337,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     @staticmethod
     def _verify_listed_object_contains_artifact_path_prefix(listed_object_path, artifact_path):
-        if not listed_object_path.startswith(artifact_path):
+        if not is_subpath_or_equal(listed_object_path, artifact_path):
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
@@ -395,10 +395,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             keys = []
             for to_delete_obj in result.get("Contents", []):
                 file_path = to_delete_obj.get("Key")
-                self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=file_path, artifact_path=dest_path
-                )
-                keys.append({"Key": file_path})
+                if is_subpath_or_equal(file_path, dest_path):
+                    self._verify_listed_object_contains_artifact_path_prefix(
+                        listed_object_path=file_path, artifact_path=dest_path
+                    )
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=self.bucket,

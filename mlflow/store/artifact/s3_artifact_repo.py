@@ -34,7 +34,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
 )
-from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.file_utils import is_subpath_or_equal, relative_path_to_artifact_path
 
 _logger = logging.getLogger(__name__)
 
@@ -503,7 +503,7 @@ class S3ArtifactRepository(
 
     @staticmethod
     def _verify_listed_object_contains_artifact_path_prefix(listed_object_path, artifact_path):
-        if not listed_object_path.startswith(artifact_path):
+        if not is_subpath_or_equal(listed_object_path, artifact_path):
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
@@ -544,10 +544,11 @@ class S3ArtifactRepository(
             keys = []
             for to_delete_obj in result.get("Contents", []):
                 file_path = to_delete_obj.get("Key")
-                self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=file_path, artifact_path=dest_path
-                )
-                keys.append({"Key": file_path})
+                if is_subpath_or_equal(file_path, dest_path):
+                    self._verify_listed_object_contains_artifact_path_prefix(
+                        listed_object_path=file_path, artifact_path=dest_path
+                    )
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=bucket, Delete={"Objects": keys}, **self._bucket_owner_params

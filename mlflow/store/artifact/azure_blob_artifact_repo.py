@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.credentials import get_default_host_creds
+from mlflow.utils.file_utils import is_subpath_or_equal
 
 
 def encode_base64(data: str | bytes) -> str:
@@ -221,9 +222,10 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         try:
             blobs = container_client.list_blobs(name_starts_with=dest_path)
-            blob_list = list(blobs)
+            blob_list = [b for b in blobs if is_subpath_or_equal(b.name, dest_path)]
             if not blob_list:
                 raise MlflowException(f"No such file or directory: '{dest_path}'")
 

@@ -325,3 +325,17 @@ def test_refresh_credentials():
             region_name="us-west-2",
             s3_endpoint_url=None,
         )
+
+
+def test_delete_artifacts_does_not_delete_sibling_prefix_artifacts(s3_artifact_root, mock_s3_bucket):
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "root"))
+    s3_client = repo._get_s3_client()
+    s3_client.put_object(Bucket=mock_s3_bucket, Key="root/foo/file.txt", Body=b"FOO")
+    s3_client.put_object(Bucket=mock_s3_bucket, Key="root/foobar/keep.txt", Body=b"KEEP")
+
+    repo.delete_artifacts("foo")
+
+    artifacts = [obj.path for obj in repo.list_artifacts()]
+    assert "foo" not in artifacts
+    assert "foobar" in artifacts
+

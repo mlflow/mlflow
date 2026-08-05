@@ -390,3 +390,19 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
         with pytest.raises(MlflowException, match="would be extracted outside"):
             _safe_extractall(tar, dest)
     assert not (tmp_path.parent / "pwned.txt").exists()
+
+
+def test_is_subpath_or_equal():
+    from mlflow.utils.file_utils import is_subpath_or_equal
+
+    assert is_subpath_or_equal("root/foo/file.txt", "root/foo")
+    assert is_subpath_or_equal("root/foo", "root/foo")
+    assert is_subpath_or_equal("root/foo/bar/file.txt", "root/foo")
+    assert is_subpath_or_equal("root/foo/file.txt", "")
+    assert is_subpath_or_equal("root/foo/file.txt", "root/")
+
+    # Sibling path cases (must return False)
+    assert not is_subpath_or_equal("root/foobar/keep.txt", "root/foo")
+    assert not is_subpath_or_equal("root/foo_bar.txt", "root/foo")
+    assert not is_subpath_or_equal("root_sibling/file.txt", "root/")
+

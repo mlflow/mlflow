@@ -420,6 +420,19 @@ def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
+def is_subpath_or_equal(path: str, target_path: str) -> bool:
+    """
+    Check if `path` is equal to `target_path` or is a subpath (child) of `target_path`.
+    Enforces posix path boundaries ('/') to prevent matching sibling paths that share a prefix.
+    """
+    path = path.lstrip("/")
+    target_path = target_path.lstrip("/")
+    if not target_path or target_path.endswith("/"):
+        return path.startswith(target_path)
+    return path == target_path or path.startswith(target_path + "/")
+
+
+
 def relative_path_to_artifact_path(path):
     if os.path == posixpath:
         return path

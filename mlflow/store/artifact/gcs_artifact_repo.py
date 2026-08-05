@@ -23,6 +23,7 @@ from mlflow.store.artifact.artifact_repo import (
     _retry_with_new_creds,
 )
 from mlflow.utils import get_installed_version
+from mlflow.utils.file_utils import is_subpath_or_equal
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -186,10 +187,12 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         gcs_bucket = self._get_bucket(bucket_name)
         blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
         for blob in blobs:
-            blob.delete()
+            if is_subpath_or_equal(blob.name, dest_path):
+                blob.delete()
 
     @staticmethod
     def _validate_support_mpu():
