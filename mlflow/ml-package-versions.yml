@@ -1004,8 +1004,10 @@ haystack:
       uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.4.0"
-    maximum: "2.31.0"
+    maximum: "3.0.0"
     requirements:
+      # `OpenTelemetryTracer` moved out of the core package in haystack 3.0
+      ">= 3.0.0": ["opentelemetry-haystack"]
     run: pytest tests/haystack
     test_tracing_sdk: true
     test_every_n_versions: 10

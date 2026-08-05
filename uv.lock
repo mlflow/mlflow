@@ -2588,12 +2588,11 @@ wheels = [
 
 [[package]]
 name = "haystack-ai"
-version = "2.31.0"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
     { name = "filetype" },
-    { name = "haystack-experimental" },
     { name = "httpx" },
     { name = "jinja2" },
     { name = "jsonschema" },
@@ -2614,21 +2613,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0b/92/0fcbe75e0e9e2884e0f346d35ad59650804c116c562e7f0862d229d80394/haystack_ai-2.31.0.tar.gz", hash = "sha256:e9fc0ae5d651bd2d92b54f08cd77ed501dbbdbaf0c7abc1d4392ebe2f01d3332", size = 510990, upload-time = "2026-07-08T11:34:38.818Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/74/f5b82c7bd90345abfff69a76445ee63e9b42f362303946a97bfd5cf49e08/haystack_ai-3.0.0.tar.gz", hash = "sha256:c948a337e7a53d9bc47f3c08c2ad5e52ca6bd44956ad6d9e3512209a056493b4", size = 469683, upload-time = "2026-07-20T12:07:00.615Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/d3/4ad026476f10bcc4922046f29ad9c1018369c1fda305089a412de5fc1fc3/haystack_ai-2.31.0-py3-none-any.whl", hash = "sha256:f4387e691152778370d7b1dbcc12ef0f04fb5be4b01d6993719849a1c5dcdb3f", size = 734435, upload-time = "2026-07-08T11:34:37.203Z" },
-]
-
-[[package]]
-name = "haystack-experimental"
-version = "0.19.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "haystack-ai" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/71/a3/02eb86716f4856072feb852555f2d23855bb20c993264dcf4e83dfe87a8a/haystack_experimental-0.19.0.tar.gz", hash = "sha256:194f9074f9184a20d2f4efa7b5082dd33118bc886f87937d13e33616cd549067", size = 45328, upload-time = "2026-02-05T08:31:33.862Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/c4/6719e1b03b72ab31729b556a47fe3df1ab7fa233b1d01182f0c5ddadfda6/haystack_experimental-0.19.0-py3-none-any.whl", hash = "sha256:ebe1691a4b8d06f934bad792ff95fb4b6858a2ae08f08519e9cf35b7b439b4bd", size = 63150, upload-time = "2026-02-05T08:31:34.683Z" },
+    { url = "https://files.pythonhosted.org/packages/89/3f/fa387315618f0c2dcac7178b781476363b7b9edbb0e02c23eb5a60a2392d/haystack_ai-3.0.0-py3-none-any.whl", hash = "sha256:523718f200b27e11c8e33acf29fc8608c2f9951a0877eedf11bf838d06abff05", size = 656076, upload-time = "2026-07-20T12:06:58.875Z" },
 ]
 
 [[package]]
@@ -4237,6 +4224,7 @@ docs = [
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
+    { name = "opentelemetry-haystack" },
     { name = "plotly" },
     { name = "polars" },
     { name = "pyspark" },
@@ -4422,13 +4410,14 @@ docs = [
     { name = "datasets" },
     { name = "deepeval" },
     { name = "flask-wtf", specifier = "<2" },
-    { name = "haystack-ai", specifier = "<3" },
+    { name = "haystack-ai" },
     { name = "instructor" },
     { name = "keras" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
+    { name = "opentelemetry-haystack" },
     { name = "plotly" },
     { name = "polars", specifier = ">=1" },
     { name = "pyspark" },
@@ -5274,6 +5263,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl", hash = "sha256:838592fce774c1c8bb7b9a0a7facbfa82e17be5a8a4e94cef10cb84ae026bae3", size = 21850, upload-time = "2026-07-16T15:25:20.006Z" },
+]
+
+[[package]]
+name = "opentelemetry-haystack"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "haystack-ai" },
+    { name = "opentelemetry-sdk" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/7f/4ed8ca4e56b077ec6a52e7dc9bf62317c47bf0bc0f71de8f786bc58cd95c/opentelemetry_haystack-1.0.0.tar.gz", hash = "sha256:e09ec8edd48c28cc20a1fb6234fd733740bef3a44155c9fb3cd51f31eae23ddd", size = 10967, upload-time = "2026-06-23T13:06:52.375Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/77/6c1140542dae1689f93ffc922b571fd0f08a12a50450157445d4e0c0643a/opentelemetry_haystack-1.0.0-py3-none-any.whl", hash = "sha256:e507c4499b27ca93f8f74aff35d8a6fbfe5832f43182a659bfc789bcfffb20a9", size = 9948, upload-time = "2026-06-23T13:06:51.263Z" },
 ]
 
 [[package]]
