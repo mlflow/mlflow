@@ -30,7 +30,7 @@ function SpanLinkEntry({
   const { theme } = useDesignSystemTheme();
 
   const title = (
-    <Tooltip componentId="mlflow.model_trace_explorer.span_link.tooltip" content={`span_id: ${link.span_id}`}>
+    <Tooltip componentId="mlflow.model_trace_explorer.span_link.tooltip" content={`Destination span: ${link.span_id}`}>
       {href ? (
         <Link
           componentId="mlflow.model_trace_explorer.span_link"

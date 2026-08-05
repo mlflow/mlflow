@@ -130,9 +130,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
         <Tabs.Trigger value="events">
           Events {hasException && <ModelTraceExplorerBadge count={exceptionCount} />}
         </Tabs.Trigger>
-        {activeSpan.links && activeSpan.links.length > 0 && (
-          <Tabs.Trigger value="links">Links</Tabs.Trigger>
-        )}
+        <Tabs.Trigger value="links">Links</Tabs.Trigger>
         {displayReadOnlyAssessments && (
           <Tabs.Trigger value="assessments">
             <FormattedMessage
