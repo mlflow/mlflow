@@ -15,9 +15,15 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
+from mlflow.protos.databricks_pb2 import (
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+    UNAUTHENTICATED,
+)
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter, _is_auth_failure
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -292,6 +298,30 @@ def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
     mock_logger.error.assert_called()
     error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
     assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_auth"),
+    [
+        # A rejected credential is identified by its structured error code.
+        (MlflowException("nope", error_code=UNAUTHENTICATED), True),
+        (MlflowException("nope", error_code=PERMISSION_DENIED), True),
+        # A status-like number inside an unrelated message is not an auth failure.
+        (
+            MlflowException(
+                "No Experiment with id=403 exists",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ),
+            False,
+        ),
+        (Exception("RESOURCE_DOES_NOT_EXIST: No Experiment with id=401 exists"), False),
+        # Credential failures raised before any HTTP status still match by phrase.
+        (Exception("default auth: cannot configure default credentials, token refresh"), True),
+        (Exception("Invalid access token"), True),
+    ],
+)
+def test_is_auth_failure_uses_error_codes_not_bare_numbers(exc, expected_auth):
+    assert _is_auth_failure(exc) is expected_auth
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")

@@ -12,7 +12,7 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
-from mlflow.exceptions import RestException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -32,23 +32,36 @@ from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
-# Substrings that identify an authentication or credential failure in an export
-# exception. A dropped trace from one of these is worth an ERROR, not a WARNING,
-# because the fix is a user re-auth rather than a transient retry.
+# HTTP statuses that mean the caller's credential was rejected.
+_AUTH_FAILURE_STATUS_CODES = (401, 403)
+
+# Phrases that identify a credential failure raised before any HTTP status exists,
+# such as a local credential provider that cannot build a token at all. These are
+# auth-specific wordings, not bare numbers, so they cannot match an unrelated
+# message that happens to contain a status-like substring.
 _AUTH_FAILURE_MARKERS = (
     "token refresh",
     "unauthorized",
-    "401",
-    "403",
     "invalid access token",
-    "expired",
+    "expired token",
+    "credentials have expired",
     "could not identify databricks workspace configuration",
     "default auth",
 )
 
 
 def _is_auth_failure(exc: Exception) -> bool:
-    """Best-effort check for an auth or credential failure in an export exception."""
+    """Check for an auth or credential failure in an export exception.
+
+    A dropped trace from an auth failure is worth an ERROR rather than a WARNING,
+    because the fix is a user re-auth rather than a transient retry. Numeric
+    statuses are read from the exception's structured error code, so an unrelated
+    message such as ``RESOURCE_DOES_NOT_EXIST: No Experiment with id=403 exists``
+    is not misreported as an authentication problem.
+    """
+    if isinstance(exc, MlflowException):
+        if exc.get_http_status_code() in _AUTH_FAILURE_STATUS_CODES:
+            return True
     return any(marker in str(exc).lower() for marker in _AUTH_FAILURE_MARKERS)
 
 
