@@ -51,7 +51,19 @@ def test_analytics_columns_from_metadata_converts_integral_token_counts():
         "output_tokens": 50,
         "total_tokens": 150,
         "cache_read_input_tokens": None,
-        "cache_creation_input_tokens": None,
+    }
+
+
+def test_analytics_columns_from_metadata_only_converts_present_keys():
+    metadata = {
+        TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": None}),
+        TraceMetadataKey.COST: json.dumps({"input_cost": "invalid", "total_cost": 0.3}),
+    }
+
+    assert analytics_columns_from_metadata(metadata) == {
+        "total_tokens": None,
+        "input_cost": None,
+        "total_cost": 0.3,
     }
 
 

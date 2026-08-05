@@ -181,8 +181,16 @@ def test_legacy_trace_v2_writes_reserved_fields_to_authoritative_columns(
         timestamp_ms=1234,
         request_metadata={
             TraceMetadataKey.TRACE_SESSION: "session-1",
-            TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 10}),
-            TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.1}),
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                TokenUsageKey.INPUT_TOKENS: 4,
+                TokenUsageKey.OUTPUT_TOKENS: 6,
+                TokenUsageKey.TOTAL_TOKENS: 10,
+            }),
+            TraceMetadataKey.COST: json.dumps({
+                CostKey.INPUT_COST: 0.04,
+                CostKey.OUTPUT_COST: 0.06,
+                CostKey.TOTAL_COST: 0.1,
+            }),
         },
         tags={TraceTagKey.TRACE_NAME: "initial-name"},
     )
@@ -201,17 +209,25 @@ def test_legacy_trace_v2_writes_reserved_fields_to_authoritative_columns(
     assert trace_info.tags[TraceTagKey.TRACE_NAME] == "final-name"
     assert trace_info.request_metadata[TraceMetadataKey.TRACE_SESSION] == "session-1"
     assert json.loads(trace_info.request_metadata[TraceMetadataKey.TOKEN_USAGE]) == {
-        "total_tokens": 20
+        TokenUsageKey.INPUT_TOKENS: 4,
+        TokenUsageKey.OUTPUT_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 20,
     }
     assert json.loads(trace_info.request_metadata[TraceMetadataKey.COST]) == {
-        CostKey.TOTAL_COST: 0.2
+        CostKey.INPUT_COST: 0.04,
+        CostKey.OUTPUT_COST: 0.06,
+        CostKey.TOTAL_COST: 0.2,
     }
 
     with store.ManagedSessionMaker() as session:
         sql_trace_info = session.get(SqlTraceInfo, trace_info.request_id)
         assert sql_trace_info.trace_name == "final-name"
         assert sql_trace_info.session_id == "session-1"
+        assert sql_trace_info.input_tokens == 4
+        assert sql_trace_info.output_tokens == 6
         assert sql_trace_info.total_tokens == 20
+        assert sql_trace_info.input_cost == 0.04
+        assert sql_trace_info.output_cost == 0.06
         assert sql_trace_info.total_cost == 0.2
         assert (
             session
@@ -5955,8 +5971,10 @@ def test_start_trace_merge_preserves_authoritative_trace_name_when_omitted(
         assert session.get(SqlTraceInfo, trace_id).trace_name == "existing-name"
 
 
-def test_start_trace_merge_replaces_authoritative_token_columns(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_merge_replaces_authoritative_token_columns")
+def test_start_trace_merge_preserves_omitted_authoritative_analytics_columns(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_analytics_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"
     loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
     ts = get_current_time_millis()
@@ -5975,7 +5993,11 @@ def test_start_trace_merge_replaces_authoritative_token_columns(store: SqlAlchem
                     "output_tokens": 20,
                     "total_tokens": 30,
                 }),
-                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.3}),
+                TraceMetadataKey.COST: json.dumps({
+                    CostKey.INPUT_COST: 0.1,
+                    CostKey.OUTPUT_COST: 0.2,
+                    CostKey.TOTAL_COST: 0.3,
+                }),
             },
         )
     )
@@ -5992,7 +6014,8 @@ def test_start_trace_merge_replaces_authoritative_token_columns(store: SqlAlchem
                 TraceMetadataKey.TOKEN_USAGE: json.dumps({
                     "total_tokens": 110,
                     "cache_read_input_tokens": 5,
-                })
+                }),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.4}),
             },
         )
     )
@@ -6001,19 +6024,21 @@ def test_start_trace_merge_replaces_authoritative_token_columns(store: SqlAlchem
 
     with store.ManagedSessionMaker() as session:
         sql_trace_info = session.get(SqlTraceInfo, trace_id)
-        assert sql_trace_info.input_tokens is None
-        assert sql_trace_info.output_tokens is None
+        assert sql_trace_info.input_tokens == 10
+        assert sql_trace_info.output_tokens == 20
         assert sql_trace_info.total_tokens == 110
         assert sql_trace_info.cache_read_input_tokens == 5
         assert sql_trace_info.session_id == "existing-session"
-        assert sql_trace_info.total_cost == 0.3
+        assert sql_trace_info.input_cost == 0.1
+        assert sql_trace_info.output_cost == 0.2
+        assert sql_trace_info.total_cost == 0.4
         assert (
             session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
             == 0
         )
 
 
-def test_start_trace_merge_preserves_inferred_analytics_for_omitted_metadata(
+def test_start_trace_merge_preserves_inferred_analytics_for_partial_metadata(
     store: SqlAlchemyStore,
 ) -> None:
     experiment_id = store.create_experiment("test_merge_preserves_inferred_analytics")
@@ -6052,7 +6077,11 @@ def test_start_trace_merge_preserves_inferred_analytics_for_omitted_metadata(
             request_time=get_current_time_millis(),
             execution_duration=100,
             state=TraceStatus.OK,
-            trace_metadata={"custom-metadata": "custom-value"},
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({TokenUsageKey.TOTAL_TOKENS: 10}),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.4}),
+                "custom-metadata": "custom-value",
+            },
         )
     )
 
@@ -6060,12 +6089,12 @@ def test_start_trace_merge_preserves_inferred_analytics_for_omitted_metadata(
     assert result.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 3,
         TokenUsageKey.OUTPUT_TOKENS: 2,
-        TokenUsageKey.TOTAL_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 10,
     }
     assert result.cost == {
         CostKey.INPUT_COST: 0.1,
         CostKey.OUTPUT_COST: 0.2,
-        CostKey.TOTAL_COST: 0.3,
+        CostKey.TOTAL_COST: 0.4,
     }
     assert result.trace_metadata["custom-metadata"] == "custom-value"
 

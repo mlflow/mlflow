@@ -75,14 +75,16 @@ def analytics_columns_from_metadata(
     if TraceMetadataKey.TOKEN_USAGE in metadata:
         token_usage = _json_object(metadata[TraceMetadataKey.TOKEN_USAGE])
         columns.update({
-            column: token_count_or_none(token_usage.get(key))
+            column: token_count_or_none(token_usage[key])
             for key, column in TOKEN_COLUMN_BY_KEY.items()
+            if key in token_usage
         })
     if TraceMetadataKey.COST in metadata:
         cost = _json_object(metadata[TraceMetadataKey.COST])
         columns.update({
-            column: finite_float_or_none(cost.get(key))
+            column: finite_float_or_none(cost[key])
             for key, column in COST_COLUMN_BY_KEY.items()
+            if key in cost
         })
     return columns
 
