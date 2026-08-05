@@ -89,8 +89,18 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
 
 
 def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
+    # An annotated tag's ref points at the tag object, not the commit that `uses:` pins.
+    # The peeled ref 'refs/tags/<tag>^{}' holds that commit, but `ls-remote` only emits
+    # it when a pattern matches it, so ask for both (lightweight tags match the first).
     proc = subprocess.run(
-        ["git", "ls-remote", "--tags", f"https://github.com/{repo}.git", tag],
+        [
+            "git",
+            "ls-remote",
+            "--tags",
+            f"https://github.com/{repo}.git",
+            tag,
+            f"{tag}^{{}}",
+        ],
         capture_output=True,
         text=True,
         timeout=_LS_REMOTE_TIMEOUT,
