@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785869969296,
+  "lastUpdate": 1785896565636,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18467,6 +18467,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.32759999999746,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "128332426+adamgurary@users.noreply.github.com",
+            "name": "adamgurary",
+            "username": "adamgurary"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd7c7f0f41034f7d29bd114a7e6e233d90f9b159",
+          "message": "Do not hard-fail `is_flavor_supported_for_associated_package_versions` when flavor module is not installed (#24846)\n\nSigned-off-by: Adam Gurary <guraryadam@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
+          "timestamp": "2026-08-05T10:21:24+08:00",
+          "tree_id": "daea4421dc1b45f0169da3873daef648c97d6d61",
+          "url": "https://github.com/mlflow/mlflow/commit/fd7c7f0f41034f7d29bd114a7e6e233d90f9b159"
+        },
+        "date": 1785896563384,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.69708789999942,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.408049538461678,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.462635646258419,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.401927929202512,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.852220820312448,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.680057999994915,
             "unit": "ms"
           }
         ]
