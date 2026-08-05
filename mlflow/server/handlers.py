@@ -87,7 +87,7 @@ from mlflow.exceptions import (
     _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
-from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
@@ -324,10 +324,6 @@ from mlflow.store.artifact.artifact_repo import (
     StreamUploadMixin,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.mlflow_artifacts_repo import (
-    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
-    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
-)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -382,6 +378,13 @@ from mlflow.utils.providers import (
     get_all_providers,
     get_models,
     get_provider_config_response,
+)
+from mlflow.utils.server_info import (
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_STORE_TYPE,
+    SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -2625,9 +2628,20 @@ def _log_model():
     return response
 
 
-def _wrap_response(response_message):
+def _wrap_response(
+    response_message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
     response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
+    response.set_data(
+        message_to_json(
+            response_message,
+            pretty=pretty,
+            convert_int64_to_number=convert_int64_to_number,
+        )
+    )
     return response
 
 
@@ -3950,6 +3964,19 @@ def _get_presigned_download_url(artifact_path):
 # MLflow Tracing APIs
 
 
+def _wrap_trace_info_response(response_message):
+    # JSON whitespace is not part of the API contract, so compact output reduces serialization
+    # work and payload size for trace-info responses, which can contain up to 500 traces per page.
+    # TraceInfo uses Timestamp/Duration messages, and assessment times use Timestamp, so these
+    # responses contain no raw int64 fields. Complete trace responses still use the default
+    # conversion because span start/end times are fixed64 nanosecond values.
+    return _wrap_response(
+        response_message,
+        pretty=False,
+        convert_int64_to_number=False,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _start_trace_v3():
@@ -3963,7 +3990,7 @@ def _start_trace_v3():
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3975,7 +4002,7 @@ def _get_trace_info_v3(trace_id):
     """
     trace_info = _get_tracking_store().get_trace_info(trace_id)
     response_message = GetTraceInfoV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3992,7 +4019,7 @@ def _batch_get_traces() -> Response:
     traces = _get_tracking_store().batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4005,7 +4032,7 @@ def _batch_get_trace_infos() -> Response:
     trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -4025,7 +4052,7 @@ def _get_trace() -> Response:
     allow_partial = request_message.allow_partial
     trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4064,7 +4091,7 @@ def _search_traces_v3():
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
         response_message.next_page_token = token
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -6304,6 +6331,28 @@ def _delete_gateway_endpoint_tag():
 # =============================================================================
 
 
+_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT,)
+
+
+def _validate_budget_target_scope(target_scope, target_value):
+    """Validate the target_value / target_scope relationship for budget policies.
+
+    ENDPOINT-scoped policies must carry a ``target_value`` (the ID of the endpoint
+    to match); policies with any other scope must not.
+    """
+    if target_scope in _TARGETED_BUDGET_SCOPES:
+        if not target_value:
+            raise MlflowException(
+                message=f"target_value is required when target_scope is {target_scope.value}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif target_value:
+        raise MlflowException(
+            message="target_value can only be set when target_scope is ENDPOINT.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_budget_policy():
@@ -6316,6 +6365,7 @@ def _create_budget_policy():
             "target_scope": [_assert_required],
             "budget_action": [_assert_required],
             "created_by": [_assert_string],
+            "target_value": [_assert_string],
         },
     )
     budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
@@ -6348,6 +6398,8 @@ def _create_budget_policy():
             message=f"Invalid budget_action: {request_message.budget_action}",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    target_value = request_message.target_value or None
+    _validate_budget_target_scope(target_scope, target_value)
     store = _get_tracking_store()
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
@@ -6356,6 +6408,7 @@ def _create_budget_policy():
         target_scope=target_scope,
         budget_action=budget_action,
         created_by=request_message.created_by or None,
+        target_value=target_value,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)
@@ -6389,6 +6442,7 @@ def _update_budget_policy():
         schema={
             "budget_policy_id": [_assert_required, _assert_string],
             "updated_by": [_assert_string],
+            "target_value": [_assert_string],
         },
     )
     budget_unit = None
@@ -6430,7 +6484,23 @@ def _update_budget_policy():
                 message=f"Invalid budget_action: {request_message.budget_action}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+    target_value_provided = request_message.HasField("target_value")
+    target_value = (request_message.target_value or None) if target_value_provided else None
     store = _get_tracking_store()
+    # Validate the *effective* scope/target_value after the partial update is applied,
+    # so clients that echo back the current scope (or update target_value alone on an
+    # ENDPOINT policy) are not rejected, while updates that would produce an ENDPOINT
+    # policy without a target_value (a silently non-enforcing policy) still are. A
+    # target only carries over within the same scope, so switching scope requires an
+    # explicit new target_value.
+    if target_scope is not None or target_value_provided:
+        existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
+        effective_scope = target_scope if target_scope is not None else existing.target_scope
+        inherited_target = (
+            existing.target_value if effective_scope == existing.target_scope else None
+        )
+        effective_target = target_value if target_value_provided else inherited_target
+        _validate_budget_target_scope(effective_scope, effective_target)
     policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
@@ -6441,6 +6511,7 @@ def _update_budget_policy():
         target_scope=target_scope,
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
+        target_value=target_value,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)
@@ -6510,7 +6581,14 @@ def _list_budget_windows():
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
     if workspace is not None:
-        windows = [w for w in windows if _policy_applies(w.policy, workspace)]
+        # GLOBAL policies are always shown; WORKSPACE/ENDPOINT policies are shown
+        # only for the requesting workspace (ENDPOINT policies still carry an
+        # owning workspace even though enforcement matches on endpoint_id).
+        windows = [
+            w
+            for w in windows
+            if w.policy.target_scope == BudgetTargetScope.GLOBAL or w.policy.workspace == workspace
+        ]
     response_message = ListGatewayBudgetWindows.Response()
     for w in windows:
         window_msg = ListGatewayBudgetWindows.BudgetWindow(
@@ -6732,9 +6810,9 @@ def _get_server_info():
             )
 
     return jsonify({
-        "store_type": store_type,
-        "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-        "trace_archival_enabled": trace_archival_enabled,
+        SERVER_INFO_STORE_TYPE: store_type,
+        SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
+        SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
     })

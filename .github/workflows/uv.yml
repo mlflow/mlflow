@@ -89,10 +89,10 @@ jobs:
             echo "Updating existing PR #$NUMBER on branch $BRANCH"
             git push --force origin "HEAD:$BRANCH"
             gh pr edit "$NUMBER" --body-file /tmp/pr-body.md
-            gh pr merge "$NUMBER" --auto
+            gh pr merge "$NUMBER" --auto --squash
           else
             BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
             git push origin "HEAD:$BRANCH"
             PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review)
-            gh pr merge "$PR_URL" --auto
+            gh pr merge "$PR_URL" --auto --squash
           fi

@@ -70,12 +70,14 @@ class InMemoryBudgetTracker(BudgetTracker):
         self,
         cost_usd: float,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
         Args:
             cost_usd: The cost in USD to record.
             workspace: The workspace the request was made from.
+            endpoint_id: The gateway endpoint the request was routed to.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
@@ -94,7 +96,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                     window.cumulative_spend = 0.0
                     window.exceeded = False
 
-                if not _policy_applies(window.policy, workspace):
+                if not _policy_applies(window.policy, workspace, endpoint_id):
                     continue
 
                 window.cumulative_spend += cost_usd
@@ -108,11 +110,13 @@ class InMemoryBudgetTracker(BudgetTracker):
     def should_reject_request(
         self,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
             workspace: The workspace to check against.
+            endpoint_id: The gateway endpoint to check against.
 
         Returns:
             Tuple of (exceeded, window). If exceeded is True, window is the
@@ -125,7 +129,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                 if now >= window.window_end:
                     continue
 
-                if not _policy_applies(window.policy, workspace):
+                if not _policy_applies(window.policy, workspace, endpoint_id):
                     continue
 
                 if window.policy.budget_action != BudgetAction.REJECT:

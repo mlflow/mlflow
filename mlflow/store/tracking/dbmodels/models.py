@@ -306,7 +306,9 @@ class SqlRun(Base):
 
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name="source_type"),
-        CheckConstraint(status.in_(RunStatusTypes), name="status"),
+        # Historical migrations generate this SQLite CHECK constraint without a stable name.
+        # Keep ORM metadata aligned with that schema so Alembic autogenerate sees no drift.
+        CheckConstraint(status.in_(RunStatusTypes)),
         CheckConstraint(
             lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
             name="runs_lifecycle_stage",
@@ -766,7 +768,9 @@ class SqlTraceInfo(Base):
     Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     Named as "trace_id" in V3 format.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -3018,7 +3022,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3049,10 +3053,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
+    target_value = Column(String(255), nullable=True)
+    """
+    Target the policy applies to: `String` (limit 255 characters). Interpreted per
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
+    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
+        Index("idx_budget_policies_target_value", "target_value"),
     )
 
     def __repr__(self):
@@ -3074,6 +3085,7 @@ class SqlGatewayBudgetPolicy(Base):
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
+            target_value=self.target_value,
         )
 
 

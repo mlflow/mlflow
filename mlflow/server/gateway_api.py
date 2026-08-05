@@ -669,7 +669,7 @@ async def invocations(endpoint_name: str, request: Request):
                 output_reducer=aggregate_chat_stream_chunks,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
+                on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
             )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -704,7 +704,9 @@ async def invocations(endpoint_name: str, request: Request):
                     user_metadata,
                     request_headers=headers,
                     request_type=GatewayRequestType.UNIFIED_CHAT,
-                    on_complete=make_budget_on_complete(store, workspace),
+                    on_complete=make_budget_on_complete(
+                        store, workspace, endpoint_config.endpoint_id
+                    ),
                 )(payload)
             except GuardrailViolation as e:
                 raise HTTPException(status_code=400, detail=str(e))
@@ -727,7 +729,7 @@ async def invocations(endpoint_name: str, request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )(payload)
 
     else:
@@ -803,7 +805,7 @@ async def chat_completions(request: Request):
             output_reducer=aggregate_chat_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )(payload)
         return StreamingResponse(
             safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -838,7 +840,7 @@ async def chat_completions(request: Request):
                 user_metadata,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
+                on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
             )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -903,7 +905,7 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -934,7 +936,7 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -990,7 +992,7 @@ async def openai_passthrough_embeddings(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
-        on_complete=make_budget_on_complete(store, workspace),
+        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
     )
     # Post-LLM guardrails are skipped for embeddings: responses are float vectors
     # that content judges cannot meaningfully evaluate.
@@ -1054,7 +1056,7 @@ async def _openai_responses_passthrough_unary(
             user_metadata,
             request_headers=headers,
             request_type=request_type,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )(body)
     except GuardrailViolation as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1122,7 +1124,7 @@ async def openai_passthrough_responses(request: Request):
             output_reducer=aggregate_openai_responses_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -1240,7 +1242,7 @@ async def anthropic_passthrough_messages(request: Request):
             output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
             message_format="anthropic",
         )
         return StreamingResponse(
@@ -1272,7 +1274,7 @@ async def anthropic_passthrough_messages(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
             message_format="anthropic",
         )(body)
     except GuardrailViolation as e:
@@ -1342,7 +1344,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-            on_complete=make_budget_on_complete(store, workspace),
+            on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
             message_format="gemini",
         )(body)
     except GuardrailViolation as e:
@@ -1410,7 +1412,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-        on_complete=make_budget_on_complete(store, workspace),
+        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
         message_format="gemini",
     )
     return StreamingResponse(
@@ -1503,7 +1505,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.RAW_PROXY,
-        on_complete=make_budget_on_complete(store, workspace),
+        on_complete=make_budget_on_complete(store, workspace, endpoint_config.endpoint_id),
     )
 
     gen = traced_proxy(body)
