@@ -21,12 +21,14 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Trigger conditions:
-    # - pull_request: skip fork PRs (no access to secrets)
+    # - pull_request: skip fork PRs and Dependabot PRs (neither can read secrets;
+    #   Dependabot branches live in this repo, so the fork check alone misses them)
     # - issue_comment: only maintainers can trigger via `/title` on PRs or issues
     if: >
       (
         github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.user.login != 'dependabot[bot]'
       )
       || (
         startsWith(github.event.comment.body, '/title')
