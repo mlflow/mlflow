@@ -97,7 +97,7 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
@@ -386,14 +386,14 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 2.99999,
-        "output_per_million_tokens": 15.00002,
-        "cache_write_per_million_tokens": 3.74999,
-        "cache_read_per_million_tokens": 0.3
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_write_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
