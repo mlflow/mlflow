@@ -73,9 +73,7 @@ function SpanLinkEntry({
               searchFilter={searchFilter}
               activeMatch={activeMatch}
               containsActiveMatch={
-                isActiveMatchSpan &&
-                activeMatch?.section === 'links' &&
-                activeMatch.key === getLinkFieldKey(index, key)
+                isActiveMatchSpan && activeMatch?.section === 'links' && activeMatch.key === getLinkFieldKey(index, key)
               }
               initialRenderMode={CodeSnippetRenderMode.TEXT}
             />
