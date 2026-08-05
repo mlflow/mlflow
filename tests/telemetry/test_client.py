@@ -1249,16 +1249,14 @@ def test_databricks_sdk_not_warmed_up_when_db_sdk_disabled(in_databricks_runtime
     mock_import.assert_not_called()
 
 
-# TEMPORARY: disabled while the `_IS_MLFLOW_DEV_VERSION` gate in `_warm_up_databricks_sdk`
-# is commented out for dev-build testing. Restore both together.
-# def test_databricks_sdk_not_warmed_up_for_dev_versions(in_databricks_runtime):
-#     with (
-#         mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
-#         mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
-#     ):
-#         _warm_up_databricks_sdk()
-#
-#     mock_import.assert_not_called()
+def test_databricks_sdk_not_warmed_up_for_dev_versions(in_databricks_runtime):
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+    ):
+        _warm_up_databricks_sdk()
+
+    mock_import.assert_not_called()
 
 
 def test_databricks_sdk_warm_up_continues_past_import_errors(in_databricks_runtime):

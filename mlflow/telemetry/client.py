@@ -534,7 +534,7 @@ def _warm_up_databricks_sdk() -> None:
     if (
         not _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.get()
         or not _IS_IN_DATABRICKS
-        # or _IS_MLFLOW_DEV_VERSION
+        or _IS_MLFLOW_DEV_VERSION
         or not MLFLOW_ENABLE_DB_SDK.get()
     ):
         return
