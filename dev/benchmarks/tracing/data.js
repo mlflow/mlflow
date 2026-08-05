@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785903874915,
+  "lastUpdate": 1785909528082,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -18575,6 +18575,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 27.181927199998768,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "80279913+alkispoly-db@users.noreply.github.com",
+            "name": "Alkis Polyzotis",
+            "username": "alkispoly-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "edd6d31a4bdbde0b6fd799391fe8bdfa454a5eb0",
+          "message": "Add scorer_ensemble primitive for combining scorer results (#24749)\n\nSigned-off-by: Alkis Polyzotis <alkis.polyzotis@databricks.com>\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>\nCo-authored-by: Samraj Moorjani <samraj.moorjani@databricks.com>",
+          "timestamp": "2026-08-05T05:57:17Z",
+          "tree_id": "602df44b7ac338ded89643a00fa6ffbd6df92ce8",
+          "url": "https://github.com/mlflow/mlflow/commit/edd6d31a4bdbde0b6fd799391fe8bdfa454a5eb0"
+        },
+        "date": 1785909526313,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.98913454999678,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.490876142857514,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.645483006994104,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.761208869160132,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.9460573508764565,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.254302000001189,
             "unit": "ms"
           }
         ]
