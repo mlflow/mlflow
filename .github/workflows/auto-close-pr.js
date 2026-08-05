@@ -77,18 +77,70 @@ function getTemplateHeadings() {
   }
 }
 
-function hasIssueReference(body) {
-  if (!body) return false;
+function stripCodeReferences(body) {
   // Strip fenced and inline code blocks so references mentioned inside code
   // samples don't count.
-  const stripped = body
+  return (body || "")
     .replace(/```[\s\S]*?```/g, "")
     .replace(/~~~[\s\S]*?~~~/g, "")
     .replace(/`[^`\n]*`/g, "");
+}
+
+const ISSUE_REF_PATTERN =
+  "(?:[\\w.-]+\\/[\\w.-]+)?#\\d+|https?:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+\\/(?:issues|pull)\\/\\d+";
+
+function getIssueReferences(body) {
+  const references = new Set();
   // Match `#123`, `owner/repo#123`, or an issue/PR URL.
-  const shortRef = /(?:[\w.-]+\/[\w.-]+)?#\d+/;
-  const urlRef = /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/;
-  return shortRef.test(stripped) || urlRef.test(stripped);
+  for (const match of stripCodeReferences(body).matchAll(new RegExp(ISSUE_REF_PATTERN, "gi"))) {
+    references.add(match[0].toLowerCase());
+  }
+  return references;
+}
+
+function getClosingIssueReferences(body) {
+  const references = new Set();
+  const closingRef = new RegExp(
+    `\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+(${ISSUE_REF_PATTERN})`,
+    "gi"
+  );
+  for (const match of stripCodeReferences(body).matchAll(closingRef)) {
+    references.add(match[1].toLowerCase());
+  }
+  return references;
+}
+
+function hasIssueReference(body) {
+  return getIssueReferences(body).size > 0;
+}
+
+function setsEqual(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function issueReferencesChanged(previousBody, currentBody) {
+  return (
+    !setsEqual(getIssueReferences(previousBody), getIssueReferences(currentBody)) ||
+    !setsEqual(getClosingIssueReferences(previousBody), getClosingIssueReferences(currentBody))
+  );
+}
+
+function shouldSkipUnchangedIssueReferenceEdit(context) {
+  if (context.payload.action !== "edited") return false;
+
+  const previousBody = context.payload.changes?.body?.from;
+  const prNumber = context.payload.pull_request.number;
+  if (previousBody === undefined) {
+    console.log(`PR #${prNumber} was edited without body changes. Skipping.`);
+    return true;
+  }
+
+  if (!issueReferencesChanged(previousBody, context.payload.pull_request.body)) {
+    console.log(`PR #${prNumber} body edit did not change issue references. Skipping.`);
+    return true;
+  }
+
+  return false;
 }
 
 function getMissingHeadings(body, headings) {
@@ -332,6 +384,8 @@ async function getCloseReason({ github, context }) {
 }
 
 async function main({ context, github }) {
+  if (shouldSkipUnchangedIssueReferenceEdit(context)) return;
+
   const action = await getPrAction({ github, context });
   const prNumber = context.payload.pull_request.number;
   const prAuthor = context.payload.pull_request.user.login;
@@ -385,5 +439,6 @@ module.exports = {
   getPrAction,
   getCloseReason,
   getEarlierOpenLinkedPr,
+  shouldSkipUnchangedIssueReferenceEdit,
   isDatabricksAuthor,
 };

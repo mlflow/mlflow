@@ -1,6 +1,8 @@
-const { getCloseReason } = require("./auto-close-pr.js");
+const { getCloseReason, shouldSkipUnchangedIssueReferenceEdit } = require("./auto-close-pr.js");
 
 module.exports = async ({ context, github }) => {
+  if (shouldSkipUnchangedIssueReferenceEdit(context)) return;
+
   const closeReason = await getCloseReason({ github, context });
   if (closeReason) {
     console.log("PR will be auto-closed. Skipping labeling.");
