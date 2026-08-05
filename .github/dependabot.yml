@@ -18,11 +18,22 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      # Batch low-risk bumps into a single PR, and leave major bumps on their
-      # own so a CI failure points at one action.
+      # Batch low-risk bumps into a single PR. Grouped updates already span both
+      # directories, so an action pinned in each moves in one commit.
       actions-minor:
         patterns:
           - "*"
         update-types:
           - minor
           - patch
+      # Majors stay one-per-action so a CI failure points at a single bump, but
+      # they still have to be grouped: an ungrouped update opens a separate PR
+      # per directory, and `check-actions` rejects an action pinned to two
+      # versions, so neither half can pass on its own. `group-by` keeps every
+      # copy of one action in the same PR.
+      actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
+        group-by: dependency-name
