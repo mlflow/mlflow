@@ -150,9 +150,7 @@ async function getPrAction({ github, context }) {
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
   const isMaintainer = hasMaintainerAssociation(context);
-  const hasTeamReviewLabel = getPrLabels(context.payload.pull_request).includes(
-    TEAM_REVIEW_LABEL
-  );
+  const hasTeamReviewLabel = getPrLabels(context.payload.pull_request).includes(TEAM_REVIEW_LABEL);
 
   if (context.payload.pull_request.user.type === "Bot") return {};
 
