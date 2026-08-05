@@ -8,6 +8,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const runTeamReview = require("./team-review.js");
 
 const READY_LABEL = "ready";
 const TEAM_REVIEW_LABEL = "team-review";
@@ -108,6 +109,10 @@ function getIssueAssignees(issue) {
   return issue.assignees.nodes.map((assignee) => assignee.login);
 }
 
+function getPrLabels(pr) {
+  return (pr.labels ?? []).map((label) => (typeof label === "string" ? label : label.name));
+}
+
 function getEarlierOpenLinkedPr(issue, currentPr) {
   const currentCreatedAt = new Date(currentPr.created_at ?? currentPr.createdAt);
   return issue.timelineItems.nodes
@@ -145,6 +150,9 @@ async function getPrAction({ github, context }) {
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
   const isMaintainer = hasMaintainerAssociation(context);
+  const hasTeamReviewLabel = getPrLabels(context.payload.pull_request).includes(
+    TEAM_REVIEW_LABEL
+  );
 
   if (context.payload.pull_request.user.type === "Bot") return {};
 
@@ -279,18 +287,23 @@ async function getPrAction({ github, context }) {
   }
 
   const earlierOpenPr = getEarlierOpenLinkedPr(issue, context.payload.pull_request);
-  if (assigneeLogins.length === 0 && earlierOpenPr !== undefined) {
+  if (earlierOpenPr !== undefined) {
+    if (assigneeLogins.length === 0) {
+      console.log(
+        `Issue #${issue.number} is already claimed by earlier open PR #${earlierOpenPr.number}.`
+      );
+      if (!shouldAutoClose) return {};
+      return {
+        closeReason: [
+          `This PR was automatically closed because #${issue.number} is already linked from earlier open PR #${earlierOpenPr.number}.`,
+          "Please coordinate on the issue thread and ask a maintainer for reassignment if there is a valid reason.",
+          "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+        ].join(" "),
+      };
+    }
     console.log(
-      `Issue #${issue.number} is already claimed by earlier open PR #${earlierOpenPr.number}.`
+      `Issue #${issue.number} is assigned, so earlier open PR #${earlierOpenPr.number} does not override the assigned owner.`
     );
-    if (!shouldAutoClose) return {};
-    return {
-      closeReason: [
-        `This PR was automatically closed because #${issue.number} is already linked from earlier open PR #${earlierOpenPr.number}.`,
-        "Please coordinate on the issue thread and ask a maintainer for reassignment if there is a valid reason.",
-        "Please do not force-push to or delete the PR branch so this PR can be reopened.",
-      ].join(" "),
-    };
   }
 
   console.log(`PR #${prNumber} is valid for ready issue #${issue.number}.`);
@@ -301,11 +314,15 @@ async function getPrAction({ github, context }) {
     return {};
   }
 
-  // shouldAutoClose only controls enforcement. Ready-issue routing applies to
-  // every valid non-bot PR author, including maintainers and Databricks authors.
+  if (hasTeamReviewLabel) {
+    console.log(`PR #${prNumber} already has "${TEAM_REVIEW_LABEL}". Skipping reviewer routing.`);
+  }
+
+  // shouldAutoClose only controls enforcement. Ready-issue routing applies once
+  // per valid non-bot PR, including maintainers and Databricks authors.
   return {
     issueToAssign: assigneeLogins.length === 0 ? issue.number : undefined,
-    addTeamReview: true,
+    addTeamReview: !hasTeamReviewLabel,
   };
 }
 
@@ -352,6 +369,9 @@ async function main({ context, github }) {
       labels: [TEAM_REVIEW_LABEL],
     });
     console.log(`Added "${TEAM_REVIEW_LABEL}" label to PR #${prNumber}.`);
+
+    // Labels added with GITHUB_TOKEN do not trigger a follow-up workflow run.
+    await runTeamReview({ github, context });
   }
 }
 
