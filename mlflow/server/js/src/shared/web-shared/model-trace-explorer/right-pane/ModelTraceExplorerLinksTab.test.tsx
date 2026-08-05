@@ -21,7 +21,7 @@ const mockUseSpanLinkHrefs = jest.fn((traceIds: string[]) => {
 });
 
 jest.mock('../hooks/useSpanLinkHref', () => ({
-  useSpanLinkHrefs: (...args: any[]) => mockUseSpanLinkHrefs(...args),
+  useSpanLinkHrefs: (traceIds: string[]) => mockUseSpanLinkHrefs(traceIds),
 }));
 
 const queryClient = new QueryClient();
