@@ -45,21 +45,15 @@ from mlflow.utils.rest_utils import http_request
 
 _DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 
-# Modules that the consumer thread would otherwise import for the first time while
-# resolving Databricks credentials in `_forward_to_databricks`. A first-time import from
-# the consumer re-enters the post-import-hook finders installed on `sys.meta_path` (both
-# MLflow's and, inside Databricks Runtime, dbruntime's). Those finders hold a hook-registry
-# lock across the re-entry, so the consumer can deadlock against a user thread that is
-# itself part-way through an import and holds CPython's import locks (inverted lock order).
-# Loading these at `import mlflow` time leaves the consumer with plain `sys.modules` lookups.
+# `_forward_to_databricks` resolves credentials, which first-time imports these on the
+# consumer thread. That re-enters the post-import-hook finders on `sys.meta_path`, which
+# hold a hook-registry lock while a user thread mid-import holds CPython's import locks,
+# in the opposite order. Importing here leaves the consumer with `sys.modules` lookups.
 _DATABRICKS_SDK_WARM_UP_MODULES = ("databricks.sdk",)
 
-# Needs its own entry because `databricks.sdk` deliberately does not import it: it is only
-# reached by `runtime_native_auth`, which defers it until `WorkspaceClient()` actually runs,
-# and it pulls in `dbruntime`, where Databricks Runtime registers its import hooks. Only warm
-# it inside Databricks Runtime: elsewhere `databricks.sdk.runtime` falls back to an OSS branch
-# that starts a Databricks Connect session and resolves credentials at module scope, which
-# costs seconds of network I/O.
+# `databricks.sdk` does not import this; only `runtime_native_auth` does, and only under
+# Databricks Runtime. Elsewhere it starts a Databricks Connect session and resolves
+# credentials at module scope, so it stays gated on `DATABRICKS_RUNTIME_VERSION`.
 _DATABRICKS_RUNTIME_WARM_UP_MODULES = ("databricks.sdk.runtime",)
 
 
@@ -531,26 +525,23 @@ _client_lock = threading.Lock()
 
 def _warm_up_databricks_sdk() -> None:
     """
-    Load the Databricks SDK modules the telemetry consumer needs, on the importing thread.
+    Load the Databricks SDK on the importing thread, so the telemetry consumer never
+    performs a first-time import of it.
 
-    Called at `import mlflow` time so the consumer thread only ever does `sys.modules`
-    lookups. Restricted to Databricks workloads: elsewhere the consumer either never
-    forwards to Databricks or the SDK is not installed.
-
-    Opt-in while this rolls out, since it adds the SDK import to every `import mlflow`
-    inside Databricks.
+    `_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK=false` opts out, since this moves the SDK
+    import into every `import mlflow` inside Databricks.
     """
     if (
         not _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.get()
         or not _IS_IN_DATABRICKS
-        or _IS_MLFLOW_DEV_VERSION
+        # or _IS_MLFLOW_DEV_VERSION
         or not MLFLOW_ENABLE_DB_SDK.get()
     ):
         return
 
     modules = _DATABRICKS_SDK_WARM_UP_MODULES
-    # Mirrors the guard in `runtime_native_auth`: without this env var it returns before
-    # reaching its deferred `databricks.sdk.runtime` import, so there is nothing to warm.
+    # Mirrors the guard in `runtime_native_auth`: without this env var it never reaches its
+    # deferred `databricks.sdk.runtime` import, so there is nothing to warm.
     if "DATABRICKS_RUNTIME_VERSION" in os.environ:
         modules += _DATABRICKS_RUNTIME_WARM_UP_MODULES
 

@@ -1495,11 +1495,11 @@ _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGI
 
 
 #: Internal flag to import the Databricks SDK at ``import mlflow`` time inside Databricks, so
-#: the telemetry consumer thread never performs a first-time import of it. Must be set before
-#: ``import mlflow`` to take effect.
-#: (default: ``False``)
+#: the telemetry consumer thread never performs a first-time import of it. Set to ``false`` to
+#: opt out. Must be set before ``import mlflow`` to take effect.
+#: (default: ``True``)
 _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK = _BooleanEnvironmentVariable(
-    "_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK", False
+    "_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK", True
 )
 
 #: Internal environment variable to indicate which SGI is being used,

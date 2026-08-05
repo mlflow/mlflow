@@ -1163,7 +1163,6 @@ def test_set_telemetry_client_warms_databricks_sdk_before_creating_client():
 @pytest.fixture
 def in_databricks_runtime(monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "17.0")
-    monkeypatch.setenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, "true")
     with (
         mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True),
@@ -1180,7 +1179,7 @@ def test_databricks_sdk_not_warmed_up_when_flag_disabled(in_databricks_runtime, 
     mock_import.assert_not_called()
 
 
-def test_databricks_sdk_not_warmed_up_by_default(monkeypatch):
+def test_databricks_sdk_warmed_up_by_default(monkeypatch):
     monkeypatch.delenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, raising=False)
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "17.0")
 
@@ -1191,7 +1190,10 @@ def test_databricks_sdk_not_warmed_up_by_default(monkeypatch):
     ):
         _warm_up_databricks_sdk()
 
-    mock_import.assert_not_called()
+    assert [c.args[0] for c in mock_import.call_args_list] == [
+        *_DATABRICKS_SDK_WARM_UP_MODULES,
+        *_DATABRICKS_RUNTIME_WARM_UP_MODULES,
+    ]
 
 
 def test_databricks_sdk_warmed_up_in_databricks_runtime(in_databricks_runtime):
@@ -1247,14 +1249,16 @@ def test_databricks_sdk_not_warmed_up_when_db_sdk_disabled(in_databricks_runtime
     mock_import.assert_not_called()
 
 
-def test_databricks_sdk_not_warmed_up_for_dev_versions(in_databricks_runtime):
-    with (
-        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
-        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
-    ):
-        _warm_up_databricks_sdk()
-
-    mock_import.assert_not_called()
+# TEMPORARY: disabled while the `_IS_MLFLOW_DEV_VERSION` gate in `_warm_up_databricks_sdk`
+# is commented out for dev-build testing. Restore both together.
+# def test_databricks_sdk_not_warmed_up_for_dev_versions(in_databricks_runtime):
+#     with (
+#         mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+#         mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+#     ):
+#         _warm_up_databricks_sdk()
+#
+#     mock_import.assert_not_called()
 
 
 def test_databricks_sdk_warm_up_continues_past_import_errors(in_databricks_runtime):
