@@ -5,8 +5,14 @@ runs:
   steps:
     - shell: bash
       run: |
-        echo "Disk usage before cleanup:"
+        # `ubuntu-latest` runners come in two root disk sizes, ~72G and ~145G.
+        # `nproc` and `/mnt` are reported alongside the disk usage to help
+        # https://github.com/actions/runner-images/issues/14492 determine whether
+        # the size tracks the runner SKU.
+        echo "Runner disk report:"
+        nproc
         df -h /
+        ls -d /mnt 2>/dev/null || echo "no /mnt"
         # Remove large pre-installed toolchains that MLflow jobs never use so that
         # disk-heavy steps (e.g. Docker image builds) have enough headroom. The
         # deletions run in parallel to save time, but we `wait` for them to finish
