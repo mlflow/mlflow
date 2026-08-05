@@ -16,6 +16,8 @@ from alembic import op
 from sqlalchemy.dialects import mssql
 
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     CostKey,
     SpanAttributeKey,
     TokenUsageKey,
@@ -139,12 +141,12 @@ def _add_analytics_columns():
     trace_columns = [
         sa.Column(
             "trace_name",
-            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
+            sa.String(length=MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE),
             nullable=True,
         ),
         sa.Column(
             "session_id",
-            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
+            sa.String(length=MAX_CHARS_IN_TRACE_INFO_METADATA),
             nullable=True,
         ),
         sa.Column("input_tokens", sa.BigInteger(), nullable=True),
@@ -333,6 +335,11 @@ def _create_rollup_tables():
 
 def _create_analytics_indexes():
     op.create_index(
+        "index_trace_info_experiment_id_session_id",
+        "trace_info",
+        ["experiment_id", "session_id"],
+    )
+    op.create_index(
         "idx_trace_rollups_lookup",
         "sql_trace_metric_daily_rollups",
         [
@@ -415,6 +422,7 @@ def _drop_analytics_indexes():
         ("idx_assessment_rollups_lookup", "sql_assessment_daily_rollups"),
         ("idx_span_cost_rollups_lookup", "sql_span_cost_daily_rollups"),
         ("idx_trace_rollups_lookup", "sql_trace_metric_daily_rollups"),
+        ("index_trace_info_experiment_id_session_id", "trace_info"),
     ):
         op.drop_index(index_name, table_name=table_name)
 
@@ -444,6 +452,7 @@ def _backfill_trace_analytics():
             total_cost=sa.bindparam("total_cost"),
         )
     )
+    truncation_counts = {"trace_name": 0, "session_id": 0}
     last_request_id = None
     while True:
         page_stmt = sa.select(trace_info.c.request_id).order_by(trace_info.c.request_id)
@@ -492,6 +501,14 @@ def _backfill_trace_analytics():
         updates = []
         for trace_id in batch_ids:
             values = metadata_by_trace[trace_id]
+            trace_name, trace_name_truncated = _bounded_string_or_none(
+                trace_names[trace_id], MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+            )
+            session_id, session_id_truncated = _bounded_string_or_none(
+                values.get(TraceMetadataKey.TRACE_SESSION), MAX_CHARS_IN_TRACE_INFO_METADATA
+            )
+            truncation_counts["trace_name"] += trace_name_truncated
+            truncation_counts["session_id"] += session_id_truncated
             token_usage = _json_object(values.get(TraceMetadataKey.TOKEN_USAGE))
             tokens = {
                 column: metrics_by_trace[trace_id].get(
@@ -506,14 +523,24 @@ def _backfill_trace_analytics():
             }
             update = {
                 "request_id_param": trace_id,
-                "trace_name": trace_names[trace_id],
-                "session_id": values.get(TraceMetadataKey.TRACE_SESSION),
+                "trace_name": trace_name,
+                "session_id": session_id,
                 **tokens,
                 **{column: costs.get(column) for column in _COST_COLUMNS.values()},
             }
             updates.append(update)
         _execute_backfill_updates(bind, update_stmt, updates, "trace")
         last_request_id = batch_ids[-1]
+
+    if sum(truncation_counts.values()):
+        _logger.warning(
+            "Truncated trace analytics dimensions during backfill: trace_name=%d "
+            "(limit %d), session_id=%d (limit %d)",
+            truncation_counts["trace_name"],
+            MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+            truncation_counts["session_id"],
+            MAX_CHARS_IN_TRACE_INFO_METADATA,
+        )
 
 
 def _backfill_span_analytics():

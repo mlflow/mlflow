@@ -65,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     CostKey,
     SpanAttributeKey,
@@ -281,6 +282,52 @@ def test_start_trace(store: SqlAlchemyStore):
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
     assert trace_info == store.get_trace_info(trace_id)
+
+
+@pytest.mark.parametrize(
+    ("tags", "trace_metadata", "limit"),
+    [
+        (
+            {TraceTagKey.TRACE_NAME: "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1)},
+            {},
+            MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+        ),
+        (
+            {},
+            {TraceMetadataKey.TRACE_SESSION: "s" * (MAX_CHARS_IN_TRACE_INFO_METADATA + 1)},
+            MAX_CHARS_IN_TRACE_INFO_METADATA,
+        ),
+    ],
+)
+def test_start_trace_rejects_oversized_promoted_dimensions(
+    store: SqlAlchemyStore, tags, trace_metadata, limit
+):
+    experiment_id = store.create_experiment(f"test_oversized_trace_dimension_{limit}")
+    trace_info = TraceInfo(
+        trace_id=f"tr-oversized-{limit}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags=tags,
+        trace_metadata=trace_metadata,
+    )
+
+    with pytest.raises(MlflowException, match=rf"maximum length of {limit}"):
+        store.start_trace(trace_info)
+
+
+def test_set_trace_tag_rejects_oversized_trace_name(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(
+        MlflowException, match=rf"maximum length of {MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE}"
+    ):
+        store.set_trace_tag(
+            trace_info.trace_id,
+            TraceTagKey.TRACE_NAME,
+            "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1),
+        )
 
 
 @pytest.fixture
@@ -4023,6 +4070,52 @@ def test_log_spans_persists_empty_trace_name_from_otel_attribute(store: SqlAlche
             .count()
             == 0
         )
+
+
+@pytest.mark.parametrize(
+    ("attribute_key", "value", "limit"),
+    [
+        (
+            SpanAttributeKey.SESSION_ID,
+            "s" * (MAX_CHARS_IN_TRACE_INFO_METADATA + 1),
+            MAX_CHARS_IN_TRACE_INFO_METADATA,
+        ),
+        (
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}{TraceTagKey.TRACE_NAME}",
+            "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1),
+            MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+        ),
+    ],
+    ids=["session-id", "trace-name"],
+)
+def test_log_spans_rejects_oversized_promoted_dimensions(
+    store: SqlAlchemyStore, attribute_key, value, limit
+):
+    experiment_id = store.create_experiment(f"test_oversized_span_dimension_{limit}")
+    trace_id = f"tr-oversized-span-{limit}"
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_oversized_dimension",
+            context=trace_api.SpanContext(
+                trace_id=88888,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                attribute_key: json.dumps(value),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    with pytest.raises(MlflowException, match=rf"maximum length of {limit}"):
+        store.log_spans(experiment_id, [span])
 
 
 def test_log_spans_persists_links(store: SqlAlchemyStore):

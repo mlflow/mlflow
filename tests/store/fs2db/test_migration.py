@@ -8,7 +8,17 @@ from sqlalchemy import create_engine, text
 
 from mlflow.entities import Experiment, Run, ViewType
 from mlflow.store.fs2db import migrate
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.store.fs2db._tracking import _migrate_traces_for_experiment
+from mlflow.store.fs2db._utils import MigrationStats
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -184,6 +194,35 @@ def test_traces(clients: Clients) -> None:
         assert traces_without_authoritative_values == 0
         assert legacy_trace_names == 0
         assert legacy_analytics_metadata == 0
+
+
+def test_migrate_traces_truncates_legacy_promoted_dimensions(tmp_path: Path) -> None:
+    exp_dir = tmp_path / "1"
+    trace_dir = exp_dir / FileStore.TRACES_FOLDER_NAME / "tr-long-dimensions"
+    trace_dir.mkdir(parents=True)
+    (trace_dir / FileStore.TRACE_INFO_FILE_NAME).write_text(
+        "trace_id: tr-long-dimensions\ntimestamp_ms: 1\nstatus: OK\n"
+    )
+    tags_dir = trace_dir / FileStore.TRACE_TAGS_FOLDER_NAME
+    tags_dir.mkdir()
+    (tags_dir / TraceTagKey.TRACE_NAME).write_text("n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1))
+    metadata_dir = trace_dir / FileStore.TRACE_TRACE_METADATA_FOLDER_NAME
+    metadata_dir.mkdir()
+    (metadata_dir / TraceMetadataKey.TRACE_SESSION).write_text(
+        "s" * (MAX_CHARS_IN_TRACE_INFO_METADATA + 1)
+    )
+
+    target_uri = f"sqlite:///{tmp_path / 'target.db'}"
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    store = SqlAlchemyStore(target_uri, artifact_root.as_uri())
+    experiment_id = int(store.create_experiment("fs2db-long-dimensions"))
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _migrate_traces_for_experiment(session, exp_dir, experiment_id, MigrationStats())
+
+        trace_info = session.get(SqlTraceInfo, "tr-long-dimensions")
+        assert trace_info.trace_name == "n" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+        assert trace_info.session_id == "s" * MAX_CHARS_IN_TRACE_INFO_METADATA
 
 
 def test_assessments(clients: Clients) -> None:

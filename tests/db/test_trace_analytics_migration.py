@@ -15,6 +15,8 @@ from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     CostKey,
     SpanAttributeKey,
     TokenUsageKey,
@@ -393,6 +395,15 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
             _seed_legacy_analytics_data(conn)
 
         command.upgrade(config, REVISION)
+        trace_truncation_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.getMessage().startswith("Truncated trace analytics dimensions")
+        ]
+        assert trace_truncation_logs == [
+            "Truncated trace analytics dimensions during backfill: trace_name=1 "
+            "(limit 4096), session_id=1 (limit 250)"
+        ]
         truncation_logs = [
             record.getMessage()
             for record in caplog.records
@@ -450,13 +461,16 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
         ]
 
         trace_columns = {column["name"]: column for column in inspector.get_columns("trace_info")}
-        for column_name in ("trace_name", "session_id"):
+        for column_name, expected_length in {
+            "trace_name": MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+            "session_id": MAX_CHARS_IN_TRACE_INFO_METADATA,
+        }.items():
             column_type = trace_columns[column_name]["type"]
-            if engine.dialect.name == "mysql":
-                assert isinstance(column_type, sa.Text)
-            else:
-                assert isinstance(column_type, sa.String)
-                assert column_type.length == 8000
+            assert isinstance(column_type, sa.String)
+            assert column_type.length == expected_length
+        assert _index_columns(inspector, "trace_info")[
+            "index_trace_info_experiment_id_session_id"
+        ] == ["experiment_id", "session_id"]
         for column_name in (
             "input_tokens",
             "output_tokens",
@@ -510,8 +524,8 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
             assert traces == [
                 (
                     "trace-explicit",
-                    _LONG_TRACE_NAME,
-                    _LONG_SESSION_ID,
+                    _LONG_TRACE_NAME[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE],
+                    _LONG_SESSION_ID[:MAX_CHARS_IN_TRACE_INFO_METADATA],
                     12,
                     7,
                     18,
@@ -814,7 +828,10 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             elif (
                 normalized_statement.startswith("SELECT")
                 and "FROM SPAN_METRICS" in normalized_statement
-                and "(SPAN_METRICS.TRACE_ID, SPAN_METRICS.SPAN_ID) IN" in normalized_statement
+                and (
+                    "(SPAN_METRICS.TRACE_ID, SPAN_METRICS.SPAN_ID) IN" in normalized_statement
+                    or "JOIN (VALUES" in normalized_statement
+                )
             ):
                 span_metric_lookups.append(normalized_statement)
 

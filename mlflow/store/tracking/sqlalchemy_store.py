@@ -184,6 +184,8 @@ from mlflow.store.tracking.utils.trace_analytics import (
     compatibility_metadata_from_columns,
     finite_float_or_none,
     token_count_or_none,
+    validate_session_id,
+    validate_trace_name,
 )
 from mlflow.store.tracking.utils.trace_archival import (
     _TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE,
@@ -3666,6 +3668,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return self._run_with_deadlock_retry(self._start_trace_once, trace_info)
 
     def _start_trace_once(self, trace_info: "TraceInfo") -> TraceInfo:
+        trace_name = validate_trace_name(trace_info.tags.get(TraceTagKey.TRACE_NAME))
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(trace_info.experiment_id)
             self._check_experiment_is_active(experiment)
@@ -3686,7 +3689,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 client_request_id=trace_info.client_request_id,
                 request_preview=trace_info.request_preview,
                 response_preview=trace_info.response_preview,
-                trace_name=trace_info.tags.get(TraceTagKey.TRACE_NAME),
+                trace_name=trace_name,
                 **analytics_columns,
             )
 
@@ -3782,7 +3785,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 db_sql_trace_info.status = trace_info.state.value
                 db_sql_trace_info.client_request_id = trace_info.client_request_id
                 if TraceTagKey.TRACE_NAME in trace_info.tags:
-                    db_sql_trace_info.trace_name = trace_info.tags[TraceTagKey.TRACE_NAME]
+                    db_sql_trace_info.trace_name = trace_name
                 for column, value in analytics_columns.items():
                     setattr(db_sql_trace_info, column, value)
                 if trace_info.request_preview is not None:
@@ -4390,6 +4393,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             value: The string value of the tag.
         """
         key, value = _validate_trace_tag(key, value)
+        if key == TraceTagKey.TRACE_NAME:
+            value = validate_trace_name(value)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
             if key == TraceTagKey.TRACE_NAME:
@@ -5262,7 +5267,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                             or span_attributes.get(GenAiSemconvKey.CONVERSATION_ID)
                         )
                     ):
-                        session_id = _try_parse_json_string(span_session_id)
+                        session_id = validate_session_id(_try_parse_json_string(span_session_id))
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
                     if user_id is None and (span_user_id := span_attributes.get("user.id")):
                         user_id = _try_parse_json_string(span_user_id)
@@ -5321,6 +5326,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                                     "Skipping invalid trace tag from OTLP attribute %r", attr_key
                                 )
                                 continue
+                            if tag_key == TraceTagKey.TRACE_NAME:
+                                tag_value = validate_trace_name(tag_value)
                             trace_tags_from_root_attr[tag_key] = tag_value
 
             # Tree-aware aggregation matching the client-side aggregator
@@ -7817,6 +7824,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Returns:
             The created TraceInfo object.
         """
+        trace_name = validate_trace_name(tags.get(TraceTagKey.TRACE_NAME))
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -7829,7 +7837,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
-                trace_name=tags.get(TraceTagKey.TRACE_NAME),
+                trace_name=trace_name,
                 **analytics_columns_from_metadata(request_metadata),
             )
 
@@ -7891,7 +7899,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             tags = dict(tags)
             if TraceTagKey.TRACE_NAME in tags:
-                sql_trace_info.trace_name = tags.pop(TraceTagKey.TRACE_NAME)
+                sql_trace_info.trace_name = validate_trace_name(tags.pop(TraceTagKey.TRACE_NAME))
             session.merge(sql_trace_info)
             # Merge metadata in sorted key order so concurrent writers acquire the
             # trace_request_metadata PK-index locks in a consistent order and cannot

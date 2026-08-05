@@ -108,7 +108,11 @@ from mlflow.store.tracking.utils.trace_analytics import (
     assessment_aggregate,
     compatibility_metadata_from_columns,
 )
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceTagKey,
+)
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -824,11 +828,11 @@ class SqlTraceInfo(Base):
     DB-backed trace payload generation used for concurrency coordination.
     Defaults to 0.
     """
-    trace_name = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
+    trace_name = Column(String(MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE), nullable=True)
     """
     Denormalized trace name used by trace analytics queries.
     """
-    session_id = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
+    session_id = Column(String(MAX_CHARS_IN_TRACE_INFO_METADATA), nullable=True)
     """
     Denormalized session identifier used by trace analytics queries.
     """
@@ -871,6 +875,7 @@ class SqlTraceInfo(Base):
         # which is the default view in the UI. Also every search query should have experiment_id(s)
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
+        Index(f"index_{__tablename__}_experiment_id_session_id", "experiment_id", "session_id"),
     )
 
     def to_mlflow_entity(self):

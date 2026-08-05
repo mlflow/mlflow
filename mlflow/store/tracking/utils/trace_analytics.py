@@ -3,7 +3,14 @@ import math
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from mlflow.tracing.constant import CostKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    CostKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
+from mlflow.utils.validation import _validate_length_limit
 
 MODEL_DIMENSION_MAX_LENGTH = 500
 _BIGINT_MIN = -(2**63)
@@ -26,6 +33,14 @@ PROMOTED_TRACE_METADATA_KEYS = frozenset({
     TraceMetadataKey.TOKEN_USAGE,
     TraceMetadataKey.COST,
 })
+
+
+def validate_session_id(value: str | None) -> str | None:
+    return _validate_length_limit("Session ID", MAX_CHARS_IN_TRACE_INFO_METADATA, value)
+
+
+def validate_trace_name(value: str | None) -> str | None:
+    return _validate_length_limit("Trace name", MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, value)
 
 
 def finite_float_or_none(value: Any) -> float | None:
@@ -71,7 +86,7 @@ def analytics_columns_from_metadata(
 ) -> dict[str, float | int | str | None]:
     columns: dict[str, float | int | str | None] = {}
     if TraceMetadataKey.TRACE_SESSION in metadata:
-        columns["session_id"] = metadata[TraceMetadataKey.TRACE_SESSION]
+        columns["session_id"] = validate_session_id(metadata[TraceMetadataKey.TRACE_SESSION])
     if TraceMetadataKey.TOKEN_USAGE in metadata:
         token_usage = _json_object(metadata[TraceMetadataKey.TOKEN_USAGE])
         columns.update({
