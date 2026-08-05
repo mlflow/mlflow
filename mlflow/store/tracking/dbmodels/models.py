@@ -18,7 +18,6 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     PrimaryKeyConstraint,
-    SmallInteger,
     String,
     Text,
     UnicodeText,
@@ -2277,10 +2276,6 @@ class SqlSpan(Base):
     model_provider = Column(String(500), nullable=True)
     """
     Denormalized model provider used by span cost analytics queries.
-    """
-    dimension_attributes_state = Column(SmallInteger, nullable=True)
-    """
-    Legacy dimension attribute representation used only to preserve downgrade fidelity.
     """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))

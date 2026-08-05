@@ -468,9 +468,6 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
         assert "dimension_attributes" not in {
             column["name"] for column in inspector.get_columns("spans")
         }
-        span_columns = {column["name"]: column for column in inspector.get_columns("spans")}
-        assert isinstance(span_columns["dimension_attributes_state"]["type"], sa.SmallInteger)
-        assert span_columns["dimension_attributes_state"]["nullable"] is True
 
         rollup_indexes = {
             "sql_trace_metric_daily_rollups": (
@@ -529,7 +526,7 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
             spans = conn.execute(
                 sa.text(
                     "SELECT span_id, input_cost, output_cost, total_cost, model_name, "
-                    "model_provider, dimension_attributes_state FROM spans ORDER BY span_id"
+                    "model_provider FROM spans ORDER BY span_id"
                 )
             ).fetchall()
             assert spans == [
@@ -540,10 +537,9 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
                     None,
                     _MODEL_NAME_OVER_LIMIT[:500],
                     _MODEL_PROVIDER_OVER_LIMIT[:500],
-                    3,
                 ),
-                ("span-fallback-1", 0.5, None, 1.5, None, None, 0),
-                ("span-fallback-2", 1.0, None, 2.0, _MODEL_NAME_AT_LIMIT, None, 1),
+                ("span-fallback-1", 0.5, None, 1.5, None, None),
+                ("span-fallback-2", 1.0, None, 2.0, _MODEL_NAME_AT_LIMIT, None),
             ]
 
             assessments = conn.execute(
@@ -1002,115 +998,6 @@ def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_
 
         with pytest.raises(RuntimeError, match="unsupported content"):
             command.upgrade(config, REVISION)
-    finally:
-        engine.dispose()
-
-
-def test_trace_analytics_migration_preserves_dimension_attribute_representations(tmp_path):
-    engine, config = _prepare_database(tmp_path)
-    try:
-        representations = {
-            "span-json-null": None,
-            "span-empty": {},
-            "span-model-null": {SpanAttributeKey.MODEL: None},
-            "span-provider-null": {SpanAttributeKey.MODEL_PROVIDER: None},
-            "span-both-null": {
-                SpanAttributeKey.MODEL: None,
-                SpanAttributeKey.MODEL_PROVIDER: None,
-            },
-            "span-mixed": {
-                SpanAttributeKey.MODEL: None,
-                SpanAttributeKey.MODEL_PROVIDER: "provider",
-            },
-            "span-model-only": {SpanAttributeKey.MODEL: "model"},
-        }
-        expected_states = {
-            "span-sql-null": None,
-            "span-json-null": -1,
-            "span-empty": 0,
-            "span-model-null": 1,
-            "span-provider-null": 2,
-            "span-both-null": 3,
-            "span-mixed": 3,
-            "span-model-only": 1,
-        }
-        with engine.begin() as conn:
-            _seed_legacy_analytics_data(conn)
-            spans = _table(conn, "spans")
-            conn.execute(
-                spans.insert(),
-                [
-                    {
-                        "trace_id": "trace-fallback",
-                        "experiment_id": 1,
-                        "span_id": span_id,
-                        "name": span_id,
-                        "type": "CHAT_MODEL",
-                        "status": "OK",
-                        "start_time_unix_nano": 1_000 + index,
-                        "end_time_unix_nano": 2_000 + index,
-                        "content": "{}",
-                        # Bind JSON text so MSSQL (reflected as text) accepts the value.
-                        # json.dumps(None) stores JSON null ("null"), distinct from sa.null().
-                        "dimension_attributes": json.dumps(value),
-                    }
-                    for index, (span_id, value) in enumerate(representations.items())
-                ],
-            )
-            conn.execute(
-                spans.insert().values(
-                    trace_id="trace-fallback",
-                    experiment_id=1,
-                    span_id="span-sql-null",
-                    name="span-sql-null",
-                    type="CHAT_MODEL",
-                    status="OK",
-                    start_time_unix_nano=3_000,
-                    end_time_unix_nano=4_000,
-                    content="{}",
-                    dimension_attributes=sa.null(),
-                )
-            )
-
-        command.upgrade(config, REVISION)
-        with engine.connect() as conn:
-            spans = _table(conn, "spans")
-            assert (
-                dict(
-                    conn.execute(
-                        sa.select(spans.c.span_id, spans.c.dimension_attributes_state).where(
-                            spans.c.span_id.in_(expected_states)
-                        )
-                    ).all()
-                )
-                == expected_states
-            )
-
-        command.downgrade(config, PREVIOUS_REVISION)
-
-        with engine.connect() as conn:
-            spans = _table(conn, "spans")
-            rows = conn.execute(
-                sa.select(
-                    spans.c.span_id,
-                    spans.c.dimension_attributes,
-                    # MSSQL rejects boolean expressions like `col IS NULL` in the SELECT list.
-                    # Use CASE so SQL null can be distinguished from JSON null across dialects.
-                    sa.case((spans.c.dimension_attributes.is_(None), 1), else_=0).label(
-                        "is_sql_null"
-                    ),
-                ).where(spans.c.span_id.in_(expected_states))
-            ).mappings()
-            for row in rows:
-                dimensions = row["dimension_attributes"]
-                if isinstance(dimensions, str):
-                    dimensions = json.loads(dimensions)
-                if row["span_id"] == "span-sql-null":
-                    assert row["is_sql_null"]
-                    assert dimensions is None
-                else:
-                    assert not row["is_sql_null"]
-                    assert dimensions == representations[row["span_id"]]
     finally:
         engine.dispose()
 

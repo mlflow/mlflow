@@ -10355,7 +10355,7 @@ def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]
     pk_columns = [col.name for col in table.primary_key.columns]
     # Only update columns present in the inserted rows. Updating omitted columns
     # references missing insert aliases on MySQL (`new.<col>`) and can overwrite
-    # migration-only fields such as dimension_attributes_state with NULL defaults.
+    # columns that are intentionally absent from the incoming rows.
     provided_columns = set.intersection(*(set(row) for row in rows))
     update_columns = [
         c.name

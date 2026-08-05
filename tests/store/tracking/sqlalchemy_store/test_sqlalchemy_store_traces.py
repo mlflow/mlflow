@@ -3807,28 +3807,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-def test_log_spans_preserves_dimension_attributes_state_on_upsert(store):
-    exp_id = store.create_experiment("preserve-dimension-attributes-state")
-    trace_id = "tr-preserve-dimension-attributes-state"
-    span = create_test_span(trace_id, span_id=1, name="original")
-    store.log_spans(exp_id, [span])
-
-    preserved_state = -1
-    with store.ManagedSessionMaker(read_only=False) as session:
-        sql_span = session.get(SqlSpan, (trace_id, span.span_id))
-        sql_span.dimension_attributes_state = preserved_state
-
-    store.log_spans(
-        exp_id,
-        [create_test_span(trace_id, span_id=1, name="updated")],
-    )
-
-    with store.ManagedSessionMaker() as session:
-        sql_span = session.get(SqlSpan, (trace_id, span.span_id))
-        assert sql_span.dimension_attributes_state == preserved_state
-        assert sql_span.name == "updated"
-
-
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
 
