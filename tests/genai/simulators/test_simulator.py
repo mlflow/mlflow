@@ -1,4 +1,5 @@
 import re
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -10,6 +11,7 @@ from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import (
     BaseSimulatedUserAgent,
     ConversationSimulator,
+    PredictResult,
     SimulatedUserAgent,
     SimulatorContext,
 )
@@ -1017,3 +1019,237 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
             == "Ask clarifying questions before proceeding"
         )
         assert TraceMetadataKey.TRACE_SESSION in metadata
+
+
+# ----------------------------------------
+# External trace ID tests
+# ----------------------------------------
+
+
+def test_predict_fn_returning_predict_result_uses_provided_trace_id(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    external_trace_id = "external-trace-abc123"
+
+    def predict_fn_with_result(input=None, **kwargs):
+        response = {
+            "output": [
+                {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello from remote agent"}],
+                }
+            ]
+        }
+        return PredictResult(response=response, trace_id=external_trace_id)
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    all_traces = simulator.simulate(predict_fn_with_result)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
+    simulation_mocks["get_trace_id"].assert_called()
+
+
+def test_predict_fn_returning_predict_result_with_none_trace_id_falls_back_to_thread_local(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    def predict_fn_no_id(input=None, **kwargs):
+        response = {
+            "output": [
+                {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                }
+            ]
+        }
+        return PredictResult(response=response, trace_id=None)
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    all_traces = simulator.simulate(predict_fn_no_id)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
+    simulation_mocks["get_trace_id"].assert_called()
+
+
+def test_predict_fn_returning_plain_response_is_backwards_compatible(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    def plain_predict_fn(input=None, **kwargs):
+        return {
+            "output": [
+                {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    all_traces = simulator.simulate(plain_predict_fn)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
+
+
+def test_predict_fn_returning_plain_tuple_is_not_treated_as_predict_result(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    def tuple_predict_fn(input=None, **kwargs):
+        return {"role": "assistant", "content": "hi"}, "some-trace-id"
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    all_traces = simulator.simulate(tuple_predict_fn)
+
+    assert len(all_traces) == 1
+    # simulator falls back to thread-local ID, not the string in the tuple
+    simulation_mocks["get_trace_id"].assert_called()
+
+
+@pytest.mark.parametrize(
+    ("trace_id", "expected_error"),
+    [
+        ("", "empty or blank"),
+        ("   ", "empty or blank"),
+        (123, "must be a string"),
+    ],
+    ids=["empty", "blank", "non_string"],
+)
+def test_predict_result_invalid_trace_id_raises(
+    simple_test_case, simulation_mocks, trace_id, expected_error
+):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+    ]
+
+    def bad_predict_fn(input=None, **kwargs):
+        return PredictResult(
+            response={"output": [{"role": "assistant", "content": "hi"}]},
+            trace_id=trace_id,
+        )
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    with pytest.raises(MlflowException, match=expected_error):
+        simulator.simulate(bad_predict_fn)
+
+
+def test_predict_fn_untraced_creates_fallback_span(simple_test_case):
+
+    with (
+        patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.tracing.context") as mock_ctx,
+        patch("mlflow.get_last_active_trace_id", return_value=None) as mock_get_id,
+        patch("mlflow.start_span") as mock_span,
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(
+                get_trace=lambda _: Mock(info=Mock(trace_metadata={}, assessments=[]))
+            ),
+        ),
+        patch("mlflow.flush_trace_async_logging"),
+    ):
+
+        @contextmanager
+        def _noop_ctx(**kwargs):
+            yield
+
+        mock_ctx.side_effect = _noop_ctx
+
+        span_cm = Mock()
+        span_cm.__enter__ = Mock(return_value=Mock(set_inputs=Mock(), set_outputs=Mock()))
+        span_cm.__exit__ = Mock(return_value=False)
+        mock_span.return_value = span_cm
+
+        # First two calls: prev_trace_id + post-predict check both return None,
+        # triggering the fallback span. Third call returns the new trace ID.
+        mock_get_id.side_effect = [None, None, "fallback-trace-id", "fallback-trace-id"]
+
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        def untraced_predict_fn(input=None, **kwargs):
+            return {"output": [{"role": "assistant", "content": [{"type": "text", "text": "hi"}]}]}
+
+        simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+        simulator.simulate(untraced_predict_fn)
+
+        mock_span.assert_called_once()
+
+
+def test_predict_result_expectations_logged_against_external_trace_id(simple_test_case):
+    external_trace_id = "remote-trace-xyz"
+    logged = []
+
+    with (
+        patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
+        patch("mlflow.tracing.context") as mock_ctx,
+        patch("mlflow.get_last_active_trace_id", return_value=None),
+        patch("mlflow.log_expectation", side_effect=lambda **kw: logged.append(kw)),
+        patch(
+            "mlflow.tracing.client.TracingClient",
+            return_value=Mock(
+                get_trace=lambda _: Mock(info=Mock(trace_metadata={}, assessments=[]))
+            ),
+        ),
+        patch("mlflow.flush_trace_async_logging"),
+    ):
+
+        @contextmanager
+        def _noop_ctx(**kwargs):
+            yield
+
+        mock_ctx.side_effect = _noop_ctx
+
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        def predict_fn_with_result(input=None, **kwargs):
+            response = {
+                "output": [
+                    {
+                        "id": "msg_1",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+            return PredictResult(response=response, trace_id=external_trace_id)
+
+        test_case = {**simple_test_case, "expectations": {"expected_topic": "MLflow"}}
+        simulator = ConversationSimulator(test_cases=[test_case], max_turns=1)
+        simulator.simulate(predict_fn_with_result)
+
+    assert len(logged) == 1
+    assert logged[0]["trace_id"] == external_trace_id
+    assert logged[0]["name"] == "expected_topic"
