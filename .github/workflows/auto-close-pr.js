@@ -145,7 +145,7 @@ async function isDatabricksAuthor({ github, context }) {
   return commits.some((c) => /@databricks\.com$/i.test(c.commit.author.email || ""));
 }
 
-async function getPrAction({ github, context }) {
+async function getPrAction({ github, context, includeReadyIssueRouting = true }) {
   const prNumber = context.payload.pull_request.number;
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
@@ -305,6 +305,8 @@ async function getPrAction({ github, context }) {
   }
 
   console.log(`PR #${prNumber} is valid for ready issue #${issue.number}.`);
+  if (!includeReadyIssueRouting) return {};
+
   if (context.payload.pull_request.draft) {
     console.log(
       `PR #${prNumber} is draft. Deferring "${TEAM_REVIEW_LABEL}" until ready_for_review.`
@@ -322,6 +324,11 @@ async function getPrAction({ github, context }) {
     issueToAssign: assigneeLogins.length === 0 ? issue.number : undefined,
     addTeamReview: !hasTeamReviewLabel,
   };
+}
+
+async function getCloseReason({ github, context }) {
+  const action = await getPrAction({ github, context, includeReadyIssueRouting: false });
+  return action.closeReason;
 }
 
 async function main({ context, github }) {
@@ -376,6 +383,7 @@ async function main({ context, github }) {
 module.exports = {
   main,
   getPrAction,
+  getCloseReason,
   getEarlierOpenLinkedPr,
   isDatabricksAuthor,
 };
