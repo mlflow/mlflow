@@ -1,0 +1,28 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    # "/" only covers .github/workflows. The composite actions under
+    # .github/actions/*/action.yml pin their own dependencies (actions/cache,
+    # actions/setup-python, astral-sh/setup-uv, ...) and need to be listed
+    # explicitly, otherwise they drift out of sync with the workflows.
+    # Avoid a "**/*" glob here: it double-scans workflow files and opens
+    # duplicate PRs (dependabot/dependabot-core#10884).
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: weekly
+    # Match the 7-day package cooldown used for Python (exclude-newer) and
+    # JavaScript (min-release-age) dependencies.
+    cooldown:
+      default-days: 7
+    groups:
+      # Batch low-risk bumps into a single PR, and leave major bumps on their
+      # own so a CI failure points at one action.
+      actions-minor:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
