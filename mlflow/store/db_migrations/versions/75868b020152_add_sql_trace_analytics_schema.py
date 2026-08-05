@@ -545,11 +545,15 @@ def _backfill_span_analytics():
     truncation_counts = {"model_name": 0, "model_provider": 0}
     last_span_key = None
     while True:
+        # MSSQL rejects boolean expressions like `col IS NOT NULL` in the SELECT list.
+        # Use CASE so presence can be distinguished from JSON null across dialects.
         page_stmt = sa.select(
             spans.c.trace_id,
             spans.c.span_id,
             spans.c.dimension_attributes,
-            spans.c.dimension_attributes.isnot(None).label("has_dimension_attributes"),
+            sa.case((spans.c.dimension_attributes.isnot(None), 1), else_=0).label(
+                "has_dimension_attributes"
+            ),
         ).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key

@@ -1050,7 +1050,9 @@ def test_trace_analytics_migration_preserves_dimension_attribute_representations
                         "start_time_unix_nano": 1_000 + index,
                         "end_time_unix_nano": 2_000 + index,
                         "content": "{}",
-                        "dimension_attributes": value,
+                        # Bind JSON text so MSSQL (reflected as text) accepts the value.
+                        # json.dumps(None) stores JSON null ("null"), distinct from sa.null().
+                        "dimension_attributes": json.dumps(value),
                     }
                     for index, (span_id, value) in enumerate(representations.items())
                 ],
@@ -1092,7 +1094,11 @@ def test_trace_analytics_migration_preserves_dimension_attribute_representations
                 sa.select(
                     spans.c.span_id,
                     spans.c.dimension_attributes,
-                    spans.c.dimension_attributes.is_(None).label("is_sql_null"),
+                    # MSSQL rejects boolean expressions like `col IS NULL` in the SELECT list.
+                    # Use CASE so SQL null can be distinguished from JSON null across dialects.
+                    sa.case((spans.c.dimension_attributes.is_(None), 1), else_=0).label(
+                        "is_sql_null"
+                    ),
                 ).where(spans.c.span_id.in_(expected_states))
             ).mappings()
             for row in rows:

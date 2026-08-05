@@ -10353,8 +10353,15 @@ def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]
     dialect = session.bind.dialect.name
     table = model_class.__table__
     pk_columns = [col.name for col in table.primary_key.columns]
-    # All non-PK columns that should be updated on conflict
-    update_columns = [c.name for c in table.columns if c.name not in pk_columns and not c.computed]
+    # Only update columns present in the inserted rows. Updating omitted columns
+    # references missing insert aliases on MySQL (`new.<col>`) and can overwrite
+    # migration-only fields such as dimension_attributes_state with NULL defaults.
+    provided_columns = set.intersection(*(set(row) for row in rows))
+    update_columns = [
+        c.name
+        for c in table.columns
+        if c.name not in pk_columns and not c.computed and c.name in provided_columns
+    ]
 
     batch_size = 100
     for i in range(0, len(rows), batch_size):
