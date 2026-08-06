@@ -431,7 +431,6 @@ CREATE TABLE scorers (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id BIGINT NOT NULL IDENTITY,
-	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -446,7 +445,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id BIGINT NOT NULL IDENTITY,
-	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -463,7 +461,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id BIGINT NOT NULL IDENTITY,
-	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -481,11 +478,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -498,13 +494,13 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	request_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	trace_name VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	session_id VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	input_tokens FLOAT(53),
-	output_tokens FLOAT(53),
-	total_tokens FLOAT(53),
-	cache_read_input_tokens FLOAT(53),
-	cache_creation_input_tokens FLOAT(53),
+	trace_name VARCHAR(4096) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	session_id VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
 	input_cost FLOAT(53),
 	output_cost FLOAT(53),
 	total_cost FLOAT(53),
@@ -765,7 +761,6 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
 	content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	dimension_attributes NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	input_cost FLOAT(53),
 	output_cost FLOAT(53),
 	total_cost FLOAT(53),

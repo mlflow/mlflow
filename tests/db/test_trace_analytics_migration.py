@@ -2,16 +2,21 @@ import json
 import os
 from contextlib import contextmanager
 from datetime import date
+from decimal import Decimal
 from importlib import import_module
+from unittest.mock import Mock
 
 import pytest
 import sqlalchemy as sa
 from alembic import command
 from sqlalchemy import event
+from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     CostKey,
     SpanAttributeKey,
     TokenUsageKey,
@@ -129,7 +134,8 @@ def _seed_legacy_analytics_data(conn):
                 "request_id": "trace-explicit",
                 "key": TraceTagKey.TRACE_NAME,
                 "value": _LONG_TRACE_NAME,
-            }
+            },
+            {"request_id": "trace-explicit", "key": "custom-tag", "value": "tag-value"},
         ],
     )
     conn.execute(
@@ -168,6 +174,11 @@ def _seed_legacy_analytics_data(conn):
                 "key": TraceMetadataKey.COST,
                 "value": json.dumps({CostKey.TOTAL_COST: "not-a-number"}),
             },
+            {
+                "request_id": "trace-explicit",
+                "key": "custom-metadata",
+                "value": "metadata-value",
+            },
         ],
     )
     conn.execute(
@@ -183,6 +194,7 @@ def _seed_legacy_analytics_data(conn):
                 "key": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
                 "value": 3,
             },
+            {"request_id": "trace-explicit", "key": "custom-metric", "value": 42},
         ],
     )
     conn.execute(
@@ -213,10 +225,7 @@ def _seed_legacy_analytics_data(conn):
                 "start_time_unix_nano": 300,
                 "end_time_unix_nano": 500,
                 "content": "{}",
-                "dimension_attributes": json.dumps({
-                    SpanAttributeKey.MODEL: 123,
-                    SpanAttributeKey.MODEL_PROVIDER: ["provider"],
-                }),
+                "dimension_attributes": json.dumps({}),
             },
             {
                 "trace_id": "trace-fallback",
@@ -266,6 +275,12 @@ def _seed_legacy_analytics_data(conn):
                 "span_id": "span-fallback-2",
                 "key": CostKey.TOTAL_COST,
                 "value": 2.0,
+            },
+            {
+                "trace_id": "trace-explicit",
+                "span_id": "span-explicit",
+                "key": "custom-span-metric",
+                "value": 7.0,
             },
         ],
     )
@@ -346,13 +361,49 @@ def _index_columns(inspector, table_name):
     return {index["name"]: index["column_names"] for index in inspector.get_indexes(table_name)}
 
 
-def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tmp_path, caplog):
+def test_trace_analytics_migration_operation_order(monkeypatch):
+    expected_operations = [
+        "_validate_required_trace_joins",
+        "_validate_dimension_attributes",
+        "_add_analytics_columns",
+        "_backfill_trace_analytics",
+        "_backfill_span_analytics",
+        "_backfill_assessment_analytics",
+        "_validate_backfill",
+        "_create_rollup_tables",
+        "_create_analytics_indexes",
+        "_cleanup_legacy_analytics",
+        "_drop_dimension_attributes",
+    ]
+    actual_operations = []
+
+    def record(operation):
+        return lambda: actual_operations.append(operation)
+
+    for operation in expected_operations:
+        monkeypatch.setattr(MIGRATION_MODULE, operation, record(operation))
+
+    MIGRATION_MODULE.upgrade()
+
+    assert actual_operations == expected_operations
+
+
+def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_path, caplog):
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
             _seed_legacy_analytics_data(conn)
 
         command.upgrade(config, REVISION)
+        trace_truncation_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.getMessage().startswith("Truncated trace analytics dimensions")
+        ]
+        assert trace_truncation_logs == [
+            "Truncated trace analytics dimensions during backfill: trace_name=1 "
+            "(limit 4096), session_id=1 (limit 250)"
+        ]
         truncation_logs = [
             record.getMessage()
             for record in caplog.records
@@ -410,13 +461,27 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
         ]
 
         trace_columns = {column["name"]: column for column in inspector.get_columns("trace_info")}
-        for column_name in ("trace_name", "session_id"):
+        for column_name, expected_length in {
+            "trace_name": MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+            "session_id": MAX_CHARS_IN_TRACE_INFO_METADATA,
+        }.items():
             column_type = trace_columns[column_name]["type"]
-            if engine.dialect.name == "mysql":
-                assert isinstance(column_type, sa.Text)
-            else:
-                assert isinstance(column_type, sa.String)
-                assert column_type.length == 8000
+            assert isinstance(column_type, sa.String)
+            assert column_type.length == expected_length
+        assert _index_columns(inspector, "trace_info")[
+            "index_trace_info_experiment_id_session_id"
+        ] == ["experiment_id", "session_id"]
+        for column_name in (
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        ):
+            assert isinstance(trace_columns[column_name]["type"], sa.BigInteger)
+        assert "dimension_attributes" not in {
+            column["name"] for column in inspector.get_columns("spans")
+        }
 
         rollup_indexes = {
             "sql_trace_metric_daily_rollups": (
@@ -459,12 +524,12 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             assert traces == [
                 (
                     "trace-explicit",
-                    _LONG_TRACE_NAME,
-                    _LONG_SESSION_ID,
-                    12.0,
-                    7.0,
-                    18.0,
-                    3.0,
+                    _LONG_TRACE_NAME[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE],
+                    _LONG_SESSION_ID[:MAX_CHARS_IN_TRACE_INFO_METADATA],
+                    12,
+                    7,
+                    18,
+                    3,
                     1.25,
                     2.5,
                     3.75,
@@ -509,10 +574,14 @@ def test_trace_analytics_migration_backfills_schema_and_preserves_legacy_rows(tm
             assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_tags")).scalar_one() == 1
             assert (
                 conn.execute(sa.text("SELECT COUNT(*) FROM trace_request_metadata")).scalar_one()
-                == 5
+                == 1
             )
-            assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 2
-            assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 5
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 1
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 1
+            trace_tags = _table(conn, "trace_tags")
+            assert conn.execute(sa.select(trace_tags.c.key)).scalar_one() == "custom-tag"
+            trace_metadata = _table(conn, "trace_request_metadata")
+            assert conn.execute(sa.select(trace_metadata.c.key)).scalar_one() == "custom-metadata"
 
         with engine.begin() as conn:
             common_rollup_values = {
@@ -572,12 +641,34 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
         }
         assert "sql_trace_metric_daily_rollups" not in inspector.get_table_names()
         with engine.connect() as conn:
-            assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_tags")).scalar_one() == 1
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_tags")).scalar_one() == 2
             assert (
                 conn.execute(sa.text("SELECT COUNT(*) FROM trace_request_metadata")).scalar_one()
-                == 5
+                == 4
             )
-            assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 5
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM trace_metrics")).scalar_one() == 5
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM span_metrics")).scalar_one() == 6
+            trace_metadata = _table(conn, "trace_request_metadata")
+            token_usage = conn.execute(
+                sa.select(trace_metadata.c.value).where(
+                    trace_metadata.c.request_id == "trace-explicit",
+                    trace_metadata.c.key == TraceMetadataKey.TOKEN_USAGE,
+                )
+            ).scalar_one()
+            assert token_usage == (
+                '{"input_tokens": 12, "output_tokens": 7, "total_tokens": 18, '
+                '"cache_read_input_tokens": 3}'
+            )
+            spans = _table(conn, "spans")
+            dimensions = conn.execute(
+                sa.select(spans.c.dimension_attributes).where(spans.c.span_id == "span-explicit")
+            ).scalar_one()
+            if isinstance(dimensions, str):
+                dimensions = json.loads(dimensions)
+            assert dimensions == {
+                SpanAttributeKey.MODEL: _MODEL_NAME_OVER_LIMIT[:500],
+                SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER_OVER_LIMIT[:500],
+            }
             assert conn.execute(
                 sa.text("SELECT duration_ns FROM spans ORDER BY span_id")
             ).scalars().all() == [100, 200, 300]
@@ -718,9 +809,11 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             assessment_count = conn.execute(
                 sa.select(sa.func.count()).select_from(assessments)
             ).scalar_one()
+            span_count = conn.execute(sa.select(sa.func.count()).select_from(spans)).scalar_one()
 
         trace_dimension_updates = []
         assessment_updates = []
+        span_metric_lookups = []
 
         def capture_analytics_updates(
             _conn, _cursor, statement, _parameters, _context, executemany
@@ -732,6 +825,15 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 trace_dimension_updates.append((normalized_statement, executemany))
             elif normalized_statement.startswith("UPDATE ASSESSMENTS"):
                 assessment_updates.append((normalized_statement, executemany))
+            elif (
+                normalized_statement.startswith("SELECT")
+                and "FROM SPAN_METRICS" in normalized_statement
+                and (
+                    "(SPAN_METRICS.TRACE_ID, SPAN_METRICS.SPAN_ID) IN" in normalized_statement
+                    or "JOIN (VALUES" in normalized_statement
+                )
+            ):
+                span_metric_lookups.append(normalized_statement)
 
         with engine.connect() as connection:
             config.attributes["connection"] = connection
@@ -749,8 +851,8 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
         assert len(trace_dimension_updates) == expected_page_count
         for statement, executemany in trace_dimension_updates:
             assert " WHERE " in statement
-            assert " IN (" in statement
-            assert executemany is False
+            assert "REQUEST_ID" in statement
+            assert executemany is True
 
         expected_assessment_page_count = (
             assessment_count + MIGRATION_MODULE._BATCH_SIZE - 1
@@ -768,6 +870,12 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 )
             )
             assert executemany is True
+
+        expected_span_page_count = (
+            span_count + MIGRATION_MODULE._BATCH_SIZE - 1
+        ) // MIGRATION_MODULE._BATCH_SIZE
+        assert len(span_metric_lookups) == expected_span_page_count
+        assert all(" OR " not in statement for statement in span_metric_lookups)
 
         truncation_logs = [
             record.getMessage()
@@ -871,7 +979,7 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
 
         with pytest.raises(
             RuntimeError,
-            match="1 assessments rows have no trace_info row",
+            match="assessments row references missing trace_info row 'missing-trace'",
         ):
             command.upgrade(config, REVISION)
 
@@ -884,13 +992,194 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
         engine.dispose()
 
 
-def test_trace_analytics_backfill_batch_validation_rejects_mismatched_values():
-    with pytest.raises(
-        RuntimeError,
-        match="trace backfill validation failed for 'trace-1': mismatched columns input_tokens",
-    ):
-        MIGRATION_MODULE._validate_backfill_batch(
-            "trace",
-            {"trace-1": {"input_tokens": 10.0, "total_cost": None}},
-            {"trace-1": {"input_tokens": None, "total_cost": None}},
+@pytest.mark.parametrize(
+    "dimensions",
+    [
+        {"custom.dimension": "value"},
+        {SpanAttributeKey.MODEL: 123},
+        {SpanAttributeKey.MODEL_PROVIDER: ["provider"]},
+    ],
+)
+def test_trace_analytics_migration_rejects_unsupported_dimension_attributes(tmp_path, dimensions):
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            _seed_legacy_analytics_data(conn)
+            spans = _table(conn, "spans")
+            conn.execute(
+                spans
+                .update()
+                .where(spans.c.span_id == "span-explicit")
+                .values(dimension_attributes=json.dumps(dimensions))
+            )
+
+        with pytest.raises(RuntimeError, match="unsupported content"):
+            command.upgrade(config, REVISION)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, {}),
+        ({}, {}),
+        (
+            {SpanAttributeKey.MODEL: "model", SpanAttributeKey.MODEL_PROVIDER: None},
+            {SpanAttributeKey.MODEL: "model", SpanAttributeKey.MODEL_PROVIDER: None},
+        ),
+        (json.dumps({SpanAttributeKey.MODEL: "model"}), {SpanAttributeKey.MODEL: "model"}),
+    ],
+)
+def test_validated_dimension_attributes(value, expected):
+    assert (
+        MIGRATION_MODULE._validated_dimension_attributes(value, ("trace-1", "span-1")) == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("not-json", "malformed JSON"),
+        (json.dumps(["model"]), "unsupported content"),
+        ({"custom.dimension": "value"}, "custom.dimension"),
+        ({SpanAttributeKey.MODEL: 123}, SpanAttributeKey.MODEL),
+    ],
+)
+def test_validated_dimension_attributes_rejects_unsupported_values(value, match):
+    with pytest.raises(RuntimeError, match=match):
+        MIGRATION_MODULE._validated_dimension_attributes(value, ("trace-1", "span-1"))
+
+
+@pytest.mark.parametrize(
+    ("dialect_name", "dialect", "expected_sql"),
+    [
+        ("sqlite", sqlite.dialect(), "IN (VALUES"),
+        ("postgresql", postgresql.dialect(), " IN (("),
+        ("mysql", mysql.dialect(), " IN (("),
+        ("mssql", mssql.dialect(), "JOIN (VALUES"),
+    ],
+)
+def test_span_metrics_for_keys_query_uses_compact_composite_lookup(
+    dialect_name, dialect, expected_sql
+):
+    span_metrics = sa.table(
+        "span_metrics",
+        sa.column("trace_id", sa.String(50)),
+        sa.column("span_id", sa.String(50)),
+        sa.column("key", sa.String(250)),
+        sa.column("value", sa.Float()),
+    )
+    span_keys = [("trace-1", f"span-{i}") for i in range(MIGRATION_MODULE._BATCH_SIZE)]
+
+    query = MIGRATION_MODULE._span_metrics_for_keys_query(span_metrics, span_keys, dialect_name)
+    compiled = query.compile(dialect=dialect, compile_kwargs={"render_postcompile": True})
+    sql = str(compiled)
+
+    assert expected_sql in sql
+    assert " OR " not in sql
+    assert len(compiled.params) == (
+        2 * MIGRATION_MODULE._BATCH_SIZE + len(MIGRATION_MODULE._COST_COLUMNS)
+    )
+
+
+def test_span_metrics_for_keys_query_matches_exact_pairs():
+    metadata = sa.MetaData()
+    span_metrics = sa.Table(
+        "span_metrics",
+        metadata,
+        sa.Column("trace_id", sa.String(50), nullable=False),
+        sa.Column("span_id", sa.String(50), nullable=False),
+        sa.Column("key", sa.String(250), nullable=False),
+        sa.Column("value", sa.Float()),
+    )
+    engine = sa.create_engine("sqlite://")
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(
+            span_metrics.insert(),
+            [
+                {"trace_id": trace_id, "span_id": span_id, "key": key, "value": value}
+                for trace_id, span_id, key, value in (
+                    ("trace-1", "span-1", CostKey.INPUT_COST, 1.0),
+                    ("trace-1", "span-2", CostKey.INPUT_COST, 2.0),
+                    ("trace-2", "span-1", CostKey.INPUT_COST, 3.0),
+                    ("trace-2", "span-2", CostKey.INPUT_COST, 4.0),
+                    ("trace-1", "span-1", "unrelated", 5.0),
+                )
+            ],
         )
+
+        rows = conn.execute(
+            MIGRATION_MODULE._span_metrics_for_keys_query(
+                span_metrics, [("trace-1", "span-1"), ("trace-2", "span-2")], "sqlite"
+            )
+        ).all()
+
+    assert {(row.trace_id, row.span_id, row.key, row.value) for row in rows} == {
+        ("trace-1", "span-1", CostKey.INPUT_COST, 1.0),
+        ("trace-2", "span-2", CostKey.INPUT_COST, 4.0),
+    }
+
+
+@pytest.mark.parametrize(
+    ("supports_sane_rowcount", "rowcount", "raises"),
+    [
+        (True, 2, False),
+        (True, 1, True),
+        (False, -1, False),
+    ],
+)
+def test_execute_backfill_updates_validates_supported_rowcounts(
+    supports_sane_rowcount, rowcount, raises
+):
+    result = Mock(rowcount=rowcount)
+    result.supports_sane_multi_rowcount.return_value = supports_sane_rowcount
+    bind = Mock()
+    bind.execute.return_value = result
+    updates = [{"id": 1}, {"id": 2}]
+
+    if raises:
+        with pytest.raises(RuntimeError, match="trace backfill updated 1 of 2 rows"):
+            MIGRATION_MODULE._execute_backfill_updates(bind, "update", updates, "trace")
+    else:
+        MIGRATION_MODULE._execute_backfill_updates(bind, "update", updates, "trace")
+
+    bind.execute.assert_called_once_with("update", updates)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, None),
+        (False, None),
+        ("1.25", 1.25),
+        (Decimal("1.25"), 1.25),
+        ("not-a-number", None),
+    ],
+)
+def test_trace_analytics_migration_finite_float_conversion(value, expected):
+    assert MIGRATION_MODULE._finite_float_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0, 0),
+        (100.0, 100),
+        ("100", 100),
+        (Decimal("100.0"), 100),
+        (-(2**63), -(2**63)),
+        (2**63 - 1, 2**63 - 1),
+        (None, None),
+        (True, None),
+        (1.5, None),
+        (float("nan"), None),
+        (float("inf"), None),
+        (-(2**63) - 1, None),
+        (2**63, None),
+        ("not-a-number", None),
+    ],
+)
+def test_trace_analytics_migration_token_count_conversion(value, expected):
+    assert MIGRATION_MODULE._token_count_or_none(value) == expected

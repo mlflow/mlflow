@@ -144,7 +144,6 @@ CREATE TABLE secrets (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id BIGINT DEFAULT nextval('sql_assessment_daily_rollups_id_seq'::regclass) NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -159,7 +158,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id BIGINT DEFAULT nextval('sql_span_cost_daily_rollups_id_seq'::regclass) NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -176,7 +174,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id BIGINT DEFAULT nextval('sql_trace_metric_daily_rollups_id_seq'::regclass) NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -194,11 +191,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) NOT NULL,
-	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -507,13 +503,13 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT 0 NOT NULL,
-	trace_name VARCHAR(8000),
-	session_id VARCHAR(8000),
-	input_tokens DOUBLE PRECISION,
-	output_tokens DOUBLE PRECISION,
-	total_tokens DOUBLE PRECISION,
-	cache_read_input_tokens DOUBLE PRECISION,
-	cache_creation_input_tokens DOUBLE PRECISION,
+	trace_name VARCHAR(4096),
+	session_id VARCHAR(250),
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
 	input_cost DOUBLE PRECISION,
 	output_cost DOUBLE PRECISION,
 	total_cost DOUBLE PRECISION,
@@ -773,7 +769,6 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS ((end_time_unix_nano - start_time_unix_nano)) STORED,
 	content TEXT NOT NULL,
-	dimension_attributes JSON,
 	input_cost DOUBLE PRECISION,
 	output_cost DOUBLE PRECISION,
 	total_cost DOUBLE PRECISION,

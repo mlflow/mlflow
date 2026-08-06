@@ -63,7 +63,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
-    SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
 )
@@ -87,7 +86,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -1410,14 +1409,12 @@ class SqlAlchemyGatewayStoreMixin:
         with self.ManagedSessionMaker() as session:
             query = (
                 session
-                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
-                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
                 .join(
                     SqlTraceMetadata,
                     SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
                 )
                 .filter(
-                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
                     SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
                     SqlTraceInfo.timestamp_ms >= start_time_ms,
                     SqlTraceInfo.timestamp_ms < end_time_ms,

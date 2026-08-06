@@ -1353,6 +1353,47 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
             )
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ('feedback.session_quality = "good"', set()),
+        ("feedback.session_quality IS NOT NULL", set()),
+        ("feedback.session_quality IS NULL", {"trace-a"}),
+    ],
+)
+def test_search_traces_session_scoped_assessment_is_workspace_scoped(
+    workspace_tracking_store,
+    filter_string: str,
+    expected_trace_ids: set[str],
+):
+    session_metadata = {TraceMetadataKey.TRACE_SESSION: "shared-session"}
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    with WorkspaceContext("team-session-search-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-session-search-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a, trace_metadata=session_metadata)
+
+    with WorkspaceContext("team-session-search-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-session-search-b")
+        _create_trace(workspace_tracking_store, "trace-b", exp_b, trace_metadata=session_metadata)
+        workspace_tracking_store.create_assessment(
+            Feedback(
+                trace_id="trace-b",
+                name="session_quality",
+                value="good",
+                source=source,
+                metadata=session_metadata,
+            )
+        )
+
+    with WorkspaceContext("team-session-search-a"):
+        traces, _ = workspace_tracking_store.search_traces(
+            locations=[exp_a], filter_string=filter_string
+        )
+
+    assert {trace.trace_id for trace in traces} == expected_trace_ids
+
+
 def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-link-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-link-a")
