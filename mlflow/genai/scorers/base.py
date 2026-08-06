@@ -8,10 +8,11 @@ from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, field_validator
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
+from mlflow.entities._required_resource import RequiredResource
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -122,6 +123,10 @@ class SerializedScorer:
     #   {"module": ..., "class": ..., "metric_name": ..., "model": ..., "kwargs": {...}}
     third_party_scorer_data: dict[str, Any] | None = None
 
+    # MLflow-managed resources the scorer needs at runtime (gateway endpoints, prompts).
+    # Stored as list-of-dicts for shallow JSON parsing by the job execution framework.
+    required_resources: list[dict[str, str]] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
@@ -219,6 +224,7 @@ class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
     description: str | None = None
+    required_resources: tuple[RequiredResource, ...] | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
@@ -229,6 +235,19 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
+
+    @field_validator("required_resources", mode="before")
+    @classmethod
+    def _validate_required_resources(cls, v):
+        if v is None:
+            return None
+        result = []
+        for item in v:
+            if isinstance(item, RequiredResource):
+                result.append(item)
+            else:
+                raise ValueError(f"Expected RequiredResource, got {type(item).__name__}")
+        return tuple(result)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -304,6 +323,10 @@ class Scorer(BaseModel):
         if self._cached_dump is not None:
             return self._cached_dump
 
+        serialized_resources = (
+            [r.to_dict() for r in self.required_resources] if self.required_resources else None
+        )
+
         if self.kind == ScorerKind.THIRD_PARTY:
             serialized = SerializedScorer(
                 name=self.name,
@@ -319,6 +342,7 @@ class Scorer(BaseModel):
                     "model": self._model,
                     "kwargs": dict(self._metric_kwargs),
                 },
+                required_resources=serialized_resources,
             )
             self._cached_dump = asdict(serialized)
             return self._cached_dump
@@ -350,6 +374,7 @@ class Scorer(BaseModel):
             call_source=source_info.get("call_source"),
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
+            required_resources=serialized_resources,
         )
         self._cached_dump = asdict(serialized)
         return self._cached_dump
@@ -369,6 +394,13 @@ class Scorer(BaseModel):
         result["call_signature"] = str(inspect.signature(self._original_func))
 
         return result
+
+    @staticmethod
+    def _attach_required_resources(scorer_instance: "Scorer", serialized: SerializedScorer) -> None:
+        if serialized.required_resources:
+            scorer_instance.required_resources = tuple(
+                RequiredResource.from_dict(r) for r in serialized.required_resources
+            )
 
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
@@ -407,7 +439,9 @@ class Scorer(BaseModel):
 
         # Handle decorator scorers
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
-            return cls._reconstruct_decorator_scorer(serialized)
+            scorer_instance = cls._reconstruct_decorator_scorer(serialized)
+            cls._attach_required_resources(scorer_instance, serialized)
+            return scorer_instance
 
         # Handle InstructionsJudge scorers
         elif serialized.instructions_judge_pydantic_data is not None:
@@ -1146,6 +1180,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Scorer: ...
 
 
@@ -1157,6 +1192,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1167,6 +1203,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1253,6 +1290,12 @@ def scorer(
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
             (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
+        required_resources: A tuple of :class:`RequiredResource` declarations
+            for custom ``@scorer`` functions that access MLflow-managed resources
+            (gateway endpoints, prompts, etc.) at runtime. Built-in and
+            ``make_judge`` scorers don't need this — the framework infers
+            their resources from parameters provided during creation
+            (e.g. the ``model`` argument).
 
     Example:
 
@@ -1341,6 +1384,7 @@ def scorer(
             description=description,
             aggregations=aggregations,
             pass_if=pass_if,
+            required_resources=required_resources,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1394,4 +1438,5 @@ def scorer(
         name=name or func.__name__,
         description=description,
         aggregations=aggregations,
+        required_resources=required_resources,
     )
