@@ -191,6 +191,16 @@ export const ExperimentGetShareLinkModal = ({
       }
       await dispatch(setExperimentTagApi(experimentId, getSavedViewTagKey(id), envelope));
       setSavedViewUrl(getSavedViewShareUrl(experimentId, id, viewMode));
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'View "{name}" saved.',
+            description: 'Success toast shown after an experiment view is saved',
+          },
+          { name: trimmed },
+        ),
+        3,
+      );
     } catch (e) {
       // Keep the name-entry phase visible so the user can retry a failed write.
       Utils.logErrorAndNotifyUser('Failed to save the view');
@@ -204,7 +214,7 @@ export const ExperimentGetShareLinkModal = ({
       componentId="mlflow.experiment_page.save_and_share_view.modal"
       title={
         <FormattedMessage
-          defaultMessage="Save & share view"
+          defaultMessage="Save view"
           description="Title of the modal that saves the current experiment view and produces a shareable link"
         />
       }

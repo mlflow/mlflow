@@ -296,6 +296,27 @@ def test_list_items():
     assert len(items) == 3
 ```
 
+## Use the `db_uri` Fixture Instead of Creating a SQLite Database
+
+A brand-new SQLite file runs the full migration, so a function-scoped fixture pays that cost on every test (~8s each on Windows CI). The `db_uri` fixture in `tests/conftest.py` copies a session-cached, pre-migrated database, keeping tests isolated without re-running migrations.
+
+```python
+# Bad
+@pytest.fixture
+def store(tmp_path: Path):
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir()
+    return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+
+
+# Good
+@pytest.fixture
+def store(tmp_path: Path, db_uri: str):
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir()
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+```
+
 ## Preserve function metadata and type information in decorators
 
 When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's type information for accurate type checking and autocompletion in IDEs.

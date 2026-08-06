@@ -176,6 +176,20 @@ deny_unpinned_actions contains msg if {
 	)
 }
 
+deny_self_repo_actions contains msg if {
+	actions := self_repo_actions(input)
+	count(actions) > 0
+	msg := sprintf(
+		concat("", [
+			"The following actions are referenced with the self-repository '$/' syntax: %s. ",
+			"'$/' makes the runner download the whole repository tarball during 'Set up job', ",
+			"which costs ~20s per job in this repo. Use the workspace-relative './' syntax ",
+			"instead (e.g., ./.github/actions/setup-python), which resolves against the checkout.",
+		]),
+		[concat(", ", actions)],
+	)
+}
+
 deny_missing_shell_defaults contains msg if {
 	# Only check workflow files (not composite actions)
 	# Composite actions have 'runs' instead of 'jobs'
@@ -335,28 +349,38 @@ ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
 }
 
 is_step_unpinned(step) if {
+	# Actions in this repository ('./' or '$/') have no ref to pin. '$/' is
+	# reported by deny_self_repo_actions instead, so it is exempt here to keep
+	# a single, actionable message per offending step.
 	not startswith(step.uses, "./")
+	not startswith(step.uses, "$/")
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
-unpinned_actions(inp) := unpinned if {
+all_steps(inp) := steps if {
 	# For workflow files with jobs
 	inp.jobs
-	unpinned := {step.uses |
+	steps := {step |
 		some job in inp.jobs
 		some step in job_steps(job)
-		is_step_unpinned(step)
 	}
 }
 
-unpinned_actions(inp) := unpinned if {
+all_steps(inp) := steps if {
 	# For composite action files with runs
 	not inp.jobs
 	inp.runs.steps
-	unpinned := {step.uses |
-		some step in inp.runs.steps
-		is_step_unpinned(step)
-	}
+	steps := {step | some step in inp.runs.steps}
+}
+
+unpinned_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	is_step_unpinned(step)
+}
+
+self_repo_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	startswith(step.uses, "$/")
 }
 
 any_job_has_repo_check(jobs) if {
