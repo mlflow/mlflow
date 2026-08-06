@@ -342,6 +342,54 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     assert actual_ids == expected_ids
 
 
+def test_search_traces_uses_narrow_child_projections(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("narrow-child-projections")
+    _create_trace(
+        store,
+        "tr-narrow",
+        experiment_id,
+        trace_metadata={"metadata-key": "metadata-value"},
+        tags={"tag-key": "tag-value"},
+    )
+    store.create_assessment(
+        Feedback(
+            name="quality",
+            value=True,
+            source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+            trace_id="tr-narrow",
+        )
+    )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        traces, _ = store.search_traces(locations=[experiment_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.tags["tag-key"] == "tag-value"
+    assert trace.trace_metadata["metadata-key"] == "metadata-value"
+    assert [assessment.name for assessment in trace.assessments] == ["quality"]
+    trace.to_proto()
+
+    statements = [statement.replace('"', "").replace("`", "") for statement in statements]
+    assert any(
+        "trace_tags.request_id, trace_tags.key, trace_tags.value" in statement
+        for statement in statements
+    )
+    assert any(
+        "trace_request_metadata.request_id, trace_request_metadata.key, "
+        "trace_request_metadata.value" in statement
+        for statement in statements
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
