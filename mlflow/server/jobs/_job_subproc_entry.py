@@ -39,7 +39,7 @@ def _main():
     # ensure telemetry can be captured within jobs
     set_telemetry_client()
 
-    # ensure the subprocess is killed when parent process dies.
+    # Ensure the subprocess exits if its original parent dies and it gets reparented.
     threading.Thread(
         target=_exit_when_orphaned,
         name="exit_when_orphaned",

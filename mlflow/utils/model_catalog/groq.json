@@ -152,7 +152,14 @@
       "pricing": {
         "input_per_million_tokens": 0.15,
         "output_per_million_tokens": 0.6,
-        "cache_read_per_million_tokens": 0.075
+        "cache_read_per_million_tokens": 0.075,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.005,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.005
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -161,7 +168,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-06"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
@@ -173,7 +180,14 @@
       "pricing": {
         "input_per_million_tokens": 0.075,
         "output_per_million_tokens": 0.3,
-        "cache_read_per_million_tokens": 0.0375
+        "cache_read_per_million_tokens": 0.0375,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.005,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.005
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -182,7 +196,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-06"
     },
     "openai/gpt-oss-safeguard-20b": {
       "mode": "chat",
@@ -194,7 +208,14 @@
       "pricing": {
         "input_per_million_tokens": 0.075,
         "output_per_million_tokens": 0.3,
-        "cache_read_per_million_tokens": 0.037
+        "cache_read_per_million_tokens": 0.037,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.005,
+            "search_context_size_low": 0.005,
+            "search_context_size_medium": 0.005
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -203,7 +224,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-06"
     },
     "qwen/qwen3-32b": {
       "mode": "chat",

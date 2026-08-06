@@ -846,7 +846,7 @@ class FileStore(AbstractStore):
 
     def _fetch_file_model_version_if_exists(self, name, version) -> FileModelVersion:
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         registered_model_version_dir = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_dir):
             raise MlflowException(

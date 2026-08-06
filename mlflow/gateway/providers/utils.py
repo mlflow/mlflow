@@ -1,3 +1,4 @@
+import re
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -5,7 +6,25 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 from mlflow.utils.uri import append_to_uri_path
+
+# data:<mime>;base64,<payload> — the only image_url form the judge image tool emits.
+_DATA_URL_RE = re.compile(r"^data:(?P<mime>[^;]+);base64,(?P<data>.*)$", re.DOTALL)
+
+
+def parse_base64_data_url(url: str) -> tuple[str, str] | None:
+    """Parse a ``data:<mime>;base64,<payload>`` URL into ``(mime, base64_payload)``.
+
+    Returns None for any non-base64-data-url (e.g. a remote http URL), so callers can
+    decide how to handle non-base64 references.
+    """
+    if match := _DATA_URL_RE.match(url):
+        return match.group("mime"), match.group("data")
+    return None
+
+
+_STRIPPED_HEADERS = frozenset({"accept-encoding", MLFLOW_GATEWAY_AUTH_HEADER.lower()})
 
 # Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
 # request context. Reset to 0.0 at the start of each request by the gateway timing middleware
@@ -23,7 +42,10 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
 
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
-    request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
+    # Also drop X-MLflow-Authorization (MLflow's own RBAC credential on gateway routes) so
+    # it is never forwarded to the upstream provider. This is the single egress choke point
+    # all proxy/passthrough paths funnel through.
+    request_headers = {k: v for k, v in headers.items() if k.lower() not in _STRIPPED_HEADERS}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
     # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines

@@ -1,0 +1,73 @@
+<svg width="440" height="150" viewBox="0 0 440 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .flow {
+      stroke-dasharray: 6 4;
+      animation: issue-detection-flow 1.4s linear infinite;
+    }
+    .sparkle {
+      animation: issue-detection-pulse 2.4s ease-in-out infinite;
+      transform-origin: 220px 75px;
+    }
+    @keyframes issue-detection-flow {
+      to {
+        stroke-dashoffset: -20;
+      }
+    }
+    @keyframes issue-detection-pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(0.94);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flow, .sparkle {
+        animation: none;
+      }
+    }
+  </style>
+
+  <!-- Traces table (input) -->
+  <rect x="8.5" y="15.5" width="150" height="119" rx="7.5" fill="white" stroke="#E5E7EB"/>
+  <path d="M8.5 23C8.5 18.8579 11.8579 15.5 16 15.5H151C155.142 15.5 158.5 18.8579 158.5 23V39.5H8.5V23Z" fill="#F6F7F9" stroke="#E5E7EB"/>
+  <circle cx="26" cy="56" r="5" fill="#D7EDFE"/>
+  <rect x="40" y="52" width="102" height="8" rx="4" fill="#E5E7EB"/>
+  <circle cx="26" cy="78" r="5" fill="#D7EDFE"/>
+  <rect x="40" y="74" width="84" height="8" rx="4" fill="#E5E7EB"/>
+  <circle cx="26" cy="100" r="5" fill="#D7EDFE"/>
+  <rect x="40" y="96" width="96" height="8" rx="4" fill="#E5E7EB"/>
+  <circle cx="26" cy="122" r="5" fill="#D7EDFE"/>
+  <rect x="40" y="118" width="72" height="8" rx="4" fill="#E5E7EB"/>
+
+  <!-- Flow: traces in -->
+  <line class="flow" x1="166" y1="75" x2="186" y2="75" stroke="#B6C2CC" stroke-width="2"/>
+  <path d="M186 69L196 75L186 81V69Z" fill="#B6C2CC"/>
+
+  <!-- AI scan sparkle -->
+  <g class="sparkle">
+    <path d="M220 51L226.5 68.5L244 75L226.5 81.5L220 99L213.5 81.5L196 75L213.5 68.5L220 51Z" fill="#0194E2"/>
+    <path d="M238 52L240.6 59L247.6 61.6L240.6 64.2L238 71.2L235.4 64.2L228.4 61.6L235.4 59L238 52Z" fill="#99DBF5"/>
+  </g>
+
+  <!-- Flow: issues out -->
+  <line class="flow" x1="248" y1="75" x2="268" y2="75" stroke="#B6C2CC" stroke-width="2"/>
+  <path d="M268 69L278 75L268 81V69Z" fill="#B6C2CC"/>
+
+  <!-- Issue cards (output) -->
+  <rect x="284.5" y="20.5" width="147" height="47" rx="7.5" fill="white" stroke="#E5E7EB"/>
+  <path d="M303 32L312 48H294L303 32Z" fill="#FFF0E5" stroke="#DE7921" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="302.2" y="38" width="1.6" height="5" rx="0.8" fill="#DE7921"/>
+  <rect x="302.2" y="44.6" width="1.6" height="1.6" rx="0.8" fill="#DE7921"/>
+  <rect x="322" y="32" width="92" height="8" rx="4" fill="#E5E7EB"/>
+  <rect x="322" y="48" width="62" height="8" rx="4" fill="#F0F2F4"/>
+
+  <rect x="284.5" y="82.5" width="147" height="47" rx="7.5" fill="white" stroke="#E5E7EB"/>
+  <path d="M303 94L312 110H294L303 94Z" fill="#FFF0E5" stroke="#DE7921" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="302.2" y="100" width="1.6" height="5" rx="0.8" fill="#DE7921"/>
+  <rect x="302.2" y="106.6" width="1.6" height="1.6" rx="0.8" fill="#DE7921"/>
+  <rect x="322" y="94" width="80" height="8" rx="4" fill="#E5E7EB"/>
+  <rect x="322" y="110" width="52" height="8" rx="4" fill="#F0F2F4"/>
+</svg>

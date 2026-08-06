@@ -5,49 +5,56 @@
 import type {
   MessageRequest,
   ToolUseInfo,
+  ToolResultInfo,
   AssistantConfig,
   AssistantConfigUpdate,
   HealthCheckResult,
   InstallSkillsResponse,
   PermissionRequest,
+  ProvidersResponse,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
+/** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
+const normalizeToolResultContent = (content: unknown): string => {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  return JSON.stringify(content, null, 2);
+};
+
 /**
- * Process content block array from assistant response.
- * Extracts text or tool uses and calls appropriate callbacks.
+ * Process a content block array from an assistant response, emitting text, tool-use,
+ * and tool-result blocks in order so the transcript preserves their sequence.
  */
-const processContentBlocks = (
+export const processContentBlocks = (
   content: any[],
   onMessage: (text: string) => void,
   onToolUse?: (tools: ToolUseInfo[]) => void,
+  onToolResult?: (result: ToolResultInfo) => void,
 ): void => {
-  // Extract text from TextBlock items
-  const text = content
-    .filter((block: any) => 'text' in block)
-    .map((block: any) => block.text)
-    .join('');
-
-  if (text) {
-    // Clear tools and show text when assistant is responding
-    onToolUse?.([]);
-    onMessage(text);
-    return;
-  }
-
-  // Only show tool uses when there's no text response yet
-  const toolUses = content
-    .filter((block: any) => block.name && block.input && !block.tool_use_id)
-    .map((block: any) => ({
-      id: block.id,
-      name: block.name,
-      description: block.input?.description,
-      input: block.input,
-    }));
-  if (toolUses.length > 0 && onToolUse) {
-    onToolUse(toolUses);
+  for (const block of content) {
+    if ('text' in block && block.text) {
+      onMessage(block.text);
+    } else if (block.tool_use_id) {
+      // ToolResultBlock: carries the output for a previously-streamed tool call.
+      onToolResult?.({
+        toolUseId: block.tool_use_id,
+        content: normalizeToolResultContent(block.content),
+        isError: Boolean(block.is_error),
+      });
+    } else if (block.name && block.input) {
+      // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
+      onToolUse?.([
+        {
+          id: block.id,
+          name: block.name,
+          description: block.input?.description,
+          input: block.input,
+        },
+      ]);
+    }
   }
 };
 
@@ -70,6 +77,15 @@ export const checkProviderHealth = async (provider: string): Promise<HealthCheck
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
   return await fetchAPI(getAjaxUrl(`${API_BASE}/config`));
+};
+
+/**
+ * Discover assistant providers and the one that would serve a chat from this
+ * client (`resolved`), which may be an auto-picked default when nothing is
+ * explicitly selected in config.
+ */
+export const getProviders = async (): Promise<ProvidersResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/providers`));
 };
 
 /**
@@ -102,13 +118,22 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
 
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
-  onError: (error: string) => void;
+  /** `code` is the backend's machine-readable error class when it provided one. */
+  onError: (error: string, code?: string) => void;
   onDone: () => void;
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
   onToolUse?: (tools: ToolUseInfo[]) => void;
+  onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cache_read_tokens?: number;
+    total_cost_usd?: number | null;
+  }) => void;
 }
 
 export interface SendMessageStreamResult {
@@ -124,7 +149,8 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onInterrupted, onPermissionRequest } = callbacks;
+  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
+    callbacks;
 
   // Listen for 'message' events (contains assistant's response)
   // Backend sends: {"message": {"role": "assistant", "content": "..."}}
@@ -136,7 +162,7 @@ const attachStreamListeners = (
         if (typeof content === 'string') {
           onMessage(content);
         } else if (Array.isArray(content)) {
-          processContentBlocks(content, onMessage, onToolUse);
+          processContentBlocks(content, onMessage, onToolUse, onToolResult);
         }
       }
     } catch (err) {
@@ -154,6 +180,8 @@ const attachStreamListeners = (
           onMessage(data.event.delta.text);
         } else if (data.event.type === 'status') {
           onStatus?.(data.event.status);
+        } else if (data.event.type === 'usage' && data.event.usage) {
+          onUsage?.(data.event.usage);
         }
       }
     } catch (err) {
@@ -201,7 +229,7 @@ const attachStreamListeners = (
     if (event.type === 'error' && (event as MessageEvent).data) {
       try {
         const data = JSON.parse((event as MessageEvent).data);
-        onError(data.error || 'Unknown error');
+        onError(data.error || 'Unknown error', data.error_code);
       } catch {
         onError('Connection error');
       }
@@ -292,12 +320,14 @@ export const resumeStream = async (
   return { eventSource };
 };
 
-export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
   // api_key is sent as an X-API-Key header (not a query param) so the
   // bearer token doesn't end up in access logs, browser history, or
-  // referer headers.
-  const params = new URLSearchParams({ base_url: baseUrl });
-  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
+  // referer headers. base_url is omitted when unset so the provider's
+  // default (e.g. the OpenAI API) applies.
+  const params = new URLSearchParams(baseUrl ? { base_url: baseUrl } : {});
+  const query = params.toString();
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models${query ? `?${query}` : ''}`;
   const headers = {
     ...getDefaultHeaders(document.cookie),
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),
