@@ -53,9 +53,11 @@ from mlflow.tracing.utils import (
     parse_trace_id_v4,
 )
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.thread_utils import map_with_context
+from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -827,7 +829,6 @@ def _resolve_uc_trace_id(trace_id: str) -> str:
     unchanged. Otherwise it is qualified with the experiment's UC location so it can be
     routed to the UC-backed endpoints.
     """
-    from mlflow.tracing.client import TracingClient
     from mlflow.tracking.fluent import _get_experiment_id
 
     if parse_trace_id_v4(trace_id)[0] is not None:
@@ -875,9 +876,14 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     """
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
-    # A plain trace ID does not carry the Unity Catalog location needed to fetch traces
-    # stored in UC. Resolve it from the active experiment's trace destination.
-    trace_id = _resolve_uc_trace_id(trace_id)
+
+    # UC-backed trace storage only exists on Databricks. Branch early so the non-Databricks
+    # path never enters the resolution logic below.
+    is_databricks = is_databricks_uri(get_tracking_uri())
+    if is_databricks:
+        # A plain trace ID does not carry the Unity Catalog location needed to fetch traces
+        # stored in UC. Resolve it from the active experiment's trace destination.
+        trace_id = _resolve_uc_trace_id(trace_id)
 
     exc: MlflowException | None = None
     try:
@@ -901,7 +907,8 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
         )
         # If the ID is still a plain ID, the active experiment did not resolve a Unity
         # Catalog location. Point the user to the fully-qualified form for UC traces.
-        if parse_trace_id_v4(trace_id)[0] is None:
+        # Only relevant on Databricks, where UC-backed trace storage exists.
+        if is_databricks and parse_trace_id_v4(trace_id)[0] is None:
             hint += (
                 " If this trace is stored in Unity Catalog, pass the fully-qualified trace ID "
                 "in the form `trace:/<catalog>.<schema>.<table>/<trace_id>`, or set an active "

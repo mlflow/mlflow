@@ -128,23 +128,6 @@ class TracingClient:
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
 
-    def _get_uc_trace_experiment(self, experiment_id: str | None):
-        """
-        Fetch the experiment when its traces are stored in Unity Catalog.
-
-        Returns the ``Experiment`` (which carries the UC ``trace_location``) when the experiment
-        stores traces in Unity Catalog, or ``None`` otherwise (non-Databricks tracking, an
-        experiment whose traces live in the MLflow experiment itself, or a resolution failure).
-        """
-        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
-            return None
-        try:
-            experiment = self.store.get_experiment(experiment_id)
-        except Exception as e:
-            _logger.debug(f"Failed to fetch experiment {experiment_id} for UC trace access: {e}")
-            return None
-        return experiment if experiment.trace_location is not None else None
-
     def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
         """
         Resolve the Unity Catalog trace location string (``catalog.schema.table_prefix``) for an
@@ -155,8 +138,19 @@ class TracingClient:
         experiment's trace destination tag (see ``Experiment.trace_location``). Returns ``None``
         for non-UC / non-Databricks experiments or on resolution failure.
         """
-        experiment = self._get_uc_trace_experiment(experiment_id)
-        return experiment.trace_location.full_table_prefix if experiment is not None else None
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            # `full_table_prefix` raises if the location carries no table prefix, so it is
+            # resolved inside the try to keep this a best-effort lookup.
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
 
     def delete_traces(
         self,

@@ -8,6 +8,8 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
+from mlflow.entities.experiment import Experiment
+from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -26,6 +28,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
@@ -642,13 +645,23 @@ def test_tracing_client_get_trace_error_handling():
         client.get_trace(trace_id)
 
 
-def _uc_experiment(location, tags=None):
-    return Mock(trace_location=location, tags=tags or {})
+def _experiment(tags=None):
+    return Experiment(
+        experiment_id="123",
+        name="test",
+        artifact_location="file:/tmp",
+        lifecycle_stage="active",
+        tags=[ExperimentTag(k, v) for k, v in (tags or {}).items()],
+    )
+
+
+def _uc_experiment(destination_path="cat.sch.tbl"):
+    return _experiment(tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: destination_path})
 
 
 def test_resolve_uc_trace_location_returns_full_table_prefix():
     mock_store = Mock()
-    mock_store.get_experiment.return_value = _uc_experiment(UnityCatalog("cat", "sch", "tbl"))
+    mock_store.get_experiment.return_value = _uc_experiment()
 
     with patch("mlflow.tracing.client._get_store", return_value=mock_store):
         client = TracingClient(tracking_uri="databricks")
@@ -659,7 +672,19 @@ def test_resolve_uc_trace_location_returns_full_table_prefix():
 
 def test_resolve_uc_trace_location_returns_none_for_non_uc_experiment():
     mock_store = Mock()
-    mock_store.get_experiment.return_value = _uc_experiment(None)
+    mock_store.get_experiment.return_value = _experiment()
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient(tracking_uri="databricks")
+        assert client._resolve_uc_trace_location("123") is None
+
+
+def test_resolve_uc_trace_location_returns_none_when_table_prefix_missing():
+    experiment = _experiment()
+    # A schema-only location has no table prefix, so `full_table_prefix` raises.
+    experiment.trace_location = UnityCatalog("cat", "sch", table_prefix=None)
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = experiment
 
     with patch("mlflow.tracing.client._get_store", return_value=mock_store):
         client = TracingClient(tracking_uri="databricks")
@@ -688,12 +713,13 @@ def test_resolve_uc_trace_location_handles_missing_experiment_id():
 
 def test_get_trace_resolves_uc_location_from_active_experiment():
     mock_store = Mock()
-    mock_store.get_experiment.return_value = _uc_experiment(UnityCatalog("cat", "sch", "tbl"))
+    mock_store.get_experiment.return_value = _uc_experiment()
     mock_store.batch_get_traces.return_value = ["dummy_trace"]
 
     with (
         patch("mlflow.tracing.client._get_store", return_value=mock_store),
         patch("mlflow.tracing.client._resolve_tracking_uri", return_value="databricks"),
+        patch("mlflow.tracing.fluent.get_tracking_uri", return_value="databricks"),
         patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
     ):
         assert mlflow.get_trace("tr-abc") == "dummy_trace"
@@ -701,6 +727,20 @@ def test_get_trace_resolves_uc_location_from_active_experiment():
     mock_store.batch_get_traces.assert_called_once_with(
         ["trace:/cat.sch.tbl/tr-abc"], "cat.sch.tbl"
     )
+
+
+def test_get_trace_skips_uc_resolution_for_non_databricks_tracking():
+    mock_store = Mock()
+    mock_store.get_trace_info.side_effect = MlflowException("not found")
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.fluent.get_tracking_uri", return_value="sqlite:///mlflow.db"),
+        patch("mlflow.tracing.fluent._resolve_uc_trace_id") as mock_resolve,
+    ):
+        assert mlflow.get_trace("tr-abc", silent=True) is None
+
+    mock_resolve.assert_not_called()
 
 
 def test_resolve_uc_trace_id_passes_through_already_qualified_id():
@@ -715,9 +755,12 @@ def test_resolve_uc_trace_id_passes_through_already_qualified_id():
 def test_resolve_uc_trace_id_passes_through_when_no_uc_location():
     from mlflow.tracing.fluent import _resolve_uc_trace_id
 
+    mock_store = Mock()
+    mock_store.get_experiment.return_value = _experiment()
+
     with (
-        patch("mlflow.tracing.client.TracingClient._resolve_uc_trace_location", return_value=None),
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client._resolve_tracking_uri", return_value="databricks"),
         patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
-        patch("mlflow.tracing.client._get_store"),
     ):
         assert _resolve_uc_trace_id("tr-abc") == "tr-abc"
