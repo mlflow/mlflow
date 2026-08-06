@@ -66,8 +66,17 @@ export type CustomViewData = {
   assessmentItems: AssessmentBoardItem[];
 };
 
+// An issue reference stores the issue id in `assessment_name` and the readable
+// label in `issue.issue_name`, so display the latter exactly as the issues
+// section of the assessments pane does.
+const getAssessmentDisplayName = (assessment: Assessment): string =>
+  'issue' in assessment && assessment.issue
+    ? assessment.issue.issue_name || assessment.assessment_name
+    : assessment.assessment_name;
+
 // Extracts the displayable value + error from any assessment variant
 // (feedback / expectation), so the agent receives real judge/feedback results.
+// Issue references carry no verdict — their name is the whole payload.
 const getAssessmentValueAndError = (assessment: Assessment): { value: unknown; error?: string } => {
   if ('feedback' in assessment && assessment.feedback) {
     const err = assessment.feedback.error ?? assessment.error;
@@ -128,7 +137,7 @@ export const mapToAgentAssessments = (assessments: Assessment[]): AgentAssessmen
     }
     const { value, error } = getAssessmentValueAndError(assessment);
     uniqueAssessmentsById.set(assessment.assessment_id, {
-      name: assessment.assessment_name,
+      name: getAssessmentDisplayName(assessment),
       value,
       rationale: assessment.rationale,
       source: assessment.source?.source_type ?? 'SOURCE_TYPE_UNSPECIFIED',

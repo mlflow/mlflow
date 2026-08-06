@@ -90,8 +90,11 @@ export const isValidSpanRefSelector = (selector: unknown): selector is SpanRefSe
   if (!hasType && !hasName) {
     return false;
   }
-  if ('nth' in selector && typeof selector['nth'] !== 'number') {
-    return false;
+  if ('nth' in selector) {
+    const nth = selector['nth'];
+    if (typeof nth !== 'number' || !Number.isInteger(nth) || nth < 0) {
+      return false;
+    }
   }
   return true;
 };

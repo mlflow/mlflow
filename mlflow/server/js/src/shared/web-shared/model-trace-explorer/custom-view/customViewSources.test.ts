@@ -68,6 +68,9 @@ describe('isValidSpanRefSelector', () => {
   it('rejects empty selectors, bad nth, and raw indices', () => {
     expect(isValidSpanRefSelector({})).toBe(false);
     expect(isValidSpanRefSelector({ type: 'TOOL', nth: '1' })).toBe(false);
+    expect(isValidSpanRefSelector({ type: 'TOOL', nth: -1 })).toBe(false);
+    expect(isValidSpanRefSelector({ type: 'TOOL', nth: 1.5 })).toBe(false);
+    expect(isValidSpanRefSelector({ type: 'TOOL', nth: Number.NaN })).toBe(false);
     expect(isValidSpanRefSelector(0)).toBe(false);
     expect(isValidSpanRefSelector('first')).toBe(false);
   });

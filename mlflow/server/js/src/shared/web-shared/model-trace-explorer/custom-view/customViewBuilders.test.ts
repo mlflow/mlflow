@@ -130,6 +130,46 @@ describe('getAgentAssessments', () => {
     const result = getAgentAssessments(asInfo({}), nodeMap);
     expect(result.map((a) => a.value)).toEqual(['ground-truth', '42']);
   });
+
+  // `assessment_name` holds the issue id, so the readable `issue_name` must survive.
+  it('names issue-reference assessments after their issue name, falling back to the issue id', () => {
+    const info = asInfo({
+      trace_location: {},
+      assessments: [
+        feedback({
+          assessment_id: 'i1',
+          assessment_name: 'issue-abc-123',
+          issue: { issue_name: 'Hallucinated citation' },
+          feedback: undefined,
+          rationale: 'cited a nonexistent doc',
+        }),
+        feedback({
+          assessment_id: 'i2',
+          assessment_name: 'issue-def-456',
+          issue: { issue_name: '' },
+          feedback: undefined,
+        }),
+      ],
+    });
+    expect(getAgentAssessments(info, {})).toEqual([
+      {
+        name: 'Hallucinated citation',
+        value: undefined,
+        rationale: 'cited a nonexistent doc',
+        source: 'LLM_JUDGE',
+        spanId: undefined,
+        error: undefined,
+      },
+      {
+        name: 'issue-def-456',
+        value: undefined,
+        rationale: undefined,
+        source: 'LLM_JUDGE',
+        spanId: undefined,
+        error: undefined,
+      },
+    ]);
+  });
 });
 
 describe('collectTraceAssessments + mapToAgentAssessments', () => {
