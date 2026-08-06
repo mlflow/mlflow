@@ -588,6 +588,55 @@ describe('Span', () => {
       expect(json.links).toEqual([]);
     });
 
+    it('should not add links after span has ended', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+      const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+      mlflowSpan.addLink(
+        new SpanLink({
+          traceId: 'tr-before-end',
+          spanId: 'aaaa000000000001',
+        }),
+      );
+      span.end();
+
+      mlflowSpan.addLink(
+        new SpanLink({
+          traceId: 'tr-after-end',
+          spanId: 'bbbb000000000002',
+        }),
+      );
+
+      expect(mlflowSpan.links).toHaveLength(1);
+      expect(mlflowSpan.links[0].traceId).toBe('tr-before-end');
+    });
+
+    it('should deep copy attributes in links getter', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-aaaa',
+            spanId: 'aaaa000000000001',
+            attributes: { nested: { key: 'original' } },
+          }),
+        );
+
+        const links1 = mlflowSpan.links;
+        (links1[0].attributes as any).nested.key = 'mutated';
+
+        const links2 = mlflowSpan.links;
+        expect(links2[0].attributes).toEqual({ nested: { key: 'original' } });
+      } finally {
+        span.end();
+      }
+    });
+
     it('should serialize link with empty attributes as null', () => {
       const traceId = 'tr-12345';
       const span = tracer.startSpan('test');

@@ -3,6 +3,7 @@ import {
   INVALID_SPANID,
   INVALID_TRACEID,
   SpanStatusCode as OTelSpanStatusCode,
+  TraceFlags,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
 import {
@@ -11,6 +12,7 @@ import {
   SpanType,
   toSpanLogLevel,
   NO_OP_SPAN_TRACE_ID,
+  TRACE_ID_PREFIX,
 } from '../constants';
 import { defaultLogLevelForSpanType } from '../log_level';
 import { SpanEvent } from './span_event';
@@ -188,7 +190,7 @@ export class Span implements ISpan {
         new SpanLink({
           traceId: link.traceId,
           spanId: link.spanId,
-          attributes: { ...link.attributes },
+          attributes: JSON.parse(JSON.stringify(link.attributes)),
         }),
     );
   }
@@ -396,13 +398,29 @@ export class LiveSpan extends Span {
    * @param link SpanLink object describing the linked span
    */
   addLink(link: SpanLink): void {
-    this._links.push(
-      new SpanLink({
-        traceId: link.traceId,
-        spanId: link.spanId,
-        attributes: { ...link.attributes },
-      }),
-    );
+    if (!this._span.isRecording()) {
+      return;
+    }
+
+    const copiedLink = new SpanLink({
+      traceId: link.traceId,
+      spanId: link.spanId,
+      attributes: JSON.parse(JSON.stringify(link.attributes)),
+    });
+    this._links.push(copiedLink);
+
+    const hexTraceId = copiedLink.traceId.startsWith(TRACE_ID_PREFIX)
+      ? copiedLink.traceId.slice(TRACE_ID_PREFIX.length)
+      : copiedLink.traceId;
+
+    this._span.addLink({
+      context: {
+        traceId: hexTraceId,
+        spanId: copiedLink.spanId,
+        traceFlags: TraceFlags.SAMPLED,
+      },
+      attributes: copiedLink.attributes,
+    });
   }
 
   /**
