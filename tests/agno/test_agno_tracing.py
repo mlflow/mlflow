@@ -8,12 +8,14 @@ from agno.exceptions import ModelProviderError
 from agno.models.anthropic import Claude
 from agno.tools.function import Function, FunctionCall
 from anthropic.types import Message, TextBlock, Usage
+from opentelemetry import trace
 from packaging.version import Version
 
 import mlflow
 import mlflow.agno
 from mlflow.entities import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.constant import TokenUsageKey
 
 from tests.tracing.helper import get_traces, purge_traces
@@ -51,6 +53,12 @@ def simple_agent():
         instructions="Be concise.",
         markdown=True,
     )
+
+
+@pytest.fixture(params=["true", "false"], ids=["isolated", "unified"])
+def tracer_provider_mode(request, monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, request.param)
+    return request.param
 
 
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
@@ -283,82 +291,131 @@ def test_v2_autolog_setup_teardown():
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-async def test_v2_creates_otel_spans(simple_agent, is_async):
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-
-    memory_exporter = InMemorySpanExporter()
-    tracer_provider = TracerProvider()
-    tracer_provider.add_span_processor(SimpleSpanProcessor(memory_exporter))
-    trace.set_tracer_provider(tracer_provider)
-
+async def test_v2_creates_otel_spans(simple_agent, is_async, tracer_provider_mode):
     try:
-        with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
-            mlflow.agno.autolog(log_traces=True)
+        mlflow.agno.autolog(log_traces=True)
 
-            mock_client = MagicMock()
+        mock_client = MagicMock()
+        if is_async:
+
+            async def _mock_create(*args, **kwargs):
+                return _create_message("Paris")
+
+            mock_client.messages.create.side_effect = _mock_create
+        else:
+            mock_client.messages.create.return_value = _create_message("Paris")
+
+        mock_method = "get_async_client" if is_async else "get_client"
+        with patch.object(Claude, mock_method, return_value=mock_client):
             if is_async:
-
-                async def _mock_create(*args, **kwargs):
-                    return _create_message("Paris")
-
-                mock_client.messages.create.side_effect = _mock_create
+                resp = await simple_agent.arun("Capital of France?")
             else:
-                mock_client.messages.create.return_value = _create_message("Paris")
+                resp = simple_agent.run("Capital of France?")
 
-            mock_method = "get_async_client" if is_async else "get_client"
-            with patch.object(Claude, mock_method, return_value=mock_client):
-                if is_async:
-                    resp = await simple_agent.arun("Capital of France?")
-                else:
-                    resp = simple_agent.run("Capital of France?")
+        assert resp.content == "Paris"
 
-            assert resp.content == "Paris"
-            spans = memory_exporter.get_finished_spans()
-            assert len(spans) > 0
+        # Agno spans are routed through MLflow's own tracer provider, so they are captured as an
+        # MLflow trace rather than emitted to the global OpenTelemetry provider.
+        traces = get_traces()
+        assert len(traces) == 1
+        assert len(traces[0].data.spans) > 0
     finally:
         mlflow.agno.autolog(disable=True)
 
 
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
-def test_v2_failure_creates_spans(simple_agent):
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-    from opentelemetry.trace import StatusCode
+def test_v2_failure_creates_spans(simple_agent, tracer_provider_mode):
+    try:
+        mlflow.agno.autolog(log_traces=True)
 
-    memory_exporter = InMemorySpanExporter()
-    tracer_provider = TracerProvider()
-    tracer_provider.add_span_processor(SimpleSpanProcessor(memory_exporter))
-    trace.set_tracer_provider(tracer_provider)
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = RuntimeError("bang")
+        with patch.object(Claude, "get_client", return_value=mock_client):
+            if AGNO_CATCHES_ERRORS:
+                # In agno >= 2.3.14, errors are caught internally and returned as error status
+                from agno.run import RunStatus
+
+                result = simple_agent.run("fail")
+                assert result.status == RunStatus.error
+                assert "bang" in result.content
+            else:
+                # In agno < 2.3.14, errors are raised as ModelProviderError
+                with pytest.raises(ModelProviderError, match="bang"):
+                    simple_agent.run("fail")
+
+        traces = get_traces()
+        assert len(traces) == 1
+        spans = traces[0].data.spans
+        assert len(spans) > 0
+        if not AGNO_CATCHES_ERRORS:
+            # Error spans are only created when exceptions propagate
+            error_spans = [s for s in spans if s.status.status_code == SpanStatusCode.ERROR]
+            assert len(error_spans) > 0
+    finally:
+        mlflow.agno.autolog(disable=True)
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+def test_v2_spans_nest_under_manual_mlflow_span(simple_agent, tracer_provider_mode):
+    # Agno's OpenInference spans must nest under a manually-created mlflow.start_span() span
+    # (one combined trace) rather than starting their own disconnected trace.
+    try:
+        mlflow.agno.autolog(log_traces=True)
+
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = _create_message("Paris")
+        with patch.object(Claude, "get_client", return_value=mock_client):
+            with mlflow.start_span(name="outer"):
+                resp = simple_agent.run("Capital of France?")
+
+        assert resp.content == "Paris"
+
+        traces = get_traces()
+        assert len(traces) == 1
+        spans = traces[0].data.spans
+
+        # The manual span is the single root, and there are Agno spans on top of it.
+        roots = [s for s in spans if s.parent_id is None]
+        assert len(roots) == 1
+        assert roots[0].name == "outer"
+        assert len(spans) > 1
+
+        # Every span (including the Agno ones) descends from the manual "outer" root.
+        by_id = {s.span_id: s for s in spans}
+        for span in spans:
+            current = span
+            while current.parent_id is not None:
+                current = by_id[current.parent_id]
+            assert current.name == "outer"
+    finally:
+        mlflow.agno.autolog(disable=True)
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+def test_v2_invalid_span_context_still_nests_under_manual_mlflow_span(tracer_provider_mode):
+    # For a top-level Agno Team, OpenInference hands the tracer a context wrapping INVALID_SPAN to
+    # force a root span
+    from mlflow.agno.autolog_v2 import _MlflowTracerProvider
 
     try:
-        with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
-            mlflow.agno.autolog(log_traces=True)
+        mlflow.agno.autolog(log_traces=True)
 
-            mock_client = MagicMock()
-            mock_client.messages.create.side_effect = RuntimeError("bang")
-            with patch.object(Claude, "get_client", return_value=mock_client):
-                if AGNO_CATCHES_ERRORS:
-                    # In agno >= 2.3.14, errors are caught internally and returned as error status
-                    from agno.run import RunStatus
+        tracer = _MlflowTracerProvider().get_tracer("openinference.instrumentation.agno")
+        with mlflow.start_span(name="outer"):
+            with tracer.start_as_current_span(
+                "team", context=trace.set_span_in_context(trace.INVALID_SPAN)
+            ):
+                pass
 
-                    result = simple_agent.run("fail")
-                    assert result.status == RunStatus.error
-                    assert "bang" in result.content
-                else:
-                    # In agno < 2.3.14, errors are raised as ModelProviderError
-                    with pytest.raises(ModelProviderError, match="bang"):
-                        simple_agent.run("fail")
+        traces = get_traces()
+        assert len(traces) == 1
+        spans = traces[0].data.spans
 
-            spans = memory_exporter.get_finished_spans()
-            assert len(spans) > 0
-            if not AGNO_CATCHES_ERRORS:
-                # Error spans are only created when exceptions propagate
-                error_spans = [s for s in spans if s.status.status_code == StatusCode.ERROR]
-                assert len(error_spans) > 0
+        roots = [s for s in spans if s.parent_id is None]
+        assert len(roots) == 1
+        assert roots[0].name == "outer"
+
+        team_span = next(s for s in spans if s.name == "team")
+        assert team_span.parent_id == roots[0].span_id
     finally:
         mlflow.agno.autolog(disable=True)

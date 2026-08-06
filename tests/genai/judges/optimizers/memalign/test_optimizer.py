@@ -15,6 +15,7 @@ from mlflow.genai.judges.optimizers.memalign.optimizer import (
     _DATABRICKS_EMBEDDING_BATCH_SIZE,
     _DEFAULT_EMBEDDING_BATCH_SIZE,
     MemoryAugmentedJudge,
+    _build_embedder,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 
@@ -690,6 +691,47 @@ def test_embedder_batch_size(sample_judge, sample_traces, embedding_model, expec
 
         _, kwargs = mocks["embedder_class"].call_args
         assert kwargs["batch_size"] == expected_batch_size
+
+
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_api_base"),
+    [
+        (
+            "databricks:/system.ai.gte-large-en",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+        (
+            "endpoints:/main.default.my_embeddings",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+        (
+            "databricks:/databricks-gte-large-en",
+            "https://my-workspace.databricks.com/serving-endpoints",
+        ),
+    ],
+)
+def test_build_embedder_routes_databricks_models(monkeypatch, embedding_model, expected_api_base):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    with patch("dspy.Embedder") as mock_embedder_class:
+        _build_embedder(embedding_model, 512)
+
+    _, kwargs = mock_embedder_class.call_args
+    assert kwargs["api_base"] == expected_api_base
+    assert kwargs["api_key"] == "dapi-test-token"
+
+
+def test_build_embedder_non_databricks_has_no_api_base(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    with patch("dspy.Embedder") as mock_embedder_class:
+        _build_embedder("openai:/text-embedding-3-small", 512)
+
+    _, kwargs = mock_embedder_class.call_args
+    assert "api_base" not in kwargs
+    assert "api_key" not in kwargs
 
 
 # =============================================================================

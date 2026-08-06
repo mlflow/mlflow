@@ -342,6 +342,13 @@ module.exports = function () {
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
           // mock files for recharts components
           '^recharts$': '<rootDir>/__mocks__/recharts.tsx',
+          // Jest 27's resolver doesn't understand package.json "exports" subpath
+          // maps, so @a2ui's "./v0_9"-style subpaths (which have no top-level
+          // "main"/"module" entry) can't be found without an explicit alias.
+          '^@a2ui/web_core/v0_9/basic_catalog$':
+            '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/basic_catalog/index.js',
+          '^@a2ui/web_core/v0_9$': '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/index.js',
+          '^@a2ui/react/v0_9$': '<rootDir>/node_modules/@a2ui/react/v0_9/index.cjs',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;

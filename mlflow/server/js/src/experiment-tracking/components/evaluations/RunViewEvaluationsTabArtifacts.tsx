@@ -33,12 +33,14 @@ export const RunViewEvaluationsTabArtifacts = ({
   runTags,
   runDisplayName,
   data,
+  actions,
 }: {
   experimentId: string;
   runUuid: string;
   runTags?: Record<string, KeyValueEntity>;
   runDisplayName: string;
   data: RunEvaluationTracesDataEntry[];
+  actions?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -46,6 +48,8 @@ export const RunViewEvaluationsTabArtifacts = ({
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
 
   const noEvaluationTablesLogged = data?.length === 0;
+  const showCompareSelector = !shouldEnableImprovedEvalRunsComparison();
+  const showToolbar = showCompareSelector || Boolean(actions);
 
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
@@ -99,6 +103,8 @@ export const RunViewEvaluationsTabArtifacts = ({
   };
 
   if (noEvaluationTablesLogged) {
+    // Toolbar actions operate on logged evaluation results, so keep the empty state focused
+    // when no artifact table rows exist.
     return (
       <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Empty
@@ -122,19 +128,29 @@ export const RunViewEvaluationsTabArtifacts = ({
         overflowY: 'hidden',
       }}
     >
-      {!shouldEnableImprovedEvalRunsComparison() && (
+      {showToolbar && (
         <div
           css={{
             width: '100%',
             padding: `${theme.spacing.xs}px 0`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
           }}
         >
-          <EvaluationRunCompareSelector
-            experimentId={experimentId}
-            currentRunUuid={runUuid}
-            compareToRunUuid={compareToRunUuid}
-            setCompareToRunUuid={setCompareToRunUuid}
-          />
+          {showCompareSelector && (
+            <div css={{ flex: 1, minWidth: 0 }}>
+              <EvaluationRunCompareSelector
+                experimentId={experimentId}
+                currentRunUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
+                setCompareToRunUuid={setCompareToRunUuid}
+              />
+            </div>
+          )}
+          {actions && (
+            <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>{actions}</div>
+          )}
         </div>
       )}
       {getOverviewTableComponent()}

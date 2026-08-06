@@ -176,6 +176,27 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "glm-4.7-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0,
+        "output_per_million_tokens": 0,
+        "cache_read_per_million_tokens": 0,
+        "cache_write_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
+    },
     "glm-5": {
       "mode": "chat",
       "context_window": {
@@ -217,6 +238,27 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "glm-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26,
+        "cache_write_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
     }
   }
 }

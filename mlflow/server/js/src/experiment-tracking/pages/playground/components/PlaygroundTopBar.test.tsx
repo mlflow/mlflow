@@ -37,11 +37,10 @@ const renderTopBar = () => {
           onEndpointSelect={onEndpointSelect}
           params={{}}
           onParamsChange={noop}
-          toolsText=""
-          onToolsChange={noop}
-          toolsError={null}
-          toolsAdded={false}
-          onToolsAddedChange={noop}
+          tools={[]}
+          onAddTool={noop}
+          onRemoveTool={noop}
+          onUpdateTool={noop}
           toolChoice="auto"
           onToolChoiceChange={noop}
           responseFormatType="text"

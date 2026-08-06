@@ -9,7 +9,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
+import type { PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersForm } from './ParametersForm';
 import { ResponseFormatForm } from './ResponseFormatForm';
 import { ToolsForm } from './ToolsForm';
@@ -17,11 +17,10 @@ import { ToolsForm } from './ToolsForm';
 interface Props {
   value: PlaygroundParams;
   onChange: (next: PlaygroundParams) => void;
-  toolsText: string;
-  onToolsChange: (next: string) => void;
-  toolsError?: string | null;
-  toolsAdded: boolean;
-  onToolsAddedChange: (next: boolean) => void;
+  tools: PlaygroundTool[];
+  onAddTool: () => void;
+  onRemoveTool: (id: string) => void;
+  onUpdateTool: (id: string, patch: Partial<PlaygroundTool>) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -50,11 +49,10 @@ const sectionHeaderCss = (theme: ReturnType<typeof useDesignSystemTheme>['theme'
 export const ParametersButton = ({
   value,
   onChange,
-  toolsText,
-  onToolsChange,
-  toolsError,
-  toolsAdded,
-  onToolsAddedChange,
+  tools,
+  onAddTool,
+  onRemoveTool,
+  onUpdateTool,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -167,7 +165,7 @@ export const ParametersButton = ({
               <Popover.Content align="start" css={{ maxWidth: 360 }}>
                 <Typography.Paragraph withoutMargins>
                   <FormattedMessage
-                    defaultMessage="Provide one or more function definitions in a JSON array. Choose how the model invokes them:"
+                    defaultMessage="Provide one or more function definitions the model can call. Choose how the model invokes them:"
                     description="Intro line of the info popover next to the Tools section header"
                   />
                 </Typography.Paragraph>
@@ -198,11 +196,10 @@ export const ParametersButton = ({
             </Popover.Root>
           </div>
           <ToolsForm
-            value={toolsText}
-            onChange={onToolsChange}
-            error={toolsError}
-            toolsAdded={toolsAdded}
-            onToolsAddedChange={onToolsAddedChange}
+            tools={tools}
+            onAddTool={onAddTool}
+            onRemoveTool={onRemoveTool}
+            onUpdateTool={onUpdateTool}
             toolChoice={toolChoice}
             onToolChoiceChange={onToolChoiceChange}
           />

@@ -98,6 +98,181 @@ async def test_chat():
     assert result["usage"]["completion_tokens"] == 20
 
 
+def _tool_calling_second_turn_payload():
+    return {
+        "messages": [
+            {"role": "user", "content": "What's the weather like in Singapore today?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": '{"temperature": 31.2, "condition": "sunny"}',
+            },
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    }
+
+
+def _find_part(contents, key):
+    return next(
+        part[key] for content in contents for part in content.get("parts", []) if key in part
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_calling_omits_function_call_id():
+    # Regression test for #24127: Vertex AI rejects `id` on functionCall/functionResponse
+    # parts with 400 INVALID_ARGUMENT, unlike the Developer Gemini API which requires it.
+    provider = _make_provider()
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny, 31.2 degrees."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**_tool_calling_second_turn_payload()))
+
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_call = _find_part(contents, "functionCall")
+    function_response = _find_part(contents, "functionResponse")
+
+    assert "id" not in function_call
+    assert "id" not in function_response
+    # The function name must survive — Gemini requires it on both parts.
+    assert function_call["name"] == "get_weather"
+    assert function_response["name"] == "get_weather"
+    assert function_call["args"] == {"location": "Singapore"}
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_calling_preserves_thought_signature():
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"][1]["tool_calls"][0]["thought_signature"] = "opaque_thought_sig_token"
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny, 31.2 degrees."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    function_call = _find_part(mock_post.call_args[1]["json"]["contents"], "functionCall")
+    assert "id" not in function_call
+    assert function_call["thoughtSignature"] == "opaque_thought_sig_token"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_tool_calling_omits_function_call_id():
+    provider = _make_provider()
+    stream_resp = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, '
+        b'"finishReason": "stop"}]}\n\n',
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_resp))
+    payload = _tool_calling_second_turn_payload()
+    payload["stream"] = True
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        _ = [chunk async for chunk in stream]
+
+    contents = mock_client.post.call_args[1]["json"]["contents"]
+    assert "id" not in _find_part(contents, "functionCall")
+    assert "id" not in _find_part(contents, "functionResponse")
+
+
+def test_adapter_class_matches_the_active_delegate():
+    # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
+    # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
+    from mlflow.gateway.providers.anthropic import AnthropicAdapter
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+    from mlflow.gateway.providers.vertex_ai import _VertexGeminiAdapter
+
+    assert _make_provider().adapter_class is _VertexGeminiAdapter
+    assert _make_claude_provider().adapter_class is AnthropicAdapter
+    assert (
+        _make_maas_provider("meta/llama-3.1-405b-instruct-maas").adapter_class
+        is OpenAICompatibleAdapter
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_parallel_tool_calls_omit_all_function_call_ids():
+    # Two parallel tool calls in one turn — the case `id` exists for on the Dev API.
+    # Proves the strip loop covers every functionCall part, not just the first.
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"][1]["tool_calls"].append({
+        "id": "call_002",
+        "function": {"arguments": '{"location": "Tokyo"}', "name": "get_weather"},
+        "type": "function",
+    })
+    payload["messages"].append({
+        "role": "tool",
+        "tool_call_id": "call_002",
+        "content": '{"temperature": 18.0, "condition": "cloudy"}',
+    })
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny and cloudy."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_calls = [
+        part["functionCall"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionCall" in part
+    ]
+    function_responses = [
+        part["functionResponse"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionResponse" in part
+    ]
+    assert len(function_calls) == 2
+    assert len(function_responses) == 2
+    assert all("id" not in fc for fc in function_calls)
+    assert all("id" not in fr for fr in function_responses)
+
+
 def test_basic_config():
     config = VertexAIConfig(vertex_project="my-project")
     assert config.vertex_project == "my-project"

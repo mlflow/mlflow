@@ -585,6 +585,18 @@ export const setExperimentTagApi = (experimentId: any, tagName: any, tagValue: a
   };
 };
 
+export const DELETE_EXPERIMENT_TAG_API = 'DELETE_EXPERIMENT_TAG_API';
+export const deleteExperimentTagApi = (experimentId: string, tagName: string, id = getUUID()) => {
+  return {
+    type: DELETE_EXPERIMENT_TAG_API,
+    payload: MlflowService.deleteExperimentTag({
+      experiment_id: experimentId,
+      key: tagName,
+    }),
+    meta: { id, experimentId, key: tagName },
+  };
+};
+
 export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
 export const closeErrorModal = () => {
   return {

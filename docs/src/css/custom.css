@@ -432,6 +432,16 @@ html[data-genai-theme='true'] {
   flex-wrap: nowrap;
 }
 
+/* On narrow viewports the navbar collapses into the hamburger menu, which
+   already contains a "GitHub" entry. The persistent top-bar GitHub link
+   overlaps the search button at these widths and gets clipped to "GitHu",
+   so hide it here and rely on the hamburger menu entry instead. */
+@media (max-width: 996px) {
+  .navbar__items--right .github-link {
+    display: none;
+  }
+}
+
 /* --------------------------------
  * 4. Sidebar Styling
  * -------------------------------- */

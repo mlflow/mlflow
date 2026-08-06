@@ -12,7 +12,7 @@ from typing import Any
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -109,24 +109,25 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message):
+def message_to_json(
+    message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
     """Converts a message to JSON, using snake_case for field names."""
 
-    # Google's MessageToJson API converts int64 proto fields to JSON strings.
+    # Google's MessageToDict API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
-    json_dict_with_int64_as_str = json.loads(
-        MessageToJson(message, preserving_proto_field_name=True)
-    )
-    # We convert this proto message into a JSON dict where only int64 proto fields
-    # are preserved, and they are treated as JSON numbers, not strings.
-    json_dict_with_int64_fields_only = _mark_int64_fields(message)
-    # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
-    # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
-    # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+    json_dict = MessageToDict(message, preserving_proto_field_name=True)
+    if convert_int64_to_number:
+        # Preserve MLflow's existing JSON representation of int64 fields as numbers.
+        # Integer keys in proto maps remain strings because JSON requires string keys.
+        json_dict = _merge_json_dicts(_mark_int64_fields(message), json_dict)
+
+    if pretty:
+        return json.dumps(json_dict, indent=2)
+    return json.dumps(json_dict, separators=(",", ":"))
 
 
 def proto_timestamp_to_milliseconds(timestamp: str) -> int:
