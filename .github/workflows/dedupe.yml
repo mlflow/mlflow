@@ -26,13 +26,11 @@ permissions: {}
 
 jobs:
   dedupe:
-    # Only dedupe issues from outside the org: the comment asks the reporter to
-    # close their issue, which a bot will not act on and a maintainer does not
-    # need. The pull_request branch is a smoke test; `comment` is skipped there.
+    # Skip bots: the comment asks the reporter to close their issue, which a bot
+    # will not act on. The pull_request branch is a smoke test; `comment` is
+    # skipped there.
     if: >
-      (github.event_name == 'issues'
-       && github.event.issue.user.type != 'Bot'
-       && !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
+      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot')
       || (github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
