@@ -93,7 +93,11 @@ from mlflow.transformers.signature import (
     format_input_example_for_special_cases,
     infer_or_get_default_signature,
 )
-from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
+from mlflow.transformers.torch_utils import (
+    _TORCH_DTYPE_KEY,
+    _deserialize_torch_dtype,
+    _get_dtype_argument_key,
+)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.annotations import deprecated
@@ -1419,12 +1423,15 @@ def _load_model(
         conf["device"] = device
         accelerate_model_conf["device"] = device
 
-    if dtype_val := kwargs.get(_TORCH_DTYPE_KEY) or flavor_config.get(FlavorKey.TORCH_DTYPE):
+    # Pop so that the `conf.update(**kwargs)` below cannot re-add the deprecated key
+    if dtype_val := kwargs.pop(_TORCH_DTYPE_KEY, None) or flavor_config.get(FlavorKey.TORCH_DTYPE):
         if isinstance(dtype_val, str):
             dtype_val = _deserialize_torch_dtype(dtype_val)
-        conf[_TORCH_DTYPE_KEY] = dtype_val
+        dtype_key = _get_dtype_argument_key()
+        conf[dtype_key] = dtype_val
+        # flavor_config is only read back by MLflow itself, so it keeps the `torch_dtype` key
         flavor_config[_TORCH_DTYPE_KEY] = dtype_val
-        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+        accelerate_model_conf[dtype_key] = dtype_val
 
     accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
@@ -1622,6 +1629,10 @@ def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | Non
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         default_task = _get_default_task_for_llm_inference_task(task)
         task = _get_task_for_model(model.name_or_path, default_task=default_task)
+
+    model_dict = dict(model_dict)
+    if dtype_val := model_dict.pop(_TORCH_DTYPE_KEY, None):
+        model_dict[_get_dtype_argument_key()] = dtype_val
 
     try:
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):

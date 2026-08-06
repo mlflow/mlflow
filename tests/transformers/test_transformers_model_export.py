@@ -7,6 +7,7 @@ import os
 import pathlib
 import re
 import shutil
+import sys
 import textwrap
 from pathlib import Path
 from unittest import mock
@@ -48,6 +49,7 @@ from mlflow.transformers import (
     get_default_conda_env,
     get_default_pip_requirements,
 )
+from mlflow.transformers.torch_utils import _get_dtype_argument_key
 from mlflow.types.schema import Array, ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -410,6 +412,118 @@ def test_basic_save_model_with_torch_dtype(text2text_generation_pipeline, model_
 
     loaded = mlflow.transformers.load_model(model_path, torch_dtype=torch.float32)
     assert loaded.model.dtype == torch.float32
+
+
+_EXPECTED_DTYPE_KEY = (
+    "dtype" if Version(transformers.__version__) >= Version("4.56.0") else "torch_dtype"
+)
+_UNEXPECTED_DTYPE_KEY = "torch_dtype" if _EXPECTED_DTYPE_KEY == "dtype" else "dtype"
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("4.55.4", "torch_dtype"),
+        ("4.56.0", "dtype"),
+        ("5.13.0", "dtype"),
+    ],
+)
+def test_get_dtype_argument_key(monkeypatch, version, expected):
+    # patch the sys.modules entry: it is what `import transformers` inside the helper
+    # resolves, and may differ from the module object imported by this test file
+    monkeypatch.setattr(sys.modules["transformers"], "__version__", version)
+    assert _get_dtype_argument_key() == expected
+
+
+def test_load_model_forwards_dtype_under_supported_argument_name(
+    text_classification_pipeline, model_path, monkeypatch
+):
+    from mlflow.transformers import model_io
+
+    mlflow.transformers.save_model(
+        transformers_model=text_classification_pipeline,
+        path=model_path,
+        torch_dtype=torch.float16,
+    )
+
+    captured = {}
+
+    def make_spy(original):
+        def spy(model_class, model_name_or_path, load_kwargs):
+            captured.update(load_kwargs)
+            return original(model_class, model_name_or_path, load_kwargs)
+
+        return spy
+
+    monkeypatch.setattr(
+        model_io,
+        "_try_load_model_with_accelerate",
+        make_spy(model_io._try_load_model_with_accelerate),
+    )
+    monkeypatch.setattr(
+        model_io,
+        "_try_load_model_with_device",
+        make_spy(model_io._try_load_model_with_device),
+    )
+
+    loaded = mlflow.transformers.load_model(model_path)
+
+    assert captured[_EXPECTED_DTYPE_KEY] == torch.float16
+    assert _UNEXPECTED_DTYPE_KEY not in captured
+    assert loaded.model.dtype == torch.float16
+
+
+def _spy_on_pipeline_kwargs(monkeypatch, captured):
+    # transformers swaps its module object in sys.modules during lazy init, so the module
+    # imported by this test file is not the object mlflow resolves; patch the live entry
+    live_transformers = sys.modules["transformers"]
+    original_pipeline = live_transformers.pipeline
+
+    def spy(*args, **kwargs):
+        captured.update(kwargs)
+        return original_pipeline(*args, **kwargs)
+
+    monkeypatch.setattr(live_transformers, "pipeline", spy)
+
+
+def test_load_model_with_torch_dtype_override_forwards_single_dtype_argument(
+    text_classification_pipeline, model_path, monkeypatch
+):
+    mlflow.transformers.save_model(
+        transformers_model=text_classification_pipeline,
+        path=model_path,
+        torch_dtype=torch.float16,
+    )
+
+    captured = {}
+    _spy_on_pipeline_kwargs(monkeypatch, captured)
+    loaded = mlflow.transformers.load_model(model_path, torch_dtype=torch.float32)
+
+    assert captured[_EXPECTED_DTYPE_KEY] == torch.float32
+    assert _UNEXPECTED_DTYPE_KEY not in captured
+    assert loaded.model.dtype == torch.float32
+
+
+def test_save_model_with_dict_input_forwards_dtype_under_supported_argument_name(
+    text_classification_pipeline, model_path, monkeypatch
+):
+    model_dict = {
+        "model": text_classification_pipeline.model,
+        "tokenizer": text_classification_pipeline.tokenizer,
+        "torch_dtype": torch.float16,
+    }
+
+    captured = {}
+    _spy_on_pipeline_kwargs(monkeypatch, captured)
+    mlflow.transformers.save_model(
+        transformers_model=model_dict,
+        path=model_path,
+        task="text-classification",
+    )
+
+    assert captured[_EXPECTED_DTYPE_KEY] == torch.float16
+    assert _UNEXPECTED_DTYPE_KEY not in captured
+    assert model_dict["torch_dtype"] == torch.float16
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
