@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785992635994,
+  "lastUpdate": 1785994702042,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19115,6 +19115,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 20.000596599996356,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "daniel.lok@databricks.com",
+            "name": "Daniel Lok",
+            "username": "daniellok-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "061b29cfe020c3964656f56c7ace4d4e5a39a9ae",
+          "message": "Fix model-metric-dataset association broken by stale cached `ActiveRun` outputs (#21855)\n\nSigned-off-by: Daniel Lok <daniel.lok@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-06T13:37:00+08:00",
+          "tree_id": "2da1181266ec9d05ddd19e977a22413a874fbfdb",
+          "url": "https://github.com/mlflow/mlflow/commit/061b29cfe020c3964656f56c7ace4d4e5a39a9ae"
+        },
+        "date": 1785994700545,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.58236029999895,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.3385603272735125,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.436158147887326,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.310497813559858,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.7489101874999005,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.43039740000313,
             "unit": "ms"
           }
         ]
