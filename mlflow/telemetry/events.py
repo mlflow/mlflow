@@ -937,3 +937,11 @@ class UpdateIssueEvent(Event):
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any]:
         return {"source_run_id": result.source_run_id} if result else {}
+
+
+class GetScorerPresetEvent(Event):
+    name: str = "get_scorer_preset"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {"version_pinned": arguments.get("version") is not None}

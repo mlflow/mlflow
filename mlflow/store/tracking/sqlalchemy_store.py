@@ -13,8 +13,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import reduce
 from pathlib import PurePath
-from typing import Any, Iterable, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, TypedDict, TypeVar
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -2771,7 +2774,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             session.flush()
 
+            # Auto-increment: find presets containing this scorer and create
+            # new preset versions with the updated scorer version.
+            bumped_presets = self._auto_bump_preset_versions(session, scorer.scorer_id, new_version)
+
             entity = sql_scorer_version.to_mlflow_entity()
+            entity._bumped_presets = bumped_presets
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
 
@@ -3107,6 +3115,112 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     # =========================================================================
     # Scorer Preset Management
     # =========================================================================
+
+    def _auto_bump_preset_versions(
+        self, session, scorer_id: str, new_scorer_version: int
+    ) -> list[dict]:
+        """Create new preset versions when a member scorer is updated.
+
+        Finds presets whose latest version contains the given scorer_id,
+        creates a new version with the updated scorer_version, and returns
+        info about the bumped presets.
+        """
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetMembership,
+            SqlScorerPresetVersion,
+        )
+
+        # Find distinct preset_ids that reference this scorer in any version
+        preset_ids = [
+            row.preset_id
+            for row in session
+            .query(SqlScorerPresetMembership.preset_id)
+            .filter(SqlScorerPresetMembership.scorer_id == scorer_id)
+            .distinct()
+            .all()
+        ]
+        if not preset_ids:
+            return []
+
+        bumped = []
+        for pid in preset_ids:
+            # Get the latest version of this preset
+            latest = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(SqlScorerPresetVersion.preset_id == pid)
+                .order_by(SqlScorerPresetVersion.creation_time.desc())
+                .first()
+            )
+            if latest is None:
+                continue
+
+            # Get current memberships for the latest version
+            members = (
+                session
+                .query(SqlScorerPresetMembership)
+                .filter(
+                    SqlScorerPresetMembership.preset_id == pid,
+                    SqlScorerPresetMembership.version_hash == latest.version_hash,
+                )
+                .all()
+            )
+
+            # Check if this preset's latest version actually contains the scorer
+            if not any(m.scorer_id == scorer_id for m in members):
+                continue
+
+            # Build updated scorer refs
+            new_refs = []
+            for m in members:
+                if m.scorer_id == scorer_id:
+                    new_refs.append((m.scorer_id, new_scorer_version))
+                else:
+                    new_refs.append((m.scorer_id, m.scorer_version))
+
+            new_hash = self._compute_preset_version_hash(new_refs)
+
+            # Skip if this exact combination already exists (dedup)
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == pid,
+                    SqlScorerPresetVersion.version_hash == new_hash,
+                )
+                .first()
+            )
+            if existing is not None:
+                continue
+
+            # Create new preset version
+            new_pv = SqlScorerPresetVersion(
+                preset_id=pid,
+                version_hash=new_hash,
+            )
+            session.add(new_pv)
+            session.flush()
+
+            for sid, sv in new_refs:
+                session.add(
+                    SqlScorerPresetMembership(
+                        preset_id=pid,
+                        version_hash=new_hash,
+                        scorer_id=sid,
+                        scorer_version=sv,
+                    )
+                )
+
+            preset = session.query(SqlScorerPreset).filter(SqlScorerPreset.preset_id == pid).first()
+            bumped.append({
+                "preset_name": preset.preset_name,
+                "version": new_hash,
+                "preset_id": pid,
+            })
+
+        session.flush()
+        return bumped
 
     def _compute_preset_version_hash(self, scorer_refs: list[tuple[str, int]]) -> str:
         import hashlib

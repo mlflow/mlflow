@@ -285,6 +285,87 @@ class TestScorerPresetExperimentIsolation:
         assert presets2[0].preset_name == "preset_in_exp2"
 
 
+class TestScorerPresetAutoIncrement:
+    def test_auto_bump_when_scorer_version_changes(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("auto_bump_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        s2 = _register_scorer(store, exp_id, "scorer_b")
+
+        v1 = store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id, s2.scorer_id])
+
+        # Register a new version of scorer_a
+        _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "updated": true}')
+
+        # The preset should have been auto-bumped
+        versions, _ = store.list_scorer_preset_versions(exp_id, "my_preset")
+        assert len(versions) == 2
+        assert versions[0].version == v1.version
+        assert versions[1].version != v1.version
+
+        # The new version should reference the updated scorer version
+        new_version = versions[1]
+        scorer_a_ref = next(r for r in new_version.scorer_refs if r[0] == s1.scorer_id)
+        assert scorer_a_ref[1] == 2
+
+        # scorer_b should still be at version 1
+        scorer_b_ref = next(r for r in new_version.scorer_refs if r[0] == s2.scorer_id)
+        assert scorer_b_ref[1] == 1
+
+    def test_auto_bump_returns_bumped_info(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("bump_info_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+
+        # Register new scorer version — check bumped_presets on the response
+        result = _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "v2": true}')
+        bumped = getattr(result, "_bumped_presets", [])
+        assert len(bumped) == 1
+        assert bumped[0]["preset_name"] == "my_preset"
+
+    def test_auto_bump_deduplicates(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("bump_dedup_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+
+        # Register new version twice — second bump should dedup
+        _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "v2": true}')
+        _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "v3": true}')
+
+        versions, _ = store.list_scorer_preset_versions(exp_id, "my_preset")
+        # Original + v2 bump + v3 bump = 3 versions
+        assert len(versions) == 3
+
+    def test_no_bump_when_scorer_not_in_preset(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("no_bump_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        _register_scorer(store, exp_id, "scorer_b")
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+
+        # Updating scorer_b should not affect the preset
+        result = _register_scorer(store, exp_id, "scorer_b", '{"name": "scorer_b", "v2": true}')
+        bumped = getattr(result, "_bumped_presets", [])
+        assert len(bumped) == 0
+
+        versions, _ = store.list_scorer_preset_versions(exp_id, "my_preset")
+        assert len(versions) == 1
+
+    def test_auto_bump_multiple_presets(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("multi_bump_test")
+        s1 = _register_scorer(store, exp_id, "scorer_shared")
+        s2 = _register_scorer(store, exp_id, "scorer_other")
+
+        store.register_scorer_preset(exp_id, "preset_a", [s1.scorer_id])
+        store.register_scorer_preset(exp_id, "preset_b", [s1.scorer_id, s2.scorer_id])
+
+        result = _register_scorer(
+            store, exp_id, "scorer_shared", '{"name": "scorer_shared", "v2": true}'
+        )
+        bumped = getattr(result, "_bumped_presets", [])
+        assert len(bumped) == 2
+        bumped_names = {b["preset_name"] for b in bumped}
+        assert bumped_names == {"preset_a", "preset_b"}
+
+
 class TestScorerPresetHashComputation:
     def test_hash_is_deterministic(self, store: SqlAlchemyStore):
         refs = [("id_a", 1), ("id_b", 2)]

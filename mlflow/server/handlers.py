@@ -180,6 +180,7 @@ from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
+    BumpedScorerPreset,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
     CopyScorerPreset,
@@ -5614,6 +5615,12 @@ def _register_scorer():
     response_message.name = scorer_version.scorer_name
     response_message.serialized_scorer = scorer_version._serialized_scorer
     response_message.creation_time = scorer_version.creation_time
+    for bp in getattr(scorer_version, "_bumped_presets", []):
+        bumped = BumpedScorerPreset()
+        bumped.preset_name = bp["preset_name"]
+        bumped.version = bp["version"]
+        bumped.preset_id = bp["preset_id"]
+        response_message.bumped_preset_versions.append(bumped)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

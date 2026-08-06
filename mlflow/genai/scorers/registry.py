@@ -18,6 +18,8 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
+from mlflow.telemetry.events import GetScorerPresetEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.plugins import get_entry_points
@@ -715,6 +717,7 @@ def delete_scorer(
 # =============================================================================
 
 
+@record_usage_event(GetScorerPresetEvent)
 def get_scorer_preset(*, name: str, experiment_id: str | None = None, version: str | None = None):
     """Retrieve a registered scorer preset by name.
 
