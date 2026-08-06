@@ -1897,6 +1897,118 @@ service MlflowService {
     };
   }
 
+  // =============================================================================
+  // Scorer Preset Management RPCs
+  // =============================================================================
+
+  // Register a scorer preset for an experiment.
+  rpc registerScorerPreset(RegisterScorerPreset) returns (RegisterScorerPreset.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/scorer-presets/register"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Register Scorer Preset"
+    };
+  }
+
+  // Get a scorer preset for an experiment.
+  rpc getScorerPreset(GetScorerPreset) returns (GetScorerPreset.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorer-presets/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Scorer Preset"
+    };
+  }
+
+  // List all scorer presets for an experiment.
+  rpc listScorerPresets(ListScorerPresets) returns (ListScorerPresets.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorer-presets/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Scorer Presets"
+    };
+  }
+
+  // List all versions of a specific scorer preset for an experiment.
+  rpc listScorerPresetVersions(ListScorerPresetVersions) returns (ListScorerPresetVersions.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorer-presets/versions"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Scorer Preset Versions"
+    };
+  }
+
+  // Delete a scorer preset for an experiment.
+  rpc deleteScorerPreset(DeleteScorerPreset) returns (DeleteScorerPreset.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/scorer-presets/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Scorer Preset"
+    };
+  }
+
+  // Copy a scorer preset to another experiment.
+  rpc copyScorerPreset(CopyScorerPreset) returns (CopyScorerPreset.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/scorer-presets/copy"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Copy Scorer Preset"
+    };
+  }
+
   // Get records for an evaluation dataset
   rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
@@ -5171,7 +5283,19 @@ message RegisterScorer {
     optional string serialized_scorer = 5;
     // The creation time of the scorer version (in milliseconds since epoch).
     optional int64 creation_time = 6;
+    // Preset versions that were auto-created because they contain this scorer.
+    repeated BumpedScorerPreset bumped_preset_versions = 7;
   }
+}
+
+// Info about a preset version that was auto-created when a member scorer was updated.
+message BumpedScorerPreset {
+  // The preset name.
+  optional string preset_name = 1;
+  // The new version hash for the preset.
+  optional string version = 2;
+  // The preset ID.
+  optional string preset_id = 3;
 }
 
 // List all scorers, optionally scoped to a single experiment.
@@ -5250,6 +5374,147 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+// =============================================================================
+// Scorer Preset Management Messages
+// =============================================================================
+
+// Register a scorer preset for an experiment.
+message RegisterScorerPreset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The preset name.
+  optional string name = 2;
+  // List of scorer IDs to include. The server resolves each to its latest version.
+  repeated string scorer_ids = 3;
+
+  message Response {
+    // The version hash for the preset.
+    optional string version = 1;
+    // The unique identifier for the preset.
+    optional string preset_id = 2;
+  }
+}
+
+// Get a specific scorer preset for an experiment.
+message GetScorerPreset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The preset name.
+  optional string name = 2;
+  // The preset version hash. If not specified, returns the latest version.
+  optional string version = 3;
+
+  message Response {
+    // The scorer preset entity.
+    optional ScorerPreset scorer_preset = 1;
+  }
+}
+
+// List all scorer presets for an experiment.
+message ListScorerPresets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // Maximum number of results to return.
+  optional int32 max_results = 2;
+  // Pagination token.
+  optional string page_token = 3;
+
+  message Response {
+    // List of scorer preset entities (latest version for each preset name).
+    repeated ScorerPreset scorer_presets = 1;
+    // Pagination token for the next page.
+    optional string next_page_token = 2;
+  }
+}
+
+// List all versions of a specific scorer preset for an experiment.
+message ListScorerPresetVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The preset name.
+  optional string name = 2;
+  // Maximum number of results to return.
+  optional int32 max_results = 3;
+  // Pagination token.
+  optional string page_token = 4;
+
+  message Response {
+    // List of scorer preset entities for all versions, ordered by creation time.
+    repeated ScorerPreset scorer_presets = 1;
+    // Pagination token for the next page.
+    optional string next_page_token = 2;
+  }
+}
+
+// Delete a scorer preset for an experiment.
+message DeleteScorerPreset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The preset name.
+  optional string name = 2;
+  // The preset version hash to delete. If not specified, deletes all versions.
+  optional string version = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Copy a scorer preset to another experiment.
+message CopyScorerPreset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The source experiment ID.
+  optional string experiment_id = 1;
+  // The preset name.
+  optional string name = 2;
+  // The target experiment ID.
+  optional string to_experiment_id = 3;
+  // The preset version hash to copy. If not specified, copies the latest version.
+  optional string version = 4;
+
+  message Response {
+    // The version hash of the copied preset.
+    optional string version = 1;
+    // The unique identifier for the copied preset.
+    optional string preset_id = 2;
+  }
+}
+
+// A reference to a specific scorer version within a preset.
+message ScorerPresetRef {
+  // The scorer ID.
+  optional string scorer_id = 1;
+  // The scorer version.
+  optional int32 scorer_version = 2;
+}
+
+// Scorer preset entity representing a preset in the database.
+message ScorerPreset {
+  // The experiment ID.
+  optional int32 experiment_id = 1;
+  // The preset name.
+  optional string preset_name = 2;
+  // The preset version hash (derived from the scorer_id + scorer_version set).
+  optional string version = 3;
+  // The scorer references that make up this preset version.
+  repeated ScorerPresetRef scorer_refs = 4;
+  // The creation time of the preset version (in milliseconds since epoch).
+  optional int64 creation_time = 5;
+  // The unique identifier for the preset.
+  optional string preset_id = 6;
 }
 
 // ========== Gateway Secrets and Endpoints Entities ==========
