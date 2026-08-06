@@ -46,6 +46,8 @@ const getTabForMatch = (match: SearchMatch): ModelTraceExplorerTab => {
       return 'attributes';
     case 'events':
       return 'events';
+    case 'links':
+      return 'links';
     default:
       // shouldn't happen
       return 'content';
