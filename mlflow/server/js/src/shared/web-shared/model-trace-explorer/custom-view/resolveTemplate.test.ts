@@ -12,7 +12,14 @@ const makeNode = (node: Partial<ModelTraceSpanNode> & { key: string; start: numb
 
 const nodeMap = {
   root: makeNode({ key: 'root', start: 0, title: 'agent', type: ModelSpanType.AGENT }),
-  tool0: makeNode({ key: 'tool0', start: 10, parentId: 'root', title: 'run_sql_query', type: ModelSpanType.TOOL }),
+  tool0: makeNode({
+    key: 'tool0',
+    start: 10,
+    parentId: 'root',
+    title: 'run_sql_query',
+    type: ModelSpanType.TOOL,
+    outputs: { choices: [{ message: { content: 'The answer is 42.' } }] },
+  }),
 } satisfies Record<string, ModelTraceSpanNode>;
 
 const viewData: CustomViewData = {
@@ -65,6 +72,51 @@ describe('resolveTemplate', () => {
     expect((board.children as string[]).length).toBe(2);
     const cards = components.filter((c) => c.component === 'AssessmentCard');
     expect(cards.map((c) => c.name)).toEqual(['correctness', 'relevance']);
+  });
+
+  // Markdown is bindable like any other component: the resolver walks every prop
+  // generically, so a spanField marker on its "text" renders per-trace prose. Only
+  // hand-written Markdown has to stay trace-agnostic.
+  it('resolves a spanField marker on a Markdown "text" prop, leaving static props literal', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          {
+            id: 'root',
+            component: 'Markdown',
+            title: 'Model answer',
+            text: {
+              $source: 'spanField',
+              spanRef: { type: 'TOOL', nth: 0 },
+              field: 'outputs',
+              path: ['choices', 0, 'message', 'content'],
+            },
+          },
+        ]),
+      ],
+      ctx,
+    );
+    const [markdown] = componentsOf(resolved);
+    expect(markdown.text).toBe('The answer is 42.');
+    expect(markdown.title).toBe('Model answer');
+  });
+
+  // Backs the catalog guidance to point a Markdown binding at a SCALAR leaf: a
+  // pathless whole-object field still resolves, but only to a raw JSON string.
+  it('resolves a pathless spanField binding to a JSON string rather than an object', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          {
+            id: 'root',
+            component: 'Markdown',
+            text: { $source: 'spanField', spanRef: { type: 'TOOL', nth: 0 }, field: 'outputs' },
+          },
+        ]),
+      ],
+      ctx,
+    );
+    expect(componentsOf(resolved)[0].text).toBe(JSON.stringify(nodeMap.tool0.outputs));
   });
 
   // Component type is irrelevant to resolveTemplate (it resolves markers generically,

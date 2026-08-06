@@ -47,7 +47,7 @@ export const CATALOG_REFERENCE = `Available components (use the "component" fiel
 - "Card": a bordered container around a SINGLE child. props: { "child": <child id>, "weight"?: <number> }. To put multiple elements in a card, wrap them in a Row/Column and pass that container's id as the child. When cards sit side by side in a Row, give each the SAME "weight" (e.g. "weight": 1) so they share the width equally.
 - "Icon": a single Databricks Design System icon. props: { "name": <string>, "size"?: <number> }. Use a camelCase name, e.g. "check", "warning", "error", "info", "search". Use sparingly — most components already carry their own icon prop.
 - "StatCard": a single metric tile. props: { "value": <SCALAR SOURCE marker>, "label": <string>, "icon"?: "wrench"|"clock"|"checkCircle"|"xCircle"|"hash"|"checklist", "tone"?: "info"|"success"|"warning"|"danger", "weight"?: <number> }. Bind "value" to a scalar source, e.g. { "$source": "metrics.latency" }. "label", "icon", "tone" are static. StatCards already flex to equal width in a Row; only set "weight" to bias the split.
-- "Markdown": a STATIC markdown text block. props: { "text": <static markdown string>, "title"?: <string heading> }. Use it for instructions/headings only — it CANNOT show trace-varying data and MUST NOT contain trace-specific narrative or "#span:" deeplinks (those would point at a span that only exists in one trace and break when the view is reused). Prefer Text for short headings.
+- "Markdown": a markdown text block. props: { "text": <static markdown string OR a spanField source marker>, "title"?: <string heading> }. "text" is normally a STATIC instruction/heading, but to render ONE span's value as prose (e.g. the model's answer) you may bind it to a "spanField" source whose "path" lands on a SCALAR leaf, e.g. { "$source": "spanField", "spanRef": { "type": "LLM", "nth": 0 }, "field": "outputs", "path": ["choices", 0, "message", "content"] } (see "Data binding"); a marker that resolves to an object dumps raw JSON, so use "KeyValueViewer" for whole objects. Markdown you write YOURSELF must stay trace-agnostic — no trace-specific narrative and no "#span:" deeplinks (those would point at a span that only exists in one trace and break when the view is reused). Prefer Text for short headings.
 - "KeyValueViewer": displays a SINGLE labeled value. props: { "label"?: <string>, "value": <string OR a spanField source marker>, "initialFormat"?: "json"|"text"|"markdown", "hideFormatToggle"?: <bool> }. To show ONE specific span's input/output/attributes inline (e.g. a tool call's output in its own card), bind "value" to a "spanField" source with "initialFormat": "json", e.g. { "$source": "spanField", "spanRef": { "type": "TOOL", "nth": 0 }, "field": "outputs" } (see "Data binding"); the host re-resolves it per trace. To cover SEVERAL spans, author one card per span with its own "spanField" marker and a "renderIfSpan" guard. Do NOT paste literal span JSON into "value".
 - "AssessmentCard": a single colored box for one assessment. You normally do NOT emit these directly — bind an AssessmentBoard's children to the assessments source and the host materializes one card per assessment. props (for reference): { "name", "value"?, "rationale"?, "source"?, "sentiment"? }.
 - "AssessmentBoard": a wrapping container for assessment cards. props: { "title"?: <string>, "icon"?: "checklist"|"list"|"checkCircle", "children": <STRUCTURAL SOURCE marker>, "emptyMessage"?: <string> }. For ANY request about judge results / evaluations / assessments, bind "children" to { "$source": "assessments" }; the host builds one AssessmentCard per real assessment in the current trace. Do NOT hand-author AssessmentCards.`;
@@ -88,7 +88,7 @@ export const OUTPUT_RULES = `Output format rules (A2UI ${A2UI_VERSION}):
 7. There MUST be exactly one component with "id": "root", and it MUST be the first component. Parents must appear before their children.
 8. DATA props are binding MARKERS, never literal trace data (see "Data binding"). A "children" prop that shows trace data (AssessmentBoard) is an { "$source": "assessments" } marker; a scalar data prop (StatCard "value") is an { "$source": "<scalar source>" } marker. Layout-only arrays (a Row/Column "children" listing your OWN component ids) stay literal.
 9. SCALAR data props are { "$source": "metrics.*" } markers — do NOT inline a literal like "1.83s" copied from the traceSample. The traceSample shows example shapes only; its concrete values belong to one trace and must NOT appear in your spec.
-10. Trace-specific narrative is FORBIDDEN. Do NOT write prose that describes what a specific trace did, and do NOT emit "#span:" deeplinks — the saved view is reused across many traces, so such text would be wrong for every other trace. Markdown is for STATIC instructions/headings only.
+10. Trace-specific narrative is FORBIDDEN. Do NOT write prose that describes what a specific trace did, and do NOT emit "#span:" deeplinks — the saved view is reused across many traces, so such text would be wrong for every other trace. Markdown you write by hand is STATIC instructions/headings only; per-trace content must come from a binding marker, never from hand-written prose.
 11. Only use the component types, props, source names, and spanRef selectors listed above. Do not invent components, props, icon names, enum values, or source names.
 12. CRITICAL — never fabricate data. The only trace data that appears is what the bound sources resolve to; do NOT invent metrics, scores, counts, failure patterns, or recommendations. This is ONE single trace, so never reference cross-trace aggregates. The ONLY judge/evaluation results are the "assessments" source; "metrics.assessments" is merely their COUNT.
 13. If the user asks for data that has no matching source, do NOT make one up. Bind a "spanField" marker (for one span's input/output/attributes/name/id), or render a single short static message stating it is unavailable (e.g. a "Text" with "text": "Not available in this view."). It is better to say the data is unavailable than to fabricate or hardcode values.
@@ -236,7 +236,14 @@ export const buildCustomViewAuthoringGuide = (): string => {
     'Always pass the COMPLETE "messages" spec for the single view (not a diff) on every turn that updates it. When a "currentTemplate" is provided in the context, it is the existing reusable template (with its binding markers): KEEP its layout, component choices, and markers, and apply ONLY the change the user asked for. Do NOT replace markers with literal data and do NOT introduce trace-specific values. Re-pick the "title" whenever an edit changes what the view shows; keep the previous title for purely cosmetic edits (colors, spacing, minor wording).',
   ].join('\n');
 
-  return [intro, CATALOG_REFERENCE, BINDING_REFERENCE, LAYOUT_GUIDANCE, OUTPUT_RULES, EXAMPLE, CARD_STYLE_EXAMPLE, SPAN_CARD_EXAMPLE].join(
-    '\n\n',
-  );
+  return [
+    intro,
+    CATALOG_REFERENCE,
+    BINDING_REFERENCE,
+    LAYOUT_GUIDANCE,
+    OUTPUT_RULES,
+    EXAMPLE,
+    CARD_STYLE_EXAMPLE,
+    SPAN_CARD_EXAMPLE,
+  ].join('\n\n');
 };

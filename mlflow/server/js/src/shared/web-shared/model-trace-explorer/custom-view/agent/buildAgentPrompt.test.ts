@@ -1,5 +1,9 @@
 import { describe, test, expect, it } from '@jest/globals';
-import { RENDER_CUSTOM_VIEW_TOOL_NAME, buildCustomViewAuthoringGuide, buildAgentDataSnapshot } from './buildAgentPrompt';
+import {
+  RENDER_CUSTOM_VIEW_TOOL_NAME,
+  buildCustomViewAuthoringGuide,
+  buildAgentDataSnapshot,
+} from './buildAgentPrompt';
 import type { AgentNode, AgentTraceData } from './buildAgentPrompt';
 
 describe('buildCustomViewAuthoringGuide', () => {
@@ -10,7 +14,12 @@ describe('buildCustomViewAuthoringGuide', () => {
 
   test('includes the catalog/binding/layout/example building blocks', () => {
     const guide = buildCustomViewAuthoringGuide();
-    for (const shared of ['"Row": horizontal layout', 'Data binding (CRITICAL', 'Layout & visual polish', 'Trace Summary']) {
+    for (const shared of [
+      '"Row": horizontal layout',
+      'Data binding (CRITICAL',
+      'Layout & visual polish',
+      'Trace Summary',
+    ]) {
       expect(guide).toContain(shared);
     }
   });
