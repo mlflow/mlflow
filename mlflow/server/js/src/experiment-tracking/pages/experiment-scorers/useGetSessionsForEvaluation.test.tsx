@@ -111,14 +111,76 @@ describe('useGetSessionsForEvaluation', () => {
     ]);
   });
 
-  it('escapes single quotes and backslashes in session IDs when building the filter', async () => {
-    useSearchHandler(() => []);
+  it('resolves filter-unsafe session IDs via the window scan instead of a broken filter', async () => {
+    // A session ID containing a quote or backslash cannot round-trip through a search
+    // filter (the parser strips quotes without decoding escapes), so it must not be put
+    // in a filter — it is resolved through the window scan and matched by exact ID.
+    const unsafe = "sess'ion\\x";
+    useSearchHandler((body) => {
+      if (body.filter) {
+        return [];
+      }
+      return [createTraceInfo('unsafe-1', unsafe, 1000)];
+    });
 
     const { result } = renderHook(() => useGetSessionsForEvaluation(), { wrapper });
-    await result.current(buildParams({ itemIds: ["sess'ion\\x"] }));
+    const sessions = await result.current(buildParams({ itemIds: [unsafe] }));
 
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe(unsafe);
+    // Only the unfiltered window scan was issued — no filter for the unsafe ID.
     expect(capturedBodies).toHaveLength(1);
-    expect(capturedBodies[0].filter).toBe("metadata.`mlflow.trace.session` = 'sess\\'ion\\\\x'");
+    expect(capturedBodies[0].filter).toBeUndefined();
+  });
+
+  it('mixes targeted queries for safe IDs with a window scan when any selected ID is filter-unsafe', async () => {
+    const unsafe = "o'brien";
+    useSearchHandler((body) => {
+      if (body.filter === "metadata.`mlflow.trace.session` = 'safe-session'") {
+        return [createTraceInfo('safe-1', 'safe-session', 1000)];
+      }
+      if (body.filter) {
+        return [];
+      }
+      return [createTraceInfo('unsafe-1', unsafe, 2000)];
+    });
+
+    const { result } = renderHook(() => useGetSessionsForEvaluation(), { wrapper });
+    const sessions = await result.current(buildParams({ itemIds: ['safe-session', unsafe] }));
+
+    expect(sessions.map((session) => session.sessionId).sort()).toEqual(['safe-session', unsafe].sort());
+    expect(capturedBodies.map((body) => body.filter)).toEqual(
+      expect.arrayContaining([undefined, "metadata.`mlflow.trace.session` = 'safe-session'"]),
+    );
+    expect(capturedBodies).toHaveLength(2);
+  });
+
+  it('bounds concurrent per-session queries in waves', async () => {
+    const sessionIds = Array.from({ length: 25 }, (_, index) => `session-${index}`);
+
+    // Track in-flight requests to assert the concurrency bound.
+    let inFlight = 0;
+    let maxInFlight = 0;
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/search', async (req, res, ctx) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        const body = (await req.json()) as CapturedSearchBody;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const match = body.filter?.match(/^metadata\.`mlflow\.trace\.session` = 'session-(\d+)'$/);
+        const traces = match ? [createTraceInfo(`trace-${match[1]}`, `session-${match[1]}`, Number(match[1]))] : [];
+        inFlight -= 1;
+        return res(ctx.json({ traces }));
+      }),
+    );
+
+    const { result } = renderHook(() => useGetSessionsForEvaluation(), { wrapper });
+    const sessions = await result.current(buildParams({ itemIds: sessionIds }));
+
+    expect(sessions).toHaveLength(25);
+    expect(maxInFlight).toBeLessThanOrEqual(20);
+    // Queries within a wave still run concurrently, they are not serialized one by one.
+    expect(maxInFlight).toBeGreaterThan(1);
   });
 
   it('keeps the unselected path on the latest-500 window scan without a filter', async () => {
