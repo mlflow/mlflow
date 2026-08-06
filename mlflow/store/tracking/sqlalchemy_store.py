@@ -69,6 +69,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.scorer_preset import ScorerPresetVersion
 from mlflow.entities.span import LazySpan
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
@@ -3103,6 +3104,367 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 for i, sv in enumerate(sql_scorer_versions)
             ]
+
+    # =========================================================================
+    # Scorer Preset Management
+    # =========================================================================
+
+    def _compute_preset_version_hash(self, scorer_refs: list[tuple[str, int]]) -> str:
+        import hashlib
+
+        canonical = sorted(scorer_refs)
+        payload = "|".join(f"{sid}:{sv}" for sid, sv in canonical)
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+    def register_scorer_preset(
+        self, experiment_id: str, name: str, scorer_ids: list[str]
+    ) -> ScorerPresetVersion:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetMembership,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            if not scorer_ids:
+                raise MlflowException(
+                    "At least one scorer ID is required to register a preset.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            # Resolve each scorer ID to its latest version
+            scorer_refs = []
+            for sid in scorer_ids:
+                scorer = session.query(SqlScorer).filter(SqlScorer.scorer_id == sid).first()
+                if scorer is None:
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' not found.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                max_version = (
+                    session
+                    .query(func.max(SqlScorerVersion.scorer_version))
+                    .filter(SqlScorerVersion.scorer_id == sid)
+                    .scalar()
+                )
+                if max_version is None:
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' has no versions.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                scorer_refs.append((sid, max_version))
+
+            version_hash = self._compute_preset_version_hash(scorer_refs)
+
+            # Get or create the preset record
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+
+            if preset is None:
+                preset_id = str(uuid.uuid4())
+                preset = SqlScorerPreset(
+                    experiment_id=experiment_id,
+                    preset_name=name,
+                    preset_id=preset_id,
+                )
+                session.add(preset)
+                session.flush()
+
+            # Check if this exact version already exists (hash dedup)
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == preset.preset_id,
+                    SqlScorerPresetVersion.version_hash == version_hash,
+                )
+                .first()
+            )
+            if existing is not None:
+                return existing.to_mlflow_entity()
+
+            # Create the new version
+            preset_version = SqlScorerPresetVersion(
+                preset_id=preset.preset_id,
+                version_hash=version_hash,
+            )
+            session.add(preset_version)
+            session.flush()
+
+            # Create membership records
+            for sid, sv in scorer_refs:
+                membership = SqlScorerPresetMembership(
+                    preset_id=preset.preset_id,
+                    version_hash=version_hash,
+                    scorer_id=sid,
+                    scorer_version=sv,
+                )
+                session.add(membership)
+
+            session.flush()
+            return preset_version.to_mlflow_entity()
+
+    def get_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> ScorerPresetVersion:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            query = session.query(SqlScorerPresetVersion).filter(
+                SqlScorerPresetVersion.preset_id == preset.preset_id
+            )
+            if version is not None:
+                pv = query.filter(SqlScorerPresetVersion.version_hash == version).first()
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' version '{version}' not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            else:
+                pv = query.order_by(SqlScorerPresetVersion.creation_time.desc()).first()
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' has no versions for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            return pv.to_mlflow_entity()
+
+    def list_scorer_presets(
+        self,
+        experiment_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ScorerPresetVersion], str | None]:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset_ids = [
+                row.preset_id
+                for row in session
+                .query(SqlScorerPreset.preset_id)
+                .filter(SqlScorerPreset.experiment_id == experiment.experiment_id)
+                .all()
+            ]
+            if not preset_ids:
+                return [], None
+
+            # For each preset, get the latest version by creation_time
+            results = []
+            for pid in preset_ids:
+                latest = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(SqlScorerPresetVersion.preset_id == pid)
+                    .order_by(SqlScorerPresetVersion.creation_time.desc())
+                    .first()
+                )
+                if latest is not None:
+                    results.append(latest.to_mlflow_entity())
+
+            results.sort(key=lambda p: p.preset_name)
+            # Pagination not yet implemented — return all results
+            return results, None
+
+    def list_scorer_preset_versions(
+        self,
+        experiment_id: str,
+        name: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ScorerPresetVersion], str | None]:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            versions = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(SqlScorerPresetVersion.preset_id == preset.preset_id)
+                .order_by(SqlScorerPresetVersion.creation_time.asc())
+                .all()
+            )
+
+            results = [v.to_mlflow_entity() for v in versions]
+            return results, None
+
+    def delete_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> None:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if version is not None:
+                pv = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(
+                        SqlScorerPresetVersion.preset_id == preset.preset_id,
+                        SqlScorerPresetVersion.version_hash == version,
+                    )
+                    .first()
+                )
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' version '{version}' not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                session.delete(pv)
+            else:
+                session.delete(preset)
+
+    def copy_scorer_preset(
+        self,
+        experiment_id: str,
+        name: str,
+        to_experiment_id: str,
+        version: str | None = None,
+    ) -> ScorerPresetVersion:
+        from mlflow.store.tracking.dbmodels.models import (
+            SqlScorerPreset,
+            SqlScorerPresetMembership,
+            SqlScorerPresetVersion,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Validate source
+            source_entity = self.get_scorer_preset(experiment_id, name, version)
+
+            # Validate target experiment
+            target_experiment = self.get_experiment(to_experiment_id)
+            self._check_experiment_is_active(target_experiment)
+
+            # Get or create preset in target experiment
+            target_preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == to_experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if target_preset is None:
+                target_preset = SqlScorerPreset(
+                    experiment_id=to_experiment_id,
+                    preset_name=name,
+                    preset_id=str(uuid.uuid4()),
+                )
+                session.add(target_preset)
+                session.flush()
+
+            # Check if this version already exists in target (hash dedup)
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == target_preset.preset_id,
+                    SqlScorerPresetVersion.version_hash == source_entity.version,
+                )
+                .first()
+            )
+            if existing is not None:
+                return existing.to_mlflow_entity()
+
+            # Create new version in target
+            target_version = SqlScorerPresetVersion(
+                preset_id=target_preset.preset_id,
+                version_hash=source_entity.version,
+            )
+            session.add(target_version)
+            session.flush()
+
+            for sid, sv in source_entity.scorer_refs:
+                session.add(
+                    SqlScorerPresetMembership(
+                        preset_id=target_preset.preset_id,
+                        version_hash=source_entity.version,
+                        scorer_id=sid,
+                        scorer_version=sv,
+                    )
+                )
+            session.flush()
+            return target_version.to_mlflow_entity()
 
     def get_online_scoring_configs(self, scorer_ids: list[str]) -> list[OnlineScoringConfig]:
         """

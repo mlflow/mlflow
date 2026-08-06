@@ -29,6 +29,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.issue import IssueSeverity, IssueStatus
+from mlflow.entities.scorer_preset import ScorerPresetVersion
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -84,6 +85,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
+    CopyScorerPreset,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -99,6 +101,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteScorerPreset,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
@@ -114,11 +117,14 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetScorerPreset,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkPromptsToTrace,
     LinkTracesToRun,
+    ListScorerPresets,
+    ListScorerPresetVersions,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -131,6 +137,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     QueryTraceMetrics,
     RegisterScorer,
+    RegisterScorerPreset,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
@@ -1848,6 +1855,138 @@ class RestStore(
             DeleteScorer,
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
+        )
+
+    ############################################################################################
+    # Scorer Preset Management APIs
+    ############################################################################################
+
+    def register_scorer_preset(
+        self, experiment_id: str, name: str, scorer_ids: list[str]
+    ) -> ScorerPresetVersion:
+        req_body = message_to_json(
+            RegisterScorerPreset(
+                experiment_id=experiment_id,
+                name=name,
+                scorer_ids=scorer_ids,
+            )
+        )
+        response_proto = self._call_endpoint(
+            RegisterScorerPreset,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/register",
+        )
+        return ScorerPresetVersion(
+            experiment_id=experiment_id,
+            preset_name=name,
+            version=response_proto.version,
+            scorer_refs=[],
+            creation_time=0,
+            preset_id=response_proto.preset_id,
+        )
+
+    def get_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> ScorerPresetVersion:
+        req_body = message_to_json(
+            GetScorerPreset(experiment_id=experiment_id, name=name, version=version)
+        )
+        response_proto = self._call_endpoint(
+            GetScorerPreset,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/get",
+        )
+        return ScorerPresetVersion.from_proto(response_proto.scorer_preset)
+
+    def list_scorer_presets(
+        self,
+        experiment_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ScorerPresetVersion], str | None]:
+        req_body = message_to_json(
+            ListScorerPresets(
+                experiment_id=experiment_id,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListScorerPresets,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/list",
+        )
+        presets = [ScorerPresetVersion.from_proto(p) for p in response_proto.scorer_presets]
+        next_token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return presets, next_token
+
+    def list_scorer_preset_versions(
+        self,
+        experiment_id: str,
+        name: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ScorerPresetVersion], str | None]:
+        req_body = message_to_json(
+            ListScorerPresetVersions(
+                experiment_id=experiment_id,
+                name=name,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListScorerPresetVersions,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/versions",
+        )
+        presets = [ScorerPresetVersion.from_proto(p) for p in response_proto.scorer_presets]
+        next_token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return presets, next_token
+
+    def delete_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> None:
+        req_body = message_to_json(
+            DeleteScorerPreset(experiment_id=experiment_id, name=name, version=version)
+        )
+        self._call_endpoint(
+            DeleteScorerPreset,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/delete",
+        )
+
+    def copy_scorer_preset(
+        self,
+        experiment_id: str,
+        name: str,
+        to_experiment_id: str,
+        version: str | None = None,
+    ) -> ScorerPresetVersion:
+        req_body = message_to_json(
+            CopyScorerPreset(
+                experiment_id=experiment_id,
+                name=name,
+                to_experiment_id=to_experiment_id,
+                version=version,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CopyScorerPreset,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorer-presets/copy",
+        )
+        return ScorerPresetVersion(
+            experiment_id=to_experiment_id,
+            preset_name=name,
+            version=response_proto.version,
+            scorer_refs=[],
+            creation_time=0,
+            preset_id=response_proto.preset_id,
         )
 
     def upsert_online_scoring_config(
