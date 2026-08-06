@@ -839,6 +839,52 @@ async def test_response_format(client):
     })
 
 
+@pytest.mark.asyncio
+async def test_model_name_fallback_to_request_model(client):
+    mlflow.openai.autolog()
+
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="custom-deployment",
+        )
+        if client._is_async:
+            response = await response
+
+    # response.model is empty, verify fallback to request.model
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.model_name == "custom-deployment"
+
+
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
 async def test_autolog_link_traces_to_loaded_model_chat_completions(client, completion_models):
