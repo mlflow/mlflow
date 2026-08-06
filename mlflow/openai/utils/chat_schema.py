@@ -160,14 +160,21 @@ def _parse_model(output: Any) -> str | None:
     except ImportError:
         pass
 
-    # Handle OpenAI ChatCompletion Streaming API response
+    # Handle OpenAI non-chat Text Completion API
     try:
-        from openai.types.chat import ChatCompletionChunk
+        from openai.types.completion import Completion
 
-        if isinstance(output, list):
-            for item in output:
-                if isinstance(item, ChatCompletionChunk) and (model := item.model):
-                    return model
+        if isinstance(output, Completion) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI Embeddings API
+    try:
+        from openai.types.create_embedding_response import CreateEmbeddingResponse
+
+        if isinstance(output, CreateEmbeddingResponse) and (model := output.model):
+            return model
     except ImportError:
         pass
 
