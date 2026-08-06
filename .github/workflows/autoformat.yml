@@ -36,7 +36,7 @@ jobs:
             .github
       - name: judge
         id: judge
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           retries: 3
           script: |
@@ -54,7 +54,7 @@ jobs:
 
       - name: Check maintainer access
         if: fromJSON(steps.judge.outputs.result).shouldAutoformat
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           retries: 3
           script: |
@@ -306,7 +306,7 @@ jobs:
           sparse-checkout: |
             .github
       - name: Update status
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
           HEAD_SHA: ${{ needs.check-comment.outputs.head_sha }}
