@@ -70,6 +70,17 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.utils.trace_analytics import (
+    PROMOTED_TRACE_METADATA_KEYS,
+    analytics_columns_from_metadata,
+    assessment_aggregate,
+)
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -423,6 +434,15 @@ def _parse_timestamp_ms(request_time: str) -> int:
         return 0
 
 
+def _get_trace_timestamp_ms(meta: dict[str, Any]) -> int:
+    if (timestamp_ms := meta.get("timestamp_ms")) is not None:
+        return timestamp_ms
+    request_time = meta.get("request_time")
+    if isinstance(request_time, int):
+        return request_time
+    return _parse_timestamp_ms(request_time) if isinstance(request_time, str) else 0
+
+
 def _migrate_traces_for_experiment(
     session: Session,
     exp_dir: Path,
@@ -449,21 +469,26 @@ def _migrate_traces_for_experiment(
         trace_id = meta.get("trace_id") or meta.get("request_id") or trace_dir_name
 
         # V2 uses timestamp_ms, V3 uses request_time (proto timestamp string)
-        timestamp_ms = meta.get("timestamp_ms")
-        if timestamp_ms is None:
-            request_time = meta.get("request_time")
-            if isinstance(request_time, int):
-                timestamp_ms = request_time
-            elif isinstance(request_time, str):
-                timestamp_ms = _parse_timestamp_ms(request_time)
-            else:
-                timestamp_ms = 0
+        timestamp_ms = _get_trace_timestamp_ms(meta)
 
         # V2 uses execution_time_ms, V3 uses execution_duration_ms
         execution_time_ms = meta.get("execution_time_ms") or meta.get("execution_duration_ms")
 
         # Status: V2 has status as string like "OK", V3 has state
         status = meta.get("status") or meta.get("state", "OK")
+
+        tags = read_tag_files(trace_dir / FileStore.TRACE_TAGS_FOLDER_NAME)
+        trace_name = tags.pop(TraceTagKey.TRACE_NAME, None)
+        if trace_name is not None:
+            trace_name = trace_name[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
+        request_metadata = read_tag_files(trace_dir / FileStore.TRACE_TRACE_METADATA_FOLDER_NAME)
+        if TraceMetadataKey.TRACE_SESSION in request_metadata:
+            request_metadata[TraceMetadataKey.TRACE_SESSION] = request_metadata[
+                TraceMetadataKey.TRACE_SESSION
+            ][:MAX_CHARS_IN_TRACE_INFO_METADATA]
+        analytics_columns = analytics_columns_from_metadata(request_metadata)
+        for key in PROMOTED_TRACE_METADATA_KEYS:
+            request_metadata.pop(key, None)
 
         session.add(
             SqlTraceInfo(
@@ -475,12 +500,14 @@ def _migrate_traces_for_experiment(
                 client_request_id=meta.get("client_request_id"),
                 request_preview=meta.get("request_preview"),
                 response_preview=meta.get("response_preview"),
+                trace_name=trace_name,
+                **analytics_columns,
             )
         )
         stats.traces += 1
 
         # Trace tags
-        for key, value in read_tag_files(trace_dir / FileStore.TRACE_TAGS_FOLDER_NAME).items():
+        for key, value in tags.items():
             session.add(
                 SqlTraceTag(
                     key=key,
@@ -491,9 +518,7 @@ def _migrate_traces_for_experiment(
             stats.trace_tags += 1
 
         # Trace request metadata
-        for key, value in read_tag_files(
-            trace_dir / FileStore.TRACE_TRACE_METADATA_FOLDER_NAME
-        ).items():
+        for key, value in request_metadata.items():
             session.add(
                 SqlTraceMetadata(
                     key=key,
@@ -510,12 +535,12 @@ def _migrate_traces_for_experiment(
 
 
 def migrate_assessments(session: Session, mlruns: Path, stats: MigrationStats) -> None:
-    for exp_dir, _exp_id in for_each_experiment(mlruns):
-        _migrate_assessments_for_experiment(session, exp_dir, stats)
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_assessments_for_experiment(session, exp_dir, int(exp_id), stats)
 
 
 def _migrate_assessments_for_experiment(
-    session: Session, exp_dir: Path, stats: MigrationStats
+    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
 ) -> None:
     traces_dir = exp_dir / FileStore.TRACES_FOLDER_NAME
     if not traces_dir.is_dir():
@@ -531,6 +556,7 @@ def _migrate_assessments_for_experiment(
         if trace_meta is None:
             continue
         trace_id = trace_meta.get("trace_id") or trace_meta.get("request_id") or trace_dir_name
+        trace_timestamp_ms = _get_trace_timestamp_ms(trace_meta)
 
         for filename in list_files(assessments_dir):
             if not filename.endswith(".yaml"):
@@ -540,7 +566,15 @@ def _migrate_assessments_for_experiment(
             if meta is None:
                 continue
 
-            _migrate_one_assessment(session, meta, trace_id, assessment_id, stats)
+            _migrate_one_assessment(
+                session,
+                meta,
+                trace_id,
+                assessment_id,
+                exp_id,
+                trace_timestamp_ms,
+                stats,
+            )
 
 
 def _migrate_one_assessment(
@@ -548,6 +582,8 @@ def _migrate_one_assessment(
     meta: dict[str, Any],
     trace_id: str,
     assessment_id: str,
+    experiment_id: int,
+    trace_timestamp_ms: int,
     stats: MigrationStats,
 ) -> None:
     feedback_data = meta.get("feedback")
@@ -555,12 +591,14 @@ def _migrate_one_assessment(
 
     if feedback_data is not None:
         assessment_type = "feedback"
-        value_json = json.dumps(feedback_data.get("value"))
+        value = feedback_data.get("value")
+        value_json = json.dumps(value)
         error_data = feedback_data.get("error")
         error_json = json.dumps(error_data) if error_data else None
     elif expectation_data is not None:
         assessment_type = "expectation"
-        value_json = json.dumps(expectation_data.get("value"))
+        value = expectation_data.get("value")
+        value_json = json.dumps(value)
         error_json = None
     else:
         return
@@ -574,11 +612,14 @@ def _migrate_one_assessment(
 
     assessment_metadata = meta.get("metadata")
     metadata_json = json.dumps(assessment_metadata) if assessment_metadata else None
+    aggregate_value, is_numeric_value = assessment_aggregate(value)
 
     session.add(
         SqlAssessments(
             assessment_id=meta.get("assessment_id") or assessment_id,
             trace_id=trace_id,
+            experiment_id=experiment_id,
+            trace_timestamp_ms=trace_timestamp_ms,
             name=meta.get("assessment_name", meta.get("name", "")),
             assessment_type=assessment_type,
             value=value_json,
@@ -593,6 +634,8 @@ def _migrate_one_assessment(
             overrides=meta.get("overrides"),
             valid=meta.get("valid", True),
             assessment_metadata=metadata_json,
+            aggregate_value=aggregate_value,
+            is_numeric_value=is_numeric_value,
         )
     )
     stats.assessments += 1

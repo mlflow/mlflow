@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -8,6 +9,8 @@ from pathlib import Path
 import pytest
 
 from mlflow.store.fs2db import _resolve_mlruns, migrate
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.tracing.constant import CostKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracking import MlflowClient
 
 
@@ -40,9 +43,29 @@ def clients(
         env=env,
     )
 
+    mlruns = _resolve_mlruns(Path(source))
+    reserved_metadata = {
+        TraceMetadataKey.TRACE_SESSION: "session-1",
+        TraceMetadataKey.TOKEN_USAGE: json.dumps({
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        }),
+        TraceMetadataKey.COST: json.dumps({
+            CostKey.INPUT_COST: 0.1,
+            CostKey.OUTPUT_COST: 0.2,
+            CostKey.TOTAL_COST: 0.3,
+        }),
+    }
+    metadata_dirs = mlruns.glob(
+        f"*/{FileStore.TRACES_FOLDER_NAME}/*/{FileStore.TRACE_TRACE_METADATA_FOLDER_NAME}"
+    )
+    for metadata_dir in metadata_dirs:
+        for key, value in reserved_metadata.items():
+            (metadata_dir / key).write_text(value)
+
     migrate(Path(source), target_uri, progress=False)
 
-    mlruns = _resolve_mlruns(Path(source))
     monkeypatch_module.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", module="mlflow")

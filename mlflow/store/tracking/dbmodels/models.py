@@ -105,6 +105,16 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.tracking.utils.trace_analytics import (
+    PROMOTED_TRACE_METADATA_KEYS,
+    assessment_aggregate,
+    compatibility_metadata_from_columns,
+)
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceTagKey,
+)
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -823,31 +833,31 @@ class SqlTraceInfo(Base):
     DB-backed trace payload generation used for concurrency coordination.
     Defaults to 0.
     """
-    trace_name = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
+    trace_name = Column(String(MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE), nullable=True)
     """
     Denormalized trace name used by trace analytics queries.
     """
-    session_id = Column(String(8000).with_variant(Text(), "mysql"), nullable=True)
+    session_id = Column(String(MAX_CHARS_IN_TRACE_INFO_METADATA), nullable=True)
     """
     Denormalized session identifier used by trace analytics queries.
     """
-    input_tokens = Column(Float(precision=53), nullable=True)
+    input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized input token usage used by trace analytics queries.
     """
-    output_tokens = Column(Float(precision=53), nullable=True)
+    output_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized output token usage used by trace analytics queries.
     """
-    total_tokens = Column(Float(precision=53), nullable=True)
+    total_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized total token usage used by trace analytics queries.
     """
-    cache_read_input_tokens = Column(Float(precision=53), nullable=True)
+    cache_read_input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized cache-read token usage used by trace analytics queries.
     """
-    cache_creation_input_tokens = Column(Float(precision=53), nullable=True)
+    cache_creation_input_tokens = Column(BigInteger, nullable=True)
     """
     Denormalized cache-creation token usage used by trace analytics queries.
     """
@@ -871,6 +881,7 @@ class SqlTraceInfo(Base):
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
         Index(f"index_{__tablename__}_timestamp_ms_request_id", "timestamp_ms", "request_id"),
+        Index(f"index_{__tablename__}_experiment_id_session_id", "experiment_id", "session_id"),
     )
 
     def to_mlflow_entity(self):
@@ -880,14 +891,25 @@ class SqlTraceInfo(Base):
         Returns:
             :py:class:`mlflow.entities.TraceInfo` object.
         """
+        tags = {t.key: t.value for t in self.tags if t.key != TraceTagKey.TRACE_NAME}
+        if self.trace_name is not None:
+            tags[TraceTagKey.TRACE_NAME] = self.trace_name
+
+        trace_metadata = {
+            m.key: m.value
+            for m in self.request_metadata
+            if m.key not in PROMOTED_TRACE_METADATA_KEYS
+        }
+        trace_metadata.update(compatibility_metadata_from_columns(self))
+
         return TraceInfo(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(str(self.experiment_id)),
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=TraceState(self.status),
-            tags={t.key: t.value for t in self.tags},
-            trace_metadata={m.key: m.value for m in self.request_metadata},
+            tags=tags,
+            trace_metadata=trace_metadata,
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
@@ -1325,7 +1347,8 @@ class SqlAssessments(Base):
 
         if assessment.feedback is not None:
             assessment_type = "feedback"
-            value_json = json.dumps(assessment.feedback.value)
+            value = assessment.feedback.value
+            value_json = json.dumps(value)
             error_json = (
                 json.dumps(assessment.feedback.error.to_dictionary())
                 if assessment.feedback.error
@@ -1333,11 +1356,13 @@ class SqlAssessments(Base):
             )
         elif assessment.expectation is not None:
             assessment_type = "expectation"
-            value_json = json.dumps(assessment.expectation.value)
+            value = assessment.expectation.value
+            value_json = json.dumps(value)
             error_json = None
         elif assessment.issue is not None:
             assessment_type = "issue"
-            value_json = json.dumps(assessment.issue.to_dictionary())
+            value = assessment.issue.to_dictionary()
+            value_json = json.dumps(value)
             error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
@@ -1346,6 +1371,7 @@ class SqlAssessments(Base):
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
 
+        aggregate_value, is_numeric_value = assessment_aggregate(value)
         return SqlAssessments(
             assessment_id=assessment.assessment_id,
             trace_id=assessment.trace_id,
@@ -1363,6 +1389,8 @@ class SqlAssessments(Base):
             overrides=assessment.overrides,
             valid=True,
             assessment_metadata=metadata_json,
+            aggregate_value=aggregate_value,
+            is_numeric_value=is_numeric_value,
         )
 
     def __repr__(self):
@@ -2175,15 +2203,13 @@ class SqlEvaluationDatasetRecord(Base):
 class SqlSpan(Base):
     __tablename__ = "spans"
 
-    trace_id = Column(
-        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
-    )
+    trace_id = Column(String(50), nullable=False)
     """
     Trace ID: `String` (limit 50 characters). Part of composite primary key.
     Foreign key to trace_info table.
     """
 
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(Integer, nullable=False)
     """
     Experiment ID: `Integer`. Foreign key to experiments table.
     """
@@ -2242,11 +2268,6 @@ class SqlSpan(Base):
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
     """
 
-    dimension_attributes = Column(MutableJSON, nullable=True)
-    """
-    Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
-    efficient querying or metrics aggregation.
-    """
     input_cost = Column(Float(precision=53), nullable=True)
     """
     Denormalized input cost used by span analytics queries.
@@ -2275,6 +2296,17 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        ForeignKeyConstraint(
+            ["trace_id"],
+            ["trace_info.request_id"],
+            name="fk_spans_trace_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_spans_experiment_id",
+        ),
         # The leftmost experiment_id column also supports experiment-only filters, so this
         # composite index replaces a separate index on experiment_id.
         Index(

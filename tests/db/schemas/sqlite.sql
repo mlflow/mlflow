@@ -145,7 +145,6 @@ CREATE TABLE secrets (
 
 CREATE TABLE sql_assessment_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -160,7 +159,6 @@ CREATE TABLE sql_assessment_daily_rollups (
 
 CREATE TABLE sql_span_cost_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -177,7 +175,6 @@ CREATE TABLE sql_span_cost_daily_rollups (
 
 CREATE TABLE sql_trace_metric_daily_rollups (
 	id INTEGER NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	metric_name VARCHAR(250) NOT NULL,
@@ -195,11 +192,10 @@ CREATE TABLE sql_trace_metric_daily_rollups (
 
 
 CREATE TABLE sql_trace_rollup_rebuild_queue (
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	rollup_day DATE NOT NULL,
 	rollup_family VARCHAR(50) NOT NULL,
-	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (workspace, experiment_id, rollup_day, rollup_family)
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -509,13 +505,13 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
-	trace_name VARCHAR(8000),
-	session_id VARCHAR(8000),
-	input_tokens FLOAT,
-	output_tokens FLOAT,
-	total_tokens FLOAT,
-	cache_read_input_tokens FLOAT,
-	cache_creation_input_tokens FLOAT,
+	trace_name VARCHAR(4096),
+	session_id VARCHAR(250),
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
 	input_cost FLOAT,
 	output_cost FLOAT,
 	total_cost FLOAT,
@@ -668,6 +664,7 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
+
 CREATE TABLE mcp_server_version_tags (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -776,15 +773,14 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano - start_time_unix_nano) STORED,
 	content TEXT NOT NULL,
-	dimension_attributes JSON,
 	input_cost FLOAT,
 	output_cost FLOAT,
 	total_cost FLOAT,
 	model_name VARCHAR(500),
 	model_provider VARCHAR(500),
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
-	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE,
-	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
