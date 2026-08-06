@@ -84,6 +84,9 @@ class OnlineTraceCheckpointManager:
             min_trace_timestamp_ms is the checkpoint if it exists and is within the
             lookback period, otherwise the buffered upper bound - MAX_LOOKBACK_MS.
             max_trace_timestamp_ms is current time minus the trace completion buffer.
+            It can be earlier than min_trace_timestamp_ms while an existing checkpoint
+            is ahead of the buffered upper bound; the processor waits for the upper bound
+            to advance before querying.
         """
         current_time_ms = int(time.time() * 1000)
         checkpoint = self.get_checkpoint()
@@ -100,11 +103,6 @@ class OnlineTraceCheckpointManager:
             checkpoint.timestamp_ms if checkpoint else min_lookback_time_ms,
             min_lookback_time_ms,
         )
-
-        # Ensure the window is monotonic: if an existing checkpoint is ahead of
-        # the buffered upper bound (e.g., after upgrading from pre-buffer logic),
-        # clamp so that max >= min to avoid inverted windows and checkpoint rewind.
-        max_trace_timestamp_ms = max(max_trace_timestamp_ms, min_trace_timestamp_ms)
 
         return OnlineTraceScoringTimeWindow(
             min_trace_timestamp_ms=min_trace_timestamp_ms,

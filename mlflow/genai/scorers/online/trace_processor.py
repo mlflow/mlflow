@@ -97,6 +97,9 @@ class OnlineTraceScoringProcessor:
             )
             return
 
+        # A checkpoint created before the completion buffer was enabled can be ahead
+        # of the buffered upper bound. Wait instead of querying an inverted window or
+        # overwriting its trace ID tie-breaker.
         if checkpoint is not None and time_window.max_trace_timestamp_ms <= checkpoint.timestamp_ms:
             _logger.debug("Buffered trace scoring window has not advanced, skipping")
             return

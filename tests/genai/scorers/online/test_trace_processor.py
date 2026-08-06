@@ -114,7 +114,7 @@ def test_process_traces_skips_until_buffered_window_advances(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):
     mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
-        min_trace_timestamp_ms=1000, max_trace_timestamp_ms=1000
+        min_trace_timestamp_ms=1000, max_trace_timestamp_ms=900
     )
     mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
         timestamp_ms=1000, trace_id="tr-001"

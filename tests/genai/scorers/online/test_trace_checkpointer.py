@@ -134,11 +134,13 @@ def test_calculate_time_window_with_default_buffer(checkpoint_manager, mock_stor
     mock_store.get_experiment.return_value = experiment
     fixed_time = 1000000
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    # Don't override the env var — use the default buffer (300s)
+    monkeypatch.delenv(
+        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, raising=False
+    )
 
     result = checkpoint_manager.calculate_time_window()
 
-    default_buffer_ms = 300 * 1000  # 5 minutes in ms
+    default_buffer_ms = MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.get() * 1000
     expected_max = (fixed_time * 1000) - default_buffer_ms
     expected_min = expected_max - MAX_LOOKBACK_MS
     assert result.min_trace_timestamp_ms == expected_min
@@ -231,34 +233,3 @@ def test_calculate_time_window_negative_buffer_treated_as_zero(
 
     # Negative values should be clamped to 0, so max should be current time
     assert result.max_trace_timestamp_ms == fixed_time * 1000
-
-
-def test_calculate_time_window_checkpoint_ahead_of_buffered_max_clamps_window(
-    checkpoint_manager, mock_store, monkeypatch
-):
-    """
-    Test that when an existing checkpoint is ahead of the buffered upper bound
-    (e.g., after upgrading from pre-buffer logic), the window is clamped so that
-    max >= min. This prevents inverted windows and checkpoint rewind.
-    """
-    fixed_time = 1000000
-    # Checkpoint is very recent — just 10 seconds ago (well within the 300s buffer)
-    recent_checkpoint_time = (fixed_time * 1000) - 10_000  # 10 seconds ago
-    experiment = MagicMock()
-    experiment.tags = {
-        MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: (
-            f'{{"timestamp_ms": {recent_checkpoint_time}}}'
-        )
-    }
-    mock_store.get_experiment.return_value = experiment
-    monkeypatch.setattr(time, "time", lambda: fixed_time)
-    # Default buffer of 300s means max would be current_time - 300s, which is
-    # before the checkpoint. Without clamping, min > max (inverted window).
-
-    result = checkpoint_manager.calculate_time_window()
-
-    # min should be the checkpoint
-    assert result.min_trace_timestamp_ms == recent_checkpoint_time
-    # max should be clamped to at least min (not rewound before checkpoint)
-    assert result.max_trace_timestamp_ms >= result.min_trace_timestamp_ms
-    assert result.max_trace_timestamp_ms == recent_checkpoint_time
