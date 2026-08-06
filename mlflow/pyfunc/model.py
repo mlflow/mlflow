@@ -130,8 +130,8 @@ class _DownloadedArtifact:
 
 
 def _artifact_roots_overlap(left: Path, right: Path) -> bool:
-    left_parts = left.parts
-    right_parts = right.parts
+    left_parts = tuple(map(str.casefold, left.parts))
+    right_parts = tuple(map(str.casefold, right.parts))
     shared_length = min(len(left_parts), len(right_parts))
     return left_parts[:shared_length] == right_parts[:shared_length]
 
@@ -171,7 +171,7 @@ def _resolve_artifact_path_collisions(
 
 def _validate_downloaded_artifact(staging_dir: Path, source_root: Path, artifact_name: str) -> Path:
     # Artifact repositories must return a path within ``dst_path``. Collision detection compares
-    # raw ``flat_root.parts``, so reject non-normalized paths before planning destinations.
+    # ``flat_root.parts``, so reject non-normalized paths before planning destinations.
     try:
         validate_path_within_directory(str(staging_dir), str(source_root))
         flat_root = source_root.relative_to(staging_dir)

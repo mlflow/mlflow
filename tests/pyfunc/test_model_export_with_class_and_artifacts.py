@@ -895,7 +895,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         ("models/encoder", "models/reranker", False),
         ("foo", "foobar", False),
         (".", "config.json", True),
-        ("A", "a/file", False),
+        ("A", "a/file", True),
     ],
 )
 def test_artifact_roots_overlap(left, right, expected):
