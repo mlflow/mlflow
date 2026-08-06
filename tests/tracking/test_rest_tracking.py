@@ -4134,6 +4134,211 @@ def test_scorer_CRUD(mlflow_client, store_type):
     mlflow_client.delete_experiment(experiment_id)
 
 
+def test_scorer_preset_CRUD(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer preset CRUD operations")
+    experiment_id = mlflow_client.create_experiment("test_preset_api_experiment")
+
+    store = mlflow_client._tracking_client.store
+
+    # Register two scorers
+    s1 = store.register_scorer(experiment_id, "scorer_a", json.dumps({"name": "scorer_a"}))
+    s2 = store.register_scorer(experiment_id, "scorer_b", json.dumps({"name": "scorer_b"}))
+
+    # Register a preset
+    preset = store.register_scorer_preset(
+        experiment_id, "test_preset", [s1.scorer_id, s2.scorer_id]
+    )
+    assert preset.version is not None
+    assert preset.preset_id is not None
+
+    # Get the preset
+    fetched = store.get_scorer_preset(experiment_id, "test_preset")
+    assert fetched.preset_name == "test_preset"
+    assert fetched.version == preset.version
+    assert len(fetched.scorer_refs) == 2
+
+    # List presets
+    presets, _ = store.list_scorer_presets(experiment_id)
+    assert len(presets) == 1
+    assert presets[0].preset_name == "test_preset"
+
+    # Register second version with different scorers
+    preset_v2 = store.register_scorer_preset(experiment_id, "test_preset", [s1.scorer_id])
+    assert preset_v2.version != preset.version
+
+    # List versions
+    versions, _ = store.list_scorer_preset_versions(experiment_id, "test_preset")
+    assert len(versions) == 2
+    assert versions[0].creation_time <= versions[1].creation_time
+
+    # Get by specific version
+    pinned = store.get_scorer_preset(experiment_id, "test_preset", version=preset.version)
+    assert len(pinned.scorer_refs) == 2
+
+    # Copy to another experiment
+    experiment_id_2 = mlflow_client.create_experiment("test_preset_copy_target")
+    copied = store.copy_scorer_preset(experiment_id, "test_preset", experiment_id_2)
+    assert copied.preset_name == "test_preset"
+    copied_fetched = store.get_scorer_preset(experiment_id_2, "test_preset")
+    assert copied_fetched.version == copied.version
+
+    # Delete specific version
+    store.delete_scorer_preset(experiment_id, "test_preset", version=preset.version)
+    versions_after, _ = store.list_scorer_preset_versions(experiment_id, "test_preset")
+    assert len(versions_after) == 1
+
+    # Delete all versions
+    store.delete_scorer_preset(experiment_id, "test_preset")
+    presets_after, _ = store.list_scorer_presets(experiment_id)
+    assert len(presets_after) == 0
+
+    # Clean up
+    mlflow_client.delete_experiment(experiment_id)
+    mlflow_client.delete_experiment(experiment_id_2)
+
+
+def test_scorer_preset_auto_increment_e2e(mlflow_client, store_type):
+    """E2E: registering a new scorer version auto-bumps presets containing it."""
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer preset operations")
+    experiment_id = mlflow_client.create_experiment("test_preset_auto_increment_e2e")
+    store = mlflow_client._tracking_client.store
+
+    s1 = store.register_scorer(experiment_id, "scorer_x", json.dumps({"name": "scorer_x"}))
+    s2 = store.register_scorer(experiment_id, "scorer_y", json.dumps({"name": "scorer_y"}))
+
+    v1 = store.register_scorer_preset(experiment_id, "auto_preset", [s1.scorer_id, s2.scorer_id])
+
+    # Register a new version of scorer_x — preset should auto-bump
+    store.register_scorer(experiment_id, "scorer_x", json.dumps({"name": "scorer_x", "v2": True}))
+
+    versions, _ = store.list_scorer_preset_versions(experiment_id, "auto_preset")
+    assert len(versions) == 2
+    assert versions[0].version == v1.version
+    assert versions[1].version != v1.version
+
+    # New version should reference scorer_x v2 and scorer_y v1
+    new_ver = versions[1]
+    refs_by_id = dict(new_ver.scorer_refs)
+    assert refs_by_id[s1.scorer_id] == 2
+    assert refs_by_id[s2.scorer_id] == 1
+
+    mlflow_client.delete_experiment(experiment_id)
+
+
+def test_scorer_preset_hash_dedup_e2e(mlflow_client, store_type):
+    """E2E: registering the same scorer combination twice produces no duplicate version."""
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer preset operations")
+    experiment_id = mlflow_client.create_experiment("test_preset_hash_dedup_e2e")
+    store = mlflow_client._tracking_client.store
+
+    s1 = store.register_scorer(experiment_id, "scorer_d1", json.dumps({"name": "scorer_d1"}))
+    s2 = store.register_scorer(experiment_id, "scorer_d2", json.dumps({"name": "scorer_d2"}))
+
+    v1 = store.register_scorer_preset(experiment_id, "dedup_preset", [s1.scorer_id, s2.scorer_id])
+    v2 = store.register_scorer_preset(experiment_id, "dedup_preset", [s1.scorer_id, s2.scorer_id])
+
+    assert v1.version == v2.version
+
+    versions, _ = store.list_scorer_preset_versions(experiment_id, "dedup_preset")
+    assert len(versions) == 1
+
+    # Different order should also dedup
+    v3 = store.register_scorer_preset(experiment_id, "dedup_preset", [s2.scorer_id, s1.scorer_id])
+    assert v3.version == v1.version
+
+    mlflow_client.delete_experiment(experiment_id)
+
+
+def test_scorer_preset_builtin_register_e2e(mlflow_client, store_type):
+    """E2E: Agent().register() auto-registers scorers and creates preset."""
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer preset operations")
+    from unittest.mock import patch
+
+    from mlflow.genai.scorers.preset import Agent
+
+    experiment_id = mlflow_client.create_experiment("test_builtin_preset_register_e2e")
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        mlflow.set_experiment(experiment_id=experiment_id)
+        preset = Agent()
+        result = preset.register(experiment_id=experiment_id)
+
+        assert result.preset_name == "agent"
+        assert result.version is not None
+        assert len(result.scorer_refs) == 5
+
+        # Verify scorers were auto-registered
+        store = mlflow_client._tracking_client.store
+        scorers = store.list_scorers(experiment_id)
+        assert len(scorers) == 5
+
+    mlflow_client.delete_experiment(experiment_id)
+
+
+def test_scorer_preset_scorer_id_reuse_e2e(mlflow_client, store_type):
+    """E2E: Preset.register() reuses existing scorer IDs instead of creating duplicates."""
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer preset operations")
+    from unittest.mock import patch
+
+    from mlflow.genai.scorers import Safety, ToolCallCorrectness
+    from mlflow.genai.scorers.preset import Preset
+
+    experiment_id = mlflow_client.create_experiment("test_scorer_reuse_e2e")
+    store = mlflow_client._tracking_client.store
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        mlflow.set_experiment(experiment_id=experiment_id)
+
+        # Register scorers manually first
+        safety = Safety()
+        safety.register(experiment_id=experiment_id)
+        scorers_before = store.list_scorers(experiment_id)
+        assert len(scorers_before) == 1
+
+        # Now create a preset with the same scorer — should reuse, not duplicate
+        preset = Preset("reuse_test", scorers=[Safety(), ToolCallCorrectness()])
+        preset.register(experiment_id=experiment_id)
+
+        scorers_after = store.list_scorers(experiment_id)
+        # Should have 2 scorers (safety reused + tool_call_correctness new), not 3
+        assert len(scorers_after) == 2
+
+    mlflow_client.delete_experiment(experiment_id)
+
+
+def test_scorer_CRUD_no_regression_with_presets(mlflow_client, store_type):
+    """E2E: scorer CRUD still works correctly when no presets exist (auto-increment is a no-op)."""
+    if store_type == "file":
+        pytest.skip("File store doesn't support scorer CRUD operations")
+    experiment_id = mlflow_client.create_experiment("test_scorer_no_regression")
+    store = mlflow_client._tracking_client.store
+
+    # Standard scorer operations — auto-increment hook should be harmless
+    v1 = store.register_scorer(experiment_id, "reg_scorer", json.dumps({"name": "reg_scorer"}))
+    assert v1.scorer_version == 1
+    assert getattr(v1, "_bumped_presets", []) == []
+
+    v2 = store.register_scorer(
+        experiment_id, "reg_scorer", json.dumps({"name": "reg_scorer", "v2": True})
+    )
+    assert v2.scorer_version == 2
+    assert getattr(v2, "_bumped_presets", []) == []
+
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].scorer_version == 2
+
+    store.delete_scorer(experiment_id, "reg_scorer")
+    assert len(store.list_scorers(experiment_id)) == 0
+
+    mlflow_client.delete_experiment(experiment_id)
+
+
 @pytest.mark.parametrize(
     "filter_string",
     [
