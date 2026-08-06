@@ -73,6 +73,7 @@ import {
   TRACE_SHARE_URL_PARAM_KEY,
   TraceLiveViewStateProvider,
   TracePreviewActionsProvider,
+  urlHasCapturedTraceViewState,
 } from './TracesV3SavedViews';
 import { useSavedViewPreview } from './traceSavedViewPreview';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
@@ -151,6 +152,7 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns,
     toolbarAddons,
     toolbarCornerAddons,
+    enableSavedViews = false,
     drawerWidth,
   }: {
     /**
@@ -182,6 +184,13 @@ const TracesV3LogsImpl = React.memo(
     // controls (saved views) that should sit apart from the filter/sort/column cluster. Wrapped in
     // the same live-view-state provider as addons so a "Save" placed here captures live columns/sort.
     toolbarCornerAddons?: React.ReactNode;
+    // Whether this mount hosts the saved-views feature (Views/Share menu). Only the Traces tab
+    // (TracesV3View) does. Gates the shared-view preview: the `traceViewShareKey` URL param is shared
+    // across tabs, so without this flag every other consumer of TracesV3Logs (chat sessions, select-
+    // traces modal, gateway pages, ...) would show the "you're viewing a shared view" banner and
+    // disable its column controls whenever such a key is in the URL. Defaults to false so those pages
+    // opt out by omission.
+    enableSavedViews?: boolean;
     drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
@@ -310,9 +319,18 @@ const TracesV3LogsImpl = React.memo(
     // columns/sort ride in the URL), render the view's columns/sort in the table WITHOUT writing to
     // the user's persisted state. Only an explicit "Override my view" adopts the preview; "Discard"
     // drops the share params and returns to the user's own state.
-    const previewActive = Boolean(searchParams.get(TRACE_SHARE_URL_PARAM_KEY));
     const rawPreviewColumns = searchParams.get('selectedColumns') ?? undefined;
     const rawPreviewSort = searchParams.get('sort') ?? undefined;
+    // Require actual view state to preview, not just the key's presence: a genuine share link always
+    // carries some captured state (columns, sort, time range, filter, ...) — see buildTraceViewQuery
+    // — whereas a bare or garbage share key carries none. Gating on the state avoids showing the
+    // "you're viewing a shared view" banner (and disabling the column controls) for a key that
+    // resolves to nothing. Checks the full captured param set (not just columns/sort) so a
+    // time-range- or filter-only shared view still previews.
+    const previewActive =
+      enableSavedViews &&
+      Boolean(searchParams.get(TRACE_SHARE_URL_PARAM_KEY)) &&
+      urlHasCapturedTraceViewState(searchParams);
     // Leave preview by dropping only the share key — NOT by navigating to the bare route. Override
     // writes columns/sort via the table setters first (which, when table-state persistence is in
     // URL mode, write the selectedColumns/sort params); a bare-route navigation would clobber those
