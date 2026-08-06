@@ -764,3 +764,32 @@ def test_resolve_uc_trace_id_passes_through_when_no_uc_location():
         patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
     ):
         assert _resolve_uc_trace_id("tr-abc") == "tr-abc"
+
+
+@pytest.mark.parametrize("silent", [True, False])
+def test_get_trace_returns_none_for_malformed_v4_id_on_databricks(silent):
+    # A malformed V4 ID must not escape `get_trace` as an exception. UC resolution leaves it
+    # untouched, so `TracingClient.get_trace` is the single place that rejects it, and that
+    # error is handled by `get_trace` to return None as documented.
+    mock_store = Mock()
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client._resolve_tracking_uri", return_value="databricks"),
+        patch("mlflow.tracing.fluent.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+    ):
+        assert mlflow.get_trace("trace:/malformed", silent=silent) is None
+
+    # The ID never resolved to a UC location, so no experiment lookup should have occurred.
+    mock_store.get_experiment.assert_not_called()
+    mock_store.batch_get_traces.assert_not_called()
+
+
+def test_resolve_uc_trace_id_passes_through_malformed_v4_id():
+    from mlflow.tracing.fluent import _resolve_uc_trace_id
+
+    with patch("mlflow.tracing.client.TracingClient._resolve_uc_trace_location") as mock_resolve:
+        assert _resolve_uc_trace_id("trace:/malformed") == "trace:/malformed"
+
+    mock_resolve.assert_not_called()

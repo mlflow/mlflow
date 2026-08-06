@@ -820,6 +820,21 @@ def start_span_no_context(
     return mlflow_span
 
 
+def _carries_trace_location(trace_id: str) -> bool:
+    """
+    Whether ``trace_id`` already carries a location (``trace:/<location>/<id>``).
+
+    ``parse_trace_id_v4`` raises on a malformed V4 ID. Such an ID is reported as already
+    carrying a location so that callers leave it untouched and the tracking store remains
+    the single place that reports the malformed ID, preserving ``get_trace``'s contract of
+    returning ``None`` rather than raising.
+    """
+    try:
+        return parse_trace_id_v4(trace_id)[0] is not None
+    except MlflowException:
+        return True
+
+
 def _resolve_uc_trace_id(trace_id: str) -> str:
     """
     Resolve a plain trace ID to its Unity Catalog V4 form using the active experiment.
@@ -831,7 +846,7 @@ def _resolve_uc_trace_id(trace_id: str) -> str:
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
-    if parse_trace_id_v4(trace_id)[0] is not None:
+    if _carries_trace_location(trace_id):
         return trace_id
 
     location = TracingClient()._resolve_uc_trace_location(_get_experiment_id())
@@ -908,7 +923,7 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
         # If the ID is still a plain ID, the active experiment did not resolve a Unity
         # Catalog location. Point the user to the fully-qualified form for UC traces.
         # Only relevant on Databricks, where UC-backed trace storage exists.
-        if is_databricks and parse_trace_id_v4(trace_id)[0] is None:
+        if is_databricks and not _carries_trace_location(trace_id):
             hint += (
                 " If this trace is stored in Unity Catalog, pass the fully-qualified trace ID "
                 "in the form `trace:/<catalog>.<schema>.<table>/<trace_id>`, or set an active "
