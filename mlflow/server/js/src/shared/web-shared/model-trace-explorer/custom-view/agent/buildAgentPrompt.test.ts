@@ -24,17 +24,16 @@ describe('buildCustomViewAuthoringGuide', () => {
     }
   });
 
-  // A StatCard's `icon`/`tone` are static enums the host never re-resolves, so an
-  // example that styles a status tile as a success would teach the model a view
-  // that still renders a green check on a trace whose status is ERROR.
-  test('styles the example status tiles neutrally', () => {
+  // A StatCard's `icon`/`tone` are static enums the host never re-resolves, while
+  // its `value` is always a bound marker. An example that asserts a verdict —
+  // a success check on a status, a warning tint on a latency — teaches the model
+  // a view whose styling contradicts the value on some trace.
+  test('styles every example StatCard neutrally', () => {
     const guide = buildCustomViewAuthoringGuide();
-    const statusTiles = guide
-      .split('\n')
-      .filter((line) => line.includes('"component": "StatCard"') && line.includes('"metrics.status"'));
+    const tiles = guide.split('\n').filter((line) => line.includes('"component": "StatCard"'));
 
-    expect(statusTiles).toHaveLength(2);
-    for (const tile of statusTiles) {
+    expect(tiles.length).toBeGreaterThan(0);
+    for (const tile of tiles) {
       expect(tile).toContain('"tone": "info"');
       expect(tile).not.toMatch(/"icon": "(checkCircle|xCircle)"/);
     }
