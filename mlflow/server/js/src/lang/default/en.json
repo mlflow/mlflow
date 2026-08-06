@@ -1995,10 +1995,6 @@
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
   },
-  "7ICNnq": {
-    "defaultMessage": "{scorer} vs latency",
-    "description": "Evaluation runs page > sweep charts > score vs latency chart title"
-  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -3259,6 +3255,10 @@
     "defaultMessage": "Local packages",
     "description": "MCP compare packages heading"
   },
+  "CJVJ+r": {
+    "defaultMessage": "Score vs latency",
+    "description": "Evaluation runs page > sweep charts > score vs latency chart title"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -4182,10 +4182,6 @@
   "GyGCX5": {
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
-  },
-  "GyI8IH": {
-    "defaultMessage": "{scorer} vs cost",
-    "description": "Evaluation runs page > sweep charts > score vs cost chart title"
   },
   "GyyqO1": {
     "defaultMessage": "To submit:",
@@ -8246,6 +8242,10 @@
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
+  },
+  "YdfRto": {
+    "defaultMessage": "Score vs cost",
+    "description": "Evaluation runs page > sweep charts > score vs cost chart title"
   },
   "YdxomH": {
     "defaultMessage": "New version of {name}",

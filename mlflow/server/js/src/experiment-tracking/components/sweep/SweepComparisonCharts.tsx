@@ -17,6 +17,15 @@ const PLOT_CONFIG = { responsive: true, displaylogo: false, displayModeBar: fals
 const LEGEND_LAYOUT = { orientation: 'h', y: 1.12, x: 0, font: { size: 10 } } as const;
 
 /**
+ * Categorical hues for the per-scorer lines on the tradeoff charts, assigned in fixed order.
+ *
+ * Validated for colour-vision deficiency separation against the chart surface. Scorers past the
+ * eighth reuse hues, which is preferable to generating unvalidated ones; the legend and hover label
+ * still identify every line.
+ */
+const SCORER_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#8f2c78'] as const;
+
+/**
  * Wraps a plot in a size-observed container.
  *
  * Plotly fixes a plot's width when it first draws, so a chart laid out before its flex container
@@ -49,8 +58,9 @@ const SizedPlot = ({ data, layout }: { data: unknown[]; layout: Record<string, u
  *    bar. Overlapping bars are the visual form of "these two are not distinguishable", which a
  *    table of numbers can only state in prose.
  * 2. Cost and latency per config, since both are per-config rather than per-scorer.
- * 3. Score-vs-cost and score-vs-latency tradeoffs, with the Pareto frontier joined by a line, to
- *    show how much quality a cheaper or faster config gives up.
+ * 3. Score against cost and against latency, one chart each, with a coloured line per scorer
+ *    joining the configs. A line's slope reads as quality gained per extra dollar or millisecond,
+ *    and comparing lines shows where scorers disagree about which config is worth it.
  *
  * These are purpose-built rather than added to the generic runs charts because a sweep's configs
  * live inside one run's metrics, while the runs charts plot one point per run.
@@ -223,110 +233,102 @@ const PerConfigBarChart = ({
 };
 
 /**
- * Score against cost or latency, one point per config, with the Pareto frontier joined.
+ * Score against cost or latency, with one coloured line per scorer.
  *
- * Points below the frontier are dominated — something else is both cheaper (or faster) and at least
- * as accurate — so the frontier is what a reader should choose between.
+ * Each point is a (config, scorer) pair; the line joins the configs for one scorer, so its slope
+ * reads directly as "how much quality do I gain per extra dollar / millisecond". Comparing lines
+ * shows where scorers disagree — a config can be the best choice on one and dominated on another.
+ *
+ * Configs are ordered along the x-axis by cost/latency, so the line always runs cheap-to-expensive
+ * (or fast-to-slow) and never doubles back on itself.
  */
 const TradeoffChart = ({
   points,
-  scorer,
+  scorerNames,
   costOf,
   xAxisTitle,
   xHoverFormat,
-  getRunColor,
 }: {
   points: SweepChartPoint[];
-  scorer: string;
+  scorerNames: string[];
   costOf: (point: SweepChartPoint) => number | undefined;
   xAxisTitle: string;
   xHoverFormat: string;
-  getRunColor: (runUuid: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
   const { plotData, ranges } = useMemo(() => {
-    const tradeoffs = buildTradeoffPoints(points, scorer, costOf);
-    const frontier = tradeoffs.filter((point) => point.isOnFrontier).sort((a, b) => a.cost - b.cost);
+    const allCosts: number[] = [];
+    const allScores: number[] = [];
 
-    // Each point carries its config name as a text label, which Plotly draws outside the marker and
-    // does not include in the autoscaled range, so the outermost labels get clipped. Pad the ranges
-    // to leave room for them.
-    const costs = tradeoffs.map((point) => point.cost);
-    const scores = tradeoffs.map((point) => point.ciHigh ?? point.score);
-    const scoreLows = tradeoffs.map((point) => point.ciLow ?? point.score);
+    const data = scorerNames.flatMap((scorer, index) => {
+      const tradeoffs = buildTradeoffPoints(points, scorer, costOf).sort((a, b) => a.cost - b.cost);
+      if (tradeoffs.length === 0) {
+        return [];
+      }
+      const color = SCORER_COLORS[index % SCORER_COLORS.length];
+      allCosts.push(...tradeoffs.map((point) => point.cost));
+      allScores.push(...tradeoffs.map((point) => point.ciHigh ?? point.score));
+      allScores.push(...tradeoffs.map((point) => point.ciLow ?? point.score));
+
+      return [
+        {
+          x: tradeoffs.map((point) => point.cost),
+          y: tradeoffs.map((point) => point.score),
+          text: tradeoffs.map((point) => point.label),
+          name: scorer,
+          type: 'scatter' as const,
+          mode: 'lines+markers' as const,
+          line: { color, width: 2 },
+          marker: {
+            size: 10,
+            color,
+            // A ring in the surface colour separates markers that overlap between scorers.
+            line: { color: theme.colors.backgroundPrimary, width: 2 },
+          },
+          error_y: {
+            type: 'data' as const,
+            symmetric: false,
+            array: tradeoffs.map((point) => (point.ciHigh ?? point.score) - point.score),
+            arrayminus: tradeoffs.map((point) => point.score - (point.ciLow ?? point.score)),
+            color,
+            thickness: 1,
+            width: 4,
+            opacity: 0.5,
+          },
+          hovertemplate: `%{text}<br>${xHoverFormat}<br>%{y:.3f}<extra>${scorer}</extra>`,
+        },
+      ];
+    });
+
+    // Plotly excludes the error bars and any overhanging marker ring from its autoscale, so pad.
     const pad = (values: number[], fraction: number) => {
+      if (values.length === 0) {
+        return { min: 0, max: 1 };
+      }
       const min = Math.min(...values);
       const max = Math.max(...values);
-      // A single point (or identical values) has no spread to scale, so fall back to a flat pad.
       const spread = max - min || Math.abs(max) || 1;
       return { min: min - spread * fraction, max: max + spread * fraction };
     };
-    const costRange = pad(costs, 0.18);
-    const scoreRange = { min: pad(scoreLows, 0.12).min, max: pad(scores, 0.12).max };
 
-    const data = [
-      {
-        x: frontier.map((point) => point.cost),
-        y: frontier.map((point) => point.score),
-        type: 'scatter' as const,
-        mode: 'lines' as const,
-        line: { color: theme.colors.border, dash: 'dot' as const, width: 1.5 },
-        hoverinfo: 'skip' as const,
-        showlegend: false,
-      },
-      {
-        x: tradeoffs.map((point) => point.cost),
-        y: tradeoffs.map((point) => point.score),
-        text: tradeoffs.map((point) => point.label),
-        type: 'scatter' as const,
-        mode: 'markers+text' as const,
-        // Centred labels on the outermost points overhang the plot edge, and the x range cannot be
-        // padded below zero for a near-free config. Anchor those labels inward instead.
-        textposition: tradeoffs.map((point) => {
-          if (point.cost === Math.min(...costs)) {
-            return 'top right';
-          }
-          return point.cost === Math.max(...costs) ? 'top left' : 'top center';
-        }),
-        textfont: { size: 10, color: theme.colors.textSecondary },
-        marker: {
-          size: 12,
-          // Frontier configs are filled; dominated ones are hollow, so the defensible choices read
-          // at a glance. Outline colour matches the owning run, as in the other charts.
-          color: tradeoffs.map((point) => (point.isOnFrontier ? getRunColor(point.runUuid) : 'transparent')),
-          line: { color: tradeoffs.map((point) => getRunColor(point.runUuid)), width: 2 },
-        },
-        error_y: {
-          type: 'data' as const,
-          symmetric: false,
-          array: tradeoffs.map((point) => (point.ciHigh ?? point.score) - point.score),
-          arrayminus: tradeoffs.map((point) => point.score - (point.ciLow ?? point.score)),
-          color: theme.colors.border,
-          thickness: 1,
-          width: 4,
-        },
-        hovertemplate: `%{text}<br>${xHoverFormat}<br>%{y:.3f}<extra></extra>`,
-        showlegend: false,
-      },
-    ];
-
-    return { plotData: data, ranges: { cost: costRange, score: scoreRange } };
-  }, [points, scorer, costOf, xHoverFormat, theme.colors, getRunColor]);
+    return {
+      plotData: data,
+      ranges: { cost: pad(allCosts, 0.1), score: pad(allScores, 0.1) },
+    };
+  }, [points, scorerNames, costOf, xHoverFormat, theme.colors.backgroundPrimary]);
 
   return (
     <SizedPlot
       data={plotData}
       layout={{
-        margin: { t: 24, r: 24, b: 56, l: 64 },
+        margin: { t: 8, r: 24, b: 56, l: 64 },
         hovermode: 'closest',
-        xaxis: {
-          automargin: true,
-          title: xAxisTitle,
-          // Cost and latency are never negative, so don't pad below zero.
-          range: [Math.max(0, ranges.cost.min), ranges.cost.max],
-        },
+        showlegend: true,
+        legend: LEGEND_LAYOUT,
+        // Cost and latency are never negative, so do not pad below zero.
+        xaxis: { automargin: true, title: xAxisTitle, range: [Math.max(0, ranges.cost.min), ranges.cost.max] },
         yaxis: {
           automargin: true,
           range: [ranges.score.min, ranges.score.max],
@@ -452,50 +454,43 @@ export const SweepComparisonCharts = ({ runs = [] }: { runs?: RunEntity[] }) => 
           </ChartCard>
         )}
 
-        {scorerNames.flatMap((scorer) => [
-          anyCost && (
-            <ChartCard
-              key={`${scorer}-cost`}
-              title={intl.formatMessage(
-                {
-                  defaultMessage: '{scorer} vs cost',
-                  description: 'Evaluation runs page > sweep charts > score vs cost chart title',
-                },
-                { scorer },
-              )}
-            >
-              <TradeoffChart
-                points={points}
-                scorer={scorer}
-                costOf={costOfPoint}
-                xAxisTitle={axisTitles.cost}
-                xHoverFormat="$%{x:.4f}"
-                getRunColor={getRunColor}
+        {anyCost && (
+          <ChartCard
+            title={
+              <FormattedMessage
+                defaultMessage="Score vs cost"
+                description="Evaluation runs page > sweep charts > score vs cost chart title"
               />
-            </ChartCard>
-          ),
-          anyLatency && (
-            <ChartCard
-              key={`${scorer}-latency`}
-              title={intl.formatMessage(
-                {
-                  defaultMessage: '{scorer} vs latency',
-                  description: 'Evaluation runs page > sweep charts > score vs latency chart title',
-                },
-                { scorer },
-              )}
-            >
-              <TradeoffChart
-                points={points}
-                scorer={scorer}
-                costOf={latencyOfPoint}
-                xAxisTitle={axisTitles.latency}
-                xHoverFormat="%{x:.0f} ms"
-                getRunColor={getRunColor}
+            }
+          >
+            <TradeoffChart
+              points={points}
+              scorerNames={scorerNames}
+              costOf={costOfPoint}
+              xAxisTitle={axisTitles.cost}
+              xHoverFormat="$%{x:.4f}"
+            />
+          </ChartCard>
+        )}
+
+        {anyLatency && (
+          <ChartCard
+            title={
+              <FormattedMessage
+                defaultMessage="Score vs latency"
+                description="Evaluation runs page > sweep charts > score vs latency chart title"
               />
-            </ChartCard>
-          ),
-        ])}
+            }
+          >
+            <TradeoffChart
+              points={points}
+              scorerNames={scorerNames}
+              costOf={latencyOfPoint}
+              xAxisTitle={axisTitles.latency}
+              xHoverFormat="%{x:.0f} ms"
+            />
+          </ChartCard>
+        )}
       </div>
 
       {!anyCost && !anyLatency && (
