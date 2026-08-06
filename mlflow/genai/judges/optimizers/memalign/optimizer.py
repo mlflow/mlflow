@@ -266,8 +266,9 @@ class MemoryAugmentedJudge(Judge):
 
         # Score through a per-call copy of the base judge: this preserves its invocation flow
         # (agentic tool-calling for {{ trace }} judges) while keeping the retrieved examples,
-        # which differ per call, off the judge shared by concurrently scored rows.
-        scoring_judge = copy.copy(self._base_judge)
+        # which differ per call, off the judge shared by concurrently scored rows. The copy is
+        # shallow because only _instructions is reassigned; nested state is never mutated.
+        scoring_judge = self._base_judge.model_copy()
         scoring_judge._instructions = self._build_augmented_instructions(
             guidelines, relevant_examples
         )
