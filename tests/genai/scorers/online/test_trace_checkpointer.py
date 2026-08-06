@@ -83,9 +83,7 @@ def test_calculate_time_window_no_checkpoint(checkpoint_manager, mock_store, mon
     mock_store.get_experiment.return_value = experiment
     fixed_time = 1000000
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0")
 
     result = checkpoint_manager.calculate_time_window()
 
@@ -102,9 +100,7 @@ def test_calculate_time_window_recent_checkpoint(checkpoint_manager, mock_store,
     experiment.tags = {MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: checkpoint_json}
     mock_store.get_experiment.return_value = experiment
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0")
 
     result = checkpoint_manager.calculate_time_window()
 
@@ -123,9 +119,7 @@ def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, mo
     }
     mock_store.get_experiment.return_value = experiment
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "0")
 
     result = checkpoint_manager.calculate_time_window()
 
@@ -135,7 +129,6 @@ def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, mo
 
 
 def test_calculate_time_window_with_default_buffer(checkpoint_manager, mock_store, monkeypatch):
-    """Test that the default buffer (300s) is subtracted from max_trace_timestamp_ms."""
     experiment = MagicMock()
     experiment.tags = {}
     mock_store.get_experiment.return_value = experiment
@@ -153,15 +146,12 @@ def test_calculate_time_window_with_default_buffer(checkpoint_manager, mock_stor
 
 
 def test_calculate_time_window_with_custom_buffer(checkpoint_manager, mock_store, monkeypatch):
-    """Test that a custom buffer value is correctly applied."""
     experiment = MagicMock()
     experiment.tags = {}
     mock_store.get_experiment.return_value = experiment
     fixed_time = 1000000
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "120"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "120")
 
     result = checkpoint_manager.calculate_time_window()
 
@@ -180,7 +170,7 @@ def test_calculate_time_window_buffer_gives_long_traces_time_to_complete(
 
     When the trace completion buffer is applied, traces that started within the
     buffer period before the current time are excluded from the scoring window.
-    This prevents long-running traces from being permanently skipped.
+    This prevents traces that finish within the buffer from being permanently skipped.
     """
     fixed_time = 1000000
     # Simulate a checkpoint from a previous scan
@@ -194,9 +184,7 @@ def test_calculate_time_window_buffer_gives_long_traces_time_to_complete(
     mock_store.get_experiment.return_value = experiment
     monkeypatch.setattr(time, "time", lambda: fixed_time)
     # Use a 60-second buffer
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "60"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "60")
 
     result = checkpoint_manager.calculate_time_window()
 
@@ -211,15 +199,12 @@ def test_calculate_time_window_buffer_gives_long_traces_time_to_complete(
 def test_calculate_time_window_negative_buffer_treated_as_zero(
     checkpoint_manager, mock_store, monkeypatch
 ):
-    """Test that a negative buffer value is clamped to zero."""
     experiment = MagicMock()
     experiment.tags = {}
     mock_store.get_experiment.return_value = experiment
     fixed_time = 1000000
     monkeypatch.setattr(time, "time", lambda: fixed_time)
-    monkeypatch.setenv(
-        MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "-10"
-    )
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.name, "-10")
 
     result = checkpoint_manager.calculate_time_window()
 

@@ -1370,11 +1370,10 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
-#: Default buffer time in seconds to wait before considering a trace complete for online scoring.
+#: Default buffer time in seconds applied to the trace scoring window's upper bound.
 #: Traces that started within this buffer period before the current time are excluded from
-#: the scoring window, giving them time to finish before being evaluated. This prevents
-#: long-running traces from being permanently skipped when they are still IN_PROGRESS
-#: at scan time but complete after the checkpoint has advanced past their start timestamp.
+#: the scoring window, giving them time to finish before being evaluated. The buffer should
+#: exceed the expected trace duration; traces that remain IN_PROGRESS longer can still be skipped.
 #: (default: ``300`` (5 minutes))
 MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS", int, 5 * 60

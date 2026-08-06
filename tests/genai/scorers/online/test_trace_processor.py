@@ -110,6 +110,29 @@ def test_process_traces_updates_checkpoint_when_no_traces(
     assert checkpoint.trace_id is None
 
 
+def test_process_traces_skips_until_buffered_window_advances(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
+        min_trace_timestamp_ms=1000, max_trace_timestamp_ms=1000
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
+        timestamp_ms=1000, trace_id="tr-001"
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    processor.process_traces()
+    processor.process_traces()
+
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_not_called()
+
+
 def test_process_traces_updates_checkpoint_when_full_traces_empty(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):

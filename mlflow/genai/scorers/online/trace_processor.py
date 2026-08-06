@@ -85,6 +85,10 @@ class OnlineTraceScoringProcessor:
             f"{time_window.max_trace_timestamp_ms}]"
         )
 
+        if checkpoint is not None and time_window.max_trace_timestamp_ms <= checkpoint.timestamp_ms:
+            _logger.debug("Buffered trace scoring window has not advanced, skipping")
+            return
+
         tasks = self._build_scoring_tasks(time_window, checkpoint)
 
         if not tasks:
