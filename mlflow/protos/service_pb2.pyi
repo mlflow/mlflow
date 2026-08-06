@@ -1795,20 +1795,22 @@ class RemoveDatasetFromExperiments(_message.Message):
 class RegisterScorer(_message.Message):
     __slots__ = ("experiment_id", "name", "serialized_scorer")
     class Response(_message.Message):
-        __slots__ = ("version", "scorer_id", "experiment_id", "name", "serialized_scorer", "creation_time")
+        __slots__ = ("version", "scorer_id", "experiment_id", "name", "serialized_scorer", "creation_time", "bumped_preset_versions")
         VERSION_FIELD_NUMBER: _ClassVar[int]
         SCORER_ID_FIELD_NUMBER: _ClassVar[int]
         EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
         NAME_FIELD_NUMBER: _ClassVar[int]
         SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
         CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+        BUMPED_PRESET_VERSIONS_FIELD_NUMBER: _ClassVar[int]
         version: int
         scorer_id: str
         experiment_id: str
         name: str
         serialized_scorer: str
         creation_time: int
-        def __init__(self, version: _Optional[int] = ..., scorer_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+        bumped_preset_versions: _containers.RepeatedCompositeFieldContainer[BumpedScorerPreset]
+        def __init__(self, version: _Optional[int] = ..., scorer_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., bumped_preset_versions: _Optional[_Iterable[_Union[BumpedScorerPreset, _Mapping]]] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
@@ -1816,6 +1818,16 @@ class RegisterScorer(_message.Message):
     name: str
     serialized_scorer: str
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ...) -> None: ...
+
+class BumpedScorerPreset(_message.Message):
+    __slots__ = ("preset_name", "version", "preset_id")
+    PRESET_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    PRESET_ID_FIELD_NUMBER: _ClassVar[int]
+    preset_name: str
+    version: str
+    preset_id: str
+    def __init__(self, preset_name: _Optional[str] = ..., version: _Optional[str] = ..., preset_id: _Optional[str] = ...) -> None: ...
 
 class ListScorers(_message.Message):
     __slots__ = ("experiment_id",)
@@ -1884,6 +1896,130 @@ class Scorer(_message.Message):
     creation_time: int
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
+
+class RegisterScorerPreset(_message.Message):
+    __slots__ = ("experiment_id", "name", "scorer_ids")
+    class Response(_message.Message):
+        __slots__ = ("version", "preset_id")
+        VERSION_FIELD_NUMBER: _ClassVar[int]
+        PRESET_ID_FIELD_NUMBER: _ClassVar[int]
+        version: str
+        preset_id: str
+        def __init__(self, version: _Optional[str] = ..., preset_id: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_IDS_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    scorer_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., scorer_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetScorerPreset(_message.Message):
+    __slots__ = ("experiment_id", "name", "version")
+    class Response(_message.Message):
+        __slots__ = ("scorer_preset",)
+        SCORER_PRESET_FIELD_NUMBER: _ClassVar[int]
+        scorer_preset: ScorerPreset
+        def __init__(self, scorer_preset: _Optional[_Union[ScorerPreset, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    version: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+
+class ListScorerPresets(_message.Message):
+    __slots__ = ("experiment_id", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("scorer_presets", "next_page_token")
+        SCORER_PRESETS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        scorer_presets: _containers.RepeatedCompositeFieldContainer[ScorerPreset]
+        next_page_token: str
+        def __init__(self, scorer_presets: _Optional[_Iterable[_Union[ScorerPreset, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    max_results: int
+    page_token: str
+    def __init__(self, experiment_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class ListScorerPresetVersions(_message.Message):
+    __slots__ = ("experiment_id", "name", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("scorer_presets", "next_page_token")
+        SCORER_PRESETS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        scorer_presets: _containers.RepeatedCompositeFieldContainer[ScorerPreset]
+        next_page_token: str
+        def __init__(self, scorer_presets: _Optional[_Iterable[_Union[ScorerPreset, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    max_results: int
+    page_token: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class DeleteScorerPreset(_message.Message):
+    __slots__ = ("experiment_id", "name", "version")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    version: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+
+class CopyScorerPreset(_message.Message):
+    __slots__ = ("experiment_id", "name", "to_experiment_id", "version")
+    class Response(_message.Message):
+        __slots__ = ("version", "preset_id")
+        VERSION_FIELD_NUMBER: _ClassVar[int]
+        PRESET_ID_FIELD_NUMBER: _ClassVar[int]
+        version: str
+        preset_id: str
+        def __init__(self, version: _Optional[str] = ..., preset_id: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TO_EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    to_experiment_id: str
+    version: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., to_experiment_id: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+
+class ScorerPresetRef(_message.Message):
+    __slots__ = ("scorer_id", "scorer_version")
+    SCORER_ID_FIELD_NUMBER: _ClassVar[int]
+    SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
+    scorer_id: str
+    scorer_version: int
+    def __init__(self, scorer_id: _Optional[str] = ..., scorer_version: _Optional[int] = ...) -> None: ...
+
+class ScorerPreset(_message.Message):
+    __slots__ = ("experiment_id", "preset_name", "version", "scorer_refs", "creation_time", "preset_id")
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PRESET_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    SCORER_REFS_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    PRESET_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: int
+    preset_name: str
+    version: str
+    scorer_refs: _containers.RepeatedCompositeFieldContainer[ScorerPresetRef]
+    creation_time: int
+    preset_id: str
+    def __init__(self, experiment_id: _Optional[int] = ..., preset_name: _Optional[str] = ..., version: _Optional[str] = ..., scorer_refs: _Optional[_Iterable[_Union[ScorerPresetRef, _Mapping]]] = ..., creation_time: _Optional[int] = ..., preset_id: _Optional[str] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
     __slots__ = ("secret_id", "secret_name", "masked_values", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config")

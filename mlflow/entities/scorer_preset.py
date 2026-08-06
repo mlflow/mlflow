@@ -1,6 +1,4 @@
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.service_pb2 import ScorerPreset as ProtoScorerPreset
-from mlflow.protos.service_pb2 import ScorerPresetRef as ProtoScorerPresetRef
 
 
 class ScorerPresetVersion(_MlflowObject):
@@ -62,6 +60,9 @@ class ScorerPresetVersion(_MlflowObject):
         )
 
     def to_proto(self):
+        from mlflow.protos.service_pb2 import ScorerPreset as ProtoScorerPreset
+        from mlflow.protos.service_pb2 import ScorerPresetRef as ProtoScorerPresetRef
+
         proto = ProtoScorerPreset()
         proto.experiment_id = int(self.experiment_id)
         proto.preset_name = self.preset_name

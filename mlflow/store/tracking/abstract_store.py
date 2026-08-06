@@ -20,7 +20,6 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.scorer_preset import ScorerPresetVersion
 from mlflow.entities.trace_metrics import (
     MetricAggregation,
     MetricDataPoint,
@@ -29,6 +28,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
     from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
     from mlflow.genai.scorers.online.entities import (

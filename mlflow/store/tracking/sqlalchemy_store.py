@@ -69,7 +69,6 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.scorer_preset import ScorerPresetVersion
 from mlflow.entities.span import LazySpan
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
@@ -3118,7 +3117,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
     def register_scorer_preset(
         self, experiment_id: str, name: str, scorer_ids: list[str]
-    ) -> ScorerPresetVersion:
+    ) -> "ScorerPresetVersion":
         from mlflow.store.tracking.dbmodels.models import (
             SqlScorerPreset,
             SqlScorerPresetMembership,
@@ -3216,7 +3215,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
     def get_scorer_preset(
         self, experiment_id: str, name: str, version: str | None = None
-    ) -> ScorerPresetVersion:
+    ) -> "ScorerPresetVersion":
         from mlflow.store.tracking.dbmodels.models import (
             SqlScorerPreset,
             SqlScorerPresetVersion,
@@ -3267,7 +3266,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         experiment_id: str,
         max_results: int | None = None,
         page_token: str | None = None,
-    ) -> tuple[list[ScorerPresetVersion], str | None]:
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
         from mlflow.store.tracking.dbmodels.models import (
             SqlScorerPreset,
             SqlScorerPresetVersion,
@@ -3310,7 +3309,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         name: str,
         max_results: int | None = None,
         page_token: str | None = None,
-    ) -> tuple[list[ScorerPresetVersion], str | None]:
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
         from mlflow.store.tracking.dbmodels.models import (
             SqlScorerPreset,
             SqlScorerPresetVersion,
@@ -3399,7 +3398,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         name: str,
         to_experiment_id: str,
         version: str | None = None,
-    ) -> ScorerPresetVersion:
+    ) -> "ScorerPresetVersion":
         from mlflow.store.tracking.dbmodels.models import (
             SqlScorerPreset,
             SqlScorerPresetMembership,

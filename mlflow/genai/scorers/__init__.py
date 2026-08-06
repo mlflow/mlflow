@@ -1,7 +1,14 @@
 from typing import TYPE_CHECKING
 
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
-from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
+from mlflow.genai.scorers.registry import (
+    delete_scorer,
+    delete_scorer_preset,
+    get_scorer,
+    get_scorer_preset,
+    list_scorer_presets,
+    list_scorers,
+)
 
 # Metadata keys for scorer feedback
 FRAMEWORK_METADATA_KEY = "mlflow.scorer.framework"
@@ -161,6 +168,9 @@ __all__ = [
     "ScorerSamplingConfig",
     "get_all_scorers",
     "get_scorer",
+    "get_scorer_preset",
     "list_scorers",
+    "list_scorer_presets",
     "delete_scorer",
+    "delete_scorer_preset",
 ]

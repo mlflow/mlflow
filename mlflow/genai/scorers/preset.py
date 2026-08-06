@@ -74,14 +74,47 @@ class Preset:
         return list(self._scorers)
 
     def register(self, *, experiment_id: str | None = None):
-        raise NotImplementedError(
-            "Preset persistence is not yet implemented. This will be available in a future release."
-        )
+        """Register this preset to the MLflow server for team sharing.
 
-    def copy(self, *, to_experiment_id: str):
-        raise NotImplementedError(
-            "Preset persistence is not yet implemented. This will be available in a future release."
-        )
+        Each scorer in the preset is auto-registered if not already present in the
+        experiment. Scorers that already have an ID are reused; otherwise they are
+        matched by name or registered as new.
+        """
+        from mlflow.genai.scorers.registry import _get_scorer_store
+        from mlflow.tracking._tracking_service.utils import _get_store
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        experiment_id = experiment_id or _get_experiment_id()
+        store = _get_store()
+        scorer_store = _get_scorer_store()
+
+        scorer_ids = []
+        for s in self._scorers:
+            if hasattr(s, "_scorer_id") and s._scorer_id is not None:
+                scorer_ids.append(s._scorer_id)
+            else:
+                # Register the scorer (reuses existing by name if present)
+                scorer_store.register_scorer(experiment_id, s)
+                # After registration, the store returns a version; we need the scorer_id.
+                # Re-fetch by name to get the ID.
+                sv = store.get_scorer(experiment_id, s.name)
+                scorer_ids.append(sv.scorer_id)
+
+        return store.register_scorer_preset(experiment_id, self._name, scorer_ids)
+
+    def copy(self, *, to_experiment_id: str, experiment_id: str | None = None):
+        """Copy this preset to another experiment.
+
+        Args:
+            to_experiment_id: The target experiment ID.
+            experiment_id: The source experiment ID. If None, uses the active experiment.
+        """
+        from mlflow.tracking._tracking_service.utils import _get_store
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        experiment_id = experiment_id or _get_experiment_id()
+        store = _get_store()
+        return store.copy_scorer_preset(experiment_id, self._name, to_experiment_id)
 
     def __iter__(self):
         return iter(self._scorers)

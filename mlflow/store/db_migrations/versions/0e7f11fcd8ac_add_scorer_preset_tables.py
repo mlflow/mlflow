@@ -14,7 +14,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 
 # revision identifiers, used by Alembic.
-revision = "a1b2c3d4e5f6"
+revision = "0e7f11fcd8ac"
 down_revision = "6f8d9c3b2a1e"
 branch_labels = None
 depends_on = None

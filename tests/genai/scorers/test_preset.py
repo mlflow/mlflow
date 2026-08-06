@@ -229,18 +229,81 @@ class TestPresetImports:
         assert Agent is not None
         assert ConversationalAgent is not None
 
+    def test_import_crud_functions(self):
+        from mlflow.genai.scorers import (
+            delete_scorer_preset,
+            get_scorer_preset,
+            list_scorer_presets,
+        )
 
-class TestPresetRegisterStub:
-    def test_register_raises_not_implemented(self):
-        from mlflow.genai.scorers.builtin_scorers import Safety
+        assert get_scorer_preset is not None
+        assert list_scorer_presets is not None
+        assert delete_scorer_preset is not None
 
-        preset = Preset("test", scorers=[Safety()])
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            preset.register()
 
-    def test_copy_raises_not_implemented(self):
-        from mlflow.genai.scorers.builtin_scorers import Safety
+class TestScorerPresetVersionEntity:
+    def test_entity_properties(self):
+        from mlflow.entities.scorer_preset import ScorerPresetVersion
 
-        preset = Preset("test", scorers=[Safety()])
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            preset.copy(to_experiment_id="123")
+        entity = ScorerPresetVersion(
+            experiment_id="123",
+            preset_name="my_preset",
+            version="abc123",
+            scorer_refs=[("sid1", 1), ("sid2", 3)],
+            creation_time=1000,
+            preset_id="pid1",
+        )
+        assert entity.experiment_id == "123"
+        assert entity.preset_name == "my_preset"
+        assert entity.version == "abc123"
+        assert entity.scorer_refs == [("sid1", 1), ("sid2", 3)]
+        assert entity.creation_time == 1000
+        assert entity.preset_id == "pid1"
+
+    def test_entity_repr(self):
+        from mlflow.entities.scorer_preset import ScorerPresetVersion
+
+        entity = ScorerPresetVersion(
+            experiment_id="1",
+            preset_name="test",
+            version="abc",
+            scorer_refs=[],
+            creation_time=0,
+        )
+        r = repr(entity)
+        assert "test" in r
+        assert "abc" in r
+
+    def test_entity_to_proto_round_trip(self):
+        from mlflow.entities.scorer_preset import ScorerPresetVersion
+
+        original = ScorerPresetVersion(
+            experiment_id="42",
+            preset_name="round_trip",
+            version="hash123",
+            scorer_refs=[("scorer_a", 1), ("scorer_b", 2)],
+            creation_time=999,
+            preset_id="preset_uuid",
+        )
+        proto = original.to_proto()
+        restored = ScorerPresetVersion.from_proto(proto)
+
+        assert restored.experiment_id == original.experiment_id
+        assert restored.preset_name == original.preset_name
+        assert restored.version == original.version
+        assert restored.scorer_refs == original.scorer_refs
+        assert restored.creation_time == original.creation_time
+        assert restored.preset_id == original.preset_id
+
+    def test_entity_from_proto_without_preset_id(self):
+        from mlflow.entities.scorer_preset import ScorerPresetVersion
+        from mlflow.protos.service_pb2 import ScorerPreset as ProtoScorerPreset
+
+        proto = ProtoScorerPreset()
+        proto.experiment_id = 1
+        proto.preset_name = "test"
+        proto.version = "v1"
+        proto.creation_time = 100
+
+        entity = ScorerPresetVersion.from_proto(proto)
+        assert entity.preset_id is None
