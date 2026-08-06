@@ -421,6 +421,12 @@ def test_load_model_does_not_emit_torch_dtype_deprecation_warning(
         path=model_path,
     )
 
+    # The pipeline's dtype is recorded into the flavor config on save even without an explicit
+    # `torch_dtype` argument, so the load path always forwards it and would warn on newer
+    # transformers versions. Assert it was recorded so the renamed-kwarg path is exercised.
+    flavor_conf = Model.load(model_path).flavors[mlflow.transformers.FLAVOR_NAME]
+    assert flavor_conf["torch_dtype"] == str(text_classification_pipeline.model.dtype)
+
     # transformers >= 4.56.0 warns via `logger.warning_once` when the deprecated `torch_dtype`
     # kwarg is passed to `from_pretrained`/`pipeline`, so capture the transformers logger output.
     messages = []

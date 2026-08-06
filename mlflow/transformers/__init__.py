@@ -94,6 +94,7 @@ from mlflow.transformers.signature import (
     infer_or_get_default_signature,
 )
 from mlflow.transformers.torch_utils import (
+    _DTYPE_KEY,
     _TORCH_DTYPE_KEY,
     _deserialize_torch_dtype,
     _get_torch_dtype_kwarg_name,
@@ -1423,7 +1424,13 @@ def _load_model(
         conf["device"] = device
         accelerate_model_conf["device"] = device
 
-    if dtype_val := kwargs.get(_TORCH_DTYPE_KEY) or flavor_config.get(FlavorKey.TORCH_DTYPE):
+    if dtype_val := (
+        # Accept either the legacy `torch_dtype` kwarg or the `dtype` name used by newer
+        # transformers versions, falling back to the value recorded in the flavor config.
+        kwargs.get(_TORCH_DTYPE_KEY)
+        or kwargs.get(_DTYPE_KEY)
+        or flavor_config.get(FlavorKey.TORCH_DTYPE)
+    ):
         if isinstance(dtype_val, str):
             dtype_val = _deserialize_torch_dtype(dtype_val)
         # Newer transformers versions (>= 4.56.0) renamed the `torch_dtype` kwarg to `dtype` and

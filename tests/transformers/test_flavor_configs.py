@@ -75,6 +75,8 @@ def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
     ],
 )
 def test_get_torch_dtype_kwarg_name(version, expected):
+    # `_get_torch_dtype_kwarg_name` imports transformers lazily, so patch the attribute on the
+    # transformers module object itself (there is no module-level binding to scope the patch to).
     with mock.patch("transformers.__version__", version):
         assert _get_torch_dtype_kwarg_name() == expected
 
