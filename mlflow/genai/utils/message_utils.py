@@ -85,6 +85,12 @@ def _enforce_strict_json_schema(node: Any) -> None:
     object schemas.
     """
     if isinstance(node, dict):
+        if "$ref" in node:
+            # OpenAI strict mode rejects sibling keywords alongside a $ref.
+            ref = node["$ref"]
+            node.clear()
+            node["$ref"] = ref
+            return
         if node.get("type") == "object" or "properties" in node:
             node["additionalProperties"] = False
         for value in node.values():

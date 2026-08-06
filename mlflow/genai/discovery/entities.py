@@ -57,7 +57,6 @@ class _IdentifiedIssue(pydantic.BaseModel):
     description: str = pydantic.Field(description="What the issue is")
     root_cause: str = pydantic.Field(description="Why this issue occurs")
     example_indices: list[int] = pydantic.Field(
-        default_factory=list,
         description="Indices into the input trace summary list that exemplify this issue",
     )
     severity: IssueSeverity = pydantic.Field(
@@ -74,11 +73,10 @@ class _IdentifiedIssue(pydantic.BaseModel):
         ),
     )
     category_rationale: str = pydantic.Field(
-        default="",
         description=(
             "For EACH assigned category, explain in 1-2 sentences WHY this issue "
             "belongs to that category with specific evidence from the failure. "
-            "This field is REQUIRED if any categories are assigned. "
+            "Return an empty string if no categories are assigned. "
             "E.g. 'execution: The assistant claimed playback resumed when no action occurred. "
             "correctness: It provided conflicting timer states in adjacent responses.'"
         ),

@@ -9,6 +9,7 @@ import { ModelTraceExplorerAttributesTab } from './ModelTraceExplorerAttributesT
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
+import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
@@ -129,6 +130,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
         <Tabs.Trigger value="events">
           Events {hasException && <ModelTraceExplorerBadge count={exceptionCount} />}
         </Tabs.Trigger>
+        <Tabs.Trigger value="links">Links</Tabs.Trigger>
         {displayReadOnlyAssessments && (
           <Tabs.Trigger value="assessments">
             <FormattedMessage
@@ -155,6 +157,9 @@ function ModelTraceExplorerRightPaneTabsImpl({
       </Tabs.Content>
       <Tabs.Content css={contentStyle} value="events">
         <ModelTraceExplorerEventsTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
+      </Tabs.Content>
+      <Tabs.Content css={contentStyle} value="links">
+        <ModelTraceExplorerLinksTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
       </Tabs.Content>
       {displayReadOnlyAssessments && (
         <Tabs.Content css={contentStyle} value="assessments">

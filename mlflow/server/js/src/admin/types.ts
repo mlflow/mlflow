@@ -95,6 +95,7 @@ export const RESOURCE_TYPES = [
   'scorer',
   'gateway_secret',
   'gateway_endpoint',
+  'mcp_server',
   'workspace',
 ] as const;
 
@@ -112,6 +113,7 @@ export const RESOURCE_TYPE_LABELS = {
   scorer: 'Scorer',
   gateway_secret: 'LLM connection',
   gateway_endpoint: 'LLM endpoint',
+  mcp_server: 'MCP server',
   workspace: 'Workspace',
 } satisfies Record<(typeof RESOURCE_TYPES)[number], string>;
 
