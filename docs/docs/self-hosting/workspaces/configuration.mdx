@@ -24,6 +24,29 @@ mlflow server \
 
 Disable by restarting without `--enable-workspaces` after moving all resources into the `default` workspace.
 
+### Artifacts-only servers
+
+An artifact-serving-only deployment can validate and isolate artifact requests by workspace without
+enabling tracking APIs. The artifact server must explicitly use the same logical workspace provider
+as the tracking server:
+
+```bash
+mlflow server \
+  --artifacts-only \
+  --enable-workspaces \
+  --workspace-store-uri postgresql://user:pass@localhost/mlflow \
+  --artifacts-destination s3://mlflow-artifacts
+```
+
+`MLFLOW_WORKSPACE_STORE_URI` can be used instead of `--workspace-store-uri`. MLflow requires one of
+these explicit settings in this mode because an artifact-only server has no tracking backend from
+which to infer the workspace provider. The server initializes only the workspace provider; tracking,
+model registry, workspace-management, and other non-artifact APIs remain disabled.
+
+Artifact requests continue to use `X-MLFLOW-WORKSPACE`. The provider validates an explicit workspace
+or resolves its default when the header is absent. Unknown workspaces and requests without a
+resolvable default are rejected before accessing artifact storage.
+
 ### Admin Utility: migrate to default workspace
 
 To move all workspace-scoped resources into `default` to disable workspaces, use:
@@ -43,6 +66,46 @@ mlflow db migrate-to-default-workspace <database_uri> --dry-run
 
 Use `--verbose` to list all conflicts instead of a truncated sample.
 
+### Admin Utility: move resources between workspaces
+
+To selectively move resources from one workspace to another, use:
+
+```bash
+mlflow db move-resources <database_uri> \
+  --from <source_workspace> --to <target_workspace> \
+  --resource-type <table_name>
+```
+
+The `--resource-type` value is the database table name (`experiments`, `registered_models`,
+`evaluation_datasets`, `webhooks`, `jobs`).
+
+:::note[Gateway resources not supported]
+Gateway resources (`secrets`, `endpoints`, `model_definitions`, `budget_policies`) are not
+supported by this command because they have inter-table foreign-key dependencies that make moving
+them independently unsafe.
+:::
+
+Filter which resources to move by name or tag:
+
+```bash
+# Move specific experiments by name
+mlflow db move-resources <database_uri> \
+  --from default --to team-a --resource-type experiments \
+  --name training-v1 --name training-v2
+
+# Move experiments matching tags (AND logic when multiple tags are given)
+mlflow db move-resources <database_uri> \
+  --from default --to team-a --resource-type experiments \
+  --tag team=team-a --tag env=prod
+```
+
+When neither `--name` nor `--tag` is specified, all resources of the given type in the source
+workspace are moved. Tag filtering is supported for `experiments` and `registered_models` only.
+
+Use `--dry-run` to preview what would be moved without making changes, and `-y` to skip the
+confirmation prompt. The command aborts if any resource name would conflict with an existing
+resource in the target workspace.
+
 ## Client Workspace Selection (summary)
 
 - Explicit: `mlflow.set_workspace("team-a")`
@@ -53,8 +116,11 @@ Clients send `X-MLFLOW-WORKSPACE` on REST calls; UI AJAX routes remain the same 
 
 ## Startup Validation (when `--enable-workspaces`)
 
-- Tracking and registry stores must report `supports_workspaces() == True`
+- Tracking and registry stores must report `supports_workspaces() == True` unless the server is
+  running in `--artifacts-only` mode, where those stores are not initialized.
 - Workspace provider resolved (defaults to SQL-backed provider if none given)
+- With `--artifacts-only`, the workspace provider must be configured explicitly through
+  `--workspace-store-uri` or `MLFLOW_WORKSPACE_STORE_URI`.
 - Reserved `default` workspace exists (created by migration)
 - With `--serve-artifacts`, proxied artifact paths for non-default workspaces must include `workspaces/<workspace>/...`; legacy unprefixed paths remain valid for `default`.
 
@@ -102,7 +168,7 @@ This setting controls how the reserved `default` workspace interacts with `defau
 - **`true`**: The `default` workspace inherits `default_permission` for all authenticated users. The
   `default` workspace also appears in `mlflow.list_workspaces()` results for every user.
 
-:::warning Recommendation for existing instances
+:::warning[Recommendation for existing instances]
 If you are enabling workspaces on an existing MLflow instance that already uses basic-auth, set
 `grant_default_workspace_access = true` for backwards compatibility. Without this, all existing
 resources (which live in the `default` workspace) will become inaccessible to non-admin users who

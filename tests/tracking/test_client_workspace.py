@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from mlflow import MlflowClient
+from mlflow.entities import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_TRACKING_URI, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.tracking._workspace import fluent as workspace_fluent
+from mlflow.tracking._workspace.client import WorkspaceProviderClient
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
@@ -115,3 +117,135 @@ def test_set_workspace_clears_when_none(monkeypatch):
     workspace_fluent.set_workspace(None)
     assert calls["clear_workspace"] == 1
     assert env.get("value") is None
+
+
+def test_mlflow_client_forwards_trace_archival_settings(monkeypatch):
+    recorded: dict[str, tuple[tuple[object, ...], dict[str, object]]] = {}
+
+    class DummyTrackingClient:
+        def __init__(self, tracking_uri: str):
+            self.tracking_uri = tracking_uri
+
+    class DummyWorkspaceClient:
+        def __init__(self, workspace_uri: str | None = None):
+            self.workspace_uri = workspace_uri
+
+        def create_workspace(self, *args, **kwargs):
+            recorded["create"] = (args, kwargs)
+            return None
+
+        def update_workspace(self, *args, **kwargs):
+            recorded["update"] = (args, kwargs)
+            return None
+
+    monkeypatch.setattr("mlflow.tracking.client.TrackingServiceClient", DummyTrackingClient)
+    monkeypatch.setattr("mlflow.tracking.client.TracingClient", lambda _: None)
+    monkeypatch.setattr("mlflow.tracking.client.WorkspaceProviderClient", DummyWorkspaceClient)
+    monkeypatch.setattr(
+        "mlflow.tracking.client.utils._resolve_tracking_uri",
+        lambda uri: uri or "sqlite:///tracking.db",
+    )
+    monkeypatch.setattr(
+        "mlflow.tracking.client.registry_utils._resolve_registry_uri",
+        lambda registry_uri, tracking_uri: "registry-resolved",
+    )
+
+    client = MlflowClient(tracking_uri="sqlite:///tracking.db")
+    client.create_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(
+            location="s3://archive/team-a",
+            retention="30d",
+        ),
+    )
+    client.update_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(
+            location="s3://archive/team-b",
+            retention="14d",
+        ),
+    )
+
+    assert recorded["create"][1]["trace_archival_config"] == TraceArchivalConfig(
+        location="s3://archive/team-a",
+        retention="30d",
+    )
+    assert recorded["update"][1]["trace_archival_config"] == TraceArchivalConfig(
+        location="s3://archive/team-b",
+        retention="14d",
+    )
+
+
+def test_workspace_fluent_forwards_trace_archival_config(monkeypatch):
+    recorded: dict[str, tuple[tuple[object, ...], dict[str, object]]] = {}
+
+    class DummyClient:
+        def create_workspace(self, *args, **kwargs):
+            recorded["create"] = (args, kwargs)
+            return None
+
+        def update_workspace(self, *args, **kwargs):
+            recorded["update"] = (args, kwargs)
+            return None
+
+    monkeypatch.setattr(workspace_fluent, "MlflowClient", DummyClient)
+
+    workspace_fluent.create_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(
+            location="s3://archive/team-a",
+            retention="30d",
+        ),
+    )
+    workspace_fluent.update_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(
+            location="",
+            retention="",
+        ),
+    )
+
+    assert recorded["create"][1]["trace_archival_config"] == TraceArchivalConfig(
+        location="s3://archive/team-a",
+        retention="30d",
+    )
+    assert recorded["update"][1]["trace_archival_config"] == TraceArchivalConfig(
+        location="",
+        retention="",
+    )
+
+
+def test_workspace_provider_client_flattens_trace_archival_config(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    class DummyStore:
+        def create_workspace(self, workspace):
+            recorded["create"] = workspace
+            return workspace
+
+        def update_workspace(self, workspace):
+            recorded["update"] = workspace
+            return workspace
+
+    monkeypatch.setattr(
+        "mlflow.tracking._workspace.client.get_workspace_store",
+        lambda workspace_uri: DummyStore(),
+    )
+
+    client = WorkspaceProviderClient("sqlite:///workspace.db")
+    created = client.create_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(location="s3://archive/team-a"),
+    )
+    updated = client.update_workspace(
+        "team-a",
+        trace_archival_config=TraceArchivalConfig(location="", retention=""),
+    )
+
+    assert recorded["create"] == created
+    assert created.trace_archival_location == "s3://archive/team-a"
+    assert created.trace_archival_retention is None
+
+    assert recorded["update"] == updated
+    assert updated.trace_archival_location == ""
+    assert updated.trace_archival_retention == ""

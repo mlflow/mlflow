@@ -67,12 +67,14 @@ def artifacts_only_config_validation(
     artifacts_only: bool,
     backend_store_uri: str,
     enable_workspaces: bool = False,
+    workspace_store_uri: str | None = None,
+    trace_archival_config_path: str | None = None,
 ) -> None:
-    if artifacts_only and enable_workspaces:
-        # Workspace mode relies on a workspace provider to resolve the default workspace and seed
-        # request context. Artifact-only servers never load that stack, so they cannot determine
-        # the active workspace safely. This decision can be revisited in the future.
-        raise click.UsageError("--enable-workspaces cannot be combined with --artifacts-only.")
+    if artifacts_only and enable_workspaces and not workspace_store_uri:
+        raise click.UsageError(
+            "--workspace-store-uri is required when combining --enable-workspaces with "
+            "--artifacts-only so artifact requests can be validated against a workspace provider."
+        )
     if artifacts_only and not _is_default_backend_store_uri(backend_store_uri):
         msg = (
             "You are starting a tracking server in `--artifacts-only` mode and have provided a "
@@ -81,3 +83,12 @@ def artifacts_only_config_validation(
             "properly proxy access to the artifact storage location."
         )
         raise click.UsageError(message=msg)
+    if not artifacts_only:
+        return
+
+    if trace_archival_config_path is not None:
+        raise click.UsageError(
+            "--trace-archival-config cannot be combined with --artifacts-only because "
+            "artifact-only servers do not initialize the tracking store required for "
+            "server-owned trace archival."
+        )

@@ -60,7 +60,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     hasNextPage,
   } = useGetDatasetRecords({
     datasetId: datasetId ?? '',
-    enabled: !!datasetId,
+    enabled: Boolean(datasetId),
   });
 
   const fetchMoreOnBottomReached = useInfiniteScrollFetch({

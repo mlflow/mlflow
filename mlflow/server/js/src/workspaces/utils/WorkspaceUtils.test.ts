@@ -29,6 +29,7 @@ describe('validateWorkspaceName', () => {
     expect(validateWorkspaceName('workspace1')).toEqual({ valid: true });
     expect(validateWorkspaceName('a1')).toEqual({ valid: true });
     expect(validateWorkspaceName('team-a-project-1')).toEqual({ valid: true });
+    expect(validateWorkspaceName('team--a')).toEqual({ valid: true });
   });
 
   it('rejects names shorter than minimum length', () => {
@@ -50,10 +51,8 @@ describe('validateWorkspaceName', () => {
     expect(result.error).toContain('lowercase alphanumeric');
   });
 
-  it('rejects names with consecutive hyphens', () => {
-    const result = validateWorkspaceName('my--workspace');
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain('no consecutive hyphens');
+  it('accepts names with consecutive hyphens', () => {
+    expect(validateWorkspaceName('my--workspace')).toEqual({ valid: true });
   });
 
   it('rejects names starting with hyphen', () => {
@@ -205,8 +204,10 @@ describe('WorkspaceUtils', () => {
 
     it('returns null for invalid workspace names', () => {
       expect(extractWorkspaceFromSearchParams('workspace=UPPERCASE')).toBeNull();
+      expect(extractWorkspaceFromSearchParams('workspace=a')).toBeNull();
+      expect(extractWorkspaceFromSearchParams(`workspace=${'a'.repeat(64)}`)).toBeNull();
       expect(extractWorkspaceFromSearchParams('workspace=has spaces')).toBeNull();
-      expect(extractWorkspaceFromSearchParams('workspace=has--double-hyphen')).toBeNull();
+      expect(extractWorkspaceFromSearchParams('workspace=has--double-hyphen')).toBe('has--double-hyphen');
     });
 
     it('handles URL-encoded workspace names', () => {
@@ -232,6 +233,11 @@ describe('WorkspaceUtils', () => {
       expect(isGlobalRoute('/experiments')).toBe(false);
       expect(isGlobalRoute('/models')).toBe(false);
       expect(isGlobalRoute('/prompts')).toBe(false);
+    });
+
+    it('returns true for /account (workspace-agnostic self-service page)', () => {
+      expect(isGlobalRoute('/account')).toBe(true);
+      expect(isGlobalRoute('/account?tab=permissions')).toBe(true);
     });
 
     it('ignores query params and hash', () => {
@@ -297,7 +303,14 @@ describe('WorkspaceUtils', () => {
 
     it('returns original string when workspaces disabled', () => {
       getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace(null);
       expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments');
+    });
+
+    it('preserves workspace context during early navigation before feature flags resolve', () => {
+      getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace('default');
+      expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments?workspace=default');
     });
 
     it('returns original string for absolute URLs', () => {
@@ -412,7 +425,14 @@ describe('WorkspaceUtils', () => {
 
     it('returns pathname without workspace when feature disabled', () => {
       getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace(null);
       expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments');
+    });
+
+    it('preserves workspace context before feature flags resolve when workspace is already known', () => {
+      getWorkspacesEnabledSyncMock.mockReturnValue(false);
+      setActiveWorkspace('default');
+      expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments?workspace=default');
     });
 
     it('uses active workspace when set', () => {

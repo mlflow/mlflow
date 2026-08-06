@@ -1,5 +1,15 @@
 const STATS_ISSUE_NUMBER = 19428;
-const MEMBERS = ["B-Step62", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"];
+const MEMBERS = [
+  "B-Step62",
+  "harupy",
+  "kriscon-db",
+  "aaronteo-db",
+  "joshuawong-db",
+  "tanghaoji",
+  "mprahl",
+  "HumairAK",
+];
+const REVIEWER_BALANCE_RULES = [{ reviewers: ["mprahl", "HumairAK"], maxSelected: 1 }];
 
 async function loadStats(github, owner, repo) {
   try {
@@ -43,6 +53,35 @@ function shuffle(array) {
   return shuffled;
 }
 
+function violatesReviewerBalanceRule(reviewers) {
+  return REVIEWER_BALANCE_RULES.some((rule) => {
+    const selectedCount = rule.reviewers.filter((reviewer) => reviewers.includes(reviewer)).length;
+    return selectedCount > rule.maxSelected;
+  });
+}
+
+function balanceReviewerSelection(selectedReviewers, candidateReviewers) {
+  if (!violatesReviewerBalanceRule(selectedReviewers)) {
+    return selectedReviewers;
+  }
+
+  for (let i = selectedReviewers.length - 1; i >= 0; i--) {
+    for (const candidate of candidateReviewers) {
+      if (selectedReviewers.includes(candidate)) {
+        continue;
+      }
+
+      const replacement = [...selectedReviewers];
+      replacement[i] = candidate;
+      if (!violatesReviewerBalanceRule(replacement)) {
+        return replacement;
+      }
+    }
+  }
+
+  return selectedReviewers;
+}
+
 /**
  * Select reviewers with the lowest review counts, with random shuffling within each count tier.
  *
@@ -78,18 +117,15 @@ function selectReviewers(eligibleReviewers, stats, count = 2) {
   const sortedCounts = Object.keys(groups)
     .map(Number)
     .sort((a, b) => a - b);
-  const result = [];
+  const candidates = [];
   for (const c of sortedCounts) {
     const shuffled = shuffle(groups[c]);
     for (const reviewer of shuffled) {
-      result.push(reviewer);
-      if (result.length >= count) {
-        return result;
-      }
+      candidates.push(reviewer);
     }
   }
 
-  return result;
+  return balanceReviewerSelection(candidates.slice(0, count), candidates);
 }
 
 function updateStats(stats, selectedReviewers) {
@@ -97,7 +133,11 @@ function updateStats(stats, selectedReviewers) {
   for (const reviewer of selectedReviewers) {
     reviewCounts[reviewer] = (reviewCounts[reviewer] || 0) + 1;
   }
-  stats.reviewCounts = reviewCounts;
+  stats.reviewCounts = Object.fromEntries(
+    Object.keys(reviewCounts)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }))
+      .map((k) => [k, reviewCounts[k]])
+  );
   return stats;
 }
 

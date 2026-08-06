@@ -71,12 +71,14 @@ describe('ToolCallStatistics', () => {
     );
   };
 
-  // Helper to setup MSW handler that returns different responses based on metric_name
+  // Helper to setup MSW handler that returns different responses based on metric_name or metric_names
   const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
-        if (body.metric_name === SpanMetricKey.LATENCY) {
+        const metricName: string | undefined = body.metric_name;
+        const metricNames: string[] = body.metric_names ?? [];
+        if (metricName === SpanMetricKey.LATENCY || metricNames.includes(SpanMetricKey.LATENCY)) {
           return res(ctx.json({ data_points: latencyDataPoints }));
         }
         return res(ctx.json({ data_points: countDataPoints }));
@@ -309,7 +311,7 @@ describe('ToolCallStatistics', () => {
         metric_name: SpanMetricKey.SPAN_COUNT,
         aggregations: [{ aggregation_type: AggregationType.COUNT }],
         filters: [`span.${SpanFilterKey.TYPE} = "${SpanType.TOOL}"`],
-        dimensions: [SpanDimensionKey.SPAN_STATUS],
+        dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
       });
     });
 

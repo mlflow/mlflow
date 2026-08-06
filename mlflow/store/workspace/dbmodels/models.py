@@ -18,6 +18,8 @@ class SqlWorkspace(Base):
     name = Column(String(63), nullable=False)
     description = Column(Text, nullable=True)
     default_artifact_root = Column(Text, nullable=True)
+    trace_archival_location = Column(Text, nullable=True)
+    trace_archival_retention = Column(String(32), nullable=True)
 
     __table_args__ = (sa.PrimaryKeyConstraint("name", name="workspaces_pk"),)
 
@@ -29,4 +31,6 @@ class SqlWorkspace(Base):
             name=self.name,
             description=self.description,
             default_artifact_root=self.default_artifact_root,
+            trace_archival_location=self.trace_archival_location,
+            trace_archival_retention=self.trace_archival_retention,
         )

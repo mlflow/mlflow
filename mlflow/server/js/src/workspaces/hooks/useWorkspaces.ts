@@ -1,12 +1,7 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { fetchAPI, getAjaxUrl, HTTPMethods } from '../../common/utils/FetchUtils';
-
-type Workspace = {
-  name: string;
-  description?: string | null;
-  default_artifact_root?: string | null;
-};
+import type { Workspace } from '../types';
 
 type WorkspacesResponse = {
   workspaces?: Workspace[];
@@ -44,10 +39,18 @@ export const useWorkspaces = (enabled: boolean) => {
     for (const item of fetched as Array<Workspace | Record<string, unknown>>) {
       if (item && typeof (item as Workspace)?.name === 'string') {
         const workspaceItem = item as Workspace;
+        const traceArchivalConfig =
+          workspaceItem.trace_archival_config && typeof workspaceItem.trace_archival_config === 'object'
+            ? {
+                location: workspaceItem.trace_archival_config.location ?? null,
+                retention: workspaceItem.trace_archival_config.retention ?? null,
+              }
+            : null;
         filteredWorkspaces.push({
           name: workspaceItem.name,
           description: workspaceItem.description ?? null,
           default_artifact_root: workspaceItem.default_artifact_root ?? null,
+          trace_archival_config: traceArchivalConfig,
         });
       }
     }

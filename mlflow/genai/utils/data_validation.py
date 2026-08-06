@@ -55,10 +55,11 @@ def _validate_function_and_input_compatibility(
     # Check if input keys match function parameters
     _validate_input_keys_match_function_params(params, sample_input.keys(), e)
 
-    # For other errors, show a generic error message
+    # error_code is INVALID_PARAMETER_VALUE but this is a prediction function failure
     raise MlflowException.invalid_parameter_value(
         "Failed to run the prediction function specified in the `predict_fn` "
-        f"parameter. Input: {sample_input}. Error: {e}\n\n"
+        f"parameter. Input: {sample_input}. Error: {e}\n\n",
+        error_class="PREDICTION_FUNCTION_FAILED",
     ) from e
 
 

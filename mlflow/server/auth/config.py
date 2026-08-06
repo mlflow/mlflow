@@ -16,6 +16,9 @@ class AuthConfig(NamedTuple):
     grant_default_workspace_access: bool
     workspace_cache_max_size: int
     workspace_cache_ttl_seconds: int
+    auth_cache_max_size: int
+    auth_cache_ttl_seconds: int
+    read_database_uri: str | None = None
 
 
 def _get_auth_config_path() -> str:
@@ -45,4 +48,9 @@ def read_auth_config() -> AuthConfig:
         workspace_cache_ttl_seconds=config.getint(
             "mlflow", "workspace_cache_ttl_seconds", fallback=3600
         ),
+        auth_cache_max_size=config.getint("mlflow", "auth_cache_max_size", fallback=10000),
+        # Off by default — enabling the cache introduces a per-worker staleness window
+        # (see basic_auth.ini for details). Operators must explicitly opt in.
+        auth_cache_ttl_seconds=config.getint("mlflow", "auth_cache_ttl_seconds", fallback=0),
+        read_database_uri=config["mlflow"].get("read_database_uri", None),
     )

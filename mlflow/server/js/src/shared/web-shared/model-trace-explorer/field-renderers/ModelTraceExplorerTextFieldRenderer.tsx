@@ -14,14 +14,9 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
   const displayValue =
     !expanded && value.length > STRING_TRUNCATION_LIMIT ? value.slice(0, STRING_TRUNCATION_LIMIT) + '...' : value;
 
-  const hoverStyles = isExpandable
-    ? { ':hover': { backgroundColor: theme.colors.actionIconBackgroundHover, cursor: 'pointer' } }
-    : {};
-
   return (
     <div
       css={{
-        border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusSm,
       }}
     >
@@ -32,15 +27,13 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: `${theme.spacing.sm}px ${theme.spacing.sm + theme.spacing.xs}px`,
-            ...hoverStyles,
+            paddingInline: theme.spacing.sm,
+            marginBottom: theme.spacing.xs,
           }}
-          onClick={() => setExpanded(!expanded)}
         >
-          <Typography.Title level={4} color="secondary" withoutMargins>
+          <Typography.Title css={{ marginLeft: theme.spacing.xs }} level={4} color="secondary" withoutMargins>
             {title}
           </Typography.Title>
-          {isExpandable && (expanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
         </div>
       )}
       <div
@@ -48,10 +41,11 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing.sm,
-          paddingLeft: theme.spacing.sm + theme.spacing.xs,
-          paddingRight: theme.spacing.sm + theme.spacing.xs,
-          paddingTop: title ? 0 : theme.spacing.sm,
-          paddingBottom: theme.spacing.sm,
+          marginInline: theme.spacing.sm,
+          paddingInline: theme.spacing.sm,
+          paddingBlock: theme.spacing.sm,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusSm,
           // get rid of last margin in markdown renderer
           '& > div:last-of-type': {
             marginBottom: 0,

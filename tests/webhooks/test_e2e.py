@@ -29,7 +29,7 @@ class WebhookLogEntry:
     attempt: int | None = None
 
 
-def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
+def wait_until_ready(health_endpoint: str, max_attempts: int = 30) -> None:
     for _ in range(max_attempts):
         try:
             resp = requests.get(health_endpoint, timeout=2)

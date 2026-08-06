@@ -12,6 +12,8 @@ from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracing.provider import provider as mlflow_provider
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -25,6 +27,7 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter as HttpExporter,
     )
+    from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 except ImportError:
     pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
@@ -144,8 +147,20 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     model = TestModel()
     model.predict(2, 5)
 
-    # Tracer should be configured to export to OTLP
-    exporter = _get_trace_exporter()
+    # Tracer should be configured to export to OTLP.
+    # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+    # (since _get_span_processor prefers BaseMlflowSpanProcessor), so we find
+    # the OTLP exporter by looking for the OtelSpanProcessor directly.
+    if dual_export:
+        # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+        # (since _get_span_processor prefers BaseMlflowSpanProcessor). Find the
+        # OTLP exporter by looking up the OtelSpanProcessor from the tracer provider.
+        tp = mlflow_provider.get()
+        processors = tp._active_span_processor._span_processors
+        otel_processor = next(p for p in processors if isinstance(p, OtelSpanProcessor))
+        exporter = otel_processor.span_exporter
+    else:
+        exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
@@ -184,6 +199,8 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """
@@ -213,6 +230,8 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 
     result = parent_function()
     assert result == "Parent: Hello World"
+
+    mlflow.flush_trace_async_logging()
 
     client = MlflowClient()
     traces = client.search_traces(locations=[experiment.experiment_id])
@@ -276,3 +295,35 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, "x" * 149 + "\ud83e")
+    assert value.string_value == "x" * 149 + "?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_fallback():
+    class BadStr:
+        def __str__(self):
+            return "bad\ud83e"
+
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, BadStr())
+    assert value.string_value == "bad?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_nested_lone_surrogate():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, {"items": ["ok", {"bad": "x\ud83e"}]})
+    nested = value.kvlist_value.values[0].value.array_value.values[1]
+    assert nested.kvlist_value.values[0].value.string_value == "x?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_dict_key():
+    value = AnyValue()
+
+    _set_otel_proto_anyvalue(value, {"bad\ud83e": "ok"})
+
+    assert value.kvlist_value.values[0].key == "bad?"
+    assert value.kvlist_value.values[0].value.string_value == "ok"

@@ -64,7 +64,7 @@ This guide walks through the complete lifecycle of developing and optimizing cus
       icon: Brain,
       title: "Align with Humans",
       description: "Optimize instructions",
-      detailedDescription: "Use SIMBA optimizer to refine judge instructions based on human feedback."
+      detailedDescription: "Use the MemAlign optimizer to refine judge instructions based on human feedback."
     },
     {
       icon: ChartBar,
@@ -219,7 +219,7 @@ for trace_id, truth_value in ground_truth.items():
 
 ## Step 3: Align Judge with Human Feedback
 
-Use the SIMBA optimizer to improve judge accuracy:
+Use the MemAlign optimizer to improve judge accuracy:
 
 ```python
 # Retrieve traces with both judge and human assessments
@@ -243,8 +243,8 @@ if len(aligned_traces) >= 10:
     aligned_judge = support_judge.align(aligned_traces)
 
     # Option 2: Explicitly specify optimizer with custom model
-    # from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
-    # optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
+    # from mlflow.genai.judges.optimizers import MemAlignOptimizer
+    # optimizer = MemAlignOptimizer(reflection_lm="anthropic:/claude-opus-4-1-20250805")
     # aligned_judge = support_judge.align(aligned_traces, optimizer)
 
     print("Judge aligned successfully!")

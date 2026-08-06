@@ -12,6 +12,7 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
 )
 from mlflow.entities.trace_state import TraceState
+from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
 from mlflow.genai.scorers.online.entities import CompletedSession, OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -252,10 +253,14 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {
-        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
-        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
-    }
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(make_trace("tr-001", 500)),
+        assessments=[
+            make_assessment("assess-1", "ConversationCompleteness/v1"),
+            make_assessment("assess-2", "ConversationCompleteness/v1"),
+        ],
+        scorer_stats={},
+    )
     processor.process_sessions()
 
     call_kwargs = mock_evaluate.call_args[1]
@@ -286,7 +291,11 @@ def test_process_sessions_samples_and_scores(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {"tr-001": [MagicMock()]}
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(make_trace("tr-001", 1000)),
+        assessments=[MagicMock()],
+        scorer_stats={},
+    )
     processor.process_sessions()
 
     call_kwargs = mock_evaluate.call_args[1]
@@ -355,7 +364,7 @@ def test_execute_session_scoring_handles_failures(
     assert checkpoint.session_id == "sess-002"
 
 
-def test_score_session_logs_assessments_individually(
+def test_score_session_logs_assessments_to_first_trace(
     mock_trace_loader,
     mock_checkpoint_manager,
     mock_tracking_store,
@@ -365,12 +374,12 @@ def test_score_session_logs_assessments_individually(
 ):
     """
     Scenario: A session has multiple traces. The scorer evaluates the session and
-    produces assessments for both traces. However, logging fails for one trace
-    (tr-001) but succeeds for the other (tr-002).
+    produces assessments. Session-level assessments are logged to the first (chronologically
+    earliest) trace in the session.
 
-    The processor should attempt to log assessments for each trace independently,
-    allow partial success (tr-002 succeeds), log the failure with trace_id and
-    session_id, and still update the checkpoint.
+    The processor should log all assessments to the first trace (tr-001), and if logging
+    fails, it should log a warning with trace_id and session_id, and still update the
+    checkpoint.
     """
     mock_tracking_store.find_completed_sessions.return_value = [
         make_completed_session("sess-001", 500, 1500)
@@ -386,18 +395,22 @@ def test_score_session_logs_assessments_individually(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {
-        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
-        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
-    }
-    # First call fails (for tr-001), second call succeeds (for tr-002)
-    mock_log_assessments.side_effect = [Exception("Failed to log"), None]
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(make_trace("tr-001", 1000)),
+        assessments=[
+            make_assessment("assess-1", "ConversationCompleteness/v1"),
+            make_assessment("assess-2", "ConversationCompleteness/v1"),
+        ],
+        scorer_stats={},
+    )
+    # Logging fails
+    mock_log_assessments.side_effect = [Exception("Failed to log")]
 
     with patch("mlflow.genai.scorers.online.session_processor._logger") as mock_logger:
         processor.process_sessions()
 
-        # Both traces should have attempted logging
-        assert mock_log_assessments.call_count == 2
+        # Assessments should be logged once (to the first trace)
+        assert mock_log_assessments.call_count == 1
 
         # Verify warning was logged with trace_id and session_id
         mock_logger.warning.assert_called_once()
@@ -483,7 +496,11 @@ def test_score_session_adds_session_metadata_to_assessments(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     feedback = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [feedback]}
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(make_trace("tr-001", 1000)),
+        assessments=[feedback],
+        scorer_stats={},
+    )
     processor.process_sessions()
 
     logged_feedbacks = mock_log_assessments.call_args[1]["assessments"]
@@ -589,14 +606,17 @@ def test_clean_up_old_assessments_removes_duplicates(
         make_completed_session("sess-001", 500, 1500)
     ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
-    mock_trace_loader.fetch_traces.return_value = [
-        make_trace("tr-001", 1000, assessments=[old_assessment])
-    ]
+    trace_with_old_assessment = make_trace("tr-001", 1000, assessments=[old_assessment])
+    mock_trace_loader.fetch_traces.return_value = [trace_with_old_assessment]
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(trace_with_old_assessment),
+        assessments=[new_assessment],
+        scorer_stats={},
+    )
     processor.process_sessions()
 
     mock_tracking_store.delete_assessment.assert_called_once_with(
@@ -624,14 +644,17 @@ def test_clean_up_old_assessments_preserves_different_sessions(
         make_completed_session("sess-001", 500, 1500)
     ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
-    mock_trace_loader.fetch_traces.return_value = [
-        make_trace("tr-001", 1000, assessments=[old_assessment])
-    ]
+    trace_with_old_assessment = make_trace("tr-001", 1000, assessments=[old_assessment])
+    mock_trace_loader.fetch_traces.return_value = [trace_with_old_assessment]
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    mock_evaluate.return_value = EvalResult(
+        eval_item=EvalItem.from_trace(trace_with_old_assessment),
+        assessments=[new_assessment],
+        scorer_stats={},
+    )
     processor.process_sessions()
 
     mock_tracking_store.delete_assessment.assert_not_called()

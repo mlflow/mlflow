@@ -59,7 +59,11 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTraceDataCorrupted,
+)
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
@@ -532,6 +536,7 @@ def test_get_experiment_by_name():
             name="abc",
             artifact_location="/abc",
             lifecycle_stage=LifecycleStage.ACTIVE,
+            effective_trace_archival_retention="30d",
         )
         response.text = json.dumps({
             "experiment": json.loads(message_to_json(experiment.to_proto()))
@@ -550,6 +555,7 @@ def test_get_experiment_by_name():
         assert result.name == experiment.name
         assert result.artifact_location == experiment.artifact_location
         assert result.lifecycle_stage == experiment.lifecycle_stage
+        assert result.effective_trace_archival_retention == "30d"
         # Test GetExperimentByName against nonexistent experiment
         mock_http.reset_mock()
         nonexistent_exp_response = mock.MagicMock()
@@ -954,7 +960,11 @@ def test_search_traces_v3_endpoint_not_found_falls_back_to_v2():
 
 
 def test_get_artifact_uri_for_trace_compatibility():
-    from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+    from mlflow.tracing.constant import TraceTagKey
+    from mlflow.tracing.utils.artifact_utils import (
+        get_archive_uri_for_trace,
+        get_artifact_uri_for_trace,
+    )
 
     # Create a TraceInfo (v2) object
     trace_info_v2 = TraceInfoV2(
@@ -986,6 +996,17 @@ def test_get_artifact_uri_for_trace_compatibility():
     v3_uri = get_artifact_uri_for_trace(trace_info_v3)
     assert v3_uri == "s3://bucket/trace-v3-path"
 
+    archive_trace_info_v3 = TraceInfo(
+        trace_id="tr-9012",
+        trace_location=trace_location,
+        request_time=789,
+        state=TraceState.OK,
+        trace_metadata={"key3": "value3"},
+        tags={TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/trace-v3-archive"},
+    )
+    archive_uri = get_archive_uri_for_trace(archive_trace_info_v3)
+    assert archive_uri == "s3://bucket/trace-v3-archive"
+
     # Test that get_artifact_uri_for_trace raises the expected exception when tag is missing
     trace_info_no_tag = TraceInfoV2(
         request_id="tr-1234",
@@ -995,8 +1016,16 @@ def test_get_artifact_uri_for_trace_compatibility():
         status=TraceStatus.OK,
         tags={},
     )
-    with pytest.raises(MlflowException, match="Unable to determine trace artifact location"):
+    with pytest.raises(
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
+    ):
         get_artifact_uri_for_trace(trace_info_no_tag)
+    with pytest.raises(
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
+    ):
+        get_archive_uri_for_trace(trace_info_no_tag)
 
 
 @pytest.mark.parametrize(

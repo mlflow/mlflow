@@ -80,8 +80,14 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
                 chat_tools if isinstance(chat_tools, str) else json.dumps(chat_tools)
             )
 
-    # Merge: Keep non-mlflow.* attrs, add GenAI attrs
-    merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    # Merge: Keep non-mlflow.* attrs (but preserve mlflow.traceTag.* so user tags survive
+    # OTLP export even in GenAI semconv mode), then overlay GenAI attrs.
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    merged_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     merged_attrs.update(genai_attrs)
 
     new_name = _build_genai_span_name(span.name, genai_attrs)
@@ -180,7 +186,12 @@ def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -
 
 
 def _create_passthrough_span(span: ReadableSpan, original_attrs: dict[str, Any]) -> ReadableSpan:
-    cleaned_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    cleaned_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     return _build_readable_span(span, name=span.name, attributes=cleaned_attrs, kind=span.kind)
 
 

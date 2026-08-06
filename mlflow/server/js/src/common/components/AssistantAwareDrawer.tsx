@@ -9,13 +9,13 @@
  * This component is designed to be a drop-in replacement for Drawer.Root + Drawer.Content
  * with automatic assistant-awareness.
  */
-
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Global } from '@emotion/react';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { useAssistant } from '../../assistant/AssistantContext';
+import { useRegisterFloatingObstruction } from '../../assistant/useFloatingObstruction';
 
 const ASSISTANT_OPEN_DRAWER_WIDTH = '70vw';
 const MIN_DRAWER_WIDTH = 400;
@@ -91,6 +91,11 @@ function Content({
     setDrawerWidth(resolveWidthToPixels(isPanelOpen ? ASSISTANT_OPEN_DRAWER_WIDTH : width));
   }, [isPanelOpen, width]);
 
+  // While open on the right, this drawer reserves its width on the right edge so the
+  // floating Assistant button repositions to its left instead of overlapping it. When
+  // the assistant panel is open the drawer flips to the left, leaving the right edge free.
+  useRegisterFloatingObstruction(position === 'right' ? drawerWidth : 0);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -134,7 +139,6 @@ function Content({
 
   return (
     <>
-      {/* Hide the dark overlay for non-modal drawers to prevent it from tinting the sidenav */}
       {!isModal && (
         <Global
           styles={{
@@ -174,9 +178,6 @@ function Content({
       >
         {children}
       </Drawer.Content>
-      {/* Resize handle rendered via portal to share z-index context with the portaled drawer.
-          The outer div is a wide (12px) invisible hit area for easy grabbing.
-          The inner ::after pseudo-element is the thin (2px) visible line that appears on hover. */}
       {createPortal(
         <div
           data-drawer-resize-handle="true"

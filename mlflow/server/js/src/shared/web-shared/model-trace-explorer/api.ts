@@ -8,8 +8,7 @@ import type {
   Feedback,
   ModelTraceInfoV3,
   ModelTraceLocation,
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
+  ModelTraceSearchLocation,
   ModelTraceSpanV3,
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
@@ -40,6 +39,13 @@ export const createAssessment = ({
 
 export const fetchTraceInfoV3 = ({ traceId }: { traceId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`));
+
+export const fetchBatchTraceInfosV3 = async ({
+  traceIds,
+}: {
+  traceIds: string[];
+}): Promise<{ trace_infos: ModelTraceInfoV3[] }> =>
+  fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/batchGetInfos'), 'POST', { trace_ids: traceIds });
 
 export type UpdateAssessmentPayload = {
   // we only support updating these fields
@@ -190,15 +196,15 @@ export const searchTracesV4 = async ({
   signal?: AbortSignal;
   orderBy?: string[];
   filter?: string;
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations?: ModelTraceSearchLocation[];
   pageSize?: number;
 }) => {
-  const payload: Record<string, any> = {
+  const payload = {
     locations,
     filter,
     max_results: pageSize ?? 1000,
     order_by: orderBy,
-  };
+  } satisfies Record<string, any>;
   const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
 
   const json = queryResponse as { trace_infos: ModelTraceInfoV3[]; next_page_token?: string };

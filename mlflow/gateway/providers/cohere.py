@@ -323,7 +323,7 @@ class CohereAdapter(ProviderAdapter):
 
 
 class CohereProvider(BaseProvider):
-    NAME = "Cohere"
+    DISPLAY_NAME = "Cohere"
     CONFIG_TYPE = CohereConfig
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:

@@ -4,6 +4,7 @@ import { useRunsArtifacts } from './useRunsArtifacts';
 import type { ArtifactListFilesResponse } from '../../../types';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
   'run-1': {
     root_uri: 'run-1',

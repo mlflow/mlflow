@@ -25,7 +25,6 @@ export const Prompt = ({ when, message }: PromptProps) => {
       return window.confirm(message);
     });
 
-    // eslint-disable-next-line consistent-return
     return unblock;
   }, [message, block, when]);
 

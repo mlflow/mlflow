@@ -33,7 +33,6 @@ from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils.safety import _wrap_patch
 
 if TYPE_CHECKING:
@@ -42,7 +41,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.5.0")
 @record_usage_event(PromptOptimizationEvent)
 def optimize_prompts(
     *,

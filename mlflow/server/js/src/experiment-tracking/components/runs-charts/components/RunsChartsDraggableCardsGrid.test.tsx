@@ -26,6 +26,7 @@ import type { ChartSectionConfig } from '../../../types';
 import { Checkbox, DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
@@ -39,21 +40,47 @@ jest.mock('../hooks/useIsInViewport', () => ({
   useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
+// Mock the virtualizer to render all rows in tests
+jest.mock('@tanstack/react-virtual', () => {
+  const actual = jest.requireActual<typeof import('@tanstack/react-virtual')>('@tanstack/react-virtual');
+  return {
+    ...actual,
+    useVirtualizer: (opts: any) => {
+      return {
+        getVirtualItems: () =>
+          Array.from({ length: opts.count }, (_, i) => ({
+            index: i,
+            key: i,
+            start: i * 360,
+            size: 360,
+            measureElement: () => {},
+          })),
+        getTotalSize: () => opts.count * 360,
+        measureElement: () => {},
+        options: { scrollMargin: opts.scrollMargin ?? 0 },
+      };
+    },
+  };
+});
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop simlation)
 
 describe('RunsChartsDraggableCardsGrid', () => {
   const renderTestComponent = (element: React.ReactElement) => {
     const noopTooltipComponent = () => <div />;
+    const queryClient = new QueryClient();
     render(element, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
           <DesignSystemProvider>
             <RunsChartsTooltipWrapper component={noopTooltipComponent} contextData={{}}>
               <TestApolloProvider>
-                <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
-                  {children}
-                </MockedReduxStoreProvider>
+                <QueryClientProvider client={queryClient}>
+                  <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
+                    {children}
+                  </MockedReduxStoreProvider>
+                </QueryClientProvider>
               </TestApolloProvider>
             </RunsChartsTooltipWrapper>
           </DesignSystemProvider>
@@ -525,6 +552,104 @@ describe('RunsChartsDraggableCardsGrid', () => {
     await waitFor(() => {
       expect(screen.queryAllByTestId('experiment-view-compare-runs-card-drag-handle')).toHaveLength(0);
       expect(screen.getByText('No charts in this section')).toBeInTheDocument();
+    });
+  });
+
+  test('should enable virtualization when card count exceeds threshold', async () => {
+    const cards = Array.from({ length: 60 }, (_, i) => ({
+      type: RunsChartType.BAR,
+      metricKey: `metric_${i}`,
+      uuid: `card_${i}`,
+    })) as RunsChartsBarCardConfig[];
+
+    const TestComponent = () => {
+      const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+        ...createExperimentPageUIState(),
+        compareRunCharts: cards,
+      });
+
+      return (
+        <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+          <RunsChartsDraggableCardsGridContextProvider visibleChartCards={cards}>
+            <RunsChartsDraggableCardsGridSection
+              cardsConfig={uiState.compareRunCharts ?? []}
+              chartRunData={[]}
+              sectionId="abc"
+              setFullScreenChart={noop}
+              groupBy={null}
+              onRemoveChart={noop}
+              onStartEditChart={noop}
+              sectionConfig={{
+                display: true,
+                isReordered: false,
+                name: 'section_1',
+                uuid: 'section_1',
+                cardHeight: 360,
+                columns: 3,
+              }}
+            />
+          </RunsChartsDraggableCardsGridContextProvider>
+        </RunsChartsUIConfigurationContextProvider>
+      );
+    };
+
+    renderTestComponent(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('virtualized-chart-cards-scroll-container')).toBeInTheDocument();
+      expect(screen.getAllByTestId('virtualized-chart-row').length).toBeGreaterThan(0);
+    });
+  });
+
+  test('should skip empty chart filtering when card count exceeds threshold', async () => {
+    const cards = Array.from({ length: 60 }, (_, i) => ({
+      type: RunsChartType.BAR,
+      metricKey: `metric_${i}`,
+      uuid: `card_${i}`,
+    })) as RunsChartsBarCardConfig[];
+
+    const TestComponent = () => {
+      const [uiState, setUIState] = useState<ExperimentRunsChartsUIConfiguration>({
+        ...createExperimentPageUIState(),
+        compareRunCharts: cards,
+      });
+
+      return (
+        <RunsChartsUIConfigurationContextProvider updateChartsUIState={setUIState}>
+          <RunsChartsDraggableCardsGridContextProvider visibleChartCards={cards}>
+            <RunsChartsDraggableCardsGridSection
+              cardsConfig={uiState.compareRunCharts ?? []}
+              chartRunData={[
+                {
+                  displayName: 'run_1',
+                  metrics: { metric_nonexistent: [{ key: 'metric_nonexistent', value: 1 }] },
+                } as any,
+              ]}
+              sectionId="abc"
+              setFullScreenChart={noop}
+              groupBy={null}
+              onRemoveChart={noop}
+              onStartEditChart={noop}
+              hideEmptyCharts
+              sectionConfig={{
+                display: true,
+                isReordered: false,
+                name: 'section_1',
+                uuid: 'section_1',
+                cardHeight: 360,
+                columns: 3,
+              }}
+            />
+          </RunsChartsDraggableCardsGridContextProvider>
+        </RunsChartsUIConfigurationContextProvider>
+      );
+    };
+
+    renderTestComponent(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('virtualized-chart-cards-scroll-container')).toBeInTheDocument();
+      expect(screen.getAllByTestId('virtualized-chart-row').length).toBeGreaterThan(0);
     });
   });
 });

@@ -26,10 +26,11 @@ polars>=1
 openai
 # required for the haystack
 haystack-ai
+# required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+opentelemetry-haystack
 # required for deepeval scorer documentation
 deepeval
 # required for ragas scorer documentation
 ragas
 instructor
-litellm
 langchain-community>=0.3.0

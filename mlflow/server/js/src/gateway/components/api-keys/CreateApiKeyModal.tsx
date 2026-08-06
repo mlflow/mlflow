@@ -196,7 +196,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
           value={provider}
           onChange={handleProviderChange}
           error={errors.provider}
-          componentIdPrefix="mlflow.gateway.create-api-key-modal.provider"
+          componentId="mlflow.gateway.create-api-key-modal.provider"
         />
 
         {provider && (
@@ -205,7 +205,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
             value={formData}
             onChange={handleFormDataChange}
             errors={errors}
-            componentIdPrefix="mlflow.gateway.create-api-key-modal"
+            componentId="mlflow.gateway.create-api-key-modal"
           />
         )}
 

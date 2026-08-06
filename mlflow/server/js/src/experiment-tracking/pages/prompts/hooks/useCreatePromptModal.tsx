@@ -80,6 +80,17 @@ export const useCreatePromptModal = ({
 
   const { mutate: mutateCreateVersion, error, reset: errorsReset, isLoading } = useCreateRegisteredPromptMutation();
 
+  const watchedDraftName = form.watch('draftName');
+  const watchedDraftValue = form.watch('draftValue');
+  const watchedChatMessages = form.watch('chatMessages');
+  const watchedPromptType = form.watch('promptType');
+
+  const isPromptContentEmpty =
+    watchedPromptType === PROMPT_TYPE_CHAT
+      ? watchedChatMessages.length === 0 || watchedChatMessages.some((m) => !m.content || !m.content.trim())
+      : !watchedDraftValue?.trim();
+  const isSubmitDisabled = (isCreatingNewPrompt && !watchedDraftName?.trim()) || isPromptContentEmpty;
+
   const modalElement = (
     <FormProvider {...form}>
       <Modal
@@ -105,7 +116,7 @@ export const useCreatePromptModal = ({
             description="A label for the confirm button in the create prompt modal in the prompt management UI"
           />
         }
-        okButtonProps={{ loading: isLoading }}
+        okButtonProps={{ loading: isLoading, disabled: isSubmitDisabled }}
         onOk={form.handleSubmit(async (values) => {
           const promptName =
             isCreatingPromptVersion && registeredPrompt?.name ? registeredPrompt?.name : values.draftName;
@@ -385,7 +396,7 @@ export const useCreatePromptModal = ({
           })()
         : '',
     });
-    setShowAdvancedSettings(!!(hasModelConfig || responseFormat !== undefined));
+    setShowAdvancedSettings(Boolean(hasModelConfig || responseFormat !== undefined));
     setOpen(true);
   };
 

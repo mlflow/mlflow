@@ -16,6 +16,8 @@ export const useProviderConfigQuery = ({ provider }: { provider: string }) => {
     {
       queryFn,
       retry: false,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
       enabled: Boolean(provider),
     },
   );

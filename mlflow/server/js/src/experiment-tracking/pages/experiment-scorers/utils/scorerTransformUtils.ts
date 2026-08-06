@@ -14,7 +14,6 @@ import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
 import { ScorerEvaluationScope, type ScorerType } from '../constants';
 import type { RegisterScorerResponse, MLflowScorer } from '../api';
-import { isEvaluatingSessionsInScorersEnabled } from '../../../../common/utils/FeatureUtils';
 import { isUndefined } from 'lodash';
 
 const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
@@ -24,12 +23,12 @@ const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
   str: 'string',
 };
 
-const JSON_SCHEMA_TO_PRIMITIVE: Record<string, JudgePrimitiveOutputType> = {
+const JSON_SCHEMA_TO_PRIMITIVE = {
   boolean: 'bool',
   integer: 'int',
   number: 'float',
   string: 'str',
-};
+} satisfies Record<string, JudgePrimitiveOutputType>;
 
 /**
  * Convert JudgeOutputTypeSpec to JSON Schema format for API serialization.
@@ -135,7 +134,7 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
   // Check for primitive types
   if (schemaType in JSON_SCHEMA_TO_PRIMITIVE) {
     return {
-      kind: JSON_SCHEMA_TO_PRIMITIVE[schemaType],
+      kind: JSON_SCHEMA_TO_PRIMITIVE[schemaType as keyof typeof JSON_SCHEMA_TO_PRIMITIVE],
     };
   }
 
@@ -145,7 +144,8 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
     if (additionalProps && typeof additionalProps['type'] === 'string') {
       return {
         kind: 'dict',
-        dictValueType: JSON_SCHEMA_TO_PRIMITIVE[additionalProps['type']] || 'int',
+        dictValueType:
+          JSON_SCHEMA_TO_PRIMITIVE[additionalProps['type'] as keyof typeof JSON_SCHEMA_TO_PRIMITIVE] || 'int',
       };
     }
     return { kind: 'dict', dictValueType: 'int' };
@@ -157,7 +157,7 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
     if (items && typeof items['type'] === 'string') {
       return {
         kind: 'list',
-        listElementType: JSON_SCHEMA_TO_PRIMITIVE[items['type']] || 'str',
+        listElementType: JSON_SCHEMA_TO_PRIMITIVE[items['type'] as keyof typeof JSON_SCHEMA_TO_PRIMITIVE] || 'str',
       };
     }
     return { kind: 'list', listElementType: 'str' };
@@ -205,7 +205,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
   try {
     const serializedData = JSON.parse(config.serialized_scorer);
 
-    if (isEvaluatingSessionsInScorersEnabled() && serializedData.is_session_level_scorer) {
+    if (serializedData.is_session_level_scorer) {
       baseFields.isSessionLevelScorer = true;
     }
 
@@ -376,7 +376,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
     serialization_version: 1,
   };
 
-  if (isEvaluatingSessionsInScorersEnabled() && !isUndefined(scorer.isSessionLevelScorer)) {
+  if (!isUndefined(scorer.isSessionLevelScorer)) {
     baseSerializedScorer.is_session_level_scorer = scorer.isSessionLevelScorer;
   }
 

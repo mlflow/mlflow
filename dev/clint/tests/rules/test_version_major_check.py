@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.version_major_check import MajorVersionCheck
 
 
-def test_version_major_check(index_path: Path) -> None:
+def test_version_major_check(index: SymbolIndex) -> None:
     code = """
 from packaging.version import Version
 
@@ -17,7 +18,7 @@ Version("1.5.0") == Version("3.0.0")
 Version("1.5.0") != Version("4.0.0")
 """
     config = Config(select={MajorVersionCheck.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 4
     assert all(isinstance(v.rule, MajorVersionCheck) for v in violations)
     assert violations[0].range.start.line == 3
@@ -26,7 +27,7 @@ Version("1.5.0") != Version("4.0.0")
     assert violations[3].range.start.line == 8
 
 
-def test_version_major_check_no_violations(index_path: Path) -> None:
+def test_version_major_check_no_violations(index: SymbolIndex) -> None:
     code = """
 from packaging.version import Version
 
@@ -37,5 +38,5 @@ Version("1.5.0") >= Version("1.0.0.dev0")
 5 >= 3
 """
     config = Config(select={MajorVersionCheck.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 0

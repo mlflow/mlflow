@@ -10,15 +10,14 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
+import type { FeedbackAssessment, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
-  type ModelTraceInfoV3,
-  isFeedbackAssessment,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/constants';
+import { isFeedbackAssessment } from '../../model-trace-explorer/assessments-pane/utils';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
@@ -28,6 +27,7 @@ import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { ExecutionDurationTag } from './ExecutionDurationTag';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -39,12 +39,11 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   STATE_COLUMN_ID,
   TOKENS_COLUMN_ID,
-  TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
+import { escapeCssSpecialCharacters, highlightSearchInText, normalizeDurationString } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
   getExperimentIdFromTraceLocation,
@@ -554,40 +553,21 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     }
   } else if (column.id === EXECUTION_DURATION_COLUMN_ID) {
     // Duration - sum all execution durations
-    const duration = traces.length > 0 ? calculateSessionDuration(traces) : null;
-    const otherDuration = otherTraces && otherTraces.length > 0 ? calculateSessionDuration(otherTraces) : null;
+    const duration = traces.length > 0 ? normalizeDurationString(calculateSessionDuration(traces) ?? undefined) : null;
+    const otherDuration =
+      otherTraces && otherTraces.length > 0
+        ? normalizeDurationString(calculateSessionDuration(otherTraces) ?? undefined)
+        : null;
 
     if (isComparing) {
       cellContent = (
         <StackedComponents
-          first={
-            duration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-                {duration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
-          second={
-            otherDuration ? (
-              <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherDuration}>
-                {otherDuration}
-              </div>
-            ) : (
-              <NullCell isComparing />
-            )
-          }
+          first={duration ? <ExecutionDurationTag value={duration} /> : <NullCell isComparing />}
+          second={otherDuration ? <ExecutionDurationTag value={otherDuration} /> : <NullCell isComparing />}
         />
       );
     } else {
-      cellContent = duration ? (
-        <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={duration}>
-          {duration}
-        </div>
-      ) : (
-        <NullCell />
-      );
+      cellContent = duration ? <ExecutionDurationTag value={duration} /> : <NullCell />;
     }
   } else if (column.id === SIMULATION_GOAL_COLUMN_ID) {
     // Goal column - show the simulation goal (same for matched sessions, so show once)

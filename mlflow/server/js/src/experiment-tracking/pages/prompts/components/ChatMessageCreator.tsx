@@ -19,20 +19,22 @@ import type { ChatPromptMessage } from '../types';
 const SUGGESTED_ROLES = ['system', 'user', 'assistant'];
 
 const ChatRoleTypeaheadField = ({
-  id,
+  componentId,
+  index,
   value,
   onChange,
   onBlur,
   placeholder,
 }: {
-  id: string;
+  componentId: string;
+  index: number;
   value: string;
   onChange: (value: string) => void;
   onBlur: () => void;
   placeholder: string;
 }) => {
   const comboboxState = useComboboxState<string>({
-    componentId: id,
+    componentId,
     items: SUGGESTED_ROLES,
     allItems: SUGGESTED_ROLES,
     setItems: () => {},
@@ -58,7 +60,7 @@ const ChatRoleTypeaheadField = ({
   });
 
   return (
-    <TypeaheadComboboxRoot id={id} comboboxState={comboboxState}>
+    <TypeaheadComboboxRoot id={`${componentId}_${index}`} comboboxState={comboboxState}>
       <TypeaheadComboboxInput
         placeholder={placeholder}
         comboboxState={comboboxState}
@@ -108,7 +110,8 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
               name={`${name}.${index}.role`}
               render={({ field: { value, onChange, onBlur } }) => (
                 <ChatRoleTypeaheadField
-                  id={`mlflow.prompts.chat_creator.role_${index}`}
+                  componentId="mlflow.prompts.chat_creator.role"
+                  index={index}
                   placeholder={formatMessage({
                     defaultMessage: 'role',
                     description: 'Placeholder for chat message role input',

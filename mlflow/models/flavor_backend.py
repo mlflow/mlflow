@@ -37,7 +37,6 @@ class FlavorBackend:
         port,
         host,
         timeout,
-        enable_mlserver,
         synchronous=True,
         stdout=None,
         stderr=None,
@@ -50,7 +49,6 @@ class FlavorBackend:
             port: Port to use for the model deployment.
             host: Host to use for the model deployment. Defaults to ``localhost``.
             timeout: Timeout in seconds to serve a request. Defaults to 60.
-            enable_mlserver: Whether to use MLServer or the local scoring server.
             synchronous: If True, wait until server process exit and return 0, if process exit
                 with non-zero return code, raise exception.
                 If False, return the server process `Popen` instance immediately.
@@ -73,7 +71,6 @@ class FlavorBackend:
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ): ...
 
@@ -85,7 +82,6 @@ class FlavorBackend:
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ): ...
 

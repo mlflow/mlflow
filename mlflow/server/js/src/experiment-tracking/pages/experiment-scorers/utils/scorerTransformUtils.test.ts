@@ -332,122 +332,38 @@ describe('transformScorerConfig', () => {
     });
   });
 
-  describe('Memory-augmented (MemAlign) scorers', () => {
-    it('should transform memory-augmented scorer with instructions judge base', () => {
+  describe('isSessionLevelScorer', () => {
+    it('should set isSessionLevelScorer to true when is_session_level_scorer is true', () => {
       const config: ScorerConfig = {
-        name: 'Aligned Quality Judge',
-        sample_rate: 0.9,
+        name: 'Session Scorer',
         serialized_scorer: JSON.stringify({
-          memory_augmented_judge_data: {
-            base_judge: {
-              name: 'quality',
-              instructions_judge_pydantic_data: {
-                instructions: 'Evaluate the response quality',
-                model: 'openai:/gpt-4o',
-                feedback_value_type: { type: 'boolean' },
-              },
-            },
-            semantic_memory: [
-              { guideline_text: 'Prefer concise answers', source_trace_ids: ['t1'] },
-              { guideline_text: 'Check for factual accuracy', source_trace_ids: ['t2'] },
-            ],
-            episodic_trace_ids: ['t1', 't2', 't3'],
-          },
+          is_session_level_scorer: true,
+          builtin_scorer_class: 'Safety',
         }),
+        builtin: { name: 'Session Scorer' },
       };
 
-      const result = transformScorerConfig(config) as LLMScorer;
+      const result = transformScorerConfig(config);
 
-      expect(result.type).toBe('llm');
-      expect(result.llmTemplate).toBe('Custom');
-      expect(result.is_instructions_judge).toBe(true);
-      expect(result.isMemoryAugmented).toBe(true);
-      expect(result.model).toBe('openai:/gpt-4o');
-      expect(result.outputType).toEqual({ kind: 'bool' });
-      expect(result.instructions).toContain('Evaluate the response quality');
-      expect(result.instructions).toContain('Distilled Guidelines (2)');
-      expect(result.instructions).toContain('Prefer concise answers');
-      expect(result.instructions).toContain('Check for factual accuracy');
+      expect(result.isSessionLevelScorer).toBe(true);
     });
 
-    it('should transform memory-augmented scorer with no semantic memory', () => {
+    it.each([
+      { description: 'false', serializedFields: { is_session_level_scorer: false } },
+      { description: 'absent', serializedFields: {} },
+    ])('should not set isSessionLevelScorer when is_session_level_scorer is $description', ({ serializedFields }) => {
       const config: ScorerConfig = {
-        name: 'Aligned Judge',
+        name: 'Test Scorer',
         serialized_scorer: JSON.stringify({
-          memory_augmented_judge_data: {
-            base_judge: {
-              name: 'quality',
-              instructions_judge_pydantic_data: {
-                instructions: 'Evaluate quality',
-              },
-            },
-            semantic_memory: [],
-            episodic_trace_ids: [],
-          },
+          ...serializedFields,
+          builtin_scorer_class: 'Safety',
         }),
+        builtin: { name: 'Test Scorer' },
       };
 
-      const result = transformScorerConfig(config) as LLMScorer;
+      const result = transformScorerConfig(config);
 
-      expect(result.type).toBe('llm');
-      expect(result.isMemoryAugmented).toBe(true);
-      expect(result.instructions).toBe('Evaluate quality');
-    });
-
-    it('should transform memory-augmented scorer with Guidelines base judge', () => {
-      const config: ScorerConfig = {
-        name: 'Aligned Guidelines Judge',
-        serialized_scorer: JSON.stringify({
-          memory_augmented_judge_data: {
-            base_judge: {
-              name: 'guidelines_judge',
-              builtin_scorer_class: 'Guidelines',
-              builtin_scorer_pydantic_data: {
-                guidelines: ['Be helpful', 'Be accurate'],
-                model: 'openai:/gpt-4o',
-              },
-            },
-            semantic_memory: [{ guideline_text: 'Distilled guideline 1', source_trace_ids: ['t1'] }],
-            episodic_trace_ids: ['t1'],
-          },
-        }),
-      };
-
-      const result = transformScorerConfig(config) as LLMScorer;
-
-      expect(result.type).toBe('llm');
-      expect(result.llmTemplate).toBe('Guidelines');
-      expect(result.is_instructions_judge).toBe(false);
-      expect(result.isMemoryAugmented).toBe(true);
-      expect(result.guidelines).toEqual(['Be helpful', 'Be accurate', 'Distilled guideline 1']);
-      expect(result.model).toBe('openai:/gpt-4o');
-    });
-
-    it('should transform memory-augmented scorer with builtin (non-guidelines) base judge', () => {
-      const config: ScorerConfig = {
-        name: 'Aligned Safety Judge',
-        serialized_scorer: JSON.stringify({
-          memory_augmented_judge_data: {
-            base_judge: {
-              name: 'safety',
-              builtin_scorer_class: 'Safety',
-              builtin_scorer_pydantic_data: {
-                model: 'openai:/gpt-4o',
-              },
-            },
-            semantic_memory: [],
-            episodic_trace_ids: [],
-          },
-        }),
-      };
-
-      const result = transformScorerConfig(config) as LLMScorer;
-
-      expect(result.type).toBe('llm');
-      expect(result.llmTemplate).toBe('Safety');
-      expect(result.is_instructions_judge).toBe(false);
-      expect(result.isMemoryAugmented).toBe(true);
-      expect(result.model).toBe('openai:/gpt-4o');
+      expect(result.isSessionLevelScorer).toBeUndefined();
     });
   });
 
@@ -522,25 +438,6 @@ describe('transformScheduledScorer', () => {
         model: 'openai:/gpt-4o-mini',
       });
       expect(result.custom).toEqual({});
-    });
-
-    it('should transform Custom template scorer without model', () => {
-      const scorer: LLMScorer = {
-        name: 'Test Instructions Scorer',
-        sampleRate: 80,
-        type: 'llm',
-        llmTemplate: 'Custom',
-        instructions: 'Evaluate the response quality',
-        is_instructions_judge: true,
-      };
-
-      const result = transformScheduledScorer(scorer);
-
-      const serialized = JSON.parse(result.serialized_scorer);
-      expect(serialized.instructions_judge_pydantic_data).toEqual({
-        instructions: 'Evaluate the response quality',
-      });
-      expect(serialized.instructions_judge_pydantic_data).not.toHaveProperty('model');
     });
 
     it('should transform Guidelines LLM scorer', () => {
@@ -644,7 +541,7 @@ describe('transformScheduledScorer', () => {
       });
     });
 
-    it('should transform Safety template with instructions as instructions judge', () => {
+    it('should transform Safety template with instructions as instructions judge with model', () => {
       const scorer: LLMScorer = {
         name: 'Safety Judge',
         sampleRate: 80,
@@ -665,26 +562,6 @@ describe('transformScheduledScorer', () => {
       expect(serialized.builtin_scorer_class).toBeNull();
       expect(result.custom).toEqual({});
       expect(result).not.toHaveProperty('builtin');
-    });
-
-    it('should transform RelevanceToQuery template with instructions as instructions judge', () => {
-      const scorer: LLMScorer = {
-        name: 'Relevance Judge',
-        sampleRate: 75,
-        type: 'llm',
-        llmTemplate: 'RelevanceToQuery',
-        instructions: 'Evaluate if the response is relevant to the query.',
-        is_instructions_judge: true,
-      };
-
-      const result = transformScheduledScorer(scorer);
-
-      const serialized = JSON.parse(result.serialized_scorer);
-      expect(serialized.instructions_judge_pydantic_data).toEqual({
-        instructions: 'Evaluate if the response is relevant to the query.',
-      });
-      expect(serialized.builtin_scorer_class).toBeNull();
-      expect(result.custom).toEqual({});
     });
 
     it('should transform non-editable template (Correctness) as built-in even with instructions', () => {

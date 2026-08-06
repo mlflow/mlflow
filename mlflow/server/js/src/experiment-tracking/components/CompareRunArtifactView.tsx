@@ -69,16 +69,16 @@ export const CompareRunArtifactView = ({
           overflow: 'hidden',
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
+        <div css={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', width: '100%' }}>
           {runUuids.map((runUuid, index) => (
             <div
               key={runUuid}
               style={{
-                width: `${colWidth}px`,
+                flex: `1 1 ${colWidth}px`,
+                minWidth: `${colWidth}px`,
                 borderBottom: `1px solid ${theme.colors.grey300}`,
                 padding: !artifactPath ? theme.spacing.md : 0,
                 overflow: 'auto',
-                whiteSpace: 'nowrap',
               }}
             >
               <ShowArtifactPage

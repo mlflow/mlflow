@@ -1,5 +1,5 @@
 import { describe, jest, beforeEach, it, expect } from '@jest/globals';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -8,7 +8,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 
 import { WorkspaceSelector } from './WorkspaceSelector';
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
-import { setActiveWorkspace } from '../utils/WorkspaceUtils';
+import { getActiveWorkspace, setActiveWorkspace } from '../utils/WorkspaceUtils';
 import { MemoryRouter, useNavigate, useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
 import { fetchAPI } from '../../common/utils/FetchUtils';
 
@@ -34,8 +34,14 @@ const useLocationMock = jest.mocked(useLocation);
 const useSearchParamsMock = jest.mocked(useSearchParams);
 const fetchAPIMock = jest.mocked(fetchAPI);
 
+const getWorkspaceSearchInput = () => {
+  const searchInput = document.querySelector('input');
+  expect(searchInput).not.toBeNull();
+  return searchInput as HTMLInputElement;
+};
+
 describe('WorkspaceSelector', () => {
-  const mockNavigate = jest.fn();
+  const mockNavigate = jest.fn() as ReturnType<typeof useNavigate>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -257,6 +263,178 @@ describe('WorkspaceSelector', () => {
     expect(trigger).toBeInTheDocument();
   });
 
-  // Note: Workspace validation tests moved to MlflowRouter tests
-  // WorkspaceSelector is now a pure UI component without validation logic
+  it('submits a typed valid workspace when Enter is pressed in search', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+    expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments?workspace=team-b');
+  });
+
+  it('clicks the typed workspace action to use the same navigation flow', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+    await userEvent.click(screen.getByText('Go to workspace "team-b"'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments?workspace=team-b');
+  });
+
+  it('trims surrounding spaces before showing the typed workspace action', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: '  team-b  ' } });
+
+    expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments?workspace=team-b');
+  });
+
+  it('does not show the typed workspace action when there is an exact workspace match', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }, { name: 'team-b' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'team-a' } });
+
+    expect(screen.queryByText('Go to workspace "team-a"')).not.toBeInTheDocument();
+  });
+
+  it('shows the typed workspace action alongside partial matches', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'workspace-aaa' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'workspace-a' } });
+
+    expect(screen.getByText('workspace-aaa')).toBeInTheDocument();
+    expect(screen.getByText('Go to workspace "workspace-a"')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Go to workspace "workspace-a"'));
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments?workspace=workspace-a');
+  });
+
+  it('keeps matching listed workspaces visible when the search has surrounding spaces', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }, { name: 'team-b' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: '  team-a  ' } });
+
+    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(screen.queryByText('Go to workspace "team-a"')).not.toBeInTheDocument();
+  });
+
+  it('does not submit invalid typed workspace names', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'invalid workspace' } });
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+    expect(screen.queryByText('Go to workspace "invalid workspace"')).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps manual entry available when loading workspaces fails', async () => {
+    fetchAPIMock.mockRejectedValue(new Error('Server error'));
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'team-b' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load workspaces')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Go to workspace "team-b"')).toBeInTheDocument();
+
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments?workspace=team-b');
+  });
+
+  it('flips the active workspace without navigating when on a global route', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+    useLocationMock.mockReturnValue({
+      pathname: '/account',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'default',
+    });
+    useSearchParamsMock.mockReturnValue([new URLSearchParams(''), jest.fn()]);
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('default')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    const searchInput = getWorkspaceSearchInput();
+    fireEvent.change(searchInput, { target: { value: 'team-a' } });
+
+    await userEvent.click(screen.getByText('team-a'));
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(getActiveWorkspace()).toBe('team-a');
+  });
 });

@@ -1,7 +1,3 @@
-"""
-Tests for mlflow.tracing.enablement module
-"""
-
 from unittest import mock
 
 import pytest

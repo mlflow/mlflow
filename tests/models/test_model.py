@@ -11,7 +11,7 @@ import pandas as pd
 import pydantic
 import pytest
 import sklearn.datasets
-import sklearn.neighbors
+import sklearn.linear_model
 from packaging.version import Version
 from scipy.sparse import csc_matrix
 
@@ -41,9 +41,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 def test_model_save_load():
@@ -258,6 +258,22 @@ def test_model_info_with_model_version(tmp_path):
         assert model_info.registered_model_version is None
 
 
+def test_model_log_tags_propagated_to_registered_model_version(tmp_path):
+    experiment_id = mlflow.create_experiment("test_tags", artifact_location=str(tmp_path))
+    tags = {"stage": "training", "framework": "test"}
+    with mlflow.start_run(experiment_id=experiment_id):
+        model_info = Model.log(
+            "model",
+            TestFlavor,
+            registered_model_name="model_with_tags",
+            tags=tags,
+        )
+
+    client = mlflow.MlflowClient()
+    model_version = client.get_model_version("model_with_tags", model_info.registered_model_version)
+    assert model_version.tags == tags
+
+
 def test_model_metadata():
     with TempDir(chdr=True) as tmp:
         metadata = {"metadata_key": "metadata_value"}
@@ -438,12 +454,12 @@ def test_model_load_input_example_failures():
         loaded_example = loaded_model.load_input_example(local_path)
         assert loaded_example is not None
 
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(os.path.join(local_path, "folder_which_does_not_exist"))
 
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         os.remove(path)
-        with pytest.raises(MlflowException, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             loaded_model.load_input_example(local_path)
 
 

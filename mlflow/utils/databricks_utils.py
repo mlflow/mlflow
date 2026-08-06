@@ -1,10 +1,10 @@
 import functools
 import getpass
-import importlib.metadata
 import json
 import logging
 import os
 import platform
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -132,6 +132,13 @@ def _get_dbutils():
         raise _NoDbutilsError
     except KeyError:
         raise _NoDbutilsError
+
+
+def _get_runtime_integration_client():
+    from dbruntime import UserNamespaceInitializer
+
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    return driver_connection.runtime_integration_client
 
 
 class _NoDbutilsError(Exception):
@@ -322,6 +329,61 @@ class DBConnectUDFSandboxInfo:
 _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 
 
+# DBR ships only a handful of minor versions per major, so this sentinel sorts a `{major}.x`
+# minor above any real cut minor while keeping the parsed version a plain `tuple[int, int]`.
+_UNCUT_MINOR = 999
+
+# ASCII-only decimal digits; `str.isdigit()`/`isdecimal()` also accept non-ASCII digits.
+_ASCII_DIGITS = re.compile(r"[0-9]+")
+
+
+def _parse_minor_token(minor_token: str) -> int:
+    """
+    Parse a Databricks runtime minor-version token into a comparable int.
+
+    A numeric token (``'4'``) parses as-is. In DBR, an ``x`` (or ``x-<suffix>`` such as
+    ``x-photon-scala2``) minor denotes the latest *uncut* minor of a major, which is always ahead
+    of any already-released minor, so it maps to ``_UNCUT_MINOR`` (a ceiling) — ensuring
+    ``{major}.x`` sorts above every concrete minor. Any other token (e.g. ``'yyy'``) is malformed
+    and raises ``ValueError`` so callers surface it rather than silently treating it as uncut.
+
+    Matching uses an explicit ASCII-digit regex rather than ``str.isdigit()``, which also accepts
+    non-ASCII digits (e.g. superscripts, other scripts) that DBR version strings never contain.
+    """
+    if _ASCII_DIGITS.fullmatch(minor_token):
+        return int(minor_token)
+    if minor_token == "x" or minor_token.startswith("x-"):
+        return _UNCUT_MINOR
+    raise ValueError(f"Unrecognized Databricks runtime minor version token: {minor_token!r}")
+
+
+def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
+    """
+    Extract the leading ``(major, minor)`` integer components from a raw Databricks
+    runtime version string returned by ``current_version().dbr_version``.
+
+    Handles both the legacy ``'{major}.{minor}.x-scala...'`` format and the newer
+    ``'{major}.x-<suffix>'`` format, e.g.::
+
+        '15.4.x-scala2.12'            -> (15, 4)
+        '18.x-aarch64-photon-scala2'  -> (18, 999)
+
+    In DBR, ``{major}.x`` denotes the latest *uncut* minor of that major, which is always ahead
+    of any already-released minor. So a non-numeric minor (e.g. ``'x'``) maps to ``_UNCUT_MINOR``
+    (a ceiling), ensuring ``{major}.x`` compares greater than any concrete ``{major}.{minor}``.
+
+    Note: the SQL ``dbr_version`` string always carries a minor (or ``.x``), so a bare major
+    (``'18'``) is not expected here and is tolerated as uncut. This differs from
+    ``DatabricksRuntimeVersion.parse``, whose env-var input treats a bare major as malformed and
+    raises — the two entry points parse different-shaped inputs, so the contracts intentionally
+    differ.
+    """
+    parts = dbr_version.split(".")
+    major = int(parts[0])
+    minor = _parse_minor_token(parts[1]) if len(parts) > 1 else _UNCUT_MINOR
+    return major, minor
+
+
 def get_dbconnect_udf_sandbox_info(spark):
     """
     Get Databricks UDF sandbox info which includes the following fields:
@@ -340,10 +402,14 @@ def get_dbconnect_udf_sandbox_info(spark):
     ):
         return _dbconnect_udf_sandbox_info_cache
 
-    # version is like '15.4.x-scala2.12'
+    # version is like '15.4.x-scala2.12' (legacy) or '18.x-aarch64-photon-scala2' (newer images).
     version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-    major, minor, *_rest = version.split(".")
-    runtime_version = f"{major}.{minor}"
+    major, minor = parse_dbr_runtime_major_minor(version)
+    # Render an uncut minor as the honest '{major}.x' (not '{major}.999'); both round-trip through
+    # `parse_dbr_runtime_major_minor`. In the serverless-connect branch below this value also
+    # becomes `image_version`, where being dashless keeps `_verify_prebuilt_env`'s archive-name
+    # `split("-")` intact. (The Databricks-runtime branch sets `image_version` independently.)
+    runtime_version = f"{major}.x" if minor == _UNCUT_MINOR else f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
@@ -501,8 +567,12 @@ def get_repl_id():
     Returns:
         The ID of the current Databricks Python REPL.
     """
-    # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
-    # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
+    try:
+        return _get_runtime_integration_client().getReplId()
+    except Exception:
+        pass
+
+    # Fallback for runtimes without runtime_integration_client: use entry_point directly.
     try:
         dbutils = _get_dbutils()
         repl_id = dbutils.entry_point.getReplId()
@@ -765,7 +835,6 @@ def get_databricks_host_creds(server_uri=None):
 
     .. Warning:: This API is deprecated. In the future it might be removed.
     """
-
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 
@@ -774,12 +843,13 @@ def get_databricks_host_creds(server_uri=None):
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
-                WorkspaceClient(host=config.host, token=config.token)
+                ws = WorkspaceClient(host=config.host, token=config.token)
                 return MlflowHostCreds(
                     config.host,
                     token=config.token,
                     use_databricks_sdk=True,
                     use_secret_scope_token=True,
+                    workspace_id=getattr(ws.config, "workspace_id", None),
                 )
             except Exception as e:
                 raise MlflowException(
@@ -798,7 +868,8 @@ def get_databricks_host_creds(server_uri=None):
             # it will try to read authentication information by the following ways:
             # 1. Read dynamic generated token via databricks `dbutils`.
             # 2. parse relevant environment variables (such as DATABRICKS_HOST + DATABRICKS_TOKEN
-            #    or DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET)
+            #    or DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET
+            #    or DATABRICKS_HOST + DATABRICKS_AUTH_TYPE + OIDC env vars)
             #    to get authentication information
             # 3. parse ~/.databrickscfg file (generated by databricks-CLI command-line tool)
             #    to get authentication information.
@@ -806,21 +877,55 @@ def get_databricks_host_creds(server_uri=None):
             # support various authentication ways, so that it does not provide API
             # to get credential values. Instead, we can use ``WorkspaceClient``
             # API to invoke databricks shard restful APIs.
-            WorkspaceClient(profile=profile)
-            use_databricks_sdk = True
-            databricks_auth_profile = profile
+            #
+            # Only pass profile if explicitly set. Passing profile=None causes the SDK to skip
+            # environment-variable-based auth methods like OIDC (file-oidc auth type).
+            ws = WorkspaceClient(profile=profile) if profile else WorkspaceClient()
         except Exception as e:
-            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            _logger.warning(
+                f"Failed to create databricks SDK workspace client, error: {e!r}. "
+                "Falling back to legacy authentication."
+            )
             use_databricks_sdk = False
             databricks_auth_profile = None
+            # Config resolves workspace_id from env vars, .databrickscfg, or host
+            # discovery without requiring valid credentials, so try reading it even
+            # when WorkspaceClient auth fails (needed for SPOG header propagation).
+            try:
+                from databricks.sdk.config import Config as DatabricksConfig
+
+                workspace_id = getattr(DatabricksConfig(profile=profile), "workspace_id", None)
+            except Exception:
+                workspace_id = None
+        else:
+            use_databricks_sdk = True
+            databricks_auth_profile = profile
+            # workspace_id is best-effort. Older databricks-sdk releases (<0.30) don't have
+            # Config.workspace_id; pre-fix versions of this function let the resulting
+            # AttributeError nuke `use_databricks_sdk`, which made OAuth M2M fall through
+            # to the legacy auth path and surface a misleading "set MLFLOW_ENABLE_DB_SDK"
+            # error to the user even though they had already set it.
+            workspace_id = getattr(ws.config, "workspace_id", None)
     else:
         use_databricks_sdk = False
         databricks_auth_profile = None
+        workspace_id = None
 
-    config = _get_databricks_creds_config(server_uri)
-
-    if not config:
-        _fail_malformed_databricks_auth(profile)
+    try:
+        config = _get_databricks_creds_config(server_uri)
+    except MlflowException:
+        # Legacy credential providers require a token or password and fail for SDK-only
+        # auth flows like OIDC, Azure CLI, or Azure Managed Identity. When the SDK
+        # already authenticated, fall back to the SDK's resolved host and skip MLflow's
+        # legacy credential fields (the SDK handles auth internally on each request).
+        if use_databricks_sdk:
+            return MlflowHostCreds(
+                ws.config.host,
+                use_databricks_sdk=True,
+                databricks_auth_profile=databricks_auth_profile,
+                workspace_id=workspace_id,
+            )
+        raise
 
     return MlflowHostCreds(
         config.host,
@@ -832,6 +937,7 @@ def get_databricks_host_creds(server_uri=None):
         client_secret=config.client_secret,
         use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
+        workspace_id=workspace_id,
     )
 
 
@@ -847,15 +953,14 @@ def check_databricks_sdk_supports_scopes():
         MlflowException: If databricks-sdk version is < 0.74.0
     """
 
-    try:
-        sdk_version = importlib.metadata.version("databricks-sdk")
-    except importlib.metadata.PackageNotFoundError:
+    sdk_version = mlflow.utils.get_installed_version("databricks-sdk")
+    if sdk_version is None:
         raise MlflowException.invalid_parameter_value(
-            "databricks-sdk is not installed. "
+            "databricks-sdk is not installed or its version could not be determined. "
             "Please install with: pip install databricks-sdk>=0.74.0",
         )
 
-    if Version(sdk_version) < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
+    if sdk_version < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
         raise MlflowException.invalid_parameter_value(
             f"The 'scopes' parameter requires databricks-sdk>="
             f"{_DATABRICKS_SDK_SCOPES_MIN_VERSION}. You have version {sdk_version}. "
@@ -878,7 +983,10 @@ def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | 
         config = TrackingURIConfigProvider(server_uri).get_config()
         return WorkspaceClient(host=config.host, token=config.token, **kwargs).config
 
-    return WorkspaceClient(profile=profile, **kwargs).config
+    # Only pass profile if explicitly set to avoid breaking env-based auth (OIDC, Azure CLI, etc.)
+    if profile:
+        kwargs["profile"] = profile
+    return WorkspaceClient(**kwargs).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -1286,7 +1394,7 @@ def get_databricks_env_vars(tracking_uri):
 
 def _get_databricks_serverless_env_vars() -> dict[str, str]:
     """
-    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    Returns the environment variables required to initialize WorkspaceClient in a subprocess
     with serverless compute.
 
     Note:
@@ -1324,14 +1432,19 @@ class DatabricksRuntimeVersion(NamedTuple):
             if dbr_version_splits[0] == "client":
                 is_client_image = True
                 major = int(dbr_version_splits[1])
-                minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
+                has_minor = len(dbr_version_splits) > 2
+                minor = _parse_minor_token(dbr_version_splits[2]) if has_minor else 0
             else:
                 is_client_image = False
                 major = int(dbr_version_splits[0])
-                minor = int(dbr_version_splits[1])
+                # A missing minor (e.g. bare "13") is still an error; a present but non-numeric
+                # minor (e.g. "18.x-photon-scala2") is the latest uncut minor of that major.
+                minor = _parse_minor_token(dbr_version_splits[1])
             return cls(is_client_image, major, minor, is_gpu_image)
-        except Exception:
-            raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to parse databricks runtime version '{dbr_version}'."
+            ) from e
 
 
 def get_databricks_runtime_major_minor_version():
@@ -1473,30 +1586,28 @@ def get_databricks_nfs_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplNFSTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplNFSTempDir` will be deprecated for this case.
-            return entry_point.getUserNFSTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserNFSTempDir()
+    except Exception:
+        return entry_point.getReplNFSTempDir()
 
 
 def get_databricks_local_temp_dir():
     entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
         return entry_point.getReplLocalTempDir()
-    else:
-        try:
-            # If it is not ROOT user, it means the code is running in Safe-spark.
-            # In this case, we should get temporary directory of current user.
-            # and `getReplLocalTempDir` will be deprecated for this case.
-            return entry_point.getUserLocalTempDir()
-        except Exception:
-            # fallback
-            return entry_point.getReplLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserLocalTempDir()
+    except Exception:
+        return entry_point.getReplLocalTempDir()
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):

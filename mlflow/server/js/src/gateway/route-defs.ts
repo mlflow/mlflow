@@ -12,7 +12,7 @@ export const getGatewayRouteDefs = () => {
       children: [
         {
           path: 'api-keys',
-          element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
+          element: createLazyRouteElement(() => import('./pages/RedirectApiKeysToSettings')),
           pageId: GatewayPageId.apiKeysPage,
           handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
         },

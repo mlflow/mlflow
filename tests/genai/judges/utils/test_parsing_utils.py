@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
@@ -96,6 +98,27 @@ def test_strip_markdown_closing_with_trailing_content():
 ```
 This text should not be included"""
     expected = '{"result": "yes"}'
+    assert _strip_markdown_code_blocks(response) == expected
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            'Here is the result:\n```json\n{"result": "yes"}\n```',
+            '{"result": "yes"}',
+        ),
+        (
+            'Some preamble text.\n```json\n{\n  "result": "yes",\n  "rationale": "good"\n}\n```',
+            '{\n  "result": "yes",\n  "rationale": "good"\n}',
+        ),
+        (
+            'Preamble\n```json\n{"first": true}\n```\nMiddle\n```json\n{"second": true}\n```',
+            '{"first": true}',
+        ),
+    ],
+)
+def test_strip_markdown_embedded_code_block(response: str, expected: str):
     assert _strip_markdown_code_blocks(response) == expected
 
 

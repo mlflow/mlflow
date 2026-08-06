@@ -1,4 +1,4 @@
-import { Button, PencilIcon } from '@databricks/design-system';
+import { Button, Overflow, PencilIcon, useDesignSystemTheme } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
@@ -12,6 +12,7 @@ export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
   },
 }) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
 
   const { onEditTags } = meta as ExperimentTableMetadata;
 
@@ -19,12 +20,14 @@ export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
   const containsTags = visibleTagList.length > 0;
 
   return (
-    <div css={{ display: 'flex' }}>
-      <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex' }}>
-        {visibleTagList?.map((tag) => (
-          <KeyValueTag key={tag.key} tag={tag} />
-        ))}
-      </div>
+    <div css={{ display: 'flex', alignItems: 'center' }}>
+      {containsTags && (
+        <Overflow noMargin className="experiment-tags-overflow">
+          {visibleTagList.map((tag) => (
+            <KeyValueTag key={tag.key} tag={tag} />
+          ))}
+        </Overflow>
+      )}
       <Button
         componentId="mlflow.experiment.list.tag.add"
         size="small"
@@ -36,6 +39,7 @@ export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
         })}
         css={{
           flexShrink: 0,
+          marginLeft: containsTags ? theme.spacing.sm : 0,
           opacity: 0,
           '[role=row]:hover &': {
             opacity: 1,

@@ -12,7 +12,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class MosaicMLProvider(BaseProvider):
-    NAME = "MosaicML"
+    DISPLAY_NAME = "MosaicML"
     CONFIG_TYPE = MosaicMLConfig
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:

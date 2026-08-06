@@ -426,6 +426,7 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
@@ -550,6 +551,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -738,7 +740,10 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                     f"with schema '{input_schema}'. "
                     f"Error: {e}"
                 )
-            raise MlflowException.invalid_parameter_value(message)
+            # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
+            raise MlflowException.invalid_parameter_value(
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
+            )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -1299,7 +1304,6 @@ def _load_model_or_server(
             port=server_port,
             host="127.0.0.1",
             timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-            enable_mlserver=False,
             synchronous=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -1963,7 +1967,7 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
         versions or different platform machines. As such, if you connect to a different cluster
         that is running a different runtime version on Databricks, you will need to execute this
         API in a notebook and retrieve the generated archive to your local machine. Each
-        environment snapshot is unique to the the model, the runtime version of your remote
+        environment snapshot is unique to the model, the runtime version of your remote
         Databricks cluster, and the specification of the udf execution environment.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
         whether the spark UDF sandbox environment matches the prebuilt env requirements and will
@@ -2260,10 +2264,19 @@ def spark_udf(
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
-    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
-    # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it.
+    # For Databricks Serverless runtime (notebook REPL), spark.addArtifact may not reliably
+    # make archives available to UDF executor sandboxes. As a temporary workaround, set
+    # _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
+    # and let each executor fetch the model directly from the MLflow artifact store instead.
+    use_dbconnect_artifact = (
+        is_dbconnect_mode
+        and not is_in_databricks_shared_cluster_runtime()
+        and not (
+            is_in_databricks_serverless_runtime()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+        )
+    )
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
@@ -2273,15 +2286,17 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading (major, minor) components instead of constructing a `Version`,
+        # which crashes with `InvalidVersion` on newer image strings whose minor is non-numeric
+        # (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor denotes the latest uncut minor of that
+        # major, always ahead of any released minor, so it sorts above every concrete minor.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (
@@ -2654,7 +2669,6 @@ e.g., struct<a:int, b:array<int>>.
                         port=server_port,
                         host=host,
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                        enable_mlserver=False,
                         synchronous=False,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,

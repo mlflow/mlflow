@@ -3,7 +3,7 @@ import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
 
 const setupMockFetch = () => {
-  // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable, global-require
+  // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable
   require('whatwg-fetch');
 };
 
@@ -13,6 +13,8 @@ configure({ adapter: new Adapter() });
 // Included to mock local storage in JS tests, see docs at
 // https://www.npmjs.com/package/jest-localstorage-mock#in-create-react-app
 require('jest-localstorage-mock');
+// Included to mock performance API in tests
+require('../__mocks__/performance');
 
 global.setImmediate = (cb) => {
   return setTimeout(cb, 0);

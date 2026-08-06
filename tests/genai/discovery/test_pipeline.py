@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +20,7 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
+    _dedup_issues,
     _is_non_issue,
     build_issue_discovery_scorer,
     discover_issues,
@@ -26,6 +28,7 @@ from mlflow.genai.discovery.pipeline import (
 from mlflow.genai.discovery.utils import get_session_id, verify_scorer
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 from tests.genai.discovery.conftest import _TestScorer
@@ -49,6 +52,37 @@ def _mock_start_run(**kwargs):
 
 def _triage_eval(run_id="run-1"):
     return EvaluationResult(run_id=run_id, metrics={}, result_df=None)
+
+
+def create_identified_issue(**kwargs) -> _IdentifiedIssue:
+    defaults = {
+        "name": "Issue: Test issue",
+        "description": "A test issue",
+        "root_cause": "A test root cause",
+        "example_indices": [0],
+        "severity": "high",
+        "categories": [],
+        "category_rationale": "",
+    }
+    defaults.update(kwargs)
+    return _IdentifiedIssue(**defaults)
+
+
+def _schema_contains_key(node, key: str) -> bool:
+    if isinstance(node, dict):
+        return key in node or any(_schema_contains_key(value, key) for value in node.values())
+    if isinstance(node, list):
+        return any(_schema_contains_key(value, key) for value in node)
+    return False
+
+
+def test_identified_issue_response_format_is_strict_schema():
+    response_format = pydantic_to_response_format(_IdentifiedIssue)
+    schema = response_format["json_schema"]["schema"]
+
+    assert set(schema["required"]) == set(schema["properties"])
+    assert schema["additionalProperties"] is False
+    assert not _schema_contains_key(schema, "default")
 
 
 def test_discover_issues_no_experiment():
@@ -110,6 +144,7 @@ def test_discover_issues_full_pipeline(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(name="slow_response", description="Responses take too long")
@@ -172,6 +207,7 @@ def test_discover_issues_low_severity_issues_filtered(make_trace):
         example_indices=[0],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -321,6 +357,7 @@ def test_is_non_issue(name, severity, expected):
         example_indices=[0],
         severity=severity,
         categories=[],
+        category_rationale="",
     )
     assert _is_non_issue(issue) == expected
 
@@ -341,6 +378,7 @@ def test_discover_issues_filters_non_issues(make_trace, issue_name):
         example_indices=[0, 1, 2],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with mlflow.start_run() as run:
@@ -605,6 +643,7 @@ def test_recluster_merges_similar_singletons():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="Issue B",
@@ -613,6 +652,7 @@ def test_recluster_merges_similar_singletons():
             example_indices=[1],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "[tool_call] API timeout", 1: "[tool_call] API timeout"}
@@ -624,6 +664,7 @@ def test_recluster_merges_similar_singletons():
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -665,6 +706,7 @@ def test_recluster_keeps_unmerged_singletons():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="Issue B",
@@ -673,6 +715,7 @@ def test_recluster_keeps_unmerged_singletons():
             example_indices=[1],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "[path_a] symptom a", 1: "[path_b] symptom b"}
@@ -698,6 +741,7 @@ def test_recluster_single_singleton_returns_as_is():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     result = recluster_singletons(singletons, {0: "label"}, [], "m", 25, categories=[])
@@ -724,6 +768,7 @@ def test_recluster_low_severity_merge_keeps_originals():
             example_indices=[0],
             severity="low",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="B",
@@ -732,6 +777,7 @@ def test_recluster_low_severity_merge_keeps_originals():
             example_indices=[1],
             severity="low",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "label a", 1: "label b"}
@@ -743,6 +789,7 @@ def test_recluster_low_severity_merge_keeps_originals():
         example_indices=[0, 1],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -924,6 +971,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(name="slow_response", description="Responses take too long")
@@ -1037,6 +1085,7 @@ def test_discover_issues_filters_invalid_categories(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=["hallucination", "invalid_category", "tool_error", "another_invalid"],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(
@@ -1112,5 +1161,131 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     mock_verify.assert_called_once()
     call_kwargs = mock_verify.call_args.kwargs
     assert call_kwargs["session"] is not None
-
     assert all(get_session_id(t) is not None for t in call_kwargs["session"])
+
+
+def _make_dedup_response(
+    groups: list[list[int]],
+    names: list[str] | None = None,
+    descriptions: list[str] | None = None,
+    root_causes: list[str] | None = None,
+):
+    group_objects = [
+        {
+            "indices": indices,
+            "name": names[i] if names and i < len(names) else "Issue: Merged issue",
+            "description": descriptions[i]
+            if descriptions and i < len(descriptions)
+            else "Merged description",
+            "root_cause": root_causes[i]
+            if root_causes and i < len(root_causes)
+            else "Merged root cause",
+        }
+        for i, indices in enumerate(groups)
+    ]
+    return _make_litellm_response(json.dumps({"groups": group_objects}))
+
+
+def test_dedup_issues_empty():
+    assert _dedup_issues([]) == []
+
+
+def test_dedup_issues_single():
+    issue = create_identified_issue()
+    result = _dedup_issues([issue])
+    assert result == [issue]
+
+
+def test_dedup_issues_similar_issues_merged():
+    issue1 = create_identified_issue(
+        example_indices=[0], severity="low", categories=["correctness"]
+    )
+    issue2 = create_identified_issue(example_indices=[1], severity="high", categories=["latency"])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1}
+    assert result[0].severity == "high"
+    assert result[0].categories == ["correctness", "latency"]
+    # LLM-generated consolidated fields are applied
+    assert result[0].name == "Issue: Merged issue"
+    assert result[0].description == "Merged description"
+    assert result[0].root_cause == "Merged root cause"
+
+
+def test_dedup_issues_consolidated_fields_from_llm():
+    issue1 = create_identified_issue(name="Issue: Foo", description="desc 1", root_cause="rc 1")
+    issue2 = create_identified_issue(name="Issue: Bar", description="desc 2", root_cause="rc 2")
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(
+            [[0, 1]],
+            names=["Issue: Consolidated name"],
+            descriptions=["Unified description"],
+            root_causes=["Common root cause"],
+        ),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert result[0].name == "Issue: Consolidated name"
+    assert result[0].description == "Unified description"
+    assert result[0].root_cause == "Common root cause"
+
+
+def test_dedup_issues_dissimilar_issues_not_merged():
+    issue1 = create_identified_issue(example_indices=[0])
+    issue2 = create_identified_issue(example_indices=[1])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 2
+
+
+def test_dedup_issues_merges_example_indices_deduped():
+    issue1 = create_identified_issue(example_indices=[0, 1])
+    issue2 = create_identified_issue(example_indices=[1, 2])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1, 2}
+
+
+def test_dedup_issues_categories_preserve_order_and_uniqueness():
+    issue1 = create_identified_issue(categories=["correctness", "latency"])
+    issue2 = create_identified_issue(categories=["latency", "hallucination"])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert result[0].categories == ["correctness", "latency", "hallucination"]
+
+
+def test_dedup_issues_overlapping_groups_merged_transitively():
+    issue0 = create_identified_issue(example_indices=[0], severity="low")
+    issue1 = create_identified_issue(example_indices=[1], severity="medium")
+    issue2 = create_identified_issue(example_indices=[2], severity="high")
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1], [1, 2]]),
+    ):
+        result = _dedup_issues([issue0, issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1, 2}
+    assert result[0].severity == "high"
+
+
+def test_dedup_issues_llm_failure_returns_original():
+    issues = [create_identified_issue(example_indices=[i]) for i in range(3)]
+    with patch("mlflow.genai.discovery.pipeline._call_llm", side_effect=Exception("API error")):
+        result = _dedup_issues(issues)
+    assert result == issues

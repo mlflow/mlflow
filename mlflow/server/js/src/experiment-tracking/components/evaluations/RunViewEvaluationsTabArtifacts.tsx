@@ -14,7 +14,7 @@ import type {
 } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
-  GenAiTracesTable,
+  GenAiTracesTableDeprecated,
   GenAiTracesMarkdownConverterProvider,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
@@ -24,8 +24,8 @@ import {
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { shouldEnableImprovedEvalRunsComparison } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -33,12 +33,14 @@ export const RunViewEvaluationsTabArtifacts = ({
   runTags,
   runDisplayName,
   data,
+  actions,
 }: {
   experimentId: string;
   runUuid: string;
   runTags?: Record<string, KeyValueEntity>;
   runDisplayName: string;
   data: RunEvaluationTracesDataEntry[];
+  actions?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -46,6 +48,8 @@ export const RunViewEvaluationsTabArtifacts = ({
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
 
   const noEvaluationTablesLogged = data?.length === 0;
+  const showCompareSelector = !shouldEnableImprovedEvalRunsComparison();
+  const showToolbar = showCompareSelector || Boolean(actions);
 
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
@@ -74,7 +78,7 @@ export const RunViewEvaluationsTabArtifacts = ({
   };
 
   /**
-   * Determine whether to render the component from the shared codebase (GenAiTracesTable)
+   * Determine whether to render the component from the shared codebase (GenAiTracesTableDeprecated)
    * or the legacy one from the local codebase (EvaluationsOverview).
    */
   const getOverviewTableComponent = () => {
@@ -93,12 +97,14 @@ export const RunViewEvaluationsTabArtifacts = ({
     } as const;
     return (
       <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-        <GenAiTracesTable {...componentProps} />
+        <GenAiTracesTableDeprecated {...componentProps} />
       </GenAiTracesMarkdownConverterProvider>
     );
   };
 
   if (noEvaluationTablesLogged) {
+    // Toolbar actions operate on logged evaluation results, so keep the empty state focused
+    // when no artifact table rows exist.
     return (
       <div css={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Empty
@@ -122,19 +128,29 @@ export const RunViewEvaluationsTabArtifacts = ({
         overflowY: 'hidden',
       }}
     >
-      {!shouldEnableImprovedEvalRunsComparison() && (
+      {showToolbar && (
         <div
           css={{
             width: '100%',
             padding: `${theme.spacing.xs}px 0`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
           }}
         >
-          <EvaluationRunCompareSelector
-            experimentId={experimentId}
-            currentRunUuid={runUuid}
-            compareToRunUuid={compareToRunUuid}
-            setCompareToRunUuid={setCompareToRunUuid}
-          />
+          {showCompareSelector && (
+            <div css={{ flex: 1, minWidth: 0 }}>
+              <EvaluationRunCompareSelector
+                experimentId={experimentId}
+                currentRunUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
+                setCompareToRunUuid={setCompareToRunUuid}
+              />
+            </div>
+          )}
+          {actions && (
+            <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>{actions}</div>
+          )}
         </div>
       )}
       {getOverviewTableComponent()}

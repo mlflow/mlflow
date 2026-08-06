@@ -1,12 +1,12 @@
 import { compact } from 'lodash';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 
-import { Drawer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { CompareModelTraceExplorer } from '../../model-trace-explorer/CompareModelTraceExplorer';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { useGetTracesById } from '../../model-trace-explorer/hooks/useGetTracesById';
-import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
 // prettier-ignore
 export const GenAITraceComparisonModal = ({
@@ -17,6 +17,7 @@ export const GenAITraceComparisonModal = ({
   onClose?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { DrawerComponent } = useContext(GenAITracesTableContext);
 
   const queryParams = undefined;
   const { data: fetchedTraces, isLoading } = useGetTracesById(traceIds, queryParams);
@@ -24,7 +25,7 @@ export const GenAITraceComparisonModal = ({
   const modelTraces = useMemo(() => compact(fetchedTraces), [fetchedTraces]);
 
   return (
-    <AssistantAwareDrawer.Root
+    <DrawerComponent.Root
       open
       modal
       onOpenChange={(open) => {
@@ -33,7 +34,7 @@ export const GenAITraceComparisonModal = ({
         }
       }}
     >
-      <AssistantAwareDrawer.Content
+      <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
@@ -71,7 +72,7 @@ export const GenAITraceComparisonModal = ({
             }}
           />
         )}
-      </AssistantAwareDrawer.Content>
-    </AssistantAwareDrawer.Root>
+      </DrawerComponent.Content>
+    </DrawerComponent.Root>
   );
 };

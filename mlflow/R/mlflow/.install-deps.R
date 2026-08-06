@@ -1,7 +1,17 @@
 # Increase the timeout length for `utils::download.file` because the default value (60 seconds)
 # could be too short to download large packages such as h2o.
 options(timeout=300)
-install.packages("https://cran.r-project.org/src/contrib/Archive/devtools/devtools_2.4.6.tar.gz", repos = NULL, type = "source", dependencies = TRUE)
+# TODO: Remove once pak 0.9.4 is live on packagemanager.rstudio.com's focal/latest mirror.
+# The mirror currently serves pak 0.9.3-1, which bundles a broken cli 3.6.6 that fails to
+# load on R 4.2.1 with: undefined symbol: R_getVarEx
+# See https://github.com/r-lib/pak/issues/860
+install.packages("pak", repos = sprintf(
+  "https://r-lib.github.io/p/pak/stable/%s/%s/%s",
+  .Platform$pkgType,
+  R.Version()$os,
+  R.Version()$arch
+))
+install.packages("devtools", dependencies = TRUE)
 devtools::install_version("usethis", "3.2.1")
 devtools::install_dev_deps(dependencies = TRUE)
 
@@ -15,4 +25,4 @@ devtools::install_git("https://github.com/smurching/Rd2md", ref = "ac7b22bb74521
 devtools::install_version("roxygen2", "7.1.2")
 # The latest version of git2r (0.35.0) doesn't work with the rocker/r-ver:4.2.1 docker image
 devtools::install_version("git2r", "0.33.0")
-devtools::install_version("rmarkdown", "2.30")
+install.packages("rmarkdown", repos = "https://cloud.r-project.org")

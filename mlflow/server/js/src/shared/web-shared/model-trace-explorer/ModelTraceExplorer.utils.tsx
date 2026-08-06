@@ -41,7 +41,13 @@ import type {
   ModelTraceLocation,
   ModelTraceInputAudio,
 } from './ModelTrace.types';
-import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
+import {
+  ModelSpanType,
+  ModelIconType,
+  MLFLOW_TRACE_SCHEMA_VERSION_KEY,
+  SpanLogLevel,
+  type SpanCostInfo,
+} from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
 import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
@@ -64,7 +70,8 @@ import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
-import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
+import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
+import Utils from '../../../common/utils/Utils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -81,17 +88,16 @@ import {
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
+import { getExperimentPageTracesTabRoute } from './routes';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
-  // TODO: display error notification in OSS
-  return;
+  Utils.displayGlobalErrorNotification(errorMessage);
 };
 
 export const displaySuccessNotification = (successMessage: string) => {
-  // TODO: display success notification in OSS
-  return;
+  Utils.displayGlobalInfoNotification(successMessage);
 };
 
 export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
@@ -164,6 +170,28 @@ export function tryDeserializeAttribute(value: string): any {
   }
 }
 
+export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
+
+// Normalize the raw `mlflow.spanLogLevel` attribute value to a SpanLogLevel.
+// The wire shape varies by endpoint:
+//   - artifact endpoint: JSON-stringified int (e.g. "30")
+//   - V3 traces/get + V4 OTLP: int_value extracted as a JS number (e.g. 30)
+// Returns undefined when the attribute is absent or the value is not numeric.
+export const parseSpanLogLevel = (raw: unknown): SpanLogLevel | undefined => {
+  if (raw === undefined || raw === null) return undefined;
+  const parsed = typeof raw === 'number' ? raw : tryDeserializeAttribute(String(raw));
+  return typeof parsed === 'number' ? (parsed as SpanLogLevel) : undefined;
+};
+
+// Returns the span's classified severity. Spans without an explicit level are
+// treated as DEBUG so that pre-feature traces (no `mlflow.spanLogLevel`
+// attribute) and spans from third-party tracers that don't yet stamp a level
+// remain visible at the default threshold and don't disappear unexpectedly
+// when a user bumps the threshold.
+export const getSpanLogLevel = (node: ModelTraceSpanNode): SpanLogLevel => {
+  return node.logLevel ?? SpanLogLevel.DEBUG;
+};
+
 export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
   const events = span.events;
   if (!events) {
@@ -210,6 +238,39 @@ export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: stri
   return matches;
 };
 
+export const getLinkFieldKey = (index: number, field: string): string => {
+  return `link-${index}-${field}`;
+};
+
+const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
+  const links = span.links;
+  if (!links) {
+    return [];
+  }
+
+  const matches: SearchMatch[] = [];
+  links.forEach((link, index) => {
+    const attributes = link.attributes;
+    if (!attributes || Object.keys(attributes).length === 0) return;
+
+    Object.entries(attributes).forEach(([attrKey, attrValue]) => {
+      const key = getLinkFieldKey(index, attrKey);
+      const isKeyMatch = attrKey.toLowerCase().includes(searchFilter);
+      if (isKeyMatch) {
+        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
+      }
+
+      const value = JSON.stringify(attrValue, null, 2).toLowerCase();
+      const numValueMatches = value.split(searchFilter).length - 1;
+      for (let i = 0; i < numValueMatches; i++) {
+        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
+      }
+    });
+  });
+
+  return matches;
+};
+
 /**
  * This function extracts all the matches from a span based on the search filter,
  * and appends some necessary metadata that is necessary for the jump-to-search
@@ -229,11 +290,16 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
     outputs: span?.outputs,
     attributes: span?.attributes,
     events: span?.events,
+    links: span?.links,
   };
 
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events') => {
+  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
       matches.push(...getMatchesFromEvent(span, searchFilter));
+      return;
+    }
+    if (label === 'links') {
+      matches.push(...getMatchesFromLinks(span, searchFilter));
       return;
     }
 
@@ -281,9 +347,10 @@ export function searchTree(
   const allSpanTypesSelected = Object.values(spanFilterState.spanTypeDisplayState).every(
     (shouldDisplay) => shouldDisplay,
   );
-  // if there is no search filter and all span types
-  // are selected, then we don't have to do any filtering.
-  if (searchFilterLowercased === '' && allSpanTypesSelected) {
+  // if there is no search filter, all span types are selected, and the log-level
+  // threshold is at the lowest level (DEBUG), no filtering is needed.
+  const logLevelThresholdAtMin = spanFilterState.minLogLevel === SpanLogLevel.DEBUG;
+  if (searchFilterLowercased === '' && allSpanTypesSelected && logLevelThresholdAtMin) {
     return {
       filteredTreeNodes: [rootNode],
       matches: [],
@@ -307,10 +374,11 @@ export function searchTree(
   const spanName = ((rootNode.title as string) ?? '').toLowerCase();
   const spanMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
 
-  // check if the span passes the text and type filters
+  // check if the span passes the text, type, and log-level filters
   const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
   const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
-  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed;
+  const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
+  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
 
   const hasMatchingChild = filteredChildren.length > 0;
   const hasException = getSpanExceptionCount(rootNode) > 0;
@@ -489,6 +557,7 @@ export const normalizeNewSpanData = (
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
+  const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -496,6 +565,7 @@ export const normalizeNewSpanData = (
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -517,6 +587,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    links,
     chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
@@ -526,6 +597,7 @@ export const normalizeNewSpanData = (
     modelName,
     cost,
     linkedGatewayTraceId,
+    logLevel,
   };
 };
 
@@ -575,6 +647,22 @@ export function isV3ModelTraceInfo(
 
   return 'trace_location' in info;
 }
+
+export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | undefined): string | undefined => {
+  if (!traceInfo) return undefined;
+
+  let experimentId: string | undefined;
+  if (isV3ModelTraceInfo(traceInfo)) {
+    if (traceInfo.trace_location?.type === 'MLFLOW_EXPERIMENT') {
+      experimentId = traceInfo.trace_location.mlflow_experiment?.experiment_id;
+    }
+  } else {
+    experimentId = traceInfo.experiment_id;
+  }
+
+  if (!experimentId) return undefined;
+  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+};
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
   return 'start_time_unix_nano' in span && Array.isArray(span.attributes);
@@ -688,6 +776,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
 
     // v1 spans
     const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
+    const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
     return {
       title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
@@ -705,6 +794,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
       parentId: span.parent_id ?? span.parent_span_id,
       assessments: [],
       traceId,
+      logLevel,
     };
   }
 
@@ -824,6 +914,25 @@ export const createListFromObject = (
   return Object.entries(obj).map(([key, value]) => {
     return { key, value: JSON.stringify(value, null, 2) };
   });
+};
+
+/**
+ * Builds a single JSON string from a key-value list
+ * Used for aggregated table view. Duplicate keys overwrite; parse errors fall back to raw string.
+ */
+export const buildAggregatedJsonFromKeyValueList = (list: { key: string; value: string }[]): string => {
+  if (!Array.isArray(list)) {
+    return '{}';
+  }
+  const obj: Record<string, unknown> = {};
+  for (const { key, value } of list) {
+    try {
+      obj[key] = JSON.parse(value);
+    } catch {
+      obj[key] = value;
+    }
+  }
+  return JSON.stringify(obj, null, 2);
 };
 
 export const getHighlightedSpanComponents = ({
@@ -960,6 +1069,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
@@ -1084,10 +1196,16 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
     }
 
     switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
+      case 'langchain': {
+        const langchainMessages =
+          normalizeLangchainChatInput(input) ??
+          normalizeLangchainChatResult(input) ??
+          // LangChain autolog may serialize messages in OpenAI format
+          normalizeOpenAIFormats(input) ??
+          normalizeOpenAIResponsesInput(input);
         if (langchainMessages) return langchainMessages;
         break;
+      }
       case 'llamaindex':
         const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
         if (llamaIndexMessages) return llamaIndexMessages;
@@ -1188,6 +1306,17 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
+        }
         case 'input_audio':
           // Audio parts are rendered as <audio> elements by the component,
           // so they are excluded from the markdown string
@@ -1225,6 +1354,14 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
   }
 
   const audioParts = extractAudioParts(message.content);
+
+  // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
+  const messageAudio = (message as any).audio;
+  if (messageAudio && isString(messageAudio.data)) {
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
+  }
 
   return {
     ...message,
@@ -1264,22 +1401,9 @@ export const getDefaultActiveTab = (
  */
 export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
   const getValue = (value: any) => {
-    if (!isObject(value)) {
-      return value;
-    }
-    if ('string_value' in value) {
-      return value.string_value;
-    }
-    if ('bool_value' in value) {
-      return value.bool_value;
-    }
-    if ('int_value' in value) {
-      return value.int_value;
-    }
-    if ('double_value' in value) {
-      return value.double_value;
-    }
-    return value;
+    // OTLP AnyValues (e.g. kvlist_value for dict-valued attributes like
+    // mlflow.spanInputs) need to be decoded recursively into plain JS values
+    return isOtelAnyValue(value) ? decodeOtelAnyValue(value) : value;
   };
 
   const convertAttributes = (attributes: any) => {
@@ -1306,6 +1430,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links }),
   };
 };
 
@@ -1325,13 +1450,7 @@ export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
   return intermediateNodes;
 };
 
-/**
- * Determines if a trace (by provided info object) supports being queried using V4 API.
- * For now, only UC_SCHEMA-located traces are supported.
- */
-export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info'] | Partial<ModelTraceInfoV3>) => {
-  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
-};
+export { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 
 export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
   if (location.type === 'MLFLOW_EXPERIMENT') {
@@ -1343,13 +1462,22 @@ export const createTraceV4SerializedLocation = (location: ModelTraceLocation) =>
   if (location.type === 'UC_SCHEMA') {
     return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
   }
+  if (location.type === 'UC_TABLE_PREFIX') {
+    return `${location.uc_table_prefix?.catalog_name}.${location.uc_table_prefix?.schema_name}.${location.uc_table_prefix?.table_prefix}`;
+  }
   return undefined;
 };
 
 export const parseTraceV4SerializedLocation = (locationString: string): ModelTraceLocation => {
-  const [catalog_name, schema_name] = locationString.split('.');
-  if (catalog_name && schema_name) {
-    return { type: 'UC_SCHEMA', uc_schema: { catalog_name, schema_name } };
+  const parts = locationString.split('.');
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    return {
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: parts[0], schema_name: parts[1], table_prefix: parts[2] },
+    };
+  }
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return { type: 'UC_SCHEMA', uc_schema: { catalog_name: parts[0], schema_name: parts[1] } };
   }
   return { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: locationString } };
 };

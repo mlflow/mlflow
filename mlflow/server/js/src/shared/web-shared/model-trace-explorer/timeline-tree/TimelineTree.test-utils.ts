@@ -1,5 +1,5 @@
 import type { SpanFilterState } from '../ModelTrace.types';
-import { ModelSpanType } from '../ModelTrace.types';
+import { ModelSpanType, SpanLogLevel } from '../ModelTrace.types';
 
 export const TEST_SPAN_FILTER_STATE: SpanFilterState = {
   showParents: true,
@@ -17,4 +17,5 @@ export const TEST_SPAN_FILTER_STATE: SpanFilterState = {
     [ModelSpanType.RERANKER]: true,
     [ModelSpanType.UNKNOWN]: true,
   },
+  minLogLevel: SpanLogLevel.DEBUG,
 };

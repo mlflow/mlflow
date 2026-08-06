@@ -7,13 +7,15 @@ import {
   Spacer,
   SplitButton,
   DropdownMenu,
+  CursorPagination,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
+import { shouldPaginateScorers } from '../../../common/utils/FeatureUtils';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ExperimentScorersContentContainerProps {
@@ -25,9 +27,11 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   const intl = useIntl();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialScorerType, setInitialScorerType] = useState<ScorerFormData['scorerType']>('llm');
-
   const scheduledScorersResult = useGetScheduledScorers(experimentId);
   const scorers = scheduledScorersResult.data?.scheduledScorers || [];
+  const isLoading = scheduledScorersResult.isLoading;
+  const isError = scheduledScorersResult.isError;
+  const error = scheduledScorersResult.error;
 
   const handleNewLLMScorerClick = () => {
     setInitialScorerType('llm');
@@ -40,19 +44,19 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   };
 
   // If no scorers exist and we're not currently showing the modal, show empty state
-  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !scheduledScorersResult.isLoading;
+  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !isLoading;
 
   const closeModal = () => {
     setIsModalVisible(false);
   };
 
   // Handle error state - throw error to be caught by PanelBoundary
-  if (scheduledScorersResult.isError && scheduledScorersResult.error) {
-    throw scheduledScorersResult.error;
+  if (isError && error) {
+    throw error;
   }
 
   // Handle loading state
-  if (scheduledScorersResult.isLoading) {
+  if (isLoading) {
     return (
       <div
         css={{

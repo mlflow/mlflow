@@ -1,16 +1,19 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { ApiKeysList } from './ApiKeysList';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
 import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
+import { useDeleteSecret } from '../../hooks/useDeleteSecret';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useSecretsQuery');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../hooks/useBindingsQuery');
 jest.mock('../../hooks/useModelDefinitionsQuery');
+jest.mock('../../hooks/useDeleteSecret');
 
 const mockSecrets = [
   {
@@ -79,6 +82,34 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
+    jest.mocked(useDeleteSecret).mockReturnValue({
+      mutateAsync: jest.fn(),
+    } as any);
+  });
+
+  test('renders error state when API fails', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('Network error'),
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText('Failed to load API keys. Please check your connection and try again.'),
+    ).toBeInTheDocument();
   });
 
   test('renders loading state', () => {
@@ -158,8 +189,6 @@ describe('ApiKeysList', () => {
   });
 
   test('filters secrets by search', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     jest.mocked(useSecretsQuery).mockReturnValue({
       data: [
         ...mockSecrets,
@@ -226,7 +255,6 @@ describe('ApiKeysList', () => {
   });
 
   test('calls onKeyClick when secret name is clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onKeyClick = jest.fn();
 
     jest.mocked(useSecretsQuery).mockReturnValue({
@@ -251,5 +279,56 @@ describe('ApiKeysList', () => {
     await userEvent.click(screen.getByText('openai-key'));
 
     expect(onKeyClick).toHaveBeenCalledWith(mockSecrets[0]);
+  });
+
+  test('renders delete button disabled when no rows selected', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    const deleteButton = screen.getByText('Delete').closest('button');
+    expect(deleteButton).toBeDisabled();
+  });
+
+  test('enables delete button after selecting a row', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    // First checkbox is select-all, second is the row checkbox
+    await userEvent.click(checkboxes[1]);
+
+    expect(screen.getByText('Delete (1)')).toBeInTheDocument();
   });
 });

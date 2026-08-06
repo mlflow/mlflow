@@ -8,8 +8,8 @@ import { MemoryRouter, Route, Routes } from './RoutingUtils';
  *
  * @example
  * ```ts
- *  import { testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
- *  import { setupTestRouter, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+ *  import { testRoute, TestRouter } from '../RoutingTestUtils';
+ *  import { setupTestRouter, waitForRoutesToBeRendered } from '../RoutingTestUtils';
  *
  *  describe('ComponentUnderTest', () => {
  *    it('renders', async () => {

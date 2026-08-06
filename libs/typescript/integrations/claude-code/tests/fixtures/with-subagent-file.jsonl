@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"Search the codebase for auth"},"timestamp":"2025-01-15T10:00:00.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll search for that."}]},"timestamp":"2025-01-15T10:00:01.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_task_file_001","name":"Task","input":{"prompt":"Search for auth","subagent_type":"Explore"}}]},"timestamp":"2025-01-15T10:00:02.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_task_file_001","content":"Found auth.py with auth function.","toolUseResult":{"status":"completed","agentId":"abc1234","totalDurationMs":5000}}]},"timestamp":"2025-01-15T10:00:06.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I found the auth module."}]},"timestamp":"2025-01-15T10:00:07.000Z"}

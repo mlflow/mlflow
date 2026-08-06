@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -7,15 +8,25 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
+from mlflow.environment_variables import (
+    _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK,
+    _MLFLOW_TELEMETRY_SESSION_ID,
+    MLFLOW_ENABLE_DB_SDK,
+)
 from mlflow.telemetry.client import (
+    _DATABRICKS_RUNTIME_WARM_UP_MODULES,
+    _DATABRICKS_SDK_WARM_UP_MODULES,
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    RETRYABLE_ERRORS,
+    UNRECOVERABLE_ERRORS,
     TelemetryClient,
     _is_localhost_uri,
+    _warm_up_databricks_sdk,
     get_telemetry_client,
+    set_telemetry_client,
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
@@ -384,7 +395,7 @@ def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock
     # Start multiple threads
     threads = []
     for i in range(3):
-        thread = threading.Thread(target=add_records, args=(i,))
+        thread = threading.Thread(name=f"telemetry-client-{i}", target=add_records, args=(i,))
         threads.append(thread)
         thread.start()
 
@@ -888,9 +899,9 @@ def test_warning_suppression_in_shutdown(recwarn, mock_telemetry_client: Telemet
         assert len(recwarn) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
-@pytest.mark.parametrize("terminate", [True, False])
-def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, terminate):
+def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tracking_uri_scheme):
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -899,12 +910,365 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
 
     with (
         _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ),
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
-        telemetry_client.flush(terminate=terminate)
+        telemetry_client.flush(terminate=True)
+        # OSS ingestion path should not receive records
         assert len(mock_requests) == 0
-        assert get_telemetry_client() is None
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
+@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
+def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        duration_ms=42,
+        params={"key": "value"},
+    )
+
+    with (
+        _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ) as mock_http,
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        TelemetryClient() as telemetry_client,
+    ):
+        telemetry_client.add_record(record)
+        telemetry_client.flush()
+
+        mock_http.assert_called_once()
+        payload = mock_http.call_args.kwargs["json"]
+        assert len(payload["events"]) == 1
+        event = payload["events"][0]
+        assert event["event_name"] == "test_event"
+        assert event["tracking_uri_scheme"] == tracking_uri_scheme
+        assert "params_json" in event
+        assert "params" not in event
+
+
+def test_oss_ingestion_skipped_when_running_inside_databricks(mock_requests):
+    # When in DBR with a non-Databricks tracking URI, the OSS ingestion
+    # endpoint must not be hit. The Databricks-forwarding path is the only
+    # allowed outbound from inside DBR.
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "http"
+
+        with mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True):
+            client._process_records([record])
+
+        assert len(mock_requests) == 0
+
+
+def test_databricks_forwarding_disabled_for_dev_versions():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        ):
+            client._process_records([record])
+
+        mock_http.assert_not_called()
+
+
+def test_forward_to_databricks_params_json_serialization():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="genai_evaluate",
+            timestamp_ns=1700000000000000000,
+            status=Status.SUCCESS,
+            params={"predict_fn_provided": True},
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" in event
+        assert json.loads(event["params_json"]) == {"predict_fn_provided": True}
+
+
+def test_forward_to_databricks_no_params_json_when_params_none():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" not in event
+
+
+@pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
+def test_forward_to_databricks_stops_on_unrecoverable_error(status_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=status_code),
+            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert client._is_stopped
+        assert not client.is_active
+
+
+def test_forward_to_databricks_credential_failure_non_fatal():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.utils.databricks_utils.get_databricks_host_creds",
+                side_effect=Exception("no creds"),
+            ),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert not client._is_stopped
+
+
+@pytest.mark.parametrize("error_code", RETRYABLE_ERRORS)
+def test_forward_to_databricks_retries_on_retryable_error(error_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                side_effect=[
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=200),
+                ],
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+            mock.patch("mlflow.telemetry.client.time.sleep"),
+        ):
+            client._forward_to_databricks([record])
+
+        assert mock_http.call_count == 3
+
+
+def test_set_telemetry_client_warms_databricks_sdk_before_creating_client():
+    """
+    The warm-up must land before a client exists, since the client is what later spawns the
+    consumer threads that would otherwise drive a first-time `databricks.sdk` import.
+    """
+    calls = []
+
+    def _make_client():
+        calls.append("TelemetryClient")
+        return mock.MagicMock(info={"session_id": "test_session_id"})
+
+    with (
+        mock.patch(
+            "mlflow.telemetry.client._warm_up_databricks_sdk",
+            side_effect=lambda: calls.append("warm_up"),
+        ),
+        mock.patch("mlflow.telemetry.client.TelemetryClient", side_effect=_make_client),
+    ):
+        set_telemetry_client()
+
+    assert calls == ["warm_up", "TelemetryClient"]
+
+
+@pytest.fixture
+def in_databricks_runtime(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "17.0")
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True),
+    ):
+        yield
+
+
+def test_databricks_sdk_not_warmed_up_when_flag_disabled(in_databricks_runtime, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, "false")
+
+    with mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import:
+        _warm_up_databricks_sdk()
+
+    mock_import.assert_not_called()
+
+
+def test_databricks_sdk_warmed_up_by_default(monkeypatch):
+    monkeypatch.delenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, raising=False)
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "17.0")
+
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True),
+        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+    ):
+        _warm_up_databricks_sdk()
+
+    assert [c.args[0] for c in mock_import.call_args_list] == [
+        *_DATABRICKS_SDK_WARM_UP_MODULES,
+        *_DATABRICKS_RUNTIME_WARM_UP_MODULES,
+    ]
+
+
+def test_databricks_sdk_warmed_up_in_databricks_runtime(in_databricks_runtime):
+    with mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import:
+        _warm_up_databricks_sdk()
+
+    assert [c.args[0] for c in mock_import.call_args_list] == [
+        *_DATABRICKS_SDK_WARM_UP_MODULES,
+        *_DATABRICKS_RUNTIME_WARM_UP_MODULES,
+    ]
+
+
+def test_databricks_sdk_runtime_not_warmed_up_without_runtime_version(monkeypatch):
+    """
+    In Databricks environments that are not DBR (e.g. model serving), `runtime_native_auth`
+    bails before its deferred import, and `databricks.sdk.runtime` would instead fall into
+    an OSS branch that starts a Databricks Connect session and resolves credentials.
+    """
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, "true")
+
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True),
+        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+    ):
+        _warm_up_databricks_sdk()
+
+    imported = [c.args[0] for c in mock_import.call_args_list]
+    assert imported == list(_DATABRICKS_SDK_WARM_UP_MODULES)
+    assert "databricks.sdk.runtime" not in imported
+
+
+def test_databricks_sdk_not_warmed_up_outside_databricks(monkeypatch):
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.name, "true")
+
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", False),
+        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+    ):
+        _warm_up_databricks_sdk()
+
+    mock_import.assert_not_called()
+
+
+def test_databricks_sdk_not_warmed_up_when_db_sdk_disabled(in_databricks_runtime, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_DB_SDK.name, "false")
+
+    with mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import:
+        _warm_up_databricks_sdk()
+
+    mock_import.assert_not_called()
+
+
+def test_databricks_sdk_not_warmed_up_for_dev_versions(in_databricks_runtime):
+    with (
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        mock.patch("mlflow.telemetry.client.importlib.import_module") as mock_import,
+    ):
+        _warm_up_databricks_sdk()
+
+    mock_import.assert_not_called()
+
+
+def test_databricks_sdk_warm_up_continues_past_import_errors(in_databricks_runtime):
+    with mock.patch(
+        "mlflow.telemetry.client.importlib.import_module",
+        side_effect=ImportError("no databricks-sdk installed"),
+    ) as mock_import:
+        _warm_up_databricks_sdk()
+
+    assert mock_import.call_count == len(_DATABRICKS_SDK_WARM_UP_MODULES) + len(
+        _DATABRICKS_RUNTIME_WARM_UP_MODULES
+    )
 
 
 @pytest.mark.no_mock_requests_get

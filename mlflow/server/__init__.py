@@ -1,5 +1,4 @@
 import importlib
-import importlib.metadata
 import logging
 import os
 import secrets
@@ -32,6 +31,7 @@ from mlflow.server.constants import (
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
     PROMETHEUS_EXPORTER_ENV_VAR,
+    READ_REPLICA_BACKEND_STORE_URI_ENV_VAR,
     REGISTRY_STORE_URI_ENV_VAR,
     SECRETS_CACHE_MAX_SIZE_ENV_VAR,
     SECRETS_CACHE_TTL_ENV_VAR,
@@ -57,6 +57,7 @@ from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
 )
+from mlflow.utils import get_installed_version
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -65,7 +66,8 @@ from mlflow.version import VERSION
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
+_flask_version = get_installed_version("flask")
+IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
 
 is_running_as_server = (
     "gunicorn" in sys.modules
@@ -90,8 +92,7 @@ if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
     prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
-    if not os.path.exists(prometheus_metrics_path):
-        os.makedirs(prometheus_metrics_path)
+    os.makedirs(prometheus_metrics_path, exist_ok=True)
     activate_prometheus_exporter(app)
 
 
@@ -326,6 +327,7 @@ def _build_uvicorn_command(
 def _run_server(
     *,
     file_store_path,
+    read_replica_backend_store_uri=None,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -358,6 +360,8 @@ def _run_server(
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if read_replica_backend_store_uri:
+        env_map[READ_REPLICA_BACKEND_STORE_URI_ENV_VAR] = read_replica_backend_store_uri
     if registry_store_uri:
         env_map[REGISTRY_STORE_URI_ENV_VAR] = registry_store_uri
     if default_artifact_root:

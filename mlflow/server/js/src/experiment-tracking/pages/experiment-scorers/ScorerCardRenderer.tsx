@@ -20,7 +20,7 @@ import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon, getTypeColor, getStatusTag } from './scorerCardUtils';
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE } from './constants';
 
 interface ScorerCardOverflowMenuProps {
   onDelete: () => void;

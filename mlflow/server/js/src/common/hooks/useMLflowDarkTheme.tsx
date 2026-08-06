@@ -23,6 +23,7 @@ export const useMLflowDarkTheme = (): [
 ] => {
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
     // If the user has explicitly set a preference, use that.
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     const darkModePref = localStorage.getItem(darkModePrefLocalStorageKey);
     if (darkModePref !== null) {
       return darkModePref === 'true';
@@ -35,7 +36,9 @@ export const useMLflowDarkTheme = (): [
     // Update the theme when the user changes their system preference.
     document.body.classList.toggle(darkModeBodyClassName, isDarkTheme);
     // Persist the user's preference in local storage.
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     localStorage.setItem(darkModePrefLocalStorageKey, isDarkTheme ? 'true' : 'false');
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     localStorage.setItem(databricksDarkModePrefLocalStorageKey, isDarkTheme ? 'dark' : 'light');
   }, [isDarkTheme]);
 

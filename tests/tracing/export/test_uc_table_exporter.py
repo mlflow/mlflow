@@ -198,7 +198,9 @@ def test_export_spans_batch_thread_safety(monkeypatch):
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
         return_value="catalog.schema.spans",
     ):
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix="test-uc-table-exporter"
+        ) as executor:
             futures = [executor.submit(_generate_spans) for _ in range(5)]
             for future in futures:
                 future.result()

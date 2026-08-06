@@ -161,7 +161,9 @@ class RunsArtifactRepository(ArtifactRepository):
 
         if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
             return get_artifact_repository(
-                matched.artifact_location, tracking_uri=self.tracking_uri
+                f"models:/{matched.model_id}",
+                tracking_uri=self.tracking_uri,
+                registry_uri=self.registry_uri,
             )
 
         return None

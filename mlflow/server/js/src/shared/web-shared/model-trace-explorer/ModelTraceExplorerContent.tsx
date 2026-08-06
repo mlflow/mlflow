@@ -44,8 +44,8 @@ export const ModelTraceExplorerContent = ({
           flexShrink: 0,
         },
         display: 'flex',
+        flex: 1,
         flexDirection: 'column',
-        height: '100%',
         overflow: 'hidden',
       }}
     >

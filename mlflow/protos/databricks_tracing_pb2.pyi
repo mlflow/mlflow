@@ -1,5 +1,6 @@
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
+import databricks_exception_with_details_pb2 as _databricks_exception_with_details_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -245,6 +246,60 @@ class SearchTraces(_message.Message):
     sql_warehouse_id: str
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class SearchTracesLongRunning(_message.Message):
+    __slots__ = ("locations", "filter", "max_results", "order_by", "sql_warehouse_id", "page_token")
+    LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    locations: _containers.RepeatedCompositeFieldContainer[TraceLocation]
+    filter: str
+    max_results: int
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    sql_warehouse_id: str
+    page_token: str
+    def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class GetOperationRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class SearchTracesOperationMetadata(_message.Message):
+    __slots__ = ("start_time", "state")
+    class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        STATE_UNSPECIFIED: _ClassVar[SearchTracesOperationMetadata.State]
+        RUNNING: _ClassVar[SearchTracesOperationMetadata.State]
+        SUCCEEDED: _ClassVar[SearchTracesOperationMetadata.State]
+        FAILED: _ClassVar[SearchTracesOperationMetadata.State]
+    STATE_UNSPECIFIED: SearchTracesOperationMetadata.State
+    RUNNING: SearchTracesOperationMetadata.State
+    SUCCEEDED: SearchTracesOperationMetadata.State
+    FAILED: SearchTracesOperationMetadata.State
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    state: SearchTracesOperationMetadata.State
+    def __init__(self, start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[SearchTracesOperationMetadata.State, str]] = ...) -> None: ...
+
+class SearchTracesOperation(_message.Message):
+    __slots__ = ("name", "metadata", "done", "error", "response")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    DONE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    metadata: SearchTracesOperationMetadata
+    done: bool
+    error: _databricks_exception_with_details_pb2.DatabricksServiceExceptionWithDetailsProto
+    response: SearchTraces.Response
+    def __init__(self, name: _Optional[str] = ..., metadata: _Optional[_Union[SearchTracesOperationMetadata, _Mapping]] = ..., done: bool = ..., error: _Optional[_Union[_databricks_exception_with_details_pb2.DatabricksServiceExceptionWithDetailsProto, _Mapping]] = ..., response: _Optional[_Union[SearchTraces.Response, _Mapping]] = ...) -> None: ...
 
 class CreateTraceUCStorageLocation(_message.Message):
     __slots__ = ("uc_schema", "sql_warehouse_id")

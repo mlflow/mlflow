@@ -8,9 +8,9 @@ from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
-from mlflow.transformers.hub_utils import get_latest_commit_for_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
+from mlflow.utils.huggingface_utils import get_latest_commit_for_repo
 
 if TYPE_CHECKING:
     import transformers
@@ -28,6 +28,7 @@ class FlavorKey:
     MODEL_BINARY = "model_binary"
     MODEL_NAME = "source_model_name"
     MODEL_REVISION = "source_model_revision"
+    MODEL_LOCAL_BASE = "local_base_model_path"
 
     PEFT = "peft_adaptor"
 
@@ -45,7 +46,11 @@ class FlavorKey:
 
 
 def build_flavor_config(
-    pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
+    pipeline: transformers.Pipeline,
+    processor=None,
+    torch_dtype=None,
+    save_pretrained=True,
+    base_model_path: str | None = None,
 ) -> dict[str, Any]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
@@ -60,6 +65,9 @@ def build_flavor_config(
         processor: Optional processor instance to save alongside the pipeline.
         torch_dtype: Torch tensor data type.
         save_pretrained: Whether to save the pipeline and components weights to local disk.
+        base_model_path: Optional path to a local base model for PEFT models.
+            When provided, the base model weights are not saved; only a path reference
+            is stored. At load time, the base model is loaded from this path.
 
     Returns:
         A dictionary containing the flavor configuration for the pipeline and its components,
@@ -73,13 +81,19 @@ def build_flavor_config(
     else:
         model = pipeline.model
 
-    flavor_conf.update(_get_model_config(model, save_pretrained))
+    flavor_conf.update(_get_model_config(model, save_pretrained, base_model_path))
+
+    # When base_model_path is set, components are saved locally even though
+    # the base model weights are not. Pass save_pretrained=True for components.
+    component_save_pretrained = True if base_model_path else save_pretrained
 
     components = _get_components_from_pipeline(pipeline, processor)
     for key, instance in components.items():
         # Some components don't have name_or_path, then we fallback to the one from the model.
         flavor_conf.update(
-            _get_component_config(instance, key, save_pretrained, default_repo=model.name_or_path)
+            _get_component_config(
+                instance, key, component_save_pretrained, default_repo=model.name_or_path
+            )
         )
 
     # "components" field doesn't include processor
@@ -105,19 +119,19 @@ def _generate_base_config(pipeline, torch_dtype=None):
     return flavor_conf
 
 
-def _get_model_config(model, save_pretrained=True):
+def _get_model_config(model, save_pretrained=True, base_model_path=None):
     conf = {
         FlavorKey.MODEL_TYPE: _get_instance_type(model),
         FlavorKey.MODEL_NAME: model.name_or_path,
     }
 
     if save_pretrained:
-        # log local path to model binary file
         from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME
 
         conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
+    elif base_model_path:
+        conf[FlavorKey.MODEL_LOCAL_BASE] = base_model_path
     else:
-        # log HuggingFace repo name and commit hash
         conf[FlavorKey.MODEL_REVISION] = get_latest_commit_for_repo(model.name_or_path)
 
     return conf
@@ -252,6 +266,7 @@ def update_flavor_conf_to_persist_pretrained_model(
 
     flavor_conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
     flavor_conf.pop(FlavorKey.MODEL_REVISION, None)
+    flavor_conf.pop(FlavorKey.MODEL_LOCAL_BASE, None)
 
     # Remove component repo name and commit hash
     components = original_flavor_conf.get(FlavorKey.COMPONENTS, [])

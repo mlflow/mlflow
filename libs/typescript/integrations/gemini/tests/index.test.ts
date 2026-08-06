@@ -74,6 +74,7 @@ describe('tracedGemini', () => {
       expect(llmSpan).toBeDefined();
       expect(llmSpan.name).toBe('generateContent');
       expect(llmSpan.spanType).toBe(mlflow.SpanType.LLM);
+      expect(llmSpan.logLevel).toBe(mlflow.SpanLogLevel.INFO);
       expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(llmSpan.inputs).toEqual({
         model: 'gemini-2.0-flash-001',

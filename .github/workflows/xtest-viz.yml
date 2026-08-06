@@ -17,6 +17,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   xtest-viz:
     runs-on: ubuntu-slim
@@ -35,7 +37,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: ./.github/actions/setup-python
@@ -44,10 +48,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          uv run dev/xtest_viz.py \
-            --days 14 \
-            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Cross-Version Test Results"
+            echo ""
+            echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            uv run dev/xtest_viz.py --days 14 --repo mlflow/dev --json-output results.json
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload JSON results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xtest-viz
+          path: results.json
+          retention-days: 3
+          if-no-files-found: error

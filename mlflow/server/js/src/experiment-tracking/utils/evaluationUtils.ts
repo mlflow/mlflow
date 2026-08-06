@@ -101,6 +101,7 @@ export function buildUserPrompt(
   const parts: string[] = [];
 
   // Build a map of variable name to data
+  // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
   const dataMap: Record<string, any> = {
     inputs,
     outputs,

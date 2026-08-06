@@ -49,10 +49,10 @@ export const ApiKeysColumnsButton = ({ visibleColumns, onColumnsChange }: ApiKey
   };
 
   return (
-    <DialogCombobox componentId="mlflow.gateway.api-keys-list.columns-dropdown" label="Columns" multiSelect>
+    <DialogCombobox componentId="mlflow.gateway.api-keys.columns-dropdown" label="Columns" multiSelect>
       <DialogComboboxCustomButtonTriggerWrapper>
         <Button
-          componentId="mlflow.gateway.api-keys-list.columns-button"
+          componentId="mlflow.gateway.api-keys.columns-button"
           endIcon={<ChevronDownIcon />}
           data-testid="api-keys-column-selector-button"
         >

@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.run_outputs import RunOutputs
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
@@ -932,12 +933,12 @@ class Model:
             env_vars = None
             # validate input example works for serving when logging the model
             if serving_input and kwargs.get("validate_serving_input", True):
-                from mlflow.models import validate_serving_input
+                from mlflow.models.utils import _validate_serving_input
                 from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                 with env_var_tracker() as tracked_env_names:
                     try:
-                        validate_serving_input(
+                        _validate_serving_input(
                             model_uri=local_path,
                             serving_input=serving_input,
                         )
@@ -950,10 +951,11 @@ class Model:
                             "Alternatively, you can avoid passing input example and pass model "
                             "signature instead when logging the model. To ensure the input example "
                             "is valid prior to serving, please try calling "
-                            "`mlflow.models.validate_serving_input` on the model uri and serving "
-                            "input example. A serving input example can be generated from model "
-                            "input example using "
-                            "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                            "`mlflow.models.predict(model_uri=..., input_data=serving_input, "
+                            'env_manager="uv")` on the model uri and serving input example. '
+                            "A serving input example can be generated from model input example "
+                            "using `mlflow.models.convert_input_example_to_serving_input` "
+                            "function.\n"
                             f"Got error: {e}",
                             exc_info=_logger.isEnabledFor(logging.DEBUG),
                         )
@@ -1193,9 +1195,15 @@ class Model:
 
             with _use_logged_model(model=model):
                 if run_id is not None:
-                    client.log_outputs(
-                        run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
-                    )
+                    model_output = LoggedModelOutput(model.model_id, step=step)
+                    client.log_outputs(run_id=run_id, models=[model_output])
+                    # Update in-memory active run outputs to keep cached state in sync
+                    active_run = mlflow.active_run()
+                    if active_run is not None and active_run.info.run_id == run_id:
+                        if active_run.outputs is None:
+                            active_run._outputs = RunOutputs(model_outputs=[model_output])
+                        else:
+                            active_run.outputs.model_outputs.append(model_output)
                     log_model_metrics_for_step(
                         client=client, model_id=model.model_id, run_id=run_id, step=step
                     )
@@ -1237,12 +1245,12 @@ class Model:
                 env_vars = None
                 # validate input example works for serving when logging the model
                 if serving_input and kwargs.get("validate_serving_input", True):
-                    from mlflow.models import validate_serving_input
+                    from mlflow.models.utils import _validate_serving_input
                     from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                     with env_var_tracker() as tracked_env_names:
                         try:
-                            validate_serving_input(
+                            _validate_serving_input(
                                 model_uri=local_path,
                                 serving_input=serving_input,
                             )
@@ -1257,9 +1265,10 @@ class Model:
                                 "Alternatively, you can avoid passing input example and pass model "
                                 "signature instead when logging the model. To ensure the input "
                                 "example is valid prior to serving, please try calling "
-                                "`mlflow.models.validate_serving_input` on the model uri and "
-                                "serving input example. A serving input example can be generated "
-                                "from model input example using "
+                                "`mlflow.models.predict(model_uri=..., input_data=serving_input, "
+                                'env_manager="uv")` on the model uri and serving input example. '
+                                "A serving input example can be generated from model input "
+                                "example using "
                                 "`mlflow.models.convert_input_example_to_serving_input` function.\n"
                                 f"Got error: {e}",
                                 exc_info=_logger.isEnabledFor(logging.DEBUG),
@@ -1367,6 +1376,7 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
+                    tags=tags,
                 )
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:

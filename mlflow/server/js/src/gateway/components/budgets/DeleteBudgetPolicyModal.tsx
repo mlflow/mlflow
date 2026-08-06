@@ -29,7 +29,7 @@ export const DeleteBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: De
       title="Delete Budget Policy"
       itemName={formatBudgetPolicySummary(policy)}
       itemType="budget policy"
-      componentIdPrefix="mlflow.gateway.delete-budget-policy-modal"
+      componentId="mlflow.gateway.delete-budget-policy-modal"
     />
   );
 };
