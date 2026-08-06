@@ -9,7 +9,7 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistant } from './AssistantContext';
-import { useFloatingObstructionWidth } from './useFloatingObstruction';
+import { useFloatingObstructionHeight, useFloatingObstructionWidth } from './useFloatingObstruction';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 
 // Width the pill expands to on hover; also used to keep it on-screen when shifted left.
@@ -49,6 +49,7 @@ export const AssistantFloatingButton = () => {
   const { theme } = useDesignSystemTheme();
   const { isLocalServer, isPanelOpen, openPanel } = useAssistant();
   const obstructionWidth = useFloatingObstructionWidth();
+  const obstructionHeight = useFloatingObstructionHeight();
   const windowWidth = useWindowWidth();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -85,6 +86,12 @@ export const AssistantFloatingButton = () => {
   // (expandable) button can't sit clear of it, yield entirely rather than float on top —
   // the surface has its own assistant entry (e.g. the trace drawer's header button).
   const rightInset = obstructionWidth > 0 ? obstructionWidth + theme.spacing.md : baseInset;
+  // Rise just above a bottom-pinned surface (e.g. a Cancel/Create action bar) so it never
+  // overlaps the page's primary buttons. Independent of the right shift above: with both a
+  // right drawer and a bottom bar open, the button shifts left AND lifts. No "does it fit"
+  // gate here — an action bar is short enough that lifting is always feasible (unlike a wide
+  // drawer, which can leave no horizontal room and forces the fade-out below).
+  const bottomInset = obstructionHeight > 0 ? obstructionHeight + theme.spacing.md : baseInset;
   const fitsClearOfObstruction = rightInset + FAB_EXPANDED_MAX_WIDTH + theme.spacing.md <= windowWidth;
   // When the surface is too wide for the button to sit clear, fade it out (kept mounted so
   // the transition can play) rather than overlapping the surface.
@@ -121,7 +128,9 @@ export const AssistantFloatingButton = () => {
         height: fabSize,
         minWidth: fabSize,
         maxWidth: fabSize,
-        paddingInline: (fabSize - iconSize) / 2,
+        // No horizontal padding here: the icon lives in a fixed fabSize square (below)
+        // that keeps it centered in the collapsed circle regardless of the hidden label.
+        paddingInline: 0,
         paddingBlock: 0,
         border: '1px solid transparent',
         borderRadius: fabSize / 2,
@@ -129,7 +138,7 @@ export const AssistantFloatingButton = () => {
         appearance: 'none',
         background: bubbleBackground,
         color: theme.colors.textPrimary,
-        boxShadow: theme.general.shadowHigh,
+        boxShadow: theme.general.shadowLow,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         '@media (prefers-reduced-motion: no-preference)': {
@@ -141,7 +150,7 @@ export const AssistantFloatingButton = () => {
         },
         '& .assistant-fab-label': {
           opacity: 0,
-          marginLeft: 0,
+          marginRight: 0,
           fontWeight: theme.typography.typographyBoldFontWeight,
           fontSize: theme.typography.fontSizeMd,
           '@media (prefers-reduced-motion: no-preference)': {
@@ -150,11 +159,28 @@ export const AssistantFloatingButton = () => {
         },
         '&:hover .assistant-fab-label, &:focus-visible .assistant-fab-label': {
           opacity: 1,
-          marginLeft: theme.spacing.sm,
+          // Balance the icon square's centering with matching space on the label's right edge.
+          marginRight: (fabSize - iconSize) / 2,
         },
       }}
     >
-      <SparkleFillIcon color="ai" css={{ fontSize: iconSize, flexShrink: 0 }} />
+      {/* Fixed square keeps the icon dead-center in the collapsed circle; the hidden
+          label sits flush after it and only reveals on hover without shifting the icon. */}
+      <span
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: fabSize,
+          height: fabSize,
+          flexShrink: 0,
+        }}
+      >
+        {/* The sparkle glyph is geometrically centered, but its diagonal AI gradient
+            (cool top-left → warm bottom-right) makes it read as leaning right. A 1px
+            optical nudge left balances it; transform keeps the flex layout untouched. */}
+        <SparkleFillIcon color="ai" css={{ fontSize: iconSize, transform: 'translateX(-0.5px)' }} />
+      </span>
       <span className="assistant-fab-label">
         <FormattedMessage
           defaultMessage="MLflow Assistant"
@@ -172,7 +198,8 @@ export const AssistantFloatingButton = () => {
       data-assistant-ui="true"
       css={{
         position: 'fixed',
-        bottom: baseInset,
+        // Rests on the bottom inset; rises above any bottom-pinned action bar that registers.
+        bottom: bottomInset,
         // Sits just left of any open right-side surface (e.g. a drawer) so it stays
         // visible without overlapping; otherwise rests in the bottom-right corner.
         right: rightInset,
@@ -184,7 +211,10 @@ export const AssistantFloatingButton = () => {
         visibility: hiddenByObstruction ? 'hidden' : 'visible',
         pointerEvents: hiddenByObstruction ? 'none' : 'auto',
         '@media (prefers-reduced-motion: no-preference)': {
-          transition: hiddenByObstruction ? 'opacity 0.15s ease, visibility 0s 0.15s' : 'opacity 0.15s ease',
+          // Animate the lift/shift (bottom/right) alongside the fade so repositioning is smooth.
+          transition: hiddenByObstruction
+            ? 'opacity 0.15s ease, visibility 0s 0.15s, bottom 0.2s ease, right 0.2s ease'
+            : 'opacity 0.15s ease, bottom 0.2s ease, right 0.2s ease',
         },
       }}
     >

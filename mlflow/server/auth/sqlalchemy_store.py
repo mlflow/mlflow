@@ -27,6 +27,7 @@ from mlflow.server.auth.entities import (
     GatewayEndpointPermission,
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
+    MCPServerPermission,
     RegisteredModelPermission,
     Role,
     RolePermission,
@@ -41,6 +42,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
@@ -1413,11 +1415,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             user_id = user.id
+            workspace_name = self._get_active_workspace_name()
             rows = (
                 session
                 .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .filter(
+                    SqlRole.workspace == workspace_name,
                     SqlRole.name == self._synthetic_user_role_name(user_id),
                     SqlRolePermission.resource_type == resource_type,
                 )
@@ -1660,6 +1664,67 @@ class SqlAlchemyStore:
             not_found_message=(
                 f"Gateway model definition permission with "
                 f"model_definition_id={model_definition_id} and username={username} not found"
+            ),
+        )
+
+    # ---- mcp_server ----
+
+    def create_mcp_server_permission(
+        self, name: str, username: str, permission: str
+    ) -> MCPServerPermission:
+        return self._create_per_resource_permission(
+            resource_type=RESOURCE_TYPE_MCP_SERVER,
+            resource_pattern=name,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: MCPServerPermission(
+                name=name, user_id=user.id, permission=permission
+            ),
+            duplicate_message=(
+                f"MCP server permission (name={name}, username={username}) already exists."
+            ),
+        )
+
+    def get_mcp_server_permission(self, name: str, username: str) -> MCPServerPermission:
+        with self.ManagedSessionMaker() as session:
+            user, rp = self._get_per_resource_permission_row(
+                session,
+                resource_type=RESOURCE_TYPE_MCP_SERVER,
+                resource_pattern=name,
+                username=username,
+                not_found_message=(
+                    f"MCP server permission with name={name} and username={username} not found"
+                ),
+            )
+            return MCPServerPermission(name=name, user_id=user.id, permission=rp.permission)
+
+    def list_mcp_server_permissions(self, username: str) -> list[MCPServerPermission]:
+        user_id, rows = self._list_per_resource_permissions(username, RESOURCE_TYPE_MCP_SERVER)
+        return [MCPServerPermission(name=p, user_id=user_id, permission=perm) for p, perm in rows]
+
+    def update_mcp_server_permission(
+        self, name: str, username: str, permission: str
+    ) -> MCPServerPermission:
+        return self._update_per_resource_permission(
+            resource_type=RESOURCE_TYPE_MCP_SERVER,
+            resource_pattern=name,
+            username=username,
+            permission=permission,
+            entity_factory=lambda user, permission: MCPServerPermission(
+                name=name, user_id=user.id, permission=permission
+            ),
+            not_found_message=(
+                f"MCP server permission with name={name} and username={username} not found"
+            ),
+        )
+
+    def delete_mcp_server_permission(self, name: str, username: str) -> None:
+        self._delete_per_resource_permission(
+            resource_type=RESOURCE_TYPE_MCP_SERVER,
+            resource_pattern=name,
+            username=username,
+            not_found_message=(
+                f"MCP server permission with name={name} and username={username} not found"
             ),
         )
 
