@@ -19,6 +19,7 @@ from typing import Any, AsyncGenerator
 import aiohttp
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     NotAuthenticatedError,
@@ -32,6 +33,8 @@ from mlflow.assistant.providers.tool_executor import (
     static_permission_error,
 )
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
+from mlflow.tracing.constant import CostKey, TokenUsageKey
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
@@ -55,6 +58,45 @@ ListModelsFn = Callable[[str, str | None], list[str]]
 # itself) and the `tracking_uri` (the MLflow server URL passed to astream).
 # Returning None means the URL cannot be resolved and the turn should fail.
 ChatUrlBuilder = Callable[[str | None, str], str | None]
+
+
+def _build_usage_event(usage: dict[str, Any], model: str | None) -> Event:
+    """Build a usage stream event, enriching it with an estimated USD cost.
+
+    The gateway emits OpenAI-style usage where `prompt_tokens` already folds in
+    cache read/write tokens. We remap those into MLflow's token-usage keys and
+    price them via the LiteLLM-backed cost catalog, which expects the same
+    cache-inclusive `prompt_tokens` convention. Cost is None when the model is
+    not in the pricing catalog (e.g. local Ollama models).
+    """
+    prompt_tokens = usage.get("prompt_tokens") or 0
+    completion_tokens = usage.get("completion_tokens") or 0
+    cache_read = (usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+    cache_creation = usage.get("cache_creation_input_tokens")
+
+    cost_usage: dict[str, int] = {
+        TokenUsageKey.INPUT_TOKENS: prompt_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: completion_tokens,
+    }
+    if cache_read is not None:
+        cost_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+    if cache_creation is not None:
+        cost_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
+    cost = calculate_cost_by_model_and_token_usage(model, cost_usage)
+
+    return Event.from_stream_event({
+        "type": "usage",
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": usage.get("total_tokens") or 0,
+            # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+            # so the UI can distinguish fresh input from resent, cached context.
+            "cache_read_tokens": cache_read or 0,
+            "total_cost_usd": cost[CostKey.TOTAL_COST] if cost else None,
+        },
+    })
 
 
 def _default_chat_url_builder(base_url: str | None, _tracking_uri: str) -> str | None:
@@ -215,6 +257,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        allows_remote_access: bool = False,
     ):
         self._name = name
         self._display_name = display_name
@@ -227,6 +270,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         # OAI-compat providers don't actually load skills at runtime, but the
         # path is preserved so users can opt-in later via skill_installer.
         self._skills_dirname = skills_dirname or ".agent"
+        self._allows_remote_access = allows_remote_access
 
     @property
     def name(self) -> str:
@@ -240,14 +284,18 @@ class OpenAICompatibleProvider(AssistantProvider):
     def description(self) -> str:
         return self._description
 
+    @property
+    def allows_remote_access(self) -> bool:
+        return self._allows_remote_access
+
     def is_available(self) -> bool:
         return True
 
-    def _load_config(self):
+    def _load_config(self) -> AssistantProviderConfig:
         try:
             return load_config(self.name)
         except RuntimeError:
-            return None
+            return AssistantProviderConfig()
 
     def _resolve_base_url(self, override: str | None = None) -> str | None:
         if override:
@@ -283,7 +331,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         if echo:
             echo(f"Connecting to {self._display_name} at {base_url}...")
         config = self._load_config()
-        api_key = getattr(config, "api_key", None) if config else None
+        api_key = getattr(config, "api_key", None)
         try:
             self._list_models_fn(base_url, api_key)
         except Exception as e:
@@ -303,7 +351,7 @@ class OpenAICompatibleProvider(AssistantProvider):
             raise ProviderNotConfiguredError(f"{self._display_name} base URL is not configured.")
         if api_key is None:
             config = self._load_config()
-            api_key = getattr(config, "api_key", None) if config else None
+            api_key = getattr(config, "api_key", None)
         try:
             return self._list_models_fn(resolved, api_key)
         except Exception as e:
@@ -324,11 +372,6 @@ class OpenAICompatibleProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
-        if config is None:
-            yield Event.from_error(
-                f"{self._display_name} is not configured. {self._connection_hint}"
-            )
-            return
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:
@@ -341,17 +384,16 @@ class OpenAICompatibleProvider(AssistantProvider):
         api_key = getattr(config, "api_key", None)
 
         if model is None:
-            if self._list_models_fn is None or not base_url:
+            try:
+                available = self.list_models(base_url, api_key)
+            except NotImplementedError:
                 yield Event.from_error(
                     f"No model selected for {self._display_name}. {self._connection_hint}"
                 )
                 return
-            try:
-                available = self._list_models_fn(base_url, api_key)
-            except Exception as e:
+            except ProviderNotConfiguredError as e:
                 yield Event.from_error(
-                    f"Cannot connect to {self._display_name} at {base_url}: {e}. "
-                    f"{self._connection_hint}"
+                    f"Cannot connect to {self._display_name}: {e}. {self._connection_hint}"
                 )
                 return
             if not available:
@@ -430,7 +472,25 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "messages": messages,
                             "tools": tools,
                             "stream": True,
+                            # NB: intentionally no `stream_options`. It's an OpenAI-only field,
+                            # and the assistant only targets the MLflow AI Gateway (which
+                            # self-injects it per-provider for backends that accept it) or
+                            # Ollama (which reports usage unconditionally). Forwarding it to a
+                            # gateway route backed by Anthropic makes /v1/messages reject the
+                            # request with 400 "stream_options: Extra inputs are not permitted".
                         }
+                        # The gateway commits a 200 before proxying upstream, so an upstream
+                        # failure (e.g. a bad API key → 401) surfaces as a truncated body
+                        # rather than a non-200 status. We can't rely on a positive completion
+                        # signal to detect this: `[DONE]` is stripped by the gateway and not
+                        # every OpenAI-compatible server emits it or a `finish_reason`. So key
+                        # on whether the stream yielded anything meaningful — content, tool
+                        # calls, or a normal terminal. If it stays false the stream was empty
+                        # and unterminated (the common case: auth failure before any token
+                        # streams) and we surface an error instead of a silent `done`. Any
+                        # signal at all counts as success, so no productive turn is ever
+                        # falsely flagged whatever the server's terminator conventions.
+                        stream_had_signal = False
                         async with session.post(
                             chat_url,
                             json=payload,
@@ -453,6 +513,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 if line.startswith(b"data:"):
                                     line = line[len(b"data:") :].strip()
                                 if line == b"[DONE]":
+                                    stream_had_signal = True
                                     continue
                                 if not line or line.startswith(b":"):
                                     continue
@@ -462,12 +523,43 @@ class OpenAICompatibleProvider(AssistantProvider):
                                     _logger.debug("Skipping non-JSON stream line: %r", line)
                                     continue
 
+                                # An error frame surfaces a mid-stream failure the gateway
+                                # committed a 200 before hitting (e.g. an upstream error caught
+                                # by safe_stream, which emits `{"error": {"message", "type"}}`).
+                                # Surface its real message rather than falling through to the
+                                # generic empty-response error below, which would both discard
+                                # the true cause and misattribute it.
+                                if error := chunk.get("error"):
+                                    stream_had_signal = True
+                                    message = (
+                                        error.get("message") if isinstance(error, dict) else error
+                                    )
+                                    yield Event.from_error(
+                                        f"{self._display_name} error: {message}"
+                                        if message
+                                        else f"{self._display_name} returned an error: {error}"
+                                    )
+                                    return
+
+                                # The usage-only chunk has no choices; emit it so the UI
+                                # can track token consumption and cost, then move on. A usage
+                                # summary means the server processed the request and reported
+                                # real work, so it counts as a signal — a stream whose only
+                                # payload is usage (some backends send it after a [DONE] the
+                                # gateway strips) must not be flagged as truncated.
+                                if usage := chunk.get("usage"):
+                                    stream_had_signal = True
+                                    yield _build_usage_event(usage, model)
+
                                 choices = chunk.get("choices") or []
+                                if choices and choices[0].get("finish_reason"):
+                                    stream_had_signal = True
                                 if not choices:
                                     continue
                                 delta = choices[0].get("delta") or {}
 
                                 if text := delta.get("content") or "":
+                                    stream_had_signal = True
                                     think_buf += text
                                     emit, think_buf, in_think = _strip_think_blocks(
                                         think_buf, in_think
@@ -480,8 +572,17 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         })
 
                                 if tcs := delta.get("tool_calls"):
+                                    stream_had_signal = True
                                     for tc in tcs:
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
+
+                        if not stream_had_signal:
+                            yield Event.from_error(
+                                f"{self._display_name} returned an empty response and ended "
+                                "unexpectedly. The upstream provider likely failed before "
+                                "producing any output (e.g. an invalid API key or a rate limit)."
+                            )
+                            return
 
                         if not tool_calls_acc:
                             if visible_text:
@@ -620,4 +721,4 @@ class OpenAICompatibleProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)

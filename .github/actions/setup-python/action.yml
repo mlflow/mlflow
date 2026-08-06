@@ -43,8 +43,14 @@ runs:
             else
               python_version="3.11.15"
             fi
+          elif [[ "$python_version" == "3.12" ]]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              python_version="3.12.10"
+            else
+              python_version="3.12.13"
+            fi
           else
-            echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
+            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', or '3.12'."
             exit 1
           fi
         fi

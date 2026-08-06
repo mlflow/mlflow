@@ -19,7 +19,9 @@ mlflow/demo/
     ├── prompts.py           # Prompt versions and aliases
     ├── traces.py            # Sample traces with various patterns
     ├── evaluation.py        # Evaluation runs and datasets
-    └── scorers.py           # Registered LLM judges
+    ├── judges.py            # Registered LLM judges
+    ├── issues.py            # Detected issues linked to failing traces
+    └── review_queues.py     # Review queues, label schemas, and queued items
 ```
 
 **Generator order matters** - some generators depend on others (e.g., traces depend on prompts, evaluation depends on traces).

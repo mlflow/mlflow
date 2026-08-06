@@ -131,8 +131,10 @@ mlflow:
   #       name: mlflow-registry-secret
   #       key: uri
   registryStoreUriFrom: {}
-  # Root location for storing artifacts (runs). Used when MLflow manages artifact serving.
-  # Examples: "s3://my-bucket/mlflow", "/mlflow/artifacts"
+  # Default artifact root for newly created experiments. Clients write to this
+  # location directly, so use a remote URI they can reach. For server-proxied
+  # artifact storage (local paths on the server), set artifactsDestination instead.
+  # Example: "s3://my-bucket/mlflow"
   defaultArtifactRoot: ""
   # Directory where MLflow proxies artifact uploads and downloads.
   # Required when using --serve-artifacts.

@@ -75,7 +75,7 @@ module.exports = async ({ github, context, core }) => {
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
-  const APPROVED_BOTS = new Set(["mlflow-app[bot]", "nailaopus[bot]"]);
+  const APPROVED_BOTS = new Set(["nailaopus[bot]"]);
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&

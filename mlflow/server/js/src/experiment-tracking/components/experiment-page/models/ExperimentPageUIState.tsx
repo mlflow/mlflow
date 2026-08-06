@@ -28,6 +28,20 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'chartsSearchFilter',
 ];
 
+/**
+ * UI-state fields excluded from a shared link: per-run state keyed by run UUIDs that won't exist
+ * for the recipient, plus personal/ephemeral preferences. The writer omits these when serializing
+ * and the reader drops them again on apply, so the filter is symmetric and a hand-crafted link (or
+ * a legacy tag predating this filter) can't smuggle them back into the recipient's view.
+ */
+export const NON_SHAREABLE_UI_STATE_FIELDS = [
+  'runsExpanded',
+  'runsPinned',
+  'runsHidden',
+  'runsVisibilityMap',
+  'autoRefreshEnabled',
+] as const;
+
 export const getDefaultSelectedColumns = () => {
   const result = [
     // "Source" and "Model" columns are visible by default
