@@ -1,12 +1,12 @@
 ---
 name: issue-dedupe
-description: Find likely duplicates of a GitHub issue and write a comment body linking to them
+description: Find likely duplicates of a GitHub issue and write their numbers to a payload file
 disable-model-invocation: true
 allowed-tools:
   - Bash(gh issue view:*)
   - Bash(gh issue list:*)
   - Bash(gh search issues:*)
-  - Write(//tmp/dedupe-comment.md)
+  - Write(//tmp/dedupe-payload.json)
 argument-hint: "<owner_repo> <issue_number>"
 arguments: [owner_repo, issue_number]
 ---
@@ -26,29 +26,24 @@ arguments: [owner_repo, issue_number]
 
 ## Output contract
 
-Your only output is `/tmp/dedupe-comment.md`, posted verbatim as a comment on the
-issue. Write it only when you have found duplicates. If there are none, or the
-issue should be skipped per step 2, write nothing and stop: a missing file is the
-normal outcome.
+Your only output is `/tmp/dedupe-payload.json`, holding up to 3 issue numbers,
+best match first:
 
-Format, with up to 3 links, best match first:
-
-```markdown
-Found 2 possible duplicate issues:
-
-1. https://github.com/mlflow/mlflow/issues/123
-2. https://github.com/mlflow/mlflow/issues/456
-
-If one of these already covers your report, please close this issue and 👍 the existing one instead so the discussion stays in one place.
+```json
+{ "duplicates": [123, 456] }
 ```
 
-Add no commentary beyond that. An AI disclaimer and a workflow link are appended
-for you. The `gh` token here is read-only, so do not try to comment, label, or
-close anything yourself.
+Write nothing else to it. The workflow builds the comment from these numbers
+alone, so any prose you produce is discarded. Write the file only when you have
+found duplicates: if there are none, or the issue should be skipped per step 2,
+write nothing and stop, which is the normal outcome.
+
+The `gh` token here is read-only, so do not try to comment, label, or close
+anything yourself.
 
 ## Instructions
 
-1. Read the issue: `gh issue view $issue_number --repo $owner_repo --comments`.
+1. Read the issue: `gh issue view $issue_number --repo $owner_repo`.
 
 2. Stop without writing the file if any of these hold:
 
@@ -62,8 +57,8 @@ close anything yourself.
    component involved, and any distinctive error text. Everything below matches
    against that summary, not the raw body.
 
-4. Search for candidates using
-   `gh search issues "<query>" --repo $owner_repo --limit 10`.
+4. Search for candidates with
+   `gh search issues "<query>" --repo $owner_repo --limit 10 --json number,title,url`.
    Run several searches in parallel covering different angles, since any single
    phrasing misses issues that describe the same bug in other words:
 
@@ -73,8 +68,10 @@ close anything yourself.
    - the same symptom in the vocabulary a maintainer would use
    - the flavor, integration, or backend involved (e.g. `langchain`, `sqlalchemy`)
 
-   Include closed issues: a closed duplicate is still the right place to point the
-   reporter.
+   Leave `--state` off. It only accepts `open` or `closed`, and omitting it
+   searches both, which is what you want: a closed duplicate is still the right
+   place to point the reporter. Empty output means no matches, not an error, so
+   move on to the next angle rather than retrying the same query.
 
 5. Filter hard. Keep a candidate only if a maintainer reading both issues would
    close this one as a duplicate. The same component failing a different way is
