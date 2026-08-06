@@ -93,7 +93,11 @@ from mlflow.transformers.signature import (
     format_input_example_for_special_cases,
     infer_or_get_default_signature,
 )
-from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
+from mlflow.transformers.torch_utils import (
+    _TORCH_DTYPE_KEY,
+    _deserialize_torch_dtype,
+    _get_torch_dtype_kwarg_name,
+)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.annotations import deprecated
@@ -1422,9 +1426,14 @@ def _load_model(
     if dtype_val := kwargs.get(_TORCH_DTYPE_KEY) or flavor_config.get(FlavorKey.TORCH_DTYPE):
         if isinstance(dtype_val, str):
             dtype_val = _deserialize_torch_dtype(dtype_val)
-        conf[_TORCH_DTYPE_KEY] = dtype_val
-        flavor_config[_TORCH_DTYPE_KEY] = dtype_val
-        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+        # Newer transformers versions (>= 4.56.0) renamed the `torch_dtype` kwarg to `dtype` and
+        # warn when the old name is passed, so forward using the name the installed version expects.
+        dtype_kwarg = _get_torch_dtype_kwarg_name()
+        conf[dtype_kwarg] = dtype_val
+        accelerate_model_conf[dtype_kwarg] = dtype_val
+        # `flavor_config` is keyed by `torch_dtype` and consumed by the model loading path, which
+        # applies the version-appropriate kwarg name itself.
+        flavor_config[FlavorKey.TORCH_DTYPE] = dtype_val
 
     accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
