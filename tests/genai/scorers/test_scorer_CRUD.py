@@ -464,6 +464,45 @@ def test_databricks_backend_missing_current_scorer_uses_oss_error_code():
 
 
 @pytest.mark.parametrize(
+    ("experiment_id", "expected_experiment_id"),
+    [("explicit_exp", "explicit_exp"), (None, "active_exp")],
+)
+def test_databricks_backend_schedule_update_uses_explicit_or_active_experiment(
+    experiment_id, expected_experiment_id
+):
+    scorer = Guidelines(name="test_scorer", guidelines=["Be helpful"], model="databricks:/judge")
+    scorer._experiment_id = "remembered_exp"
+    current_config = _DatabricksScheduledScorerConfig.model_validate(_scorer_config(scorer))
+    updated_config = current_config.model_copy(update={"sample_rate": 0.5})
+    store = DatabricksStore(tracking_uri="databricks")
+
+    with (
+        patch(
+            "mlflow.genai.scorers.registry._get_experiment_id", return_value="active_exp"
+        ) as mock_active_experiment,
+        patch.object(
+            store, "_list_current_scorer_configs", return_value=[current_config]
+        ) as mock_list,
+        patch.object(
+            store, "_patch_current_scorer_configs", return_value=[updated_config]
+        ) as mock_patch,
+    ):
+        store.update_registered_scorer(
+            name=scorer.name,
+            scorer=scorer,
+            sample_rate=0.5,
+            experiment_id=experiment_id,
+        )
+
+    mock_list.assert_called_once_with(expected_experiment_id)
+    mock_patch.assert_called_once_with(expected_experiment_id, [updated_config])
+    if experiment_id is None:
+        mock_active_experiment.assert_called_once_with()
+    else:
+        mock_active_experiment.assert_not_called()
+
+
+@pytest.mark.parametrize(
     ("operation", "kwargs", "agents_method"),
     [
         ("get_scorer", {}, "get_scheduled_scorer"),
@@ -649,7 +688,7 @@ def test_databricks_backend_current_scorer_configs_paginate():
     assert mock_http.call_args_list[1].kwargs["params"] == {"page_token": "page-2"}
 
 
-def test_databricks_backend_legacy_current_config_defaults_to_version_one():
+def test_databricks_backend_current_config_preserves_omitted_version():
     scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
     config = _scorer_config(scorer)
     config.pop("scorer_version")
@@ -663,7 +702,37 @@ def test_databricks_backend_legacy_current_config_defaults_to_version_one():
             "exp_123"
         )[0]
 
-    assert parsed_config.scorer_version == 1
+    assert parsed_config.scorer_version is None
+
+
+def test_databricks_backend_register_does_not_send_omitted_current_version():
+    scorer_v1 = Guidelines(
+        name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge"
+    )
+    scorer_v2 = Guidelines(
+        name="test_databricks_scorer", guidelines=["v2"], model="databricks:/judge"
+    )
+    current_config = _scorer_config(scorer_v1)
+    current_config.pop("scorer_version")
+    updated_config = _scorer_config(scorer_v2)
+    updated_config.pop("scorer_version")
+
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.side_effect = [
+            _scheduled_scorers_response([current_config]),
+            _scheduled_scorers_response([updated_config]),
+        ]
+
+        registered_version = DatabricksStore(tracking_uri="databricks").register_scorer(
+            "exp_123", scorer_v2
+        )
+
+    assert registered_version is None
+    submitted_config = mock_http.call_args_list[1].kwargs["json"]["scheduled_scorers"]["scorers"][0]
+    assert "scorer_version" not in submitted_config
 
 
 def test_databricks_backend_historical_scorer_scheduling_preserves_current_definition():
@@ -688,6 +757,7 @@ def test_databricks_backend_historical_scorer_scheduling_preserves_current_defin
     with (
         patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
         patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+        patch("mlflow.genai.scorers.registry._get_experiment_id", return_value="exp_123"),
     ):
         mock_http.side_effect = [
             _mock_response(historical_config),
