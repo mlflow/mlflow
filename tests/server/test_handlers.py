@@ -2790,6 +2790,153 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     assert response_data == {}
 
 
+def test_register_scorer_preset(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
+    from mlflow.protos.service_pb2 import RegisterScorerPreset
+    from mlflow.server.handlers import _register_scorer_preset
+
+    experiment_id = "123"
+    name = "my_preset"
+    scorer_ids = ["sid-1", "sid-2"]
+
+    mock_get_request_message.return_value = RegisterScorerPreset(
+        experiment_id=experiment_id, name=name, scorer_ids=scorer_ids
+    )
+
+    mock_tracking_store.register_scorer_preset.return_value = ScorerPresetVersion(
+        experiment_id=experiment_id,
+        preset_name=name,
+        version="hash123",
+        scorer_refs=[("sid-1", 1), ("sid-2", 1)],
+        creation_time=1000,
+        preset_id="preset-id-1",
+    )
+
+    resp = _register_scorer_preset()
+
+    mock_tracking_store.register_scorer_preset.assert_called_once_with(
+        experiment_id, name, ["sid-1", "sid-2"]
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["version"] == "hash123"
+    assert response_data["preset_id"] == "preset-id-1"
+
+
+def test_get_scorer_preset(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
+    from mlflow.protos.service_pb2 import GetScorerPreset
+    from mlflow.server.handlers import _get_scorer_preset
+
+    experiment_id = "123"
+    name = "my_preset"
+
+    mock_get_request_message.return_value = GetScorerPreset(
+        experiment_id=experiment_id, name=name, version="hash123"
+    )
+
+    mock_tracking_store.get_scorer_preset.return_value = ScorerPresetVersion(
+        experiment_id=experiment_id,
+        preset_name=name,
+        version="hash123",
+        scorer_refs=[("sid-1", 1)],
+        creation_time=2000,
+        preset_id="pid",
+    )
+
+    resp = _get_scorer_preset()
+
+    mock_tracking_store.get_scorer_preset.assert_called_once_with(experiment_id, name, "hash123")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["scorer_preset"]["preset_name"] == name
+    assert response_data["scorer_preset"]["version"] == "hash123"
+
+
+def test_list_scorer_presets(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
+    from mlflow.protos.service_pb2 import ListScorerPresets
+    from mlflow.server.handlers import _list_scorer_presets
+
+    experiment_id = "123"
+
+    mock_get_request_message.return_value = ListScorerPresets(experiment_id=experiment_id)
+
+    mock_tracking_store.list_scorer_presets.return_value = (
+        [
+            ScorerPresetVersion(
+                experiment_id=experiment_id,
+                preset_name="preset_a",
+                version="h1",
+                scorer_refs=[],
+                creation_time=1000,
+                preset_id="pid1",
+            ),
+        ],
+        None,
+    )
+
+    resp = _list_scorer_presets()
+
+    mock_tracking_store.list_scorer_presets.assert_called_once_with(experiment_id, None, None)
+
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["scorer_presets"]) == 1
+    assert response_data["scorer_presets"][0]["preset_name"] == "preset_a"
+
+
+def test_delete_scorer_preset(mock_get_request_message, mock_tracking_store):
+    from mlflow.protos.service_pb2 import DeleteScorerPreset
+    from mlflow.server.handlers import _delete_scorer_preset
+
+    experiment_id = "123"
+    name = "my_preset"
+
+    mock_get_request_message.return_value = DeleteScorerPreset(
+        experiment_id=experiment_id, name=name
+    )
+
+    resp = _delete_scorer_preset()
+
+    mock_tracking_store.delete_scorer_preset.assert_called_once_with(experiment_id, name, None)
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_copy_scorer_preset(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
+    from mlflow.protos.service_pb2 import CopyScorerPreset
+    from mlflow.server.handlers import _copy_scorer_preset
+
+    experiment_id = "123"
+    name = "my_preset"
+    to_experiment_id = "456"
+
+    mock_get_request_message.return_value = CopyScorerPreset(
+        experiment_id=experiment_id, name=name, to_experiment_id=to_experiment_id
+    )
+
+    mock_tracking_store.copy_scorer_preset.return_value = ScorerPresetVersion(
+        experiment_id=to_experiment_id,
+        preset_name=name,
+        version="copied_hash",
+        scorer_refs=[("sid-1", 1)],
+        creation_time=3000,
+        preset_id="new-pid",
+    )
+
+    resp = _copy_scorer_preset()
+
+    mock_tracking_store.copy_scorer_preset.assert_called_once_with(
+        experiment_id, name, to_experiment_id, None
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["version"] == "copied_hash"
+    assert response_data["preset_id"] == "new-pid"
+
+
 def test_get_online_scoring_configs_batch(mock_tracking_store):
     mock_configs = [
         OnlineScoringConfig(

@@ -2907,6 +2907,242 @@ def test_delete_scorer_without_version():
         )
 
 
+def test_register_scorer_preset():
+    from mlflow.protos.service_pb2 import RegisterScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+        scorer_ids = ["sid-1", "sid-2"]
+
+        mock_response = mock.MagicMock()
+        mock_response.version = "abc123"
+        mock_response.preset_id = "preset-id-1"
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.register_scorer_preset(experiment_id, name, scorer_ids)
+
+        assert result.version == "abc123"
+        assert result.preset_id == "preset-id-1"
+        assert result.preset_name == name
+
+        mock_call_endpoint.assert_called_once_with(
+            RegisterScorerPreset,
+            message_to_json(
+                RegisterScorerPreset(experiment_id=experiment_id, name=name, scorer_ids=scorer_ids)
+            ),
+            endpoint="/api/3.0/mlflow/scorer-presets/register",
+        )
+
+
+def test_get_scorer_preset_with_version():
+    from mlflow.protos.service_pb2 import GetScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+        version = "abc123"
+
+        mock_preset = mock.MagicMock()
+        mock_preset.experiment_id = 123
+        mock_preset.preset_name = name
+        mock_preset.version = version
+        mock_preset.scorer_refs = []
+        mock_preset.creation_time = 1000
+        mock_preset.HasField.return_value = True
+        mock_preset.preset_id = "pid"
+        mock_response = mock.MagicMock()
+        mock_response.scorer_preset = mock_preset
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.get_scorer_preset(experiment_id, name, version=version)
+
+        assert result.preset_name == name
+        assert result.version == version
+
+        mock_call_endpoint.assert_called_once_with(
+            GetScorerPreset,
+            message_to_json(
+                GetScorerPreset(experiment_id=experiment_id, name=name, version=version)
+            ),
+            endpoint="/api/3.0/mlflow/scorer-presets/get",
+        )
+
+
+def test_get_scorer_preset_without_version():
+    from mlflow.protos.service_pb2 import GetScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+
+        mock_preset = mock.MagicMock()
+        mock_preset.experiment_id = 123
+        mock_preset.preset_name = name
+        mock_preset.version = "latest_hash"
+        mock_preset.scorer_refs = []
+        mock_preset.creation_time = 2000
+        mock_preset.HasField.return_value = True
+        mock_preset.preset_id = "pid"
+        mock_response = mock.MagicMock()
+        mock_response.scorer_preset = mock_preset
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.get_scorer_preset(experiment_id, name)
+
+        assert result.preset_name == name
+
+        mock_call_endpoint.assert_called_once_with(
+            GetScorerPreset,
+            message_to_json(GetScorerPreset(experiment_id=experiment_id, name=name)),
+            endpoint="/api/3.0/mlflow/scorer-presets/get",
+        )
+
+
+def test_list_scorer_presets():
+    from mlflow.protos.service_pb2 import ListScorerPresets
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+
+        mock_response = mock.MagicMock()
+        mock_preset = mock.MagicMock()
+        mock_preset.experiment_id = 123
+        mock_preset.preset_name = "my_preset"
+        mock_preset.version = "hash1"
+        mock_preset.scorer_refs = []
+        mock_preset.creation_time = 1000
+        mock_preset.HasField.return_value = True
+        mock_preset.preset_id = "pid"
+        mock_response.scorer_presets = [mock_preset]
+        mock_response.HasField.return_value = False
+        mock_call_endpoint.return_value = mock_response
+
+        presets, next_token = store.list_scorer_presets(experiment_id)
+
+        assert len(presets) == 1
+        assert presets[0].preset_name == "my_preset"
+        assert next_token is None
+
+        mock_call_endpoint.assert_called_once_with(
+            ListScorerPresets,
+            message_to_json(ListScorerPresets(experiment_id=experiment_id)),
+            endpoint="/api/3.0/mlflow/scorer-presets/list",
+        )
+
+
+def test_list_scorer_preset_versions():
+    from mlflow.protos.service_pb2 import ListScorerPresetVersions
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+
+        mock_response = mock.MagicMock()
+        mock_response.scorer_presets = []
+        mock_response.HasField.return_value = False
+        mock_call_endpoint.return_value = mock_response
+
+        presets, next_token = store.list_scorer_preset_versions(experiment_id, name)
+
+        assert presets == []
+        assert next_token is None
+
+        mock_call_endpoint.assert_called_once_with(
+            ListScorerPresetVersions,
+            message_to_json(ListScorerPresetVersions(experiment_id=experiment_id, name=name)),
+            endpoint="/api/3.0/mlflow/scorer-presets/versions",
+        )
+
+
+def test_delete_scorer_preset_with_version():
+    from mlflow.protos.service_pb2 import DeleteScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+        version = "abc123"
+
+        mock_call_endpoint.return_value = mock.MagicMock()
+
+        store.delete_scorer_preset(experiment_id, name, version=version)
+
+        mock_call_endpoint.assert_called_once_with(
+            DeleteScorerPreset,
+            message_to_json(
+                DeleteScorerPreset(experiment_id=experiment_id, name=name, version=version)
+            ),
+            endpoint="/api/3.0/mlflow/scorer-presets/delete",
+        )
+
+
+def test_delete_scorer_preset_without_version():
+    from mlflow.protos.service_pb2 import DeleteScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+
+        mock_call_endpoint.return_value = mock.MagicMock()
+
+        store.delete_scorer_preset(experiment_id, name)
+
+        mock_call_endpoint.assert_called_once_with(
+            DeleteScorerPreset,
+            message_to_json(DeleteScorerPreset(experiment_id=experiment_id, name=name)),
+            endpoint="/api/3.0/mlflow/scorer-presets/delete",
+        )
+
+
+def test_copy_scorer_preset():
+    from mlflow.protos.service_pb2 import CopyScorerPreset
+
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "my_preset"
+        to_experiment_id = "456"
+
+        mock_response = mock.MagicMock()
+        mock_response.version = "copied_hash"
+        mock_response.preset_id = "new-pid"
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.copy_scorer_preset(experiment_id, name, to_experiment_id)
+
+        assert result.version == "copied_hash"
+        assert result.preset_id == "new-pid"
+        assert result.preset_name == name
+        assert result.experiment_id == to_experiment_id
+
+        mock_call_endpoint.assert_called_once_with(
+            CopyScorerPreset,
+            message_to_json(
+                CopyScorerPreset(
+                    experiment_id=experiment_id,
+                    name=name,
+                    to_experiment_id=to_experiment_id,
+                )
+            ),
+            endpoint="/api/3.0/mlflow/scorer-presets/copy",
+        )
+
+
 def test_calculate_trace_filter_correlation():
     store = RestStore(lambda: None)
 
