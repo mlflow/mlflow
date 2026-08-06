@@ -130,14 +130,13 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           count=$(jq length <<< "$DUPLICATES")
-          if [ "$count" -eq 1 ]; then plural=""; else plural="s"; fi
           links=$(jq -r --arg repo "$REPO" '
             to_entries
             | map("\(.key + 1). https://github.com/\($repo)/issues/\(.value)")
             | join("\n")
           ' <<< "$DUPLICATES")
           {
-            echo "Found $count possible duplicate issue$plural:"
+            echo "Found $count possible duplicate issue(s):"
             echo
             echo "$links"
             echo
