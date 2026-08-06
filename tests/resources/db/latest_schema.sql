@@ -429,6 +429,15 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE scorer_presets (
+	experiment_id INTEGER NOT NULL,
+	preset_name VARCHAR(256) NOT NULL,
+	preset_id VARCHAR(36) NOT NULL,
+	CONSTRAINT scorer_preset_pk PRIMARY KEY (preset_id),
+	CONSTRAINT fk_scorer_presets_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE scorers (
 	experiment_id INTEGER NOT NULL,
 	scorer_name VARCHAR(256) NOT NULL,
@@ -680,6 +689,15 @@ CREATE TABLE review_queue_users (
 )
 
 
+CREATE TABLE scorer_preset_versions (
+	preset_id VARCHAR(36) NOT NULL,
+	version_hash VARCHAR(64) NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_preset_version_pk PRIMARY KEY (preset_id, version_hash),
+	CONSTRAINT fk_scorer_preset_versions_preset_id FOREIGN KEY(preset_id) REFERENCES scorer_presets (preset_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE scorer_versions (
 	scorer_id VARCHAR(36) NOT NULL,
 	scorer_version INTEGER NOT NULL,
@@ -761,6 +779,16 @@ CREATE TABLE guardrails (
 	CONSTRAINT guardrails_pk PRIMARY KEY (guardrail_id),
 	CONSTRAINT fk_guardrails_scorer_version FOREIGN KEY(scorer_id, scorer_version) REFERENCES scorer_versions (scorer_id, scorer_version),
 	CONSTRAINT fk_guardrails_action_endpoint_id FOREIGN KEY(action_endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE SET NULL
+)
+
+
+CREATE TABLE scorer_preset_memberships (
+	preset_id VARCHAR(36) NOT NULL,
+	version_hash VARCHAR(64) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	CONSTRAINT scorer_preset_membership_pk PRIMARY KEY (preset_id, version_hash, scorer_id),
+	CONSTRAINT fk_preset_membership_version FOREIGN KEY(preset_id, version_hash) REFERENCES scorer_preset_versions (preset_id, version_hash) ON DELETE CASCADE
 )
 
 
