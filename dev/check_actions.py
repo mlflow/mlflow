@@ -36,6 +36,8 @@ _VERSION_COMMENT_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)*$")
 
 _CACHE_PATH = Path(".cache/action-pins.json")
 
+_LS_REMOTE_TIMEOUT = 10
+
 
 def _load_cache() -> dict[str, bool]:
     if _CACHE_PATH.exists():
@@ -62,8 +64,11 @@ def _repo_from_action(action: str) -> str:
             raise ValueError(f"Invalid action format: {action!r}")
 
 
-def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
+class LookupFailed(Exception):
+    """`git ls-remote` produced no answer, so the pin is neither verified nor refuted."""
 
+
+def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool:
     cache_key = f"{action}@{sha}#{tag}"
     if cache_key in cache:
         return cache[cache_key]
@@ -71,20 +76,37 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     repo = _repo_from_action(action)
     try:
         result = _resolve_tag(repo, sha, tag)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        return None
+    except subprocess.TimeoutExpired as e:
+        reason = f"`git ls-remote` timed out after {_LS_REMOTE_TIMEOUT}s"
+        if e.stderr:
+            reason += f": {e.stderr.decode(errors='replace').strip()}"
+        raise LookupFailed(reason) from e
+    except subprocess.CalledProcessError as e:
+        raise LookupFailed(f"`git ls-remote` exited {e.returncode}: {e.stderr.strip()}") from e
 
     cache[cache_key] = result
     return result
 
 
 def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
-    output = subprocess.check_output(
-        ["git", "ls-remote", "--tags", f"https://github.com/{repo}.git", tag],
+    # An annotated tag's ref points at the tag object, not the commit that `uses:` pins.
+    # The peeled ref 'refs/tags/<tag>^{}' holds that commit, but `ls-remote` only emits
+    # it when a pattern matches it, so ask for both (lightweight tags match the first).
+    proc = subprocess.run(
+        [
+            "git",
+            "ls-remote",
+            "--tags",
+            f"https://github.com/{repo}.git",
+            tag,
+            f"{tag}^{{}}",
+        ],
+        capture_output=True,
         text=True,
-        timeout=10,
+        timeout=_LS_REMOTE_TIMEOUT,
+        check=True,
     )
-    return any(line.split()[0] == sha for line in output.splitlines() if line)
+    return any(line.split()[0] == sha for line in proc.stdout.splitlines() if line)
 
 
 def _iter_files() -> Iterator[Path]:
@@ -126,11 +148,12 @@ def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
             f" (expected '# vX.Y.Z', got {a.comment!r})"
         )
 
-    verified = _verify_sha_tag(a.action, a.ref, a.comment, cache)
-    if verified is None:
+    try:
+        verified = _verify_sha_tag(a.action, a.ref, a.comment, cache)
+    except LookupFailed as e:
         return (
             f"{a.prefix}\n  error: could not verify SHA against tag '{a.comment}'"
-            f" for {_repo_from_action(a.action)} (GitHub API unavailable)"
+            f" for {_repo_from_action(a.action)}\n  reason: {e}"
         )
     if not verified:
         return (

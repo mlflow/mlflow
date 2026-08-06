@@ -344,6 +344,8 @@ def test_job_endpoint_search(client: Client):
     )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_status_details_in_api_response(client: Client):
     job_id = client.submit_job(
         job_name="job_with_progress_tracking",

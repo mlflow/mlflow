@@ -40,6 +40,13 @@ export const createAssessment = ({
 export const fetchTraceInfoV3 = ({ traceId }: { traceId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`));
 
+export const fetchBatchTraceInfosV3 = async ({
+  traceIds,
+}: {
+  traceIds: string[];
+}): Promise<{ trace_infos: ModelTraceInfoV3[] }> =>
+  fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/batchGetInfos'), 'POST', { trace_ids: traceIds });
+
 export type UpdateAssessmentPayload = {
   // we only support updating these fields
   assessment: {

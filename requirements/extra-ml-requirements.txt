@@ -96,3 +96,5 @@ agno
 strands-agents
 # Required by mlflow.haystack
 haystack-ai
+# Required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+opentelemetry-haystack

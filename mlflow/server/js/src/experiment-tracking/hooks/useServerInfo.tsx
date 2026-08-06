@@ -10,6 +10,8 @@ interface ServerInfoResponse {
   store_type: string | null;
   workspaces_enabled: boolean;
   trace_archival_enabled: boolean;
+  multipart_uploads_enabled: boolean;
+  multipart_downloads_enabled: boolean;
 }
 
 // Default response when the API call fails (e.g., older server without this endpoint)
@@ -17,6 +19,8 @@ const DEFAULT_RESPONSE: ServerInfoResponse = {
   store_type: '',
   workspaces_enabled: false,
   trace_archival_enabled: false,
+  multipart_uploads_enabled: false,
+  multipart_downloads_enabled: false,
 };
 
 // Module-level reference to the QueryClient for synchronous access
@@ -66,6 +70,11 @@ export function useTraceArchivalEnabled(): boolean {
   return data?.trace_archival_enabled ?? false;
 }
 
+export function useMultipartDownloadsEnabled(): boolean {
+  const { data } = useServerInfo();
+  return data?.multipart_downloads_enabled ?? false;
+}
+
 interface ServerInfoProviderProps {
   children: ReactNode;
 }
@@ -108,6 +117,11 @@ export const useWorkspacesEnabled = (): { workspacesEnabled: boolean; loading: b
 export const getWorkspacesEnabledSync = (): boolean => {
   const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
   return cachedData?.workspaces_enabled ?? false;
+};
+
+export const getMultipartDownloadsEnabledSync = (): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.multipart_downloads_enabled ?? false;
 };
 
 // For testing purposes - allows resetting the cached state

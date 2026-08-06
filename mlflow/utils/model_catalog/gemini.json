@@ -1496,6 +1496,71 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-robotics-er-1.6-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 2.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-06"
+    },
+    "gemini-robotics-er-2-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 2.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-06"
+    },
     "gemma-3-27b-it": {
       "mode": "chat",
       "context_window": {

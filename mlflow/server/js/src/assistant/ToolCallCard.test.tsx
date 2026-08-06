@@ -1,9 +1,17 @@
 import { describe, test, expect } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { ToolCallCard, ToolCallGroup, groupStatus, toolNameSummary, type ToolCallPart } from './ToolCallCard';
+import {
+  ToolCallCard,
+  ToolCallGroup,
+  fencedBlock,
+  groupStatus,
+  toolInputSummary,
+  toolNameSummary,
+  type ToolCallPart,
+} from './ToolCallCard';
 
 const renderCard = (part: ToolCallPart) =>
   renderWithIntl(
@@ -37,6 +45,16 @@ describe('ToolCallCard', () => {
   test('summarizes trace_id with its jq_filter', () => {
     renderCard(toolCall({ name: 'trace_analyse', input: { trace_id: 'tr-1', jq_filter: '.data.spans' } }));
     expect(screen.getByText('tr-1 · .data.spans')).toBeInTheDocument();
+  });
+
+  test('truncates long input summaries before rendering the collapsed header', () => {
+    const summary = toolInputSummary(toolCall({ input: { command: 'x'.repeat(300) } }));
+    expect(summary).toContain('truncated, 60 more chars');
+    expect(summary.length).toBeLessThan(300);
+  });
+
+  test('uses a longer markdown fence when content contains backticks', () => {
+    expect(fencedBlock('before ``` after', 'json')).toBe('````json\nbefore ``` after\n````');
   });
 
   test.each([
@@ -101,6 +119,16 @@ describe('ToolCallCard', () => {
   });
 });
 
+describe('fencedBlock', () => {
+  test('uses the standard triple-backtick fence when the body has no backtick runs', () => {
+    expect(fencedBlock('{"ok":true}', 'json')).toBe('```json\n{"ok":true}\n```');
+  });
+
+  test('uses a longer fence than any backtick run in the body', () => {
+    expect(fencedBlock('before ``` inside ```` after')).toBe('`````\nbefore ``` inside ```` after\n`````');
+  });
+});
+
 describe('groupStatus', () => {
   test('is running while any call is unresolved', () => {
     expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'running' })])).toBe('running');
@@ -138,11 +166,13 @@ describe('ToolCallGroup', () => {
     toolCall({ toolUseId: 't3', name: 'Bash', status: 'done', result: 'c' }),
   ];
 
-  test('renders the count, name summary, and a status label', () => {
+  test('renders the count, name summary, and a status icon', () => {
     renderGroup(calls);
     expect(screen.getByText('3 tool calls')).toBeInTheDocument();
     expect(screen.getByText('load_skill, Bash ×2')).toBeInTheDocument();
-    expect(screen.getByTestId('tool-group-status-done')).toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    const groupStatusIcon = screen.getByTestId('tool-group-status-done');
+    expect(within(groupStatusIcon).getByTestId('tool-call-status-done')).toBeInTheDocument();
   });
 
   test('treats a missing status as running', () => {
