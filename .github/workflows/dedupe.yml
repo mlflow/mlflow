@@ -26,8 +26,10 @@ permissions: {}
 
 jobs:
   dedupe:
-    # Maintainers already know the tracker, and bot issues dedupe poorly. The
-    # pull_request branch is a smoke test; `comment` is skipped there.
+    # Only dedupe issues from outside the org. Bots file recurring reports under
+    # a fixed title (see flaky-test-detector), so each one looks like a duplicate
+    # of the last, and maintainers do not need the prompt. The pull_request
+    # branch is a smoke test; `comment` is skipped there.
     if: >
       (github.event_name == 'issues'
        && github.event.issue.user.type != 'Bot'
