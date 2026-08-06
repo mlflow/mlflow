@@ -160,6 +160,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlScorerPreset,
+    SqlScorerPresetMembership,
+    SqlScorerPresetVersion,
     SqlScorerVersion,
     SqlSpan,
     SqlSpanMetrics,
@@ -3125,11 +3128,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         creates a new version with the updated scorer_version, and returns
         info about the bumped presets.
         """
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetMembership,
-            SqlScorerPresetVersion,
-        )
 
         # Find distinct preset_ids that reference this scorer in any version
         preset_ids = [
@@ -3232,11 +3230,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def register_scorer_preset(
         self, experiment_id: str, name: str, scorer_ids: list[str]
     ) -> "ScorerPresetVersion":
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetMembership,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
@@ -3330,10 +3323,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def get_scorer_preset(
         self, experiment_id: str, name: str, version: str | None = None
     ) -> "ScorerPresetVersion":
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
@@ -3381,10 +3370,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> tuple[list["ScorerPresetVersion"], str | None]:
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
@@ -3424,10 +3409,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> tuple[list["ScorerPresetVersion"], str | None]:
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
@@ -3462,10 +3443,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def delete_scorer_preset(
         self, experiment_id: str, name: str, version: str | None = None
     ) -> None:
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
@@ -3513,11 +3490,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         to_experiment_id: str,
         version: str | None = None,
     ) -> "ScorerPresetVersion":
-        from mlflow.store.tracking.dbmodels.models import (
-            SqlScorerPreset,
-            SqlScorerPresetMembership,
-            SqlScorerPresetVersion,
-        )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             # Validate source

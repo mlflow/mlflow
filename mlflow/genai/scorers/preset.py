@@ -76,9 +76,9 @@ class Preset:
     def register(self, *, experiment_id: str | None = None):
         """Register this preset to the MLflow server for team sharing.
 
-        Each scorer in the preset is auto-registered if not already present in the
-        experiment. Scorers that already have an ID are reused; otherwise they are
-        matched by name or registered as new.
+        Each scorer in the preset is registered to the experiment (reusing
+        existing scorers by name if present), then the preset is created
+        from the resulting scorer IDs.
         """
         from mlflow.genai.scorers.registry import _get_scorer_store
         from mlflow.tracking._tracking_service.utils import _get_store
@@ -90,15 +90,9 @@ class Preset:
 
         scorer_ids = []
         for s in self._scorers:
-            if hasattr(s, "_scorer_id") and s._scorer_id is not None:
-                scorer_ids.append(s._scorer_id)
-            else:
-                # Register the scorer (reuses existing by name if present)
-                scorer_store.register_scorer(experiment_id, s)
-                # After registration, the store returns a version; we need the scorer_id.
-                # Re-fetch by name to get the ID.
-                sv = store.get_scorer(experiment_id, s.name)
-                scorer_ids.append(sv.scorer_id)
+            scorer_store.register_scorer(experiment_id, s)
+            sv = store.get_scorer(experiment_id, s.name)
+            scorer_ids.append(sv.scorer_id)
 
         return store.register_scorer_preset(experiment_id, self._name, scorer_ids)
 
