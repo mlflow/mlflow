@@ -23,16 +23,20 @@ _logger = logging.getLogger(__name__)
 IS_DBX_AGENTS_INSTALLED = importlib.util.find_spec("databricks.agents") is not None
 
 
-def validate_scorers(scorers: list[Any]) -> list[Scorer]:
+def validate_scorers(scorers: list[Any] | None) -> list[Scorer]:
     """
     Validate a list of specified scorers.
 
     Args:
-        scorers: A list of scorers to validate.
+        scorers: A list of scorers to validate. ``None`` is treated as an empty list, for runs
+            where every scorer is declared per record.
 
     Returns:
         A list of valid scorers.
     """
+    if scorers is None:
+        return []
+
     if not isinstance(scorers, list):
         raise MlflowException.invalid_parameter_value(
             "The `scorers` argument must be a list of scorers. If you are unsure about which "

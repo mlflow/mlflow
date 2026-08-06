@@ -804,9 +804,16 @@ def test_model_from_deployment_endpoint(is_in_databricks):
         assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
-def test_missing_scorers_argument():
-    with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
+def test_omitted_scorers_argument_allowed():
+    # `scorers` is optional so a dataset whose records carry their own scorers can run.
+    mock_result = EvaluationResult(run_id="test-run", metrics={}, result_df=pd.DataFrame())
+
+    with mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss:
+        mock_evaluate_oss.return_value = (mock_result, {})
+        result = mlflow.genai.evaluate(data=[{"inputs": {"q": "Hello"}, "outputs": "Hi"}])
+
+    assert result is mock_result
+    mock_evaluate_oss.assert_called_once()
 
 
 def test_empty_scorers_allowed():

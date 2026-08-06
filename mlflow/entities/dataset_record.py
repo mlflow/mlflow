@@ -14,6 +14,84 @@ from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecord
 # Reserved key for wrapping non-dict outputs when storing in SQL database
 DATASET_RECORD_WRAPPED_OUTPUT_KEY = "mlflow_wrapped"
 
+# Reserved record tag holding the names of the scorers to run on that record alone.
+# Record tags are ``dict[str, str]``, so the names are stored comma-separated. This
+# piggybacks on tags rather than adding a dedicated field so that per-record scorers
+# need no dataset schema change.
+DATASET_RECORD_SCORERS_TAG = "mlflow.scorers"
+
+
+def encode_record_scorers(scorer_names: list[str]) -> str:
+    return ",".join(scorer_names)
+
+
+def decode_record_scorers(tag_value: str | None) -> list[str]:
+    if not tag_value:
+        return []
+    return [name for part in tag_value.split(",") if (name := part.strip())]
+
+
+def validate_record_scorer_names(scorers: Any) -> list[str]:
+    """Validate a record's ``scorers`` value and return it as a list of scorer names.
+
+    Only names are accepted. Passing a ``Scorer`` object is rejected because a persisted
+    record can only carry a reference, not a definition.
+    """
+    from mlflow.exceptions import MlflowException
+
+    if scorers is None or isinstance(scorers, float):  # float covers a NaN cell from pandas
+        return []
+
+    if isinstance(scorers, str):
+        raise MlflowException.invalid_parameter_value(
+            f"The record `scorers` field must be a list of scorer names, got the string "
+            f"{scorers!r}. Use `scorers=[{scorers!r}]`."
+        )
+
+    if not isinstance(scorers, (list, tuple)):
+        raise MlflowException.invalid_parameter_value(
+            f"The record `scorers` field must be a list of scorer names, got "
+            f"{type(scorers).__name__}."
+        )
+
+    for name in scorers:
+        if isinstance(name, str):
+            continue
+        # Scorer objects are the most likely mistake here, so name that case explicitly.
+        hint = (
+            " Pass the scorer's registered name instead, e.g. "
+            f"`scorers=[{getattr(name, 'name', 'my_scorer')!r}]`."
+            if hasattr(name, "name")
+            else ""
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"The record `scorers` field must contain scorer names, got an item of type "
+            f"{type(name).__name__}.{hint}"
+        )
+
+    return list(scorers)
+
+
+def fold_record_scorers_into_tags(record_dicts: list[dict[str, Any]]) -> None:
+    """Move each record's ``scorers`` list into its ``tags`` map, in place.
+
+    Persisting via tags keeps per-record scorers off the dataset schema. Records without
+    ``scorers`` are left untouched, so a dataset that never uses the feature is unchanged.
+    """
+    for record in record_dicts:
+        if not isinstance(record, dict) or "scorers" not in record:
+            continue
+
+        scorer_names = validate_record_scorer_names(record.pop("scorers"))
+        if not scorer_names:
+            continue
+
+        tags = record.get("tags")
+        if tags is None or isinstance(tags, float):
+            tags = {}
+            record["tags"] = tags
+        tags[DATASET_RECORD_SCORERS_TAG] = encode_record_scorers(scorer_names)
+
 
 @dataclass
 class DatasetRecord(_MlflowObject):
@@ -53,6 +131,11 @@ class DatasetRecord(_MlflowObject):
                     self.source_id = self.source.source_data.get("source_id")
             if not self.source_type:
                 self.source_type = self.source.source_type.value
+
+    @property
+    def scorers(self) -> list[str]:
+        """Names of the scorers to run on this record alone, in addition to the run-level ones."""
+        return decode_record_scorers((self.tags or {}).get(DATASET_RECORD_SCORERS_TAG))
 
     def to_proto(self) -> ProtoDatasetRecord:
         proto = ProtoDatasetRecord()

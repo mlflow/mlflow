@@ -40,6 +40,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.dataset_record import DATASET_RECORD_SCORERS_TAG
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
@@ -78,6 +79,7 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.resolution import resolve_scorer_names
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     batch_link_traces_to_run,
@@ -102,6 +104,39 @@ def _merge_scorer_stats_dicts(target: dict[str, ScorerStat], source: dict[str, S
         if scorer_name not in target:
             target[scorer_name] = ScorerStat()
         target[scorer_name].merge(stat)
+
+
+def _resolve_per_record_scorers(
+    eval_items: list[EvalItem],
+    run_level_scorers: list[Scorer],
+    experiment_id: str | None,
+) -> dict[str, Scorer]:
+    """Resolve the scorer names referenced by individual eval items.
+
+    Names already covered by a run-level scorer are not looked up, since that instance is
+    what the item would run anyway.
+    """
+    run_level_names = {scorer.name for scorer in run_level_scorers}
+    referenced = {name for item in eval_items for name in item.scorers} - run_level_names
+    return resolve_scorer_names(referenced, experiment_id)
+
+
+def _scorers_for_item(
+    eval_item: EvalItem,
+    run_level_scorers: list[Scorer],
+    per_record_scorers: dict[str, Scorer],
+) -> list[Scorer]:
+    """Return the scorers to run on one item: the run-level ones plus its own, de-duplicated."""
+    if not eval_item.scorers:
+        return run_level_scorers
+
+    scorers = list(run_level_scorers)
+    seen = {scorer.name for scorer in scorers}
+    for name in eval_item.scorers:
+        if name not in seen and (scorer := per_record_scorers.get(name)):
+            scorers.append(scorer)
+            seen.add(name)
+    return scorers
 
 
 def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
@@ -394,6 +429,7 @@ class _ScoreSubmitter:
         adaptive: bool,
         max_rps_multiplier: float,
         pool_workers: int,
+        per_record_scorers: dict[str, Scorer] | None = None,
     ):
         """
         Args:
@@ -409,10 +445,12 @@ class _ScoreSubmitter:
             adaptive: Whether the rate limiter uses AIMD to adapt to 429 signals.
             max_rps_multiplier: AIMD ceiling as a multiple of the initial rps.
             pool_workers: Number of threads in the score pool.
+            per_record_scorers: Resolved scorers referenced by individual items, keyed by name.
         """
         self._eval_items = eval_items
         self._single_turn_scorers = single_turn_scorers
         self._multi_turn_scorers = multi_turn_scorers
+        self._per_record_scorers = per_record_scorers or {}
         self._session_groups = session_groups
         self._run_id = run_id
         self._max_retries = max_retries
@@ -444,10 +482,11 @@ class _ScoreSubmitter:
     def submit(self, idx: int) -> Future:
         """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
+        eval_item = self._eval_items[idx]
         future = self._pool.submit(
             self._timed_score,
-            self._eval_items[idx],
-            self._single_turn_scorers,
+            eval_item,
+            _scorers_for_item(eval_item, self._single_turn_scorers, self._per_record_scorers),
             self._run_id,
             self._limiter,
             self._max_retries,
@@ -529,6 +568,7 @@ def _run_pipeline(
     progress_bar,
     multi_turn_eval_results: dict[str, EvalResult],
     experiment_id: str | None,
+    per_record_scorers: dict[str, Scorer] | None = None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
 
@@ -538,8 +578,12 @@ def _run_pipeline(
     """
     _warmup_databricks_sdk()
 
+    per_record_scorers = per_record_scorers or {}
     predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
-    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
+    # Per-record scorers only run on a subset of items, so counting them here overstates the
+    # call volume. That is the safe direction: it raises the derived scorer rate ceiling rather
+    # than throttling below what the run actually needs.
+    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers) + len(per_record_scorers)
     scorer_rps, scorer_adaptive = _get_scorer_rate_config(
         predict_rps, predict_adaptive, num_scorers
     )
@@ -570,12 +614,13 @@ def _run_pipeline(
         adaptive=scorer_adaptive,
         max_rps_multiplier=_AIMD_UPPER_MULTIPLIER,
         pool_workers=score_workers,
+        per_record_scorers=per_record_scorers,
     )
 
     try:
         heartbeat = (
             _Heartbeat(predictor, scorer_submitter, len(eval_items))
-            if single_turn_scorers
+            if (single_turn_scorers or per_record_scorers)
             else None
         )
 
@@ -678,7 +723,11 @@ def run(
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
     experiment_id = mlflow.get_run(run_id).info.experiment_id
 
+    scorers = scorers or []
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
+    # Records may reference scorers by name; resolve them once here so a bad name fails before
+    # any prediction runs rather than per row inside the score pool.
+    per_record_scorers = _resolve_per_record_scorers(eval_items, scorers, experiment_id)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
     # Every eval item goes through the score pool (even with no single-turn
     # scorers, _run_score still logs expectations and tags), so each item
@@ -714,6 +763,7 @@ def run(
             progress_bar=progress_bar,
             multi_turn_eval_results=multi_turn_eval_results,
             experiment_id=experiment_id,
+            per_record_scorers=per_record_scorers,
         )
     finally:
         predict_total = sum(predict_times)
@@ -761,12 +811,17 @@ def run(
     # Check for scorer failures and log a summary warning
     _log_scorer_failure_summary(scorer_stats)
 
-    # Aggregate metrics and log to MLflow run
-    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
+    # Aggregate metrics and log to MLflow run. Per-record scorers are included so that their
+    # declared aggregations apply; each metric is averaged over the rows that scorer actually
+    # produced a value for, not the full row count.
+    all_scorers = [*scorers, *per_record_scorers.values()]
+    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=all_scorers)
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
+        emit_metric_usage_event(
+            all_scorers, len(eval_items), len(session_groups), aggregated_metrics
+        )
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
@@ -791,7 +846,7 @@ def run(
     # pass/fail for non-yes/no values. In-process only; not persisted.
     pass_criteria = {
         scorer.name: scorer.pass_if
-        for scorer in (scorers or [])
+        for scorer in all_scorers
         if getattr(scorer, "pass_if", None) is not None
     }
 
@@ -886,7 +941,9 @@ def _run_score(
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
-    for key in tags.keys() - IMMUTABLE_TAGS:
+    # The per-record scorer tag is dataset metadata, not trace metadata; the assessments on the
+    # trace already record which scorers ran.
+    for key in tags.keys() - IMMUTABLE_TAGS - {DATASET_RECORD_SCORERS_TAG}:
         try:
             mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
         except Exception as e:

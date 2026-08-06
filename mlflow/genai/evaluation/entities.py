@@ -9,6 +9,11 @@ import pandas as pd
 
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record import (
+    DATASET_RECORD_SCORERS_TAG,
+    decode_record_scorers,
+    validate_record_scorer_names,
+)
 from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -93,6 +98,9 @@ class EvalItem:
     """Tags from the eval item."""
     tags: dict[str, str] | None = None
 
+    """Names of scorers to run on this item alone, in addition to the run-level scorers."""
+    scorers: list[str] = field(default_factory=list)
+
     """Trace of the model invocation."""
     trace: Trace | None = None
 
@@ -145,6 +153,17 @@ class EvalItem:
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
 
+        # Per-record scorers come either from a `scorers` column (in-memory data) or from the
+        # reserved tag (records read back from a persisted dataset). The column wins so that a
+        # caller can override what the dataset persisted. Malformed tags are left for
+        # validate_tags() to report during scoring.
+        if InputDatasetColumn.SCORERS in row:
+            scorers = validate_record_scorer_names(row.get(InputDatasetColumn.SCORERS))
+        elif isinstance(tags, dict):
+            scorers = decode_record_scorers(tags.get(DATASET_RECORD_SCORERS_TAG))
+        else:
+            scorers = []
+
         # Extract source column from the dataset.
         source = row.get(InputDatasetColumn.SOURCE)
         if is_none_or_nan(source):
@@ -169,6 +188,7 @@ class EvalItem:
             outputs=outputs,
             expectations=expectations,
             tags=tags,
+            scorers=scorers,
             trace=trace,
             source=source,
         )

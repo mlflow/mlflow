@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+from mlflow.entities.dataset_record import fold_record_scorers_into_tags
 from mlflow.entities.evaluation_dataset import (
     EvaluationDataset as _EntityEvaluationDataset,
 )
@@ -12,6 +13,33 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark.sql
+
+
+def _fold_scorers_for_managed_backend(
+    records: "list[dict[str, Any]] | pd.DataFrame | pyspark.sql.DataFrame",
+) -> "list[dict[str, Any]] | pd.DataFrame | pyspark.sql.DataFrame":
+    """Move a ``scorers`` column into record tags, for records bound for the managed backend.
+
+    Returns the records unchanged when no ``scorers`` are present, so datasets that don't use
+    the feature take exactly the path they did before.
+    """
+    import pandas as pd
+
+    if isinstance(records, list):
+        if not any(isinstance(r, dict) and "scorers" in r for r in records):
+            return records
+        # Copy so the caller's dicts are not mutated; the OSS arm folds in place on dicts it
+        # already owns, but here the list came straight from user code.
+        records = [dict(r) if isinstance(r, dict) else r for r in records]
+        fold_record_scorers_into_tags(records)
+        return records
+
+    if isinstance(records, pd.DataFrame) and "scorers" in records.columns:
+        record_dicts = records.to_dict("records")
+        fold_record_scorers_into_tags(record_dicts)
+        return pd.DataFrame(record_dicts)
+
+    return records
 
 
 class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -169,12 +197,21 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         records: "list[dict[str, Any]] | pd.DataFrame | pyspark.sql.DataFrame",
     ) -> "EvaluationDataset":
-        """Merge records into the dataset."""
+        """Merge records into the dataset.
+
+        A record may carry a ``scorers`` list naming scorers to run on that record alone
+        during evaluation. Only names are accepted, and each must refer to a built-in scorer
+        or a scorer registered to the experiment.
+        """
         if self._mlflow_dataset:
             self._mlflow_dataset.merge_records(records)
             return self
 
         from mlflow.genai.datasets import _databricks_profile_env
+
+        # The managed backend has no `scorers` field, so fold the names into record tags before
+        # handing off to databricks-agents. Unrecognized keys would otherwise be dropped.
+        records = _fold_scorers_for_managed_backend(records)
 
         with _databricks_profile_env():
             dataset = self._databricks_dataset.merge_records(records)
