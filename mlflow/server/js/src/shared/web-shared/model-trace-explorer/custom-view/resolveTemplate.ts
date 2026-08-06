@@ -29,6 +29,10 @@ import {
 
 const SPAN_GUARD_KEY = 'renderIfSpan';
 
+// The component id the renderer walks the tree from, and which
+// `validateAndPrepareMessages` requires the resolved stream to contain.
+const ROOT_COMPONENT_ID = 'root';
+
 export type ResolveContext = {
   viewData: CustomViewData;
   nodeMap: Record<string, ModelTraceSpanNode>;
@@ -185,8 +189,9 @@ const computePrunedIds = (components: unknown[], nodeMap: Record<string, ModelTr
 // markers and appending any structurally-materialized children (so parents still
 // precede children in the list). Components pruned by a `renderIfSpan` guard (and
 // their descendants) are dropped, and their ids are removed from any parent's
-// `children` so the layout closes up cleanly. Returns the resolved component list
-// (the only part of the payload this transforms).
+// `children` so the layout closes up cleanly. A prune that takes out the root
+// collapses the view to an empty root rather than removing it. Returns the
+// resolved component list (the only part of the payload this transforms).
 const resolveComponents = (payload: Record<string, unknown>, ctx: ResolveContext): Record<string, unknown>[] => {
   const components = Array.isArray(payload['components']) ? payload['components'] : [];
   const pruned = computePrunedIds(components, ctx.nodeMap);
@@ -214,6 +219,19 @@ const resolveComponents = (payload: Record<string, unknown>, ctx: ResolveContext
       if (typeof component['child'] === 'string' && pruned.has(component['child'])) {
         delete component['child'];
       }
+    }
+    // The root can be pruned like any other component — by a guard on itself, or
+    // by the `child` cascade reaching it — but a stream with no root is rejected
+    // WHOLESALE by `validateAndPrepareMessages`, so the view would surface a
+    // render error instead of hiding the guarded content. Substitute an empty
+    // root so it collapses to a blank view. The pruned root's own definition
+    // can't be reused: a Card that lost its required `child` fails the strict
+    // resolved-output validation, so emit a bare Column.
+    if (
+      pruned.has(ROOT_COMPONENT_ID) &&
+      components.some((component) => isRecord(component) && component['id'] === ROOT_COMPONENT_ID)
+    ) {
+      resolved.unshift({ id: ROOT_COMPONENT_ID, component: 'Column', children: [] });
     }
   }
   return [...resolved, ...generated];

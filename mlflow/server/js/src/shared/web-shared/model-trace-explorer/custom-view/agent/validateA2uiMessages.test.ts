@@ -204,6 +204,21 @@ describe('validateAndPrepareMessages catalog allowlist', () => {
   );
 });
 
+// `resolveTemplate` substitutes an empty root Column when a `renderIfSpan` prune
+// reaches the root, since a rootless stream is rejected wholesale here. That
+// fallback is only useful if it survives this strict validation.
+describe('validateAndPrepareMessages collapsed root', () => {
+  it('accepts a root left with no children', () => {
+    const result = prepare([{ id: 'root', component: 'Column', children: [] }]);
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('rejects a stream whose only root was removed', () => {
+    const result = prepare([{ id: 'orphan', component: 'Text', text: 'hi' }]);
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('no "root" component') });
+  });
+});
+
 describe('validateTemplate catalog allowlist', () => {
   const templateWith = (components: unknown[]) => [
     { version: 'v0.9', updateComponents: { surfaceId: 'main', components } },

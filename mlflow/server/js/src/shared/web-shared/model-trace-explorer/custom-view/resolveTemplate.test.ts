@@ -161,6 +161,37 @@ describe('resolveTemplate', () => {
     expect((components.find((c) => c.id === 'root')?.children as string[]) ?? []).toEqual(['keep']);
   });
 
+  // A rootless stream is rejected wholesale by `validateAndPrepareMessages`, which
+  // would surface a render error instead of hiding the guarded content — so a prune
+  // that reaches the root collapses the view to an empty root instead.
+  it('collapses to an empty root when the guard sits on the root itself', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          { id: 'root', component: 'Column', renderIfSpan: { type: 'TOOL', nth: 9 }, children: ['card'] },
+          { id: 'card', component: 'Text', text: 'hidden' },
+        ]),
+      ],
+      ctx,
+    );
+    expect(componentsOf(resolved)).toEqual([{ id: 'root', component: 'Column', children: [] }]);
+  });
+
+  it('collapses to an empty root when the child cascade reaches a root Card', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          // No guard on the root Card — it sits on the Card's single child, and the
+          // collapse cascades up to the root.
+          { id: 'root', component: 'Card', child: 'inner' },
+          { id: 'inner', component: 'Text', renderIfSpan: { type: 'TOOL', nth: 9 }, text: 'hidden' },
+        ]),
+      ],
+      ctx,
+    );
+    expect(componentsOf(resolved)).toEqual([{ id: 'root', component: 'Column', children: [] }]);
+  });
+
   it('keeps a renderIfSpan subtree when the guard resolves, and strips the guard prop', () => {
     const resolved = resolveTemplate(
       [
