@@ -3,6 +3,7 @@ import urllib.parse
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -4156,6 +4157,23 @@ def test_attach_model_to_gateway_endpoint_rejects_unspecified_linkage_type(
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
     assert "'linkage_type' in model_config" in response_data["message"]
     mock_tracking_store.attach_model_to_endpoint.assert_not_called()
+
+
+def test_assert_linkage_type_rejects_proto_value_without_entity_counterpart():
+    """
+    No such value exists today, so this is driven through a stub rather than a real proto. It
+    guards against a linkage type being added to the proto enum but not to
+    GatewayModelLinkageType, which would otherwise reach the store as None and raise a 500.
+    """
+    from mlflow.server.handlers import _assert_linkage_type_specified
+
+    unmapped = max(ProtoGatewayModelLinkageType.values()) + 1
+
+    with pytest.raises(MlflowException, match="Invalid or missing value") as exc_info:
+        _assert_linkage_type_specified(SimpleNamespace(linkage_type=unmapped), 0)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "model_configs[0]" in exc_info.value.message
 
 
 @pytest.mark.parametrize(

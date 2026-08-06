@@ -303,9 +303,6 @@ from mlflow.protos.service_pb2 import (
     UpdateWorkspace,
     UpsertDatasetRecords,
 )
-from mlflow.protos.service_pb2 import (
-    GatewayModelLinkageType as ProtoGatewayModelLinkageType,
-)
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import (
     CreateWebhook,
@@ -5875,18 +5872,20 @@ def _list_gateway_secrets():
 
 def _assert_linkage_type_specified(model_config, index: int | None = None) -> None:
     """
-    Reject model configs that leave ``linkage_type`` unspecified.
+    Reject model configs whose ``linkage_type`` does not map to a known linkage type.
 
     The proto marks ``linkage_type`` as optional and ``GatewayModelLinkageType.from_proto``
-    maps ``LINKAGE_TYPE_UNSPECIFIED`` to ``None``, which the store would later dereference as
-    ``config.linkage_type.value``. Failing here keeps that from surfacing as a 500.
+    returns ``None`` for any value it cannot map, which the store would later dereference as
+    ``config.linkage_type.value``. Validating through ``from_proto`` rather than comparing
+    against ``LINKAGE_TYPE_UNSPECIFIED`` keeps a proto enum value that has no entity
+    counterpart from surfacing as a 500.
     """
-    if model_config.linkage_type != ProtoGatewayModelLinkageType.LINKAGE_TYPE_UNSPECIFIED:
+    if GatewayModelLinkageType.from_proto(model_config.linkage_type) is not None:
         return
     location = "model_config" if index is None else f"model_configs[{index}]"
     valid = ", ".join(t.value for t in GatewayModelLinkageType)
     raise MlflowException.invalid_parameter_value(
-        f"Missing value for required parameter 'linkage_type' in {location}. "
+        f"Invalid or missing value for required parameter 'linkage_type' in {location}. "
         f"Must be one of: {valid}."
     )
 
