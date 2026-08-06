@@ -241,6 +241,20 @@ describe('validateTemplate catalog allowlist', () => {
       error: expect.stringContaining('unknown component type "constructor"'),
     });
   });
+
+  // A2UI marks `id` optional, so an id-less component clears the envelope schema.
+  // The per-trace validator rejects it, so accepting it at save time would persist
+  // a view that can never render.
+  it.each([
+    ['an absent id', { component: 'Text', text: 'orphan' }],
+    ['an empty id', { id: '', component: 'Text', text: 'orphan' }],
+  ])('rejects a template component with %s', (_label, orphan) => {
+    const result = validateTemplate(templateWith([{ id: 'root', component: 'Column', children: ['a'] }, orphan]));
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('missing a non-empty "id"'),
+    });
+  });
 });
 
 // A2UI types `updateDataModel.value` as `z.any()`, and components can read it

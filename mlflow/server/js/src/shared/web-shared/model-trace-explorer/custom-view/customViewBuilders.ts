@@ -206,6 +206,12 @@ export const getSpanAttributes = (span?: ModelTraceSpanNode): Record<string, unk
 // Materializes a `{ "$source": "assessments" }` marker into one `AssessmentCard`
 // per assessment for the CURRENT trace, returning the child ids to place into
 // the host `AssessmentBoard`'s `children` and the components to append.
+//
+// The generated ids MUST stay a pure function of `idPrefix` + position: cycling
+// traces re-resolves the template onto the SAME surface, and A2UI upserts
+// components by id. A nondeterministic suffix (hash/timestamp/random) would mint
+// fresh ids every render and strand the previous cards in the surface model,
+// since nothing deletes them.
 export const buildAssessmentCardComponents = (
   items: AssessmentBoardItem[],
   { idPrefix }: { idPrefix: string },

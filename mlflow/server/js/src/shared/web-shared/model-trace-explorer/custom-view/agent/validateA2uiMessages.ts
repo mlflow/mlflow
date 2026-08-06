@@ -304,6 +304,14 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
     return `Component "${id}" has an unknown component type "${componentName}". Only components defined in the custom-view catalog are allowed.`;
   }
 
+  // A2UI types `id` as optional, but an id-less component is unreferenceable and
+  // the per-trace validator rejects it — so without this guard the template saves
+  // and then fails to render forever. Fail at save time, while the agent can still
+  // repair it.
+  if (component['id'] === undefined || component['id'] === null || component['id'] === '') {
+    return `Component "${componentName}" is missing a non-empty "id".`;
+  }
+
   if ('renderIfSpan' in component && !isValidSpanRefSelector(unwrapSpanRefSelector(component['renderIfSpan']))) {
     return (
       `Component "${id}" (${componentName}) has an invalid "renderIfSpan" guard. Use a spanRef selector: ` +
@@ -519,7 +527,7 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
           error: `Invalid updateDataModel message: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
         };
       }
-      const dataModelError = validateTemplateDataModelValue(payload?.['value']);
+      const dataModelError = validateTemplateDataModelValue(parsed.data.updateDataModel.value);
       if (dataModelError) {
         return { ok: false, error: dataModelError };
       }
