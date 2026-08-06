@@ -3261,14 +3261,14 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     assert traces[0].request_id == trace2_id
 
 
-
 def test_link_prompts_to_trace_nonexistent_trace_raises(store: SqlAlchemyStore):
     trace_id = "tr-does-not-exist"
-    with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found."):
+    with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found.") as exc_info:
         store.link_prompts_to_trace(
             trace_id,
             [PromptVersion(name="my-prompt", version=1, template="Hello {{name}}")],
         )
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
