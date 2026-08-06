@@ -151,9 +151,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional hyphens.',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -170,9 +168,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional hyphens.',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -189,9 +185,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional hyphens.',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -208,9 +202,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional hyphens.',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -225,11 +217,9 @@ describe('CreateWorkspaceModal', () => {
     const createButton = screen.getByText('Create');
     await userEvent.click(createButton);
 
-      expect(
-        screen.queryByText(
-          'Workspace name must be lowercase alphanumeric with optional hyphens.',
-        ),
-      ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
+    ).not.toBeInTheDocument();
   });
 
   test('shows validation error for workspace name that is too short', async () => {
