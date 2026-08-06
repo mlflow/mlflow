@@ -388,6 +388,51 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
   return error;
 };
 
+// The A2UI envelope types `updateDataModel.value` as `z.any()`, so the schema
+// check above it proves nothing about the contents. A template's data model is
+// then persisted verbatim — `resolveTemplate` only swaps markers on component
+// props — yet every DynamicString prop may bind to it via `{ "path": ... }`.
+// Anything parked here therefore reaches the renderer unresolved and unchecked,
+// so apply the same trace-agnostic rules the component walk enforces.
+//
+// Markers are rejected outright (not merely validated): even a well-formed one
+// is never resolved in the data model, so it would render as raw JSON.
+const validateTemplateDataModelValue = (value: unknown): string | undefined => {
+  let error: string | undefined;
+
+  const walk = (current: unknown) => {
+    if (error) {
+      return;
+    }
+    if (isSourceMarker(current) || isSpanRefMarker(current)) {
+      const marker = isSourceMarker(current) ? '$source' : '$spanRef';
+      error =
+        `The template's data model contains a "${marker}" marker. Markers are only resolved on component ` +
+        `props, so one placed in the data model renders as raw JSON. Bind the marker to the prop that ` +
+        `displays it instead.`;
+      return;
+    }
+    if (typeof current === 'string') {
+      if (current.includes('#span:')) {
+        error =
+          `The template's data model contains a "#span:" deeplink. Reusable views cannot embed ` +
+          `trace-specific narrative; bind a "spanField" source to select a span by role instead.`;
+      }
+      return;
+    }
+    if (Array.isArray(current)) {
+      current.forEach(walk);
+      return;
+    }
+    if (isRecord(current)) {
+      Object.values(current).forEach(walk);
+    }
+  };
+
+  walk(value);
+  return error;
+};
+
 export type TemplateValidateResult = { ok: true; messages: A2uiMessage[] } | { ok: false; error: string };
 
 /**
@@ -399,6 +444,8 @@ export type TemplateValidateResult = { ok: true; messages: A2uiMessage[] } | { o
  *  - normalizes the surface id to a placeholder + flattens nested props,
  *  - validates each envelope (Zod) and each marker (known source name / valid
  *    spanRef selector) and rejects forbidden trace-specific narrative,
+ *  - walks any `updateDataModel` value for the same narrative rules, since
+ *    components can read it back through a `{ "path": ... }` binding,
  *  - requires a `root` component,
  *
  * returning the marker-preserving template to persist. Per-trace rendering then
@@ -471,6 +518,10 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
           ok: false,
           error: `Invalid updateDataModel message: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
         };
+      }
+      const dataModelError = validateTemplateDataModelValue(payload?.['value']);
+      if (dataModelError) {
+        return { ok: false, error: dataModelError };
       }
       kept.push(parsed.data);
       continue;

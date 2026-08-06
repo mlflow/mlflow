@@ -242,3 +242,54 @@ describe('validateTemplate catalog allowlist', () => {
     });
   });
 });
+
+// A2UI types `updateDataModel.value` as `z.any()`, and components can read it
+// back through a `{ "path": ... }` DynamicString binding, so the data model
+// would otherwise be an unchecked route around the component-level rules.
+describe('validateTemplate data model', () => {
+  const templateWithDataModel = (value: unknown) => [
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId: 'main',
+        components: [{ id: 'root', component: 'Text', text: { path: '/heading' } }],
+      },
+    },
+    { version: 'v0.9', updateDataModel: { surfaceId: 'main', value } },
+  ];
+
+  it('accepts literal data-model values bound by path', () => {
+    const result = validateTemplate(templateWithDataModel({ heading: 'Trace summary', counts: [1, 2, 3] }));
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('rejects a "#span:" deeplink smuggled into the data model', () => {
+    const result = validateTemplate(templateWithDataModel({ heading: 'See [the call](#span:span-abc-123)' }));
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('"#span:" deeplink'),
+    });
+  });
+
+  it('rejects a "#span:" deeplink nested inside arrays and objects', () => {
+    const result = validateTemplate(templateWithDataModel({ rows: [{ label: 'ok' }, { label: '#span:abc' }] }));
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('"#span:" deeplink'),
+    });
+  });
+
+  // Markers are never resolved in the data model, so even well-formed ones would
+  // render as raw JSON — reject them rather than persist a broken binding.
+  it.each([
+    ['a valid $source marker', { heading: { $source: 'metrics.latency' } }, '$source'],
+    ['an unknown $source marker', { heading: { $source: 'metrics.bogus' } }, '$source'],
+    ['a $spanRef marker', { heading: { $spanRef: 'root' } }, '$spanRef'],
+  ])('rejects %s in the data model', (_label, value, marker) => {
+    const result = validateTemplate(templateWithDataModel(value));
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(`"${marker}" marker`),
+    });
+  });
+});
