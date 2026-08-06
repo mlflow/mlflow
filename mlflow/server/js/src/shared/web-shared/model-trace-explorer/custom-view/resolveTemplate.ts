@@ -53,6 +53,13 @@ const resolveValueDeep = (value: unknown, ctx: ResolveContext): unknown => {
     return '';
   }
   if (isSpanRefMarker(value)) {
+    // Nested inside a value, an unresolved ref degrades to "" like every other
+    // source here — NOT to the dropped prop `resolveComponent` produces for a
+    // top-level marker. There the marker is a control TARGET, so absent must
+    // mean absent; here it is display data, and dropping it is not even
+    // expressible (an array entry has no key), let alone safe: required props
+    // like KeyValueViewer's `value` would fail the strict resolved-output
+    // validation and error the whole view instead of rendering empty.
     return resolveSpanRef(value.$spanRef, ctx.nodeMap) ?? '';
   }
   if (Array.isArray(value)) {
