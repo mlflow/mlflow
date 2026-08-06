@@ -32,8 +32,12 @@ jobs:
   # On pull_request this runs end-to-end against the newest open issue as a smoke
   # test. The `comment` job is skipped there, so nothing is posted.
   dedupe:
+    # Maintainers already know the tracker, and bots file issues from templates
+    # that dedupe poorly, so only run on issues from outside the org.
     if: >
-      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot')
+      (github.event_name == 'issues'
+       && github.event.issue.user.type != 'Bot'
+       && !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
       || (github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
