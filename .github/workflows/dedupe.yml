@@ -1,10 +1,8 @@
 # Comment on new issues with links to likely duplicates.
 #
-# Split into two jobs so prompt injection in an issue body cannot become a write:
-# - `dedupe` runs Claude with read-only permissions. It emits nothing but issue
-#   numbers, so no model-authored text can reach the comment.
-# - `comment` holds `issues: write`, sanitizes those numbers, and posts a fixed
-#   template built here.
+# Two jobs so prompt injection in an issue body cannot become a write: `dedupe`
+# runs Claude read-only and emits only issue numbers, `comment` holds
+# `issues: write` and renders a fixed template from them.
 
 name: dedupe
 
@@ -27,11 +25,9 @@ defaults:
 permissions: {}
 
 jobs:
-  # On pull_request this runs end-to-end against the newest open issue as a smoke
-  # test. The `comment` job is skipped there, so nothing is posted.
   dedupe:
-    # Maintainers already know the tracker, and bots file issues from templates
-    # that dedupe poorly, so only run on issues from outside the org.
+    # Maintainers already know the tracker, and bot issues dedupe poorly. The
+    # pull_request branch is a smoke test; `comment` is skipped there.
     if: >
       (github.event_name == 'issues'
        && github.event.issue.user.type != 'Bot'
@@ -63,8 +59,7 @@ jobs:
           if [ "$EVENT_NAME" = "issues" ]; then
             number="$ISSUE_NUMBER"
           else
-            # Smoke test: dedupe whatever issue was opened most recently, so the
-            # target stays valid without anyone maintaining a fixture.
+            # Target the newest issue so no fixture needs maintaining.
             number=$(gh issue list --repo "$REPO" --state open --limit 1 --json number --jq '.[0].number')
           fi
           echo "issue_number=$number" >> "$GITHUB_OUTPUT"
@@ -76,8 +71,7 @@ jobs:
       - name: Find duplicates
         id: claude
         env:
-          # Read-only token: prompt injection in the issue body cannot post,
-          # label, or close anything.
+          # Read-only: injection in the issue body cannot post, label, or close.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           REPO: ${{ github.repository }}
@@ -102,9 +96,8 @@ jobs:
             exit $EXIT_CODE
           fi
 
-          # Keep only positive integers other than the issue itself, drop repeats
-          # without sorting (the model orders them best match first), cap at 3.
-          # Anything else the model wrote is discarded here rather than trusted.
+          # Drop anything that is not a positive integer, plus the issue itself
+          # and repeats. Order is the model's ranking, so do not sort.
           duplicates='[]'
           if [ -s /tmp/dedupe-payload.json ]; then
             duplicates=$(jq -c --argjson base "$ISSUE_NUMBER" '
