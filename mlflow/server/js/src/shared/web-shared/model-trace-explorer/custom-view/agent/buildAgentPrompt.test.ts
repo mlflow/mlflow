@@ -23,6 +23,22 @@ describe('buildCustomViewAuthoringGuide', () => {
       expect(guide).toContain(shared);
     }
   });
+
+  // A StatCard's `icon`/`tone` are static enums the host never re-resolves, so an
+  // example that styles a status tile as a success would teach the model a view
+  // that still renders a green check on a trace whose status is ERROR.
+  test('styles the example status tiles neutrally', () => {
+    const guide = buildCustomViewAuthoringGuide();
+    const statusTiles = guide
+      .split('\n')
+      .filter((line) => line.includes('"component": "StatCard"') && line.includes('"metrics.status"'));
+
+    expect(statusTiles).toHaveLength(2);
+    for (const tile of statusTiles) {
+      expect(tile).toContain('"tone": "info"');
+      expect(tile).not.toMatch(/"icon": "(checkCircle|xCircle)"/);
+    }
+  });
 });
 
 const makeNode = (over: Partial<AgentNode> = {}): AgentNode => ({
