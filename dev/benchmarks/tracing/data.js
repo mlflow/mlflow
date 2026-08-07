@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786084166754,
+  "lastUpdate": 1786095372398,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19655,6 +19655,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 23.175300399992693,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85829459+shivamAmrutia@users.noreply.github.com",
+            "name": "shivam",
+            "username": "shivamAmrutia"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e7b8329575250ca1d03e0578ba9d08512a5a0e0",
+          "message": "Fix Bedrock gateway grouping of parallel tool results (#24309)\n\nSigned-off-by: shivamAmrutia <amrutiashivam@gmail.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>",
+          "timestamp": "2026-08-07T17:34:47+08:00",
+          "tree_id": "98193d527a56c3a64000b1abeab64fefdab66a5b",
+          "url": "https://github.com/mlflow/mlflow/commit/8e7b8329575250ca1d03e0578ba9d08512a5a0e0"
+        },
+        "date": 1786095369964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.32509630000732,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.3393058727280565,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.414065503397397,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.3108870338999745,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.809276152670678,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.56952920000731,
             "unit": "ms"
           }
         ]
