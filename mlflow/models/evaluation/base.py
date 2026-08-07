@@ -357,10 +357,7 @@ def make_metric(
                             calculated by the system, make sure to specify the type hint for this
                             parameter as Dict[str, MetricValue].  Refer to the DefaultEvaluator
                             behavior section for what metrics will be returned based on the type of
-                            model (i.e. classifier or regressor).  kwargs: Includes a list of args
-                            that are used to compute the metric. These args could information coming
-                            from input data, model outputs or parameters specified in the
-                            `evaluator_config` argument of the `mlflow.evaluate` API.
+                            model (i.e. classifier or regressor).
                         kwargs: Includes a list of args that are used to compute the metric. These
                             args could be information coming from input data, model outputs,
                             other metrics, or parameters specified in the `evaluator_config`
@@ -438,10 +435,7 @@ def _make_metric(
                             calculated by the system, make sure to specify the type hint for this
                             parameter as Dict[str, MetricValue].  Refer to the DefaultEvaluator
                             behavior section for what metrics will be returned based on the type of
-                            model (i.e. classifier or regressor).  kwargs: Includes a list of args
-                            that are used to compute the metric. These args could information coming
-                            from input data, model outputs or parameters specified in the
-                            `evaluator_config` argument of the `mlflow.evaluate` API.
+                            model (i.e. classifier or regressor).
                         kwargs: Includes a list of args that are used to compute the metric. These
                             args could be information coming from input data, model outputs,
                             other metrics, or parameters specified in the `evaluator_config`
