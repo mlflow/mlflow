@@ -523,43 +523,50 @@ def test_delete_scorer_removes_endpoint_binding(store: SqlAlchemyStore):
     store.register_scorer(experiment_id, "scorer", '{"data": "scorer"}')
     endpoint_id = f"ep-{uuid.uuid4().hex}"
 
-    with store.ManagedSessionMaker(read_only=False) as session:
-        scorer = session.query(SqlScorer).filter_by(experiment_id=experiment_id).one()
-        scorer_id = scorer.scorer_id
-        session.add(
-            SqlGatewayEndpoint(
-                endpoint_id=endpoint_id,
-                name=f"endpoint-{uuid.uuid4().hex}",
-                created_at=0,
-                last_updated_at=0,
-                usage_tracking=False,
-                workspace=DEFAULT_WORKSPACE_NAME,
+    try:
+        with store.ManagedSessionMaker(read_only=False) as session:
+            scorer = session.query(SqlScorer).filter_by(experiment_id=experiment_id).one()
+            scorer_id = scorer.scorer_id
+            session.add(
+                SqlGatewayEndpoint(
+                    endpoint_id=endpoint_id,
+                    name=f"endpoint-{uuid.uuid4().hex}",
+                    created_at=0,
+                    last_updated_at=0,
+                    usage_tracking=False,
+                    workspace=DEFAULT_WORKSPACE_NAME,
+                )
             )
-        )
-        session.flush()
-        session.add(
-            SqlGatewayEndpointBinding(
-                endpoint_id=endpoint_id,
-                resource_type=GatewayResourceType.SCORER.value,
-                resource_id=scorer_id,
-                created_at=0,
-                last_updated_at=0,
+            session.flush()
+            session.add(
+                SqlGatewayEndpointBinding(
+                    endpoint_id=endpoint_id,
+                    resource_type=GatewayResourceType.SCORER.value,
+                    resource_id=scorer_id,
+                    created_at=0,
+                    last_updated_at=0,
+                )
             )
-        )
 
-    store.delete_scorer(experiment_id, "scorer")
+        store.delete_scorer(experiment_id, "scorer")
 
-    with store.ManagedSessionMaker() as session:
-        assert (
-            session
-            .query(SqlGatewayEndpointBinding)
-            .filter_by(
-                resource_type=GatewayResourceType.SCORER.value,
-                resource_id=scorer_id,
+        with store.ManagedSessionMaker() as session:
+            assert (
+                session
+                .query(SqlGatewayEndpointBinding)
+                .filter_by(
+                    resource_type=GatewayResourceType.SCORER.value,
+                    resource_id=scorer_id,
+                )
+                .count()
+                == 0
             )
-            .count()
-            == 0
-        )
+            assert session.get(SqlGatewayEndpoint, endpoint_id) is not None
+    finally:
+        with store.ManagedSessionMaker(read_only=False) as session:
+            session.query(SqlGatewayEndpoint).filter_by(
+                endpoint_id=endpoint_id,
+            ).delete(synchronize_session=False)
 
 
 def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
