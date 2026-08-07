@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786071741287,
+  "lastUpdate": 1786075647097,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19547,6 +19547,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.11728180000091,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141505682+KunalBharadwaj@users.noreply.github.com",
+            "name": "KunalBharadwaj",
+            "username": "KunalBharadwaj"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f406897e8e8ac13e4b2bdc72ffde92300f18802",
+          "message": "Reject unspecified `linkage_type` in gateway model configs instead of returning 500 (#24664)\n\nSigned-off-by: Kunal Bharadwaj <bharadwajkunal172@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-07T12:05:55+08:00",
+          "tree_id": "a8c803df49f2b7a5d0b69d2385ba2a693d98094f",
+          "url": "https://github.com/mlflow/mlflow/commit/8f406897e8e8ac13e4b2bdc72ffde92300f18802"
+        },
+        "date": 1786075646060,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 111.00770425000093,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.59763960563384,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.9348052222222654,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.5705228376624,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.783128309940927,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.619602833332408,
             "unit": "ms"
           }
         ]
