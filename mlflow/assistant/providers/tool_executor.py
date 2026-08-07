@@ -6,12 +6,98 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
-# Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
-_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
+# Restricted mode only permits the MLflow CLI; anything else needs Full Access.
+# python/python3 were removed: allowing them is plain remote code execution as the
+# server process.
+_ALLOWED_BASH_COMMANDS = {"mlflow"}
+
+# MLflow subcommands the restricted assistant may invoke. This is an allowlist
+# (fail-closed): any subcommand not listed here — including future ones — is
+# denied. Every entry routes through the tracking API; most are read/query verbs, but
+# some mutate (e.g. `experiments create/delete/rename`, `runs create/delete/link-traces`).
+# NOTE: these run with the server's identity/credentials, not the requesting user's —
+# per-user token forwarding is not yet implemented, so the allowlist (not authz) is the
+# only boundary on what a remote caller can do. Tightening this to per-user auth is
+# tracked as follow-up work. Excluded subcommands such as `run`, `models`,
+# `server`, `deployments`, `sagemaker`, `gateway`, `db`, `gc`, and the LLM/agent
+# runners either execute arbitrary code, serve/mutate backend state, or permanently
+# delete data. `artifacts` is also excluded: `log-artifact --local-file` /
+# `download --dst-path` take unconstrained server-local paths, making it an arbitrary
+# file read/write primitive that would escape the workspace sandbox the Read/Write
+# tools enforce. `doctor` is excluded too: it reads local process state rather than
+# the tracking API and prints every MLFLOW_* env var unmasked (including
+# MLFLOW_TRACKING_TOKEN/USERNAME/PASSWORD) plus the raw tracking URI, so under remote
+# lockdown it is a one-shot server-side secret exfiltration primitive.
+_ALLOWED_MLFLOW_SUBCOMMANDS = frozenset({
+    "experiments",
+    "runs",
+    "traces",
+    "datasets",
+    "scorers",
+})
+
+# Verbs that are denied even when their parent subcommand is allowlisted, because
+# they are file-system primitives (not tracking-API queries) that escape the
+# workspace sandbox. `experiments csv --filename/-o PATH` writes an arbitrary
+# server-local file via pandas.to_csv with no path validation (mlflow/experiments.py),
+# and needs no shell to do it. Keyed by parent subcommand; matched against the whole
+# argv (see static_permission_error) rather than a fixed positional, so a value-taking
+# option cannot shift the verb out of view (e.g. `experiments -x 0 csv`).
+_DENIED_MLFLOW_SUBSUBCOMMANDS = {
+    "experiments": frozenset({"csv"}),
+}
+
+# The only value-taking option on the top-level `mlflow` group (mlflow/cli/__init__.py).
+# It consumes the following token, which must not be mistaken for the subcommand.
+_MLFLOW_GLOBAL_VALUE_FLAGS = frozenset({"--env-file"})
+
+
+def _mlflow_subcommand(argv: list[str]) -> str | None:
+    """Return the top-level subcommand for a ``mlflow`` invocation, or None when
+    absent (e.g. ``mlflow --version`` -> None, ``mlflow experiments search`` ->
+    "experiments"). ``argv[0]`` is assumed to be ``mlflow``.
+
+    Skips global flags and the value consumed by ``--env-file`` so the subcommand is
+    identified without a full CLI parser. Only the top-level subcommand is returned;
+    the denied verbs (see ``_DENIED_MLFLOW_SUBSUBCOMMANDS``) are matched against the
+    whole argv by the caller, so no fragile positional-index reasoning about
+    sub-subcommands is needed here.
+    """
+    i = 1
+    while i < len(argv):
+        tok = argv[i]
+        if tok in _MLFLOW_GLOBAL_VALUE_FLAGS:
+            i += 2  # skip the flag and its value
+            continue
+        if tok.startswith("-"):
+            i += 1  # boolean/glued flag such as --version / --help / --env-file=x
+            continue
+        return tok
+    return None
+
+
+def remote_lockdown_active() -> bool:
+    """True when the assistant may be exposed beyond localhost.
+
+    Keyed on MLFLOW_ENABLE_REMOTE_ASSISTANT — the same switch the server uses to open
+    the assistant API to non-localhost clients (mlflow/server/assistant/api.py). Reading
+    the canonical flag (rather than a separate variable) is what keeps the lockdown from
+    being fail-open: it engages exactly when remote access is enabled. This is the
+    fail-safe reading — remote exposure additionally requires a provider that allows it,
+    so locking down whenever the flag is on is never less restrictive than actual reach.
+
+    In this mode the restricted allowlist is absolute: full_access is force-disabled
+    and per-call approval cannot override it, since arbitrary shell/code execution on a
+    remotely-reachable server is RCE affecting every tenant. The file tools
+    (Read/Write/Edit) are also denied outright — remote is tracking-API-query only, and
+    server-local file access adds no capability the mlflow CLI doesn't already cover.
+    """
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get()
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
@@ -43,7 +129,9 @@ def static_permission_error(
     allows — e.g. an ``mlflow`` CLI command or an in-workspace file op — runs without prompting,
     just as it did before tool-call permissions existed.
     """
-    if perms.full_access:
+    # Remote mode must never grant full_access, even if the config requests it:
+    # a remotely-reachable assistant with unrestricted shell access is RCE.
+    if perms.full_access and not remote_lockdown_active():
         return None
 
     if tool_name == "Bash":
@@ -57,16 +145,52 @@ def static_permission_error(
                 f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
                 "commands are allowed"
             )
+        if argv[0] == "mlflow":
+            subcommand = _mlflow_subcommand(argv)
+            if subcommand is not None and subcommand not in _ALLOWED_MLFLOW_SUBCOMMANDS:
+                return (
+                    f"Permission denied: 'mlflow {subcommand}' is not allowed. "
+                    f"Allowed subcommands: {', '.join(sorted(_ALLOWED_MLFLOW_SUBCOMMANDS))}"
+                )
+            # Match denied verbs anywhere in argv, not at a fixed position: a
+            # value-taking option (e.g. `experiments -x 0 csv`) must not be able to
+            # shift the verb past a positional check and evade the denial. This
+            # over-denies the rare case where a denied verb also appears as an option
+            # value (e.g. an experiment literally named "csv") — an acceptable
+            # fail-closed tradeoff, since distinguishing verb from value would require
+            # the positional reasoning this scan deliberately avoids.
+            denied_actions = _DENIED_MLFLOW_SUBSUBCOMMANDS.get(subcommand, frozenset())
+            if denied_verb := denied_actions.intersection(argv):
+                return (
+                    f"Permission denied: 'mlflow {subcommand} {min(denied_verb)}' is not "
+                    "allowed (it can write to an arbitrary server-local path)."
+                )
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
         return f"Permission denied: {tool_name} is not allowed"
+
+    # Remote lockdown is tracking-API-query only. The mlflow CLI already reads all
+    # tracking state; the file tools add only server-local filesystem access, running
+    # as the server identity with no per-call approval — a disclosure/tamper primitive
+    # with no remote use the CLI doesn't cover (cwd is an admin-configured project dir
+    # on the server host, not the remote caller's own workspace). Deny all three
+    # outright here. Locally / under full_access they remain available for the
+    # code-integration workflow, which is where reading and editing project files lives.
+    if tool_name in _FILE_TOOLS and remote_lockdown_active():
+        return f"Permission denied: {tool_name} is not available on a remote assistant"
 
     if tool_name in {"Write", "Edit"} and not cwd:
         return f"Permission denied: {tool_name} requires a configured project directory"
 
     if tool_name in _FILE_TOOLS and cwd:
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
-            target = _resolve_file_path(raw_path, cwd)
+            # resolve() raises ValueError on a NUL byte (and OSError on other bad
+            # paths). This runs outside execute_tool's try/except, so guard it here and
+            # fail closed rather than letting the exception propagate.
+            try:
+                target = _resolve_file_path(raw_path, cwd)
+            except (ValueError, OSError):
+                return f"Permission denied: invalid path {raw_path!r}"
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
 
@@ -85,10 +209,18 @@ async def execute_tool(
     if (denial := static_permission_error(tool_name, tool_input, perms, cwd)) is not None:
         return denial, True
 
+    # Only genuine (local) full_access gets a real shell. In restricted mode — or
+    # any remote deployment — the command runs as a direct argv exec so the
+    # subcommand allowlist is the true boundary: shell metacharacters (|, ;, &&,
+    # $(), >, backticks, newlines) can't smuggle a second process past the check.
+    use_shell = perms.full_access and not remote_lockdown_active()
+
     try:
         match tool_name:
             case "Bash":
-                return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
+                return await _execute_bash(
+                    tool_input, cwd=cwd, tracking_uri=tracking_uri, use_shell=use_shell
+                )
             case "Read":
                 return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
             case "Write":
@@ -106,6 +238,7 @@ async def _execute_bash(
     tool_input: dict[str, Any],
     cwd: Path | None,
     tracking_uri: str | None,
+    use_shell: bool = False,
 ) -> tuple[str, bool]:
     command = tool_input.get("command", "")
     if not command:
@@ -116,14 +249,31 @@ async def _execute_bash(
         env["MLFLOW_TRACKING_URI"] = tracking_uri
 
     try:
-        # Shell required: LLM-generated commands may use pipes, redirects, or && chaining.
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env,
-        )
+        if use_shell:
+            # full_access only: a real shell so pipes, redirects, and && chaining work.
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+            )
+        else:
+            # Restricted/remote: exec the parsed argv directly (no shell), so shell
+            # metacharacters can't spawn a second process past the allowlist check.
+            try:
+                argv = shlex.split(command)
+            except ValueError:
+                return "Permission denied: malformed command", True
+            if not argv:
+                return "No command provided", True
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+            )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
         output = stdout.decode("utf-8", errors="replace")
         err_output = stderr.decode("utf-8", errors="replace")
@@ -137,6 +287,15 @@ async def _execute_bash(
         return (output + err_output).strip() or "(no output)", False
     except asyncio.TimeoutError:
         return "Command timed out after 120 seconds", True
+    except FileNotFoundError:
+        # Echo only the executable name, never the full command: it carries
+        # user-controlled arguments and may surface server paths / option values
+        # the caller shouldn't see in a streamed tool result.
+        try:
+            executable = shlex.split(command)[0]
+        except (ValueError, IndexError):
+            executable = command
+        return f"Command not found: {executable}", True
 
 
 def _execute_read(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
@@ -189,15 +348,21 @@ def build_tools_schema() -> list[dict[str, Any]]:
             "function": {
                 "name": "Bash",
                 "description": (
-                    "Execute a shell command to query or interact with MLflow. "
-                    "Use 'mlflow' CLI commands or Python one-liners with the MLflow SDK."
+                    "Run a command to query or interact with MLflow. In the default "
+                    "(restricted) mode only the 'mlflow' CLI is permitted and the command "
+                    "is executed directly without a shell, so pipes, redirects, command "
+                    "substitution, and chaining (|, >, ;, &&, $(...)) are not interpreted. "
+                    "With Full Access enabled, arbitrary shell commands are allowed."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The shell command to execute.",
+                            "description": (
+                                "The command to execute. In restricted mode this must be an "
+                                "'mlflow' CLI invocation (e.g. 'mlflow experiments search')."
+                            ),
                         }
                     },
                     "required": ["command"],

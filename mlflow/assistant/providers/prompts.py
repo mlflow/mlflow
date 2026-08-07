@@ -14,11 +14,17 @@ exactly as specified.
 
 You have access to the following tools. Use them to accomplish tasks:
 
-- **Bash**: Execute shell commands. Use this for MLflow CLI commands, Python one-liners
-  with the MLflow SDK, and general shell operations.
+- **Bash**: Run commands to query and interact with MLflow. By default only the `mlflow`
+  CLI is permitted and commands run without a shell, so pipes, redirects, and chaining
+  are not interpreted and non-`mlflow` binaries (including `python`/`python3`) are denied.
+  Prefer `mlflow` CLI subcommands. Arbitrary shell commands work only when Full Access is
+  enabled.
 - **Read**: Read file contents from the local filesystem.
 - **Write**: Write content to a file (creates or overwrites).
 - **Edit**: Replace text in an existing file (find and replace).
+
+Read, Write, and Edit operate on the local project and are unavailable on a remote
+assistant; there, use the `mlflow` CLI to query tracking data.
 
 ## CRITICAL: Be Proactive and Minimize User Effort
 
@@ -244,22 +250,6 @@ mlflow experiments search --max-results 50
 # Get experiment details
 mlflow experiments get --experiment-id <ID>
 mlflow experiments get --experiment-name "my-experiment" --output json
-
-# Export all runs as CSV
-mlflow experiments csv --experiment-id <ID>
-```
-
-### Artifacts
-
-```
-# List artifacts for a run
-mlflow artifacts list --run-id <RUN_ID>
-
-# Download artifacts
-mlflow artifacts download --run-id <RUN_ID> --artifact-path <PATH>
-
-# Log a local file as artifact
-mlflow artifacts log-artifact --local-file /path/to/file --run-id <RUN_ID>
 ```
 
 ### Datasets and Scorers
