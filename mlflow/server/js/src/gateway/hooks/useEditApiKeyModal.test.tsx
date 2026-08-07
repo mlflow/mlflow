@@ -130,6 +130,43 @@ describe('useEditApiKeyModal', () => {
     expect(result.current.isFormValid).toBe(true);
   });
 
+  test('allows saving changes when the existing secret has no allowlisted models', async () => {
+    const secretWithoutAllowlist: SecretInfo = {
+      ...mockSecret,
+      allowlisted_models: [],
+    };
+    const { result } = renderHook(
+      () =>
+        useEditApiKeyModal({
+          secret: secretWithoutAllowlist,
+          onClose: mockOnClose,
+          onSuccess: mockOnSuccess,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        secretFields: { api_key: 'sk-new-key' },
+      });
+    });
+
+    expect(result.current.isFormValid).toBe(true);
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(mockUpdateSecret).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secret_id: 's-1',
+        secret_value: { api_key: 'sk-new-key' },
+        allowlisted_models: [],
+      }),
+    );
+  });
+
   test('resetForm reverts to initial form data', () => {
     const { result } = renderHook(
       () => useEditApiKeyModal({ secret: mockSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),

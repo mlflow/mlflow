@@ -66,7 +66,6 @@ export const ApiKeysList = ({
     getBindingsForSecret,
     getEndpointCount,
     getBindingCount,
-    getModelDefinitionsForSecret,
   } = useApiKeysListData({ searchFilter, filter });
 
   const selectedSecrets = useMemo(
@@ -291,11 +290,7 @@ export const ApiKeysList = ({
         {filteredSecrets.map((secret) => {
           const endpointCount = getEndpointCount(secret.secret_id);
           const bindingCount = getBindingCount(secret.secret_id);
-          // A connection with no explicit allowlist may still be wired up through AI Gateway endpoints
-          // (endpoint -> model definition -> secret_id). Surface that as "Gateway configured".
-          const isGatewayConfigured = getModelDefinitionsForSecret(secret.secret_id).some((def) =>
-            Boolean(def.model_name),
-          );
+          const isGatewayConfigured = endpointCount > 0;
 
           return (
             <TableRow key={secret.secret_id}>
@@ -360,12 +355,14 @@ export const ApiKeysList = ({
                         description: 'Tooltip explaining that a connection is configured via AI Gateway endpoints',
                       })}
                     >
-                      <Typography.Text color="secondary">
-                        <FormattedMessage
-                          defaultMessage="Gateway configured"
-                          description="Label indicating a connection is configured through AI Gateway endpoints rather than an explicit allowlist"
-                        />
-                      </Typography.Text>
+                      <span>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="Gateway configured"
+                            description="Label indicating a connection is configured through AI Gateway endpoints rather than an explicit allowlist"
+                          />
+                        </Typography.Text>
+                      </span>
                     </Tooltip>
                   ) : (
                     <Button

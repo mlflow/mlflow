@@ -77,8 +77,12 @@ class GatewaySecretInfo(_MlflowObject):
             )
 
             for m in self.allowlisted_models:
+                if not (m.get("provider") or m.get("model")):
+                    continue
                 proto.allowlisted_models.append(
-                    GatewayAllowlistedModel(provider=m.get("provider"), model=m.get("model"))
+                    GatewayAllowlistedModel(
+                        provider=m.get("provider") or "", model=m.get("model") or ""
+                    )
                 )
         if self.created_by is not None:
             proto.created_by = self.created_by
@@ -93,6 +97,7 @@ class GatewaySecretInfo(_MlflowObject):
         allowlisted_models = [
             {"provider": m.provider or None, "model": m.model or None}
             for m in proto.allowlisted_models
+            if m.provider or m.model
         ] or None
         return cls(
             secret_id=proto.secret_id,

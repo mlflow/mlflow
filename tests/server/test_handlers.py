@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import (
     Experiment,
     GatewayBudgetPolicy,
+    GatewaySecretInfo,
     Issue,
     IssueSeverity,
     IssueStatus,
@@ -5898,6 +5899,44 @@ def test_get_workspace_scoped_repo_path_if_enabled_allows_matching_workspace_pre
 
         result = _get_workspace_scoped_repo_path_if_enabled("/workspaces/team-a/nested/path")
         assert result == "workspaces/team-a/nested/path"
+
+
+@pytest.mark.parametrize(
+    ("request_json", "expected_allowlisted_models"),
+    [
+        ({"secret_id": "secret-1", "updated_by": "user-1"}, None),
+        ({"secret_id": "secret-1", "updated_by": "user-1", "allowlisted_models": []}, []),
+    ],
+)
+def test_update_gateway_secret_preserves_allowlist_presence(
+    request_json, expected_allowlisted_models
+):
+    secret = GatewaySecretInfo(
+        secret_id="secret-1",
+        secret_name="openai-key",
+        masked_values={"api_key": "sk-...1234"},
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        provider="openai",
+    )
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
+        mock_store.return_value.update_gateway_secret.return_value = secret
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/gateway/secrets/update",
+                json=request_json,
+            )
+
+    assert response.status_code == 200
+    mock_store.return_value.update_gateway_secret.assert_called_once_with(
+        secret_id="secret-1",
+        secret_value=None,
+        auth_config=None,
+        allowlisted_models=expected_allowlisted_models,
+        updated_by="user-1",
+    )
 
 
 def test_get_workspace_scoped_repo_path_if_enabled_default_workspace_cross_access_blocked(

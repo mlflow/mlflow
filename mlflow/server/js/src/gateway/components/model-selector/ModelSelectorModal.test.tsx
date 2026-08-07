@@ -64,4 +64,40 @@ describe('ModelSelectorModal', () => {
       expect.objectContaining({ model: 'gpt-5', provider: 'openai', supports_function_calling: true }),
     );
   });
+
+  test('re-seeds multi-select state when initialSelected changes while open', async () => {
+    const onSelectMultiple = jest.fn();
+    const { rerender } = renderWithDesignSystem(
+      <ModelSelectorModal
+        isOpen
+        onClose={jest.fn()}
+        onSelectMultiple={onSelectMultiple}
+        provider="openai"
+        multiSelect
+        modelListMode="full"
+        initialSelected={[{ model: 'gpt-5', provider: 'openai', supports_function_calling: true }]}
+      />,
+    );
+
+    expect(screen.getByText('Select (1)')).toBeInTheDocument();
+
+    rerender(
+      <ModelSelectorModal
+        isOpen
+        onClose={jest.fn()}
+        onSelectMultiple={onSelectMultiple}
+        provider="openai"
+        multiSelect
+        modelListMode="full"
+        initialSelected={[{ model: 'gpt-5-mini', provider: 'openai', supports_function_calling: true }]}
+      />,
+    );
+
+    expect(screen.getByText('Select (1)')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Select (1)'));
+
+    expect(onSelectMultiple).toHaveBeenCalledWith([
+      expect.objectContaining({ model: 'gpt-5-mini', provider: 'openai' }),
+    ]);
+  });
 });

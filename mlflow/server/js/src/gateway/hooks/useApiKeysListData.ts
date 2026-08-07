@@ -2,8 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useSecretsQuery } from './useSecretsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useBindingsQuery } from './useBindingsQuery';
-import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
-import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
+import type { Endpoint, EndpointBinding } from '../types';
 import type { ApiKeysFilter } from '../components/api-keys';
 
 interface UseApiKeysListDataParams {
@@ -14,25 +13,7 @@ interface UseApiKeysListDataParams {
 export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataParams) => {
   const { data: secrets, isLoading: isLoadingSecrets, error: secretsError } = useSecretsQuery();
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
-  const { data: modelDefinitions, isLoading: isLoadingModelDefinitions } = useModelDefinitionsQuery();
   const { data: bindings, isLoading: isLoadingBindings } = useBindingsQuery();
-
-  const secretModelDefinitionsMap = useMemo(() => {
-    const map = new Map<string, ModelDefinition[]>();
-    if (!modelDefinitions) return map;
-
-    modelDefinitions.forEach((modelDef: ModelDefinition) => {
-      const secretId = modelDef.secret_id;
-      if (secretId) {
-        if (!map.has(secretId)) {
-          map.set(secretId, []);
-        }
-        map.get(secretId)?.push(modelDef);
-      }
-    });
-
-    return map;
-  }, [modelDefinitions]);
 
   const secretEndpointMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -103,13 +84,6 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
     [endpoints, secretEndpointMap],
   );
 
-  const getModelDefinitionsForSecret = useCallback(
-    (secretId: string): ModelDefinition[] => {
-      return secretModelDefinitionsMap.get(secretId) ?? [];
-    },
-    [secretModelDefinitionsMap],
-  );
-
   const getEndpointCount = useCallback(
     (secretId: string): number => {
       return secretEndpointMap.get(secretId)?.size ?? 0;
@@ -144,7 +118,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
     return filtered;
   }, [secrets, searchFilter, filter]);
 
-  const isLoading = isLoadingSecrets || isLoadingEndpoints || isLoadingModelDefinitions || isLoadingBindings;
+  const isLoading = isLoadingSecrets || isLoadingEndpoints || isLoadingBindings;
 
   return {
     secrets: secrets ?? [],
@@ -152,7 +126,6 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
     isLoading,
     error: secretsError,
     availableProviders,
-    getModelDefinitionsForSecret,
     getEndpointsForSecret,
     getBindingsForSecret,
     getEndpointCount,

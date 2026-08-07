@@ -5,14 +5,12 @@ import { ApiKeysList } from './ApiKeysList';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
-import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
 import { useDeleteSecret } from '../../hooks/useDeleteSecret';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useSecretsQuery');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../hooks/useBindingsQuery');
-jest.mock('../../hooks/useModelDefinitionsQuery');
 jest.mock('../../hooks/useDeleteSecret');
 
 const mockSecrets = [
@@ -54,29 +52,10 @@ const mockEndpoints = [
   },
 ];
 
-const mockModelDefinitions = [
-  {
-    model_definition_id: 'md-1',
-    name: 'test-model',
-    secret_id: 's-123',
-    secret_name: 'openai-key',
-    provider: 'openai',
-    model_name: 'gpt-4',
-    created_at: Date.now() / 1000,
-    last_updated_at: Date.now() / 1000,
-  },
-];
-
 describe('ApiKeysList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useBindingsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
@@ -125,13 +104,6 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-
     renderWithDesignSystem(
       <MemoryRouter>
         <ApiKeysList />
@@ -238,13 +210,6 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
-      data: mockModelDefinitions,
-      isLoading: false,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-
     renderWithDesignSystem(
       <MemoryRouter>
         <ApiKeysList />
@@ -267,13 +232,6 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
-      data: mockModelDefinitions,
-      isLoading: false,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-
     renderWithDesignSystem(
       <MemoryRouter>
         <ApiKeysList />

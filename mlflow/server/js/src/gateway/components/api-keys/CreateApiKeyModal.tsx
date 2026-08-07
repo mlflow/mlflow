@@ -84,22 +84,15 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       newErrors.secretFields = {};
     }
 
-    if (allowlistedModels.length === 0) {
-      newErrors.allowlistedModels = intl.formatMessage({
-        defaultMessage: 'Select at least one model so this connection can be used.',
-        description: 'Error message when no allowlisted models are selected for a connection',
-      });
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [provider, formData.name, formData.secretFields, allowlistedModels, intl]);
+  }, [provider, formData.name, formData.secretFields, intl]);
 
   const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
     setAllowlistedModels(models);
     setErrors((prev) => ({
       ...prev,
-      allowlistedModels: models.length > 0 ? undefined : prev.allowlistedModels,
+      allowlistedModels: undefined,
     }));
   }, []);
 
@@ -179,10 +172,8 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     );
     if (!allRequiredConfigsProvided) return false;
 
-    if (allowlistedModels.length === 0) return false;
-
     return true;
-  }, [provider, formData.name, formData.secretFields, formData.configFields, allowlistedModels, selectedAuthMode]);
+  }, [provider, formData.name, formData.secretFields, formData.configFields, selectedAuthMode]);
 
   return (
     <Modal

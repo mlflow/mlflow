@@ -5927,6 +5927,7 @@ def _get_gateway_secret_info():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _update_gateway_secret():
+    request_json = _get_normalized_request_json()
     request_message = _get_request_message(
         UpdateGatewaySecret(),
         schema={
@@ -5940,11 +5941,13 @@ def _update_gateway_secret():
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
 
-    # Proto3 repeated fields cannot distinguish absent from empty, so an empty list is treated
-    # as "clear" and a populated list replaces. See UpdateGatewaySecret proto docs.
-    allowlisted_models = [
-        {"provider": m.provider, "model": m.model} for m in request_message.allowlisted_models
-    ]
+    allowlisted_models = None
+    if "allowlisted_models" in request_json:
+        # Proto3 repeated fields cannot distinguish absent from empty after parsing. Preserve the
+        # raw JSON presence bit so omitted means unchanged and an explicit empty list means clear.
+        allowlisted_models = [
+            {"provider": m.provider, "model": m.model} for m in request_message.allowlisted_models
+        ]
 
     secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,

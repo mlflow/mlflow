@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
 import {
   Button,
@@ -82,6 +82,7 @@ export const ModelSelectorModal = ({
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const lastInitialSelectedKeyRef = useRef<string | null>(null);
 
   const { data: models, isLoading } = useModelsQuery({ provider: provider || undefined });
   const showFullCatalog = modelListMode === 'full';
@@ -104,6 +105,10 @@ export const ModelSelectorModal = ({
     );
   }, [models, provider, showFullCatalog]);
   const isCustomMode = showFullCatalog && customModelName.trim().length > 0;
+  const initialSelectedModelKey = useMemo(
+    () => (initialSelected ?? []).map((model) => model.model).join('\0'),
+    [initialSelected],
+  );
 
   // Pre-populate modal state when opening with an existing value.
   // Initialize from initialValue immediately (as custom) even before models load,
@@ -111,13 +116,15 @@ export const ModelSelectorModal = ({
   useEffect(() => {
     if (!isOpen) {
       setHasInitialized(false);
+      lastInitialSelectedKeyRef.current = null;
       return;
     }
 
     if (multiSelect) {
-      if (!hasInitialized) {
+      if (!hasInitialized || lastInitialSelectedKeyRef.current !== initialSelectedModelKey) {
         setSelectedModelIds(new Set((initialSelected ?? []).map((m) => m.model)));
         setHasInitialized(true);
+        lastInitialSelectedKeyRef.current = initialSelectedModelKey;
       }
       return;
     }
@@ -141,7 +148,7 @@ export const ModelSelectorModal = ({
         setCustomModelName('');
       }
     }
-  }, [isOpen, initialValue, availableModels, hasInitialized, multiSelect, initialSelected]);
+  }, [isOpen, initialValue, availableModels, hasInitialized, multiSelect, initialSelected, initialSelectedModelKey]);
 
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
