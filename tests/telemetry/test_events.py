@@ -373,12 +373,14 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "model_configs": [{"model_definition_id": "md-1"}, {"model_definition_id": "md-2"}],
                 "usage_tracking": True,
+                "exclude_content": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "num_model_configs": 2,
                 "usage_tracking": True,
+                "exclude_content": True,
             },
         ),
         (
@@ -393,6 +395,7 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "routing_strategy": None,
                 "num_model_configs": 1,
                 "usage_tracking": False,
+                "exclude_content": None,
             },
         ),
         (
@@ -402,6 +405,7 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "routing_strategy": None,
                 "num_model_configs": 0,
                 "usage_tracking": None,
+                "exclude_content": None,
             },
         ),
         (
@@ -411,6 +415,7 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "routing_strategy": None,
                 "num_model_configs": 0,
                 "usage_tracking": None,
+                "exclude_content": None,
             },
         ),
     ],
@@ -428,12 +433,14 @@ def test_gateway_create_endpoint_parse_params(arguments, expected_params):
                 "routing_strategy": "ROUND_ROBIN",
                 "model_configs": [{"model_definition_id": "md-1"}],
                 "usage_tracking": True,
+                "exclude_content": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "ROUND_ROBIN",
                 "num_model_configs": 1,
                 "usage_tracking": True,
+                "exclude_content": True,
             },
         ),
         (
@@ -448,6 +455,7 @@ def test_gateway_create_endpoint_parse_params(arguments, expected_params):
                 "routing_strategy": None,
                 "num_model_configs": None,
                 "usage_tracking": None,
+                "exclude_content": None,
             },
         ),
         (
@@ -457,6 +465,7 @@ def test_gateway_create_endpoint_parse_params(arguments, expected_params):
                 "routing_strategy": None,
                 "num_model_configs": None,
                 "usage_tracking": None,
+                "exclude_content": None,
             },
         ),
     ],

@@ -9,6 +9,8 @@ from mlflow.entities import SpanType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
+    _content_excluded_trace_ids,
+    _exclude_content_span_processor,
     _extract_caller,
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
@@ -380,6 +382,184 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 
     # Input should be unwrapped to just the payload dict
     assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
+
+
+# ---------------------------------------------------------------------------
+# Tests for content exclusion
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def endpoint_config_exclude_content():
+    return GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="test-endpoint",
+        experiment_id=_get_experiment_id(),
+        usage_tracking=True,
+        exclude_content=True,
+        models=[],
+    )
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content(endpoint_config_exclude_content):
+    async def func_with_child_span(payload):
+        with mlflow.start_span("model/openai/gpt-4", span_type=SpanType.LLM) as child:
+            child.set_inputs({"messages": payload["messages"]})
+            child.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+            )
+            child.set_outputs({"choices": [{"message": {"content": "SECRET ANSWER"}}]})
+        return {"choices": [{"message": {"content": "SECRET ANSWER"}}]}
+
+    traced_func = maybe_traced_gateway_call(func_with_child_span, endpoint_config_exclude_content)
+    result = await traced_func({"messages": [{"role": "user", "content": "SECRET PROMPT"}]})
+
+    # The caller still receives the full response
+    assert result == {"choices": [{"message": {"content": "SECRET ANSWER"}}]}
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # No content should leak anywhere in the exported trace
+    assert "SECRET" not in trace.to_json()
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    model_span = span_name_to_span["model/openai/gpt-4"]
+
+    # Content attributes are dropped entirely rather than replaced with a placeholder
+    for span in (gateway_span, model_span):
+        assert SpanAttributeKey.INPUTS not in span.attributes
+        assert SpanAttributeKey.OUTPUTS not in span.attributes
+        assert span.inputs is None
+        assert span.outputs is None
+
+    # Usage metadata and endpoint attributes are kept
+    assert model_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "prompt_tokens": 5,
+        "completion_tokens": 7,
+        "total_tokens": 12,
+    }
+    assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
+    assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    assert trace.info.status == "OK"
+    assert trace.info.execution_duration is not None
+
+    # Request/response previews on the trace info are redacted as well
+    assert "SECRET" not in (trace.info.request_preview or "")
+    assert "SECRET" not in (trace.info.response_preview or "")
+
+    # The exclusion registry is drained once the trace completes
+    assert not _content_excluded_trace_ids
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content_streaming(
+    endpoint_config_exclude_content,
+):
+    async def mock_async_stream(payload):
+        yield _make_chunk(content="SECRET")
+        yield _make_chunk(content=" ANSWER")
+        yield _make_chunk(
+            content=None,
+            finish_reason="stop",
+            usage=ChatUsage(prompt_tokens=5, completion_tokens=2, total_tokens=7),
+        )
+
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream,
+        endpoint_config_exclude_content,
+        output_reducer=aggregate_chat_stream_chunks,
+    )
+
+    chunks = [
+        chunk
+        async for chunk in traced_func({"messages": [{"role": "user", "content": "SECRET PROMPT"}]})
+    ]
+    assert len(chunks) == 3
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    assert "SECRET" not in trace.to_json()
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    assert SpanAttributeKey.INPUTS not in gateway_span.attributes
+    assert SpanAttributeKey.OUTPUTS not in gateway_span.attributes
+    # Streaming chunk events, which carry raw response content, are dropped too
+    assert gateway_span.events == []
+    assert not _content_excluded_trace_ids
+
+
+def test_exclude_content_processor_drains_registry_for_parented_gateway_span():
+    # The registry drains off the gateway span ID, not a missing parent: a gateway
+    # span nested under an existing active span has a non-None parent_id, so keying
+    # the drain on `parent_id is None` would retain the entry forever.
+    with mlflow.start_span(name="caller"):
+        with mlflow.start_span(name="gateway/test-endpoint") as gateway_span:
+            gateway_span.set_inputs({"messages": "SECRET PROMPT"})
+            assert gateway_span.parent_id is not None
+
+            _content_excluded_trace_ids[gateway_span.trace_id] = gateway_span.span_id
+            _exclude_content_span_processor(gateway_span)
+
+            assert SpanAttributeKey.INPUTS not in gateway_span.attributes
+            assert gateway_span.trace_id not in _content_excluded_trace_ids
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content_guardrail_spans(
+    endpoint_config_exclude_content,
+):
+    # Guardrail spans echo the content they flag, so they must be scrubbed too.
+    async def func_with_guardrail(payload):
+        # Mirrors the span shape produced by mlflow/gateway/guardrails.py: a
+        # guardrail span wrapping a nested judge span, both carrying the content.
+        with mlflow.start_span(name="guardrail/pii-check", span_type=SpanType.GUARDRAIL) as gspan:
+            gspan.set_inputs(payload)
+            with mlflow.start_span(name="judge", span_type=SpanType.EVALUATOR) as jspan:
+                jspan.set_inputs({"request": payload})
+                jspan.set_outputs({"passed": False, "rationale": "contains SECRET PROMPT"})
+            gspan.set_outputs({"passed": False, "flagged": "SECRET PROMPT"})
+        return {"choices": [{"message": {"content": "SECRET ANSWER"}}]}
+
+    traced_func = maybe_traced_gateway_call(func_with_guardrail, endpoint_config_exclude_content)
+    await traced_func({"messages": [{"role": "user", "content": "SECRET PROMPT"}]})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # No content leaks from the guardrail or judge spans anywhere in the trace
+    assert "SECRET" not in trace.to_json()
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    for name in ("gateway/test-endpoint", "guardrail/pii-check", "judge"):
+        span = span_name_to_span[name]
+        assert SpanAttributeKey.INPUTS not in span.attributes
+        assert SpanAttributeKey.OUTPUTS not in span.attributes
+
+    assert not _content_excluded_trace_ids
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_exclude_content_disabled_keeps_content(endpoint_config):
+    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
+    await traced_func({"input": "visible"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span["gateway/test-endpoint"]
+    assert gateway_span.inputs == {"input": "visible"}
+    assert gateway_span.outputs == {"result": "success", "payload": {"input": "visible"}}
 
 
 # ---------------------------------------------------------------------------
