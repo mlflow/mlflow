@@ -11,6 +11,12 @@ import { Zap, BookOpen, Search } from "lucide-react";
 
 In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your LLM application or AI agent by using MLflow's manual tracing APIs.
 
+:::note[Prefer autolog when your framework is supported]
+
+If your app is built on a [supported framework](/genai/tracing/integrations) (LangChain, LangGraph, OpenAI, LlamaIndex, and 40+ others), call that framework's `autolog()` once instead of decorating individual functions by hand. Autolog captures the framework's internal calls as a single connected trace. Hand-decorating each function separately produces one independent root trace per function rather than a unified trace, and misses the internal spans autolog records. Use manual tracing to add detail that autolog does not capture, or to instrument code that no integration covers.
+
+:::
+
 ## Decorator
 
 The `mlflow.trace` decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
