@@ -21,6 +21,7 @@ import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
 import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
+import { RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
 
 // We're not using params in bar plot
 export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags' | 'images'>;
@@ -79,6 +80,13 @@ export interface RunsMetricsBarPlotProps extends RunsPlotsCommonProps {
    * Display metric key on the X axis
    */
   displayMetricKey?: boolean;
+
+  /**
+   * When enabled, renders horizontal min-max error bars around each bar,
+   * derived from the run group's aggregated min/max metric history. Only
+   * meaningful for grouped runs whose aggregate function is Average.
+   */
+  showMinMaxRange?: boolean;
 }
 
 const PLOT_CONFIG: Partial<Config> = {
@@ -96,6 +104,53 @@ const Y_AXIS_PARAMS = {
 };
 
 const getFixedPointValue = (val: string | number, places = 2) => (typeof val === 'number' ? val.toFixed(places) : val);
+
+/**
+ * Builds a Plotly horizontal ("x") min-max error bar descriptor for a grouped
+ * bar chart trace. For each run (in the same order as `runsData`), it pulls
+ * the run group's aggregated min/max metric history for `metricKey` (as
+ * populated on `RunsChartsRunData.aggregatedMetricsHistory`, keyed by
+ * `RunGroupingAggregateFunction`) and compares the most recent min/max values
+ * against the already-displayed average value for that run.
+ *
+ * array[i]      = maximum - average
+ * arrayminus[i] = average - minimum
+ *
+ * If the average, minimum, or maximum value is missing for a given run, that
+ * run's error bar values safely default to 0 rather than throwing or
+ * producing NaN.
+ */
+const getMinMaxErrorBars = (runsData: BarPlotRunData[], metricKey: string, averageValues: (number | undefined)[]) => {
+  const array: number[] = [];
+  const arrayminus: number[] = [];
+
+  runsData.forEach((run, index) => {
+    const average = normalizeChartValue(averageValues[index]);
+
+    const minHistory = run.aggregatedMetricsHistory?.[metricKey]?.[RunGroupingAggregateFunction.Min];
+    const maxHistory = run.aggregatedMetricsHistory?.[metricKey]?.[RunGroupingAggregateFunction.Max];
+
+    const minimum = normalizeChartValue(minHistory?.[minHistory.length - 1]?.value);
+    const maximum = normalizeChartValue(maxHistory?.[maxHistory.length - 1]?.value);
+
+    if (typeof average !== 'number' || typeof minimum !== 'number' || typeof maximum !== 'number') {
+      array.push(0);
+      arrayminus.push(0);
+      return;
+    }
+
+    array.push(Math.max(0, maximum - average));
+    arrayminus.push(Math.max(0, average - minimum));
+  });
+
+  return {
+    type: 'data',
+    symmetric: false,
+    array,
+    arrayminus,
+    visible: true,
+  };
+};
 
 /**
  * Highlight function for multi-metric grouped bar charts.
@@ -165,6 +220,7 @@ export const RunsMetricsBarPlot = React.memo(
     displayMetricKey = true,
     selectedRunUuid,
     onSetDownloadHandler,
+    showMinMaxRange = false,
   }: RunsMetricsBarPlotProps) => {
     const metricKeys = useMemo(() => selectedMetricKeys ?? [metricKey], [selectedMetricKeys, metricKey]);
     const isMultiMetric = metricKeys.length > 1;
@@ -200,6 +256,7 @@ export const RunsMetricsBarPlot = React.memo(
             width: barWidth,
             orientation: 'h',
             marker: { color: colors },
+            error_x: showMinMaxRange ? getMinMaxErrorBars(runsData, metricKey, values) : undefined,
           }),
         ];
       }
@@ -235,9 +292,10 @@ export const RunsMetricsBarPlot = React.memo(
           width: groupedBarWidth,
           orientation: 'h',
           marker: { color: METRIC_COLORS[metricIdx % METRIC_COLORS.length] },
+          error_x: showMinMaxRange ? getMinMaxErrorBars(runsData, mKey, values) : undefined,
         });
       });
-    }, [runsData, metricKey, metricKeys, isMultiMetric, barWidth, useDefaultHoverBox]);
+    }, [runsData, metricKey, metricKeys, isMultiMetric, barWidth, useDefaultHoverBox, showMinMaxRange]);
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 

@@ -10,6 +10,8 @@ import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentP
 import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 import { Tag, Typography } from '@databricks/design-system';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { RunGroupingAggregateFunction } from '../../../experiment-page/utils/experimentPage.row-types';
 
 export interface RunsChartsBarChartCardProps
   extends RunsChartCardReorderProps, RunsChartCardFullScreenProps, RunsChartCardVisibilityProps {
@@ -17,6 +19,7 @@ export interface RunsChartsBarChartCardProps
   chartRunData: RunsChartsRunData[];
 
   hideEmptyCharts?: boolean;
+  groupBy?: RunsGroupByConfig | null;
 
   onDelete: () => void;
   onEdit: () => void;
@@ -50,6 +53,7 @@ export const RunsChartsBarChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  groupBy,
   isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
@@ -113,6 +117,7 @@ export const RunsChartsBarChartCard = ({
           onUnhover={resetTooltip}
           selectedRunUuid={selectedRunUuid}
           onSetDownloadHandler={setImageDownloadHandler}
+          showMinMaxRange={groupBy?.aggregateFunction === RunGroupingAggregateFunction.Average}
         />
       ) : null}
     </div>
