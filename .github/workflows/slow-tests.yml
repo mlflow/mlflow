@@ -23,6 +23,11 @@ on:
            uses the default branch.
         required: false
         default: ""
+      windows_only:
+        description: Run only the Windows test job.
+        required: false
+        type: boolean
+        default: false
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -49,7 +54,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'workflow_dispatch' && !inputs.windows_only) || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +65,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
@@ -96,6 +103,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
@@ -124,11 +133,11 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           export PATH=$PATH:$HADOOP_HOME/bin
+          pytest_args=(--splits="$SPLITS" --group="$GROUP")
           for attempt in 1 2 3; do
             echo "Running Windows tests (attempt $attempt/3)"
             if uv run --no-sync pytest tests \
-              --splits=$SPLITS \
-              --group=$GROUP \
+              "${pytest_args[@]}" \
               --ignore-flavors \
               --ignore=tests/projects \
               --ignore=tests/examples \
@@ -155,5 +164,6 @@ jobs:
               exit "$status"
             fi
 
-            echo "Windows tests failed on attempt $attempt; retrying"
+            pytest_args=(--lf)
+            echo "Windows tests failed on attempt $attempt; retrying failed tests"
           done
