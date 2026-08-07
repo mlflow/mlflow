@@ -6,20 +6,18 @@ import {
   KeyIcon,
   PlusIcon,
   Popover,
-  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import {
   useAllowlistedModelPairs,
   type AllowlistedModelPair,
 } from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
-import { sortModelsByDate } from '../../../../../gateway/utils/formatters';
 import type { Endpoint } from '../../../../../gateway/types';
+import { getDefaultLLMProvider, type MlflowDefaultLLMProvider } from '../../../../../gateway/defaultModels';
 import OpenAiLogo from '../../../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../../../common/static/logos/openai-dark.svg';
 import AnthropicLogo from '../../../../../common/static/logos/anthropic.svg';
@@ -45,24 +43,37 @@ export interface ProviderOption {
   logo: string;
   logoDark?: string;
   defaultModel: string;
+  models: MlflowDefaultLLMProvider['models'];
 }
+
+const openAIProvider = getDefaultLLMProvider('openai')!;
+const anthropicProvider = getDefaultLLMProvider('anthropic')!;
+const geminiProvider = getDefaultLLMProvider('gemini')!;
 
 export const ISSUE_DETECTION_PROVIDERS: ProviderOption[] = [
   {
-    id: 'openai',
+    id: openAIProvider.provider,
     name: 'OpenAI',
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
-    defaultModel: 'gpt-5.6-sol',
+    defaultModel: openAIProvider.defaultModel,
+    models: openAIProvider.models,
   },
   {
-    id: 'anthropic',
+    id: anthropicProvider.provider,
     name: 'Anthropic',
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
-    defaultModel: 'claude-opus-4-8',
+    defaultModel: anthropicProvider.defaultModel,
+    models: anthropicProvider.models,
   },
-  { id: 'gemini', name: 'Google Gemini', logo: GeminiLogo, defaultModel: 'gemini-3.6-flash' },
+  {
+    id: geminiProvider.provider,
+    name: 'Google Gemini',
+    logo: GeminiLogo,
+    defaultModel: geminiProvider.defaultModel,
+    models: geminiProvider.models,
+  },
 ];
 
 export const GATEWAY_LOGO = MLflowGatewayLogo;
@@ -85,6 +96,9 @@ export const ISSUE_DETECTION_DIRECT_PROVIDERS = new Set([
   'mistral',
   'togetherai',
 ]);
+
+export const getIssueDetectionDirectPairs = (pairs: AllowlistedModelPair[]) =>
+  pairs.filter((pair) => ISSUE_DETECTION_DIRECT_PROVIDERS.has(pair.provider.toLowerCase()));
 
 export const ProviderLogo = ({ src, srcDark }: { src: string; srcDark?: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -249,9 +263,6 @@ const ProviderGroup = ({
   onSelectModel: (model: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { data: models, isLoading } = useModelsQuery({ provider: isExpanded ? provider.id : undefined });
-
-  const modelNames = models?.length ? sortModelsByDate(models).map((m) => m.model) : [provider.defaultModel];
 
   return (
     <div>
@@ -267,23 +278,17 @@ const ProviderGroup = ({
         <Typography.Text css={{ flex: 1 }}>{provider.name}</Typography.Text>
       </button>
       {isExpanded &&
-        (isLoading ? (
-          <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`, paddingLeft: theme.spacing.lg }}>
-            <Spinner size="small" />
-          </div>
-        ) : (
-          modelNames.map((model) => (
-            <button
-              key={model}
-              type="button"
-              onClick={() => onSelectModel(model)}
-              css={{ ...optionRowCss(theme), paddingLeft: 44 }}
-              data-testid={`model-option-${provider.id}-${model}`}
-            >
-              <Typography.Text css={{ flex: 1 }}>{model}</Typography.Text>
-              {selectedModel === model && <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />}
-            </button>
-          ))
+        provider.models.map(({ model }) => (
+          <button
+            key={model}
+            type="button"
+            onClick={() => onSelectModel(model)}
+            css={{ ...optionRowCss(theme), paddingLeft: 44 }}
+            data-testid={`model-option-${provider.id}-${model}`}
+          >
+            <Typography.Text css={{ flex: 1 }}>{model}</Typography.Text>
+            {selectedModel === model && <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />}
+          </button>
         ))}
     </div>
   );
@@ -307,10 +312,7 @@ export const IssueDetectionModelDropdown = ({
 
   // Only connections whose provider Detect Issues can resolve in direct mode are selectable here.
   // A non-core provider can only be reached through an AI Gateway endpoint (see the constant above).
-  const directPairs = useMemo(
-    () => pairs.filter((pair) => ISSUE_DETECTION_DIRECT_PROVIDERS.has(pair.provider.toLowerCase())),
-    [pairs],
-  );
+  const directPairs = useMemo(() => getIssueDetectionDirectPairs(pairs), [pairs]);
 
   // The currently-selected registered connection (if any), used to label the trigger "name · model".
   const selectedConnectionName =

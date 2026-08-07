@@ -2,13 +2,9 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModelDropdown, type IssueDetectionModelSelection } from './IssueDetectionModelDropdown';
-import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
 
-jest.mock('../../../../../gateway/hooks/useModelsQuery', () => ({
-  useModelsQuery: jest.fn(),
-}));
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
 }));
@@ -35,18 +31,6 @@ const OPENAI_SELECTION: IssueDetectionModelSelection = {
 describe('IssueDetectionModelDropdown', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(useModelsQuery).mockImplementation(
-      ({ provider } = {}) =>
-        ({
-          data:
-            provider === 'anthropic'
-              ? [{ model: 'claude-sonnet-4-5' }, { model: 'claude-opus-4-8' }, { model: 'claude-sonnet-4-6' }]
-              : undefined,
-          error: undefined,
-          isLoading: false,
-          refetch: jest.fn(),
-        }) as any,
-    );
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useSecretsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
   });
@@ -97,7 +81,7 @@ describe('IssueDetectionModelDropdown', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'endpoint', endpointName: 'my-endpoint' }));
   });
 
-  test('providers are collapsed until expanded, then list their models in AI Gateway order', async () => {
+  test('providers are collapsed until expanded, then list three curated models', async () => {
     const onChange = jest.fn();
     renderWithDesignSystem(<IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={onChange} />);
 
@@ -110,21 +94,27 @@ describe('IssueDetectionModelDropdown', () => {
     expect(modelOptions).toEqual([
       'model-option-anthropic-claude-opus-4-8',
       'model-option-anthropic-claude-sonnet-4-6',
-      'model-option-anthropic-claude-sonnet-4-5',
+      'model-option-anthropic-claude-haiku-4-5',
     ]);
 
     await userEvent.click(screen.getByTestId('model-option-anthropic-claude-opus-4-8'));
     expect(onChange).toHaveBeenCalledWith({ mode: 'direct', provider: 'anthropic', model: 'claude-opus-4-8' });
   });
 
-  test('falls back to the recommended model when the gateway returns none', async () => {
+  test('shows curated provider models without querying the full model catalog', async () => {
     renderWithDesignSystem(
       <IssueDetectionModelDropdown endpoints={[]} value={OPENAI_SELECTION} onChange={jest.fn()} />,
     );
 
     await openDropdown();
     await userEvent.click(screen.getByTestId('model-provider-openai'));
-    expect(screen.getByTestId('model-option-openai-gpt-5.6-sol')).toBeInTheDocument();
+
+    const modelOptions = screen.getAllByTestId(/^model-option-openai-/).map((el) => el.getAttribute('data-testid'));
+    expect(modelOptions).toEqual([
+      'model-option-openai-gpt-5.6-sol',
+      'model-option-openai-gpt-5',
+      'model-option-openai-gpt-5-mini',
+    ]);
   });
 
   test('all groups start collapsed when the dropdown opens', async () => {

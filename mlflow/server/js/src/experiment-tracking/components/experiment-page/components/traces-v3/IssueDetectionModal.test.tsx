@@ -6,7 +6,6 @@ import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
-import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 
@@ -14,9 +13,6 @@ jest.mock('./hooks/useInvokeIssueDetection');
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
-}));
-jest.mock('../../../../../gateway/hooks/useModelsQuery', () => ({
-  useModelsQuery: jest.fn(),
 }));
 jest.mock('../../../../../gateway/hooks/useSecretsQuery', () => ({
   useSecretsQuery: jest.fn(),
@@ -67,14 +63,6 @@ describe('IssueDetectionModal', () => {
     clearSubmittedIssueDetectionJob();
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useSecretsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
-    jest.mocked(useModelsQuery).mockImplementation(
-      ({ provider } = {}) =>
-        ({
-          data: provider === 'anthropic' ? [{ model: 'claude-opus-4-8' }, { model: 'claude-sonnet-4-6' }] : undefined,
-          isLoading: false,
-          refetch: jest.fn(),
-        }) as any,
-    );
     jest.mocked(useApiKeyConfiguration).mockReturnValue({
       existingSecrets: [{ secret_id: 'secret-123', secret_name: 'my-key' }],
       hasExistingSecrets: true,
@@ -169,6 +157,67 @@ describe('IssueDetectionModal', () => {
         expect.any(Object),
       );
     });
+  });
+
+  test('defaults to the first existing connection when one has an allowlisted model', async () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [
+        {
+          secret_id: 'conn-secret',
+          secret_name: 'anthropic-prod',
+          provider: 'anthropic',
+          allowlisted_models: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }],
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('model-dropdown-trigger')).toHaveTextContent('anthropic-prod');
+      expect(screen.getByTestId('model-dropdown-trigger')).toHaveTextContent('claude-sonnet-4-6');
+    });
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          secret_id: 'conn-secret',
+          endpoint_name: undefined,
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test('existing connection default takes precedence over gateway endpoints', async () => {
+    jest
+      .mocked(useEndpointsQuery)
+      .mockReturnValue({ data: [{ name: 'my-endpoint' }], isLoading: false, refetch: jest.fn() } as any);
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: [
+        {
+          secret_id: 'conn-secret',
+          secret_name: 'openai-prod',
+          provider: 'openai',
+          allowlisted_models: [{ provider: 'openai', model: 'gpt-5' }],
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('model-dropdown-trigger')).toHaveTextContent('openai-prod');
+      expect(screen.getByTestId('model-dropdown-trigger')).toHaveTextContent('gpt-5');
+    });
+    expect(screen.queryByText('my-endpoint')).not.toBeInTheDocument();
   });
 
   test('changing the model in the dropdown updates the selection and submission', async () => {

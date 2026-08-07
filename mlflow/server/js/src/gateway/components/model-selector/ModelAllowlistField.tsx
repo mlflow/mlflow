@@ -87,6 +87,7 @@ export const ModelAllowlistField = ({ provider, value, onChange, componentId }: 
         provider={provider}
         multiSelect
         initialSelected={value}
+        modelListMode="full"
       />
     </div>
   );
