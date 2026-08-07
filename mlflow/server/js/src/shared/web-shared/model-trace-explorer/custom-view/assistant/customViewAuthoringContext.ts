@@ -52,6 +52,14 @@ export const getCustomViewAuthoringContext = (): CustomViewAuthoringContext | nu
  * overwriting whatever became active. Each turn overwrites the previous latch,
  * so it is never consumed/cleared on apply: a turn that calls the tool more than
  * once keeps the same target throughout.
+ *
+ * The latch's lifetime is tied to the TURN, not the host's mount. A trace
+ * modal closed and reopened mid-turn is a tolerated flow (see
+ * `waitForCustomViewSpecApplier`), so clearing on unregister would leave that
+ * spec having lost its target, falling through to the live selection — the
+ * exact overwrite-the-wrong-view failure this latch exists to prevent.
+ * Passing `undefined` is for a context with no active view (an empty-state
+ * build), not for the absence of a host.
  */
 export const latchDispatchedCustomViewApplyTarget = (target: CustomViewApplyTarget | undefined): void => {
   dispatchedApplyTarget = target;
