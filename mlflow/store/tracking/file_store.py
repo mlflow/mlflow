@@ -69,7 +69,6 @@ from mlflow.tracing.utils import (
     generate_assessment_id,
     generate_request_id_v2,
 )
-from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
     exists,
@@ -372,6 +371,17 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
+        experiments = self._list_experiments(view_type)
+        filtered = SearchExperimentsUtils.filter(experiments, filter_string)
+        sorted_experiments = SearchExperimentsUtils.sort(
+            filtered, order_by or ["creation_time DESC", "experiment_id ASC"]
+        )
+        experiments, next_page_token = SearchUtils.paginate(
+            sorted_experiments, page_token, max_results
+        )
+        return PagedList(experiments, next_page_token)
+
+    def _list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         self._check_root_dir()
         experiment_ids = []
         if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
@@ -391,30 +401,18 @@ class FileStore(AbstractStore):
                     f"Malformed experiment '{exp_id}'. Detailed error {e}",
                     exc_info=True,
                 )
-        filtered = SearchExperimentsUtils.filter(experiments, filter_string)
-        sorted_experiments = SearchExperimentsUtils.sort(
-            filtered, order_by or ["creation_time DESC", "experiment_id ASC"]
-        )
-        experiments, next_page_token = SearchUtils.paginate(
-            sorted_experiments, page_token, max_results
-        )
-        return PagedList(experiments, next_page_token)
+        return experiments
 
     def get_experiment_by_name(self, experiment_name):
-        def pagination_wrapper_func(number_to_get, next_page_token):
-            return self.search_experiments(
-                view_type=ViewType.ALL,
-                max_results=number_to_get,
-                filter_string=f"name = '{experiment_name}'",
-                page_token=next_page_token,
-            )
-
-        experiments = get_results_from_paginated_fn(
-            paginated_fn=pagination_wrapper_func,
-            max_results_per_page=SEARCH_MAX_RESULTS_THRESHOLD,
-            max_results=None,
-        )
-        return experiments[0] if len(experiments) > 0 else None
+        # Look up the experiment by name directly rather than constructing a
+        # `filter_string` for `search_experiments`. Interpolating the name into a
+        # filter expression breaks for names containing characters that are
+        # significant to the filter DSL (e.g. a single quote), which made such
+        # experiments impossible to create or retrieve.
+        for experiment in self._list_experiments(view_type=ViewType.ALL):
+            if experiment.name == experiment_name:
+                return experiment
+        return None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         if not artifact_uri:
