@@ -147,6 +147,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -244,6 +245,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to the Spark model ``save`` method.
 
     Returns:
@@ -292,6 +294,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            uv=uv,
         )
 
     if not isinstance(spark_model, PipelineModel):
@@ -346,6 +349,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            uv=uv,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -362,6 +366,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
+            uv=uv,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -570,6 +575,7 @@ def _save_model_metadata(
     pip_requirements=None,
     extra_pip_requirements=None,
     remote_model_path=None,
+    uv=None,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -621,6 +627,7 @@ def _save_model_metadata(
                 remote_model_path or dst_dir,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -644,6 +651,13 @@ def _save_model_metadata(
     write_to(os.path.join(dst_dir, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(dst_dir, _PYTHON_ENV_FILE_NAME))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(dst_dir, source_dir)
 
 
 def _validate_model(spark_model):
@@ -715,6 +729,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -741,6 +756,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
 
     .. code-block:: python
@@ -840,6 +856,7 @@ def save_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        uv=uv,
     )
 
 
