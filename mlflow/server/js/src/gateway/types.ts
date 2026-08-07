@@ -17,6 +17,11 @@ export interface ProviderModel {
   deprecation_date?: string;
 }
 
+export interface AllowlistedProviderModel {
+  model: string;
+  provider?: string;
+}
+
 export interface SecretField {
   name: string;
   type: string;
@@ -58,7 +63,7 @@ export interface SecretInfo {
   masked_values: Record<string, string>;
   provider?: string;
   auth_config?: Record<string, string>;
-  allowlisted_models?: ProviderModel[];
+  allowlisted_models?: AllowlistedProviderModel[];
   created_at: number;
   last_updated_at: number;
   created_by?: string;
@@ -70,7 +75,7 @@ export interface CreateSecretRequest {
   secret_value: Record<string, string>;
   provider?: string;
   auth_config?: Record<string, string>;
-  allowlisted_models?: ProviderModel[];
+  allowlisted_models?: AllowlistedProviderModel[];
   created_by?: string;
 }
 
@@ -86,7 +91,7 @@ export interface UpdateSecretRequest {
   secret_id: string;
   secret_value?: Record<string, string>;
   auth_config?: Record<string, string>;
-  allowlisted_models?: ProviderModel[];
+  allowlisted_models?: AllowlistedProviderModel[];
   updated_by?: string;
 }
 

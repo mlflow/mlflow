@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { useUpdateSecret } from './useUpdateSecret';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { SecretFormData } from '../components/secrets/types';
-import type { ProviderModel, SecretInfo } from '../types';
+import type { AllowlistedProviderModel, SecretInfo } from '../types';
 
 interface UseEditApiKeyModalParams {
   secret: SecretInfo | null;
@@ -22,8 +22,8 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   const intl = useIntl();
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
   const [initialFormData, setInitialFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
-  const [allowlistedModels, setAllowlistedModels] = useState<ProviderModel[]>([]);
-  const [initialAllowlistedModels, setInitialAllowlistedModels] = useState<ProviderModel[]>([]);
+  const [allowlistedModels, setAllowlistedModels] = useState<AllowlistedProviderModel[]>([]);
+  const [initialAllowlistedModels, setInitialAllowlistedModels] = useState<AllowlistedProviderModel[]>([]);
   const [errors, setErrors] = useState<{
     secretFields?: Record<string, string>;
     configFields?: Record<string, string>;
@@ -76,7 +76,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     [resetMutation],
   );
 
-  const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
+  const handleAllowlistedModelsChange = useCallback((models: AllowlistedProviderModel[]) => {
     setAllowlistedModels(models);
     setErrors((prev) => ({
       ...prev,

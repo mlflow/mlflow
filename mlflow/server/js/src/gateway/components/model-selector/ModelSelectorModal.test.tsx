@@ -75,7 +75,7 @@ describe('ModelSelectorModal', () => {
         provider="openai"
         multiSelect
         modelListMode="full"
-        initialSelected={[{ model: 'gpt-5', provider: 'openai', supports_function_calling: true }]}
+        initialSelected={[{ model: 'gpt-5', provider: 'openai' }]}
       />,
     );
 
@@ -89,7 +89,7 @@ describe('ModelSelectorModal', () => {
         provider="openai"
         multiSelect
         modelListMode="full"
-        initialSelected={[{ model: 'gpt-5-mini', provider: 'openai', supports_function_calling: true }]}
+        initialSelected={[{ model: 'gpt-5-mini', provider: 'openai' }]}
       />,
     );
 

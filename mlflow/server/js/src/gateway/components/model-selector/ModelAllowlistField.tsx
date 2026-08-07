@@ -2,13 +2,13 @@ import { useState, useCallback } from 'react';
 import { Button, PlusIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ModelSelectorModal } from './ModelSelectorModal';
-import type { ProviderModel } from '../../types';
+import type { AllowlistedProviderModel, ProviderModel } from '../../types';
 
 interface ModelAllowlistFieldProps {
   /** Provider the allowlisted models must belong to. The add-model action is disabled until set. */
   provider: string;
-  value: ProviderModel[];
-  onChange: (models: ProviderModel[]) => void;
+  value: AllowlistedProviderModel[];
+  onChange: (models: AllowlistedProviderModel[]) => void;
   /** Prefix used to derive stable componentIds for telemetry. */
   componentId: string;
 }

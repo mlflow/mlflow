@@ -81,6 +81,23 @@ describe('useAllowlistedModelPairs', () => {
     expect(result.current.pairs).toHaveLength(1);
   });
 
+  test('dedupes by normalized provider when allowlisted model omits provider', () => {
+    mockSecrets([
+      {
+        secret_id: 'secret-1',
+        secret_name: 'Key',
+        provider: 'openai',
+        allowlisted_models: [{ model: 'gpt-5', provider: 'openai' }, { model: 'gpt-5' }],
+      },
+    ]);
+    const { result } = renderHook(() => useAllowlistedModelPairs());
+    expect(result.current.pairs).toHaveLength(1);
+    expect(result.current.pairs[0]).toMatchObject({
+      provider: 'openai',
+      model: 'gpt-5',
+    });
+  });
+
   test('surfaces the loading state', () => {
     mockSecrets([], true);
     const { result } = renderHook(() => useAllowlistedModelPairs());

@@ -6,7 +6,7 @@ import { SecretFormFields, type SecretFormData } from '../secrets';
 import { ModelAllowlistField } from '../model-selector/ModelAllowlistField';
 import { useCreateSecret } from '../../hooks/useCreateSecret';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
-import type { ProviderModel } from '../../types';
+import type { AllowlistedProviderModel } from '../../types';
 
 interface CreateApiKeyModalProps {
   open: boolean;
@@ -26,7 +26,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
   const intl = useIntl();
   const [provider, setProvider] = useState('');
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
-  const [allowlistedModels, setAllowlistedModels] = useState<ProviderModel[]>([]);
+  const [allowlistedModels, setAllowlistedModels] = useState<AllowlistedProviderModel[]>([]);
   const [errors, setErrors] = useState<{
     provider?: string;
     name?: string;
@@ -88,7 +88,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     return Object.keys(newErrors).length === 0;
   }, [provider, formData.name, formData.secretFields, intl]);
 
-  const handleAllowlistedModelsChange = useCallback((models: ProviderModel[]) => {
+  const handleAllowlistedModelsChange = useCallback((models: AllowlistedProviderModel[]) => {
     setAllowlistedModels(models);
     setErrors((prev) => ({
       ...prev,

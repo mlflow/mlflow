@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSecretsQuery } from './useSecretsQuery';
-import type { ProviderModel } from '../types';
+import type { AllowlistedProviderModel } from '../types';
 
 /** A single selectable "provider · model" option derived from a secret's allowlisted models. */
 export interface AllowlistedModelPair {
@@ -12,7 +12,7 @@ export interface AllowlistedModelPair {
   /** Human-readable "Provider · Model" label used for display and stable sorting. */
   label: string;
   /** The underlying allowlisted model, kept for optional capability tags. */
-  providerModel: ProviderModel;
+  providerModel: AllowlistedProviderModel;
 }
 
 // Display names for known providers; falls back to the raw provider string.
@@ -46,12 +46,12 @@ export function useAllowlistedModelPairs(): UseAllowlistedModelPairsResult {
     for (const secret of secrets) {
       const provider = secret.provider ?? '';
       for (const providerModel of secret.allowlisted_models ?? []) {
+        const pairProvider = providerModel.provider || provider;
         // Dedupe identical (secret, provider, model) triples.
-        const key = `${secret.secret_id}::${providerModel.provider}::${providerModel.model}`;
+        const key = `${secret.secret_id}::${pairProvider}::${providerModel.model}`;
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const pairProvider = providerModel.provider || provider;
         flattened.push({
           secretId: secret.secret_id,
           provider: pairProvider,

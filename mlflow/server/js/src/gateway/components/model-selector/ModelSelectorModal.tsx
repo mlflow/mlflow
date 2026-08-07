@@ -18,7 +18,7 @@ import {
 } from '@databricks/design-system';
 import type { RadioChangeEvent } from '@databricks/design-system';
 import { useModelsQuery } from '../../hooks/useModelsQuery';
-import type { ProviderModel } from '../../types';
+import type { AllowlistedProviderModel, ProviderModel } from '../../types';
 import { sortModelsByDate } from '../../utils/formatters';
 import { ModelRow } from './ModelRow';
 import { getDefaultLLMProvider } from '../../defaultModels';
@@ -38,7 +38,7 @@ interface ModelSelectorModalProps {
    */
   multiSelect?: boolean;
   /** Models to pre-check when opening in multi-select mode. */
-  initialSelected?: ProviderModel[];
+  initialSelected?: AllowlistedProviderModel[];
   /** Called with the full set of selected models on confirm in multi-select mode. */
   onSelectMultiple?: (models: ProviderModel[]) => void;
   /**
