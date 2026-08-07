@@ -288,13 +288,31 @@ assert actual_format == {actual_format!r}, actual_format
     )
 
 
+def _logging_configured_env() -> dict[str, str]:
+    """
+    Subprocess environment guaranteeing `_configure_mlflow_loggers` runs on import,
+    so the regression tests below cannot pass vacuously. The deprecated alias takes
+    precedence over `MLFLOW_CONFIGURE_LOGGING`, so it has to be cleared as well.
+    """
+    env = os.environ.copy()
+    env.pop("MLFLOW_LOGGING_CONFIGURE_LOGGING", None)
+    env["MLFLOW_CONFIGURE_LOGGING"] = "1"
+    return env
+
+
+# Guards against a vacuous pass if the import ever stops configuring logging.
+_ASSERT_LOGGING_CONFIGURED = """
+assert logging.getLogger("mlflow").handlers, "mlflow did not configure logging"
+"""
+
+
 def test_import_mlflow_preserves_disabled_loggers() -> None:
     """
     Importing mlflow must not re-enable loggers the host application disabled.
     The Databricks notebook kernel disables `pyspark.sql.connect.logging` at
     startup; re-enabling it dumps raw gRPC tracebacks into cell output.
     """
-    code = """
+    code = f"""
 import logging
 
 connect_logger = logging.getLogger("pyspark.sql.connect.logging")
@@ -303,11 +321,11 @@ unrelated_logger = logging.getLogger("some.third.party")
 unrelated_logger.disabled = True
 
 import mlflow
-
+{_ASSERT_LOGGING_CONFIGURED}
 assert connect_logger.disabled, "mlflow re-enabled pyspark.sql.connect.logging"
 assert unrelated_logger.disabled, "mlflow re-enabled some.third.party"
 """
-    subprocess.check_call([sys.executable, "-c", code], env=os.environ.copy())
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
 
 
 def test_import_mlflow_preserves_existing_child_logger_config() -> None:
@@ -316,7 +334,7 @@ def test_import_mlflow_preserves_existing_child_logger_config() -> None:
     `alembic`, `huey`) must keep any level, handlers, and propagate flag that
     were set before the import.
     """
-    code = """
+    code = f"""
 import logging
 
 CHILDREN = ("mlflow.tracking.fluent", "sqlalchemy.engine.Engine")
@@ -328,14 +346,14 @@ for name in CHILDREN:
     child.propagate = False
 
 import mlflow
-
+{_ASSERT_LOGGING_CONFIGURED}
 for name in CHILDREN:
     child = logging.getLogger(name)
     assert child.level == logging.ERROR, (name, child.level)
     assert child.handlers == [handler], (name, child.handlers)
     assert not child.propagate, name
 """
-    subprocess.check_call([sys.executable, "-c", code], env=os.environ.copy())
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
 
 
 def test_configure_mlflow_loggers_is_idempotent() -> None:
