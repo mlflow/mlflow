@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Alert, Button, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { Alert, Button, CloseIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 /**
  * Read-only banner shown while the user is viewing a shared/saved view. It signals that the view is
@@ -28,12 +28,18 @@ export const SharedViewBanner = ({
   overrideLabel,
   onOverride,
   onDiscard,
+  onDismiss,
 }: {
   componentId: string;
   message: ReactNode;
   onDiscard: () => void;
+  // When provided, renders a dismiss (X) control that hides the banner WITHOUT leaving the shared
+  // view (unlike Discard, which reverts to the user's own view). Consumers still expose Override /
+  // Discard elsewhere (the Views menu) so those actions survive dismissal.
+  onDismiss?: () => void;
 } & OverrideProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   return (
     <Alert
@@ -64,6 +70,29 @@ export const SharedViewBanner = ({
                 description="Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
               />
             </Button>
+            {onDismiss && (
+              <Tooltip
+                componentId={`${componentId}.dismiss_tooltip`}
+                content={
+                  <FormattedMessage
+                    defaultMessage="Dismiss this banner. You'll keep viewing the shared view."
+                    description="Tooltip on the shared view banner's dismiss button explaining it hides the banner but keeps the view"
+                  />
+                }
+              >
+                <Button
+                  componentId={`${componentId}.dismiss`}
+                  size="small"
+                  icon={<CloseIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Hide banner',
+                    description:
+                      'Experiment page > shared view banner > button that hides the banner while keeping the shared view applied',
+                  })}
+                  onClick={onDismiss}
+                />
+              </Tooltip>
+            )}
           </div>
         </div>
       }

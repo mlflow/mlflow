@@ -1,0 +1,223 @@
+---
+title: MCP Registry
+description: Register, version, and manage MCP servers across your organization with MLflow MCP Registry. Centralize server catalogs and streamline agent tool management.
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { GitBranch, Search, Link, FolderOpen } from "lucide-react";
+
+# MCP Registry
+
+:::warning[Experimental]
+
+MCP Registry is an experimental feature introduced in MLflow 3.15.0. APIs and behavior may change in future releases.
+
+:::
+
+**MLflow MCP Registry** provides a centralized catalog for registering, versioning, and managing [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers. Built on the [open MCP registry standard](https://registry.modelcontextprotocol.io/docs), it enables your organization to maintain a curated inventory of MCP servers that users and agents can discover and connect to, with full version control and lifecycle management. You can import servers directly from the [official MCP registry](https://registry.modelcontextprotocol.io/) or register your own.
+
+## Key Benefits
+
+<FeatureHighlights features={[
+  {
+    icon: FolderOpen,
+    title: "Centralized Catalog",
+    description: "Maintain a single source of truth for all MCP servers in your organization. Search, browse, and discover available servers and their capabilities."
+  },
+  {
+    icon: GitBranch,
+    title: "Version Control",
+    description: "Track server configurations with semantic versioning. Compare versions side-by-side and manage status transitions from draft to active to deprecated."
+  },
+  {
+    icon: Search,
+    title: "Tool Discovery",
+    description: "Automatically discover and catalog the tools that each MCP server exposes. Refresh tool snapshots on demand as servers evolve."
+  },
+  {
+    icon: Link,
+    title: "Manage Access",
+    description: "Define and manage connection endpoints for each server, pinned to a specific version or alias. Generate ready-to-use connection instructions for Claude Code, .mcp.json, and more."
+  },
+]} />
+
+## Getting Started
+
+### 1. Register an MCP Server
+
+:::tip[What is server.json?]
+
+The `server.json` file follows the [open MCP registry standard](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) and describes an MCP server's metadata, packages, and remote endpoints. Many popular MCP servers publish one in their GitHub repository. You can also browse the [official MCP registry](https://registry.modelcontextprotocol.io/) to find servers and import their `server.json` into MLflow.
+
+:::
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <div style={{ width: "70%", margin: "20px" }}>
+        ![Create MCP Server UI](/images/llms/mcp-registry/register-mcp-server-ui.png)
+      </div>
+
+      1. Run `mlflow server` in your terminal to start the MLflow UI.
+      2. Navigate to the **MCP Registry** section in the sidebar.
+      3. Click the **Create MCP server** button.
+      4. Enter a display name and edit the **server.json** payload with the server's configuration.
+      5. Click **Create** to register the server.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      To register an MCP server using the Python API, use <APILink fn="mlflow.genai.register_mcp_server" />:
+
+      ```python
+      import mlflow
+
+      version = mlflow.genai.register_mcp_server(
+          server_json={
+              "name": "io.github.anthropic/brave-search",
+              "version": "1.0.0",
+              "description": "Brave Search MCP server for web search",
+              "remotes": [
+                  {
+                      "url": "https://mcp.example.com/brave-search",
+                      "type": "streamable-http",
+                  }
+              ],
+          },
+          status="active",
+      )
+
+      print(f"Registered '{version.name}' version {version.version}")
+      ```
+
+      You can also register directly from a URL hosting a `server.json` file:
+
+      ```python
+      version = mlflow.genai.register_mcp_server_from_url(
+          url="https://raw.githubusercontent.com/example/mcp-server/main/server.json",
+          status="active",
+      )
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+### 2. Browse Registered Servers
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      ![MCP Registry Server List](/images/llms/mcp-registry/mcp-registry-server-list.png)
+
+      The MCP Registry page displays all registered servers in a searchable grid or list view. You can filter by status, search by name, and toggle between grid and list layouts.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Use <APILink fn="mlflow.genai.search_mcp_servers" /> to find registered servers:
+
+      ```python
+      import mlflow
+
+      # Search all servers
+      servers = mlflow.genai.search_mcp_servers()
+
+      for server in servers:
+          print(f"{server.name}: {server.description}")
+
+      # Filter by status
+      active_servers = mlflow.genai.search_mcp_servers(filter_string="status = 'active'")
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+### 3. Create an Access Endpoint
+
+Access endpoints define how users and agents connect to a running MCP server instance. Each endpoint pairs a URL and transport type with a specific server version or alias.
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <div style={{ width: "70%", margin: "20px" }}>
+        ![Create Access Endpoint](/images/llms/mcp-registry/create-access-endpoint.png)
+      </div>
+
+      1. Open the MCP server detail page.
+      2. In the **Access Endpoints** section, click **Create endpoint**.
+      3. Enter the endpoint URL and select the transport type.
+      4. Pin the endpoint to a specific version or alias.
+      5. Click **Create** to save.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Use <APILink fn="mlflow.genai.create_mcp_access_endpoint" /> to register a connection endpoint:
+
+      ```python
+      import mlflow
+
+      endpoint = mlflow.genai.create_mcp_access_endpoint(
+          server_name="io.github.anthropic/brave-search",
+          url="https://mcp.example.com/brave-search",
+          transport_type="streamable-http",
+          server_version="1.0.0",
+      )
+
+      print(f"Endpoint {endpoint.id} → {endpoint.url}")
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+## Concepts
+
+### Entity Model
+
+The MCP Registry is organized around three core entities:
+
+| Entity                | Description                                                                                                                                                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCPServer**         | The logical server entry. Identified by a namespaced name (e.g., `io.github.anthropic/brave-search`). Holds metadata like display name, description, icons, and tags.                                                                                                                                          |
+| **MCPServerVersion**  | A specific version of a server's configuration, identified by a [semver](https://semver.org/) string (e.g., `1.0.0`). Contains the [`server_json`](https://registry.modelcontextprotocol.io/docs#/schemas/ServerJSON) payload, tool definitions, and a status (`draft`, `active`, `deprecated`, or `deleted`). |
+| **MCPAccessEndpoint** | A connection endpoint (URL + transport type) pinned to a specific version or alias. Defines how users and agents actually connect to a running MCP server instance.                                                                                                                                            |
+
+### Server Naming Convention
+
+Server names follow a reverse-DNS namespace format:
+
+```
+<namespace>/<server-slug>
+```
+
+For example: `io.github.anthropic/brave-search`, `com.acme/internal-tools`.
+
+### Status Lifecycle
+
+Each server version has a status that controls its visibility and usability:
+
+```
+draft ⇄ active ⇄ deprecated
+  │                    │
+  └───→ deleted ←──────┘
+```
+
+- **Draft**: Initial state. The version is being prepared and is not yet available for use.
+- **Active**: The version is ready for production use.
+- **Deprecated**: The version is still accessible but should be replaced with a newer version.
+- **Deleted**: The version is no longer available.
+
+## Next Steps
+
+- [Register MCP Servers](/genai/mcp-registry/register-mcp-servers) — detailed guide for registration methods and `server_json` structure
+- [Manage Versions and Aliases](/genai/mcp-registry/manage-versions-and-aliases) — versioning, status lifecycle, aliases, and tags
+- [Connect to MCP Servers](/genai/mcp-registry/connect-to-servers) — access endpoints, connection instructions, and tool discovery

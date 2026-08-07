@@ -20,6 +20,7 @@ export interface RunsChartsBarChartCardProps
 
   onDelete: () => void;
   onEdit: () => void;
+  useMetricDisplayName?: boolean;
 }
 
 export const barChartCardDefaultMargin = {
@@ -32,14 +33,23 @@ export const barChartCardDefaultMargin = {
 
 const MAX_TITLE_METRICS = 3;
 
-const getBarChartTitle = (config: RunsChartsBarCardConfig): string => {
+export const getBarChartTitle = (config: RunsChartsBarCardConfig, useMetricDisplayName = true): string => {
   const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
   if (metricKeys.length <= 1) {
-    return customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.displayName ?? config.metricKey;
+    return (
+      customMetricBehaviorDefs[config.metricKey]?.displayName ??
+      (useMetricDisplayName ? config.displayName : undefined) ??
+      config.metricKey
+    );
   }
   const displayed = metricKeys.slice(0, MAX_TITLE_METRICS).join(' vs ');
   const remaining = metricKeys.length - MAX_TITLE_METRICS;
   return remaining > 0 ? `${displayed} + ${remaining} more` : displayed;
+};
+
+export const getBarChartTitleTooltip = (config: RunsChartsBarCardConfig): string => {
+  const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
+  return metricKeys.length <= 1 ? config.metricKey : getBarChartTitle(config, false);
 };
 
 export const RunsChartsBarChartCard = ({
@@ -51,6 +61,7 @@ export const RunsChartsBarChartCard = ({
   setFullScreenChart,
   hideEmptyCharts,
   isInViewport: isInViewportProp,
+  useMetricDisplayName = true,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
   const selectedMetricKeys = useMemo(
@@ -63,7 +74,7 @@ export const RunsChartsBarChartCard = ({
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
-      title: getBarChartTitle(config),
+      title: getBarChartTitle(config, useMetricDisplayName),
       subtitle: null,
     });
   };
@@ -140,7 +151,7 @@ export const RunsChartsBarChartCard = ({
         </div>
       );
     }
-    return getBarChartTitle(config);
+    return getBarChartTitle(config, useMetricDisplayName);
   })();
 
   return (
@@ -148,13 +159,14 @@ export const RunsChartsBarChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={chartTitle}
+      titleTooltip={getBarChartTitleTooltip(config)}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       // Disable fullscreen button if the chart is empty
       toggleFullScreenChart={isEmptyDataset ? undefined : toggleFullScreenChart}
       supportedDownloadFormats={['png', 'svg', 'csv']}
       onClickDownload={(format) => {
-        const chartTitleForExport = getBarChartTitle(config);
+        const chartTitleForExport = getBarChartTitle(config, useMetricDisplayName);
         if (format === 'csv' || format === 'csv-full') {
           const runsToExport = [...slicedRuns].reverse();
           downloadChartDataCsv(runsToExport, selectedMetricKeys, [], chartTitleForExport);

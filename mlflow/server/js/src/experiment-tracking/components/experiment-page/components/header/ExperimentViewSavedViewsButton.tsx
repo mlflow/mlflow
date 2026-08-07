@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Button, DangerModal, DropdownMenu, BookmarkIcon } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DangerModal, DropdownMenu, LayerIcon } from '@databricks/design-system';
 
 import Utils from '../../../../../common/utils/Utils';
 import { copyToClipboard } from '../../../../../common/utils/copyToClipboard';
@@ -9,6 +9,7 @@ import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPag
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import type { SavedViewSummary } from '../../utils/savedViewEnvelope';
 import { useSavedViews } from '../../hooks/useSavedViews';
+import { useSharedViewActionsBridge } from '../../hooks/useSharedViewActionsBridge';
 import { SavedViewsMenu, type SavedViewMenuItem } from '../saved-views/SavedViewsMenu';
 import { ExperimentGetShareLinkModal, getSavedViewShareUrl } from './ExperimentGetShareLinkModal';
 
@@ -34,6 +35,9 @@ export const ExperimentViewSavedViewsButton = ({
 }) => {
   const intl = useIntl();
   const { views, canModify, deleteView, openView, activeViewId } = useSavedViews({ experiment });
+  // Shared-view Override/Discard bridged up from ExperimentView (a lower tree). Null when no shared
+  // view is applied → the menu shows no Override/Discard entries.
+  const sharedViewActions = useSharedViewActionsBridge();
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click:
   // a DangerModal rendered inside DropdownMenu.Content would be torn down when the menu dismisses.
@@ -74,7 +78,8 @@ export const ExperimentViewSavedViewsButton = ({
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.experiment_page.saved_views.trigger"
-            icon={<BookmarkIcon />}
+            icon={<LayerIcon />}
+            endIcon={<ChevronDownIcon />}
             data-testid="saved-views-trigger"
           >
             {activeView ? (
@@ -100,6 +105,15 @@ export const ExperimentViewSavedViewsButton = ({
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
             onSaveCurrent={() => setShowSaveModal(true)}
+            sharedViewActive={Boolean(sharedViewActions)}
+            onOverrideActive={sharedViewActions?.override}
+            onDiscardActive={sharedViewActions?.discard}
+            overrideLabel={
+              <FormattedMessage
+                defaultMessage="Override saved view"
+                description="Experiment page Views menu > entry that overwrites the user's saved view with the applied shared view"
+              />
+            }
           />
         </DropdownMenu.Content>
       </DropdownMenu.Root>
