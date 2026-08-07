@@ -37,10 +37,7 @@ const createMockRun = ({
 }): RunEntity => ({
   data: {
     params: params ?? [],
-    tags: [
-      ...(tags ?? []),
-      ...(parentRunId ? [{ key: getParentRunTagName(), value: parentRunId }] : []),
-    ],
+    tags: [...(tags ?? []), ...(parentRunId ? [{ key: getParentRunTagName(), value: parentRunId }] : [])],
     metrics: [],
   },
   info: {
@@ -287,7 +284,7 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
       expect(result[0].children![0].children![0].info.runUuid).toBe('child');
     });
 
-    it('should treat orphaned children as root-level runs', () => {
+    it('should omit children whose parents are missing', () => {
       const runs = [
         createMockRun({ runUuid: 'orphan1', parentRunId: 'missing-parent' }),
         createMockRun({ runUuid: 'orphan2', parentRunId: 'another-missing' }),
@@ -296,18 +293,10 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
       ];
       const result = getNestedRuns(runs);
 
-      expect(result).toHaveLength(3);
-
-      const orphan1 = result.find((r) => r.info.runUuid === 'orphan1');
-      const orphan2 = result.find((r) => r.info.runUuid === 'orphan2');
-      const parent = result.find((r) => r.info.runUuid === 'regular-parent');
-
-      expect(orphan1).toBeDefined();
-      expect(orphan1!.children).toBeUndefined();
-      expect(orphan2).toBeDefined();
-      expect(orphan2!.children).toBeUndefined();
-      expect(parent).toBeDefined();
-      expect(parent!.children).toHaveLength(1);
+      expect(result).toHaveLength(1);
+      expect(result[0].info.runUuid).toBe('regular-parent');
+      expect(result[0].children).toHaveLength(1);
+      expect(result[0].children![0].info.runUuid).toBe('regular-child');
     });
 
     it('should handle multiple independent parent-child families', () => {
@@ -341,18 +330,11 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
       ];
       const result = getNestedRuns(runs);
 
-      expect(result[0].children!.map((c) => c.info.runUuid)).toEqual([
-        'child-first',
-        'child-second',
-        'child-third',
-      ]);
+      expect(result[0].children!.map((c) => c.info.runUuid)).toEqual(['child-first', 'child-second', 'child-third']);
     });
 
     it('should not mutate original runs array', () => {
-      const runs = [
-        createMockRun({ runUuid: 'parent' }),
-        createMockRun({ runUuid: 'child', parentRunId: 'parent' }),
-      ];
+      const runs = [createMockRun({ runUuid: 'parent' }), createMockRun({ runUuid: 'child', parentRunId: 'parent' })];
       const originalRunsClone = JSON.parse(JSON.stringify(runs));
 
       getNestedRuns(runs);
@@ -361,5 +343,3 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
     });
   });
 });
-
-
