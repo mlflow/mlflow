@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786095372398,
+  "lastUpdate": 1786132181671,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19709,6 +19709,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.56952920000731,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "daniel.seong@databricks.com",
+            "name": "danielseong1",
+            "username": "danielseong1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3cbd43dc66dfa2701a64f33a44e3872ec4dadb51",
+          "message": "[GenAI] Support immutable evaluation dataset versions (#24845)\n\nSigned-off-by: Daniel Seong <daniel.leem.seong@gmail.com>\nCo-authored-by: Daniel Seong <daniel.leem.seong@gmail.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-08-07T12:48:18-07:00",
+          "tree_id": "77dc781d4dd85f9140286dd9501f902b24f38761",
+          "url": "https://github.com/mlflow/mlflow/commit/3cbd43dc66dfa2701a64f33a44e3872ec4dadb51"
+        },
+        "date": 1786132180411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.968466749999834,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.787991181817627,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.744718253846442,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.833357764149987,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.146906241071853,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.078724600012265,
             "unit": "ms"
           }
         ]
