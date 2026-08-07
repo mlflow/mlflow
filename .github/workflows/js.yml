@@ -52,7 +52,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        option: [--testPathPattern, --testPathIgnorePatterns]
+        # Test files are sharded across jobs by path so they run in parallel.
+        # Shards are balanced by measured runtime (not file count): the two
+        # heaviest areas each get a dedicated shard and everything else shares
+        # the third. Keep the three `args` mutually exclusive and collectively
+        # exhaustive so every test file runs exactly once.
+        shard:
+          - name: experiment-tracking-components
+            args: --testPathPattern src/experiment-tracking/components
+          - name: experiment-tracking-pages-and-shared
+            args: --testPathPattern src/experiment-tracking/pages|src/shared
+          - name: rest
+            args: --testPathIgnorePatterns src/experiment-tracking/components|src/experiment-tracking/pages|src/shared
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -83,17 +94,17 @@ jobs:
           yarn type-check
       - name: Run tests
         env:
-          MATRIX_OPTION: ${{ matrix.option }}
+          MATRIX_ARGS: ${{ matrix.shard.args }}
         # --maxWorkers=2: Jest's default (3) leaks module cache across test
         # files and peaks ~15 GB RSS on the 16 GB runner; 2 keeps peak ~13 GB.
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
-            yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
+            yarn test --silent --maxWorkers=2 $MATRIX_ARGS
       - name: Upload profile metrics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: profile-metrics-${{ strategy.job-index }}
+          name: profile-metrics-${{ matrix.shard.name }}
           path: /tmp/profile-metrics.csv
           # TODO: Uncomment once `gh run download` supports non-zipped artifacts.
           # https://github.com/cli/cli/issues/13012
