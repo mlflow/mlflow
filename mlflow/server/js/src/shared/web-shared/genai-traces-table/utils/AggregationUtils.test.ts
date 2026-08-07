@@ -521,6 +521,27 @@ describe('getAssessmentInfos', () => {
       expect(info?.description).toBe('correctness — My project-specific accuracy check.');
     });
 
+    it('prefers an AI_JUDGE scorer description over a built-in judge when their names collide', () => {
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'AI_JUDGE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My registered LLM accuracy judge.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My registered LLM accuracy judge.');
+    });
+
     it('does not use scorerDescriptionsByName for HUMAN-sourced assessments', () => {
       const humanSource: RunEvaluationResultAssessmentSource = {
         sourceType: 'HUMAN',

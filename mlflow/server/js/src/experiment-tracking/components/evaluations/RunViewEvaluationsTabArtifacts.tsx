@@ -26,9 +26,7 @@ import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { shouldEnableImprovedEvalRunsComparison } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { useMemo } from 'react';
-import { listScheduledScorers } from '../../pages/experiment-scorers/api';
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useScorerDescriptions } from '../../pages/experiment-scorers/hooks/useScorerDescriptions';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -55,28 +53,7 @@ export const RunViewEvaluationsTabArtifacts = ({
   const makeHtmlFromMarkdown = useMarkdownConverter();
   const saveAssessmentsQuery = useSavePendingEvaluationAssessments();
 
-  // Fetch scorer definitions to populate custom-scorer description tooltips.
-  // We parse description directly from serialized_scorer JSON because the
-  // ScheduledScorer transform does not preserve this field.
-  const { data: scorersData } = useQuery({
-    queryKey: ['mlflow', 'scorer-descriptions', experimentId],
-    queryFn: () => listScheduledScorers(experimentId),
-    staleTime: 5 * 60 * 1000,
-  });
-  const scorerDescriptionsByName = useMemo<Record<string, string>>(() => {
-    const map: Record<string, string> = {};
-    for (const scorer of scorersData?.scorers ?? []) {
-      try {
-        const parsed = JSON.parse(scorer.serialized_scorer);
-        if (parsed.description) {
-          map[scorer.scorer_name] = parsed.description;
-        }
-      } catch {
-        // ignore malformed serialized_scorer entries
-      }
-    }
-    return map;
-  }, [scorersData]);
+  const scorerDescriptionsByName = useScorerDescriptions(experimentId);
 
   const {
     data: compareToRunData,

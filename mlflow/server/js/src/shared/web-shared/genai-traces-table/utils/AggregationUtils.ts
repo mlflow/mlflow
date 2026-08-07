@@ -232,16 +232,15 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueMissingTooltip
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueMissingTooltip[assessmentName])
             : '';
-        const isCodeSourced = assessment?.source?.sourceType === 'CODE';
         const customScorerName = assessment?.source?.sourceId;
         const customScorerDescription =
           customScorerName && scorerDescriptionsByName ? scorerDescriptionsByName[customScorerName] : undefined;
-        // A CODE-sourced scorer with a registered description takes precedence, even when its
-        // name collides with a built-in judge (for example a user scorer named "correctness").
-        // Built-in judges are never CODE-sourced, so this only overrides the known-name text for
-        // genuine custom scorers.
+        // A registered scorer description takes precedence even when the scorer's name collides
+        // with a built-in judge name (for example a custom scorer named "correctness").
+        const isRegisteredScorer =
+          assessment?.source?.sourceType === 'CODE' || assessment?.source?.sourceType === 'AI_JUDGE';
         const description =
-          isCodeSourced && customScorerDescription
+          isRegisteredScorer && customScorerDescription
             ? `${customScorerName} \u2014 ${customScorerDescription}`
             : assessmentName in KnownEvaluationResultAssessmentValueDescription
               ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
@@ -250,12 +249,10 @@ export function getAssessmentInfos(
                     defaultMessage: 'This assessment is produced by a human judge.',
                     description: 'Human judge assessment description',
                   })
-                : customScorerDescription
-                  ? `${customScorerName} \u2014 ${customScorerDescription}`
-                  : intl.formatMessage({
-                      defaultMessage: 'This assessment is produced by a custom metric.',
-                      description: 'Custom judge assessment description',
-                    });
+                : intl.formatMessage({
+                    defaultMessage: 'This assessment is produced by a custom metric.',
+                    description: 'Custom judge assessment description',
+                  });
 
         const uniqueValues = new Set<AssessmentValueType>();
         // If no assessments exist for this name, add undefined to track missing assessments
