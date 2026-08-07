@@ -23,6 +23,7 @@ import { ReactComponent as ChartParallelIcon } from '../../../../common/static/c
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
+import { ReactComponent as ChartVideoIcon } from '../../../../common/static/chart-video.svg';
 import { RunsChartsConfigureBarChart } from './config/RunsChartsConfigureBarChart';
 import { RunsChartsConfigureParallelChart } from './config/RunsChartsConfigureParallelChart';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -69,6 +70,7 @@ const previewComponentsMap: Record<
   [RunsChartType.SCATTER]: RunsChartsConfigureScatterChartPreview,
   [RunsChartType.DIFFERENCE]: DifferenceViewPlot,
   [RunsChartType.IMAGE]: RunsChartsConfigureImageChartPreview,
+  [RunsChartType.VIDEO]: undefined,
 };
 
 export const RunsChartsConfigureModal = ({
@@ -204,6 +206,9 @@ export const RunsChartsConfigureModal = ({
           onStateChange={setCurrentFormState}
         />
       );
+    }
+    if (type === RunsChartType.VIDEO) {
+      return null;
     }
     return null;
   };
@@ -384,6 +389,17 @@ export const RunsChartsConfigureModal = ({
                       <FormattedMessage
                         defaultMessage="Image grid"
                         description="Experiment tracking > runs charts > add chart menu > image grid"
+                      />
+                    </div>
+                  </SimpleSelectOption>
+                )}
+                {isChartTypeSupported(RunsChartType.VIDEO) && (
+                  <SimpleSelectOption value={RunsChartType.VIDEO}>
+                    <div css={styles.chartTypeOption(theme)}>
+                      <ChartVideoIcon />
+                      <FormattedMessage
+                        defaultMessage="Video"
+                        description="Experiment tracking > runs charts > add chart menu > video"
                       />
                     </div>
                   </SimpleSelectOption>
