@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.15.1.dev0"
+version = "3.15.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -34,7 +34,7 @@ dependencies = [
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
-  "cryptography<50,>=43.0.0",
+  "cryptography<51,>=43.0.0",
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
   "fastapi<1",
@@ -230,8 +230,9 @@ docs = [
   "Flask-WTF<2",
   "polars>=1",
   "openai",
-  # TODO: Support haystack 3.x (`OpenTelemetryTracer` moved to `opentelemetry-haystack`)
-  "haystack-ai<3",
+  "haystack-ai",
+  # Required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+  "opentelemetry-haystack",
   "deepeval",
   "ragas",
   "instructor",

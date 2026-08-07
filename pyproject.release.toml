@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.15.1.dev0"
+version = "3.15.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -27,13 +27,13 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "mlflow-skinny==3.15.1.dev0",
-  "mlflow-tracing==3.15.1.dev0",
+  "mlflow-skinny==3.15.2.dev0",
+  "mlflow-tracing==3.15.2.dev0",
   "Flask-CORS<7",
   "Flask<4",
   "aiohttp<4,>=3.7.0",
   "alembic<2,!=1.10.0",
-  "cryptography<50,>=43.0.0",
+  "cryptography<51,>=43.0.0",
   "docker<8,>=4.0.0",
   "graphene<4",
   "gunicorn<27; platform_system != 'Windows'",
