@@ -112,6 +112,7 @@ export interface ToolResultInfo {
   content: string;
   isError: boolean;
   agentId?: string;
+  commandName?: string;
 }
 
 export interface SubagentGroup {

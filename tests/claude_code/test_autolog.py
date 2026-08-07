@@ -124,6 +124,63 @@ async def test_query_captures_async_generator_prompt():
 
 
 @pytest.mark.asyncio
+async def test_async_iterable_multi_prompt_captures_all_user_messages():
+    """Covers the autolog `hasattr(prompt, "__aiter__")` branch — verifies
+    that a streaming prompt yielding multiple dict-shaped user items causes
+    each to be captured as a UserMessage in the cumulative messages list
+    that gets handed to process_sdk_messages.
+
+    The live-SDK equivalent test was blocked by the SDK's bidirectional
+    streaming protocol; this unit test isolates the only AsyncIterable-
+    specific code path (the capturing_prompt wrapper).
+    """
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        async for _ in prompt:
+            pass
+
+    mock_self.query = fake_query
+
+    response_messages = [
+        AssistantMessage(content=[TextBlock(text="ok")], model="claude-sonnet-4-20250514"),
+        ResultMessage(
+            subtype="success",
+            duration_ms=100,
+            duration_api_ms=80,
+            is_error=False,
+            num_turns=2,
+            session_id="async-multi",
+        ),
+    ]
+    _patch_sdk_init(mock_self, response_messages)
+
+    async def prompt_generator():
+        yield {"type": "user", "message": {"role": "user", "content": "first prompt"}}
+        yield {"type": "user", "message": {"role": "user", "content": "second prompt"}}
+        # Non-user items must be passed through but not captured.
+        yield {"type": "system", "message": {"foo": "bar"}}
+        # Empty content must not be captured.
+        yield {"type": "user", "message": {"role": "user", "content": "   "}}
+        # Non-string content must not be captured.
+        yield {"type": "user", "message": {"role": "user", "content": ["block"]}}
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        await mock_self.query(prompt_generator())
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_called_once()
+    called_messages = mock_process.call_args[0][0]
+    user_messages = [m for m in called_messages if isinstance(m, UserMessage)]
+    assert len(user_messages) == 2
+    assert user_messages[0].content == "first prompt"
+    assert user_messages[1].content == "second prompt"
+
+
+@pytest.mark.asyncio
 async def test_receive_response_skips_when_autologging_disabled():
     mock_self = MagicMock()
     _patch_sdk_init(mock_self, ["msg1", "msg2"])

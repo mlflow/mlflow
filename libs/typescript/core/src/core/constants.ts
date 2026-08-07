@@ -84,6 +84,10 @@ export const SpanAttributeKey = {
   // This attribute indicates which flavor/format generated the LLM span. This is
   // used by downstream (e.g., UI) to determine the message format for parsing.
   MESSAGE_FORMAT: 'mlflow.message.format',
+  // Identifies the active skill scope for a span. Set on the Skill tool span itself and
+  // propagated to descendant LLM/TOOL/AGENT spans created within the skill body, so cost and
+  // latency can be attributed back to the originating skill.
+  SKILL_NAME: 'mlflow.skill.name',
 };
 
 /**
