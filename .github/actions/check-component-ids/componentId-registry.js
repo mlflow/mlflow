@@ -2478,6 +2478,7 @@ module.exports = {
   "shared.model-trace-explorer.summary-view.render-mode": "",
   "shared.model-trace-explorer.tag-count": "",
   "shared.model-trace-explorer.tag-count.hover-tooltip": "",
+  "shared.model-trace-explorer.text-field-copy": "",
   "shared.model-trace-explorer.text-field-see-more-link": "",
   "shared.model-trace-explorer.timeline-tree-filter-button": "",
   "shared.model-trace-explorer.timeline-tree-filter-popover": "",
