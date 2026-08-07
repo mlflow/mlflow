@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786132181671,
+  "lastUpdate": 1786139660013,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19763,6 +19763,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.078724600012265,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31966964+nihalmenon@users.noreply.github.com",
+            "name": "Nihal Menon",
+            "username": "nihalmenon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08eb62e14f22b9815f2d5d19df029658154638a5",
+          "message": "Add Databricks scorer versioning support (#24940)\n\nSigned-off-by: Nihal Menon <31966964+nihalmenon@users.noreply.github.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Nihal Menon <nihal.menon@databricks.com>",
+          "timestamp": "2026-08-07T21:52:46Z",
+          "tree_id": "1ebeb7cda69b00431ffacbc1e4eab0cac0d54c02",
+          "url": "https://github.com/mlflow/mlflow/commit/08eb62e14f22b9815f2d5d19df029658154638a5"
+        },
+        "date": 1786139658066,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.905309649998344,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.577125696427958,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.341409641892088,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.23209255932086,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.633802976745212,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.9631629999975075,
             "unit": "ms"
           }
         ]
