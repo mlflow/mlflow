@@ -4,6 +4,15 @@ from typing import Any
 
 from pydantic import BaseModel
 
+_JSON_SCHEMA_MAP_KEYWORDS = {
+    "$defs",
+    "definitions",
+    "dependencies",
+    "dependentSchemas",
+    "patternProperties",
+    "properties",
+}
+
 
 def serialize_messages_to_prompts(
     messages: list[Any],
@@ -98,6 +107,20 @@ def _enforce_strict_json_schema(node: Any) -> None:
     elif isinstance(node, list):
         for item in node:
             _enforce_strict_json_schema(item)
+        return
+    if not isinstance(node, dict):
+        return
+
+    if "properties" in node:
+        node["additionalProperties"] = False
+
+    for key, value in node.items():
+        if key in _JSON_SCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+            # These values are name-to-schema maps, not schema nodes themselves.
+            for schema in value.values():
+                _enforce_strict_json_schema(schema)
+        else:
+            _enforce_strict_json_schema(value)
 
 
 def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
