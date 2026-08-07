@@ -17,7 +17,7 @@ import {
 } from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
 import type { Endpoint } from '../../../../../gateway/types';
-import { getDefaultLLMProvider, type MlflowDefaultLLMProvider } from '../../../../../gateway/defaultModels';
+import { getRequiredDefaultLLMProvider, type MlflowDefaultLLMProvider } from '../../../../../gateway/defaultModels';
 import OpenAiLogo from '../../../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../../../common/static/logos/openai-dark.svg';
 import AnthropicLogo from '../../../../../common/static/logos/anthropic.svg';
@@ -46,9 +46,9 @@ export interface ProviderOption {
   models: MlflowDefaultLLMProvider['models'];
 }
 
-const openAIProvider = getDefaultLLMProvider('openai')!;
-const anthropicProvider = getDefaultLLMProvider('anthropic')!;
-const geminiProvider = getDefaultLLMProvider('gemini')!;
+const openAIProvider = getRequiredDefaultLLMProvider('openai');
+const anthropicProvider = getRequiredDefaultLLMProvider('anthropic');
+const geminiProvider = getRequiredDefaultLLMProvider('gemini');
 
 export const ISSUE_DETECTION_PROVIDERS: ProviderOption[] = [
   {

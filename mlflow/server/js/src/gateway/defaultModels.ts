@@ -43,3 +43,11 @@ export const MLFLOW_DEFAULT_LLM_PROVIDERS: MlflowDefaultLLMProvider[] = [
 
 export const getDefaultLLMProvider = (provider: string) =>
   MLFLOW_DEFAULT_LLM_PROVIDERS.find((option) => option.provider === provider);
+
+export const getRequiredDefaultLLMProvider = (provider: string): MlflowDefaultLLMProvider => {
+  const defaultProvider = getDefaultLLMProvider(provider);
+  if (!defaultProvider) {
+    throw new Error(`Unknown default LLM provider: ${provider}`);
+  }
+  return defaultProvider;
+};

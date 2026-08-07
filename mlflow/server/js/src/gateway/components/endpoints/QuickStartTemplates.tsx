@@ -11,7 +11,7 @@ import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
 import type { CodingAgentType } from '../../types';
-import { getDefaultLLMProvider } from '../../defaultModels';
+import { getRequiredDefaultLLMProvider } from '../../defaultModels';
 
 import OpenAiLogo from '../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../common/static/logos/openai-dark.svg';
@@ -50,7 +50,7 @@ interface ProviderCardProps {
 }
 
 const getDefaultModelOptions = (provider: string): ModelOption[] =>
-  getDefaultLLMProvider(provider)!.models.map(({ model }) => ({
+  getRequiredDefaultLLMProvider(provider).models.map(({ model }) => ({
     model,
     endpointName: `${provider}-${model}-endpoint`,
   }));
