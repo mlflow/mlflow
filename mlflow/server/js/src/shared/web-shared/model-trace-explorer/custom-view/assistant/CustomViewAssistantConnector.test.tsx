@@ -2,10 +2,7 @@ import { describe, test, expect, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-import {
-  CustomViewAssistantConnectorProvider,
-  useCustomViewAssistantConnector,
-} from './CustomViewAssistantConnector';
+import { CustomViewAssistantConnectorProvider, useCustomViewAssistantConnector } from './CustomViewAssistantConnector';
 
 describe('useCustomViewAssistantConnector', () => {
   test('returns an empty connector (no-op defaults) outside any provider', () => {

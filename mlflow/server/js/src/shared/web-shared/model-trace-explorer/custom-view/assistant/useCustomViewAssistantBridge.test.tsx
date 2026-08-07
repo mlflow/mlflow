@@ -23,7 +23,9 @@ const activeView = (overrides: Partial<CustomView> = {}): CustomView => ({
 
 const wrapperWithConnector = (connector: { openAssistant?: (prompt?: string) => void; isStreaming?: boolean }) =>
   function Wrapper({ children }: { children: ReactNode }) {
-    return <CustomViewAssistantConnectorProvider connector={connector}>{children}</CustomViewAssistantConnectorProvider>;
+    return (
+      <CustomViewAssistantConnectorProvider connector={connector}>{children}</CustomViewAssistantConnectorProvider>
+    );
   };
 
 // A no-op onSpec, correctly typed, for tests that don't assert on it being called.
