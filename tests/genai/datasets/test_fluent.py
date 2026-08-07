@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import pandas as pd
@@ -17,6 +18,7 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
     EvaluationDataset,
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -446,6 +448,33 @@ def test_search_datasets_databricks(mock_databricks_environment, mock_client):
     assert call_kwargs.get("order_by") is None
 
 
+def test_search_datasets_databricks_preserves_version(mock_databricks_environment, mock_client):
+    mock_client.search_datasets.return_value = PagedList(
+        [
+            EntityEvaluationDataset(
+                dataset_id="id1",
+                name="catalog.schema.dataset1",
+                digest="digest1",
+                created_time=123456789,
+                last_update_time=123456789,
+                version={"version": 7},
+            )
+        ],
+        None,
+    )
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert result[0].version == 7
+
+
+def test_get_dataset_version_non_databricks_unsupported(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: False)
+
+    with pytest.raises(NotImplementedError, match="only supported for Databricks datasets"):
+        get_dataset(name="dataset", version=1)
+
+
 def test_databricks_import_error():
     with (
         mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
@@ -605,6 +634,40 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     dataset.to_df()
     assert profile_during_to_df == "myprofile"
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+
+def test_get_dataset_by_version_uses_versioning_sdk(monkeypatch):
+    calls = []
+
+    class MockAgentsDataset:
+        def list_versions(self):
+            return []
+
+    def db_get_dataset(name, version=None):
+        calls.append((name, version))
+        dataset = MockAgentsDataset()
+        dataset.name = name
+        dataset.dataset_id = name
+        dataset.digest = "digest"
+        dataset.version = version
+        return dataset
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset, get_dataset=db_get_dataset),
+    )
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    assert get_dataset(name="catalog.schema.table", version=2).version == 2
+    assert (
+        get_dataset(
+            name="catalog.schema.table",
+            version=EvaluationDatasetVersion(version=3),
+        ).version
+        == 3
+    )
+    assert calls == [("catalog.schema.table", 2), ("catalog.schema.table", 3)]
 
 
 def test_create_dataset_with_user_tag(experiments):
