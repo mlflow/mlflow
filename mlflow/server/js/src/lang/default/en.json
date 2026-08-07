@@ -295,10 +295,6 @@
     "defaultMessage": "Empty",
     "description": "Fallback for empty content in compare view"
   },
-  "/JcImW": {
-    "defaultMessage": "Add at least one model so this key can be used.",
-    "description": "Error message when no allowlisted models are selected for a connection"
-  },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
@@ -899,13 +895,13 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
-  "24pi72": {
-    "defaultMessage": "Settings",
-    "description": "Title for the MLflow Assistant settings page"
-  },
   "20oEJR": {
     "defaultMessage": "Select a provider first to choose models.",
     "description": "Hint shown when no provider is selected yet for the model allowlist"
+  },
+  "24pi72": {
+    "defaultMessage": "Settings",
+    "description": "Title for the MLflow Assistant settings page"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
@@ -1599,13 +1595,13 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
-  "5EY1X7": {
-    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
-    "description": "Introduction of the guidance callout on low-result issue detection runs"
-  },
   "5DgdzK": {
     "defaultMessage": "Choose which models this connection can be used with. These appear as options wherever MLflow needs a model.",
     "description": "Helper text for the model allowlist in the edit connection drawer"
+  },
+  "5EY1X7": {
+    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
+    "description": "Introduction of the guidance callout on low-result issue detection runs"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -2370,10 +2366,6 @@
   "8ikgws": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Label for a single turn within an experiment chat session"
-  },
-  "8kU9Sc": {
-    "defaultMessage": "No API keys found",
-    "description": "Empty state title when filter returns no results"
   },
   "8l62sW": {
     "defaultMessage": "Set icons or override icons from server.json. Use 'light' or 'dark' for theme-specific icons, or 'any' for one that works in both.",
@@ -3891,6 +3883,10 @@
     "defaultMessage": "{action} endpoint {url}",
     "description": "Aria label for expanding/collapsing an access endpoint row"
   },
+  "FRQmJN": {
+    "defaultMessage": "{count, plural, =0 {Select} other {Select (#)}}",
+    "description": "Confirm button in multi-select model modal, with selected count"
+  },
   "FSICUH": {
     "defaultMessage": "Create new endpoint",
     "description": "Option in the assistant provider picker that opens the gateway endpoint creation page"
@@ -3898,10 +3894,6 @@
   "FT/Zcy": {
     "defaultMessage": "Filter by access endpoint availability",
     "description": "Aria label for access endpoint filter toggle"
-  },
-  "FRQmJN": {
-    "defaultMessage": "{count, plural, =0 {Select} other {Select (#)}}",
-    "description": "Confirm button in multi-select model modal, with selected count"
   },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
@@ -4650,10 +4642,6 @@
   "IqAVzN": {
     "defaultMessage": "Aliases",
     "description": "MCP registry endpoint modal aliases group label"
-  },
-  "Inrmk6": {
-    "defaultMessage": "Select at least one model so this connection can be used.",
-    "description": "Error message when no allowlisted models are selected for a connection"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
@@ -6459,10 +6447,6 @@
     "defaultMessage": "Run locally",
     "description": "MCP server packages subsection heading"
   },
-  "QqbUt/": {
-    "defaultMessage": "Search API Keys",
-    "description": "Placeholder for API key search filter"
-  },
   "QqxiAM": {
     "defaultMessage": "The type of value the judge will return. Ensure this matches the output format specified in your instructions.",
     "description": "Hint text for output type selection with alignment warning"
@@ -6599,13 +6583,13 @@
     "defaultMessage": "Metadata:",
     "description": "Label for metadata field in create MCP server version modal"
   },
-  "RPlL7/": {
-    "defaultMessage": "List view",
-    "description": "Aria label for list view toggle"
-  },
   "ROWJ1y": {
     "defaultMessage": "Using manually configured model: {provider} · {model}",
     "description": "Summary of the manually configured model, overriding the allowlisted model dropdown"
+  },
+  "RPlL7/": {
+    "defaultMessage": "List view",
+    "description": "Aria label for list view toggle"
   },
   "RQ80MZ": {
     "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
@@ -9755,13 +9739,13 @@
     "defaultMessage": "Description",
     "description": "Label for workspace description field"
   },
-  "egLFDc": {
-    "defaultMessage": "Create new version",
-    "description": "MCP server detail create version button"
-  },
   "efoaa0": {
     "defaultMessage": "Manage connections",
     "description": "Footer link below the model selector navigating to LLM Connections settings"
+  },
+  "egLFDc": {
+    "defaultMessage": "Create new version",
+    "description": "MCP server detail create version button"
   },
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
@@ -11487,10 +11471,6 @@
     "defaultMessage": "Compare",
     "description": "MCP server detail compare tab"
   },
-  "leXUJw": {
-    "defaultMessage": "Create and manage API keys for authenticating to external LLM providers.",
-    "description": "Settings content section subtitle for LLM connections (API keys)"
-  },
   "lf2ttL": {
     "defaultMessage": "Sample rate",
     "description": "Section header for sample rate"
@@ -11846,10 +11826,6 @@
   "n4LXjk": {
     "defaultMessage": "Search by name to add a user's queue",
     "description": "Add to review queue: prompt to search users"
-  },
-  "n4on5x": {
-    "defaultMessage": "Create",
-    "description": "Gateway > API keys list > Create button"
   },
   "n545X4": {
     "defaultMessage": "A view named \"{name}\" already exists. Choose a different name.",
