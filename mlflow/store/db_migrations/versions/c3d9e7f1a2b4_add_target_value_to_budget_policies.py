@@ -2,7 +2,8 @@
 
 Adds a ``target_value`` column to the ``budget_policies`` table so budget
 policies can be scoped to a single target, interpreted per ``target_scope``:
-a gateway endpoint ID for ENDPOINT-scoped policies.
+a gateway endpoint ID for ENDPOINT-scoped policies, a principal (user
+identity) for USER-scoped policies.
 
 Create Date: 2026-07-09 00:00:00.000000
 

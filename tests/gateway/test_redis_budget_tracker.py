@@ -426,3 +426,69 @@ def test_get_budget_tracker_returns_redis_when_configured():
 
 
 # --- USER-scope tests ---
+
+
+def test_serialize_roundtrip_preserves_target_value():
+    from mlflow.gateway.budget_tracker.redis import _deserialize_policy, _serialize_policy
+
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    restored = _deserialize_policy(_serialize_policy(policy))
+    assert restored.target_scope == BudgetTargetScope.USER
+    assert restored.target_value == "alice"
+
+
+def test_user_scoped_cost_recording_matches_principal():
+    tracker = _make_tracker()
+    tracker.refresh_policies([
+        _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
+    ])
+
+    tracker.record_cost(200.0, principal="bob")
+    assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+    tracker.record_cost(50.0, principal="alice")
+    assert tracker._get_window_info("bp-test").cumulative_spend == 50.0
+
+
+def test_user_scoped_should_reject_only_for_matching_principal():
+    tracker = _make_tracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+            budget_amount=100.0,
+            budget_action=BudgetAction.REJECT,
+        )
+    ])
+    tracker.record_cost(150.0, principal="alice")
+
+    exceeded, window = tracker.should_reject_request(principal="alice")
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-test"
+
+    exceeded, window = tracker.should_reject_request(principal="bob")
+    assert exceeded is False
+    assert window is None
+
+
+def test_multiple_user_policies_are_independent():
+    tracker = _make_tracker()
+    tracker.refresh_policies([
+        _make_policy(
+            budget_policy_id="bp-alice",
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+            budget_amount=100.0,
+        ),
+        _make_policy(
+            budget_policy_id="bp-bob",
+            target_scope=BudgetTargetScope.USER,
+            target_value="bob",
+            budget_amount=100.0,
+        ),
+    ])
+
+    exceeded = tracker.record_cost(150.0, principal="alice")
+    assert {w.policy.budget_policy_id for w in exceeded} == {"bp-alice"}
+    assert tracker._get_window_info("bp-alice").cumulative_spend == 150.0
+    assert tracker._get_window_info("bp-bob").cumulative_spend == 0.0
