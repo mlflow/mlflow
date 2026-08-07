@@ -35,10 +35,10 @@ jobs:
       contents: write
     if: github.repository == 'mlflow/mlflow'
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-python
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: uv sync
 
@@ -69,7 +69,7 @@ jobs:
       # https://raw.githubusercontent.com/mlflow/mlflow/gh-pages/dev/benchmarks/tracing/data.js
       - name: Publish benchmark result
         if: github.event_name == 'push'
-        uses: benchmark-action/github-action-benchmark@a60cea5bc7b49e15c1f58f411161f99e0df48372 # v1.22.0
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: MLflow Tracing Benchmark
           tool: customSmallerIsBetter

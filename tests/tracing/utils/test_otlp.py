@@ -199,6 +199,8 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """

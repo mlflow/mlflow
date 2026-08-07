@@ -21,12 +21,14 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Trigger conditions:
-    # - pull_request: skip fork PRs (no access to secrets)
+    # - pull_request: skip fork PRs and Dependabot PRs (neither can read secrets;
+    #   Dependabot branches live in this repo, so the fork check alone misses them)
     # - issue_comment: only maintainers can trigger via `/title` on PRs or issues
     if: >
       (
         github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.user.login != 'dependabot[bot]'
       )
       || (
         startsWith(github.event.comment.body, '/title')
@@ -40,7 +42,7 @@ jobs:
       REPO: ${{ github.repository }}
       COMMENT_ID: ${{ github.event.comment.id }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: .github/workflows/title.js
@@ -58,7 +60,7 @@ jobs:
 
       - name: Generate new title
         id: generate
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           IS_PR: ${{ github.event_name == 'pull_request' || github.event.issue.pull_request != null }}

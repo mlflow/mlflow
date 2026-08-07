@@ -424,6 +424,19 @@ def test_proxy_artifact_presigned_validator_returns_read_for_get():
     assert validator is auth_module.validate_can_read_experiment_artifact_proxy
 
 
+def test_after_request_handlers_contains_only_declared_handlers():
+    declared = set(auth_module.AFTER_REQUEST_PATH_HANDLERS.values())
+
+    leaked = {
+        (path, method): handler
+        for (path, method), handler in auth_module.AFTER_REQUEST_HANDLERS.items()
+        if getattr(handler, "__module__", "") == "mlflow.server.handlers"
+        and handler not in declared
+    }
+
+    assert leaked == {}
+
+
 @pytest.mark.parametrize(
     ("path", "method"),
     [

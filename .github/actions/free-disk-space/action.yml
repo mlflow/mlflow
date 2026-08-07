@@ -7,6 +7,14 @@ runs:
       run: |
         echo "Disk usage before cleanup:"
         df -h /
+        # Skip the cleanup when at least 40G is already free. GitHub only guarantees
+        # 14G, so it stays in place for runners that come up with less headroom.
+        # https://github.com/actions/runner-images/issues/14492
+        avail=$(df --output=avail -BG / | tail -1 | tr -dc '0-9')
+        if [ "$avail" -ge 40 ]; then
+          echo "${avail}G available, skipping cleanup"
+          exit 0
+        fi
         # Remove large pre-installed toolchains that MLflow jobs never use so that
         # disk-heavy steps (e.g. Docker image builds) have enough headroom. The
         # deletions run in parallel to save time, but we `wait` for them to finish
