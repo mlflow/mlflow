@@ -227,4 +227,44 @@ describe('runSetup', () => {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  it('accepts a databricks tracking URI and persists the trace location', async () => {
+    await runSetup(
+      [
+        '--non-interactive',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'my_catalog.my_schema.my_prefix',
+      ],
+      { home: tmpHome, cwd: tmpHome },
+    );
+
+    expect(process.exitCode).toBeFalsy();
+    expect(readJson(join(tmpHome, '.codex', 'mlflow-tracing.json'))).toEqual({
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: 'my_catalog.my_schema.my_prefix',
+    });
+  });
+
+  it('rejects an invalid --trace-location and exits 1 without writing config', async () => {
+    await runSetup(
+      [
+        '--non-interactive',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'not-valid',
+      ],
+      { home: tmpHome, cwd: tmpHome },
+    );
+
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(tmpHome, '.codex', 'mlflow-tracing.json'))).toBe(false);
+  });
 });

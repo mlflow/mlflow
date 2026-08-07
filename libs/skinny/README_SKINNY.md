@@ -65,6 +65,14 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 
 From zero to full-stack LLMOps in minutes. No complex setup or major code changes required. [Get Started →](https://mlflow.org/docs/latest/genai/tracing/quickstart/)
 
+> **Fastest start — set up tracing with our CLI**
+>
+> ```bash
+> uvx mlflow@latest agent setup
+> ```
+>
+> One command installs the MLflow skills and launches your coding agent of choice to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
+
 **1. Start MLflow Server**
 
 ```bash
@@ -354,8 +362,9 @@ MLflow is currently maintained by the following core members with significant co
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
+- [Humair Khan](https://github.com/HumairAK)
 - [Joel Robin P](https://github.com/joelrobin18)
-- [Matt Prahl](https://github.com/mprahl)
+- [Matthew Prahl](https://github.com/mprahl)
 - [Pat Sukprasert](https://github.com/PattaraS)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)

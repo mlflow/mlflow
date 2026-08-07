@@ -6,6 +6,9 @@ from unittest import mock
 import httpx
 import openai
 import pytest
+from openai.resources.chat.completions import Completions as ChatCompletions
+from openai.resources.completions import Completions
+from openai.resources.embeddings import Embeddings
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -13,6 +16,7 @@ import mlflow
 from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai.autolog import _get_span_type
 from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -152,6 +156,21 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
             CostKey.OUTPUT_COST: 24.0,
             CostKey.TOTAL_COST: 33.0,
         }
+
+
+def test_get_span_type_resolves_subclasses():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23754:
+    # third-party clients (e.g. DatabricksOpenAI) subclass the OpenAI resource
+    # classes, so exact dict lookup misses and a previous fallback returned an
+    # unhashable tuple, breaking span log-level resolution downstream.
+    class CustomChatCompletions(ChatCompletions):
+        pass
+
+    assert _get_span_type(CustomChatCompletions) == SpanType.CHAT_MODEL
+    assert _get_span_type(ChatCompletions) == SpanType.CHAT_MODEL
+    assert _get_span_type(Completions) == SpanType.LLM
+    assert _get_span_type(Embeddings) == SpanType.EMBEDDING
+    assert _get_span_type(object) == SpanType.UNKNOWN
 
 
 @pytest.mark.asyncio

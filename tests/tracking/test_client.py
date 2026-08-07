@@ -970,6 +970,31 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_start_trace_with_run_id(tracking_uri, async_logging_enabled):
+    client = MlflowClient(tracking_uri)
+
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run = client.create_run(experiment_id=experiment_id)
+
+    root_span = client.start_trace(
+        name="test",
+        experiment_id=experiment_id,
+        run_id=run.info.run_id,
+    )
+    client.end_trace(root_span.trace_id)
+
+    traces = client.search_traces(
+        locations=[experiment_id],
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+    assert trace_info.experiment_id == experiment_id
+
+
 def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     # This test is to verify that falsy input and output values are correctly logged
     client = MlflowClient(tracking_uri)
@@ -3042,6 +3067,50 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_log_model_artifact_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    client.log_model_artifact(
+        model_id=model.model_id, local_path=str(tmp_file), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    assert artifacts == [FileInfo(path="subdir/file", is_dir=False, file_size=1)]
+
+
+def test_log_model_artifacts_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    tmp_dir = tmp_path.joinpath("dir")
+    tmp_dir.mkdir()
+    another_file = tmp_dir.joinpath("another_file")
+    another_file.write_text("aa")
+    client.log_model_artifacts(
+        model_id=model.model_id, local_dir=str(tmp_path), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="subdir/dir", is_dir=True, file_size=None),
+        FileInfo(path="subdir/file", is_dir=False, file_size=1),
+    ]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir/dir")
+    assert artifacts == [FileInfo(path="subdir/dir/another_file", is_dir=False, file_size=2)]
 
 
 def test_logged_model_model_id_required(tracking_uri):

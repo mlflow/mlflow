@@ -3239,6 +3239,91 @@ def test_query_assessment_metrics_across_multiple_traces(store: SqlAlchemyStore)
     }
 
 
+def test_query_assessment_metrics_excludes_overridden_assessments(store: SqlAlchemyStore):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24132. Assessments in an
+    # override chain (marked valid=False) must not be counted or bucketed, otherwise the
+    # Quality Overview over-counts superseded feedback.
+    exp_id = store.create_experiment("test_assessment_excludes_overridden")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "demo"},
+        )
+    )
+
+    source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer")
+    # yes -> override to no -> override to yes; only the final assessment stays valid.
+    fb1 = store.create_assessment(
+        Feedback(trace_id=trace_id, name="user_satisfaction", value="yes", source=source)
+    )
+    fb2 = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="user_satisfaction",
+            value="no",
+            source=source,
+            overrides=fb1.assessment_id,
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="user_satisfaction",
+            value="yes",
+            source=source,
+            overrides=fb2.assessment_id,
+        )
+    )
+
+    count_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+    )
+    assert len(count_result) == 1
+    assert asdict(count_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 1},
+    }
+
+    histogram_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_VALUE],
+    )
+    assert len(histogram_result) == 1
+    assert asdict(histogram_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_VALUE: json.dumps("yes")},
+        "values": {"COUNT": 1},
+    }
+
+    # The overridden "no" (0.0) must not drag down the average of the valid "yes" (1.0).
+    value_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
+    )
+    assert len(value_result) == 1
+    assert asdict(value_result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "user_satisfaction"},
+        "values": {"AVG": 1.0},
+    }
+
+
 def test_query_assessment_value_avg_by_name(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_assessment_value_avg_by_name")
 

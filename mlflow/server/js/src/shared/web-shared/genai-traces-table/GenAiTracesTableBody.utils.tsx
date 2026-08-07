@@ -128,6 +128,7 @@ export const getColumnConfig = (
     experimentId,
     onChangeEvaluationId,
     onTraceTagsEdit,
+    regressionTestMode,
   }: {
     evaluationInputs: TracesTableColumn[];
     isComparing: boolean;
@@ -136,6 +137,7 @@ export const getColumnConfig = (
     experimentId?: string;
     onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
+    regressionTestMode?: boolean;
   },
 ): ColumnDef<EvalTraceComparisonEntry> => {
   const baseColConfig: ColumnDef<EvalTraceComparisonEntry> = {
@@ -214,6 +216,7 @@ export const getColumnConfig = (
               isComparing={isComparing}
               assessmentInfo={assessmentInfo}
               comparisonEntry={comparisonEntry}
+              regressionTestMode={regressionTestMode}
             />
           );
         },

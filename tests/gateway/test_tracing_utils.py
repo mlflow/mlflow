@@ -336,6 +336,30 @@ async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
 
 
 @pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_excludes_none_fields_from_pydantic_payload(
+    endpoint_config,
+):
+    from mlflow.gateway.schemas import chat
+
+    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": "hi"}])
+    await traced_func(payload)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+
+    # Unset optional fields (max_tokens, temperature, ...) should not clutter the input
+    assert gateway_span.inputs == {
+        "messages": [{"role": "user", "content": "hi"}],
+        "n": 1,
+    }
+
+
+@pytest.mark.asyncio
 async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
     async def mock_passthrough_func(action, payload, headers=None):
         return {"result": "success", "action": action, "payload": payload}
@@ -1090,7 +1114,7 @@ def test_maybe_traced_gateway_call_records_caller(endpoint_config):
         request_headers={"User-Agent": "openai-python/1.0.0"},
     )
 
-    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+    asyncio.run(traced({"prompt": "hi"}))
 
     traces = get_traces()
     assert traces
@@ -1103,7 +1127,7 @@ def test_maybe_traced_gateway_call_no_caller_when_no_headers(endpoint_config):
 
     traced = maybe_traced_gateway_call(fake_func, endpoint_config, request_headers=None)
 
-    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+    asyncio.run(traced({"prompt": "hi"}))
 
     traces = get_traces()
     assert traces

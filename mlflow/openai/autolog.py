@@ -1,9 +1,6 @@
-import importlib.metadata
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
-
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
@@ -26,6 +23,7 @@ from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -63,7 +61,7 @@ def autolog(
         disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
             enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
-    if Version(importlib.metadata.version("openai")).major < 1:
+    if (version := get_installed_version("openai")) is not None and version.major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
@@ -173,7 +171,7 @@ def _autolog(
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
 
-def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -219,7 +217,12 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
+    # Walk the MRO so subclasses (e.g. third-party wrappers like
+    # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
+    for base_cls, span_type in span_type_mapping.items():
+        if issubclass(task, base_cls):
+            return span_type
+    return SpanType.UNKNOWN
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -303,7 +306,7 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
-    span_type = _get_span_type_and_message_format(instance.__class__)
+    span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
     if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):

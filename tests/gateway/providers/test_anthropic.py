@@ -970,7 +970,7 @@ async def test_passthrough_anthropic_messages():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1027,7 +1027,7 @@ async def test_passthrough_anthropic_messages_streaming():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1084,7 +1084,7 @@ async def test_proxy_anthropic_non_streaming():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1122,7 +1122,7 @@ async def test_proxy_anthropic_streaming():
         MockAsyncStreamingResponse(resp, headers={"Content-Type": "text/event-stream"})
     )
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1202,7 +1202,7 @@ async def test_chat_with_structured_output():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1287,6 +1287,52 @@ async def test_chat_with_structured_output_sanitizes_schema():
         # so output_config should NOT be set (falls back to plain text)
         call_kwargs = mock_session_client.post.call_args[1]
         assert "output_config" not in call_kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_chat_with_json_object_response_format():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    resp = {
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"answer": 42}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "Give me JSON"},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Anthropic has no schema-less JSON mode, so json_object is steered via a
+        # system instruction appended to the existing system message.
+        call_kwargs = mock_session_client.post.call_args[1]
+        body = call_kwargs["json"]
+        assert "output_config" not in body
+        assert body["system"].startswith("You are helpful.")
+        assert "valid JSON object" in body["system"]
 
 
 def test_enforce_strict_schema_sets_additional_properties_false():
@@ -1591,3 +1637,47 @@ def test_anthropic_adapter_build_chat_usage_without_cached_tokens():
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
     assert not hasattr(usage, "cache_creation_input_tokens")
+
+
+def test_chat_to_model_translates_multimodal_image_content():
+    # A user message with OpenAI-format multimodal content (text + an image_url base64
+    # data URL) must be translated to Anthropic's native image block; the gateway path
+    # is how native anthropic:/ judge URIs reach the model.
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what color?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,QUJD"},
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what color?"},
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": "QUJD"},
+                },
+            ],
+        }
+    ]
+
+
+def test_chat_to_model_string_content_unchanged():
+    # String content must remain a no-op (shared with non-judge gateway traffic).
+    payload = {"messages": [{"role": "user", "content": "just text"}]}
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [{"role": "user", "content": "just text"}]

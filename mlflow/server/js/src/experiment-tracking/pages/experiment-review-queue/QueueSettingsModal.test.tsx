@@ -1,0 +1,312 @@
+import { describe, jest, it, expect, beforeEach } from '@jest/globals';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+
+import { DesignSystemProvider } from '@databricks/design-system';
+import { IntlProvider } from '@databricks/i18n';
+
+import { QueueSettingsModal } from './QueueSettingsModal';
+import type { ReviewQueue, ReviewQueueItem } from './types';
+import Utils from '../../../common/utils/Utils';
+
+// The questions checklist and rich previews aren't under test here — the focus is
+// the schema-freeze save logic — so stub them out.
+jest.mock('./QuestionChecklistCombobox', () => ({
+  // Expose `onToggle` per schema via buttons so a test can change the selected
+  // questions (toggle one off, another on, etc.).
+  QuestionChecklistCombobox: ({
+    schemas,
+    onToggle,
+  }: {
+    schemas: { schema_id: string }[];
+    onToggle: (id: string) => void;
+  }) => (
+    <>
+      {schemas.map((s) => (
+        <button key={s.schema_id} type="button" onClick={() => onToggle(s.schema_id)}>
+          {`toggle-question-${s.schema_id}`}
+        </button>
+      ))}
+    </>
+  ),
+}));
+// Stub the owner picker (its own UX is covered in OwnerCombobox.test.tsx): expose a
+// button that selects a fixed user, and keep the real reviewers picker the only
+// combobox so `getByRole('combobox')` stays unambiguous.
+jest.mock('./OwnerCombobox', () => ({
+  OwnerCombobox: ({ selectedUser, onSelect }: { selectedUser: string; onSelect: (u: string) => void }) => (
+    <button type="button" onClick={() => onSelect('bob')}>
+      {`owner-picker (selected: ${selectedUser || 'none'})`}
+    </button>
+  ),
+}));
+jest.mock('../../components/label-schemas', () => ({
+  useListLabelSchemasQuery: () => ({
+    labelSchemas: [
+      { schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} }, enable_comment: true },
+      { schema_id: 's2', name: 'Q2', type: 'FEEDBACK', input: { text: {} }, enable_comment: true },
+    ],
+    isLoading: false,
+  }),
+  LabelSchemaInputRenderer: () => null,
+  LabelSchemaFormModal: () => null,
+}));
+let mockAuthAvailable = true;
+jest.mock('../../../account/hooks', () => ({
+  useIsAuthAvailable: () => mockAuthAvailable,
+}));
+// Stable reference across renders, like the real react-query hook — a fresh
+// object each call would churn the members typeahead's derived state.
+jest.mock('./hooks/useAssignableUsersQuery', () => {
+  const result = { users: [] };
+  return { useAssignableUsersQuery: () => result };
+});
+
+let mockTraces: ReviewQueueItem[] = [];
+jest.mock('./hooks/useListReviewQueueItemsQuery', () => ({
+  useListReviewQueueItemsQuery: () => ({ items: mockTraces, isLoading: false }),
+}));
+
+const mockUpdate = jest.fn();
+jest.mock('./hooks/useUpdateReviewQueueMutation', () => ({
+  useUpdateReviewQueueMutation: () => ({
+    updateReviewQueueAsync: mockUpdate,
+    isUpdatingQueue: false,
+    error: null,
+  }),
+}));
+
+const queue: ReviewQueue = {
+  queue_id: 'rq-1',
+  experiment_id: 'exp-1',
+  name: 'My Queue',
+  queue_type: 'CUSTOM',
+  creation_time_ms: 0,
+  last_update_time_ms: 0,
+  users: ['alice'],
+  schema_ids: ['s1'],
+};
+
+const trace = (itemId: string): ReviewQueueItem => ({
+  queue_id: 'rq-1',
+  item_type: 'TRACE',
+  item_id: itemId,
+  status: 'PENDING',
+  creation_time_ms: 0,
+  last_update_time_ms: 0,
+});
+
+const renderModal = ({
+  canManage = true,
+  queueOverride = queue,
+}: { canManage?: boolean; queueOverride?: ReviewQueue } = {}) =>
+  render(
+    <IntlProvider locale="en">
+      <DesignSystemProvider>
+        <QueueSettingsModal queue={queueOverride} canManage={canManage} onClose={jest.fn()} />
+      </DesignSystemProvider>
+    </IntlProvider>,
+  );
+
+describe('QueueSettingsModal save', () => {
+  beforeEach(() => {
+    mockAuthAvailable = true;
+    mockTraces = [];
+    mockUpdate.mockReset();
+    mockUpdate.mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(Utils, 'displayGlobalErrorNotification')
+      .mockReset()
+      .mockImplementation(() => {});
+  });
+
+  it('omits schema_ids on a no-op save even when questions are editable', async () => {
+    // Editable but unchanged: re-writing the whole schema set would be needless
+    // churn and could clobber a concurrent question edit, so it's omitted.
+    mockTraces = [];
+    renderModal();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
+    expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('sends schema_ids only when the questions actually change', async () => {
+    mockTraces = [];
+    renderModal();
+    // Add a second question, changing the set from ['s1'] to ['s1','s2'].
+    fireEvent.click(screen.getByText('toggle-question-s2'));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: ['s1', 's2'] }));
+  });
+
+  it('blocks the empty-questions save: toggling off the last question disables Save', () => {
+    // Toggling the one selected question off would empty the set; the floor blocks
+    // the save rather than persisting a questionless (unreviewable) queue.
+    mockTraces = [];
+    renderModal();
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
+  });
+
+  it('detects a same-size question swap (different members, not just count)', async () => {
+    // Swap s1 -> s2: the set stays size 1 but its membership changes, exercising
+    // the membership half of the change check (not just the size comparison).
+    mockTraces = [];
+    renderModal();
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    fireEvent.click(screen.getByText('toggle-question-s2'));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: ['s2'] }));
+  });
+
+  it('omits schema_ids once the queue has traces (questions frozen)', async () => {
+    mockTraces = [trace('tr-1')];
+    renderModal();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
+    expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('sends the new name when renamed and omits an unchanged owner', async () => {
+    renderModal();
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg).toMatchObject({ name: 'Renamed' });
+    expect('new_owner' in arg).toBe(false);
+  });
+
+  it('sends new_owner when a manager replaces the pre-filled owner', async () => {
+    const ownedQueue: ReviewQueue = { ...queue, created_by: 'alice', users: ['alice'] };
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={ownedQueue} canManage onClose={jest.fn()} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    // The picker is pre-filled with the current owner, then the manager replaces it.
+    expect(screen.getByText('owner-picker (selected: alice)')).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/owner-picker/));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ new_owner: 'bob' }));
+  });
+
+  it('hides the owner field and freezes questions for a non-manager editor', async () => {
+    renderModal({ canManage: false });
+    expect(screen.queryByText(/owner-picker/)).toBeNull();
+    // A non-manager editor can still rename the queue they own.
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    // ...but never the questions or owner.
+    expect(arg).toMatchObject({ queue_id: 'rq-1', name: 'Renamed' });
+    expect('schema_ids' in arg).toBe(false);
+    expect('new_owner' in arg).toBe(false);
+  });
+
+  it('disables Save (and blocks the update) when questions are editable and none are selected', () => {
+    mockTraces = [];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    // A disabled OK button can't fire, so the destructive empty-questions save is blocked.
+    fireEvent.click(screen.getByText('Save'));
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
+  });
+
+  it('re-enables Save and clears the error once a question is re-added', async () => {
+    mockTraces = [];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
+    // Re-add the question: Save re-enables, the validation message clears, and the
+    // save now carries the non-empty schema set.
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.queryByText(/at least one question/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ schema_ids: ['s1'] }));
+  });
+
+  it('keeps Save enabled and omits schema_ids on a frozen zero-question queue', async () => {
+    // With traces attached, questions are frozen, so the floor doesn't apply and the
+    // empty schema set is never sent. A manager can still edit members.
+    mockTraces = [trace('tr-1')];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
+  });
+
+  it('omits unchanged fields entirely on a no-op save', async () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    // No member change => no `users` write that could clobber a concurrent edit.
+    expect('users' in arg).toBe(false);
+    expect('name' in arg).toBe(false);
+    expect('new_owner' in arg).toBe(false);
+    // Likewise the unchanged questions aren't rewritten.
+    expect('schema_ids' in arg).toBe(false);
+  });
+
+  it('toasts the error and keeps the modal open when the save fails', async () => {
+    mockUpdate.mockImplementationOnce(() => Promise.reject(new Error("Review queue with name 'Dup' already exists.")));
+    const onClose = jest.fn();
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={queue} canManage onClose={onClose} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Dup' } });
+    fireEvent.click(screen.getByText('Save'));
+    // The failure surfaces as a toast (not an inline alert), and the modal stays open.
+    await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows the optional rationale box in the question preview when the schema collects one', () => {
+    renderModal();
+    // The preview card is collapsed by default; expand it to reveal the question
+    // as a reviewer sees it, including the optional rationale box.
+    fireEvent.click(screen.getByText('Q1'));
+    expect(screen.getByPlaceholderText('Rationale (optional)')).toBeInTheDocument();
+  });
+
+  it('hides the queue owner from the picker but keeps them assigned on save', async () => {
+    const ownedQueue: ReviewQueue = { ...queue, created_by: 'owner1', users: ['owner1', 'alice'] };
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={ownedQueue} canManage onClose={jest.fn()} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    // The owner is auto-assigned, so it isn't a toggleable row; the other member is.
+    expect(screen.queryByRole('checkbox', { name: 'owner1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'alice' })).toBeInTheDocument();
+    // Remove the only visible member, then save — the owner stays assigned.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'alice' }));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ users: ['owner1'] }));
+  });
+});

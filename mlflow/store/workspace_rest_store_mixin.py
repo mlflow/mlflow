@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
-from mlflow.utils.rest_utils import http_request
+from mlflow.utils.server_info import (
+    SERVER_INFO_ENDPOINT,
+    SERVER_INFO_WORKSPACES_ENABLED,
+    ServerInfoRequestError,
+    fetch_server_info,
+)
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.workspace_context import get_request_workspace
 
@@ -12,7 +17,6 @@ class WorkspaceRestStoreMixin:
     Shared workspace capability detection for REST-based stores.
     """
 
-    _SERVER_INFO_ENDPOINT = "/api/3.0/mlflow/server-info"
     _WORKSPACE_UNSUPPORTED_ERROR = (
         "Active workspace '{workspace}' cannot be used because the remote server does not "
         "support workspaces. Restart the server with --enable-workspaces or unset the active "
@@ -54,17 +58,10 @@ class WorkspaceRestStoreMixin:
     def _probe_workspace_support(self) -> bool:
         host_creds = self.get_host_creds()
         try:
-            response = http_request(
-                host_creds=host_creds,
-                endpoint=self._SERVER_INFO_ENDPOINT,
-                method="GET",
-                timeout=3,
-                max_retries=0,
-                raise_on_status=False,
-            )
-        except Exception as exc:  # pragma: no cover - network errors vary
+            response = fetch_server_info(host_creds)
+        except ServerInfoRequestError as exc:  # pragma: no cover - network errors vary
             raise MlflowException(
-                message=f"Failed to query {self._SERVER_INFO_ENDPOINT}: {exc}",
+                message=f"Failed to query {SERVER_INFO_ENDPOINT}: {exc}",
                 error_code=databricks_pb2.INTERNAL_ERROR,
             ) from exc
 
@@ -75,10 +72,10 @@ class WorkspaceRestStoreMixin:
         if response.status_code != 200:
             raise MlflowException(
                 message=(
-                    f"Failed to query {self._SERVER_INFO_ENDPOINT}: "
+                    f"Failed to query {SERVER_INFO_ENDPOINT}: "
                     f"{response.status_code} {response.text}"
                 ),
                 error_code=databricks_pb2.TEMPORARILY_UNAVAILABLE,
             )
 
-        return response.json().get("workspaces_enabled", False)
+        return response.data.get(SERVER_INFO_WORKSPACES_ENABLED, False)

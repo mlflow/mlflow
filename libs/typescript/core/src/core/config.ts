@@ -86,6 +86,13 @@ export interface MLflowTracingConfig {
   trackingServerToken?: string;
 
   /**
+   * Workspace name for MLflow servers with workspaces enabled (OSS/non-Databricks only).
+   * Sets the X-MLFLOW-WORKSPACE header on requests to self-hosted MLflow.
+   * Can also be set via MLFLOW_WORKSPACE environment variable (takes precedence).
+   */
+  workspace?: string;
+
+  /**
    * Optional Databricks Unity Catalog trace location. When provided, the SDK
    * generates V4 trace IDs and persists trace tags / metadata via the V4
    * `CreateTraceInfo` endpoint, mirroring Python's
@@ -270,6 +277,7 @@ export function init(config: MLflowTracingInitOptions): void {
     trackingServerUsername: config.trackingServerUsername,
     trackingServerPassword: config.trackingServerPassword,
     trackingServerToken: config.trackingServerToken,
+    workspace: config.workspace,
   });
 
   // Build effective config, populating host and databricksToken from auth provider

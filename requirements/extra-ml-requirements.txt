@@ -57,7 +57,10 @@ openai
 tiktoken
 tenacity
 # Required by mlflow.llama_index
-llama_index
+# Floor matches the supported minimum in mlflow/ml-package-versions.yml. Without it, a
+# transitive conflict in the combined ML env silently backtracks llama-index to an
+# unsupported 0.10.x (pydantic v1 models), which crashes Settings serialization.
+llama-index>=0.12.38
 # Required for an agent example of mlflow.llama_index
 llama-index-agent-openai
 # Required by mlflow.langchain
@@ -68,7 +71,9 @@ sentence-transformers
 # Required by mlflow.anthropic
 anthropic
 # Required by mlflow.ag2
-ag2
+# TODO: Consider migrating to ag2 1.x, which renames the `autogen` module to `ag2` and drops
+# `runtime_logging`, and remove this pin.
+ag2<1
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
 # which causes auto-logging tests to fail.
@@ -91,3 +96,5 @@ agno
 strands-agents
 # Required by mlflow.haystack
 haystack-ai
+# Required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+opentelemetry-haystack
