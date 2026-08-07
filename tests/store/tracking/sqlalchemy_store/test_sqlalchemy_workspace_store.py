@@ -909,25 +909,16 @@ def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_stor
             trace_metadata={"source": "test"},
         )
 
-        call_state = {"count": 0}
-
-        def workspace_side_effect(*_args, **_kwargs):
-            call_state["count"] += 1
-            return "team-a" if call_state["count"] <= 2 else "team-b"
-
-        with mock.patch.object(
-            WorkspaceAwareSqlAlchemyStore,
-            "_get_active_workspace",
-            side_effect=workspace_side_effect,
-        ):
-            updated_trace = workspace_tracking_store.start_trace(trace_info)
-
-        assert call_state["count"] == 2
+        updated_trace = workspace_tracking_store.start_trace(trace_info)
         fetched_trace = workspace_tracking_store.get_trace_info(trace_id)
         assert updated_trace.trace_id == trace_id
         assert fetched_trace.request_time == 1_000
         assert fetched_trace.execution_duration == 2_000
         assert fetched_trace.tags["custom_tag"] == "value"
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found"):
+            workspace_tracking_store.get_trace_info(trace_id)
 
 
 def test_validate_artifact_root_allows_missing_global_root(workspace_tracking_store):
