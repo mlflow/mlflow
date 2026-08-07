@@ -138,20 +138,20 @@ export MLFLOW_TRACKING_URI="databricks"
 
 :::note[Multiple profiles in ~/.databrickscfg]
 
-`MLFLOW_TRACKING_URI=databricks` uses the `DEFAULT` profile in `~/.databrickscfg`, or the profile named by `DATABRICKS_CONFIG_PROFILE`. If you created your profile with `databricks auth login` (which names the profile after the workspace host, not `DEFAULT`), set:
+When authentication resolves from `~/.databrickscfg` (rather than from environment variables, OIDC, or the Azure CLI above), `MLFLOW_TRACKING_URI=databricks` reads the `DEFAULT` profile, or the profile named by `DATABRICKS_CONFIG_PROFILE`. If you created your profile with `databricks auth login` (which names the profile after the workspace host, not `DEFAULT`), select it with either:
 
 ```bash
 export DATABRICKS_CONFIG_PROFILE=<your-profile-name>
 export MLFLOW_TRACKING_URI=databricks
 ```
 
-Or pass the profile name directly:
+Or pass the profile name in the tracking URI:
 
 ```bash
 export MLFLOW_TRACKING_URI=databricks://<your-profile-name>
 ```
 
-Run `databricks auth profiles` to list profile names.
+If you set the tracking URI in code with `mlflow.set_tracking_uri(...)` (see the next section), pass the profile there too: `mlflow.set_tracking_uri("databricks://<your-profile-name>")`. That call overwrites `MLFLOW_TRACKING_URI`, so a bare `"databricks"` would drop the profile. Run `databricks auth profiles` to list profile names.
 
 :::
 
