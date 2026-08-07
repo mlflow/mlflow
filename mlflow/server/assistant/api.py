@@ -522,9 +522,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 @assistant_router.post("/sessions/{session_id}/tool-result")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
-async def resolve_client_tool_result(
-    session_id: str, request: ClientToolResult
-) -> MessageResponse:
+async def resolve_client_tool_result(session_id: str, request: ClientToolResult) -> MessageResponse:
     """Deliver a client-executed tool's result and resume the paused turn on a new stream.
 
     Mirrors `resolve_permission`: the result is stored on the session and consumed

@@ -1105,9 +1105,7 @@ async def test_astream_resume_with_client_tool_error_result_continues(provider):
     assert len(error_results) == 1
     assert error_results[0].data["message"]["content"][0]["is_error"] is True
     final = json.loads(_done_session_id(ev2))
-    assert any(
-        m.get("role") == "tool" and m.get("tool_call_id") == "call_1" for m in final
-    )
+    assert any(m.get("role") == "tool" and m.get("tool_call_id") == "call_1" for m in final)
 
 
 @pytest.mark.asyncio
