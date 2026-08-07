@@ -136,6 +136,25 @@ export DATABRICKS_OIDC_TOKEN_FILE="/path/to/token"
 export MLFLOW_TRACKING_URI="databricks"
 ```
 
+:::note[Multiple profiles in ~/.databrickscfg]
+
+`MLFLOW_TRACKING_URI=databricks` uses the `DEFAULT` profile in `~/.databrickscfg`, or the profile named by `DATABRICKS_CONFIG_PROFILE`. If you created your profile with `databricks auth login` (which names the profile after the workspace host, not `DEFAULT`), set:
+
+```bash
+export DATABRICKS_CONFIG_PROFILE=<your-profile-name>
+export MLFLOW_TRACKING_URI=databricks
+```
+
+Or pass the profile name directly:
+
+```bash
+export MLFLOW_TRACKING_URI=databricks://<your-profile-name>
+```
+
+Run `databricks auth profiles` to list profile names.
+
+:::
+
 #### Connect MLflow Session to Databricks Workspace
 
 We have set up the credentials, now we need to tell MLflow to send the data into Databricks Workspace.

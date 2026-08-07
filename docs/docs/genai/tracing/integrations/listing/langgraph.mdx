@@ -43,6 +43,12 @@ LangGraph.js tracing is supported via the OpenTelemetry ingestion. See the [Gett
 </Tabs>
 </TabsWrapper>
 
+:::warning[Do not use `@mlflow.trace` on individual nodes as a substitute for autolog]
+
+Applying `@mlflow.trace` to each node function separately, without calling `mlflow.langchain.autolog()`, creates one independent root trace per node instead of a single unified graph trace. Call `mlflow.langchain.autolog()` once before invoking the graph. To add custom child spans inside a node, see [Adding spans within a node or a tool](#adding-spans-within-a-node-or-a-tool).
+
+:::
+
 ## Getting Started
 
 MLflow support tracing for LangGraph in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.

@@ -216,6 +216,12 @@ class MyClass {
 
 Alternatively, you can update the span dynamically inside the function.
 
+:::note[Use span attributes, not `mlflow.log_metric`, to attach data to a trace]
+
+`mlflow.log_metric()` writes to an **MLflow Run**, not to the current span. Calling it inside a traced function will not add that value to the trace or make it visible in the Traces tab. Use `span.set_attribute(key, value)` or `span.set_attributes({...})` to attach data to a span.
+
+:::
+
 <TabsWrapper>
 <Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
