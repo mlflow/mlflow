@@ -1,10 +1,11 @@
 import json
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
 from mlflow.genai.scorers.builtin_scorers import Completeness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -454,3 +455,130 @@ def test_create_factory_method():
     assert isinstance(processor._trace_loader, OnlineTraceLoader)
     assert isinstance(processor._checkpoint_manager, OnlineTraceCheckpointManager)
     assert isinstance(processor._sampler, OnlineScorerSampler)
+
+
+# ── Rate limiting tests ──
+
+
+def test_execute_scoring_uses_aimd_rate_limiter_by_default(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """_execute_scoring should use an adaptive RPSRateLimiter by default (PREDICT_RATE_LIMIT=auto)."""
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        captured_limiter["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+        patch.dict("os.environ", {"MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT": "auto"}),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], RPSRateLimiter)
+    assert captured_limiter["rate_limiter"]._adaptive is True
+
+
+def test_execute_scoring_uses_noop_rate_limiter_when_disabled(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """Setting PREDICT_RATE_LIMIT=0 should route to NoOpRateLimiter."""
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+        patch.dict("os.environ", {"MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT": "0"}),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], NoOpRateLimiter)
+
+
+def test_execute_scoring_passes_max_retries_from_env(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """MLFLOW_GENAI_EVAL_MAX_RETRIES should be forwarded to _compute_eval_scores."""
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+        patch.dict("os.environ", {"MLFLOW_GENAI_EVAL_MAX_RETRIES": "5"}),
+    ):
+        processor.process_traces()
+
+    assert captured["max_retries"] == 5
+
+
+def test_execute_scoring_wraps_in_eval_retry_context(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """eval_retry_context() must be entered inside the worker thread for each trace."""
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute,
+        patch(
+            "mlflow.genai.evaluation.rate_limiter.eval_retry_context"
+        ) as mock_retry_ctx,
+    ):
+        mock_compute.return_value = MagicMock(assessments=[])
+        mock_retry_ctx.return_value.__enter__ = MagicMock(return_value=None)
+        mock_retry_ctx.return_value.__exit__ = MagicMock(return_value=False)
+        processor.process_traces()
+
+    mock_retry_ctx.assert_called_once()
