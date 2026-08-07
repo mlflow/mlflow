@@ -12,6 +12,7 @@ export const useUpdateEndpointMutation = () => {
       routing_strategy?: string;
       fallback_config?: { strategy: string; max_attempts: number };
       usage_tracking?: boolean;
+      exclude_content?: boolean;
       experiment_id?: string;
     }) =>
       GatewayApi.updateEndpoint({
@@ -21,6 +22,7 @@ export const useUpdateEndpointMutation = () => {
         routing_strategy: data.routing_strategy,
         fallback_config: data.fallback_config,
         usage_tracking: data.usage_tracking,
+        exclude_content: data.exclude_content,
         experiment_id: data.experiment_id,
       }),
     onSuccess: () => {

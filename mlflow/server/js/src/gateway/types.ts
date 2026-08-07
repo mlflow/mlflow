@@ -148,6 +148,7 @@ export interface Endpoint {
   };
   experiment_id?: string;
   usage_tracking?: boolean;
+  exclude_content?: boolean;
   tags?: EndpointTag[];
 }
 
@@ -172,6 +173,7 @@ export interface CreateEndpointRequest {
     max_attempts: number;
   };
   usage_tracking?: boolean;
+  exclude_content?: boolean;
   experiment_id?: string;
 }
 
@@ -194,6 +196,7 @@ export interface UpdateEndpointRequest {
   };
   model_configs?: GatewayEndpointModelConfig[];
   usage_tracking?: boolean;
+  exclude_content?: boolean;
   experiment_id?: string;
 }
 

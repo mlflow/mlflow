@@ -383,6 +383,24 @@ def test_endpoint_proto_round_trip():
     assert restored.created_by == endpoint.created_by
     assert restored.last_updated_by == endpoint.last_updated_by
     assert len(restored.model_mappings) == 0
+    assert restored.exclude_content is False
+
+
+def test_endpoint_exclude_content_proto_round_trip():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-excl",
+        name="Exclude Content Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        usage_tracking=True,
+        exclude_content=True,
+    )
+
+    proto = endpoint.to_proto()
+    restored = GatewayEndpoint.from_proto(proto)
+
+    assert restored.usage_tracking is True
+    assert restored.exclude_content is True
 
 
 def test_endpoint_binding_proto_round_trip():

@@ -248,6 +248,7 @@ def get_endpoint_config(
             experiment_id=endpoint_entity.experiment_id,
             usage_tracking=endpoint_entity.usage_tracking
             and endpoint_entity.experiment_id is not None,
+            exclude_content=endpoint_entity.exclude_content,
         )
 
     store.secret_cache.set(cache_key, result.to_dict())

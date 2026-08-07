@@ -64,7 +64,7 @@ const TestHarness = ({ experimentId, initialEntry }: { experimentId: string; ini
         onSubmit={jest.fn(async () => {})}
         onCancel={jest.fn()}
         onNameUpdate={jest.fn(async () => {})}
-        onUsageTrackingUpdate={jest.fn(async () => {})}
+        onTracingModeUpdate={jest.fn(async () => {})}
       />
     </MemoryRouter>
   );

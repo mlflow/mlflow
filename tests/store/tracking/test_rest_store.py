@@ -3318,6 +3318,7 @@ def test_create_gateway_endpoint():
                     max_attempts=2,
                 ),
                 usage_tracking=True,
+                exclude_content=False,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)

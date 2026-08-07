@@ -3,24 +3,131 @@ import functools
 import inspect
 import json
 import logging
+import threading
 from collections.abc import Callable
 from typing import Any
 
 import pydantic
+from cachetools import TTLCache
 
 import mlflow
-from mlflow.entities import SpanStatus, SpanType
+from mlflow.entities import LiveSpan, SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_NAME_FORMAT,
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
+
+# Span attributes that carry raw request/response content. Usage metadata
+# attributes (token usage, cost, model, latency, status) are intentionally kept.
+_CONTENT_SPAN_ATTRIBUTE_KEYS = (
+    SpanAttributeKey.INPUTS,
+    SpanAttributeKey.OUTPUTS,
+    SpanAttributeKey.CHAT_TOOLS,
+)
+
+# Streaming responses record each yielded chunk as a span event with this name
+# prefix; those events carry raw response content.
+_STREAM_CHUNK_EVENT_PREFIX = STREAM_CHUNK_EVENT_NAME_FORMAT.split("{", 1)[0]
+
+# Trace IDs whose spans must have request/response content redacted before export.
+# Registered when a traced gateway call starts for an endpoint with
+# `exclude_content` enabled, and discarded when the gateway span ends. A TTL cache
+# bounds the registry so a trace whose gateway span never ends (e.g. an abandoned
+# stream) cannot leak memory; the TTL only needs to outlive a single request.
+_content_excluded_trace_ids: TTLCache = TTLCache(maxsize=10_000, ttl=3600)
+_content_excluded_trace_ids_lock = threading.Lock()
+_exclude_content_processor_lock = threading.Lock()
+
+
+def _scrub_span_content(span: LiveSpan) -> None:
+    # Drop the attributes outright rather than substituting a placeholder, matching
+    # how OTel GenAI instrumentations omit content when capture is disabled.
+    _drop_span_attributes(span, _CONTENT_SPAN_ATTRIBUTE_KEYS)
+    _drop_stream_chunk_events(span)
+
+
+def _drop_span_attributes(span: LiveSpan, keys: tuple[str, ...]) -> None:
+    # There is no public API to remove a span attribute, so mutate the underlying
+    # OpenTelemetry attribute mapping. Best-effort: a failure here must never break
+    # the request. Fall back to emptying the value so content is never exported.
+    try:
+        attributes = span._span._attributes
+        for key in keys:
+            attributes.pop(key, None)
+    except Exception:
+        _logger.debug("Failed to drop content attributes from span", exc_info=True)
+        for key in keys:
+            try:
+                if span.get_attribute(key) is not None:
+                    span.set_attribute(key, None)
+            except Exception:
+                _logger.debug("Failed to clear span attribute %s", key, exc_info=True)
+
+
+def _drop_stream_chunk_events(span: LiveSpan) -> None:
+    # There is no public API to remove span events, so filter the underlying
+    # OpenTelemetry event list in place. Best-effort: a failure here must never
+    # break the request, only risk a noisier trace.
+    try:
+        events = span._span._events
+        with events._lock:
+            filtered = [e for e in events._dq if not e.name.startswith(_STREAM_CHUNK_EVENT_PREFIX)]
+            if len(filtered) != len(events._dq):
+                events._dq.clear()
+                events._dq.extend(filtered)
+    except Exception:
+        _logger.debug("Failed to drop stream chunk events from span", exc_info=True)
+
+
+def _exclude_content_span_processor(span: LiveSpan) -> None:
+    """Redact content from spans of traces registered for content exclusion.
+
+    Runs at every span end (before export), so it covers the root gateway span,
+    provider model spans, and guardrail spans alike.
+    """
+    trace_id = span.trace_id
+    with _content_excluded_trace_ids_lock:
+        gateway_span_id = _content_excluded_trace_ids.get(trace_id)
+    if gateway_span_id is None:
+        return
+    _scrub_span_content(span)
+    if span.span_id == gateway_span_id:
+        # The gateway span wraps the whole call, so it ends last and the trace is
+        # fully scrubbed at this point. Keyed on the span ID rather than a missing
+        # parent because the gateway span may itself be nested under a caller's span.
+        with _content_excluded_trace_ids_lock:
+            _content_excluded_trace_ids.pop(trace_id, None)
+
+
+def _ensure_exclude_content_processor_registered() -> None:
+    # Checked on every excluded call (not registered once) because the tracing
+    # config may be replaced at runtime (e.g., mlflow.tracing.reset()), which
+    # would silently drop the processor and leak content.
+    from mlflow.tracing.config import get_config
+
+    config = get_config()
+    if _exclude_content_span_processor in config.span_processors:
+        return
+    with _exclude_content_processor_lock:
+        if _exclude_content_span_processor not in config.span_processors:
+            config.span_processors.append(_exclude_content_span_processor)
+
+
+def _register_content_exclusion() -> None:
+    if span := mlflow.get_current_active_span():
+        with _content_excluded_trace_ids_lock:
+            _content_excluded_trace_ids[span.trace_id] = span.span_id
 
 
 @dataclasses.dataclass
@@ -202,6 +309,11 @@ def maybe_traced_gateway_call(
     """
     Wrap a gateway function with tracing.
 
+    When the endpoint is configured with ``exclude_content``, request/response
+    content (span inputs/outputs, chat tools) is dropped from every span of the
+    trace before export, while usage metadata (token usage, cost, model, latency,
+    status) is kept.
+
     Args:
         func: The function to trace.
         endpoint_config: The gateway endpoint configuration.
@@ -224,6 +336,10 @@ def maybe_traced_gateway_call(
     """
     if not endpoint_config.usage_tracking:
         return func
+
+    exclude_content = endpoint_config.exclude_content
+    if exclude_content:
+        _ensure_exclude_content_processor_registered()
 
     span_attributes = _gateway_span_attributes(endpoint_config, request_headers)
     if message_format:
@@ -250,7 +366,10 @@ def maybe_traced_gateway_call(
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
-            _maybe_unwrap_single_arg_input(args, kwargs)
+            if exclude_content:
+                _register_content_exclusion()
+            else:
+                _maybe_unwrap_single_arg_input(args, kwargs)
             try:
                 async for item in func(*args, **kwargs):
                     yield item
@@ -267,7 +386,10 @@ def maybe_traced_gateway_call(
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
-            _maybe_unwrap_single_arg_input(args, kwargs)
+            if exclude_content:
+                _register_content_exclusion()
+            else:
+                _maybe_unwrap_single_arg_input(args, kwargs)
             try:
                 result = await func(*args, **kwargs)
             finally:
@@ -284,7 +406,10 @@ def maybe_traced_gateway_call(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
-            _maybe_unwrap_single_arg_input(args, kwargs)
+            if exclude_content:
+                _register_content_exclusion()
+            else:
+                _maybe_unwrap_single_arg_input(args, kwargs)
             try:
                 result = func(*args, **kwargs)
             finally:
