@@ -25,7 +25,7 @@ def set_request_response_preview(trace_info: TraceInfo, trace_data: TraceData) -
 
 
 def _get_truncated_preview(
-    request_or_response: str | dict[str, Any] | None, role: str
+    request_or_response: str | dict[str, Any] | list[Any] | None, role: str
 ) -> str | None:
     if request_or_response is None:
         return None
@@ -34,7 +34,7 @@ def _get_truncated_preview(
 
     content = None
     obj = None
-    if isinstance(request_or_response, dict):
+    if isinstance(request_or_response, (dict, list)):
         obj = request_or_response
         request_or_response = json.dumps(request_or_response)
     elif isinstance(request_or_response, str):
@@ -66,7 +66,10 @@ def _get_max_length() -> int:
     )
 
 
-def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
+def _try_extract_messages(obj: dict[str, Any] | list[Any]) -> list[dict[str, Any]] | None:
+    if isinstance(obj, list):
+        return [item for item in obj if _is_message(item)]
+
     if not isinstance(obj, dict):
         return None
 
@@ -101,7 +104,7 @@ def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
 
 
 def _is_message(item: Any) -> bool:
-    return isinstance(item, dict) and "role" in item and "content" in item
+    return isinstance(item, dict) and "role" in item and ("content" in item or "parts" in item)
 
 
 def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any]:
@@ -126,4 +129,10 @@ def _get_text_content_from_message(message: dict[str, Any]) -> str:
                 return part.get("text")
     elif isinstance(content, str):
         return content
+
+    parts = message.get("parts")
+    if isinstance(parts, list):
+        for part in parts:
+            if isinstance(part, dict) and part.get("type") == "text":
+                return part.get("content") or part.get("text") or ""
     return ""

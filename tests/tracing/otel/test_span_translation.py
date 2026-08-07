@@ -513,6 +513,56 @@ def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: An
 
 
 @pytest.mark.parametrize(
+    "encode_event_value",
+    [
+        lambda value: value,
+        json.dumps,
+        lambda value: json.dumps(json.dumps(value)),
+    ],
+)
+def test_translate_inputs_outputs_from_genai_events_matches_attributes(encode_event_value):
+    input_messages = [{"role": "user", "parts": [{"type": "text", "content": "hello"}]}]
+    output_messages = [
+        {
+            "role": "assistant",
+            "parts": [{"type": "text", "content": "hi"}],
+            "finish_reason": "stop",
+        }
+    ]
+
+    attribute_span = mock.Mock(spec=Span)
+    attribute_span.to_dict.return_value = {
+        "attributes": {
+            "gen_ai.input.messages": json.dumps(input_messages),
+            "gen_ai.output.messages": json.dumps(output_messages),
+        },
+    }
+    event_span = mock.Mock(spec=Span)
+    event_span.to_dict.return_value = {
+        "attributes": {},
+        "events": [
+            {
+                "name": "gen_ai.client.inference.operation.details",
+                "attributes": {
+                    "gen_ai.input.messages": encode_event_value(input_messages),
+                    "gen_ai.output.messages": encode_event_value(output_messages),
+                },
+            }
+        ],
+    }
+
+    attribute_result = translate_span_when_storing(attribute_span)
+    event_result = translate_span_when_storing(event_span)
+
+    assert event_result["attributes"][SpanAttributeKey.INPUTS] == attribute_result["attributes"][
+        SpanAttributeKey.INPUTS
+    ]
+    assert event_result["attributes"][SpanAttributeKey.OUTPUTS] == attribute_result["attributes"][
+        SpanAttributeKey.OUTPUTS
+    ]
+
+
+@pytest.mark.parametrize(
     (
         "parent_id",
         "attributes",
