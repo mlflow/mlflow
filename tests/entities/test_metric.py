@@ -1,5 +1,6 @@
 import re
 
+import numpy as np
 import pytest
 
 from mlflow.entities import Metric
@@ -101,3 +102,37 @@ def test_metric_from_dictionary_missing_keys():
         match=re.escape("Missing required keys ['value', 'timestamp'] in metric dictionary"),
     ):
         Metric.from_dictionary(another_incomplete_dict)
+
+
+@pytest.mark.parametrize(
+    ("float_step", "expected_int_step"),
+    [
+        (0.0, 0),
+        (1.0, 1),
+        (42.0, 42),
+        # non-integer floats are truncated toward zero (same as int())
+        (99.9, 99),
+        # numpy float types are also coerced
+        (np.float32(5.0), 5),
+        (np.float64(7.0), 7),
+    ],
+)
+def test_float_step_coerced_to_int(float_step, expected_int_step):
+    metric = Metric("loss", 0.5, 1000, float_step)
+    assert metric.step == expected_int_step
+    assert isinstance(metric.step, int)
+
+
+def test_float_step_proto_roundtrip():
+    metric = Metric("loss", 0.5, 1000, 3.0)
+    proto = metric.to_proto()
+    assert proto.step == 3
+    recovered = Metric.from_proto(proto)
+    assert recovered.step == 3
+    assert isinstance(recovered.step, int)
+
+
+def test_int_step_unchanged():
+    metric = Metric("loss", 0.5, 1000, 5)
+    assert metric.step == 5
+    assert type(metric.step) is int
