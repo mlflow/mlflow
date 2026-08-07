@@ -329,6 +329,25 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
   });
 
+  test('uses full metric paths to disambiguate duplicate leaf names', async () => {
+    currentUIState.compareRunCharts = undefined;
+
+    createComponentMock({
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: {} }] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'groupA/duplicate_leaf': { key: 'groupA/duplicate_leaf', value: 1, step: 0 },
+          'groupB/duplicate_leaf': { key: 'groupB/duplicate_leaf', value: 2, step: 0 },
+        },
+      } as any,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'groupA/duplicate_leaf' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'groupB/duplicate_leaf' })).toBeInTheDocument();
+    });
+  });
+
   test('initializes sections', async () => {
     currentUIState.compareRunCharts = undefined;
 
