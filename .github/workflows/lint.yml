@@ -47,17 +47,17 @@ jobs:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
-      - uses: $/.github/actions/untracked
-      - uses: $/.github/actions/setup-python
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
-      - uses: $/.github/actions/setup-node
+      - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |

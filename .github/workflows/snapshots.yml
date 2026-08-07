@@ -28,12 +28,12 @@ jobs:
     permissions:
       contents: write # Needed to create/update releases and manage assets
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-python
-      - uses: $/.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
+      - uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2.12.1
 
       - name: Create artifacts directory
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Upload artifacts to nightly release
         # This step requires contents write permission, but pull requests filed from forks do not have this permission.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'mlflow/mlflow'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           retries: 3
           script: |
