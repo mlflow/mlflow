@@ -94,6 +94,11 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
 
     parsed_tools = []
     for tool in tools:
+        if not isinstance(tool, dict):
+            if hasattr(tool, "model_dump"):
+                tool = tool.model_dump(exclude_none=True)
+            else:
+                raise MlflowException(f"Invalid tool definition: {tool}")
         tool_type = tool.get("type", "function")
         if tool_type == "function":
             if "function" in tool:
