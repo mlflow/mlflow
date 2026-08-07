@@ -66,6 +66,8 @@ MLflow is currently maintained by the following core members with significant co
 - [Tomu Hirata](https://github.com/TomeHirata)
 - [Matt Prahl](https://github.com/mprahl)
 - [Gabriel Fu](https://github.com/gabrielfu)
+- [Joel Robin P](https://github.com/joelrobin18)
+- [Pat Sukprasert](https://github.com/PattaraS)
 
 ## Contribution process
 
