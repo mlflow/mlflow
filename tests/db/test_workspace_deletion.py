@@ -11,6 +11,7 @@ from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.mcp_server import MCPStatus
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
     SqlEntityAssociation,
     SqlExperiment,
@@ -567,3 +568,55 @@ def test_cascade_deletes_hard_fk_graphs_and_owned_soft_edges(workspace_store):
             assert [binding.resource_id for binding in bindings] == [resources.neighbor_scorer_id]
     finally:
         _cleanup_exact_rows(workspace_store, resources)
+
+
+def test_cascade_rolls_back_when_external_guardrail_blocks_deletion(workspace_store):
+    resources = _new_resources()
+    target_workspace = f"target-{resources.token}"
+    workspace_store.create_workspace(Workspace(name=resources.workspace))
+    workspace_store.create_workspace(Workspace(name=target_workspace))
+
+    try:
+        with workspace_store.ManagedSessionMaker(read_only=False) as session:
+            experiment_id = _add_scorer_guardrail_graph(session, resources, add_config=False)
+
+            # Moving an experiment changes scorer ownership but leaves its guardrails behind.
+            session.get(SqlExperiment, experiment_id).workspace = target_workspace
+            association_key = (
+                EntityAssociationType.EVALUATION_DATASET,
+                f"dataset-{resources.token}",
+                EntityAssociationType.EXPERIMENT,
+                str(experiment_id),
+            )
+            session.add(
+                SqlEntityAssociation(
+                    association_id=resources.association_id,
+                    source_type=association_key[0],
+                    source_id=association_key[1],
+                    destination_type=association_key[2],
+                    destination_id=association_key[3],
+                    created_time=0,
+                )
+            )
+
+        with pytest.raises(MlflowException, match="database integrity constraints") as exc:
+            workspace_store.delete_workspace(
+                target_workspace,
+                mode=WorkspaceDeletionMode.CASCADE,
+            )
+        assert exc.value.error_code == "INVALID_STATE"
+
+        with workspace_store.ManagedSessionMaker() as session:
+            assert session.get(SqlWorkspace, target_workspace) is not None
+            assert session.get(SqlExperiment, experiment_id).workspace == target_workspace
+            assert session.get(SqlScorer, resources.scorer_id) is not None
+            assert session.get(SqlScorerVersion, (resources.scorer_id, 1)) is not None
+            assert (
+                session.get(SqlGatewayGuardrail, resources.guardrail_id).workspace
+                == resources.workspace
+            )
+            assert session.get(SqlEntityAssociation, association_key) is not None
+    finally:
+        _cleanup_exact_rows(workspace_store, resources)
+        with workspace_store.ManagedSessionMaker(read_only=False) as session:
+            session.execute(sa.delete(SqlWorkspace).where(SqlWorkspace.name == target_workspace))
