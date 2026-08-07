@@ -110,6 +110,58 @@ def test_process_traces_updates_checkpoint_when_no_traces(
     assert checkpoint.trace_id is None
 
 
+def test_process_traces_skips_until_buffered_window_advances(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
+        min_trace_timestamp_ms=1000, max_trace_timestamp_ms=900
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
+        timestamp_ms=1000, trace_id="tr-001"
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    processor.process_traces()
+    processor.process_traces()
+
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_not_called()
+
+
+def test_process_traces_repairs_future_checkpoint(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    current_time_ms = 1_000_000
+    future_timestamp_ms = current_time_ms + 86_400_000
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
+        min_trace_timestamp_ms=future_timestamp_ms,
+        max_trace_timestamp_ms=future_timestamp_ms,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
+        timestamp_ms=future_timestamp_ms, trace_id="tr-001"
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.scorers.online.trace_processor.time.time", return_value=1000):
+        processor.process_traces()
+
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == current_time_ms
+    assert checkpoint.trace_id is None
+
+
 def test_process_traces_updates_checkpoint_when_full_traces_empty(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):
@@ -138,6 +190,27 @@ def test_process_traces_updates_checkpoint_when_full_traces_empty(
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 2000
     assert checkpoint.trace_id is None
+
+
+def test_process_traces_uses_search_timestamp_for_checkpoint(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 86_401_500)]
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
+        mock_compute.return_value = []
+        processor.process_traces()
+
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 1500
+    assert checkpoint.trace_id == "tr-001"
 
 
 def test_process_traces_filters_checkpoint_boundary(
