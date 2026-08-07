@@ -86,6 +86,14 @@ def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
     launch_consumer.assert_not_called()
 
 
+def test_job_runner_periodic_tasks_are_enabled_by_default(monkeypatch):
+    monkeypatch.delenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, raising=False)
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_called_once()
+
+
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(
         monkeypatch,
