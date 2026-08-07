@@ -9,6 +9,8 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
 import mlflow
+from mlflow.cli import label_schemas
+from mlflow.genai.label_schemas import InputPassFail, LabelSchema, LabelSchemaType
 from mlflow.mcp import server
 from mlflow.mcp.server import fn_wrapper
 from mlflow.models import python_api
@@ -51,14 +53,19 @@ async def client() -> AsyncIterator[Client]:
 async def test_list_tools(client: Client):
     tools = await client.list_tools()
     assert sorted(t.name for t in tools) == [
+        "add_review_queue_items",
         "build_model_docker",
         "create_deployment",
         "create_deployment_endpoint",
         "create_experiment",
+        "create_label_schema",
+        "create_review_queue",
         "create_run",
         "delete_deployment",
         "delete_deployment_endpoint",
         "delete_experiment",
+        "delete_label_schema",
+        "delete_review_queue",
         "delete_run",
         "delete_trace_assessment",
         "delete_trace_tag",
@@ -70,11 +77,17 @@ async def test_list_tools(client: Client):
         "get_deployment",
         "get_deployment_endpoint",
         "get_experiment",
+        "get_label_schema",
+        "get_or_create_user_review_queue",
+        "get_review_queue",
         "get_trace",
         "get_trace_assessment",
         "link_traces_to_run",
         "list_deployment_endpoints",
         "list_deployments",
+        "list_label_schemas",
+        "list_review_queue_items",
+        "list_review_queues",
         "list_runs",
         "list_scorers",
         "log_trace_expectation",
@@ -83,6 +96,7 @@ async def test_list_tools(client: Client):
         "predict_with_model",
         "prepare_model_env",
         "register_llm_judge_scorer",
+        "remove_review_queue_items",
         "rename_experiment",
         "restore_experiment",
         "restore_run",
@@ -90,11 +104,14 @@ async def test_list_tools(client: Client):
         "search_experiments",
         "search_traces",
         "serve_model",
+        "set_review_queue_item_status",
         "set_trace_tag",
         "update_deployment",
         "update_deployment_endpoint",
         "update_experiment",
+        "update_label_schema",
         "update_model_pip_requirements",
+        "update_review_queue",
         "update_trace_assessment",
     ]
 
@@ -211,3 +228,26 @@ def test_fn_wrapper_converts_repeatable_custom_types():
     call_kwargs = mock_predict.call_args.kwargs
     assert call_kwargs["model_uri"] == "runs:/123/model"
     assert call_kwargs["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
+
+
+def test_fn_wrapper_converts_scalar_custom_types():
+    schema = LabelSchema(
+        name="q",
+        type=LabelSchemaType.FEEDBACK,
+        input=InputPassFail(positive_label="Pass", negative_label="Fail"),
+    )
+    input_json = '{"variant": "pass_fail", "positive_label": "Pass", "negative_label": "Fail"}'
+    with patch.object(label_schemas, "create_label_schema", return_value=schema) as mock_create:
+        wrapper = fn_wrapper(label_schemas.commands.commands["create"])
+        wrapper(
+            name="q",
+            schema_type="feedback",
+            input_spec=input_json,
+            experiment_id="0",
+            output="json",
+        )
+
+    mock_create.assert_called_once()
+    assert mock_create.call_args.kwargs["input"] == InputPassFail(
+        positive_label="Pass", negative_label="Fail"
+    )
