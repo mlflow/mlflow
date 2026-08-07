@@ -10,6 +10,8 @@ import os
 import re
 import shutil
 import subprocess
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
@@ -26,6 +28,131 @@ _MIN_UV_VERSION = Version("0.6.10")
 _UV_LOCK_FILE = "uv.lock"
 _PYPROJECT_FILE = "pyproject.toml"
 _PYTHON_VERSION_FILE = ".python-version"
+
+
+@dataclass
+class UvConfig:
+    """Configuration for uv-based dependency management in MLflow model logging.
+
+    Consolidates uv-related parameters into a single object that can be passed
+    to any flavor's ``log_model()`` or ``save_model()`` method.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.utils.uv_utils import UvConfig
+
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            name="my-model",
+            uv=UvConfig(project_path="./", groups=["ml"]),
+        )
+
+    Args:
+        project_path: Path to the uv project directory containing ``uv.lock``
+            and ``pyproject.toml``. If None, MLflow auto-detects from the
+            current working directory when ``MLFLOW_UV_AUTO_DETECT`` is enabled.
+        groups: Dependency groups to include when exporting from the lockfile.
+            Maps to ``uv export --group <name>``.
+        extras: Optional extras (optional dependency sets) to include.
+            Maps to ``uv export --extra <name>``.
+    """
+
+    project_path: str | Path | None = None
+    groups: list[str] | None = None
+    extras: list[str] | None = None
+
+
+def resolve_uv_params(uv: UvConfig | None = None) -> UvConfig:
+    """Resolve the effective UvConfig for model saving.
+
+    If an explicit UvConfig is provided, returns it directly. If not, checks
+    ``MLFLOW_UV_AUTO_DETECT`` and returns a UvConfig with ``project_path``
+    set to cwd when auto-detect is enabled. Returns an empty UvConfig when
+    uv is disabled.
+
+    Args:
+        uv: Optional explicit configuration. Returned as-is when provided.
+
+    Returns:
+        A resolved UvConfig instance.
+    """
+    if uv is not None:
+        return uv
+
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+
+    if MLFLOW_UV_AUTO_DETECT.get():
+        return UvConfig(project_path=os.getcwd())
+    return UvConfig()
+
+
+def _resolve_uv_param_compat(
+    uv: "UvConfig | None",
+    uv_project_path: "str | Path | None",
+    uv_groups: "list[str] | None",
+    uv_extras: "list[str] | None",
+    stacklevel: int = 3,
+) -> "UvConfig | None":
+    """Collapse legacy uv_project_path/uv_groups/uv_extras into a UvConfig.
+
+    The legacy parameters were shipped in MLflow 3.11 and are kept for
+    backwards compatibility. Callers should migrate to ``uv=UvConfig(...)``.
+
+    Behavior:
+        - If no legacy parameter is set, ``uv`` is returned unchanged.
+        - If only legacy parameters are set, a FutureWarning is emitted and
+          their values are wrapped in a new ``UvConfig``.
+        - If any legacy parameter is set together with ``uv``, an
+          ``MlflowException`` is raised.
+
+    Args:
+        uv: The new-style UvConfig argument from the caller.
+        uv_project_path: Legacy parameter, equivalent to ``UvConfig.project_path``.
+        uv_groups: Legacy parameter, equivalent to ``UvConfig.groups``.
+        uv_extras: Legacy parameter, equivalent to ``UvConfig.extras``.
+        stacklevel: Stacklevel forwarded to ``warnings.warn`` so the warning
+            points at the user's call site rather than this helper. The default
+            of 3 is correct for a single layer of wrapping (public flavor API
+            -> this helper).
+
+    Returns:
+        The effective ``UvConfig`` to pass to downstream uv logic, or ``None``
+        if neither path was used (auto-detect path remains in effect).
+    """
+    legacy = {
+        "uv_project_path": uv_project_path,
+        "uv_groups": uv_groups,
+        "uv_extras": uv_extras,
+    }
+    legacy_set = {k: v for k, v in legacy.items() if v is not None}
+    if not legacy_set:
+        return uv
+
+    if uv is not None:
+        from mlflow.exceptions import MlflowException
+
+        raise MlflowException.invalid_parameter_value(
+            "Cannot specify both `uv` and the legacy parameters "
+            f"{sorted(legacy_set)}. Use `uv=UvConfig(...)` exclusively. "
+            "The legacy parameters are deprecated and will be removed in a "
+            "future release."
+        )
+
+    warnings.warn(
+        f"Parameters {sorted(legacy_set)} are deprecated and will be removed "
+        "in a future release. Use "
+        "`uv=mlflow.utils.uv_utils.UvConfig(project_path=..., groups=..., "
+        "extras=...)` instead.",
+        FutureWarning,
+        stacklevel=stacklevel,
+    )
+    return UvConfig(
+        project_path=uv_project_path,
+        groups=uv_groups,
+        extras=uv_extras,
+    )
 
 
 def get_uv_version() -> Version | None:
