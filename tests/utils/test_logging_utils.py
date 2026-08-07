@@ -12,7 +12,6 @@ import mlflow
 from mlflow.utils import logging_utils
 from mlflow.utils.logging_utils import (
     LOGGING_LINE_FORMAT,
-    MlflowLoggingHandler,
     SensitiveQueryParamFilter,
     _configure_mlflow_loggers,
     _redact_sensitive_query_params,
@@ -345,7 +344,21 @@ def test_configure_mlflow_loggers_is_idempotent() -> None:
     for _ in range(3):
         _configure_mlflow_loggers("mlflow")
         for name in configured_loggers:
-            handlers = [
-                h for h in logging.getLogger(name).handlers if isinstance(h, MlflowLoggingHandler)
-            ]
+            handlers = logging.getLogger(name).handlers
             assert len(handlers) == 1, (name, handlers)
+
+
+def test_configure_mlflow_loggers_replaces_existing_handlers() -> None:
+    """
+    Handlers already attached to the loggers MLflow configures are replaced, not
+    appended to. Appending would emit every record twice, once through MLflow's
+    handler and once through the pre-existing one.
+    """
+    logger = logging.getLogger("alembic")
+    pre_existing = logging.StreamHandler(StringIO())
+    logger.addHandler(pre_existing)
+
+    _configure_mlflow_loggers("mlflow")
+
+    assert pre_existing not in logger.handlers
+    assert len(logger.handlers) == 1

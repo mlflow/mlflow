@@ -160,30 +160,22 @@ class SensitiveQueryParamFilter(logging.Filter):
         return True
 
 
-class MlflowLoggingHandler(logging.StreamHandler):
-    """
-    Stream handler owned by MLflow. Subclassed rather than using a plain
-    `StreamHandler` so that repeat calls to `_configure_mlflow_loggers` can
-    identify and replace MLflow's own handler instead of stacking duplicates.
-    """
-
-
 def _configure_mlflow_loggers(root_module_name):
     """
-    Configure the loggers MLflow owns, without touching any other logger.
+    Configure the loggers MLflow owns, leaving every other logger untouched.
 
     This deliberately avoids `logging.config.dictConfig`. Even with
-    `disable_existing_loggers=False`, `dictConfig` mutates every pre-existing
-    logger: it force-sets `.disabled = False` (re-enabling loggers the host
-    application had deliberately silenced) and resets the level, handlers, and
-    propagate flag of any descendant of a configured logger. See CPython
-    bpo-44607.
+    `disable_existing_loggers=False`, `dictConfig` mutates loggers it was never
+    asked to configure: it force-sets `.disabled = False` on unrelated loggers
+    (re-enabling ones the host application had deliberately silenced) and resets
+    the level, handlers, and propagate flag of any descendant of a configured
+    logger. See CPython bpo-44607.
     """
     log_level = get_mlflow_log_level()
     # For alembic, use WARNING minimum to reduce noise, but respect higher levels
     alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
 
-    handler = MlflowLoggingHandler(stream=MLFLOW_LOGGING_STREAM)
+    handler = logging.StreamHandler(stream=MLFLOW_LOGGING_STREAM)
     handler.setFormatter(MlflowFormatter(fmt=LOGGING_LINE_FORMAT, datefmt=LOGGING_DATETIME_FORMAT))
     handler.addFilter(SuppressLogFilter())
 
@@ -194,9 +186,10 @@ def _configure_mlflow_loggers(root_module_name):
         ("huey", alembic_level),
     ):
         logger = logging.getLogger(name)
-        # `addHandler` only de-duplicates by identity, so a handler from an
-        # earlier call must be removed explicitly to keep this idempotent.
-        for stale in [h for h in logger.handlers if isinstance(h, MlflowLoggingHandler)]:
+        # Replace handlers on these four loggers rather than appending, matching
+        # what `dictConfig` did. This also keeps repeat calls idempotent, since
+        # `addHandler` only de-duplicates by object identity.
+        for stale in logger.handlers[:]:
             logger.removeHandler(stale)
         logger.addHandler(handler)
         logger.setLevel(level)
