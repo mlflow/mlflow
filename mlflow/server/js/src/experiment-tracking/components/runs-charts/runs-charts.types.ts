@@ -10,7 +10,7 @@ import {
   MLFLOW_SYSTEM_METRIC_NAME,
   DEFAULT_IMAGE_GRID_CHART_NAME,
 } from '../../constants';
-import { isEmpty, isNil, uniq } from 'lodash';
+import { isEmpty, isEqual, isNil, uniq } from 'lodash';
 import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
 import type { useCategorizedNodeLevelMetricKeys } from '../run-page/node-level-metric-charts/hooks/useCategorizedNodeLevelMetricKeys';
 import { createNodeLevelMetricKey } from '../run-page/node-level-metric-charts/node-level-metric-charts.utils';
@@ -162,6 +162,16 @@ export abstract class RunsChartsCardConfig {
     const displayMetricName = customMetricBehaviorDefs[metricKey]?.displayName ?? metricKey;
     const parts = displayMetricName.split(delimiter);
     return parts[parts.length - 1] || displayMetricName;
+  };
+
+  static getDisplayNameForUpdatedMetricSelection = (
+    config: RunsChartsBarCardConfig | RunsChartsLineCardConfig,
+    updatedMetricKeys: string[],
+  ) => {
+    const currentMetricKeys = config.selectedMetricKeys ?? [
+      config.type === RunsChartType.BAR ? (config.dataAccessKey ?? config.metricKey) : config.metricKey,
+    ];
+    return isEqual(currentMetricKeys, updatedMetricKeys) ? config.displayName : undefined;
   };
 
   static getBaseChartAndSectionConfigs({
