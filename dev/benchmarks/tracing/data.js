@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786143098667,
+  "lastUpdate": 1786146193339,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19871,6 +19871,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 23.80259700000238,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aishwaryag532@gmail.com",
+            "name": "Aishwarya Ghosh",
+            "username": "aishdbx"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bccdc775b7b6fd115ea3f874bc8578cede96963",
+          "message": "Resolve UC path from active experiment when using `get_trace` with a plain ID (#24700)\n\nSigned-off-by: Aishwarya Ghosh <aishwaryag532@gmail.com>\nSigned-off-by: AishwaryaGhosh <aishwaryag532@gmail.com>\nCo-authored-by: Daniel Lok <daniel.lok@databricks.com>",
+          "timestamp": "2026-08-07T16:41:46-07:00",
+          "tree_id": "25aaf3b0bf8866454254f8a1cb2022f88ba27a56",
+          "url": "https://github.com/mlflow/mlflow/commit/5bccdc775b7b6fd115ea3f874bc8578cede96963"
+        },
+        "date": 1786146191751,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.37171265000026,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.160167057691329,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.536551157533836,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.480606060869793,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.948826551401659,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.486777799999913,
             "unit": "ms"
           }
         ]
