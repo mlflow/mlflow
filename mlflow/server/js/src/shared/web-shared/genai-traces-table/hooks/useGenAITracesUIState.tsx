@@ -25,7 +25,7 @@ export interface GenAITracesUIState {
 const DEFAULT_MAX_VISIBLE_COLUMNS = 10;
 
 const LOCAL_STORAGE_KEY = 'genaiTracesUIState-columns';
-const LOCAL_STORAGE_VERSION = 1;
+const LOCAL_STORAGE_VERSION = 2;
 
 const toVisibleColumnsFromHiddenColumns = (hiddenColumns: string[], allColumns: TracesTableColumn[]) => {
   return allColumns.filter((col) => !hiddenColumns.includes(col.id));
