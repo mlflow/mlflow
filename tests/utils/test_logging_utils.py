@@ -12,7 +12,9 @@ import mlflow
 from mlflow.utils import logging_utils
 from mlflow.utils.logging_utils import (
     LOGGING_LINE_FORMAT,
+    MlflowLoggingHandler,
     SensitiveQueryParamFilter,
+    _configure_mlflow_loggers,
     _redact_sensitive_query_params,
     eprint,
     suppress_logs,
@@ -285,3 +287,65 @@ assert actual_format == {actual_format!r}, actual_format
             "MLFLOW_CONFIGURE_LOGGING": configure_logging,
         },
     )
+
+
+def test_import_mlflow_preserves_disabled_loggers() -> None:
+    """
+    Importing mlflow must not re-enable loggers the host application disabled.
+    The Databricks notebook kernel disables `pyspark.sql.connect.logging` at
+    startup; re-enabling it dumps raw gRPC tracebacks into cell output.
+    """
+    code = """
+import logging
+
+connect_logger = logging.getLogger("pyspark.sql.connect.logging")
+connect_logger.disabled = True
+unrelated_logger = logging.getLogger("some.third.party")
+unrelated_logger.disabled = True
+
+import mlflow
+
+assert connect_logger.disabled, "mlflow re-enabled pyspark.sql.connect.logging"
+assert unrelated_logger.disabled, "mlflow re-enabled some.third.party"
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=os.environ.copy())
+
+
+def test_import_mlflow_preserves_existing_child_logger_config() -> None:
+    """
+    Descendants of the loggers mlflow configures (`mlflow`, `sqlalchemy.engine`,
+    `alembic`, `huey`) must keep any level, handlers, and propagate flag that
+    were set before the import.
+    """
+    code = """
+import logging
+
+CHILDREN = ("mlflow.tracking.fluent", "sqlalchemy.engine.Engine")
+handler = logging.NullHandler()
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    child.setLevel(logging.ERROR)
+    child.addHandler(handler)
+    child.propagate = False
+
+import mlflow
+
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    assert child.level == logging.ERROR, (name, child.level)
+    assert child.handlers == [handler], (name, child.handlers)
+    assert not child.propagate, name
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=os.environ.copy())
+
+
+def test_configure_mlflow_loggers_is_idempotent() -> None:
+    configured_loggers = ["mlflow", "sqlalchemy.engine", "alembic", "huey"]
+
+    for _ in range(3):
+        _configure_mlflow_loggers("mlflow")
+        for name in configured_loggers:
+            handlers = [
+                h for h in logging.getLogger(name).handlers if isinstance(h, MlflowLoggingHandler)
+            ]
+            assert len(handlers) == 1, (name, handlers)
