@@ -8,7 +8,7 @@ import mlflow
 from mlflow.entities.model_registry import PromptModelConfig
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
-from mlflow.genai.optimize.optimize import optimize_prompts
+from mlflow.genai.optimize.optimize import _deserialize_chat_template, optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.genai.prompts import register_prompt
@@ -395,6 +395,20 @@ def test_optimize_prompts_validation_errors(
             optimizer=MockPromptOptimizer(),
             scorers=[equivalence],
         )
+
+
+@pytest.mark.parametrize(
+    "serialized",
+    [
+        '"plain text"',
+        "{}",
+        "[]",
+        '[{"content": "missing role"}]',
+    ],
+)
+def test_deserialize_chat_template_rejects_invalid_shape(serialized: str):
+    with pytest.raises(MlflowException, match="as a list of chat messages"):
+        _deserialize_chat_template(serialized, "test_chat_prompt")
 
 
 class ChatAwarePromptOptimizer(BasePromptOptimizer):

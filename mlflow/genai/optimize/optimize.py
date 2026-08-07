@@ -33,6 +33,7 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.types.chat import ChatMessage
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils.safety import _wrap_patch
 
@@ -51,13 +52,18 @@ def _deserialize_chat_template(serialized: str, prompt_name: str) -> list[dict[s
     prompt when the optimizer returns invalid JSON.
     """
     try:
-        return json.loads(serialized)
+        template = json.loads(serialized)
+        if not isinstance(template, list) or not template:
+            raise ValueError("Chat prompt template must be a non-empty list")
+        for message in template:
+            ChatMessage.model_validate(message)
     except (TypeError, ValueError) as e:
         raise MlflowException.invalid_parameter_value(
             f"Failed to deserialize the optimized chat prompt {prompt_name!r} as a list of "
             "chat messages. Optimizers must return chat prompts as a JSON-serialized list of "
             f"message dicts, but got: {serialized!r}"
         ) from e
+    return template
 
 
 @record_usage_event(PromptOptimizationEvent)
