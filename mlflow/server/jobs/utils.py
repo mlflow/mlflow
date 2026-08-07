@@ -580,7 +580,6 @@ def _start_periodic_tasks_consumer_proc():
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),
-        "-f",
     ]
 
     # Add quiet flag unless DEBUG logging is explicitly requested,
@@ -588,6 +587,11 @@ def _start_periodic_tasks_consumer_proc():
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
     if log_level != "DEBUG":
         cmd.append("-q")
+
+    # SQLite needs stale-lock recovery after a crash. Redis is shared across replicas,
+    # so flushing locks at startup could remove locks held by another live instance.
+    if MLFLOW_SERVER_JOB_HUEY_STORAGE_URL.get() is None:
+        cmd.append("-f")
 
     return _exec_cmd(
         cmd,

@@ -10,12 +10,17 @@ import pytest
 
 import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
     TransientError,
+    _job_runner,
     cancel_job,
     get_job,
     job,
@@ -71,6 +76,14 @@ def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
+
+
+def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, "false")
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_not_called()
 
 
 def test_basic_job(monkeypatch, tmp_path):

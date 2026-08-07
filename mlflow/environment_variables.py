@@ -1467,6 +1467,13 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
+#: Specifies whether to run periodic MLflow server jobs from this instance.
+#: In a multi-replica deployment, enable this on only one instance to avoid duplicate scheduling.
+#: (default: ``True``)
+MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", True
+)
+
 #: Specifies optional Huey storage backend URL for MLflow server job execution.
 #: When set, MLflow uses Redis-backed Huey storage instead of local SQLite files.
 #: (default: ``None``)

@@ -16,6 +16,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SERVER_JOB_HUEY_STORAGE_URL,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE,
 )
@@ -693,3 +694,15 @@ def test_periodic_tasks_consumer_enables_flush_locks():
     cmd = mock_exec_cmd.call_args.args[0]
     assert "-f" in cmd
     assert mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "987"
+
+
+def test_periodic_tasks_consumer_does_not_flush_shared_redis_locks(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_HUEY_STORAGE_URL.name, "redis://localhost:6379/0")
+    with (
+        patch("mlflow.server.jobs.utils.os.getpid", return_value=987),
+        patch("mlflow.server.jobs.utils._exec_cmd") as mock_exec_cmd,
+    ):
+        _start_periodic_tasks_consumer_proc()
+
+    cmd = mock_exec_cmd.call_args.args[0]
+    assert "-f" not in cmd
