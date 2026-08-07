@@ -38,16 +38,16 @@ const useWindowWidth = (): number => {
 
 /**
  * Global floating entry point for the Assistant. Pinned bottom-right on every
- * page (local server only), mirroring the convention used by other observability
- * tools. Opens the existing Assistant side panel. Hidden while the panel is open
- * to avoid overlapping it.
+ * page where the Assistant is available, mirroring the convention used by other
+ * observability tools. Opens the existing Assistant side panel. Hidden while the
+ * panel is open to avoid overlapping it.
  *
  * On first load it opens the panel once (a one-time discovery boost), persisted so
  * it never auto-opens again.
  */
 export const AssistantFloatingButton = () => {
   const { theme } = useDesignSystemTheme();
-  const { isLocalServer, isPanelOpen, openPanel } = useAssistant();
+  const { canUseAssistant, isPanelOpen, openPanel } = useAssistant();
   const obstructionWidth = useFloatingObstructionWidth();
   const obstructionHeight = useFloatingObstructionHeight();
   const windowWidth = useWindowWidth();
@@ -64,20 +64,20 @@ export const AssistantFloatingButton = () => {
   // On first load, open the panel once to surface the assistant. Mark it done even if the
   // panel is already open (e.g. restored from a prior session) so a later reload won't force it.
   useEffect(() => {
-    if (!isLocalServer || autoOpened) {
+    if (!canUseAssistant || autoOpened) {
       return;
     }
     setAutoOpened(true);
     if (!isPanelOpen) {
       openPanel();
     }
-  }, [isLocalServer, isPanelOpen, autoOpened, setAutoOpened, openPanel]);
+  }, [canUseAssistant, isPanelOpen, autoOpened, setAutoOpened, openPanel]);
 
   // Hide only when the assistant is unavailable or already open. When a right-side
   // surface is open it doesn't hide the button — it reports the width it reserves (via
   // useRegisterFloatingObstruction) and the button shifts to its left so it stays
   // visible without overlapping. This is generic across any registering surface.
-  if (!isLocalServer || isPanelOpen) {
+  if (!canUseAssistant || isPanelOpen) {
     return null;
   }
 
