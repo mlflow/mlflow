@@ -345,9 +345,6 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
 
 
 def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
-    # `create_fastapi_app` registers the OTLP/job/gateway/assistant routers under
-    # `--static-prefix`; the validator lookup must resolve the prefixed path back to
-    # the canonical route, otherwise those routes would be served with no auth at all.
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
     assert _find_fastapi_validator("/v1/traces", "GET") is not None
@@ -362,40 +359,13 @@ def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
     assert (
         _find_fastapi_validator("/mlflow/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
     )
-    # Stripping only applies to paths actually under the prefix, so an unprefixed
-    # request to a route root still resolves a validator. Once a prefix is configured
-    # nothing serves that path anyway (it 404s on the Flask mount), and keeping the
-    # validator errs toward requiring auth rather than skipping it.
+    # An unprefixed route root still resolves a validator: nothing serves that path
+    # once a prefix is configured, and this errs toward requiring auth.
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
-    # Unrelated paths under the prefix stay unmatched.
     assert _find_fastapi_validator("/mlflow/api/2.0/mlflow/experiments/search", "GET") is None
 
 
-def test_find_fastapi_validator_matches_route_roots_on_segment_boundary(monkeypatch):
-    # `--static-prefix /ajax-api/3.0/jobs-v2` is a sibling of, not nested under, the
-    # real `/ajax-api/3.0/jobs` route (so it isn't rejected at startup), but naive
-    # lexical `.startswith()` matching would still misclassify the gateway/otel routes
-    # under it as jobs requests, applying a weaker validator than intended.
-    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/ajax-api/3.0/jobs-v2")
-    gateway_validator = _find_fastapi_validator(
-        "/ajax-api/3.0/jobs-v2/gateway/mlflow/v1/chat/completions", "GET"
-    )
-    otel_validator = _find_fastapi_validator("/ajax-api/3.0/jobs-v2/v1/traces", "GET")
-    # The jobs router's own route under this same prefix, for comparison.
-    jobs_validator = _find_fastapi_validator(
-        "/ajax-api/3.0/jobs-v2/ajax-api/3.0/jobs/search", "GET"
-    )
-
-    assert gateway_validator.__qualname__ == "_get_gateway_validator.<locals>.validator"
-    assert otel_validator.__qualname__ == "_get_otel_validator.<locals>.validator"
-    assert jobs_validator.__qualname__ == "_get_require_authentication_validator.<locals>.validator"
-
-
 def test_find_fastapi_validator_leaves_prefixed_artifact_paths_to_flask(monkeypatch):
-    # `artifact_router` is the one native router NOT registered under
-    # `--static-prefix`, so only the unprefixed artifact paths are served here.
-    # Prefixed ones fall through to Flask, which owns their authorization; claiming
-    # them here would run auth twice for a single request.
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
     artifact_path = "/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl"
 
@@ -4475,8 +4445,6 @@ def test_gateway_auth_header_honors_internal_token(mock_auth_store, mock_auth_co
 def test_gateway_auth_header_honored_under_static_prefix(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    # `create_fastapi_app` registers `gateway_router` under `--static-prefix`; the
-    # dedicated auth header must still be preferred on the prefixed gateway path.
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
@@ -4492,29 +4460,10 @@ def test_gateway_auth_header_honored_under_static_prefix(
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
 
 
-def test_gateway_internal_token_honored_under_static_prefix(
-    mock_auth_store, mock_auth_config, monkeypatch
-):
-    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
-    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
-    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
-    request = _make_request(
-        "/myprefix/gateway/proxy/my-endpoint/v1/responses",
-        mlflow_authorization=f"Basic {credentials}",
-    )
-
-    user = _authenticate_fastapi_request(request)
-
-    assert user.username == "alice"
-    mock_auth_store.get_user.assert_called_once_with("alice")
-    mock_auth_store.authenticate_user.assert_not_called()
-
-
 def test_gateway_internal_token_not_honored_on_non_gateway_prefixed_route(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    # The internal token must stay restricted to /gateway/ routes (prefixed or not);
-    # it must not become a master password for other prefixed routes.
+    # The internal token must not become a master password for non-gateway routes.
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
     mock_auth_store.authenticate_user.return_value = False

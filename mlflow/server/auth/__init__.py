@@ -489,13 +489,6 @@ def is_unprotected_route(path: str) -> bool:
     # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
     # both the unprefixed and the prefixed forms so health checks don't end
     # up requiring auth on prefixed deployments.
-    #
-    # NOTE: this is intentionally a lexical `.startswith()`, not segment-boundary
-    # aware, because the real static-files route is `/static-files/<path>` (there is
-    # no route at exactly `/static`) and is meant to match here. `--static-prefix`
-    # values that collide with `_UNPROTECTED_PATH_PREFIXES` under this same lexical
-    # rule are rejected at startup (mlflow/utils/static_prefix_validation.py) so that
-    # collision can't be exploited to bypass auth on a route served under the prefix.
     prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
     return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
@@ -4464,15 +4457,16 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    # `create_fastapi_app` registers the gateway router under `--static-prefix`, so
-    # resolve the routed path back to the canonical route path below.
-    request_path = _strip_static_prefix(get_routed_asgi_path(request))
+    request_path = get_routed_asgi_path(request)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and request_path.startswith(static_prefix):
+        request_path = request_path[len(static_prefix) :]
 
     # On /gateway/ routes, a coding agent's own provider key occupies the standard
     # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
     # header. Prefer it there; fall back to Authorization for backward compat.
     auth = None
-    if _path_under_root(request_path, "/gateway"):
+    if request_path.startswith("/gateway/"):
         auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER)
     # Treat a missing OR empty header as absent so an empty X-MLflow-Authorization
     # does not shadow a valid Authorization header.
@@ -4498,7 +4492,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         if (
             internal_token
-            and _path_under_root(request_path, "/gateway")
+            and request_path.startswith("/gateway/")
             and secrets.compare_digest(password, internal_token)
         ):
             return store.get_user(username)
@@ -4979,29 +4973,6 @@ def _get_fastapi_proxy_artifact_validator(
     return validator
 
 
-def _path_under_root(path: str, root: str) -> bool:
-    """
-    Return True if `path` is `root` itself or nested under it (matching on a `/`
-    segment boundary, not just a lexical string prefix — `/ajax-api/3.0/jobs-v2` must
-    NOT be considered under `/ajax-api/3.0/jobs`).
-    """
-    return path == root or path.startswith(f"{root}/")
-
-
-def _strip_static_prefix(path: str) -> str:
-    """
-    Strip `--static-prefix` (`_MLFLOW_STATIC_PREFIX`) from an ASGI-routed path, if
-    present, so callers can match against the canonical unprefixed route paths.
-
-    `create_fastapi_app` registers the prefix-aware routers *only* under the prefix
-    (there is no unprefixed form to confuse this with), so stripping is unconditional.
-    """
-    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    if static_prefix and (path == static_prefix or path.startswith(f"{static_prefix}/")):
-        return path[len(static_prefix) :] or "/"
-    return path
-
-
 def _find_fastapi_validator(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
@@ -5013,39 +4984,35 @@ def _find_fastapi_validator(
 
     Args:
         path: The request path.
-        method: The HTTP method.
 
     Returns:
         An async validator function that takes (username, request) and returns
         True if authorized, or None if the route is handled by Flask (WSGI).
     """
-    # MCP routes are matched on the path as-is: `get_mcp_server_api_route_prefixes()`
-    # already returns the prefixed form when `--static-prefix` is set.
-    if is_mcp_server_api_path(path):
-        return _get_mcp_server_validator(path)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    unprefixed = (
+        path[len(static_prefix) :] if static_prefix and path.startswith(static_prefix) else path
+    )
 
-    # The routers below are registered under `--static-prefix`, so resolve the routed
-    # path back to the canonical route path they were declared at.
-    unprefixed = _strip_static_prefix(path)
-
-    if _path_under_root(unprefixed, "/gateway"):
+    if unprefixed.startswith("/gateway/"):
         return _get_gateway_validator(unprefixed)
 
-    if _path_under_root(unprefixed, "/v1/traces"):
+    if unprefixed.startswith("/v1/traces"):
         return _get_otel_validator(unprefixed)
 
-    if _path_under_root(unprefixed, "/ajax-api/3.0/jobs"):
+    if unprefixed.startswith("/ajax-api/3.0/jobs"):
         return _get_require_authentication_validator()
 
-    if _path_under_root(unprefixed, "/ajax-api/3.0/mlflow/assistant"):
+    if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
-    # `artifact_router` is NOT registered under `--static-prefix` (see
-    # `create_fastapi_app`), so this matches the raw path: only unprefixed artifact
-    # requests are served natively here. Prefixed ones fall through to Flask, which
-    # owns their authorization, and must not be claimed here or auth runs twice.
+    # `artifact_router` is not registered under `--static-prefix`, so this matches the
+    # raw path; prefixed artifact requests fall through to Flask, which owns their auth.
     if _is_native_fastapi_proxy_artifact_path(path, method):
         return _get_fastapi_proxy_artifact_validator(path, method)
+
+    if is_mcp_server_api_path(path):
+        return _get_mcp_server_validator(path)
 
     return None
 

@@ -149,6 +149,15 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_stream_url_includes_static_prefix(client, monkeypatch):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    response = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hello"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["stream_url"].startswith("/myprefix/ajax-api/3.0/mlflow/assistant/sessions/")
+
+
 def test_stream_not_found_for_invalid_session(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/sessions/invalid-session-id/stream")
     assert response.status_code == 404
@@ -889,7 +898,7 @@ class _CaptureProvider(MockProvider):
         cwd=None,
         context=None,
     ):
-        self.captured = {"prompt": prompt, "context": context or {}}
+        self.captured = {"prompt": prompt, "tracking_uri": tracking_uri, "context": context or {}}
         yield Event.from_result(result=None, session_id="prov-done")
 
 
@@ -919,6 +928,28 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
 
     assert provider.captured["prompt"] == "what is 2+2"
     assert "tool_decisions" not in provider.captured["context"]
+
+
+@pytest.mark.asyncio
+async def test_stream_tracking_uri_includes_static_prefix(monkeypatch):
+    from mlflow.server.assistant.api import stream_response
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["tracking_uri"] == "http://localhost:5000/myprefix"
 
 
 @pytest.mark.asyncio
