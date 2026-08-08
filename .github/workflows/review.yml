@@ -191,8 +191,7 @@ jobs:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number || github.event.issue.number }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
         run: |
@@ -210,7 +209,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $REPO $PR_NUMBER" \
+            "/pr-review $PR_URL" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
