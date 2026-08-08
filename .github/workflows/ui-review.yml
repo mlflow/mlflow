@@ -185,8 +185,8 @@ jobs:
               "sonnet",
               "haiku",
               "claude-fable-5",
-              "claude-opus-4-7",
-              "claude-sonnet-4-6",
+              "claude-opus-5",
+              "claude-sonnet-5",
               "claude-haiku-4-5",
           ]
           EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
@@ -199,7 +199,7 @@ jobs:
 
           parser = argparse.ArgumentParser(add_help=False)
           # -m/--model and -e/--effort mirror the /review command.
-          parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-4-7")
+          parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-5")
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
           args = parser.parse_args(tokens)
 
