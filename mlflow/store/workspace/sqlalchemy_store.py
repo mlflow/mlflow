@@ -20,6 +20,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
+from mlflow.store.tracking._sqlalchemy_workspace_lifecycle import (
+    delete_workspace_dependencies,
+    reassign_workspace_dependencies,
+)
 from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDataset,
     SqlExperiment,
@@ -49,11 +53,15 @@ _logger = logging.getLogger(__name__)
 _CACHE_MISS = object()
 
 # Root workspace-aware ORM models whose workspace column must be handled before deleting a
-# workspace. SqlRegisteredModel is first because its onupdate="CASCADE" foreign keys
-# automatically propagate the change to model_versions, registered_model_tags,
-# model_version_tags, and registered_model_aliases.
+# workspace. The order is significant because each CASCADE query autoflushes prior deletions:
+# guardrails must be deleted before their scorer versions under experiments, and endpoints must be
+# deleted before model definitions that are still referenced by endpoint model mappings.
+# SqlRegisteredModel remains first because its onupdate="CASCADE" foreign keys automatically
+# propagate the change to model_versions, registered_model_tags, model_version_tags, and
+# registered_model_aliases.
 _WORKSPACE_ROOT_MODELS = [
     SqlRegisteredModel,
+    SqlGatewayGuardrail,
     SqlExperiment,
     SqlEvaluationDataset,
     SqlWebhook,
@@ -61,7 +69,6 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayEndpoint,
     SqlGatewayModelDefinition,
     SqlGatewayBudgetPolicy,
-    SqlGatewayGuardrail,
     SqlJob,
     SqlMCPServer,
 ]
@@ -221,6 +228,7 @@ class SqlAlchemyStore(AbstractStore):
                                 INVALID_STATE,
                             )
                 elif mode == WorkspaceDeletionMode.CASCADE:
+                    delete_workspace_dependencies(session, workspace_name)
                     for model in _WORKSPACE_ROOT_MODELS:
                         instances = (
                             session.query(model).filter(model.workspace == workspace_name).all()
@@ -234,25 +242,29 @@ class SqlAlchemyStore(AbstractStore):
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
                             synchronize_session=False,
                         )
+                    reassign_workspace_dependencies(session, workspace_name, DEFAULT_WORKSPACE_NAME)
                 else:
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid workspace deletion mode {mode!r}. "
                         "Expected one of: RESTRICT, CASCADE, SET_DEFAULT."
                     )
+                session.flush()
                 session.delete(entity)
+                session.flush()
             except IntegrityError as exc:
                 if mode == WorkspaceDeletionMode.SET_DEFAULT:
                     message = (
-                        f"Cannot delete workspace '{workspace_name}': resources in this workspace "
-                        f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
-                        f"workspace. Resolve naming conflicts before deleting. Error: {exc}"
+                        f"Cannot delete workspace '{workspace_name}': resources in this "
+                        f"workspace conflict with existing resources in the "
+                        f"'{DEFAULT_WORKSPACE_NAME}' workspace. Resolve naming conflicts "
+                        f"before deleting. Error: {exc}"
                     )
                 else:
                     message = (
                         f"Cannot delete workspace '{workspace_name}': deletion failed due to "
-                        f"database integrity constraints while operating in '{mode.value}' mode. "
-                        "This often indicates that related resources still reference this "
-                        f"workspace. Error: {exc}"
+                        f"database integrity constraints while operating in '{mode.value}' "
+                        "mode. This often indicates that related resources still reference "
+                        f"this workspace. Error: {exc}"
                     )
                 raise MlflowException(message, INVALID_STATE) from exc
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
