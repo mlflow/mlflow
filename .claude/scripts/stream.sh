@@ -9,7 +9,7 @@ tee "${1:-/dev/null}" \
         "🤖 \(.text)"
       elif .type == "tool_use" then
         "🔧 \(.name)\(if .input then ": \(.input | tostring | .[0:200])" else "" end)"
-      elif .type == "thinking" then
+      elif .type == "thinking" and (.thinking | length) > 0 then
         "🧠 thinking (\(.thinking | length) chars)"
       else
         empty
