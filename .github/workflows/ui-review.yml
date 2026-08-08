@@ -275,6 +275,7 @@ jobs:
             --model "$MODEL" \
             --effort "$EFFORT" \
             --max-budget-usd 8 \
+            --permission-mode auto \
             --print \
             --verbose \
             --output-format stream-json \
