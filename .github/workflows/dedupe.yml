@@ -1,0 +1,147 @@
+# Comment on new issues with links to likely duplicates.
+#
+# Two jobs so prompt injection in an issue body cannot become a write: `dedupe`
+# runs Claude read-only and emits only issue numbers, `comment` holds
+# `issues: write` and renders a fixed template from them.
+
+name: dedupe
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    paths:
+      - .github/workflows/dedupe.yml
+      - .claude/skills/issue-dedupe/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  dedupe:
+    # Skip bots: the comment asks the reporter to close their issue, which a bot
+    # will not act on. The pull_request branch is a smoke test; `comment` is
+    # skipped there.
+    if: >
+      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot')
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      issue_number: ${{ steps.target.outputs.issue_number }}
+      duplicates: ${{ steps.claude.outputs.duplicates }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .claude
+
+      - name: Resolve target issue
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "issues" ]; then
+            number="$ISSUE_NUMBER"
+          else
+            # Target the newest issue so no fixture needs maintaining.
+            number=$(gh issue list --repo "$REPO" --state open --limit 1 --json number --jq '.[0].number')
+          fi
+          echo "issue_number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Install Claude CLI
+        run: |
+          .claude/scripts/install-claude.sh
+
+      - name: Find duplicates
+        id: claude
+        env:
+          # Read-only: injection in the issue body cannot post, label, or close.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.target.outputs.issue_number }}
+        run: |
+          OUTPUT_FILE="/tmp/output.jsonl"
+          EXIT_CODE=0
+          timeout 10m claude \
+            --model claude-sonnet-4-6 \
+            --effort medium \
+            --max-budget-usd 1 \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "/issue-dedupe $REPO $ISSUE_NUMBER" \
+            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "Warning: Claude command timed out after 10 minutes"
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Error: Claude command failed with exit code $EXIT_CODE"
+            cat "$OUTPUT_FILE"
+            exit $EXIT_CODE
+          fi
+
+          # Drop anything that is not a positive integer, plus the issue itself
+          # and repeats. Order is the model's ranking, so do not sort.
+          duplicates='[]'
+          if [ -s /tmp/dedupe-payload.json ]; then
+            duplicates=$(jq -c --argjson base "$ISSUE_NUMBER" '
+              [.duplicates[]? | numbers | select(. > 0 and . != $base and floor == .)]
+              | reduce .[] as $n ([]; if index($n) then . else . + [$n] end)
+              | .[:3]
+            ' /tmp/dedupe-payload.json) || duplicates='[]'
+          fi
+          echo "duplicates=$duplicates" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Dedupe"
+            echo "- issue: #$ISSUE_NUMBER"
+            echo "- duplicates: $duplicates"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  comment:
+    needs: dedupe
+    if: github.event_name == 'issues' && needs.dedupe.outputs.duplicates != '[]'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Post duplicates comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.dedupe.outputs.issue_number }}
+          DUPLICATES: ${{ needs.dedupe.outputs.duplicates }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          count=$(jq length <<< "$DUPLICATES")
+          links=$(jq -r --arg repo "$REPO" '
+            to_entries
+            | map("\(.key + 1). https://github.com/\($repo)/issues/\(.value)")
+            | join("\n")
+          ' <<< "$DUPLICATES")
+          {
+            echo "Found $count possible duplicate issue(s):"
+            echo
+            echo "$links"
+            echo
+            echo "If one of these already covers your report, please close this issue and 👍 the existing one instead so the discussion stays in one place."
+            echo
+            echo "---"
+            echo "🤖 This comment was generated by AI and may be incorrect. A maintainer will review."
+            echo "[Workflow run]($RUN_URL)"
+          } | gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file -
