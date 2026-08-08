@@ -275,6 +275,8 @@ jobs:
             --model "$MODEL" \
             --effort "$EFFORT" \
             --max-budget-usd 8 \
+            --permission-mode auto \
+            --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
             --verbose \
             --output-format stream-json \
