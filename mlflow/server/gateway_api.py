@@ -7,6 +7,7 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
+import json
 import logging
 import sys
 import time
@@ -110,6 +111,28 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
     cached_body = getattr(request.state, "cached_body", None)
     if isinstance(cached_body, dict):
         return cached_body
+
+    content_encoding = request.headers.get("content-encoding", "").lower()
+    if content_encoding == "zstd":
+        try:
+            import zstandard
+        except ImportError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Received a zstd-encoded request body, but the `zstandard` package "
+                    "is not installed. Install it with: pip install zstandard"
+                ),
+            )
+        raw_body = await request.body()
+        try:
+            raw_body = zstandard.ZstdDecompressor().decompress(raw_body)
+        except zstandard.ZstdError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid zstd payload: {e!s}")
+        try:
+            return json.loads(raw_body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
     # Otherwise parse it now
     try:
