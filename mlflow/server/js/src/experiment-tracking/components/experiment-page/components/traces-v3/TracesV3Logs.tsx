@@ -96,6 +96,7 @@ import {
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
+import { useScorerDescriptions } from '../../../../pages/experiment-scorers/hooks/useScorerDescriptions';
 
 const JudgeContextProvider = ({
   children,
@@ -233,6 +234,9 @@ const TracesV3LogsImpl = React.memo(
 
     const getTrace = getTraceV3;
 
+    // The scorer registry is per-experiment, so multi-experiment views retain the generic tooltip.
+    const scorerDescriptionsByName = useScorerDescriptions(singleExperimentId);
+
     // Get metadata
     const {
       assessmentInfos,
@@ -248,6 +252,7 @@ const TracesV3LogsImpl = React.memo(
       timeRange,
       filterByLoggedModelId: loggedModelId,
       disabled: isQueryDisabled,
+      scorerDescriptionsByName,
     });
 
     // Setup table states
