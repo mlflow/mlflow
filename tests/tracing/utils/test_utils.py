@@ -868,3 +868,97 @@ def test_dump_span_attribute_value_handles_type_error():
 
     # Must not raise; fall back result is a valid JSON string containing repr(value).
     assert result == json.dumps(repr(value), ensure_ascii=False)
+
+
+def test_databricks_bare_endpoint_name_resolves_cost():
+    """Bare Databricks endpoint name (no 'databricks/' prefix, no MODEL_PROVIDER attribute)
+    must return a non-zero cost.
+
+    Regression: cost_per_token('databricks-claude-opus-4-8') raises
+    BadRequestError because litellm cannot infer the provider from the bare
+    name alone.  MLflow's existing fallback only retries with a provider when
+    the MODEL_PROVIDER span attribute is present.  Without it the cost returns
+    None and the UI renders $0.00 for ~1.6M tracked tokens.
+    """
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider=None,  # attribute absent from the span
+    )
+    assert result is not None, (
+        "Cost must not be None for databricks-claude-opus-4-8 even when MODEL_PROVIDER is absent"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens on databricks-claude-opus-4-8"
+    )
+
+
+def test_non_databricks_model_not_repriced_as_databricks():
+    """gpt-4o must still resolve correctly and must NOT receive the databricks provider."""
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="gpt-4o",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+        model_provider=None,
+    )
+    assert result is not None, "gpt-4o cost must resolve without provider"
+    assert result[CostKey.INPUT_COST] > 0
+    # Confirm the result matches what litellm returns directly, ruling out any
+    # accidental databricks-provider repricing:
+    from litellm import cost_per_token as _cpt
+
+    expected_input, _ = _cpt(model="gpt-4o", prompt_tokens=1_000, completion_tokens=500)
+    assert abs(result[CostKey.INPUT_COST] - expected_input) < 1e-9, (
+        "gpt-4o price must not change due to the databricks-name fix"
+    )
+
+
+def test_databricks_slash_prefixed_name_resolves_cost():
+    """'databricks/' prefix (e.g. 'databricks/databricks-claude-opus-4-8') must
+    return non-zero cost even when MODEL_PROVIDER attribute is absent.
+    """
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks/databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider=None,
+    )
+    assert result is not None, (
+        "Cost must not be None for databricks/databricks-claude-opus-4-8 without provider"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens on databricks/databricks-claude-opus-4-8"
+    )
+
+
+def test_explicit_model_provider_passed_through():
+    """When model_provider='databricks' is supplied explicitly, cost resolves correctly.
+    Proves the effective_provider path still works after the model_provider rename.
+    """
+    result = calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-opus-4-8",
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
+        model_provider="databricks",
+    )
+    assert result is not None, (
+        "Cost must not be None when model_provider='databricks' is explicitly supplied"
+    )
+    assert result[CostKey.INPUT_COST] > 0, (
+        "Input cost must be > 0 for 1M tokens with explicit databricks provider"
+    )
+
+
+def test_non_string_model_name_does_not_raise():
+    """A non-string truthy model_name (e.g. an integer) must not raise AttributeError.
+
+    The isinstance(model_name, str) guard added alongside the startswith() check
+    prevents AttributeError when a caller passes a non-string value that slips past
+    the earlier falsy guard.
+    """
+    # An integer is truthy, so it passes `if not model_name`, but calling
+    # .startswith() on it would raise AttributeError without the isinstance guard.
+    result = calculate_cost_by_model_and_token_usage(
+        model_name=12345,  # type: ignore[arg-type]
+        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+        model_provider=None,
+    )
+    # The function may return None (no matching model), but it must not raise.
+    assert result is None or isinstance(result, dict)
