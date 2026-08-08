@@ -14,7 +14,10 @@ from mlflow.assistant.providers.openai_compatible import (
     _strip_think_blocks,
     _trim_session,
 )
-from mlflow.assistant.providers.tool_executor import static_permission_error
+from mlflow.assistant.providers.tool_executor import (
+    RENDER_CUSTOM_VIEW_TOOL_NAME,
+    static_permission_error,
+)
 from mlflow.assistant.types import EventType
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 
@@ -111,6 +114,12 @@ def config_file(tmp_path):
     with patch("mlflow.assistant.config.CONFIG_PATH", cfg):
         yield cfg
     clear_config_cache()
+
+
+def test_supports_client_tools_is_true(provider):
+    # Schema-based providers pause on a CLIENT_TOOLS call and resume on the next
+    # stream once a result is posted (see the pause/resume tests below).
+    assert provider.supports_client_tools is True
 
 
 # ---------------------------------------------------------------------------
@@ -698,6 +707,28 @@ def _tool_call_turns():
     return [turn1, turn2]
 
 
+def _client_tool_call_turns():
+    turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {
+                            "name": RENDER_CUSTOM_VIEW_TOOL_NAME,
+                            "arguments": '{"title": "Trace Summary", "messages": []}',
+                        },
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
+    return [turn1, turn2]
+
+
 def _done_session_id(events) -> str:
     for e in reversed(events):
         if e.type == EventType.DONE:
@@ -918,6 +949,165 @@ async def test_astream_fresh_message_after_abandoned_tool_call(provider):
         for m in final
     )
     assert any(m.get("role") == "user" and m.get("content") == "what is 2+2" for m in final)
+
+
+@pytest.mark.asyncio
+async def test_astream_pauses_at_client_tool_call_without_prompting(provider):
+    # A CLIENT_TOOLS call (e.g. render_custom_view) never goes through execute_tool or the
+    # static permission gate — it always pauses for the client to execute, even though this
+    # provider is NOT full-access and has no static allowlist entry for the tool name.
+    session, _calls = _make_aiohttp_session([_client_tool_call_turns()[0]])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("should not run", False)),
+        ) as mock_tool,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "build me a view", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+
+    mock_tool.assert_not_awaited()
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
+    client_calls = [e for e in events if e.type == EventType.CLIENT_TOOL_CALL]
+    assert len(client_calls) == 1
+    assert client_calls[0].data["request_id"] == "call_1"
+    assert client_calls[0].data["tool_name"] == RENDER_CUSTOM_VIEW_TOOL_NAME
+    assert client_calls[0].data["tool_input"] == {"title": "Trace Summary", "messages": []}
+    # The tool-use block is surfaced before the pause, same as a permission prompt.
+    tool_use_messages = [
+        e
+        for e in events
+        if e.type == EventType.MESSAGE
+        and isinstance(e.data["message"]["content"], list)
+        and e.data["message"]["content"][0].get("name") == RENDER_CUSTOM_VIEW_TOOL_NAME
+    ]
+    assert len(tool_use_messages) == 1
+    assert events[-1].type == EventType.DONE
+
+    history = json.loads(_done_session_id(events))
+    assert history[-1]["role"] == "assistant"
+    assert history[-1].get("tool_calls")
+    assert not any(m.get("role") == "tool" for m in history)
+
+
+@pytest.mark.asyncio
+async def test_astream_resume_with_client_tool_result_continues(provider):
+    # Pause to capture the persisted history.
+    s1, _ = _make_aiohttp_session([_client_tool_call_turns()[0]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=s1,
+    ):
+        ev1 = [
+            e
+            async for e in provider.astream(
+                "build me a view", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    history = _done_session_id(ev1)
+
+    # Resume with the client-reported result: the tool result is spliced in and the
+    # loop continues to a normal model turn — no re-prompting, no server execution.
+    s2, _ = _make_aiohttp_session([_client_tool_call_turns()[1]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=s2,
+    ):
+        ev2 = [
+            e
+            async for e in provider.astream(
+                "",
+                "http://localhost:5000",
+                mlflow_session_id=_SESSION_ID,
+                session_id=history,
+                context={
+                    "client_tool_results": {
+                        "call_1": {"content": "Applied successfully.", "is_error": False}
+                    }
+                },
+            )
+        ]
+
+    assert not any(
+        e.type in (EventType.PERMISSION_REQUEST, EventType.CLIENT_TOOL_CALL) for e in ev2
+    )
+    tool_results = [
+        e
+        for e in ev2
+        if e.type == EventType.MESSAGE
+        and isinstance(e.data["message"]["content"], list)
+        and e.data["message"]["content"][0].get("content") == "Applied successfully."
+    ]
+    assert len(tool_results) == 1
+    assert any(
+        e.type == EventType.STREAM_EVENT and e.data["event"]["delta"]["text"] == "Done" for e in ev2
+    )
+
+    final = json.loads(_done_session_id(ev2))
+    assert any(
+        m.get("role") == "tool"
+        and m.get("tool_call_id") == "call_1"
+        and m.get("content") == "Applied successfully."
+        for m in final
+    )
+
+
+@pytest.mark.asyncio
+async def test_astream_resume_with_client_tool_error_result_continues(provider):
+    s1, _ = _make_aiohttp_session([_client_tool_call_turns()[0]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=s1,
+    ):
+        ev1 = [
+            e
+            async for e in provider.astream(
+                "build me a view", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    history = _done_session_id(ev1)
+
+    s2, _ = _make_aiohttp_session([_client_tool_call_turns()[1]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=s2,
+    ):
+        ev2 = [
+            e
+            async for e in provider.astream(
+                "",
+                "http://localhost:5000",
+                mlflow_session_id=_SESSION_ID,
+                session_id=history,
+                context={
+                    "client_tool_results": {
+                        "call_1": {"content": "Failed to render: invalid spec.", "is_error": True}
+                    }
+                },
+            )
+        ]
+
+    error_results = [
+        e
+        for e in ev2
+        if e.type == EventType.MESSAGE
+        and isinstance(e.data["message"]["content"], list)
+        and e.data["message"]["content"][0].get("content") == "Failed to render: invalid spec."
+    ]
+    assert len(error_results) == 1
+    assert error_results[0].data["message"]["content"][0]["is_error"] is True
+    final = json.loads(_done_session_id(ev2))
+    assert any(
+        m.get("role") == "tool" and m.get("tool_call_id") == "call_1" for m in final
+    )
 
 
 @pytest.mark.asyncio
