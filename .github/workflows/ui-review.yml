@@ -179,16 +179,12 @@ jobs:
           import shlex
           import sys
 
-          MODEL_CHOICES = [
-              "fable",
-              "opus",
-              "sonnet",
-              "haiku",
-              "claude-fable-5",
-              "claude-opus-5",
-              "claude-sonnet-5",
-              "claude-haiku-4-5",
-          ]
+          MODEL_ALIASES = {
+              "fable": "claude-fable-5",
+              "opus": "claude-opus-5",
+              "sonnet": "claude-sonnet-5",
+          }
+          MODEL_CHOICES = [*MODEL_ALIASES, *MODEL_ALIASES.values()]
           EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
 
           body = sys.stdin.read().strip().removeprefix("/ui-review")
@@ -202,8 +198,9 @@ jobs:
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-5")
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
           args = parser.parse_args(tokens)
+          model = MODEL_ALIASES.get(args.model, args.model)
 
-          sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
+          sys.stdout.write(f"model={model}\neffort={args.effort}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
