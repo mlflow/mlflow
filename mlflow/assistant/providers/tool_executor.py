@@ -57,6 +57,16 @@ def static_permission_error(
                 f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
                 "commands are allowed"
             )
+        # python/python3 can run arbitrary code, including reading any file the
+        # process can access, so require the same configured project directory
+        # Read/Write/Edit do below. Without this, GHSA-27c7-qx3r-x4f8's impact
+        # (arbitrary file read when cwd is None) is reachable via
+        # Bash("python3 -c \"print(open(path).read())\"") even though Read
+        # itself is denied. mlflow CLI commands are unaffected: they don't
+        # carry the same arbitrary file-access surface, so they stay usable
+        # without a configured project directory.
+        if argv[0] in {"python", "python3"} and cwd is None:
+            return f"Permission denied: {argv[0]} requires a configured project directory"
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
         return f"Permission denied: {tool_name} is not allowed"
@@ -64,8 +74,10 @@ def static_permission_error(
     if tool_name in {"Write", "Edit"} and not cwd:
         return f"Permission denied: {tool_name} requires a configured project directory"
 
-    if tool_name in _FILE_TOOLS and cwd:
+    if tool_name in _FILE_TOOLS:
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
+            if cwd is None:
+                return f"Permission denied: {tool_name} requires a configured project directory"
             target = _resolve_file_path(raw_path, cwd)
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"

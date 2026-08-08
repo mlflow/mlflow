@@ -149,6 +149,80 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_fills_in_working_dir_once_experiment_id_arrives(client, tmp_path):
+    # A session started with no experiment_id has no working_dir, so file
+    # tools (Read, and Bash + python/python3) are denied. Related to
+    # GHSA-27c7-qx3r-x4f8: if a later message in the same session provides an
+    # experiment_id, working_dir must be filled in rather than staying None
+    # for the lifetime of the session.
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+    client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"projects": {"exp-456": {"type": "local", "location": str(project_dir)}}},
+    )
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello"},
+    )
+    session_id = response.json()["session_id"]
+    session = SessionManager.load(session_id)
+    assert session.working_dir is None
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Now use my project",
+            "session_id": session_id,
+            "experiment_id": "exp-456",
+        },
+    )
+    assert response.status_code == 200
+
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+
+def test_message_does_not_overwrite_existing_working_dir(client, tmp_path):
+    # A session's working_dir, once configured, must not be silently
+    # replaced by a different experiment_id on a later message in the same
+    # session.
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+    other_dir = tmp_path / "other_project"
+    other_dir.mkdir()
+    client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={
+            "projects": {
+                "exp-456": {"type": "local", "location": str(project_dir)},
+                "exp-789": {"type": "local", "location": str(other_dir)},
+            }
+        },
+    )
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello", "experiment_id": "exp-456"},
+    )
+    session_id = response.json()["session_id"]
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+    client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Switch projects?",
+            "session_id": session_id,
+            "experiment_id": "exp-789",
+        },
+    )
+
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+
 def test_stream_not_found_for_invalid_session(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/sessions/invalid-session-id/stream")
     assert response.status_code == 404

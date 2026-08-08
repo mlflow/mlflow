@@ -797,6 +797,98 @@ async def test_astream_resume_allow_executes_and_continues(provider):
     )
 
 
+def _two_read_calls_turn():
+    return [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {
+                            "name": "Read",
+                            "arguments": '{"file_path": "/etc/passwd"}',
+                        },
+                    },
+                    {
+                        "index": 1,
+                        "id": "call_2",
+                        "function": {
+                            "name": "Read",
+                            "arguments": '{"file_path": "/etc/shadow"}',
+                        },
+                    },
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_astream_resume_allow_does_not_leak_to_other_calls(provider):
+    # Regression guard for GHSA-27c7-qx3r-x4f8 review discussion: an explicit
+    # Allow for one cwd=None-denied call must not implicitly authorize a
+    # different call still awaiting its own decision, even in the same
+    # resumed turn. Uses Read (denied because cwd is None) rather than an
+    # unrelated Bash allowlist miss, to exercise the exact class of call this
+    # advisory covers.
+    s1, _ = _make_aiohttp_session([_two_read_calls_turn()])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=s1,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("x", False)),
+        ) as mt1,
+    ):
+        ev1 = [
+            e
+            async for e in provider.astream(
+                "read some files", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    mt1.assert_not_awaited()
+    prompts1 = [e for e in ev1 if e.type == EventType.PERMISSION_REQUEST]
+    assert len(prompts1) == 1
+    assert prompts1[0].data["request_id"] == "call_1"
+    history = _done_session_id(ev1)
+
+    # Resume with Allow for call_1 only. The pending tool_calls are already in
+    # history, so no new model call happens; execute_tool is invoked directly.
+    s2, _ = _make_aiohttp_session([])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=s2,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("passwd contents", False)),
+        ) as mt2,
+    ):
+        ev2 = [
+            e
+            async for e in provider.astream(
+                "",
+                "http://localhost:5000",
+                mlflow_session_id=_SESSION_ID,
+                session_id=history,
+                context={"tool_decisions": {"call_1": "allow"}},
+            )
+        ]
+
+    mt2.assert_awaited_once()
+    assert mt2.await_args.kwargs["permissions"].full_access is True
+
+    # call_2 gets its own fresh prompt: the Allow for call_1 did not leak.
+    prompts2 = [e for e in ev2 if e.type == EventType.PERMISSION_REQUEST]
+    assert len(prompts2) == 1
+    assert prompts2[0].data["request_id"] == "call_2"
+
+
 @pytest.mark.asyncio
 async def test_astream_resume_deny_skips_execution(provider):
     s1, _ = _make_aiohttp_session([_tool_call_turns()[0]])
@@ -966,7 +1058,9 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
     ("tool_name", "tool_input", "allowed"),
     [
         ("Bash", {"command": "mlflow experiments search"}, True),
-        ("Bash", {"command": "python script.py"}, True),
+        # Regression guard for GHSA-27c7-qx3r-x4f8: python/python3 must be denied
+        # without a configured project directory (cwd=None), same as Read/Write/Edit.
+        ("Bash", {"command": "python script.py"}, False),
         ("Bash", {"command": "rm -rf /"}, False),
         ("Bash", {"command": "ls"}, False),
     ],
@@ -974,6 +1068,13 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
 def test_static_permission_error_bash_allowlist(tool_name, tool_input, allowed):
     err = static_permission_error(tool_name, tool_input, PermissionsConfig(full_access=False), None)
     assert (err is None) == allowed
+
+
+def test_static_permission_error_bash_python_allowed_with_cwd(tmp_path):
+    err = static_permission_error(
+        "Bash", {"command": "python script.py"}, PermissionsConfig(full_access=False), tmp_path
+    )
+    assert err is None
 
 
 def test_static_permission_error_full_access_allows_everything():
