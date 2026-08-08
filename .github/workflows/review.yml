@@ -277,7 +277,7 @@ jobs:
         env:
           JOB_STATUS: ${{ job.status }}
           MODEL: ${{ steps.prompt.outputs.model }}
-          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
+          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '/review' }}
         run: |
           node <<'JS'
           const fs = require('fs');
@@ -328,10 +328,7 @@ jobs:
           console.log(resultLine);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
 
-          const commentBody = process.env.COMMENT_BODY;
-          if (commentBody) {
-            fs.writeFileSync('/tmp/updated-comment.md', `${commentBody}\n\n---\n\n${resultLine}`);
-          }
+          fs.writeFileSync('/tmp/updated-comment.md', `${process.env.COMMENT_BODY}\n\n---\n\n${resultLine}`);
           JS
 
       - name: Report review results
