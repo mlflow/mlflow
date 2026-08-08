@@ -35,6 +35,7 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
+from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 
@@ -400,7 +401,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # Extract the MLflow server URL from the request for the assistant to use.
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
-    tracking_uri = str(request.base_url).rstrip("/")
+    tracking_uri = get_server_base_url(request)
     is_remote = not _is_localhost(request)
 
     async def event_generator() -> AsyncGenerator[str, None]:

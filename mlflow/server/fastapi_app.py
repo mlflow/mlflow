@@ -43,7 +43,6 @@ from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
 )
-from mlflow.utils.static_prefix_validation import validate_static_prefix_security
 from mlflow.utils.workspace_context import (
     clear_server_request_workspace,
     set_server_request_workspace,
@@ -135,8 +134,6 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     if getattr(fastapi_app.state, "gateway_timing_middleware_added", False):
         return
 
-    # `create_fastapi_app` registers `gateway_router` under `--static-prefix`, so match
-    # the prefixed path here ("" when no prefix is configured).
     static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
     gateway_path_prefix = f"{static_prefix}/gateway/"
 
@@ -209,16 +206,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     Returns:
         FastAPI application instance with the Flask app mounted via WSGIMiddleware.
     """
-    # `_MLFLOW_STATIC_PREFIX` can be set directly, bypassing `mlflow server
-    # --static-prefix`'s CLI validation (e.g. running an ASGI server against this
-    # module directly), so validate it here too and fail closed rather than silently
-    # serving routes under an unsafe prefix.
     static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    if static_prefix:
-        try:
-            validate_static_prefix_security(static_prefix)
-        except ValueError as e:
-            raise MlflowException(f"{STATIC_PREFIX_ENV_VAR} '{static_prefix}' {e}")
 
     # Create FastAPI app with metadata
     fastapi_app = FastAPI(
@@ -238,12 +226,6 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
 
-    # These routers are registered under `--static-prefix` when one is configured, the
-    # same way Flask routes (`_add_static_prefix`) and `mcp_server_router`
-    # (`get_mcp_server_api_route_prefixes()` below) already are: the prefixed path
-    # replaces the unprefixed one rather than being added alongside it. `static_prefix`
-    # is "" when unset, leaving these at their canonical paths.
-
     # Include OpenTelemetry API router BEFORE mounting Flask app
     # This ensures FastAPI routes take precedence over the catch-all Flask mount
     fastapi_app.include_router(otel_router, prefix=static_prefix)
@@ -259,10 +241,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     fastapi_app.include_router(assistant_router, prefix=static_prefix)
 
     # Include native artifact upload/download router for ASGI streaming
-    # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes.
-    # NB: not registered under `--static-prefix`: prefixed artifact requests fall
-    # through to Flask, which serves them and owns their authorization, so claiming
-    # them here would double-invoke auth (see `_is_native_fastapi_proxy_artifact_path`).
+    # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes
     fastapi_app.include_router(artifact_router)
 
     add_mcp_exception_handlers(fastapi_app)

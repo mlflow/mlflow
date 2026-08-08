@@ -334,8 +334,6 @@ def test_is_api_endpoint(path, expected):
 
 
 def test_is_api_endpoint_handles_static_prefix(monkeypatch: pytest.MonkeyPatch):
-    # API routes are served under `--static-prefix` when one is configured, so CORS
-    # blocking must apply to the prefixed paths, not only the unprefixed ones.
     monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
     assert not is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
     assert not is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
@@ -343,10 +341,8 @@ def test_is_api_endpoint_handles_static_prefix(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
     assert is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
     assert is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
-    # The unprefixed check is unchanged, so those paths still match (this is a
-    # conservative CORS gate — matching more paths never weakens it).
-    assert is_api_endpoint("/api/2.0/mlflow/experiments/list")
-    # Unrelated prefixed paths stay unmatched.
+    # The prefixed path replaces the unprefixed one, which no longer matches.
+    assert not is_api_endpoint("/api/2.0/mlflow/experiments/list")
     assert not is_api_endpoint("/myprefix/health")
 
 

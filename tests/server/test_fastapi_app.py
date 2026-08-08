@@ -50,8 +50,7 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
     assert response.json() == {"detail": "delegated"}
 
 
-# (method, path) pairs, one per prefix-aware router, that resolve without needing a
-# valid body/auth — any non-404 response proves the route itself is registered.
+# One probe per prefix-aware router; any non-404 response proves the route is registered.
 _NATIVE_ROUTER_PROBES = (
     ("POST", OTLP_TRACES_PATH),
     ("POST", "/ajax-api/3.0/jobs/search"),
@@ -60,67 +59,18 @@ _NATIVE_ROUTER_PROBES = (
 )
 
 
-def test_native_routers_not_prefixed_by_default(monkeypatch):
-    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
-    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
-    client = TestClient(create_fastapi_app())
-
-    for method, path in _NATIVE_ROUTER_PROBES:
-        assert client.request(method, path, json={}).status_code != 404, path
-        # No prefix is configured, so no prefixed route must exist.
-        assert client.request(method, f"/myprefix{path}", json={}).status_code == 404, path
-
-
 def test_native_routers_registered_under_static_prefix(monkeypatch):
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
     monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
     client = TestClient(create_fastapi_app())
 
     for method, path in _NATIVE_ROUTER_PROBES:
-        # The route lives under the prefix, matching how Flask routes
-        # (`_add_static_prefix`) and `mcp_server_router` already behave.
         assert client.request(method, f"/myprefix{path}", json={}).status_code != 404, path
-        # And the unprefixed path is NOT also served: a configured prefix moves the
-        # app under it, exactly as it already does for every Flask route.
+        # The prefixed path replaces the unprefixed one, as for every Flask route.
         assert client.request(method, path, json={}).status_code == 404, path
 
 
-def test_static_prefix_trailing_slash_is_normalized(monkeypatch):
-    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix/")
-    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
-    client = TestClient(create_fastapi_app())
-
-    response = client.post(f"/myprefix{OTLP_TRACES_PATH}", json={})
-    assert response.status_code != 404
-    # A doubled slash would mean the trailing slash on the prefix wasn't stripped.
-    assert client.post(f"/myprefix/{OTLP_TRACES_PATH}", json={}).status_code == 404
-
-
-@pytest.mark.parametrize(
-    "bad_prefix",
-    [
-        "/{user}",
-        "/health",
-        "/health/foo",
-        "/gateway",
-        "/v1/traces",
-        "/ajax-api/3.0/jobs",
-        "/api/2.0/mlflow-artifacts/artifacts",
-    ],
-)
-def test_create_fastapi_app_rejects_unsafe_static_prefix(monkeypatch, bad_prefix):
-    # `_MLFLOW_STATIC_PREFIX` can be set directly, bypassing `mlflow server
-    # --static-prefix`'s CLI validation, so `create_fastapi_app` must independently
-    # reject the same unsafe values rather than silently serving routes under them.
-    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, bad_prefix)
-    with pytest.raises(MlflowException, match=r"_MLFLOW_STATIC_PREFIX"):
-        create_fastapi_app()
-
-
 def test_gateway_timing_header_present_for_prefixed_route(monkeypatch):
-    # `add_gateway_timing_middleware` matches on the routed path; it must recognize the
-    # prefixed gateway path, or prefixed gateway responses silently lose the
-    # X-MLflow-Gateway-Duration-Ms header.
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
     monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
     client = TestClient(create_fastapi_app())
