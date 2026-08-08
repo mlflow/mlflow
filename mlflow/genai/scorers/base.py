@@ -338,13 +338,11 @@ class Scorer(BaseModel):
         """
         return self._pass_if
 
-    @experimental(version="3.9.0")
     @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
-    @experimental(version="3.9.0")
     @property
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
@@ -942,7 +940,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = SCORER_BACKEND_TRACKING
         return new_scorer
 
-    @experimental(version="3.9.0")
     def start(
         self,
         *,
@@ -1029,7 +1026,6 @@ class Scorer(BaseModel):
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def update(
         self,
         *,
@@ -1118,7 +1114,6 @@ class Scorer(BaseModel):
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.

@@ -56,7 +56,6 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RagasScorer(Scorer):
     """
@@ -277,7 +276,6 @@ class RagasScorer(Scorer):
             )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,

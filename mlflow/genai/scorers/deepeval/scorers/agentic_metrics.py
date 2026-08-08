@@ -10,7 +10,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class TaskCompletion(DeepEvalScorer):
     """
@@ -37,7 +36,6 @@ class TaskCompletion(DeepEvalScorer):
     metric_name: ClassVar[str] = "TaskCompletion"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCorrectness(DeepEvalScorer):
     """
@@ -67,7 +65,6 @@ class ToolCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ToolCorrectness"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ArgumentCorrectness(DeepEvalScorer):
     """
@@ -94,7 +91,6 @@ class ArgumentCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "ArgumentCorrectness"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class StepEfficiency(DeepEvalScorer):
     """
@@ -122,7 +118,6 @@ class StepEfficiency(DeepEvalScorer):
     metric_name: ClassVar[str] = "StepEfficiency"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanAdherence(DeepEvalScorer):
     """
@@ -150,7 +145,6 @@ class PlanAdherence(DeepEvalScorer):
     metric_name: ClassVar[str] = "PlanAdherence"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanQuality(DeepEvalScorer):
     """

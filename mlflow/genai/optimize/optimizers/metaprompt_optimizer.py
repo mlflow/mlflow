@@ -90,7 +90,6 @@ explanations or reasoning.
 """
 
 
-@experimental(version="3.9.0")
 class MetaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt optimizer that uses metaprompting with LLMs to improve prompts in a single pass.
