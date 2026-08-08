@@ -326,8 +326,6 @@ jobs:
           }
 
           console.log(resultLine);
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
-
           fs.writeFileSync('/tmp/updated-comment.md', `${process.env.COMMENT_BODY}\n\n---\n\n${resultLine}`);
           JS
 

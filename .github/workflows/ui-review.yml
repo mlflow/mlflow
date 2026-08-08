@@ -403,8 +403,6 @@ jobs:
           }
 
           console.log(resultLine);
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
-
           const MARKER = '<!-- ui-review-status -->';
           const base = process.env.COMMENT_BODY.split(MARKER)[0].replace(/\s+$/, '');
           fs.writeFileSync('/tmp/updated-comment.md', `${base}\n\n${MARKER}\n\n---\n\n${resultLine}`);
