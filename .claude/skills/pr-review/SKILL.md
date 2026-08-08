@@ -2,13 +2,6 @@
 name: pr-review
 description: Review a GitHub pull request and emit a validated local review payload (comments + approval decision)
 disable-model-invocation: true
-allowed-tools:
-  - Read
-  - Skill
-  - Bash
-  - Grep
-  - Glob
-  - Edit(//tmp/review-payload.json)
 argument-hint: "<owner_repo> <pr_number> [extra_context]"
 arguments: [owner_repo, pr_number, extra_context]
 ---
