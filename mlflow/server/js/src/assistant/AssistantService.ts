@@ -1,62 +1,24 @@
 /**
- * Service layer for Assistant Agent API calls.
+ * Service layer for Assistant Agent REST API calls.
+ *
+ * Streaming transports live in ./transports/* and are re-exported below so existing
+ * `from './AssistantService'` imports keep resolving every symbol.
  */
 
 import type {
-  MessageRequest,
-  ToolUseInfo,
-  ToolResultInfo,
   AssistantConfig,
   AssistantConfigUpdate,
   HealthCheckResult,
   InstallSkillsResponse,
-  PermissionRequest,
   ProvidersResponse,
 } from './types';
+import { API_BASE } from './transports/shared';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
-
-/** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
-const normalizeToolResultContent = (content: unknown): string => {
-  if (content == null) return '';
-  if (typeof content === 'string') return content;
-  return JSON.stringify(content, null, 2);
-};
-
-/**
- * Process a content block array from an assistant response, emitting text, tool-use,
- * and tool-result blocks in order so the transcript preserves their sequence.
- */
-export const processContentBlocks = (
-  content: any[],
-  onMessage: (text: string) => void,
-  onToolUse?: (tools: ToolUseInfo[]) => void,
-  onToolResult?: (result: ToolResultInfo) => void,
-): void => {
-  for (const block of content) {
-    if ('text' in block && block.text) {
-      onMessage(block.text);
-    } else if (block.tool_use_id) {
-      // ToolResultBlock: carries the output for a previously-streamed tool call.
-      onToolResult?.({
-        toolUseId: block.tool_use_id,
-        content: normalizeToolResultContent(block.content),
-        isError: Boolean(block.is_error),
-      });
-    } else if (block.name && block.input) {
-      // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
-      onToolUse?.([
-        {
-          id: block.id,
-          name: block.name,
-          description: block.input?.description,
-          input: block.input,
-        },
-      ]);
-    }
-  }
-};
+// Streaming transports (re-exported so callers can keep importing from './AssistantService').
+export { sendMessageStream, createEventSource, resumeStream } from './transports/eventSourceTransport';
+export { streamChatViaFetch } from './transports/fetchStreamTransport';
+export * from './transports/shared';
 
 /**
  * Check if a provider is healthy (CLI installed and authenticated).
@@ -100,13 +62,6 @@ export const updateConfig = async (config: AssistantConfigUpdate): Promise<Assis
 };
 
 /**
- * Create an EventSource for streaming responses.
- */
-export const createEventSource = (sessionId: string): EventSource => {
-  return new EventSource(`${API_BASE}/sessions/${sessionId}/stream`);
-};
-
-/**
  * Cancel an active session by terminating the backend process.
  */
 export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
@@ -114,210 +69,6 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
     method: 'PATCH',
     body: JSON.stringify({ status: 'cancelled' }),
   });
-};
-
-export interface SendMessageStreamCallbacks {
-  onMessage: (text: string) => void;
-  /** `code` is the backend's machine-readable error class when it provided one. */
-  onError: (error: string, code?: string) => void;
-  onDone: () => void;
-  onStatus?: (status: string) => void;
-  onSessionId?: (sessionId: string) => void;
-  onToolUse?: (tools: ToolUseInfo[]) => void;
-  onToolResult?: (result: ToolResultInfo) => void;
-  onInterrupted?: () => void;
-  onPermissionRequest?: (request: PermissionRequest) => void;
-  onUsage?: (usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-    cache_read_tokens?: number;
-    total_cost_usd?: number | null;
-  }) => void;
-}
-
-export interface SendMessageStreamResult {
-  eventSource: EventSource | null;
-}
-
-/**
- * Attach the SSE listeners for one streaming turn. Shared by the initial send
- * and by resumeStream so a resumed turn behaves identically.
- */
-const attachStreamListeners = (
-  eventSource: EventSource,
-  sessionId: string,
-  callbacks: SendMessageStreamCallbacks,
-): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
-    callbacks;
-
-  // Listen for 'message' events (contains assistant's response)
-  // Backend sends: {"message": {"role": "assistant", "content": "..."}}
-  eventSource.addEventListener('message', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.message && data.message.content) {
-        const content = data.message.content;
-        if (typeof content === 'string') {
-          onMessage(content);
-        } else if (Array.isArray(content)) {
-          processContentBlocks(content, onMessage, onToolUse, onToolResult);
-        }
-      }
-    } catch (err) {
-      // fail silently
-    }
-  });
-
-  // Listen for 'stream_event' events (streaming updates)
-  // Backend sends: {"event": {...}}
-  eventSource.addEventListener('stream_event', (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.event) {
-        if (data.event.type === 'content_delta' && data.event.delta?.text) {
-          onMessage(data.event.delta.text);
-        } else if (data.event.type === 'status') {
-          onStatus?.(data.event.status);
-        } else if (data.event.type === 'usage' && data.event.usage) {
-          onUsage?.(data.event.usage);
-        }
-      }
-    } catch (err) {
-      // fail silently
-    }
-  });
-
-  // A 'permission_request' ENDS the turn: the backend pauses by closing its
-  // side after emitting the prompt. We surface it and close the stream; the
-  // user's decision is delivered via resumeStream, which opens a fresh stream
-  // to continue. This keeps the server stateless across the pause.
-  eventSource.addEventListener('permission_request', (event) => {
-    try {
-      const data = JSON.parse((event as MessageEvent).data);
-      onPermissionRequest?.({
-        // Bind the request to the session that produced it so the decision
-        // always targets the originating session.
-        sessionId,
-        requestId: data.request_id,
-        toolName: data.tool_name,
-        toolInput: data.tool_input ?? {},
-      });
-    } catch (err) {
-      onError('Failed to read a tool permission request from the assistant.');
-    }
-    eventSource.close();
-  });
-
-  // Listen for 'done' event (completion)
-  // Backend sends: {"result": null, "session_id": "..."}
-  eventSource.addEventListener('done', () => {
-    onToolUse?.([]);
-    onDone();
-    eventSource.close();
-  });
-
-  // Listen for 'interrupted' event (cancelled by user)
-  eventSource.addEventListener('interrupted', () => {
-    onInterrupted?.();
-    eventSource.close();
-  });
-
-  // Listen for 'error' event
-  eventSource.addEventListener('error', (event) => {
-    if (event.type === 'error' && (event as MessageEvent).data) {
-      try {
-        const data = JSON.parse((event as MessageEvent).data);
-        onError(data.error || 'Unknown error', data.error_code);
-      } catch {
-        onError('Connection error');
-      }
-    } else if (eventSource.readyState === EventSource.CLOSED) {
-      // Connection closed - this can happen after cancel, don't report as error
-      return;
-    } else {
-      onError('Connection error');
-    }
-    eventSource.close();
-  });
-};
-
-/**
- * Send a message and get the response stream via SSE.
- * First POSTs to /message to initiate, then connects to SSE endpoint.
- * Returns the EventSource so caller can close it if needed (e.g., on cancel).
- */
-export const sendMessageStream = async (
-  request: MessageRequest,
-  callbacks: SendMessageStreamCallbacks,
-): Promise<SendMessageStreamResult> => {
-  const { onError, onSessionId } = callbacks;
-
-  try {
-    // Step 1: POST the message to initiate processing
-    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-    const response = await fetch(`${API_BASE}/message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getDefaultHeaders(document.cookie),
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      onError(`Failed to send message: ${error}`);
-      return { eventSource: null };
-    }
-
-    // Step 2: Get the session_id from the response
-    const result = await response.json();
-    const sessionId = result.session_id;
-
-    if (!sessionId) {
-      onError('No session_id returned from server');
-      return { eventSource: null };
-    }
-
-    // Notify caller of the session ID
-    onSessionId?.(sessionId);
-
-    // Step 3: Connect to the SSE endpoint to receive the stream
-    const eventSource = createEventSource(sessionId);
-    attachStreamListeners(eventSource, sessionId, callbacks);
-    return { eventSource };
-  } catch (error) {
-    onError(error instanceof Error ? error.message : 'Unknown error');
-    return { eventSource: null };
-  }
-};
-
-/**
- * Resume a turn paused at a permission prompt: POST the decision, then open a
- * fresh stream that continues from where the turn left off. Stateless across
- * the pause — any server can serve the resume.
- */
-export const resumeStream = async (
-  sessionId: string,
-  requestId: string,
-  decision: 'allow' | 'deny',
-  callbacks: SendMessageStreamCallbacks,
-): Promise<SendMessageStreamResult> => {
-  try {
-    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permission`), {
-      method: 'POST',
-      body: JSON.stringify({ request_id: requestId, decision }),
-    });
-  } catch (error) {
-    callbacks.onError('Failed to send your permission decision. Please try again.');
-    return { eventSource: null };
-  }
-
-  const eventSource = createEventSource(sessionId);
-  attachStreamListeners(eventSource, sessionId, callbacks);
-  return { eventSource };
 };
 
 export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {

@@ -16,7 +16,7 @@ import {
   CHAT_STORAGE_VERSION,
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
-import type { SendMessageStreamCallbacks } from './AssistantService';
+import type { SendMessageStreamCallbacks, SendMessageStreamResult } from './AssistantService';
 import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
 
 const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
@@ -55,6 +55,8 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): Prov
 jest.mock('./AssistantService', () => ({
   __esModule: true,
   sendMessageStream: jest.fn(),
+  streamChatViaFetch: jest.fn(),
+  resumeStream: jest.fn(),
   getConfig: jest.fn(),
   getProviders: jest.fn(),
   updateConfig: jest.fn(() => Promise.resolve({})),
@@ -66,16 +68,31 @@ jest.mock('./AssistantPageContext', () => ({
 }));
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
+const mockStreamChatViaFetch = jest.mocked(AssistantService.streamChatViaFetch);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
 const mockGetProviders = jest.mocked(AssistantService.getProviders);
 const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
 const originalLocation = window.location;
 
-// A fake EventSource — the real one is created inside sendMessageStream, which we mock,
-// so the context only ever calls .close() on what we hand back here.
-let fakeEventSource: { close: jest.Mock };
+// The transport functions are mocked, so the context only ever calls .cancel() on the handle
+// we hand back. Capture it as a mock so teardown tests can assert it was invoked.
+let cancelMock: jest.Mock;
 // Capture the callbacks the context passes in so a test can simulate the backend streaming.
 let capturedCallbacks: SendMessageStreamCallbacks | undefined;
+
+// Config shapes that drive provider-based transport routing.
+const gatewayConfig = {
+  providers: {
+    mlflow_gateway: { model: 'm', selected: true, permissions: {}, client_carries_history: true },
+  },
+  projects: {},
+} as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>;
+const ollamaConfig = {
+  providers: {
+    ollama: { model: 'm', selected: true, permissions: {}, client_carries_history: false },
+  },
+  projects: {},
+} as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>;
 
 const wrapper = ({ children }: { children: ReactNode }) => <AssistantProvider>{children}</AssistantProvider>;
 
@@ -87,15 +104,17 @@ const renderAssistant = async () => {
 };
 
 beforeEach(() => {
+  cancelMock = jest.fn();
   localStorage.clear();
-  fakeEventSource = { close: jest.fn() };
   capturedCallbacks = undefined;
   mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
   mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
-  mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
+  const capture = async (_req: unknown, callbacks: SendMessageStreamCallbacks) => {
     capturedCallbacks = callbacks;
-    return { eventSource: fakeEventSource as unknown as EventSource };
-  });
+    return { cancel: cancelMock };
+  };
+  mockSendMessageStream.mockImplementation(capture as typeof AssistantService.sendMessageStream);
+  mockStreamChatViaFetch.mockImplementation(capture as typeof AssistantService.streamChatViaFetch);
   // Control rAF so a scheduled flush stays pending until we assert on it.
   jest.spyOn(window, 'requestAnimationFrame').mockReturnValue(777 as unknown as number);
   jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
@@ -116,13 +135,13 @@ describe('AssistantContext — reset() tears down the active stream', () => {
     await act(async () => {
       result.current.sendMessage('hello');
     });
-    expect(fakeEventSource.close).not.toHaveBeenCalled();
+    expect(cancelMock).not.toHaveBeenCalled();
 
     act(() => {
       result.current.reset();
     });
 
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(cancelMock).toHaveBeenCalledTimes(1);
   });
 
   it('cancels a pending animation frame when reset() is called', async () => {
@@ -169,14 +188,14 @@ describe('AssistantContext — reset() during the in-flight send window', () => 
   // Drive sendMessageStream with a deferred promise so reset() can run while the POST is still
   // pending — the exact window where the captured token is invalidated before the stream attaches.
   const deferSend = () => {
-    let resolveSend!: (result: { eventSource: EventSource | null }) => void;
+    let resolveSend!: (result: SendMessageStreamResult) => void;
     mockSendMessageStream.mockImplementation((_req, callbacks) => {
       capturedCallbacks = callbacks;
       return new Promise((resolve) => {
         resolveSend = resolve;
       });
     });
-    return { resolve: () => resolveSend({ eventSource: fakeEventSource as unknown as EventSource }) };
+    return { resolve: () => resolveSend({ cancel: cancelMock }) };
   };
 
   it('ignores a stale onSessionId fired after reset() (no session revival)', async () => {
@@ -215,13 +234,13 @@ describe('AssistantContext — reset() during the in-flight send window', () => 
     await act(async () => {
       send.resolve();
     });
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(cancelMock).toHaveBeenCalledTimes(1);
 
     // A second reset() must not close it again — proving it was never stored in eventSourceRef.
     act(() => {
       result.current.reset();
     });
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(cancelMock).toHaveBeenCalledTimes(1);
   });
 
   it('closes a regenerate stream orphaned by reset() during its in-flight window', async () => {
@@ -240,7 +259,7 @@ describe('AssistantContext — reset() during the in-flight send window', () => 
       capturedCallbacks?.onDone();
     });
     expect(result.current.isStreaming).toBe(false);
-    fakeEventSource.close.mockClear();
+    cancelMock.mockClear();
 
     // Regenerate, but leave its POST pending, then reset before it attaches.
     const regen = deferSend();
@@ -256,7 +275,7 @@ describe('AssistantContext — reset() during the in-flight send window', () => 
     });
 
     // The orphaned regenerate stream is closed by the guard, and the session stays cleared.
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(cancelMock).toHaveBeenCalledTimes(1);
     expect(result.current.sessionId).toBeNull();
   });
 });
@@ -647,6 +666,86 @@ describe('AssistantContext — a new message supersedes a pending permission pro
   });
 });
 
+describe('AssistantContext — provider-gated transport routing', () => {
+  it('routes the MLflow Gateway provider to the stateless fetch transport (no session_id)', async () => {
+    mockGetConfig.mockResolvedValue(gatewayConfig);
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ session_id: expect.anything() }),
+      expect.any(Object),
+    );
+  });
+
+  it('resends stored conversation history on the next gateway turn', async () => {
+    mockGetConfig.mockResolvedValue(gatewayConfig);
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('turn 1');
+    });
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[{"role":"system","content":"sys"}]');
+      capturedCallbacks?.onDone?.();
+    });
+
+    await act(async () => {
+      result.current.sendMessage('turn 2');
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ conversation_history: '[{"role":"system","content":"sys"}]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('routes a local provider (Ollama) to the legacy transport with no history fields', async () => {
+    mockGetConfig.mockResolvedValue(ollamaConfig);
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(mockStreamChatViaFetch).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: expect.anything() }),
+      expect.any(Object),
+    );
+  });
+
+  it('clears conversation history on reset so the next gateway turn omits it', async () => {
+    mockGetConfig.mockResolvedValue(gatewayConfig);
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[{"role":"system","content":"sys"}]');
+      capturedCallbacks?.onDone?.();
+    });
+    act(() => {
+      result.current.reset();
+    });
+
+    await act(async () => {
+      result.current.sendMessage('fresh start');
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: expect.anything() }),
+      expect.any(Object),
+    );
+  });
+});
 describe('reviveMessages', () => {
   it('restores a JSON-stringified timestamp back to a Date', () => {
     const serialized = JSON.parse(JSON.stringify([makeMessage()])) as ChatMessage[];
@@ -886,5 +985,65 @@ describe('AssistantContext — buffered text survives a tool call', () => {
       { type: 'text', text: 'Looking into it. ' },
       expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
     ]);
+  });
+});
+
+describe('AssistantContext — respondToPermission on the stateless gateway path', () => {
+  beforeEach(() => {
+    mockGetConfig.mockResolvedValue(gatewayConfig);
+  });
+
+  // Drive a gateway turn to a paused permission prompt: surface the request, then deliver the
+  // paused history blob the way the transport does on the done-after-pause.
+  const pauseGatewayTurn = async (result: any) => {
+    await act(async () => {
+      result.current.sendMessage('run the tool');
+    });
+    act(() => {
+      capturedCallbacks?.onPermissionRequest?.({
+        requestId: 'call-1',
+        toolName: 'bash',
+        toolInput: { command: 'ls' },
+      });
+      capturedCallbacks?.onConversationHistory?.('[{"role":"assistant","tool_calls":[]}]');
+    });
+  };
+
+  it('replays an allow decision via /chat with tool_decisions and the carried history (no new message)', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    expect(result.current.pendingPermission).not.toBeNull();
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(true);
+    });
+
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(1);
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: '',
+        tool_decisions: { 'call-1': 'allow' },
+        conversation_history: '[{"role":"assistant","tool_calls":[]}]',
+      }),
+      expect.any(Object),
+    );
+    expect(result.current.pendingPermission).toBeNull();
+  });
+
+  it('replays a deny decision via /chat with tool_decisions = deny', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(false);
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tool_decisions: { 'call-1': 'deny' } }),
+      expect.any(Object),
+    );
   });
 });
