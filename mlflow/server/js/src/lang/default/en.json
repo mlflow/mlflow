@@ -1287,6 +1287,10 @@
     "defaultMessage": "Version",
     "description": "Header for version column in linked prompts table on logged model details page"
   },
+  "4+930T": {
+    "defaultMessage": "Each point is one swept configuration. Error bars are 95% confidence intervals — configurations whose bars overlap are not distinguishable at that confidence.",
+    "description": "Evaluation runs page > sweep charts > section description"
+  },
   "4+RPaz": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
@@ -2619,6 +2623,10 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9pglAF": {
+    "defaultMessage": "Score",
+    "description": "Evaluation runs page > sweep charts > scorer interval chart > y axis title"
+  },
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
@@ -2926,6 +2934,10 @@
   "B/mYsr": {
     "defaultMessage": "View traces with this score",
     "description": "Link text to navigate to traces filtered by assessment score"
+  },
+  "B0TVpB": {
+    "defaultMessage": "Evaluation sweep comparison",
+    "description": "Evaluation runs page > sweep charts > section title"
   },
   "B1Upnc": {
     "defaultMessage": "Relevant",
@@ -3246,6 +3258,10 @@
   "CIv6H7": {
     "defaultMessage": "Local packages",
     "description": "MCP compare packages heading"
+  },
+  "CJVJ+r": {
+    "defaultMessage": "Score vs latency",
+    "description": "Evaluation runs page > sweep charts > score vs latency chart title"
   },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
@@ -5219,6 +5235,10 @@
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
   },
+  "Ljhw86": {
+    "defaultMessage": "Latency p50 (ms)",
+    "description": "Evaluation runs page > sweep charts > latency axis title"
+  },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
@@ -6466,6 +6486,10 @@
   "R1kmVV": {
     "defaultMessage": "Couldn't load reviewers. Try again.",
     "description": "Review queue: reviewers roster failed to load"
+  },
+  "R1nDCl": {
+    "defaultMessage": "Cost per request",
+    "description": "Evaluation runs page > sweep charts > cost chart title"
   },
   "R28jzs": {
     "defaultMessage": "Action",
@@ -7747,6 +7771,10 @@
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
   },
+  "We9acS": {
+    "defaultMessage": "Cost per request (USD)",
+    "description": "Evaluation runs page > sweep charts > cost axis title"
+  },
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
     "description": "Experiment dataset drawer > digest > label and value"
@@ -7882,6 +7910,10 @@
   "X3Uuiw": {
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
+  },
+  "X5rEFZ": {
+    "defaultMessage": "Sweep",
+    "description": "Type pill text for an evaluation sweep run in the evaluation runs table"
   },
   "X6P8tX": {
     "defaultMessage": "No models found",
@@ -8230,6 +8262,10 @@
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
+  },
+  "YdfRto": {
+    "defaultMessage": "Score vs cost",
+    "description": "Evaluation runs page > sweep charts > score vs cost chart title"
   },
   "YdxomH": {
     "defaultMessage": "New version of {name}",
@@ -10467,6 +10503,10 @@
     "defaultMessage": "Error",
     "description": "Model trace header > status label > error"
   },
+  "hp3B1o": {
+    "defaultMessage": "This sweep logged no latency or cost data, so only quality is shown. Cost requires a provider that reports token usage.",
+    "description": "Evaluation runs page > sweep charts > missing latency and cost notice"
+  },
   "hpAK1G": {
     "defaultMessage": "Created by:",
     "description": "Label for created by"
@@ -11779,6 +11819,10 @@
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
   },
+  "nFCB+I": {
+    "defaultMessage": "{scorer} by configuration",
+    "description": "Evaluation runs page > sweep charts > per-scorer chart title"
+  },
   "nH5645": {
     "defaultMessage": "Package arguments",
     "description": "Package arguments label"
@@ -12811,6 +12855,10 @@
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
   },
+  "rspsJX": {
+    "defaultMessage": "Latency p50",
+    "description": "Evaluation runs page > sweep charts > latency chart title"
+  },
   "rstugP": {
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
@@ -12914,6 +12962,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFpgAh": {
+    "defaultMessage": "Score",
+    "description": "Evaluation runs page > sweep charts > tradeoff chart > y axis title"
   },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
