@@ -243,10 +243,11 @@ const getBandTraceForRun = ({
     }
   }
 
-  // Place a null value in the middle to create a gap, otherwise Plotly will
-  // connect the lines and the fill will be drawn incorrectly
-  const xValues = [...xMins, null, ...xMaxes];
-  const bandValues = [...yMins, null, ...yMaxes];
+  // The reversed lower bound followed by the upper bound forms a closed ring, which
+  // "toself" fills directly. Filling to zero instead would force Plotly's autorange
+  // to include y=0 and squash the band against the top of the plot.
+  const xValues = [...xMins, ...xMaxes];
+  const bandValues = [...yMins, ...yMaxes];
 
   return {
     name: runEntry.runInfo?.runName || '',
@@ -257,7 +258,7 @@ const getBandTraceForRun = ({
     hoverlabel: undefined,
     hoverinfo: 'skip',
     line: { color: 'transparent', shape: lineShape },
-    fill: 'tozeroy',
+    fill: 'toself',
     type: 'scatter',
   } as LineChartTraceData;
 };
