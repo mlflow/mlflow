@@ -5,7 +5,6 @@ This module provides the Claude Code integration for the assistant API,
 enabling AI-powered trace analysis through the Claude Code CLI.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -15,6 +14,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
+from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -497,18 +497,12 @@ class ClaudeCodeProvider(AssistantProvider):
                 f.write(system_prompt)
             cmd.extend(["--append-system-prompt-file", system_prompt_path])
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # NB: `env` does not merge with the parent process's environment, so
+            # we copy it explicitly to let the Claude Code CLI inherit it.
+            process = SubprocessLineStream(
+                cmd,
+                input_bytes=user_message.encode("utf-8"),
                 cwd=cwd,
-                # Increase buffer limit from default 64KB to handle large JSON responses
-                # from Claude Code CLI (e.g., tool results containing large file contents)
-                limit=100 * 1024 * 1024,  # 100 MB
-                # Specify tracking URI to let Claude Code CLI inherit it
-                # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
-                # environment so we need to copy the parent process's environment explicitly.
                 env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
@@ -516,28 +510,8 @@ class ClaudeCodeProvider(AssistantProvider):
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
 
-            # Send the user message via stdin to keep it off the command line.
-            # If the CLI has already exited (e.g. bad --resume, auth failure), the
-            # pipe is broken; swallow the write error so the read loop below
-            # surfaces the CLI's actual stderr instead of a bare "Broken pipe".
-            # BrokenPipeError/ConnectionResetError are OSError subclasses; catch
-            # OSError broadly to also cover the POSIX EPIPE variant. Any write
-            # failure means the process is gone, which is exactly the case the
-            # stderr-reading path below handles.
-            if process.stdin is not None:
-                try:
-                    process.stdin.write(user_message.encode("utf-8"))
-                    await process.stdin.drain()
-                    process.stdin.close()
-                    await process.stdin.wait_closed()
-                except OSError:
-                    pass
-
             try:
-                if process.stdout is None:
-                    raise RuntimeError("Claude CLI stdout pipe was not created")
-
-                async for line in process.stdout:
+                async for line in process.lines():
                     line_str = line.decode("utf-8").strip()
                     if not line_str:
                         continue
@@ -567,15 +541,16 @@ class ClaudeCodeProvider(AssistantProvider):
             # Wait for process to complete
             await process.wait()
 
-            # Check if killed by interrupt (SIGKILL = -9)
-            if process.returncode == -9:
+            # A kill we initiated is an interrupt, not an error. `killed` is the
+            # cross-platform signal: on Windows the process exits with a positive
+            # code indistinguishable from a genuine failure, while on POSIX a
+            # kill surfaces as SIGKILL (-9).
+            if process.killed or process.returncode == -9:
                 yield Event.from_interrupted()
                 return
 
             if process.returncode != 0:
-                stderr = b""
-                if process.stderr is not None:
-                    stderr = await process.stderr.read()
+                stderr = await process.read_stderr()
                 error_msg = (
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"
