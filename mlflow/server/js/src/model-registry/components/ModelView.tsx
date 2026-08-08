@@ -155,7 +155,14 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   getOverflowMenuItems() {
-    const menuItems = [
+    const permissionLevel = this.props.model?.permission_level;
+    // Treat falsy values (undefined, '') as absent — no-auth deployments may send ''.
+    // Only MANAGE permission can delete the entire registered model.
+    if (permissionLevel && permissionLevel !== 'MANAGE') {
+      return [];
+    }
+
+    return [
       {
         id: 'delete',
         itemName: (
@@ -168,8 +175,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         disabled: this.getActiveVersionsCount() > 0,
       },
     ];
-
-    return menuItems;
   }
 
   showDeleteModal = () => {

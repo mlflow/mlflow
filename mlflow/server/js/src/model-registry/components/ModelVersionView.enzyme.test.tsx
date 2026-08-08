@@ -245,4 +245,34 @@ describe('ModelVersionView', () => {
     const linkedRun = wrapper.find('[data-testid="copied-from-link"]').at(0);
     expect(linkedRun.html()).toContain(ModelRegistryRoutes.getModelVersionPageRoute('Model B', '2'));
   });
+  test('should hide delete option when permission_level is READ', () => {
+    const props = {
+      ...minimalProps,
+      modelVersion: {
+        ...mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
+        permission_level: 'READ',
+      },
+    };
+    wrapper = createComponentInstance(props);
+    expect(wrapper.find('button[data-testid="overflow-menu-trigger"]').length).toBe(0);
+  });
+  test('should show delete option when permission_level is EDIT', () => {
+    const props = {
+      ...minimalProps,
+      modelVersion: {
+        ...mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
+        permission_level: 'EDIT',
+      },
+    };
+    wrapper = createComponentInstance(props);
+    expect(wrapper.find('button[data-testid="overflow-menu-trigger"]').length).toBe(1);
+  });
+  test('should show delete option when permission_level is undefined (no-auth)', () => {
+    const props = {
+      ...minimalProps,
+      modelVersion: mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
+    };
+    wrapper = createComponentInstance(props);
+    expect(wrapper.find('button[data-testid="overflow-menu-trigger"]').length).toBe(1);
+  });
 });
