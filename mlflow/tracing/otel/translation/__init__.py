@@ -373,8 +373,23 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Modified span dictionary
     """
-    attributes = span_dict.get("attributes", {})
+    translate_loaded_span_with_status(span_dict)
+    return span_dict
 
+
+def translate_loaded_span_with_status(span_dict: dict[str, Any]) -> bool:
+    """
+    Apply load-time span translations and report whether the dict changed.
+
+    Returns:
+        True if ``span_dict`` was modified, False otherwise.
+    """
+    attributes = span_dict.get("attributes")
+    created_attributes = attributes is None
+    if created_attributes:
+        attributes = {}
+
+    modified = False
     try:
         if current_raw := attributes.get(SpanAttributeKey.SPAN_TYPE):
             current_type = try_json_loads(current_raw)
@@ -383,11 +398,15 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
         if current_type in (None, SpanType.UNKNOWN):
             if mlflow_type := translate_span_type_from_otel(attributes):
                 attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+                modified = True
     except Exception:
         _logger.debug("Failed to translate span type", exc_info=True)
 
-    span_dict["attributes"] = attributes
-    return span_dict
+    # Avoid injecting an empty attributes object when nothing changed so stored
+    # JSON can be passed through unchanged for artifact responses.
+    if modified or not created_attributes:
+        span_dict["attributes"] = attributes
+    return modified
 
 
 def update_token_usage(
