@@ -403,6 +403,7 @@ jobs:
             resultLine += `\n\nSee [workflow logs](${jobRunUrl}) for details.`;
           }
 
+          console.log(resultLine);
           fs.writeFileSync('/tmp/result-body.md', resultLine);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
           JS
@@ -414,8 +415,8 @@ jobs:
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          # split(...)[0] drops any status block from an earlier attempt, so a
-          # re-run replaces it instead of stacking another one below it.
+          # split(...)[0] strips the status block that React appended, so the
+          # result replaces it rather than stacking below it.
           {
             gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
               --jq '.body | split("<!-- ui-review-status -->")[0] | sub("\\s+$";"")'
