@@ -1284,6 +1284,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return is_nan, value
 
     def _log_metrics(self, run_id, metrics):
+        # Retry the whole metric write on a DB deadlock. Each attempt opens a fresh managed
+        # session inside ``_log_metrics_once`` (retrying a rolled-back session would not work),
+        # so a deadlock victim's log_metric/log_batch is transparently redriven instead of
+        # surfacing an HTTP 503. Reuses the same helper that guards the trace-write path.
+        return self._run_with_deadlock_retry(self._log_metrics_once, run_id, metrics)
+
+    def _log_metrics_once(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
@@ -1471,7 +1478,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
         latest_metrics = {}
-        metric_keys = [m.key for m in logged_metrics]
+        # Globally sort and de-duplicate the metric keys BEFORE batching so that every
+        # concurrent transaction acquires the SqlLatestMetric row locks in the same order
+        # across ALL batches. The per-batch ``ORDER BY (run_uuid, key)`` below only enforces a
+        # consistent lock order *within* a single 500-key batch; when metric keys arrive in
+        # client-provided (unsorted) order, two writers logging the same run with
+        # differently-ordered key lists can place the same pair of rows into different batches
+        # and acquire them in opposite order, producing a PostgreSQL deadlock (40P01). Sorting
+        # the full key list first closes that cross-batch gap.
+        metric_keys = sorted({m.key for m in logged_metrics})
         # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
         # query, which may produce limit exceeded errors or poor performance on certain database
         # platforms
@@ -3619,7 +3634,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def _run_with_deadlock_retry(self, fn, *args, **kwargs):
-        """Run a trace-write operation, retrying on DB deadlocks.
+        """Run a DB-write operation, retrying on DB deadlocks.
 
         The managed session (see ``mlflow/store/db/utils.py``) surfaces a psycopg2
         DeadlockDetected / SQLAlchemy OperationalError as an ``MlflowException`` with
