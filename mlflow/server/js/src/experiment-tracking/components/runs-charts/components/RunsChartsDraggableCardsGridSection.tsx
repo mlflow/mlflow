@@ -82,6 +82,7 @@ interface RunsChartsDraggableCardsGridProps {
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  useMetricDisplayName?: boolean;
   chartRunData: RunsChartsRunData[];
   cardsConfig: RunsChartsCardConfig[];
 }
