@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "preToolUse",
+  "cwd": "/home/user/project",
+  "session_id": "test-session-001",
+  "tool_name": "fsRead",
+  "tool_input": {"path": "a.py"}
+}
