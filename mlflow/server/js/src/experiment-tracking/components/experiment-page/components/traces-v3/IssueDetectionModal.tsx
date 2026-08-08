@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Modal,
   Button,
@@ -22,10 +22,12 @@ import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
 import {
+  getIssueDetectionDirectPairs,
   ISSUE_DETECTION_PROVIDERS,
   IssueDetectionModelDropdown,
   type IssueDetectionModelSelection,
 } from './IssueDetectionModelDropdown';
+import { useAllowlistedModelPairs } from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import heroImg from '../../../../../common/static/issue-detection-empty.svg';
 
 interface IssueDetectionModalProps {
@@ -65,23 +67,34 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+  const { pairs, isLoading: isLoadingAllowlistedModelPairs } = useAllowlistedModelPairs();
+  const directPairs = useMemo(() => getIssueDetectionDirectPairs(pairs), [pairs]);
 
-  // Default to the first gateway endpoint, else the first core provider
+  // Prefer an existing LLM connection; otherwise default to the first gateway endpoint,
+  // then finally the first core provider.
   useEffect(() => {
-    if (!selection && !isLoadingEndpoints) {
-      const provider = ISSUE_DETECTION_PROVIDERS[0];
-      if (endpoints.length > 0) {
-        setSelection({
-          mode: 'endpoint',
-          endpointName: endpoints[0].name,
-          provider: provider.id,
-          model: provider.defaultModel,
-        });
-      } else {
-        setSelection({ mode: 'direct', provider: provider.id, model: provider.defaultModel });
-      }
+    if (selection || isLoadingEndpoints || isLoadingAllowlistedModelPairs) {
+      return;
     }
-  }, [selection, isLoadingEndpoints, endpoints]);
+
+    const pair = directPairs[0];
+    if (pair) {
+      setSelection({ mode: 'direct', provider: pair.provider, model: pair.model, secretId: pair.secretId });
+      return;
+    }
+
+    const provider = ISSUE_DETECTION_PROVIDERS[0];
+    if (endpoints.length > 0) {
+      setSelection({
+        mode: 'endpoint',
+        endpointName: endpoints[0].name,
+        provider: provider.id,
+        model: provider.defaultModel,
+      });
+    } else {
+      setSelection({ mode: 'direct', provider: provider.id, model: provider.defaultModel });
+    }
+  }, [selection, isLoadingEndpoints, isLoadingAllowlistedModelPairs, directPairs, endpoints]);
 
   // Direct providers use the API key already saved in AI Gateway (never asked upfront)
   const { existingSecrets } = useApiKeyConfiguration({
@@ -131,7 +144,10 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         categories: ALL_ISSUE_CATEGORIES,
         provider: selection.provider,
         model: selection.model,
-        secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
+        secret_id:
+          selection.mode === 'direct'
+            ? (secretIdOverride ?? selection.secretId ?? existingSecrets[0]?.secret_id)
+            : undefined,
         endpoint_name: selection.mode === 'endpoint' ? selection.endpointName : undefined,
       },
       {

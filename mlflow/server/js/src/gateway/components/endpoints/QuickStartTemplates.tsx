@@ -11,6 +11,7 @@ import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
 import type { CodingAgentType } from '../../types';
+import { getRequiredDefaultLLMProvider } from '../../defaultModels';
 
 import OpenAiLogo from '../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../common/static/logos/openai-dark.svg';
@@ -47,6 +48,12 @@ interface ProviderCardProps {
   componentId: string;
   compact?: boolean;
 }
+
+const getDefaultModelOptions = (provider: string): ModelOption[] =>
+  getRequiredDefaultLLMProvider(provider).models.map(({ model }) => ({
+    model,
+    endpointName: `${provider}-${model}-endpoint`,
+  }));
 
 const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
   const { theme } = useDesignSystemTheme();
@@ -223,16 +230,7 @@ const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => 
   );
 };
 
-/**
- * Quick-start templates for the gateway empty state.
- *
- * UPDATE WHEN STALE: These models are hardcoded and should be reviewed
- * periodically (e.g. each release) to ensure they still represent current,
- * popular models for each provider. Check the model catalog JSON
- * (mlflow/utils/model_prices_and_context_window.json) for available models.
- *
- * Last reviewed: 2026-04-02
- */
+/** Quick-start templates for the gateway empty state. */
 const PROVIDER_TEMPLATES: ProviderTemplate[] = [
   {
     provider: 'openai',
@@ -240,12 +238,7 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
     componentId: 'mlflow.gateway.quick_start.openai',
-    models: [
-      { model: 'gpt-5.4', endpointName: 'openai-gpt-5.4-endpoint' },
-      { model: 'gpt-5', endpointName: 'openai-gpt-5-endpoint' },
-      { model: 'gpt-5-mini', endpointName: 'openai-gpt-5-mini-endpoint' },
-      { model: 'o4-mini', endpointName: 'openai-o4-mini-endpoint' },
-    ],
+    models: getDefaultModelOptions('openai'),
   },
   {
     provider: 'anthropic',
@@ -253,24 +246,14 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
     componentId: 'mlflow.gateway.quick_start.anthropic',
-    models: [
-      { model: 'claude-opus-4-6', endpointName: 'anthropic-claude-opus-endpoint' },
-      { model: 'claude-sonnet-4-6', endpointName: 'anthropic-claude-sonnet-endpoint' },
-      { model: 'claude-sonnet-4-5', endpointName: 'anthropic-claude-sonnet-4-5-endpoint' },
-      { model: 'claude-haiku-4-5', endpointName: 'anthropic-claude-haiku-endpoint' },
-    ],
+    models: getDefaultModelOptions('anthropic'),
   },
   {
     provider: 'gemini',
     secretName: 'gemini-api-key',
     logo: GeminiLogo,
     componentId: 'mlflow.gateway.quick_start.gemini',
-    models: [
-      { model: 'gemini-3.0-pro', endpointName: 'gemini-3.0-pro-endpoint' },
-      { model: 'gemini-3.0-flash', endpointName: 'gemini-3.0-flash-endpoint' },
-      { model: 'gemini-2.5-pro', endpointName: 'gemini-2.5-pro-endpoint' },
-      { model: 'gemini-2.5-flash', endpointName: 'gemini-2.5-flash-endpoint' },
-    ],
+    models: getDefaultModelOptions('gemini'),
   },
   {
     provider: 'databricks',

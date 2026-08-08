@@ -4,7 +4,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useApiKeysListData } from './useApiKeysListData';
 import { GatewayApi } from '../api';
-import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
+import type { SecretInfo, Endpoint, EndpointBinding } from '../types';
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -65,18 +65,6 @@ const generateMockBinding = (id: string, endpointId: string): EndpointBinding =>
   display_name: `Scorer ${id}`,
 });
 
-const generateMockModelDefinition = (id: string, secretId: string): ModelDefinition => ({
-  model_definition_id: `md-${id}`,
-  name: `model-def-${id}`,
-  secret_id: secretId,
-  secret_name: `secret-name-${id}`,
-  provider: 'openai',
-  model_name: 'gpt-4',
-  created_at: 1700000000000,
-  last_updated_at: 1700000001000,
-  endpoint_count: 1,
-});
-
 describe('useApiKeysListData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -89,7 +77,6 @@ describe('useApiKeysListData', () => {
   test('returns loading state initially', async () => {
     jest.spyOn(GatewayApi, 'listSecrets').mockImplementation(() => new Promise(() => {}));
     jest.spyOn(GatewayApi, 'listEndpoints').mockImplementation(() => new Promise(() => {}));
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockImplementation(() => new Promise(() => {}));
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockImplementation(() => new Promise(() => {}));
 
     const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
@@ -104,7 +91,6 @@ describe('useApiKeysListData', () => {
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: [] });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
 
     const { result, rerender } = renderHook(
@@ -133,7 +119,6 @@ describe('useApiKeysListData', () => {
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: [] });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
 
     const { result, rerender } = renderHook(({ filter }) => useApiKeysListData({ searchFilter: '', filter }), {
@@ -160,7 +145,6 @@ describe('useApiKeysListData', () => {
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: [] });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
 
     const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
@@ -175,37 +159,12 @@ describe('useApiKeysListData', () => {
     expect(result.current.availableProviders).toHaveLength(2);
   });
 
-  test('maps model definitions to secrets', async () => {
-    const mockSecrets = [generateMockSecret('1', 'openai')];
-    const mockModelDefinitions = [
-      generateMockModelDefinition('md-1', 'secret-1'),
-      generateMockModelDefinition('md-2', 'secret-1'),
-    ];
-
-    jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
-    jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: [] });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: mockModelDefinitions });
-    jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
-
-    const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    const modelDefs = result.current.getModelDefinitionsForSecret('secret-1');
-    expect(modelDefs).toHaveLength(2);
-  });
-
   test('maps endpoints to secrets and counts them', async () => {
     const mockSecrets = [generateMockSecret('1', 'openai')];
     const mockEndpoints = [generateMockEndpoint('ep-1', 'secret-1'), generateMockEndpoint('ep-2', 'secret-1')];
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: mockEndpoints });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
 
     const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
@@ -228,7 +187,6 @@ describe('useApiKeysListData', () => {
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: mockEndpoints });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: mockBindings });
 
     const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
@@ -249,7 +207,6 @@ describe('useApiKeysListData', () => {
 
     jest.spyOn(GatewayApi, 'listSecrets').mockResolvedValue({ secrets: mockSecrets });
     jest.spyOn(GatewayApi, 'listEndpoints').mockResolvedValue({ endpoints: [] });
-    jest.spyOn(GatewayApi, 'listModelDefinitions').mockResolvedValue({ model_definitions: [] });
     jest.spyOn(GatewayApi, 'listEndpointBindings').mockResolvedValue({ bindings: [] });
 
     const { result } = renderHook(() => useApiKeysListData({ searchFilter: '', filter: { providers: [] } }), {
@@ -260,7 +217,6 @@ describe('useApiKeysListData', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.getModelDefinitionsForSecret('secret-1')).toEqual([]);
     expect(result.current.getEndpointsForSecret('secret-1')).toEqual([]);
     expect(result.current.getBindingsForSecret('secret-1')).toEqual([]);
     expect(result.current.getEndpointCount('secret-1')).toBe(0);

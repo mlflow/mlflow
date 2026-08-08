@@ -6,12 +6,15 @@ import {
   Input,
   KeyIcon,
   LinkIcon,
+  PlusIcon,
   SearchIcon,
   Spinner,
+  Tag,
   Table,
   TableCell,
   TableHeader,
   TableRow,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -153,7 +156,7 @@ export const ApiKeysList = ({
         <Empty
           title={
             <FormattedMessage
-              defaultMessage="No API keys found"
+              defaultMessage="No connections found"
               description="Empty state title when filter returns no results"
             />
           }
@@ -166,12 +169,15 @@ export const ApiKeysList = ({
         <Empty
           image={<KeyIcon />}
           title={
-            <FormattedMessage defaultMessage="No API keys created" description="Empty state title for API keys list" />
+            <FormattedMessage
+              defaultMessage="No connections yet"
+              description="Empty state title for LLM connections list"
+            />
           }
           description={
             <FormattedMessage
-              defaultMessage='Use "Create API key" button to create a new API key'
-              description="Empty state message for API keys list explaining how to create"
+              defaultMessage="Add a provider key so features like Detect Issues can call an LLM."
+              description="Empty state message for LLM connections list explaining how to add one"
             />
           }
         />
@@ -187,8 +193,8 @@ export const ApiKeysList = ({
           componentId="mlflow.gateway.api-keys.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
-            defaultMessage: 'Search API Keys',
-            description: 'Placeholder for API key search filter',
+            defaultMessage: 'Search connections',
+            description: 'Placeholder for LLM connections search filter',
           })}
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
@@ -199,7 +205,10 @@ export const ApiKeysList = ({
         <ApiKeysColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
         <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
           <Button componentId="mlflow.gateway.api-keys.create-button" type="primary" onClick={onCreateClick}>
-            <FormattedMessage defaultMessage="Create" description="Gateway > API keys list > Create button" />
+            <FormattedMessage
+              defaultMessage="Add connection"
+              description="Gateway > LLM connections list > Add connection button"
+            />
           </Button>
           <Button
             componentId="mlflow.gateway.api-keys.bulk-delete-button"
@@ -242,11 +251,19 @@ export const ApiKeysList = ({
             />
           </TableCell>
           <TableHeader componentId="mlflow.gateway.api-keys.name-header" css={{ flex: 2 }}>
-            <FormattedMessage defaultMessage="Key name" description="API key name column header" />
+            <FormattedMessage defaultMessage="Name" description="LLM connection name column header" />
           </TableHeader>
           {visibleColumns.includes(ApiKeysColumn.PROVIDER) && (
             <TableHeader componentId="mlflow.gateway.api-keys.provider-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Provider" description="Provider column header" />
+            </TableHeader>
+          )}
+          {visibleColumns.includes(ApiKeysColumn.ALLOWED_MODELS) && (
+            <TableHeader componentId="mlflow.gateway.api-keys.allowed-models-header" css={{ flex: 2 }}>
+              <FormattedMessage
+                defaultMessage="Available in MLflow"
+                description="Column header for the models a connection makes available to MLflow features (the curation allowlist)"
+              />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.ENDPOINTS) && (
@@ -273,6 +290,7 @@ export const ApiKeysList = ({
         {filteredSecrets.map((secret) => {
           const endpointCount = getEndpointCount(secret.secret_id);
           const bindingCount = getBindingCount(secret.secret_id);
+          const isGatewayConfigured = endpointCount > 0;
 
           return (
             <TableRow key={secret.secret_id}>
@@ -311,6 +329,54 @@ export const ApiKeysList = ({
                     <Typography.Text>{formatProviderName(secret.provider)}</Typography.Text>
                   ) : (
                     <Typography.Text color="secondary">-</Typography.Text>
+                  )}
+                </TableCell>
+              )}
+              {visibleColumns.includes(ApiKeysColumn.ALLOWED_MODELS) && (
+                <TableCell css={{ flex: 2 }}>
+                  {secret.allowlisted_models && secret.allowlisted_models.length > 0 ? (
+                    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                      {secret.allowlisted_models.map((model) => (
+                        <Tag
+                          key={model.model}
+                          componentId="mlflow.gateway.api-keys.allowed-model-tag"
+                          css={{ margin: 0 }}
+                        >
+                          {model.model}
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : isGatewayConfigured ? (
+                    <Tooltip
+                      componentId="mlflow.gateway.api-keys.gateway-models-tooltip"
+                      content={formatMessage({
+                        defaultMessage:
+                          'This connection has no allowlist. It is configured through the AI Gateway endpoints that use it.',
+                        description: 'Tooltip explaining that a connection is configured via AI Gateway endpoints',
+                      })}
+                    >
+                      <span>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="Gateway configured"
+                            description="Label indicating a connection is configured through AI Gateway endpoints rather than an explicit allowlist"
+                          />
+                        </Typography.Text>
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <Button
+                      componentId="mlflow.gateway.api-keys.add-models-button"
+                      type="tertiary"
+                      size="small"
+                      icon={<PlusIcon />}
+                      onClick={() => onKeyClick?.(secret)}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Add models"
+                        description="Affordance to add allowlisted models to a connection with none set"
+                      />
+                    </Button>
                   )}
                 </TableCell>
               )}

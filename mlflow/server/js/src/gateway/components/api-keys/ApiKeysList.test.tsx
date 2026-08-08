@@ -5,14 +5,12 @@ import { ApiKeysList } from './ApiKeysList';
 import { useSecretsQuery } from '../../hooks/useSecretsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { useBindingsQuery } from '../../hooks/useBindingsQuery';
-import { useModelDefinitionsQuery } from '../../hooks/useModelDefinitionsQuery';
 import { useDeleteSecret } from '../../hooks/useDeleteSecret';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useSecretsQuery');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../hooks/useBindingsQuery');
-jest.mock('../../hooks/useModelDefinitionsQuery');
 jest.mock('../../hooks/useDeleteSecret');
 
 const mockSecrets = [
@@ -54,29 +52,10 @@ const mockEndpoints = [
   },
 ];
 
-const mockModelDefinitions = [
-  {
-    model_definition_id: 'md-1',
-    name: 'test-model',
-    secret_id: 's-123',
-    secret_name: 'openai-key',
-    provider: 'openai',
-    model_name: 'gpt-4',
-    created_at: Date.now() / 1000,
-    last_updated_at: Date.now() / 1000,
-  },
-];
-
 describe('ApiKeysList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useBindingsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
@@ -125,13 +104,6 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      error: undefined,
-      refetch: jest.fn(),
-    } as any);
-
     renderWithDesignSystem(
       <MemoryRouter>
         <ApiKeysList />
@@ -161,7 +133,7 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('No API keys created')).toBeInTheDocument();
+    expect(screen.getByText('No connections yet')).toBeInTheDocument();
   });
 
   test('renders secrets list', () => {
@@ -218,7 +190,7 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    const searchInput = screen.getByPlaceholderText('Search API Keys');
+    const searchInput = screen.getByPlaceholderText('Search connections');
     await userEvent.type(searchInput, 'anthropic');
 
     expect(screen.getByText('anthropic-key')).toBeInTheDocument();
@@ -238,8 +210,48 @@ describe('ApiKeysList', () => {
       error: undefined,
       refetch: jest.fn(),
     } as any);
-    jest.mocked(useModelDefinitionsQuery).mockReturnValue({
-      data: mockModelDefinitions,
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('1')).toBeInTheDocument();
+  });
+
+  test('shows "Gateway configured" for an empty-allowlist connection used by an endpoint', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <ApiKeysList />
+      </MemoryRouter>,
+    );
+
+    // The secret has no explicit allowlist but is wired up through an endpoint, so it reads as Gateway configured.
+    expect(screen.getByText('Gateway configured')).toBeInTheDocument();
+    expect(screen.queryByText('Add models')).not.toBeInTheDocument();
+  });
+
+  test('shows "Add models" when a connection has no allowlist and no Gateway usage', () => {
+    jest.mocked(useSecretsQuery).mockReturnValue({
+      data: mockSecrets,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
       isLoading: false,
       error: undefined,
       refetch: jest.fn(),
@@ -251,7 +263,8 @@ describe('ApiKeysList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('Add models')).toBeInTheDocument();
+    expect(screen.queryByText('Gateway configured')).not.toBeInTheDocument();
   });
 
   test('calls onKeyClick when secret name is clicked', async () => {

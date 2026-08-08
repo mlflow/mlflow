@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
 import {
   Button,
@@ -18,17 +18,34 @@ import {
 } from '@databricks/design-system';
 import type { RadioChangeEvent } from '@databricks/design-system';
 import { useModelsQuery } from '../../hooks/useModelsQuery';
-import type { ProviderModel } from '../../types';
+import type { AllowlistedProviderModel, ProviderModel } from '../../types';
 import { sortModelsByDate } from '../../utils/formatters';
 import { ModelRow } from './ModelRow';
+import { getDefaultLLMProvider } from '../../defaultModels';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (model: ProviderModel) => void;
+  /** Called with the chosen model on confirm in single-select mode. */
+  onSelect?: (model: ProviderModel) => void;
   provider: string;
   /** Current model name value, used to pre-populate the modal when editing */
   initialValue?: string;
+  /**
+   * When true, render checkboxes and allow selecting multiple models at once.
+   * Confirm calls `onSelectMultiple` with the full selection. The custom-model-name
+   * input is hidden in this mode. Defaults to false (single-select radio behavior).
+   */
+  multiSelect?: boolean;
+  /** Models to pre-check when opening in multi-select mode. */
+  initialSelected?: AllowlistedProviderModel[];
+  /** Called with the full set of selected models on confirm in multi-select mode. */
+  onSelectMultiple?: (models: ProviderModel[]) => void;
+  /**
+   * `default` shows MLflow's curated provider defaults. `full` exposes the full catalog and custom
+   * model input, reserved for LLM Connections setup.
+   */
+  modelListMode?: 'default' | 'full';
 }
 
 interface CapabilityFilter {
@@ -43,10 +60,21 @@ interface FilterState {
   capabilities: CapabilityFilter;
 }
 
-export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initialValue }: ModelSelectorModalProps) => {
+export const ModelSelectorModal = ({
+  isOpen,
+  onClose,
+  onSelect,
+  provider,
+  initialValue,
+  multiSelect = false,
+  initialSelected,
+  onSelectMultiple,
+  modelListMode = 'default',
+}: ModelSelectorModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set());
   const [customModelName, setCustomModelName] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -54,9 +82,33 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const lastInitialSelectedKeyRef = useRef<string | null>(null);
 
   const { data: models, isLoading } = useModelsQuery({ provider: provider || undefined });
-  const isCustomMode = customModelName.trim().length > 0;
+  const showFullCatalog = modelListMode === 'full';
+  const availableModels = useMemo(() => {
+    if (showFullCatalog) {
+      return models ?? [];
+    }
+
+    const defaultProvider = getDefaultLLMProvider(provider);
+    return (
+      defaultProvider?.models.map(({ model }) => {
+        return (
+          models?.find((candidate) => candidate.model === model) ?? {
+            model,
+            provider,
+            supports_function_calling: false,
+          }
+        );
+      }) ?? []
+    );
+  }, [models, provider, showFullCatalog]);
+  const isCustomMode = showFullCatalog && customModelName.trim().length > 0;
+  const initialSelectedModelKey = useMemo(
+    () => (initialSelected ?? []).map((model) => model.model).join('\0'),
+    [initialSelected],
+  );
 
   // Pre-populate modal state when opening with an existing value.
   // Initialize from initialValue immediately (as custom) even before models load,
@@ -64,6 +116,16 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
   useEffect(() => {
     if (!isOpen) {
       setHasInitialized(false);
+      lastInitialSelectedKeyRef.current = null;
+      return;
+    }
+
+    if (multiSelect) {
+      if (!hasInitialized || lastInitialSelectedKeyRef.current !== initialSelectedModelKey) {
+        setSelectedModelIds(new Set((initialSelected ?? []).map((m) => m.model)));
+        setHasInitialized(true);
+        lastInitialSelectedKeyRef.current = initialSelectedModelKey;
+      }
       return;
     }
 
@@ -79,25 +141,25 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
     }
 
     // Once models are available, switch to a known-model selection if a match is found
-    if (models) {
-      const knownModel = models.find((m) => m.model === initialValue);
+    if (availableModels.length > 0) {
+      const knownModel = availableModels.find((m) => m.model === initialValue);
       if (knownModel) {
         setSelectedModelId(knownModel.model);
         setCustomModelName('');
       }
     }
-  }, [isOpen, initialValue, models, hasInitialized]);
+  }, [isOpen, initialValue, availableModels, hasInitialized, multiSelect, initialSelected, initialSelectedModelKey]);
 
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
 
   const filteredModels = useMemo(() => {
-    if (!models) return [];
+    if (!availableModels) return [];
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const filtered = models.filter((model) => {
+    const filtered = availableModels.filter((model) => {
       // Exclude models that have already been deprecated
       if (model.deprecation_date) {
         const deprecationDate = new Date(model.deprecation_date);
@@ -124,15 +186,16 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
     });
 
     // Sort by extracted date from model name (newest first)
-    return sortModelsByDate(filtered);
-  }, [models, filters]);
+    return showFullCatalog ? sortModelsByDate(filtered) : filtered;
+  }, [availableModels, filters, showFullCatalog]);
 
   const selectedModel = useMemo(() => {
-    return models?.find((m) => m.model === selectedModelId);
-  }, [models, selectedModelId]);
+    return availableModels.find((m) => m.model === selectedModelId);
+  }, [availableModels, selectedModelId]);
 
   const handleClose = useCallback(() => {
     setSelectedModelId(null);
+    setSelectedModelIds(new Set());
     setCustomModelName('');
     setFilters({
       search: '',
@@ -161,29 +224,65 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
     setCustomModelName('');
   }, []);
 
+  const handleModelToggle = useCallback((modelId: string) => {
+    setSelectedModelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) {
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
+      return next;
+    });
+  }, []);
+
   const handleConfirm = useCallback(() => {
+    if (multiSelect) {
+      const selected = availableModels.filter((m) => selectedModelIds.has(m.model));
+      onSelectMultiple?.(selected);
+      handleClose();
+      return;
+    }
     if (isCustomMode) {
-      onSelect({
+      onSelect?.({
         model: customModelName.trim(),
         provider: provider,
         supports_function_calling: false,
       });
       handleClose();
     } else if (selectedModel) {
-      onSelect(selectedModel);
+      onSelect?.(selectedModel);
       handleClose();
     }
-  }, [isCustomMode, customModelName, selectedModel, provider, onSelect, handleClose]);
+  }, [
+    multiSelect,
+    availableModels,
+    selectedModelIds,
+    onSelectMultiple,
+    isCustomMode,
+    customModelName,
+    selectedModel,
+    provider,
+    onSelect,
+    handleClose,
+  ]);
 
-  const isConfirmDisabled = isCustomMode ? !customModelName.trim() : !selectedModel;
+  const isConfirmDisabled = multiSelect ? false : isCustomMode ? !customModelName.trim() : !selectedModel;
 
   return (
     <Modal
       componentId="mlflow.gateway.model-selector-modal"
-      title={intl.formatMessage({
-        defaultMessage: 'Select model',
-        description: 'Model selector modal title',
-      })}
+      title={
+        multiSelect
+          ? intl.formatMessage({
+              defaultMessage: 'Select models',
+              description: 'Model selector modal title in multi-select mode',
+            })
+          : intl.formatMessage({
+              defaultMessage: 'Select model',
+              description: 'Model selector modal title',
+            })
+      }
       visible={isOpen}
       onCancel={handleClose}
       size="wide"
@@ -214,128 +313,140 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
               disabled={isConfirmDisabled}
               onClick={handleConfirm}
             >
-              {intl.formatMessage({
-                defaultMessage: 'Select',
-                description: 'Select button',
-              })}
+              {multiSelect
+                ? intl.formatMessage(
+                    {
+                      defaultMessage: '{count, plural, =0 {Select} other {Select (#)}}',
+                      description: 'Confirm button in multi-select model modal, with selected count',
+                    },
+                    { count: selectedModelIds.size },
+                  )
+                : intl.formatMessage({
+                    defaultMessage: 'Select',
+                    description: 'Select button',
+                  })}
             </Button>
           </div>
         </div>
       }
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        {/* Search and Filter row */}
-        <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <Input
-            componentId="mlflow.gateway.model-selector-modal.search"
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Search',
-              description: 'Search placeholder',
-            })}
-            prefix={<SearchIcon />}
-            value={filters.search}
-            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            css={{ flexGrow: 1 }}
-          />
-          <Popover.Root
-            componentId="mlflow.gateway.model-selector-modal.filter-popover"
-            open={isFilterOpen}
-            onOpenChange={setIsFilterOpen}
-          >
-            <Popover.Trigger asChild>
-              <Button
-                componentId="mlflow.gateway.model-selector-modal.filter-button"
-                endIcon={<ChevronDownIcon />}
-                css={{
-                  border: hasActiveFilters ? `1px solid ${theme.colors.actionDefaultBorderFocus} !important` : '',
-                  backgroundColor: hasActiveFilters ? `${theme.colors.actionDefaultBackgroundHover} !important` : '',
-                }}
-              >
-                <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-                  <FilterIcon />
-                  {intl.formatMessage(
-                    {
-                      defaultMessage: 'Capability{count}',
-                      description: 'Capability filter button label with count',
-                    },
-                    { count: hasActiveFilters ? ` (${filterCount})` : '' },
-                  )}
-                  {hasActiveFilters && (
-                    <XCircleFillIcon
-                      css={{
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        color: theme.colors.grey400,
-                        '&:hover': { color: theme.colors.grey600 },
-                      }}
-                      onClick={handleClearFilters}
+        {showFullCatalog && (
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <Input
+              componentId="mlflow.gateway.model-selector-modal.search"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Search',
+                description: 'Search placeholder',
+              })}
+              prefix={<SearchIcon />}
+              value={filters.search}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+              css={{ flexGrow: 1 }}
+            />
+            <Popover.Root
+              componentId="mlflow.gateway.model-selector-modal.filter-popover"
+              open={isFilterOpen}
+              onOpenChange={setIsFilterOpen}
+            >
+              <Popover.Trigger asChild>
+                <Button
+                  componentId="mlflow.gateway.model-selector-modal.filter-button"
+                  endIcon={<ChevronDownIcon />}
+                  css={{
+                    border: hasActiveFilters ? `1px solid ${theme.colors.actionDefaultBorderFocus} !important` : '',
+                    backgroundColor: hasActiveFilters ? `${theme.colors.actionDefaultBackgroundHover} !important` : '',
+                  }}
+                >
+                  <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                    <FilterIcon />
+                    {intl.formatMessage(
+                      {
+                        defaultMessage: 'Capability{count}',
+                        description: 'Capability filter button label with count',
+                      },
+                      { count: hasActiveFilters ? ` (${filterCount})` : '' },
+                    )}
+                    {hasActiveFilters && (
+                      <XCircleFillIcon
+                        css={{
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          color: theme.colors.grey400,
+                          '&:hover': { color: theme.colors.grey600 },
+                        }}
+                        onClick={handleClearFilters}
+                      />
+                    )}
+                  </div>
+                </Button>
+              </Popover.Trigger>
+              <Popover.Content align="end" css={{ padding: theme.spacing.md, minWidth: 200 }}>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                  <div css={{ fontWeight: theme.typography.typographyBoldFontWeight, marginBottom: theme.spacing.xs }}>
+                    <FormattedMessage
+                      defaultMessage="Capabilities"
+                      description="Filter section label for capabilities"
                     />
-                  )}
+                  </div>
+                  <Checkbox
+                    componentId="mlflow.gateway.model-selector-modal.filter.tools"
+                    isChecked={filters.capabilities.tools}
+                    onChange={() =>
+                      setFilters((f) => ({ ...f, capabilities: { ...f.capabilities, tools: !f.capabilities.tools } }))
+                    }
+                  >
+                    <FormattedMessage defaultMessage="Tools" description="Filter option for tool support" />
+                  </Checkbox>
+                  <Checkbox
+                    componentId="mlflow.gateway.model-selector-modal.filter.reasoning"
+                    isChecked={filters.capabilities.reasoning}
+                    onChange={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        capabilities: { ...f.capabilities, reasoning: !f.capabilities.reasoning },
+                      }))
+                    }
+                  >
+                    <FormattedMessage defaultMessage="Reasoning" description="Filter option for reasoning support" />
+                  </Checkbox>
+                  <Checkbox
+                    componentId="mlflow.gateway.model-selector-modal.filter.promptCaching"
+                    isChecked={filters.capabilities.promptCaching}
+                    onChange={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        capabilities: { ...f.capabilities, promptCaching: !f.capabilities.promptCaching },
+                      }))
+                    }
+                  >
+                    <FormattedMessage
+                      defaultMessage="Prompt Caching"
+                      description="Filter option for prompt caching support"
+                    />
+                  </Checkbox>
+                  <Checkbox
+                    componentId="mlflow.gateway.model-selector-modal.filter.structuredOutput"
+                    isChecked={filters.capabilities.structuredOutput}
+                    onChange={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        capabilities: { ...f.capabilities, structuredOutput: !f.capabilities.structuredOutput },
+                      }))
+                    }
+                  >
+                    <FormattedMessage
+                      defaultMessage="Structured Output"
+                      description="Filter option for structured JSON output support"
+                    />
+                  </Checkbox>
                 </div>
-              </Button>
-            </Popover.Trigger>
-            <Popover.Content align="end" css={{ padding: theme.spacing.md, minWidth: 200 }}>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                <div css={{ fontWeight: theme.typography.typographyBoldFontWeight, marginBottom: theme.spacing.xs }}>
-                  <FormattedMessage defaultMessage="Capabilities" description="Filter section label for capabilities" />
-                </div>
-                <Checkbox
-                  componentId="mlflow.gateway.model-selector-modal.filter.tools"
-                  isChecked={filters.capabilities.tools}
-                  onChange={() =>
-                    setFilters((f) => ({ ...f, capabilities: { ...f.capabilities, tools: !f.capabilities.tools } }))
-                  }
-                >
-                  <FormattedMessage defaultMessage="Tools" description="Filter option for tool support" />
-                </Checkbox>
-                <Checkbox
-                  componentId="mlflow.gateway.model-selector-modal.filter.reasoning"
-                  isChecked={filters.capabilities.reasoning}
-                  onChange={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      capabilities: { ...f.capabilities, reasoning: !f.capabilities.reasoning },
-                    }))
-                  }
-                >
-                  <FormattedMessage defaultMessage="Reasoning" description="Filter option for reasoning support" />
-                </Checkbox>
-                <Checkbox
-                  componentId="mlflow.gateway.model-selector-modal.filter.promptCaching"
-                  isChecked={filters.capabilities.promptCaching}
-                  onChange={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      capabilities: { ...f.capabilities, promptCaching: !f.capabilities.promptCaching },
-                    }))
-                  }
-                >
-                  <FormattedMessage
-                    defaultMessage="Prompt Caching"
-                    description="Filter option for prompt caching support"
-                  />
-                </Checkbox>
-                <Checkbox
-                  componentId="mlflow.gateway.model-selector-modal.filter.structuredOutput"
-                  isChecked={filters.capabilities.structuredOutput}
-                  onChange={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      capabilities: { ...f.capabilities, structuredOutput: !f.capabilities.structuredOutput },
-                    }))
-                  }
-                >
-                  <FormattedMessage
-                    defaultMessage="Structured Output"
-                    description="Filter option for structured JSON output support"
-                  />
-                </Checkbox>
-              </div>
-            </Popover.Content>
-          </Popover.Root>
-        </div>
+              </Popover.Content>
+            </Popover.Root>
+          </div>
+        )}
 
-        {isLoading ? (
+        {isLoading && showFullCatalog ? (
           <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
             <Spinner size="large" />
           </div>
@@ -391,6 +502,18 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
                       description: 'Empty state message',
                     })}
                   </Typography.Text>
+                </div>
+              ) : multiSelect ? (
+                <div css={{ width: '100%' }}>
+                  {filteredModels.map((model) => (
+                    <ModelRow
+                      key={model.model}
+                      model={model}
+                      isSelected={selectedModelIds.has(model.model)}
+                      onSelect={handleModelToggle}
+                      multiSelect
+                    />
+                  ))}
                 </div>
               ) : (
                 <Radio.Group
@@ -452,54 +575,58 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
         </div>
 
         {/* Divider with "or" */}
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.md,
-            marginTop: theme.spacing.sm,
-          }}
-        >
-          <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage defaultMessage="or" description="Divider between model list and custom input" />
-          </Typography.Text>
-          <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
-        </div>
+        {!multiSelect && showFullCatalog && (
+          <>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.md,
+                marginTop: theme.spacing.sm,
+              }}
+            >
+              <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage defaultMessage="or" description="Divider between model list and custom input" />
+              </Typography.Text>
+              <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDecorative }} />
+            </div>
 
-        {/* Custom model input */}
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-            opacity: selectedModelId ? 0.5 : 1,
-            transition: 'opacity 0.2s ease',
-          }}
-        >
-          <Typography.Text bold>
-            <FormattedMessage
-              defaultMessage="Use a custom model name"
-              description="Label for custom model input section"
-            />
-          </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.model-selector-modal.custom-model"
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Enter model name...',
-              description: 'Placeholder for custom model input',
-            })}
-            value={customModelName}
-            onChange={(e) => handleCustomModelChange(e.target.value)}
-            disabled={Boolean(selectedModelId)}
-          />
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="Enter a model name not listed above. Capabilities may not be detected."
-              description="Help text for custom model input"
-            />
-          </Typography.Text>
-        </div>
+            {/* Custom model input */}
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.xs,
+                opacity: selectedModelId ? 0.5 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Use a custom model name"
+                  description="Label for custom model input section"
+                />
+              </Typography.Text>
+              <Input
+                componentId="mlflow.gateway.model-selector-modal.custom-model"
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter model name...',
+                  description: 'Placeholder for custom model input',
+                })}
+                value={customModelName}
+                onChange={(e) => handleCustomModelChange(e.target.value)}
+                disabled={Boolean(selectedModelId)}
+              />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="Enter a model name not listed above. Capabilities may not be detected."
+                  description="Help text for custom model input"
+                />
+              </Typography.Text>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );
