@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786146193339,
+  "lastUpdate": 1786149022210,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -19925,6 +19925,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.486777799999913,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "JasonPan@users.noreply.github.com",
+            "name": "Jason Pan",
+            "username": "JasonPan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "352b251578c2791160e1d82f2bbfc1560a07b733",
+          "message": "Surface Anthropic prompt-cache token counts in `mlflow.pydantic_ai.autolog` (#23052)\n\nSigned-off-by: Jason Pan <jason.pan@estrendo.com>\nCo-authored-by: Jason Pan <jason.pan@estrendo.com>",
+          "timestamp": "2026-08-08T00:28:54Z",
+          "tree_id": "684a28f36c564930b2742b9d977e4547cae0eb60",
+          "url": "https://github.com/mlflow/mlflow/commit/352b251578c2791160e1d82f2bbfc1560a07b733"
+        },
+        "date": 1786149020095,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 108.93797980000102,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.02210492307686,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.550930378379099,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.3730293760689465,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.8361702968752205,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 16.93198799999891,
             "unit": "ms"
           }
         ]
