@@ -36,6 +36,9 @@ export type ModelTraceExplorerViewState = {
   setActiveView: (view: 'summary' | 'detail') => void;
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
+  // Sets the selected node and active tab together, skipping the
+  // default-tab-on-node-change reset so the explicit tab sticks.
+  setSelectedNodeAndTab: (node: ModelTraceSpanNode | undefined, tab: ModelTraceExplorerTab) => void;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
   showGraph: boolean;
@@ -63,6 +66,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setActiveView: () => {},
   selectedNode: undefined,
   setSelectedNode: () => {},
+  setSelectedNodeAndTab: () => {},
   activeTab: 'content',
   setActiveTab: () => {},
   showGraph: true,
@@ -154,6 +158,17 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
+
+  // When set, the next selectedNode-change effect skips resetting activeTab
+  // to the node's default tab, so an explicit tab set alongside the node
+  // (e.g. jumping to a search match) sticks.
+  const skipTabResetRef = useRef(false);
+
+  const setSelectedNodeAndTab = useCallback((node: ModelTraceSpanNode | undefined, tab: ModelTraceExplorerTab) => {
+    skipTabResetRef.current = true;
+    setSelectedNode(node);
+    setActiveTab(tab);
+  }, []);
   const [showGraph, setShowGraph] = useState(Boolean(rootNode));
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
@@ -202,6 +217,10 @@ export const ModelTraceExplorerViewStateProvider = ({
   }, []);
 
   useEffect(() => {
+    if (skipTabResetRef.current) {
+      skipTabResetRef.current = false;
+      return;
+    }
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
     setActiveTab(defaultActiveTab);
   }, [selectedNode]);
@@ -223,6 +242,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       setActiveTab,
       selectedNode,
       setSelectedNode,
+      setSelectedNodeAndTab,
       showGraph,
       setShowGraph,
       showTimelineTreeGantt,
@@ -245,6 +265,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       activeTab,
       rootNode,
       selectedNode,
+      setSelectedNodeAndTab,
       showGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
