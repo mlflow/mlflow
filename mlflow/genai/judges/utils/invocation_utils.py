@@ -46,6 +46,7 @@ def invoke_judge_model(
     inference_params: dict[str, Any] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    databricks_profile: str | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -74,6 +75,8 @@ def invoke_judge_model(
             requests to the LLM provider will be routed through this URL.
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the LLM provider.
+        databricks_profile: Optional Databricks configuration profile used to authenticate
+            Databricks-backed judge model requests.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -94,6 +97,7 @@ def invoke_judge_model(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        databricks_profile=databricks_profile,
     )
 
     output = adapter.invoke(input_params)

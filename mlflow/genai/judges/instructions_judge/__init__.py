@@ -90,6 +90,7 @@ class InstructionsJudge(Judge):
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
+    _databricks_profile: str | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -104,6 +105,7 @@ class InstructionsJudge(Judge):
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         include_timing_in_conversation: bool = False,
+        databricks_profile: str | None = None,
         **kwargs,
     ):
         """
@@ -134,6 +136,8 @@ class InstructionsJudge(Judge):
             include_timing_in_conversation: If True, append timing information (duration and
                            slowest spans) to assistant responses in conversation. Useful for
                            latency-aware evaluation. Default is False for backward compatibility.
+            databricks_profile: Optional Databricks configuration profile used to
+                           authenticate requests for ``databricks:/...`` judge models.
             kwargs: Additional configuration parameters
         """
         aggregations = kwargs.pop("aggregations", None)
@@ -176,6 +180,7 @@ class InstructionsJudge(Judge):
         self._base_url = base_url
         self._extra_headers = extra_headers
         self._include_timing_in_conversation = include_timing_in_conversation
+        self._databricks_profile = databricks_profile
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -209,6 +214,17 @@ class InstructionsJudge(Judge):
             )
 
         self._validate_model_format()
+        if databricks_profile is not None:
+            if not isinstance(databricks_profile, str) or not databricks_profile.strip():
+                raise MlflowException(
+                    "databricks_profile must be a non-empty string",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if not self._model.startswith("databricks:/"):
+                raise MlflowException(
+                    "databricks_profile is only supported for databricks:/ judge models",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         self._validate_instructions_template()
 
     @property
@@ -646,6 +662,7 @@ class InstructionsJudge(Judge):
             inference_params=self._inference_params,
             base_url=self._base_url,
             extra_headers=self._extra_headers,
+            databricks_profile=self._databricks_profile,
         )
         # Surface the judge instructions in assessment metadata so the UI can
         # show the criterion that was evaluated alongside each result.
@@ -884,6 +901,8 @@ class InstructionsJudge(Judge):
             )
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
+        if self._databricks_profile is not None:
+            pydantic_data["databricks_profile"] = self._databricks_profile
 
         serialized_scorer = SerializedScorer(
             name=self.name,

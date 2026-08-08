@@ -108,6 +108,23 @@ def test_sdk_receives_explicit_credentials():
         )
 
 
+def test_sdk_receives_profile():
+    endpoint_config = EndpointConfig(
+        name="databricks-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "databricks",
+            "name": "databricks-dbrx-instruct",
+            "config": {"profile": "judge-workspace"},
+        },
+    )
+    provider = DatabricksProvider(endpoint_config)
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        mock_ws.return_value = _mock_workspace_client()
+        provider._get_workspace_client()
+        mock_ws.assert_called_once_with(profile="judge-workspace")
+
+
 def test_sdk_oauth_m2m_credentials():
     endpoint_config = EndpointConfig(
         name="databricks-endpoint",
@@ -181,6 +198,7 @@ async def test_embeddings():
 
 def test_config_all_optional():
     config = DatabricksConfig()
+    assert config.profile is None
     assert config.host is None
     assert config.token is None
     assert config.client_id is None
