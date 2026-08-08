@@ -36,6 +36,7 @@ import { StackedComponents } from './StackedComponents';
 import { StatusCellRenderer } from './StatusRenderer';
 import { TagsCellRenderer } from './Tags/TagsCellRenderer';
 import { TokensCell } from './TokensCell';
+import { TraceInfoCellValue } from './TraceInfoCellValue';
 import { getTraceInfoValueWithColId } from '../GenAiTracesTable.utils';
 import { compareAssessmentValues, formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import { readTraceTag, RESULT_ASSESSMENT_NAME } from '../utils/TraceUtils';
@@ -680,40 +681,10 @@ export const traceInfoCellRenderer = (
     const otherTagValue = otherTraceInfo?.tags?.[tagKey];
     return (
       <StackedComponents
-        first={
-          tagValue ? (
-            <span
-              title={tagValue}
-              css={{
-                display: 'block',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {tagValue}
-            </span>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          )
-        }
+        first={tagValue ? <TraceInfoCellValue value={tagValue} /> : <NullCell isComparing={isComparing} />}
         second={
           isComparing &&
-          (otherTagValue ? (
-            <span
-              title={tagValue}
-              css={{
-                display: 'block',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {otherTagValue}
-            </span>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          ))
+          (otherTagValue ? <TraceInfoCellValue value={otherTagValue} /> : <NullCell isComparing={isComparing} />)
         }
       />
     );
@@ -1034,24 +1005,10 @@ export const traceInfoCellRenderer = (
     const otherValue = otherTraceInfo?.trace_metadata?.[metadataKey];
     return (
       <StackedComponents
-        first={
-          value ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
-              {value}
-            </div>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          )
-        }
+        first={value ? <TraceInfoCellValue value={value} /> : <NullCell isComparing={isComparing} />}
         second={
           isComparing &&
-          (otherValue ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
-              {otherValue}
-            </div>
-          ) : (
-            <NullCell isComparing={isComparing} />
-          ))
+          (otherValue ? <TraceInfoCellValue value={otherValue} /> : <NullCell isComparing={isComparing} />)
         }
       />
     );
@@ -1138,24 +1095,9 @@ export const traceInfoCellRenderer = (
 
   return (
     <StackedComponents
-      first={
-        value ? (
-          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
-            {value}
-          </div>
-        ) : (
-          <NullCell isComparing={isComparing} />
-        )
-      }
+      first={value ? <TraceInfoCellValue value={value} /> : <NullCell isComparing={isComparing} />}
       second={
-        isComparing &&
-        (otherValue ? (
-          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
-            {otherValue}
-          </div>
-        ) : (
-          <NullCell isComparing={isComparing} />
-        ))
+        isComparing && (otherValue ? <TraceInfoCellValue value={otherValue} /> : <NullCell isComparing={isComparing} />)
       }
     />
   );

@@ -211,6 +211,25 @@ export function timeSinceStr(date: any, referenceDate = new Date()) {
   );
 }
 
+/**
+ * Returns true when the given value is a string that parses to an http(s) URL.
+ * Used to decide whether a trace tag / metadata / attribute cell value should
+ * render as a clickable hyperlink (e.g. a link to a custom HTML rendering of a
+ * trace uploaded as an artifact).
+ */
+export function isValidHttpUrl(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  // The URL() constructor throws on an invalid URL.
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 // Function to escape CSS Special characters by adding \\ before them. Needed when inserting CSS variables.
 export function escapeCssSpecialCharacters(str: string) {
   // eslint-disable-next-line no-useless-escape
