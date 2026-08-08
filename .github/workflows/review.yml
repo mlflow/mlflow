@@ -110,9 +110,8 @@ jobs:
           permission-contents: read
           permission-pull-requests: write
       - name: Resolve job URL
-        if: github.event_name == 'issue_comment'
         env:
-          JOB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}?pr=${{ github.event.issue.number }}
+          JOB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}?pr=${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           echo "JOB_RUN_URL=$JOB_RUN_URL" >> "$GITHUB_ENV"
       - name: React to comment
