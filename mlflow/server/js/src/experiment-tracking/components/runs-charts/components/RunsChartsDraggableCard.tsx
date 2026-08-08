@@ -1,4 +1,4 @@
-import { forwardRef, memo, useCallback, useRef, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { RunsChartsCard, type RunsChartsCardProps } from './cards/RunsChartsCard';
 import { DraggableCore, type DraggableEventHandler } from 'react-draggable';
 import { Resizable } from 'react-resizable';
@@ -14,6 +14,8 @@ import { useRunsChartsDraggableGridActionsContext } from './RunsChartsDraggableC
 import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
 const VIEWPORT_DEBOUNCE_MS = 150;
+const SCROLL_EDGE_THRESHOLD = 60;
+const SCROLL_SPEED = 15;
 
 interface RunsChartsDraggableCardProps extends RunsChartsCardProps {
   uuid?: string;
@@ -41,25 +43,58 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
 
   const draggedCardElementRef = useRef<HTMLDivElement | null>(null);
 
+  // const onStartDrag = useCallback<DraggableEventHandler>(
+  //   (_, { x, y }) => {
+  //     setIsDragging(true);
+  //     setDraggedCardUuid(uuid ?? null);
+  //     setOrigin({ x, y });
+  //   },
+  //   [setDraggedCardUuid, uuid],
+  // );
+  const dragActiveRef = useRef(false);
   const onStartDrag = useCallback<DraggableEventHandler>(
     (_, { x, y }) => {
+      dragActiveRef.current = true;
       setIsDragging(true);
       setDraggedCardUuid(uuid ?? null);
       setOrigin({ x, y });
     },
     [setDraggedCardUuid, uuid],
   );
-
   const onDrag = useCallback(
-    (_, { x, y }) => {
+    (e, { x, y }) => {
       if (draggedCardElementRef.current) {
         draggedCardElementRef.current.style.transform = `translate3d(${x - origin.x}px, ${y - origin.y}px, 0)`;
+      }
+
+      // Auto-scroll the chart area when dragging near its top/bottom edges
+      const scrollContainer = draggedCardElementRef.current?.closest<HTMLElement>(
+        '[data-testid="experiment-view-compare-runs-chart-area"]',
+      );
+
+      if (scrollContainer) {
+        const rect = scrollContainer.getBoundingClientRect();
+        const clientY = (e as MouseEvent).clientY;
+
+        if (clientY < rect.top + SCROLL_EDGE_THRESHOLD) {
+          scrollContainer.scrollBy(0, -SCROLL_SPEED);
+        } else if (clientY > rect.bottom - SCROLL_EDGE_THRESHOLD) {
+          scrollContainer.scrollBy(0, SCROLL_SPEED);
+        }
       }
     },
     [origin],
   );
-
+  // const onStopDrag = useCallback(() => {
+  //   onDropChartCard();
+  //   setDraggedCardUuid(null);
+  //   if (draggedCardElementRef.current) {
+  //     draggedCardElementRef.current.style.transform = '';
+  //   }
+  //   setIsDragging(false);
+  // }, [onDropChartCard, setDraggedCardUuid, draggedCardElementRef]);
   const onStopDrag = useCallback(() => {
+    dragActiveRef.current = false;
     onDropChartCard();
     setDraggedCardUuid(null);
     if (draggedCardElementRef.current) {
@@ -67,6 +102,31 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     }
     setIsDragging(false);
   }, [onDropChartCard, setDraggedCardUuid, draggedCardElementRef]);
+
+  // Force-end the drag if the mouse leaves the browser window entirely,
+  // since native mouseup never fires in that case.
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const forceStopDrag = () => {
+      // Defer until the current event has finished propagating.
+      // If DraggableCore's own mouseup handler already ran, it will
+      // have set dragActiveRef.current = false via onStopDrag — in
+      // that case, do nothing to avoid a duplicate reorder.
+      requestAnimationFrame(() => {
+        if (dragActiveRef.current) {
+          onStopDrag();
+        }
+      });
+    };
+
+    document.addEventListener('mouseleave', forceStopDrag);
+    document.addEventListener('mouseup', forceStopDrag, true);
+    return () => {
+      document.removeEventListener('mouseleave', forceStopDrag);
+      document.removeEventListener('mouseup', forceStopDrag, true);
+    };
+  }, [isDragging, onStopDrag]);
 
   const onResizeStartInternal = useCallback(() => {
     const rect = draggedCardElementRef.current?.getBoundingClientRect();
