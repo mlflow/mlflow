@@ -272,13 +272,12 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
-      # Builds the result body without any token, so the smoke run exercises it
-      # too. The job summary is where it lands when there is no comment to post.
       - name: Build result body
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
           MODEL: ${{ steps.prompt.outputs.model }}
+          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
         run: |
           node <<'JS'
           const fs = require('fs');
@@ -327,8 +326,12 @@ jobs:
           }
 
           console.log(resultLine);
-          fs.writeFileSync('/tmp/result-body.md', resultLine);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
+
+          const commentBody = process.env.COMMENT_BODY;
+          if (commentBody) {
+            fs.writeFileSync('/tmp/updated-comment.md', `${commentBody}\n\n---\n\n${resultLine}`);
+          }
           JS
 
       - name: Report review results
@@ -338,14 +341,4 @@ jobs:
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          # split(...)[0] strips the "Review running..." placeholder that React
-          # appended, so the result replaces it rather than stacking below it.
-          {
-            gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
-              --jq '.body | split("\n\n---\n\n🚀 ")[0]'
-            echo
-            echo "---"
-            echo
-            cat /tmp/result-body.md
-          } > /tmp/updated-comment.md
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@/tmp/updated-comment.md

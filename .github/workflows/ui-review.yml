@@ -352,13 +352,12 @@ jobs:
             gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ui-review-comment.md
           fi
 
-      # Builds the result body without any token, so the smoke run exercises it
-      # too. The job summary is where it lands when there is no comment to post.
       - name: Build result body
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
           MODEL: ${{ steps.prompt.outputs.model }}
+          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
         run: |
           node <<'JS'
           const fs = require('fs');
@@ -404,8 +403,14 @@ jobs:
           }
 
           console.log(resultLine);
-          fs.writeFileSync('/tmp/result-body.md', resultLine);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resultLine}\n`);
+
+          const commentBody = process.env.COMMENT_BODY;
+          if (commentBody) {
+            const MARKER = '<!-- ui-review-status -->';
+            const base = commentBody.split(MARKER)[0].replace(/\s+$/, '');
+            fs.writeFileSync('/tmp/updated-comment.md', `${base}\n\n${MARKER}\n\n---\n\n${resultLine}`);
+          }
           JS
 
       - name: Report review results
@@ -415,18 +420,6 @@ jobs:
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          # split(...)[0] strips the status block that React appended, so the
-          # result replaces it rather than stacking below it.
-          {
-            gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
-              --jq '.body | split("<!-- ui-review-status -->")[0] | sub("\\s+$";"")'
-            echo
-            echo "<!-- ui-review-status -->"
-            echo
-            echo "---"
-            echo
-            cat /tmp/result-body.md
-          } > /tmp/updated-comment.md
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@/tmp/updated-comment.md
 
       - name: Redact secrets from transcript
