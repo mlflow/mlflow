@@ -1,54 +1,41 @@
 ---
 name: pr-review
-description: Review a GitHub pull request and emit a validated local review payload (comments + approval decision)
+description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<owner_repo> <pr_number> [extra_context]"
-arguments: [owner_repo, pr_number, extra_context]
+argument-hint: "<pr_url>"
+arguments: [pr_url]
 ---
 
 # Review Pull Request
 
-## Usage
-
-```
-/pr-review <owner_repo> <pr_number> [extra_context]
-```
-
-## Arguments
-
-- `<owner_repo>` (required): repository slug, e.g. `mlflow/mlflow`
-- `<pr_number>` (required): pull request number
-- `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
-
-## Inputs
-
-This invocation is reviewing:
-
-- Owner/Repo: `$owner_repo`
-- PR number: `$pr_number`
-- Extra context: `$extra_context`
-
-The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above (split `$owner_repo` on `/` for `<owner>` and `<repo>`).
+Review $pr_url and write a JSON review payload to `/tmp/review-payload.json`. Do not post anything:
+writing that payload is the whole job.
 
 ## Instructions
+
+The commands below take `<pr_url>` from the PR URL above, and `<owner>`, `<repo>`, and
+`<pr_number>` from its parts.
 
 ### 1. Gather context (run in parallel)
 
 These reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
 
-#### PR title and description
+**PR title and description**
 
 ```bash
-gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
+gh pr view <pr_url> --json title,body
 ```
 
-#### PR diff hunks
+**PR diff hunks** via the [`fetch-diff`](../fetch-diff/SKILL.md) skill:
 
-Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
+```bash
+uv run --package skills skills fetch-diff <pr_url>
+```
 
-#### Existing review threads
+Its annotated output gives you the `line` and `side` to anchor each comment on.
 
-Up to 100 threads (open, resolved, and outdated) with up to 20 comments each, so you can avoid duplicating prior feedback:
+**Existing review threads**, so you can avoid duplicating prior feedback. Up to 100 threads (open,
+resolved, and outdated) with up to 20 comments each:
 
 ```bash
 gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
@@ -81,16 +68,18 @@ Load the repository style rules applicable to the changed files:
 git diff --name-only HEAD^1 | uv run --package skills skills load-rules
 ```
 
-### 3. In-Depth Analysis
+### 3. Analyze the change
 
-The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites of changed symbols, file conventions).
+The working tree holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so file contents
+reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites
+of changed symbols, file conventions).
 
-The merge ref's base parent is also reachable as `HEAD^1`. When the diff doesn't show enough (verifying a refactor preserved behavior, reading the full content of a deleted file, or seeing the pre-change version of a heavily modified file), use `git show HEAD^1:<path>` rather than re-fetching via the GitHub API.
-
-#### Don't comment on
-
-- Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.
-- Issues already caught by formatters or linters (unused imports, formatting, line length, simple typos, etc.).
+The merge ref's base parent is reachable as `HEAD^1`. When the diff doesn't show enough (verifying
+a refactor preserved behavior, reading a masked deleted file, or seeing the pre-change version of a
+heavily modified one), use `git show HEAD^1:<path>` rather than re-fetching the file over the API.
+The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `git blame` stop at
+the shallow boundary rather than reaching the commit that actually introduced a line. Neither
+errors, so don't trust them for pre-change history.
 
 Evaluate the changed code across these dimensions:
 
@@ -102,37 +91,53 @@ Evaluate the changed code across these dimensions:
 - **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
 - **Style guide**: violations of the rules loaded in step 2
 
-### 4. Decision Point
+#### Don't comment on
 
-Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
+- **Pre-existing code.** You may read unchanged/context lines to understand the change, but only
+  file findings against the changed lines (added, modified, or deleted), even if surrounding code
+  looks suboptimal.
+- **Anything a formatter or linter already catches**: unused imports, formatting, line length,
+  simple typos.
+- **Unfamiliar names and values.** Model names, runner types, library versions, and dates that
+  postdate your training data are new, not wrong.
+- **Hypothetical edge cases.** If the finding needs "while unlikely", "could potentially", or "edge
+  case where" to stand up, skip it. Only flag what realistically happens.
+- **Naming preferences.** Flag a name only when it is actively misleading.
+- **One-off literals.** Don't ask for a constant to be extracted for a single use site.
 
-| Severity | Emoji | Use for                                                                          |
-| -------- | ----- | -------------------------------------------------------------------------------- |
-| CRITICAL | 🔴    | bugs, logic errors, security issues, data loss risk, broken public API           |
-| MODERATE | 🟡    | non-blocking quality concerns where the code works but could be clearer or safer |
-| NIT      | 🟢    | pure style/preference the author can ignore                                      |
+#### Severity
 
-Determine the review `event`:
+Classify each finding that survives those exclusions:
 
-- **No CRITICAL findings** -> `event: "APPROVE"`
-- **Any CRITICAL finding** -> `event: "COMMENT"`
+- **CRITICAL**: bugs, logic errors, security issues, data loss risk, broken public API.
+- **MODERATE**: non-blocking quality concerns where the code works but could be clearer or safer.
+- **NIT**: pure style/preference the author can ignore.
 
-### 5. Emit Local Review Payload
+### 4. Write and validate the review payload
 
-Read [`review-payload.schema.json`](./review-payload.schema.json), then write `/tmp/review-payload.json` matching it and validate.
+Read [`review-payload.schema.json`](./review-payload.schema.json), then write
+`/tmp/review-payload.json` matching it. It defines the severity prefix each comment body carries
+and derives `event` from those prefixes.
 
 Authoring rules not captured by the schema:
 
-- One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
-- Anchors must land in a diff hunk. For findings about out-of-diff code, anchor to any changed line (prefer the same file when it has hunks) and name the actual `path:line` in the body.
-- Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
-- Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
+- One comment per distinct finding, anchored to the most relevant changed line. For repeated
+  identical issues, leave a single representative comment rather than flagging every instance.
+- For findings about out-of-diff code, anchor to any changed line (prefer the same file when it has
+  hunks) and name the actual `path:line` in the body.
+- Keep comments short: state the problem, why it matters, and a concrete fix in roughly three
+  sentences plus an optional suggestion block. Cut the investigation trail (commands you ran,
+  alternatives you weighed, evidence for a claim the reader can check in one look) and anything the
+  suggestion block already shows.
+- Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
+  indentation.
 - If you have no findings, emit an empty `comments` array.
 
-Validate before finishing — fix any errors and re-emit until this passes:
+Validate before finishing, then fix any errors and re-emit until this passes:
 
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
 ```
 
-Do not post the review or comments by running `gh pr review`, calling GitHub review/comment APIs, or using any other skills. Stop after writing and validating the local review payload.
+Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
+after writing and validating `/tmp/review-payload.json`.
