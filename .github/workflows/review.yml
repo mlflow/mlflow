@@ -182,15 +182,15 @@ jobs:
               "sonnet",
               "haiku",
               "claude-fable-5",
-              "claude-opus-4-7",
-              "claude-sonnet-4-6",
+              "claude-opus-5",
+              "claude-sonnet-5",
               "claude-haiku-4-5",
           ]
           EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
 
           labels = {l["name"] for l in json.loads(os.environ["LABELS_JSON"])}
           big = bool(labels & {"size/M", "size/L", "size/XL"})
-          default_model = "claude-opus-4-7" if big else "claude-sonnet-4-6"
+          default_model = "claude-opus-5" if big else "claude-sonnet-5"
 
           body = sys.stdin.read().removeprefix("/review")
 
