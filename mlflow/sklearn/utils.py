@@ -304,7 +304,7 @@ def _get_class_labels_from_estimator(estimator):
     return estimator.classes_ if hasattr(estimator, "classes_") else None
 
 
-def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
+def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Draw and record various common artifacts for classifier
 
@@ -318,20 +318,19 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     (3) roc curve:
     https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
 
-    Steps:
-    1. Extract X and y_true from fit_args and fit_kwargs, and split into train & test datasets.
-    2. If the sample_weight argument exists in fit_func (accuracy_score by default
-    has sample_weight), extract it from fit_args or fit_kwargs as
-    (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
-    3. return a list of artifacts path to be logged
-
     Args:
-        fitted_estimator: The already fitted regressor
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
+        fitted_estimator: The already fitted classifier.
+        prefix: Prefix used to name the logged artifacts, e.g. `training_`.
+        X: The features used to compute the predictions the artifacts are drawn from.
+        y_true: The true labels corresponding to `X`.
+        sample_weight: Per-sample weights, or None to weight all samples equally.
+        pos_label: The label treated as positive when drawing the precision recall and roc
+            curves, which are only logged for binary classifiers. Ignored by the confusion
+            matrix, which covers all classes.
 
     Returns:
-        List of artifacts to be logged
+        List of artifacts to be logged, empty if the installed sklearn version does not
+        support plotting.
     """
     import sklearn
 
@@ -391,6 +390,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     "X": X,
                     "y": y_true,
                     "sample_weight": sample_weight,
+                    "pos_label": pos_label,
                 },
                 title="ROC curve",
             ),
@@ -404,6 +404,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     "X": X,
                     "y": y_true,
                     "sample_weight": sample_weight,
+                    "pos_label": pos_label,
                 },
                 title="Precision recall curve",
             ),
@@ -555,7 +556,7 @@ def _log_specialized_estimator_content(
     if sklearn.base.is_classifier(fitted_estimator):
         try:
             artifacts = _get_classifier_artifacts(
-                fitted_estimator, prefix, X, y_true, sample_weight
+                fitted_estimator, prefix, X, y_true, sample_weight, pos_label
             )
         except Exception as e:
             msg = (
