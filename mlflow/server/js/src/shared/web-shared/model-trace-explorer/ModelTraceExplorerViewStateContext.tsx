@@ -159,13 +159,13 @@ export const ModelTraceExplorerViewStateProvider = ({
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
 
-  // When set, the next selectedNode-change effect skips resetting activeTab
-  // to the node's default tab, so an explicit tab set alongside the node
-  // (e.g. jumping to a search match) sticks.
-  const skipTabResetRef = useRef(false);
+  // Tracks the node whose tab was explicitly selected (e.g. by search navigation).
+  // Associating the bypass with a node prevents a stale bypass when React skips a
+  // selectedNode update because that node is already selected.
+  const explicitTabNodeRef = useRef<{ node: ModelTraceSpanNode | undefined } | null>(null);
 
   const setSelectedNodeAndTab = useCallback((node: ModelTraceSpanNode | undefined, tab: ModelTraceExplorerTab) => {
-    skipTabResetRef.current = true;
+    explicitTabNodeRef.current = { node };
     setSelectedNode(node);
     setActiveTab(tab);
   }, []);
@@ -217,8 +217,9 @@ export const ModelTraceExplorerViewStateProvider = ({
   }, []);
 
   useEffect(() => {
-    if (skipTabResetRef.current) {
-      skipTabResetRef.current = false;
+    const explicitTabNode = explicitTabNodeRef.current;
+    explicitTabNodeRef.current = null;
+    if (explicitTabNode?.node === selectedNode) {
       return;
     }
     const defaultActiveTab = getDefaultActiveTab(selectedNode);

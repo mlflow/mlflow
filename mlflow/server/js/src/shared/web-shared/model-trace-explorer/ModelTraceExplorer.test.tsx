@@ -306,6 +306,15 @@ describe('ModelTraceExplorer', () => {
     // first match: events tab open on the first span
     expect(await screen.findByText('shared-event-marker')).toBeInTheDocument();
 
+    // Clearing search and selecting another span should apply that span's default tab.
+    // This also verifies that selecting a search match on the already-selected node
+    // does not leave a stale tab-reset bypass behind.
+    await userEvent.clear(searchBar);
+    await userEvent.click(screen.getAllByText('events_span_2')[0]);
+    expect(await screen.findByTestId('model-trace-explorer-content-tab')).toBeInTheDocument();
+
+    await userEvent.type(searchBar, 'shared-event-marker');
+
     // jump to the next match, which is on the second span
     const nextButton = await screen.findByTestId('next-search-match');
     await userEvent.click(nextButton);
