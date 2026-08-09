@@ -123,8 +123,15 @@ class TracingSession:
             self.span.record_exception(exc_val)
 
         try:
-            # Chat instances store model in _model attribute
-            if model := (self.inputs.get("model") or getattr(self.instance, "_model", None)):
+            # Chat instances store model in _model attribute; Interactions store it in the
+            # response object; kwargs-only APIs (Interactions.create) pack body args into "body".
+            _body = self.inputs.get("body") or {}
+            if model := (
+                self.inputs.get("model")
+                or (_body.get("model") if isinstance(_body, dict) else None)
+                or getattr(self.instance, "_model", None)
+                or getattr(self.output, "model", None)
+            ):
                 self.span.set_attribute(SpanAttributeKey.MODEL, model)
                 self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "gemini")
         except Exception as e:
@@ -290,6 +297,7 @@ def _get_span_type(task_name: str) -> str:
         "send_message": SpanType.CHAT_MODEL,
         "count_tokens": SpanType.LLM,
         "embed_content": SpanType.EMBEDDING,
+        "create": SpanType.LLM,  # Interactions API
     }
     return span_type_mapping.get(task_name, SpanType.UNKNOWN)
 
@@ -306,22 +314,37 @@ def _construct_full_inputs(func, *args, **kwargs):
 
 
 def _parse_usage(output):
-    usage = None
+    # GenerateContent / send_message / count_tokens response: has usage_metadata attribute.
+    usage_meta = None
     if hasattr(output, "usage_metadata"):
-        usage = output.usage_metadata
+        usage_meta = output.usage_metadata
     elif isinstance(output, dict):
-        usage = output.get("usage_metadata")
-    else:
-        return None
+        usage_meta = output.get("usage_metadata")
 
-    usage_dict = {}
-    if (prompt_tokens := usage.prompt_token_count) is not None:
-        usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-    if (candidate_tokens := usage.candidates_token_count) is not None:
-        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
-    if (total_tokens := usage.total_token_count) is not None:
-        usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-    if (cached_tokens := getattr(usage, "cached_content_token_count", None)) is not None:
-        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
+    if usage_meta is not None:
+        usage_dict = {}
+        if (prompt_tokens := usage_meta.prompt_token_count) is not None:
+            usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+        if (candidate_tokens := usage_meta.candidates_token_count) is not None:
+            usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
+        if (total_tokens := usage_meta.total_token_count) is not None:
+            usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        if (cached_tokens := getattr(usage_meta, "cached_content_token_count", None)) is not None:
+            usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
+        return usage_dict or None
 
-    return usage_dict or None
+    # Interactions API response: has a .usage attribute with total_*_tokens fields.
+    inter_usage = getattr(output, "usage", None)
+    if inter_usage is not None and hasattr(inter_usage, "total_input_tokens"):
+        usage_dict = {}
+        if (input_tokens := inter_usage.total_input_tokens) is not None:
+            usage_dict[TokenUsageKey.INPUT_TOKENS] = input_tokens
+        if (output_tokens := inter_usage.total_output_tokens) is not None:
+            usage_dict[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        if (total_tokens := inter_usage.total_tokens) is not None:
+            usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+        if (cached_tokens := inter_usage.total_cached_tokens) is not None:
+            usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
+        return usage_dict or None
+
+    return None

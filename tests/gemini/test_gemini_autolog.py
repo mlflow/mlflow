@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from google import genai
+from google.genai import interactions as inter_types
 from packaging.version import Version
 
 import mlflow
@@ -699,6 +700,121 @@ def test_tracing_headers_preserve_existing_config_headers(is_async):
     assert "traceparent" in headers
     # User-provided headers take precedence
     assert headers["X-Custom"] == "my-value"
+
+
+# ---------------------------------------------------------------------------
+# Interactions API tests
+# ---------------------------------------------------------------------------
+
+_DUMMY_INTERACTION_RESPONSE = inter_types.Interaction(
+    id="test-interaction-id",
+    model="gemini-2.5-flash",
+    status="completed",
+    usage=inter_types.Usage(
+        total_input_tokens=100,
+        total_output_tokens=50,
+        total_tokens=150,
+        total_cached_tokens=0,
+    ),
+    output_text="Hello from Interactions API",
+)
+
+_DUMMY_INTERACTION_RESPONSE_CACHED = inter_types.Interaction(
+    id="test-interaction-id-cached",
+    model="gemini-2.5-flash",
+    status="completed",
+    usage=inter_types.Usage(
+        total_input_tokens=100,
+        total_output_tokens=50,
+        total_tokens=150,
+        total_cached_tokens=80,
+    ),
+    output_text="Hello with cache",
+)
+
+
+def _interactions_create_sync(self, *, model=None, **kwargs):
+    return _DUMMY_INTERACTION_RESPONSE
+
+
+async def _interactions_create_async(self, *, model=None, **kwargs):
+    return _DUMMY_INTERACTION_RESPONSE
+
+
+def _interactions_create_cached_sync(self, *, model=None, **kwargs):
+    return _DUMMY_INTERACTION_RESPONSE_CACHED
+
+
+async def _interactions_create_cached_async(self, *, model=None, **kwargs):
+    return _DUMMY_INTERACTION_RESPONSE_CACHED
+
+
+def _do_interactions_create(is_async: bool, mock_fn):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+        return asyncio.run(
+            client.aio.interactions.create(
+                model="gemini-2.5-flash",
+                input={"turns": [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]},
+            )
+        )
+    else:
+        return client.interactions.create(
+            model="gemini-2.5-flash",
+            input={"turns": [{"role": "user", "content": [{"type": "text", "text": "Hi"}]}]},
+        )
+
+
+def test_interactions_create_autolog(is_async):
+    patch_cls = "AsyncGeminiNextGenInteractions" if is_async else "GeminiNextGenInteractions"
+    mock_fn = _interactions_create_async if is_async else _interactions_create_sync
+
+    with patch(f"google.genai._gaos.google_genai.{patch_cls}.create", new=mock_fn):
+        mlflow.gemini.autolog()
+        _do_interactions_create(is_async, mock_fn)
+
+        traces = get_traces()
+        assert len(traces) == 1
+        assert traces[0].info.status == "OK"
+        assert len(traces[0].data.spans) == 1
+
+        span = traces[0].data.spans[0]
+        assert span.name == f"{patch_cls}.create"
+        assert span.span_type == SpanType.LLM
+        assert span.model_name == "gemini-2.5-flash"
+        assert span.outputs == _DUMMY_INTERACTION_RESPONSE.to_dict()
+        assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+        }
+
+        mlflow.gemini.autolog(disable=True)
+        _do_interactions_create(is_async, mock_fn)
+
+        # No new trace after disable
+        traces = get_traces()
+        assert len(traces) == 1
+
+
+def test_interactions_create_cached_tokens(is_async):
+    patch_cls = "AsyncGeminiNextGenInteractions" if is_async else "GeminiNextGenInteractions"
+    mock_fn = _interactions_create_cached_async if is_async else _interactions_create_cached_sync
+
+    with patch(f"google.genai._gaos.google_genai.{patch_cls}.create", new=mock_fn):
+        mlflow.gemini.autolog()
+        _do_interactions_create(is_async, mock_fn)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
+    }
 
 
 def test_tracing_headers_injected_when_config_is_none(is_async):
