@@ -89,26 +89,22 @@ def _enforce_strict_json_schema(node: Any) -> None:
     ``additionalProperties: false``. Pydantic's ``model_json_schema()`` does not
     emit this field, so we add it in place before sending the request.
 
-    An object node is detected either by an explicit ``type: object`` or by the
-    presence of ``properties``, since Pydantic does not always emit ``type`` on
-    object schemas.
+    An object node is detected by the presence of ``properties``. Free-form
+    dicts (``dict[str, X]``) emit ``type: object`` with a schema-valued
+    ``additionalProperties`` and no ``properties``; those are left untouched so
+    their value schema is preserved.
     """
-    if isinstance(node, dict):
-        if "$ref" in node:
-            # OpenAI strict mode rejects sibling keywords alongside a $ref.
-            ref = node["$ref"]
-            node.clear()
-            node["$ref"] = ref
-            return
-        if node.get("type") == "object" or "properties" in node:
-            node["additionalProperties"] = False
-        for value in node.values():
-            _enforce_strict_json_schema(value)
-    elif isinstance(node, list):
+    if isinstance(node, list):
         for item in node:
             _enforce_strict_json_schema(item)
         return
     if not isinstance(node, dict):
+        return
+    if "$ref" in node:
+        # OpenAI strict mode rejects sibling keywords alongside a $ref.
+        ref = node["$ref"]
+        node.clear()
+        node["$ref"] = ref
         return
 
     if "properties" in node:
