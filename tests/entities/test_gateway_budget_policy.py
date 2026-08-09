@@ -75,3 +75,19 @@ def test_to_proto_omits_target_value_when_none():
     assert proto.target_value == ""
     # Unset optional fields must not be marked present, so JSON responses omit them.
     assert not proto.HasField("target_value")
+
+
+def test_budget_target_scope_user_proto_roundtrip():
+    assert BudgetTargetScope.from_proto(BudgetTargetScope.USER.to_proto()) == BudgetTargetScope.USER
+
+
+def test_user_policy_proto_roundtrip_preserves_principal_target():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice@example.com")
+    restored = GatewayBudgetPolicy.from_proto(policy.to_proto())
+    assert restored.target_scope == BudgetTargetScope.USER
+    assert restored.target_value == "alice@example.com"
+
+
+def test_string_target_scope_coerced_to_enum():
+    policy = _make_policy(target_scope="USER", target_value="bob")
+    assert policy.target_scope is BudgetTargetScope.USER
