@@ -115,6 +115,10 @@ jobs:
         run: |
           uv run --no-sync pytest dev/pypi
 
+      - name: Test skills
+        run: |
+          uv run --no-sync pytest .claude/skills
+
       - name: Check function signatures
         if: matrix.os == 'ubuntu-latest'
         run: |
