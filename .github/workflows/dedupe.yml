@@ -105,7 +105,11 @@ jobs:
               [.duplicates[]? | numbers | select(. > 0 and . != $base and floor == .)]
               | reduce .[] as $n ([]; if index($n) then . else . + [$n] end)
               | .[:3]
-            ' /tmp/dedupe-payload.json) || duplicates='[]'
+            ' /tmp/dedupe-payload.json) || {
+              echo "::warning::Malformed dedupe payload, treating as no duplicates"
+              cat /tmp/dedupe-payload.json
+              duplicates='[]'
+            }
           fi
           echo "duplicates=$duplicates" >> "$GITHUB_OUTPUT"
           {
