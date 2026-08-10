@@ -43,10 +43,7 @@ anything yourself.
 
 ## Instructions
 
-1. Read the issue: `gh issue view $issue_number --repo $owner_repo`, then its
-   comments: `gh issue view $issue_number --repo $owner_repo --comments`. Both
-   calls are needed: `--comments` prints the comment list _instead of_ the title,
-   metadata, and body, not in addition to them.
+1. Read the issue: `gh issue view $issue_number --repo $owner_repo`.
 
 2. Stop without writing the file if any of these hold:
 
@@ -54,8 +51,6 @@ anything yourself.
    - There is nothing specific to match on: broad product feedback, a support
      question, positive feedback, or a feature idea with no concrete behavior.
    - It is a security report.
-   - A comment contains `<!-- issue-dedupe -->`. That is the marker this workflow
-     stamps on its own comments, so an earlier run already handled this issue.
 
 3. Summarize the issue in two or three sentences: the observed behavior, the
    component involved, and any distinctive error text. Everything below matches

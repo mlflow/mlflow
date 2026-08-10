@@ -128,6 +128,13 @@ jobs:
           DUPLICATES: ${{ needs.dedupe.outputs.duplicates }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # A re-run of this workflow would otherwise comment a second time.
+          if gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json comments \
+              --jq '.comments[].body' | grep -qF '<!-- issue-dedupe -->'; then
+            echo "Already commented on #$ISSUE_NUMBER, skipping."
+            exit 0
+          fi
+
           count=$(jq length <<< "$DUPLICATES")
           links=$(jq -r --arg repo "$REPO" '
             to_entries
@@ -135,7 +142,6 @@ jobs:
             | join("\n")
           ' <<< "$DUPLICATES")
           {
-            # Marker the skill greps for, so a re-run does not comment twice.
             echo "<!-- issue-dedupe -->"
             echo "Found $count possible duplicate issue(s):"
             echo
