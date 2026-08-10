@@ -94975,6 +94975,67 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getTraceIdsBytes(int index);
+
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    java.util.List<java.lang.String>
+        getExperimentIdsList();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    int getExperimentIdsCount();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    java.lang.String getExperimentIds(int index);
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index);
   }
   /**
    * Protobuf type {@code mlflow.BatchGetTraces}
@@ -94990,6 +95051,7 @@ public final class Service {
     }
     private BatchGetTraces() {
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -95032,6 +95094,15 @@ public final class Service {
               traceIds_.add(bs);
               break;
             }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                experimentIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              experimentIds_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -95049,6 +95120,9 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -96023,6 +96097,77 @@ public final class Service {
       return traceIds_.getByteString(index);
     }
 
+    public static final int EXPERIMENT_IDS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList experimentIds_;
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getExperimentIdsList() {
+      return experimentIds_;
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    public int getExperimentIdsCount() {
+      return experimentIds_.size();
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    public java.lang.String getExperimentIds(int index) {
+      return experimentIds_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index) {
+      return experimentIds_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -96039,6 +96184,9 @@ public final class Service {
                         throws java.io.IOException {
       for (int i = 0; i < traceIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceIds_.getRaw(i));
+      }
+      for (int i = 0; i < experimentIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentIds_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -96057,6 +96205,14 @@ public final class Service {
         size += dataSize;
         size += 1 * getTraceIdsList().size();
       }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < experimentIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(experimentIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getExperimentIdsList().size();
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -96074,6 +96230,8 @@ public final class Service {
 
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
+      if (!getExperimentIdsList()
+          .equals(other.getExperimentIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -96088,6 +96246,10 @@ public final class Service {
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getTraceIdsList().hashCode();
+      }
+      if (getExperimentIdsCount() > 0) {
+        hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -96224,6 +96386,8 @@ public final class Service {
         super.clear();
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -96256,6 +96420,11 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.traceIds_ = traceIds_;
+        if (((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.experimentIds_ = experimentIds_;
         onBuilt();
         return result;
       }
@@ -96311,6 +96480,16 @@ public final class Service {
           } else {
             ensureTraceIdsIsMutable();
             traceIds_.addAll(other.traceIds_);
+          }
+          onChanged();
+        }
+        if (!other.experimentIds_.isEmpty()) {
+          if (experimentIds_.isEmpty()) {
+            experimentIds_ = other.experimentIds_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensureExperimentIdsIsMutable();
+            experimentIds_.addAll(other.experimentIds_);
           }
           onChanged();
         }
@@ -96488,6 +96667,196 @@ public final class Service {
         onChanged();
         return this;
       }
+
+      private com.google.protobuf.LazyStringList experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureExperimentIdsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = new com.google.protobuf.LazyStringArrayList(experimentIds_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return A list containing the experimentIds.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getExperimentIdsList() {
+        return experimentIds_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return The count of experimentIds.
+       */
+      public int getExperimentIdsCount() {
+        return experimentIds_.size();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the element to return.
+       * @return The experimentIds at the given index.
+       */
+      public java.lang.String getExperimentIds(int index) {
+        return experimentIds_.get(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the experimentIds at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdsBytes(int index) {
+        return experimentIds_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The experimentIds to set.
+       * @return This builder for chaining.
+       */
+      public Builder setExperimentIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIds(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param values The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllExperimentIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureExperimentIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, experimentIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearExperimentIds() {
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The bytes of the experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIdsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -96585,6 +96954,67 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getTraceIdsBytes(int index);
+
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    java.util.List<java.lang.String>
+        getExperimentIdsList();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    int getExperimentIdsCount();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    java.lang.String getExperimentIds(int index);
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index);
   }
   /**
    * Protobuf type {@code mlflow.BatchGetTraceInfos}
@@ -96600,6 +97030,7 @@ public final class Service {
     }
     private BatchGetTraceInfos() {
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -96642,6 +97073,15 @@ public final class Service {
               traceIds_.add(bs);
               break;
             }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                experimentIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              experimentIds_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -96659,6 +97099,9 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -97633,6 +98076,77 @@ public final class Service {
       return traceIds_.getByteString(index);
     }
 
+    public static final int EXPERIMENT_IDS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList experimentIds_;
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getExperimentIdsList() {
+      return experimentIds_;
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    public int getExperimentIdsCount() {
+      return experimentIds_.size();
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    public java.lang.String getExperimentIds(int index) {
+      return experimentIds_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * traces belonging to these experiments are returned.
+     * ``RestStore`` forwards this field to the remote backend when the caller
+     * explicitly sets it, so scoping is preserved when proxying between OSS
+     * servers. A Databricks-hosted backend's API has no corresponding field,
+     * so this scoping is not forwarded when proxying to that backend.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index) {
+      return experimentIds_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -97649,6 +98163,9 @@ public final class Service {
                         throws java.io.IOException {
       for (int i = 0; i < traceIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, traceIds_.getRaw(i));
+      }
+      for (int i = 0; i < experimentIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentIds_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -97667,6 +98184,14 @@ public final class Service {
         size += dataSize;
         size += 1 * getTraceIdsList().size();
       }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < experimentIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(experimentIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getExperimentIdsList().size();
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -97684,6 +98209,8 @@ public final class Service {
 
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
+      if (!getExperimentIdsList()
+          .equals(other.getExperimentIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -97698,6 +98225,10 @@ public final class Service {
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getTraceIdsList().hashCode();
+      }
+      if (getExperimentIdsCount() > 0) {
+        hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -97834,6 +98365,8 @@ public final class Service {
         super.clear();
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -97866,6 +98399,11 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.traceIds_ = traceIds_;
+        if (((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.experimentIds_ = experimentIds_;
         onBuilt();
         return result;
       }
@@ -97921,6 +98459,16 @@ public final class Service {
           } else {
             ensureTraceIdsIsMutable();
             traceIds_.addAll(other.traceIds_);
+          }
+          onChanged();
+        }
+        if (!other.experimentIds_.isEmpty()) {
+          if (experimentIds_.isEmpty()) {
+            experimentIds_ = other.experimentIds_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensureExperimentIdsIsMutable();
+            experimentIds_.addAll(other.experimentIds_);
           }
           onChanged();
         }
@@ -98095,6 +98643,196 @@ public final class Service {
   }
   ensureTraceIdsIsMutable();
         traceIds_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureExperimentIdsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = new com.google.protobuf.LazyStringArrayList(experimentIds_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return A list containing the experimentIds.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getExperimentIdsList() {
+        return experimentIds_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return The count of experimentIds.
+       */
+      public int getExperimentIdsCount() {
+        return experimentIds_.size();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the element to return.
+       * @return The experimentIds at the given index.
+       */
+      public java.lang.String getExperimentIds(int index) {
+        return experimentIds_.get(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the experimentIds at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdsBytes(int index) {
+        return experimentIds_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The experimentIds to set.
+       * @return This builder for chaining.
+       */
+      public Builder setExperimentIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIds(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param values The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllExperimentIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureExperimentIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, experimentIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearExperimentIds() {
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * traces belonging to these experiments are returned.
+       * ``RestStore`` forwards this field to the remote backend when the caller
+       * explicitly sets it, so scoping is preserved when proxying between OSS
+       * servers. A Databricks-hosted backend's API has no corresponding field,
+       * so this scoping is not forwarded when proxying to that backend.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The bytes of the experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIdsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
         onChanged();
         return this;
       }
@@ -196453,8 +197191,9 @@ public final class Service {
 
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -196463,8 +197202,9 @@ public final class Service {
     boolean hasExperimentId();
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -196473,8 +197213,9 @@ public final class Service {
     java.lang.String getExperimentId();
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -196482,10 +197223,75 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getExperimentIdBytes();
+
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    java.util.List<java.lang.String>
+        getExperimentIdsList();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    int getExperimentIdsCount();
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    java.lang.String getExperimentIds(int index);
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index);
   }
   /**
    * <pre>
-   * List all scorers, optionally scoped to a single experiment.
+   * List all scorers, optionally scoped to one or more experiments.
    * </pre>
    *
    * Protobuf type {@code mlflow.ListScorers}
@@ -196501,6 +197307,7 @@ public final class Service {
     }
     private ListScorers() {
       experimentId_ = "";
+      experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -196540,6 +197347,15 @@ public final class Service {
               experimentId_ = bs;
               break;
             }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                experimentIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000002;
+              }
+              experimentIds_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -196555,6 +197371,9 @@ public final class Service {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -197482,8 +198301,9 @@ public final class Service {
     private volatile java.lang.Object experimentId_;
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -197495,8 +198315,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -197519,8 +198340,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * The experiment ID. If empty, returns scorers across all experiments
-     * in the active workspace (used by the admin-UI scorer picker).
+     * A single experiment ID. Kept for backward compatibility; prefer
+     * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+     * with ``experiment_ids`` -- specifying both is an error.
      * </pre>
      *
      * <code>optional string experiment_id = 1;</code>
@@ -197541,6 +198363,81 @@ public final class Service {
       }
     }
 
+    public static final int EXPERIMENT_IDS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList experimentIds_;
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return A list containing the experimentIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getExperimentIdsList() {
+      return experimentIds_;
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @return The count of experimentIds.
+     */
+    public int getExperimentIdsCount() {
+      return experimentIds_.size();
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the element to return.
+     * @return The experimentIds at the given index.
+     */
+    public java.lang.String getExperimentIds(int index) {
+      return experimentIds_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional list of experiment IDs to scope the query. When provided, only
+     * scorers from these experiments are returned. Mutually exclusive with
+     * ``experiment_id`` -- specifying both is an error.
+     * Against a Databricks-hosted backend, this list is not sent as a single
+     * batched request; the client instead issues one legacy single-
+     * ``experiment_id`` request per ID, so scoping is preserved but the
+     * batching benefit is not.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the experimentIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index) {
+      return experimentIds_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -197558,6 +198455,9 @@ public final class Service {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
+      for (int i = 0; i < experimentIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentIds_.getRaw(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -197569,6 +198469,14 @@ public final class Service {
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < experimentIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(experimentIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getExperimentIdsList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -197590,6 +198498,8 @@ public final class Service {
         if (!getExperimentId()
             .equals(other.getExperimentId())) return false;
       }
+      if (!getExperimentIdsList()
+          .equals(other.getExperimentIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -197604,6 +198514,10 @@ public final class Service {
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentId().hashCode();
+      }
+      if (getExperimentIdsCount() > 0) {
+        hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -197702,7 +198616,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * List all scorers, optionally scoped to a single experiment.
+     * List all scorers, optionally scoped to one or more experiments.
      * </pre>
      *
      * Protobuf type {@code mlflow.ListScorers}
@@ -197744,6 +198658,8 @@ public final class Service {
         super.clear();
         experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -197776,6 +198692,11 @@ public final class Service {
           to_bitField0_ |= 0x00000001;
         }
         result.experimentId_ = experimentId_;
+        if (((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = experimentIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.experimentIds_ = experimentIds_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -197830,6 +198751,16 @@ public final class Service {
           experimentId_ = other.experimentId_;
           onChanged();
         }
+        if (!other.experimentIds_.isEmpty()) {
+          if (experimentIds_.isEmpty()) {
+            experimentIds_ = other.experimentIds_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensureExperimentIdsIsMutable();
+            experimentIds_.addAll(other.experimentIds_);
+          }
+          onChanged();
+        }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -197863,8 +198794,9 @@ public final class Service {
       private java.lang.Object experimentId_ = "";
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197875,8 +198807,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197898,8 +198831,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197920,8 +198854,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197940,8 +198875,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197955,8 +198891,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * The experiment ID. If empty, returns scorers across all experiments
-       * in the active workspace (used by the admin-UI scorer picker).
+       * A single experiment ID. Kept for backward compatibility; prefer
+       * ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+       * with ``experiment_ids`` -- specifying both is an error.
        * </pre>
        *
        * <code>optional string experiment_id = 1;</code>
@@ -197970,6 +198907,205 @@ public final class Service {
   }
   bitField0_ |= 0x00000001;
         experimentId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureExperimentIdsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          experimentIds_ = new com.google.protobuf.LazyStringArrayList(experimentIds_);
+          bitField0_ |= 0x00000002;
+         }
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return A list containing the experimentIds.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getExperimentIdsList() {
+        return experimentIds_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return The count of experimentIds.
+       */
+      public int getExperimentIdsCount() {
+        return experimentIds_.size();
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the element to return.
+       * @return The experimentIds at the given index.
+       */
+      public java.lang.String getExperimentIds(int index) {
+        return experimentIds_.get(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the experimentIds at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdsBytes(int index) {
+        return experimentIds_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The experimentIds to set.
+       * @return This builder for chaining.
+       */
+      public Builder setExperimentIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIds(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param values The experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllExperimentIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureExperimentIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, experimentIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearExperimentIds() {
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional list of experiment IDs to scope the query. When provided, only
+       * scorers from these experiments are returned. Mutually exclusive with
+       * ``experiment_id`` -- specifying both is an error.
+       * Against a Databricks-hosted backend, this list is not sent as a single
+       * batched request; the client instead issues one legacy single-
+       * ``experiment_id`` request per ID, so scoping is preserved but the
+       * batching benefit is not.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 2;</code>
+       * @param value The bytes of the experimentIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExperimentIdsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
         onChanged();
         return this;
       }
@@ -309384,1223 +310520,1224 @@ public final class Service {
       "[$this.Response]\"y\n\016GetTraceInfoV3\022\020\n\010tr" +
       "ace_id\030\001 \001(\t\032(\n\010Response\022\034\n\005trace\030\001 \001(\0132" +
       "\r.mlflow.Trace:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"{\n\016BatchGetTraces\022\021\n" +
-      "\ttrace_ids\030\001 \003(\t\032)\n\010Response\022\035\n\006traces\030\001" +
-      " \003(\0132\r.mlflow.Trace:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"\212\001\n\022BatchGetTra" +
-      "ceInfos\022\021\n\ttrace_ids\030\001 \003(\t\0324\n\010Response\022(" +
-      "\n\013trace_infos\030\001 \003(\0132\023.mlflow.TraceInfoV3" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\227\001\n\010GetTrace\022\026\n\010trace_id\030\001 \001(\tB\004\370\206" +
-      "\031\001\022\034\n\rallow_partial\030\002 \001(\010:\005false\032(\n\010Resp" +
-      "onse\022\034\n\005trace\030\001 \001(\0132\r.mlflow.Trace:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\353\001\n\014SearchTraces\022\026\n\016experiment_ids\030\001 \003(\t" +
-      "\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_results\030\003 \001(\005:\0031" +
-      "00\022\020\n\010order_by\030\004 \003(\t\022\022\n\npage_token\030\005 \001(\t" +
-      "\032F\n\010Response\022!\n\006traces\030\001 \003(\0132\021.mlflow.Tr" +
-      "aceInfo\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&c" +
-      "om.databricks.rpc.RPC[$this.Response]\"\252\002" +
-      "\n\023SearchUnifiedTraces\022\026\n\010model_id\030\001 \001(\tB" +
-      "\004\370\206\031\001\022\036\n\020sql_warehouse_id\030\002 \001(\tB\004\370\206\031\001\022\026\n" +
-      "\016experiment_ids\030\003 \003(\t\022\016\n\006filter\030\004 \001(\t\022\030\n" +
-      "\013max_results\030\005 \001(\005:\003100\022\020\n\010order_by\030\006 \003(" +
-      "\t\022\022\n\npage_token\030\007 \001(\t\032F\n\010Response\022!\n\006tra" +
-      "ces\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_pag" +
-      "e_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\301\001\n\025GetOnlineTraceDet" +
-      "ails\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022\036\n\020sql_ware" +
-      "house_id\030\002 \001(\tB\004\370\206\031\001\022$\n\026source_inference" +
-      "_table\030\003 \001(\tB\004\370\206\031\001\022*\n\034source_databricks_" +
-      "request_id\030\004 \001(\tB\004\370\206\031\001\032\036\n\010Response\022\022\n\ntr" +
-      "ace_data\030\001 \001(\t\"\303\001\n\014DeleteTraces\022\033\n\rexper" +
-      "iment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timestamp_mi" +
-      "llis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013reques" +
-      "t_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_delete" +
-      "d\030\001 \001(\005:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"\305\001\n\016DeleteTracesV3\022\033\n\rexper" +
-      "iment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timestamp_mi" +
-      "llis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013reques" +
-      "t_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_delete" +
-      "d\030\001 \001(\005:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"\265\002\n\037CalculateTraceFilterCor" +
-      "relation\022\026\n\016experiment_ids\030\001 \003(\t\022\026\n\016filt" +
-      "er_string1\030\002 \001(\t\022\026\n\016filter_string2\030\003 \001(\t" +
-      "\022\023\n\013base_filter\030\004 \001(\t\032\207\001\n\010Response\022\014\n\004np" +
-      "mi\030\001 \001(\001\022\025\n\rnpmi_smoothed\030\002 \001(\001\022\025\n\rfilte" +
-      "r1_count\030\003 \001(\005\022\025\n\rfilter2_count\030\004 \001(\005\022\023\n" +
-      "\013joint_count\030\005 \001(\005\022\023\n\013total_count\030\006 \001(\005:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"`\n\021MetricAggregation\0221\n\020aggregation" +
-      "_type\030\001 \001(\0162\027.mlflow.AggregationType\022\030\n\020" +
-      "percentile_value\030\002 \001(\001\"\273\003\n\021QueryTraceMet" +
-      "rics\022\026\n\016experiment_ids\030\001 \003(\t\022)\n\tview_typ" +
-      "e\030\002 \001(\0162\026.mlflow.MetricViewType\022\023\n\013metri" +
-      "c_name\030\003 \001(\t\022/\n\014aggregations\030\004 \003(\0132\031.mlf" +
-      "low.MetricAggregation\022\022\n\ndimensions\030\005 \003(" +
-      "\t\022\017\n\007filters\030\006 \003(\t\022\035\n\025time_interval_seco" +
-      "nds\030\007 \001(\003\022\025\n\rstart_time_ms\030\010 \001(\003\022\023\n\013end_" +
-      "time_ms\030\t \001(\003\022\031\n\013max_results\030\n \001(\005:\0041000" +
-      "\022\022\n\npage_token\030\013 \001(\t\032Q\n\010Response\022,\n\013data" +
-      "_points\030\001 \003(\0132\027.mlflow.MetricDataPoint\022\027" +
-      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\372\001\n\017MetricD" +
-      "ataPoint\022\023\n\013metric_name\030\001 \001(\t\022;\n\ndimensi" +
-      "ons\030\002 \003(\0132\'.mlflow.MetricDataPoint.Dimen" +
-      "sionsEntry\0223\n\006values\030\003 \003(\0132#.mlflow.Metr" +
-      "icDataPoint.ValuesEntry\0321\n\017DimensionsEnt" +
-      "ry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032-\n\013Va" +
-      "luesEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001:\0028" +
-      "\001\"v\n\013SetTraceTag\022\022\n\nrequest_id\030\001 \001(\t\022\013\n\003" +
-      "key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Response:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\210\001\n\rSetTraceTagV3\022\020\n\010trace_id\030\004 \001(\t\022\013\n" +
-      "\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Response:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]J\004\010\001\020\002R\nrequest_id\"j\n\016DeleteTraceTag\022\022" +
-      "\n\nrequest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Respo" +
-      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"|\n\020DeleteTraceTagV3\022\020\n\010trace_id" +
-      "\030\003 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Response:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]J\004\010\001" +
-      "\020\002R\nrequest_id\"c\n\005Trace\022\'\n\ntrace_info\030\001 " +
-      "\001(\0132\023.mlflow.TraceInfoV3\0221\n\005spans\030\002 \003(\0132" +
-      "\".opentelemetry.proto.trace.v1.Span\"\266\003\n\r" +
-      "TraceLocation\0225\n\004type\030\001 \001(\0162\'.mlflow.Tra" +
-      "ceLocation.TraceLocationType\022K\n\021mlflow_e" +
-      "xperiment\030\002 \001(\0132..mlflow.TraceLocation.M" +
-      "lflowExperimentLocationH\000\022G\n\017inference_t" +
-      "able\030\003 \001(\0132,.mlflow.TraceLocation.Infere" +
-      "nceTableLocationH\000\0321\n\030MlflowExperimentLo" +
-      "cation\022\025\n\rexperiment_id\030\001 \001(\t\0321\n\026Inferen" +
-      "ceTableLocation\022\027\n\017full_table_name\030\001 \001(\t" +
-      "\"d\n\021TraceLocationType\022#\n\037TRACE_LOCATION_" +
-      "TYPE_UNSPECIFIED\020\000\022\025\n\021MLFLOW_EXPERIMENT\020" +
-      "\001\022\023\n\017INFERENCE_TABLE\020\002B\014\n\nidentifier\"\233\005\n" +
-      "\013TraceInfoV3\022\020\n\010trace_id\030\001 \001(\t\022\031\n\021client" +
-      "_request_id\030\002 \001(\t\022-\n\016trace_location\030\003 \001(" +
-      "\0132\025.mlflow.TraceLocation\022\017\n\007request\030\004 \001(" +
-      "\t\022\020\n\010response\030\005 \001(\t\022\027\n\017request_preview\030\014" +
-      " \001(\t\022\030\n\020response_preview\030\r \001(\t\0220\n\014reques" +
-      "t_time\030\006 \001(\0132\032.google.protobuf.Timestamp" +
-      "\0225\n\022execution_duration\030\007 \001(\0132\031.google.pr" +
-      "otobuf.Duration\022(\n\005state\030\010 \001(\0162\031.mlflow." +
-      "TraceInfoV3.State\022>\n\016trace_metadata\030\t \003(" +
-      "\0132&.mlflow.TraceInfoV3.TraceMetadataEntr" +
-      "y\0223\n\013assessments\030\n \003(\0132\036.mlflow.assessme" +
-      "nts.Assessment\022+\n\004tags\030\013 \003(\0132\035.mlflow.Tr" +
-      "aceInfoV3.TagsEntry\0324\n\022TraceMetadataEntr" +
-      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032+\n\tTag" +
-      "sEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"B" +
-      "\n\005State\022\025\n\021STATE_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t" +
-      "\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003\"\\\n\014StartTrace" +
-      "V3\022\"\n\005trace\030\001 \001(\0132\r.mlflow.TraceB\004\370\206\031\001\032(" +
-      "\n\010Response\022\034\n\005trace\030\001 \001(\0132\r.mlflow.Trace" +
-      "\"F\n\017LinkTracesToRun\022\021\n\ttrace_ids\030\001 \003(\t\022\024" +
-      "\n\006run_id\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response\"\275\001\n\022Lin" +
-      "kPromptsToTrace\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022" +
-      "D\n\017prompt_versions\030\002 \003(\0132+.mlflow.LinkPr" +
-      "omptsToTrace.PromptVersionRef\032=\n\020PromptV" +
-      "ersionRef\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version" +
-      "\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response\"h\n\016DatasetSumma" +
-      "ry\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030" +
-      "\002 \001(\tB\004\370\206\031\001\022\024\n\006digest\030\003 \001(\tB\004\370\206\031\001\022\017\n\007con" +
-      "text\030\004 \001(\t\"\224\001\n\016SearchDatasets\022\026\n\016experim" +
-      "ent_ids\030\001 \003(\t\032=\n\010Response\0221\n\021dataset_sum" +
-      "maries\030\001 \003(\0132\026.mlflow.DatasetSummary:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\232\002\n\021CreateLoggedModel\022\033\n\rexperiment_id" +
-      "\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\022\n\nmodel_type" +
-      "\030\003 \001(\t\022\025\n\rsource_run_id\030\004 \001(\t\022,\n\006params\030" +
-      "\005 \003(\0132\034.mlflow.LoggedModelParameter\022$\n\004t" +
-      "ags\030\006 \003(\0132\026.mlflow.LoggedModelTag\032.\n\010Res" +
-      "ponse\022\"\n\005model\030\001 \001(\0132\023.mlflow.LoggedMode" +
-      "l:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\273\001\n\023FinalizeLoggedModel\022\026\n\010model_" +
-      "id\030\001 \001(\tB\004\370\206\031\001\022/\n\006status\030\002 \001(\0162\031.mlflow." +
-      "LoggedModelStatusB\004\370\206\031\001\032.\n\010Response\022\"\n\005m" +
-      "odel\030\001 \001(\0132\023.mlflow.LoggedModel:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\205\001\n" +
-      "\016GetLoggedModel\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\032" +
-      ".\n\010Response\022\"\n\005model\030\001 \001(\0132\023.mlflow.Logg" +
-      "edModel:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"d\n\021DeleteLoggedModel\022\026\n\010mod" +
-      "el_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\367\003\n\022S" +
-      "earchLoggedModels\022\026\n\016experiment_ids\030\001 \003(" +
-      "\t\022\016\n\006filter\030\002 \001(\t\0224\n\010datasets\030\006 \003(\0132\".ml" +
-      "flow.SearchLoggedModels.Dataset\022\027\n\013max_r" +
-      "esults\030\003 \001(\005:\00250\0224\n\010order_by\030\004 \003(\0132\".mlf" +
-      "low.SearchLoggedModels.OrderBy\022\022\n\npage_t" +
-      "oken\030\005 \001(\t\032=\n\007Dataset\022\032\n\014dataset_name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\026\n\016dataset_digest\030\002 \001(\t\032j\n\007Ord" +
-      "erBy\022\030\n\nfield_name\030\001 \001(\tB\004\370\206\031\001\022\027\n\tascend" +
-      "ing\030\002 \001(\010:\004true\022\024\n\014dataset_name\030\003 \001(\t\022\026\n" +
-      "\016dataset_digest\030\004 \001(\t\032H\n\010Response\022#\n\006mod" +
-      "els\030\001 \003(\0132\023.mlflow.LoggedModel\022\027\n\017next_p" +
-      "age_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\257\001\n\022SetLoggedModelT" +
-      "ags\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022$\n\004tags\030\002 \003(" +
-      "\0132\026.mlflow.LoggedModelTag\032.\n\010Response\022\"\n" +
-      "\005model\030\001 \001(\0132\023.mlflow.LoggedModel:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\"~" +
-      "\n\024DeleteLoggedModelTag\022\026\n\010model_id\030\001 \001(\t" +
-      "B\004\370\206\031\001\022\025\n\007tag_key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\354\001\n\030ListLoggedModelArtifacts\022\026\n\010m" +
-      "odel_id\030\001 \001(\tB\004\370\206\031\001\022\037\n\027artifact_director" +
-      "y_path\030\002 \001(\t\022\022\n\npage_token\030\003 \001(\t\032V\n\010Resp" +
-      "onse\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020." +
-      "mlflow.FileInfo\022\027\n\017next_page_token\030\003 \001(\t" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\234\001\n\033LogLoggedModelParamsRequest\022\026\n" +
-      "\010model_id\030\001 \001(\tB\004\370\206\031\001\022,\n\006params\030\002 \003(\0132\034." +
-      "mlflow.LoggedModelParameter\032\n\n\010Response:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"[\n\013LoggedModel\022%\n\004info\030\001 \001(\0132\027.mlfl" +
-      "ow.LoggedModelInfo\022%\n\004data\030\002 \001(\0132\027.mlflo" +
-      "w.LoggedModelData\"\204\003\n\017LoggedModelInfo\022\020\n" +
-      "\010model_id\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\014" +
-      "\n\004name\030\003 \001(\t\022\035\n\025creation_timestamp_ms\030\004 " +
-      "\001(\003\022!\n\031last_updated_timestamp_ms\030\005 \001(\003\022\024" +
-      "\n\014artifact_uri\030\006 \001(\t\022)\n\006status\030\007 \001(\0162\031.m" +
-      "lflow.LoggedModelStatus\022\022\n\ncreator_id\030\010 ",
-      "\001(\003\022\022\n\nmodel_type\030\t \001(\t\022\025\n\rsource_run_id" +
-      "\030\n \001(\t\022\026\n\016status_message\030\013 \001(\t\022$\n\004tags\030\014" +
-      " \003(\0132\026.mlflow.LoggedModelTag\022:\n\rregistra" +
-      "tions\030\r \003(\0132#.mlflow.LoggedModelRegistra" +
-      "tionInfo\",\n\016LoggedModelTag\022\013\n\003key\030\001 \001(\t\022" +
-      "\r\n\005value\030\002 \001(\t\"<\n\033LoggedModelRegistratio" +
-      "nInfo\022\014\n\004name\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\"`\n\017" +
-      "LoggedModelData\022,\n\006params\030\001 \003(\0132\034.mlflow" +
-      ".LoggedModelParameter\022\037\n\007metrics\030\002 \003(\0132\016" +
-      ".mlflow.Metric\"2\n\024LoggedModelParameter\022\013" +
-      "\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\201\002\n\016SearchTra" +
-      "cesV3\022(\n\tlocations\030\001 \003(\0132\025.mlflow.TraceL" +
-      "ocation\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_results\030\003" +
-      " \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022\022\n\npage_toke" +
-      "n\030\005 \001(\t\032H\n\010Response\022#\n\006traces\030\001 \003(\0132\023.ml" +
-      "flow.TraceInfoV3\022\027\n\017next_page_token\030\002 \001(" +
+      "RPC[$this.Response]\"\223\001\n\016BatchGetTraces\022\021" +
+      "\n\ttrace_ids\030\001 \003(\t\022\026\n\016experiment_ids\030\002 \003(" +
+      "\t\032)\n\010Response\022\035\n\006traces\030\001 \003(\0132\r.mlflow.T" +
+      "race:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\242\001\n\022BatchGetTraceInfos\022\021\n\ttrac" +
+      "e_ids\030\001 \003(\t\022\026\n\016experiment_ids\030\002 \003(\t\0324\n\010R" +
+      "esponse\022(\n\013trace_infos\030\001 \003(\0132\023.mlflow.Tr" +
+      "aceInfoV3:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\227\001\n\010GetTrace\022\026\n\010trace_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\034\n\rallow_partial\030\002 \001(\010:\005fals" +
+      "e\032(\n\010Response\022\034\n\005trace\030\001 \001(\0132\r.mlflow.Tr" +
+      "ace:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\353\001\n\014SearchTraces\022\026\n\016experiment_" +
+      "ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_results" +
+      "\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022\022\n\npage_to" +
+      "ken\030\005 \001(\t\032F\n\010Response\022!\n\006traces\030\001 \003(\0132\021." +
+      "mlflow.TraceInfo\022\027\n\017next_page_token\030\002 \001(" +
       "\t:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\270\002\n\rCreateDataset\022\022\n\004name\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\026\n\016experiment_ids\030\002 \003(\t\022D\n\013source_t" +
-      "ype\030\003 \001(\0162/.mlflow.datasets.DatasetRecor" +
-      "dSource.SourceType\022\016\n\006source\030\004 \001(\t\022\016\n\006sc" +
-      "hema\030\005 \001(\t\022\017\n\007profile\030\006 \001(\t\022\022\n\ncreated_b" +
-      "y\030\007 \001(\t\022\014\n\004tags\030\010 \001(\t\0325\n\010Response\022)\n\007dat" +
-      "aset\030\001 \001(\0132\030.mlflow.datasets.Dataset:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\267\001\n\nGetDataset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206" +
-      "\031\001\022\022\n\npage_token\030\002 \001(\t\032N\n\010Response\022)\n\007da" +
-      "taset\030\001 \001(\0132\030.mlflow.datasets.Dataset\022\027\n" +
+      "ponse]\"\252\002\n\023SearchUnifiedTraces\022\026\n\010model_" +
+      "id\030\001 \001(\tB\004\370\206\031\001\022\036\n\020sql_warehouse_id\030\002 \001(\t" +
+      "B\004\370\206\031\001\022\026\n\016experiment_ids\030\003 \003(\t\022\016\n\006filter" +
+      "\030\004 \001(\t\022\030\n\013max_results\030\005 \001(\005:\003100\022\020\n\010orde" +
+      "r_by\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\032F\n\010Respon" +
+      "se\022!\n\006traces\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n" +
       "\017next_page_token\030\002 \001(\t:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"b\n\rDeleteDat" +
-      "aset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\210\002\n\030SearchEvaluationDatasets\022\026\n\016" +
-      "experiment_ids\030\001 \003(\t\022\025\n\rfilter_string\030\002 " +
-      "\001(\t\022\031\n\013max_results\030\003 \001(\005:\0041000\022\020\n\010order_" +
-      "by\030\004 \003(\t\022\022\n\npage_token\030\005 \001(\t\032O\n\010Response" +
-      "\022*\n\010datasets\030\001 \003(\0132\030.mlflow.datasets.Dat" +
-      "aset\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\242\001\n\016S" +
-      "etDatasetTags\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\022\n\004tags\030\002 \001(\tB\004\370\206\031\001\0325\n\010Response\022)\n\007datas" +
-      "et\030\001 \001(\0132\030.mlflow.datasets.Dataset:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "x\n\020DeleteDatasetTag\022\030\n\ndataset_id\030\001 \001(\tB" +
-      "\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\303\001\n\024UpsertDatasetRecords\022\030\n\ndataset_id" +
-      "\030\001 \001(\tB\004\370\206\031\001\022\025\n\007records\030\002 \001(\tB\004\370\206\031\001\022\022\n\nu" +
-      "pdated_by\030\003 \001(\t\0329\n\010Response\022\026\n\016inserted_" +
-      "count\030\001 \001(\005\022\025\n\rupdated_count\030\002 \001(\005:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\204\001\n\027GetDatasetExperimentIds\022\030\n\ndataset_i" +
-      "d\030\001 \001(\tB\004\370\206\031\001\032\"\n\010Response\022\026\n\016experiment_" +
-      "ids\030\001 \003(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\277\001\n\021GetDatasetRecords\022\030\n\n" +
-      "dataset_id\030\001 \001(\tB\004\370\206\031\001\022\031\n\013max_results\030\002 " +
-      "\001(\005:\0041000\022\022\n\npage_token\030\003 \001(\t\0324\n\010Respons" +
-      "e\022\017\n\007records\030\001 \001(\t\022\027\n\017next_page_token\030\002 " +
-      "\001(\t:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\234\001\n\024DeleteDatasetRecords\022\030\n\ndat" +
-      "aset_id\030\001 \001(\tB\004\370\206\031\001\022\032\n\022dataset_record_id" +
-      "s\030\002 \003(\t\032!\n\010Response\022\025\n\rdeleted_count\030\001 \001" +
-      "(\005:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\257\001\n\027AddDatasetToExperiments\022\030\n\nd" +
-      "ataset_id\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experiment_ids\030" +
-      "\002 \003(\t\0325\n\010Response\022)\n\007dataset\030\001 \001(\0132\030.mlf" +
-      "low.datasets.Dataset:+\342?(\n&com.databrick" +
-      "s.rpc.RPC[$this.Response]\"\264\001\n\034RemoveData" +
-      "setFromExperiments\022\030\n\ndataset_id\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\026\n\016experiment_ids\030\002 \003(\t\0325\n\010Response" +
+      "cks.rpc.RPC[$this.Response]\"\301\001\n\025GetOnlin" +
+      "eTraceDetails\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022\036\n" +
+      "\020sql_warehouse_id\030\002 \001(\tB\004\370\206\031\001\022$\n\026source_" +
+      "inference_table\030\003 \001(\tB\004\370\206\031\001\022*\n\034source_da" +
+      "tabricks_request_id\030\004 \001(\tB\004\370\206\031\001\032\036\n\010Respo" +
+      "nse\022\022\n\ntrace_data\030\001 \001(\t\"\303\001\n\014DeleteTraces" +
+      "\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_tim" +
+      "estamp_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022" +
+      "\023\n\013request_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016trac" +
+      "es_deleted\030\001 \001(\005:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\305\001\n\016DeleteTracesV3" +
+      "\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_tim" +
+      "estamp_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022" +
+      "\023\n\013request_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016trac" +
+      "es_deleted\030\001 \001(\005:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\265\002\n\037CalculateTrace" +
+      "FilterCorrelation\022\026\n\016experiment_ids\030\001 \003(" +
+      "\t\022\026\n\016filter_string1\030\002 \001(\t\022\026\n\016filter_stri" +
+      "ng2\030\003 \001(\t\022\023\n\013base_filter\030\004 \001(\t\032\207\001\n\010Respo" +
+      "nse\022\014\n\004npmi\030\001 \001(\001\022\025\n\rnpmi_smoothed\030\002 \001(\001" +
+      "\022\025\n\rfilter1_count\030\003 \001(\005\022\025\n\rfilter2_count" +
+      "\030\004 \001(\005\022\023\n\013joint_count\030\005 \001(\005\022\023\n\013total_cou" +
+      "nt\030\006 \001(\005:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"`\n\021MetricAggregation\0221\n\020ag" +
+      "gregation_type\030\001 \001(\0162\027.mlflow.Aggregatio" +
+      "nType\022\030\n\020percentile_value\030\002 \001(\001\"\273\003\n\021Quer" +
+      "yTraceMetrics\022\026\n\016experiment_ids\030\001 \003(\t\022)\n" +
+      "\tview_type\030\002 \001(\0162\026.mlflow.MetricViewType" +
+      "\022\023\n\013metric_name\030\003 \001(\t\022/\n\014aggregations\030\004 " +
+      "\003(\0132\031.mlflow.MetricAggregation\022\022\n\ndimens" +
+      "ions\030\005 \003(\t\022\017\n\007filters\030\006 \003(\t\022\035\n\025time_inte" +
+      "rval_seconds\030\007 \001(\003\022\025\n\rstart_time_ms\030\010 \001(" +
+      "\003\022\023\n\013end_time_ms\030\t \001(\003\022\031\n\013max_results\030\n " +
+      "\001(\005:\0041000\022\022\n\npage_token\030\013 \001(\t\032Q\n\010Respons" +
+      "e\022,\n\013data_points\030\001 \003(\0132\027.mlflow.MetricDa" +
+      "taPoint\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\372\001" +
+      "\n\017MetricDataPoint\022\023\n\013metric_name\030\001 \001(\t\022;" +
+      "\n\ndimensions\030\002 \003(\0132\'.mlflow.MetricDataPo" +
+      "int.DimensionsEntry\0223\n\006values\030\003 \003(\0132#.ml" +
+      "flow.MetricDataPoint.ValuesEntry\0321\n\017Dime" +
+      "nsionsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:" +
+      "\0028\001\032-\n\013ValuesEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
+      "\030\002 \001(\001:\0028\001\"v\n\013SetTraceTag\022\022\n\nrequest_id\030" +
+      "\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\210\001\n\rSetTraceTagV3\022\020\n\010trace_id" +
+      "\030\004 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Re" +
+      "sponse:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]J\004\010\001\020\002R\nrequest_id\"j\n\016DeleteT" +
+      "raceTag\022\022\n\nrequest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"|\n\020DeleteTraceTagV3\022\020\n" +
+      "\010trace_id\030\003 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Response" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]J\004\010\001\020\002R\nrequest_id\"c\n\005Trace\022\'\n\ntrac" +
+      "e_info\030\001 \001(\0132\023.mlflow.TraceInfoV3\0221\n\005spa" +
+      "ns\030\002 \003(\0132\".opentelemetry.proto.trace.v1." +
+      "Span\"\266\003\n\rTraceLocation\0225\n\004type\030\001 \001(\0162\'.m" +
+      "lflow.TraceLocation.TraceLocationType\022K\n" +
+      "\021mlflow_experiment\030\002 \001(\0132..mlflow.TraceL" +
+      "ocation.MlflowExperimentLocationH\000\022G\n\017in" +
+      "ference_table\030\003 \001(\0132,.mlflow.TraceLocati" +
+      "on.InferenceTableLocationH\000\0321\n\030MlflowExp" +
+      "erimentLocation\022\025\n\rexperiment_id\030\001 \001(\t\0321" +
+      "\n\026InferenceTableLocation\022\027\n\017full_table_n" +
+      "ame\030\001 \001(\t\"d\n\021TraceLocationType\022#\n\037TRACE_" +
+      "LOCATION_TYPE_UNSPECIFIED\020\000\022\025\n\021MLFLOW_EX" +
+      "PERIMENT\020\001\022\023\n\017INFERENCE_TABLE\020\002B\014\n\nident" +
+      "ifier\"\233\005\n\013TraceInfoV3\022\020\n\010trace_id\030\001 \001(\t\022" +
+      "\031\n\021client_request_id\030\002 \001(\t\022-\n\016trace_loca" +
+      "tion\030\003 \001(\0132\025.mlflow.TraceLocation\022\017\n\007req" +
+      "uest\030\004 \001(\t\022\020\n\010response\030\005 \001(\t\022\027\n\017request_" +
+      "preview\030\014 \001(\t\022\030\n\020response_preview\030\r \001(\t\022" +
+      "0\n\014request_time\030\006 \001(\0132\032.google.protobuf." +
+      "Timestamp\0225\n\022execution_duration\030\007 \001(\0132\031." +
+      "google.protobuf.Duration\022(\n\005state\030\010 \001(\0162" +
+      "\031.mlflow.TraceInfoV3.State\022>\n\016trace_meta" +
+      "data\030\t \003(\0132&.mlflow.TraceInfoV3.TraceMet" +
+      "adataEntry\0223\n\013assessments\030\n \003(\0132\036.mlflow" +
+      ".assessments.Assessment\022+\n\004tags\030\013 \003(\0132\035." +
+      "mlflow.TraceInfoV3.TagsEntry\0324\n\022TraceMet" +
+      "adataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\002" +
+      "8\001\032+\n\tTagsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 " +
+      "\001(\t:\0028\001\"B\n\005State\022\025\n\021STATE_UNSPECIFIED\020\000\022" +
+      "\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003\"\\\n\014S" +
+      "tartTraceV3\022\"\n\005trace\030\001 \001(\0132\r.mlflow.Trac" +
+      "eB\004\370\206\031\001\032(\n\010Response\022\034\n\005trace\030\001 \001(\0132\r.mlf" +
+      "low.Trace\"F\n\017LinkTracesToRun\022\021\n\ttrace_id" +
+      "s\030\001 \003(\t\022\024\n\006run_id\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
+      "e\"\275\001\n\022LinkPromptsToTrace\022\026\n\010trace_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\022D\n\017prompt_versions\030\002 \003(\0132+.mlfl" +
+      "ow.LinkPromptsToTrace.PromptVersionRef\032=" +
+      "\n\020PromptVersionRef\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025" +
+      "\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response\"h\n\016Dat" +
+      "asetSummary\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001" +
+      "\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\024\n\006digest\030\003 \001(\tB\004\370\206" +
+      "\031\001\022\017\n\007context\030\004 \001(\t\"\224\001\n\016SearchDatasets\022\026" +
+      "\n\016experiment_ids\030\001 \003(\t\032=\n\010Response\0221\n\021da" +
+      "taset_summaries\030\001 \003(\0132\026.mlflow.DatasetSu" +
+      "mmary:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\232\002\n\021CreateLoggedModel\022\033\n\rexpe" +
+      "riment_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\022\n\nm" +
+      "odel_type\030\003 \001(\t\022\025\n\rsource_run_id\030\004 \001(\t\022," +
+      "\n\006params\030\005 \003(\0132\034.mlflow.LoggedModelParam" +
+      "eter\022$\n\004tags\030\006 \003(\0132\026.mlflow.LoggedModelT" +
+      "ag\032.\n\010Response\022\"\n\005model\030\001 \001(\0132\023.mlflow.L" +
+      "oggedModel:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\273\001\n\023FinalizeLoggedModel\022" +
+      "\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022/\n\006status\030\002 \001(\0162" +
+      "\031.mlflow.LoggedModelStatusB\004\370\206\031\001\032.\n\010Resp" +
+      "onse\022\"\n\005model\030\001 \001(\0132\023.mlflow.LoggedModel" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]\"\205\001\n\016GetLoggedModel\022\026\n\010model_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\032.\n\010Response\022\"\n\005model\030\001 \001(\0132\023.ml" +
+      "flow.LoggedModel:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"d\n\021DeleteLoggedMod" +
+      "el\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"\367\003\n\022SearchLoggedModels\022\026\n\016experiment" +
+      "_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\0224\n\010datasets\030\006" +
+      " \003(\0132\".mlflow.SearchLoggedModels.Dataset" +
+      "\022\027\n\013max_results\030\003 \001(\005:\00250\0224\n\010order_by\030\004 " +
+      "\003(\0132\".mlflow.SearchLoggedModels.OrderBy\022" +
+      "\022\n\npage_token\030\005 \001(\t\032=\n\007Dataset\022\032\n\014datase" +
+      "t_name\030\001 \001(\tB\004\370\206\031\001\022\026\n\016dataset_digest\030\002 \001" +
+      "(\t\032j\n\007OrderBy\022\030\n\nfield_name\030\001 \001(\tB\004\370\206\031\001\022" +
+      "\027\n\tascending\030\002 \001(\010:\004true\022\024\n\014dataset_name" +
+      "\030\003 \001(\t\022\026\n\016dataset_digest\030\004 \001(\t\032H\n\010Respon" +
+      "se\022#\n\006models\030\001 \003(\0132\023.mlflow.LoggedModel\022" +
+      "\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]\"\257\001\n\022SetLog" +
+      "gedModelTags\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022$\n\004" +
+      "tags\030\002 \003(\0132\026.mlflow.LoggedModelTag\032.\n\010Re" +
+      "sponse\022\"\n\005model\030\001 \001(\0132\023.mlflow.LoggedMod" +
+      "el:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"~\n\024DeleteLoggedModelTag\022\026\n\010model" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\007tag_key\030\002 \001(\tB\004\370\206\031\001\032\n" +
+      "\n\010Response:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\354\001\n\030ListLoggedModelArtif" +
+      "acts\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022\037\n\027artifact" +
+      "_directory_path\030\002 \001(\t\022\022\n\npage_token\030\003 \001(" +
+      "\t\032V\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files" +
+      "\030\002 \003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_to" +
+      "ken\030\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\234\001\n\033LogLoggedModelParamsR" +
+      "equest\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022,\n\006params" +
+      "\030\002 \003(\0132\034.mlflow.LoggedModelParameter\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"[\n\013LoggedModel\022%\n\004info\030\001 \001" +
+      "(\0132\027.mlflow.LoggedModelInfo\022%\n\004data\030\002 \001(" +
+      "\0132\027.mlflow.LoggedModelData\"\204\003\n\017LoggedMod" +
+      "elInfo\022\020\n\010model_id\030\001 \001(\t\022\025\n\rexperiment_i" +
+      "d\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\035\n\025creation_timest" +
+      "amp_ms\030\004 \001(\003\022!\n\031last_updated_timestamp_m" +
+      "s\030\005 \001(\003\022\024\n\014artifact_uri\030\006 \001(\t\022)\n\006status\030",
+      "\007 \001(\0162\031.mlflow.LoggedModelStatus\022\022\n\ncrea" +
+      "tor_id\030\010 \001(\003\022\022\n\nmodel_type\030\t \001(\t\022\025\n\rsour" +
+      "ce_run_id\030\n \001(\t\022\026\n\016status_message\030\013 \001(\t\022" +
+      "$\n\004tags\030\014 \003(\0132\026.mlflow.LoggedModelTag\022:\n" +
+      "\rregistrations\030\r \003(\0132#.mlflow.LoggedMode" +
+      "lRegistrationInfo\",\n\016LoggedModelTag\022\013\n\003k" +
+      "ey\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"<\n\033LoggedModelRe" +
+      "gistrationInfo\022\014\n\004name\030\001 \001(\t\022\017\n\007version\030" +
+      "\002 \001(\t\"`\n\017LoggedModelData\022,\n\006params\030\001 \003(\013" +
+      "2\034.mlflow.LoggedModelParameter\022\037\n\007metric" +
+      "s\030\002 \003(\0132\016.mlflow.Metric\"2\n\024LoggedModelPa" +
+      "rameter\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\201\002\n\016" +
+      "SearchTracesV3\022(\n\tlocations\030\001 \003(\0132\025.mlfl" +
+      "ow.TraceLocation\022\016\n\006filter\030\002 \001(\t\022\030\n\013max_" +
+      "results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t\022\022\n\n" +
+      "page_token\030\005 \001(\t\032H\n\010Response\022#\n\006traces\030\001" +
+      " \003(\0132\023.mlflow.TraceInfoV3\022\027\n\017next_page_t" +
+      "oken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\270\002\n\rCreateDataset\022\022\n\004nam" +
+      "e\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experiment_ids\030\002 \003(\t\022D\n" +
+      "\013source_type\030\003 \001(\0162/.mlflow.datasets.Dat" +
+      "asetRecordSource.SourceType\022\016\n\006source\030\004 " +
+      "\001(\t\022\016\n\006schema\030\005 \001(\t\022\017\n\007profile\030\006 \001(\t\022\022\n\n" +
+      "created_by\030\007 \001(\t\022\014\n\004tags\030\010 \001(\t\0325\n\010Respon" +
+      "se\022)\n\007dataset\030\001 \001(\0132\030.mlflow.datasets.Da" +
+      "taset:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\267\001\n\nGetDataset\022\030\n\ndataset_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\022\n\npage_token\030\002 \001(\t\032N\n\010Respo" +
+      "nse\022)\n\007dataset\030\001 \001(\0132\030.mlflow.datasets.D" +
+      "ataset\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&co" +
+      "m.databricks.rpc.RPC[$this.Response]\"b\n\r" +
+      "DeleteDataset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032" +
+      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\210\002\n\030SearchEvaluationDat" +
+      "asets\022\026\n\016experiment_ids\030\001 \003(\t\022\025\n\rfilter_" +
+      "string\030\002 \001(\t\022\031\n\013max_results\030\003 \001(\005:\0041000\022" +
+      "\020\n\010order_by\030\004 \003(\t\022\022\n\npage_token\030\005 \001(\t\032O\n" +
+      "\010Response\022*\n\010datasets\030\001 \003(\0132\030.mlflow.dat" +
+      "asets.Dataset\022\027\n\017next_page_token\030\002 \001(\t:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"\242\001\n\016SetDatasetTags\022\030\n\ndataset_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\022\022\n\004tags\030\002 \001(\tB\004\370\206\031\001\0325\n\010Response" +
       "\022)\n\007dataset\030\001 \001(\0132\030.mlflow.datasets.Data" +
       "set:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\205\002\n\016RegisterScorer\022\025\n\rexperimen" +
-      "t_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021serialized_s" +
-      "corer\030\003 \001(\t\032\205\001\n\010Response\022\017\n\007version\030\001 \001(" +
-      "\005\022\021\n\tscorer_id\030\002 \001(\t\022\025\n\rexperiment_id\030\003 " +
-      "\001(\t\022\014\n\004name\030\004 \001(\t\022\031\n\021serialized_scorer\030\005" +
-      " \001(\t\022\025\n\rcreation_time\030\006 \001(\003:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"~\n\013List" +
-      "Scorers\022\025\n\rexperiment_id\030\001 \001(\t\032+\n\010Respon" +
-      "se\022\037\n\007scorers\030\001 \003(\0132\016.mlflow.Scorer:+\342?(" +
+      "esponse]\"x\n\020DeleteDatasetTag\022\030\n\ndataset_" +
+      "id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\303\001\n\024UpsertDatasetRecords\022\030\n\nd" +
+      "ataset_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\007records\030\002 \001(\tB\004" +
+      "\370\206\031\001\022\022\n\nupdated_by\030\003 \001(\t\0329\n\010Response\022\026\n\016" +
+      "inserted_count\030\001 \001(\005\022\025\n\rupdated_count\030\002 " +
+      "\001(\005:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\204\001\n\027GetDatasetExperimentIds\022\030\n\n" +
+      "dataset_id\030\001 \001(\tB\004\370\206\031\001\032\"\n\010Response\022\026\n\016ex" +
+      "periment_ids\030\001 \003(\t:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\277\001\n\021GetDatasetRe" +
+      "cords\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\022\031\n\013max_r" +
+      "esults\030\002 \001(\005:\0041000\022\022\n\npage_token\030\003 \001(\t\0324" +
+      "\n\010Response\022\017\n\007records\030\001 \001(\t\022\027\n\017next_page" +
+      "_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"\234\001\n\024DeleteDatasetRecor" +
+      "ds\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\022\032\n\022dataset_" +
+      "record_ids\030\002 \003(\t\032!\n\010Response\022\025\n\rdeleted_" +
+      "count\030\001 \001(\005:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\257\001\n\027AddDatasetToExperim" +
+      "ents\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experi" +
+      "ment_ids\030\002 \003(\t\0325\n\010Response\022)\n\007dataset\030\001 " +
+      "\001(\0132\030.mlflow.datasets.Dataset:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\264\001\n\034R" +
+      "emoveDatasetFromExperiments\022\030\n\ndataset_i" +
+      "d\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experiment_ids\030\002 \003(\t\0325\n" +
+      "\010Response\022)\n\007dataset\030\001 \001(\0132\030.mlflow.data" +
+      "sets.Dataset:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"\205\002\n\016RegisterScorer\022\025\n\r" +
+      "experiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021ser" +
+      "ialized_scorer\030\003 \001(\t\032\205\001\n\010Response\022\017\n\007ver" +
+      "sion\030\001 \001(\005\022\021\n\tscorer_id\030\002 \001(\t\022\025\n\rexperim" +
+      "ent_id\030\003 \001(\t\022\014\n\004name\030\004 \001(\t\022\031\n\021serialized" +
+      "_scorer\030\005 \001(\t\022\025\n\rcreation_time\030\006 \001(\003:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\226\001\n\013ListScorers\022\025\n\rexperiment_id\030\001 \001(\t" +
+      "\022\026\n\016experiment_ids\030\002 \003(\t\032+\n\010Response\022\037\n\007" +
+      "scorers\030\001 \003(\0132\016.mlflow.Scorer:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\223\001\n\022L" +
+      "istScorerVersions\022\025\n\rexperiment_id\030\001 \001(\t" +
+      "\022\014\n\004name\030\002 \001(\t\032+\n\010Response\022\037\n\007scorers\030\001 " +
+      "\003(\0132\016.mlflow.Scorer:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\"\232\001\n\tGetScorer\022\025" +
+      "\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\017\n\007v" +
+      "ersion\030\003 \001(\005\032*\n\010Response\022\036\n\006scorer\030\001 \001(\013" +
+      "2\016.mlflow.Scorer:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"}\n\014DeleteScorer\022\025\n" +
+      "\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\017\n\007ve" +
+      "rsion\030\003 \001(\005\032\n\n\010Response:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\221\001\n\006Scorer\022" +
+      "\025\n\rexperiment_id\030\001 \001(\005\022\023\n\013scorer_name\030\002 " +
+      "\001(\t\022\026\n\016scorer_version\030\003 \001(\005\022\031\n\021serialize" +
+      "d_scorer\030\004 \001(\t\022\025\n\rcreation_time\030\005 \001(\003\022\021\n" +
+      "\tscorer_id\030\006 \001(\t\"\223\003\n\021GatewaySecretInfo\022\021" +
+      "\n\tsecret_id\030\001 \001(\t\022\023\n\013secret_name\030\002 \001(\t\022B" +
+      "\n\rmasked_values\030\003 \003(\0132+.mlflow.GatewaySe" +
+      "cretInfo.MaskedValuesEntry\022\022\n\ncreated_at" +
+      "\030\004 \001(\003\022\027\n\017last_updated_at\030\005 \001(\003\022\020\n\010provi" +
+      "der\030\006 \001(\t\022\022\n\ncreated_by\030\007 \001(\t\022\027\n\017last_up" +
+      "dated_by\030\010 \001(\t\022>\n\013auth_config\030\t \003(\0132).ml" +
+      "flow.GatewaySecretInfo.AuthConfigEntry\0323" +
+      "\n\021MaskedValuesEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005valu" +
+      "e\030\002 \001(\t:\0028\001\0321\n\017AuthConfigEntry\022\013\n\003key\030\001 " +
+      "\001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\353\001\n\026GatewayModelD" +
+      "efinition\022\033\n\023model_definition_id\030\001 \001(\t\022\014" +
+      "\n\004name\030\002 \001(\t\022\021\n\tsecret_id\030\003 \001(\t\022\023\n\013secre" +
+      "t_name\030\004 \001(\t\022\020\n\010provider\030\005 \001(\t\022\022\n\nmodel_" +
+      "name\030\006 \001(\t\022\022\n\ncreated_at\030\007 \001(\003\022\027\n\017last_u" +
+      "pdated_at\030\010 \001(\003\022\022\n\ncreated_by\030\t \001(\t\022\027\n\017l" +
+      "ast_updated_by\030\n \001(\t\"\244\002\n\033GatewayEndpoint" +
+      "ModelMapping\022\022\n\nmapping_id\030\001 \001(\t\022\023\n\013endp" +
+      "oint_id\030\002 \001(\t\022\033\n\023model_definition_id\030\003 \001" +
+      "(\t\0228\n\020model_definition\030\004 \001(\0132\036.mlflow.Ga" +
+      "tewayModelDefinition\022\016\n\006weight\030\005 \001(\002\022\022\n\n" +
+      "created_at\030\006 \001(\003\022\022\n\ncreated_by\030\007 \001(\t\0225\n\014" +
+      "linkage_type\030\010 \001(\0162\037.mlflow.GatewayModel" +
+      "LinkageType\022\026\n\016fallback_order\030\t \001(\005\"\210\003\n\017" +
+      "GatewayEndpoint\022\023\n\013endpoint_id\030\001 \001(\t\022\014\n\004" +
+      "name\030\002 \001(\t\022\022\n\ncreated_at\030\003 \001(\003\022\027\n\017last_u" +
+      "pdated_at\030\004 \001(\003\022;\n\016model_mappings\030\005 \003(\0132" +
+      "#.mlflow.GatewayEndpointModelMapping\022\022\n\n" +
+      "created_by\030\006 \001(\t\022\027\n\017last_updated_by\030\007 \001(" +
+      "\t\022(\n\004tags\030\010 \003(\0132\032.mlflow.GatewayEndpoint" +
+      "Tag\0221\n\020routing_strategy\030\t \001(\0162\027.mlflow.R" +
+      "outingStrategy\022/\n\017fallback_config\030\n \001(\0132" +
+      "\026.mlflow.FallbackConfig\022\025\n\rexperiment_id" +
+      "\030\013 \001(\t\022\026\n\016usage_tracking\030\014 \001(\010\"0\n\022Gatewa" +
+      "yEndpointTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t" +
+      "\"\311\001\n\026GatewayEndpointBinding\022\023\n\013endpoint_" +
+      "id\030\001 \001(\t\022\025\n\rresource_type\030\002 \001(\t\022\023\n\013resou" +
+      "rce_id\030\003 \001(\t\022\022\n\ncreated_at\030\004 \001(\003\022\027\n\017last" +
+      "_updated_at\030\005 \001(\003\022\022\n\ncreated_by\030\006 \001(\t\022\027\n" +
+      "\017last_updated_by\030\007 \001(\t\022\024\n\014display_name\030\n" +
+      " \001(\t\"\213\003\n\023CreateGatewaySecret\022\023\n\013secret_n" +
+      "ame\030\001 \001(\t\022B\n\014secret_value\030\002 \003(\0132,.mlflow" +
+      ".CreateGatewaySecret.SecretValueEntry\022\020\n" +
+      "\010provider\030\003 \001(\t\022@\n\013auth_config\030\005 \003(\0132+.m" +
+      "lflow.CreateGatewaySecret.AuthConfigEntr" +
+      "y\022\022\n\ncreated_by\030\006 \001(\t\0322\n\020SecretValueEntr" +
+      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\0321\n\017Aut" +
+      "hConfigEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t" +
+      ":\0028\001\0325\n\010Response\022)\n\006secret\030\001 \001(\0132\031.mlflo" +
+      "w.GatewaySecretInfoJ\004\010\004\020\005R\017credential_na" +
+      "me\"u\n\024GetGatewaySecretInfo\022\021\n\tsecret_id\030" +
+      "\001 \001(\t\022\023\n\013secret_name\030\002 \001(\t\0325\n\010Response\022)" +
+      "\n\006secret\030\001 \001(\0132\031.mlflow.GatewaySecretInf" +
+      "o\"\367\002\n\023UpdateGatewaySecret\022\021\n\tsecret_id\030\001" +
+      " \001(\t\022B\n\014secret_value\030\002 \003(\0132,.mlflow.Upda" +
+      "teGatewaySecret.SecretValueEntry\022@\n\013auth" +
+      "_config\030\004 \003(\0132+.mlflow.UpdateGatewaySecr" +
+      "et.AuthConfigEntry\022\022\n\nupdated_by\030\005 \001(\t\0322" +
+      "\n\020SecretValueEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
+      "\030\002 \001(\t:\0028\001\0321\n\017AuthConfigEntry\022\013\n\003key\030\001 \001" +
+      "(\t\022\r\n\005value\030\002 \001(\t:\0028\001\0325\n\010Response\022)\n\006sec" +
+      "ret\030\001 \001(\0132\031.mlflow.GatewaySecretInfoJ\004\010\003" +
+      "\020\004R\017credential_name\"4\n\023DeleteGatewaySecr" +
+      "et\022\021\n\tsecret_id\030\001 \001(\t\032\n\n\010Response\"b\n\026Lis" +
+      "tGatewaySecretInfos\022\020\n\010provider\030\001 \001(\t\0326\n" +
+      "\010Response\022*\n\007secrets\030\001 \003(\0132\031.mlflow.Gate" +
+      "waySecretInfo\"\277\001\n\034CreateGatewayModelDefi" +
+      "nition\022\014\n\004name\030\001 \001(\t\022\021\n\tsecret_id\030\002 \001(\t\022" +
+      "\020\n\010provider\030\003 \001(\t\022\022\n\nmodel_name\030\004 \001(\t\022\022\n" +
+      "\ncreated_by\030\005 \001(\t\032D\n\010Response\0228\n\020model_d" +
+      "efinition\030\001 \001(\0132\036.mlflow.GatewayModelDef" +
+      "inition\"~\n\031GetGatewayModelDefinition\022\033\n\023" +
+      "model_definition_id\030\001 \001(\t\032D\n\010Response\0228\n" +
+      "\020model_definition\030\001 \001(\0132\036.mlflow.Gateway" +
+      "ModelDefinition\"\211\001\n\033ListGatewayModelDefi" +
+      "nitions\022\020\n\010provider\030\001 \001(\t\022\021\n\tsecret_id\030\002" +
+      " \001(\t\032E\n\010Response\0229\n\021model_definitions\030\001 " +
+      "\003(\0132\036.mlflow.GatewayModelDefinition\"\334\001\n\034" +
+      "UpdateGatewayModelDefinition\022\033\n\023model_de" +
+      "finition_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\021\n\tsecre" +
+      "t_id\030\003 \001(\t\022\022\n\nmodel_name\030\004 \001(\t\022\022\n\nupdate" +
+      "d_by\030\005 \001(\t\022\020\n\010provider\030\006 \001(\t\032D\n\010Response" +
+      "\0228\n\020model_definition\030\001 \001(\0132\036.mlflow.Gate" +
+      "wayModelDefinition\"G\n\034DeleteGatewayModel" +
+      "Definition\022\033\n\023model_definition_id\030\001 \001(\t\032" +
+      "\n\n\010Response\"I\n\016BudgetDuration\022(\n\004unit\030\001 " +
+      "\001(\0162\032.mlflow.BudgetDurationUnit\022\r\n\005value" +
+      "\030\002 \001(\005\"R\n\016FallbackConfig\022*\n\010strategy\030\001 \001" +
+      "(\0162\030.mlflow.FallbackStrategy\022\024\n\014max_atte" +
+      "mpts\030\002 \001(\005\"\230\001\n\032GatewayEndpointModelConfi" +
+      "g\022\033\n\023model_definition_id\030\001 \001(\t\0225\n\014linkag" +
+      "e_type\030\002 \001(\0162\037.mlflow.GatewayModelLinkag" +
+      "eType\022\016\n\006weight\030\003 \001(\002\022\026\n\016fallback_order\030" +
+      "\004 \001(\005\"\276\002\n\025CreateGatewayEndpoint\022\014\n\004name\030" +
+      "\001 \001(\t\0229\n\rmodel_configs\030\002 \003(\0132\".mlflow.Ga" +
+      "tewayEndpointModelConfig\022\022\n\ncreated_by\030\003" +
+      " \001(\t\0221\n\020routing_strategy\030\004 \001(\0162\027.mlflow." +
+      "RoutingStrategy\022/\n\017fallback_config\030\005 \001(\013" +
+      "2\026.mlflow.FallbackConfig\022\025\n\rexperiment_i" +
+      "d\030\006 \001(\t\022\026\n\016usage_tracking\030\007 \001(\010\0325\n\010Respo" +
+      "nse\022)\n\010endpoint\030\001 \001(\0132\027.mlflow.GatewayEn" +
+      "dpoint\"n\n\022GetGatewayEndpoint\022\023\n\013endpoint" +
+      "_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\0325\n\010Response\022)\n\010e" +
+      "ndpoint\030\001 \001(\0132\027.mlflow.GatewayEndpoint\"\323" +
+      "\002\n\025UpdateGatewayEndpoint\022\023\n\013endpoint_id\030" +
+      "\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\022\n\nupdated_by\030\003 \001(\t\022" +
+      "9\n\rmodel_configs\030\004 \003(\0132\".mlflow.GatewayE" +
+      "ndpointModelConfig\0221\n\020routing_strategy\030\005" +
+      " \001(\0162\027.mlflow.RoutingStrategy\022/\n\017fallbac" +
+      "k_config\030\006 \001(\0132\026.mlflow.FallbackConfig\022\025" +
+      "\n\rexperiment_id\030\007 \001(\t\022\026\n\016usage_tracking\030" +
+      "\010 \001(\010\0325\n\010Response\022)\n\010endpoint\030\001 \001(\0132\027.ml" +
+      "flow.GatewayEndpoint\"8\n\025DeleteGatewayEnd" +
+      "point\022\023\n\013endpoint_id\030\001 \001(\t\032\n\n\010Response\"s" +
+      "\n\024ListGatewayEndpoints\022\020\n\010provider\030\001 \001(\t" +
+      "\022\021\n\tsecret_id\030\002 \001(\t\0326\n\010Response\022*\n\tendpo" +
+      "ints\030\001 \003(\0132\027.mlflow.GatewayEndpoint\"\303\001\n\034" +
+      "AttachModelToGatewayEndpoint\022\023\n\013endpoint" +
+      "_id\030\001 \001(\t\0228\n\014model_config\030\002 \001(\0132\".mlflow" +
+      ".GatewayEndpointModelConfig\022\022\n\ncreated_b" +
+      "y\030\003 \001(\t\032@\n\010Response\0224\n\007mapping\030\001 \001(\0132#.m" +
+      "lflow.GatewayEndpointModelMapping\"^\n\036Det" +
+      "achModelFromGatewayEndpoint\022\023\n\013endpoint_" +
+      "id\030\001 \001(\t\022\033\n\023model_definition_id\030\002 \001(\t\032\n\n" +
+      "\010Response\"\260\001\n\034CreateGatewayEndpointBindi" +
+      "ng\022\023\n\013endpoint_id\030\001 \001(\t\022\025\n\rresource_type" +
+      "\030\002 \001(\t\022\023\n\013resource_id\030\003 \001(\t\022\022\n\ncreated_b" +
+      "y\030\004 \001(\t\032;\n\010Response\022/\n\007binding\030\001 \001(\0132\036.m" +
+      "lflow.GatewayEndpointBinding\"k\n\034DeleteGa" +
+      "tewayEndpointBinding\022\023\n\013endpoint_id\030\001 \001(" +
+      "\t\022\025\n\rresource_type\030\002 \001(\t\022\023\n\013resource_id\030" +
+      "\003 \001(\t\032\n\n\010Response\"\234\001\n\033ListGatewayEndpoin" +
+      "tBindings\022\023\n\013endpoint_id\030\001 \001(\t\022\025\n\rresour" +
+      "ce_type\030\002 \001(\t\022\023\n\013resource_id\030\003 \001(\t\032<\n\010Re" +
+      "sponse\0220\n\010bindings\030\001 \003(\0132\036.mlflow.Gatewa" +
+      "yEndpointBinding\"T\n\025SetGatewayEndpointTa" +
+      "g\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005v" +
+      "alue\030\003 \001(\t\032\n\n\010Response\"H\n\030DeleteGatewayE" +
+      "ndpointTag\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n\003key\030\002" +
+      " \001(\t\032\n\n\010Response\"\347\002\n\023GatewayBudgetPolicy" +
+      "\022\030\n\020budget_policy_id\030\001 \001(\t\022\'\n\013budget_uni" +
+      "t\030\002 \001(\0162\022.mlflow.BudgetUnit\022\025\n\rbudget_am" +
+      "ount\030\003 \001(\001\022(\n\010duration\030\004 \001(\0132\026.mlflow.Bu" +
+      "dgetDuration\022/\n\014target_scope\030\005 \001(\0162\031.mlf" +
+      "low.BudgetTargetScope\022+\n\rbudget_action\030\006" +
+      " \001(\0162\024.mlflow.BudgetAction\022\022\n\ncreated_by" +
+      "\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001(\003\022\027\n\017last_updat" +
+      "ed_by\030\t \001(\t\022\027\n\017last_updated_at\030\n \001(\003\022\024\n\014" +
+      "target_value\030\013 \001(\t\"\315\002\n\031CreateGatewayBudg" +
+      "etPolicy\022\'\n\013budget_unit\030\001 \001(\0162\022.mlflow.B" +
+      "udgetUnit\022\025\n\rbudget_amount\030\002 \001(\001\022(\n\010dura" +
+      "tion\030\003 \001(\0132\026.mlflow.BudgetDuration\022/\n\014ta" +
+      "rget_scope\030\004 \001(\0162\031.mlflow.BudgetTargetSc" +
+      "ope\022+\n\rbudget_action\030\005 \001(\0162\024.mlflow.Budg" +
+      "etAction\022\022\n\ncreated_by\030\006 \001(\t\022\024\n\014target_v" +
+      "alue\030\007 \001(\t\032>\n\010Response\0222\n\rbudget_policy\030" +
+      "\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"r\n\026Ge" +
+      "tGatewayBudgetPolicy\022\030\n\020budget_policy_id" +
+      "\030\001 \001(\t\032>\n\010Response\0222\n\rbudget_policy\030\001 \001(" +
+      "\0132\033.mlflow.GatewayBudgetPolicy\"\347\002\n\031Updat" +
+      "eGatewayBudgetPolicy\022\030\n\020budget_policy_id" +
+      "\030\001 \001(\t\022\'\n\013budget_unit\030\002 \001(\0162\022.mlflow.Bud" +
+      "getUnit\022\025\n\rbudget_amount\030\003 \001(\001\022(\n\010durati" +
+      "on\030\004 \001(\0132\026.mlflow.BudgetDuration\022/\n\014targ" +
+      "et_scope\030\005 \001(\0162\031.mlflow.BudgetTargetScop" +
+      "e\022+\n\rbudget_action\030\006 \001(\0162\024.mlflow.Budget" +
+      "Action\022\022\n\nupdated_by\030\007 \001(\t\022\024\n\014target_val" +
+      "ue\030\010 \001(\t\032>\n\010Response\0222\n\rbudget_policy\030\001 " +
+      "\001(\0132\033.mlflow.GatewayBudgetPolicy\"A\n\031Dele" +
+      "teGatewayBudgetPolicy\022\030\n\020budget_policy_i" +
+      "d\030\001 \001(\t\032\n\n\010Response\"\237\001\n\031ListGatewayBudge" +
+      "tPolicies\022\023\n\013max_results\030\001 \001(\003\022\022\n\npage_t" +
+      "oken\030\002 \001(\t\032Y\n\010Response\0224\n\017budget_policie" +
+      "s\030\001 \003(\0132\033.mlflow.GatewayBudgetPolicy\022\027\n\017" +
+      "next_page_token\030\002 \001(\t\"\327\001\n\030ListGatewayBud" +
+      "getWindows\032o\n\014BudgetWindow\022\030\n\020budget_pol" +
+      "icy_id\030\001 \001(\t\022\027\n\017window_start_ms\030\002 \001(\003\022\025\n" +
+      "\rwindow_end_ms\030\003 \001(\003\022\025\n\rcurrent_spend\030\004 " +
+      "\001(\001\032J\n\010Response\022>\n\007windows\030\001 \003(\0132-.mlflo" +
+      "w.ListGatewayBudgetWindows.BudgetWindow\"" +
+      "\234\002\n\020GatewayGuardrail\022\024\n\014guardrail_id\030\001 \001" +
+      "(\t\022\014\n\004name\030\002 \001(\t\022\036\n\006scorer\030\003 \001(\0132\016.mlflo" +
+      "w.Scorer\022%\n\005stage\030\004 \001(\0162\026.mlflow.Guardra" +
+      "ilStage\022\'\n\006action\030\005 \001(\0162\027.mlflow.Guardra" +
+      "ilAction\022\032\n\022action_endpoint_id\030\006 \001(\t\022\022\n\n" +
+      "created_by\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001(\003\022\027\n\017" +
+      "last_updated_by\030\t \001(\t\022\027\n\017last_updated_at" +
+      "\030\n \001(\003\"\261\001\n\026GatewayGuardrailConfig\022\023\n\013end" +
+      "point_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 \001(\t\022\027\n\017" +
+      "execution_order\030\003 \001(\003\022\022\n\ncreated_by\030\004 \001(" +
+      "\t\022\022\n\ncreated_at\030\005 \001(\003\022+\n\tguardrail\030\006 \001(\013" +
+      "2\030.mlflow.GatewayGuardrail\"\243\002\n\026CreateGat" +
+      "ewayGuardrail\022\014\n\004name\030\001 \001(\t\022\021\n\tscorer_id" +
+      "\030\002 \001(\t\022\026\n\016scorer_version\030\003 \001(\003\022%\n\005stage\030" +
+      "\004 \001(\0162\026.mlflow.GuardrailStage\022\'\n\006action\030" +
+      "\005 \001(\0162\027.mlflow.GuardrailAction\022\032\n\022action" +
+      "_endpoint_id\030\006 \001(\t\0327\n\010Response\022+\n\tguardr" +
+      "ail\030\001 \001(\0132\030.mlflow.GatewayGuardrail:+\342?(" +
       "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\223\001\n\022ListScorerVersions\022\025\n\rexperiment_id" +
-      "\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\032+\n\010Response\022\037\n\007scor" +
-      "ers\030\001 \003(\0132\016.mlflow.Scorer:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\232\001\n\tGetSc" +
-      "orer\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(" +
-      "\t\022\017\n\007version\030\003 \001(\005\032*\n\010Response\022\036\n\006scorer" +
-      "\030\001 \001(\0132\016.mlflow.Scorer:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"}\n\014DeleteSco" +
-      "rer\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t" +
-      "\022\017\n\007version\030\003 \001(\005\032\n\n\010Response:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\221\001\n\006S" +
-      "corer\022\025\n\rexperiment_id\030\001 \001(\005\022\023\n\013scorer_n" +
-      "ame\030\002 \001(\t\022\026\n\016scorer_version\030\003 \001(\005\022\031\n\021ser" +
-      "ialized_scorer\030\004 \001(\t\022\025\n\rcreation_time\030\005 " +
-      "\001(\003\022\021\n\tscorer_id\030\006 \001(\t\"\223\003\n\021GatewaySecret" +
-      "Info\022\021\n\tsecret_id\030\001 \001(\t\022\023\n\013secret_name\030\002" +
-      " \001(\t\022B\n\rmasked_values\030\003 \003(\0132+.mlflow.Gat" +
-      "ewaySecretInfo.MaskedValuesEntry\022\022\n\ncrea" +
-      "ted_at\030\004 \001(\003\022\027\n\017last_updated_at\030\005 \001(\003\022\020\n" +
-      "\010provider\030\006 \001(\t\022\022\n\ncreated_by\030\007 \001(\t\022\027\n\017l" +
-      "ast_updated_by\030\010 \001(\t\022>\n\013auth_config\030\t \003(" +
-      "\0132).mlflow.GatewaySecretInfo.AuthConfigE" +
-      "ntry\0323\n\021MaskedValuesEntry\022\013\n\003key\030\001 \001(\t\022\r" +
-      "\n\005value\030\002 \001(\t:\0028\001\0321\n\017AuthConfigEntry\022\013\n\003" +
-      "key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\353\001\n\026Gateway" +
-      "ModelDefinition\022\033\n\023model_definition_id\030\001" +
-      " \001(\t\022\014\n\004name\030\002 \001(\t\022\021\n\tsecret_id\030\003 \001(\t\022\023\n" +
-      "\013secret_name\030\004 \001(\t\022\020\n\010provider\030\005 \001(\t\022\022\n\n" +
-      "model_name\030\006 \001(\t\022\022\n\ncreated_at\030\007 \001(\003\022\027\n\017" +
-      "last_updated_at\030\010 \001(\003\022\022\n\ncreated_by\030\t \001(" +
-      "\t\022\027\n\017last_updated_by\030\n \001(\t\"\244\002\n\033GatewayEn" +
-      "dpointModelMapping\022\022\n\nmapping_id\030\001 \001(\t\022\023" +
-      "\n\013endpoint_id\030\002 \001(\t\022\033\n\023model_definition_" +
-      "id\030\003 \001(\t\0228\n\020model_definition\030\004 \001(\0132\036.mlf" +
-      "low.GatewayModelDefinition\022\016\n\006weight\030\005 \001" +
-      "(\002\022\022\n\ncreated_at\030\006 \001(\003\022\022\n\ncreated_by\030\007 \001" +
-      "(\t\0225\n\014linkage_type\030\010 \001(\0162\037.mlflow.Gatewa" +
-      "yModelLinkageType\022\026\n\016fallback_order\030\t \001(" +
-      "\005\"\210\003\n\017GatewayEndpoint\022\023\n\013endpoint_id\030\001 \001" +
-      "(\t\022\014\n\004name\030\002 \001(\t\022\022\n\ncreated_at\030\003 \001(\003\022\027\n\017" +
-      "last_updated_at\030\004 \001(\003\022;\n\016model_mappings\030" +
-      "\005 \003(\0132#.mlflow.GatewayEndpointModelMappi" +
-      "ng\022\022\n\ncreated_by\030\006 \001(\t\022\027\n\017last_updated_b" +
-      "y\030\007 \001(\t\022(\n\004tags\030\010 \003(\0132\032.mlflow.GatewayEn" +
-      "dpointTag\0221\n\020routing_strategy\030\t \001(\0162\027.ml" +
-      "flow.RoutingStrategy\022/\n\017fallback_config\030" +
-      "\n \001(\0132\026.mlflow.FallbackConfig\022\025\n\rexperim" +
-      "ent_id\030\013 \001(\t\022\026\n\016usage_tracking\030\014 \001(\010\"0\n\022" +
-      "GatewayEndpointTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t\"\311\001\n\026GatewayEndpointBinding\022\023\n\013end" +
-      "point_id\030\001 \001(\t\022\025\n\rresource_type\030\002 \001(\t\022\023\n" +
-      "\013resource_id\030\003 \001(\t\022\022\n\ncreated_at\030\004 \001(\003\022\027" +
-      "\n\017last_updated_at\030\005 \001(\003\022\022\n\ncreated_by\030\006 " +
-      "\001(\t\022\027\n\017last_updated_by\030\007 \001(\t\022\024\n\014display_" +
-      "name\030\n \001(\t\"\213\003\n\023CreateGatewaySecret\022\023\n\013se" +
-      "cret_name\030\001 \001(\t\022B\n\014secret_value\030\002 \003(\0132,." +
-      "mlflow.CreateGatewaySecret.SecretValueEn" +
-      "try\022\020\n\010provider\030\003 \001(\t\022@\n\013auth_config\030\005 \003" +
-      "(\0132+.mlflow.CreateGatewaySecret.AuthConf" +
-      "igEntry\022\022\n\ncreated_by\030\006 \001(\t\0322\n\020SecretVal" +
-      "ueEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032" +
-      "1\n\017AuthConfigEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t:\0028\001\0325\n\010Response\022)\n\006secret\030\001 \001(\0132\031" +
-      ".mlflow.GatewaySecretInfoJ\004\010\004\020\005R\017credent" +
-      "ial_name\"u\n\024GetGatewaySecretInfo\022\021\n\tsecr" +
-      "et_id\030\001 \001(\t\022\023\n\013secret_name\030\002 \001(\t\0325\n\010Resp" +
-      "onse\022)\n\006secret\030\001 \001(\0132\031.mlflow.GatewaySec" +
-      "retInfo\"\367\002\n\023UpdateGatewaySecret\022\021\n\tsecre" +
-      "t_id\030\001 \001(\t\022B\n\014secret_value\030\002 \003(\0132,.mlflo" +
-      "w.UpdateGatewaySecret.SecretValueEntry\022@" +
-      "\n\013auth_config\030\004 \003(\0132+.mlflow.UpdateGatew" +
-      "aySecret.AuthConfigEntry\022\022\n\nupdated_by\030\005" +
-      " \001(\t\0322\n\020SecretValueEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
-      "\005value\030\002 \001(\t:\0028\001\0321\n\017AuthConfigEntry\022\013\n\003k" +
-      "ey\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\0325\n\010Response\022" +
-      ")\n\006secret\030\001 \001(\0132\031.mlflow.GatewaySecretIn" +
-      "foJ\004\010\003\020\004R\017credential_name\"4\n\023DeleteGatew" +
-      "aySecret\022\021\n\tsecret_id\030\001 \001(\t\032\n\n\010Response\"" +
-      "b\n\026ListGatewaySecretInfos\022\020\n\010provider\030\001 " +
-      "\001(\t\0326\n\010Response\022*\n\007secrets\030\001 \003(\0132\031.mlflo" +
-      "w.GatewaySecretInfo\"\277\001\n\034CreateGatewayMod" +
-      "elDefinition\022\014\n\004name\030\001 \001(\t\022\021\n\tsecret_id\030" +
-      "\002 \001(\t\022\020\n\010provider\030\003 \001(\t\022\022\n\nmodel_name\030\004 " +
-      "\001(\t\022\022\n\ncreated_by\030\005 \001(\t\032D\n\010Response\0228\n\020m" +
-      "odel_definition\030\001 \001(\0132\036.mlflow.GatewayMo" +
-      "delDefinition\"~\n\031GetGatewayModelDefiniti" +
-      "on\022\033\n\023model_definition_id\030\001 \001(\t\032D\n\010Respo" +
-      "nse\0228\n\020model_definition\030\001 \001(\0132\036.mlflow.G" +
-      "atewayModelDefinition\"\211\001\n\033ListGatewayMod" +
-      "elDefinitions\022\020\n\010provider\030\001 \001(\t\022\021\n\tsecre" +
-      "t_id\030\002 \001(\t\032E\n\010Response\0229\n\021model_definiti" +
-      "ons\030\001 \003(\0132\036.mlflow.GatewayModelDefinitio" +
-      "n\"\334\001\n\034UpdateGatewayModelDefinition\022\033\n\023mo" +
-      "del_definition_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\021\n" +
-      "\tsecret_id\030\003 \001(\t\022\022\n\nmodel_name\030\004 \001(\t\022\022\n\n" +
-      "updated_by\030\005 \001(\t\022\020\n\010provider\030\006 \001(\t\032D\n\010Re" +
-      "sponse\0228\n\020model_definition\030\001 \001(\0132\036.mlflo" +
-      "w.GatewayModelDefinition\"G\n\034DeleteGatewa" +
-      "yModelDefinition\022\033\n\023model_definition_id\030" +
-      "\001 \001(\t\032\n\n\010Response\"I\n\016BudgetDuration\022(\n\004u" +
-      "nit\030\001 \001(\0162\032.mlflow.BudgetDurationUnit\022\r\n" +
-      "\005value\030\002 \001(\005\"R\n\016FallbackConfig\022*\n\010strate" +
-      "gy\030\001 \001(\0162\030.mlflow.FallbackStrategy\022\024\n\014ma" +
-      "x_attempts\030\002 \001(\005\"\230\001\n\032GatewayEndpointMode" +
-      "lConfig\022\033\n\023model_definition_id\030\001 \001(\t\0225\n\014" +
-      "linkage_type\030\002 \001(\0162\037.mlflow.GatewayModel" +
-      "LinkageType\022\016\n\006weight\030\003 \001(\002\022\026\n\016fallback_" +
-      "order\030\004 \001(\005\"\276\002\n\025CreateGatewayEndpoint\022\014\n" +
-      "\004name\030\001 \001(\t\0229\n\rmodel_configs\030\002 \003(\0132\".mlf" +
-      "low.GatewayEndpointModelConfig\022\022\n\ncreate" +
-      "d_by\030\003 \001(\t\0221\n\020routing_strategy\030\004 \001(\0162\027.m" +
-      "lflow.RoutingStrategy\022/\n\017fallback_config" +
-      "\030\005 \001(\0132\026.mlflow.FallbackConfig\022\025\n\rexperi" +
-      "ment_id\030\006 \001(\t\022\026\n\016usage_tracking\030\007 \001(\010\0325\n" +
-      "\010Response\022)\n\010endpoint\030\001 \001(\0132\027.mlflow.Gat" +
-      "ewayEndpoint\"n\n\022GetGatewayEndpoint\022\023\n\013en" +
-      "dpoint_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\0325\n\010Respons" +
-      "e\022)\n\010endpoint\030\001 \001(\0132\027.mlflow.GatewayEndp" +
-      "oint\"\323\002\n\025UpdateGatewayEndpoint\022\023\n\013endpoi" +
-      "nt_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\022\n\nupdated_by\030" +
-      "\003 \001(\t\0229\n\rmodel_configs\030\004 \003(\0132\".mlflow.Ga" +
-      "tewayEndpointModelConfig\0221\n\020routing_stra" +
-      "tegy\030\005 \001(\0162\027.mlflow.RoutingStrategy\022/\n\017f" +
-      "allback_config\030\006 \001(\0132\026.mlflow.FallbackCo" +
-      "nfig\022\025\n\rexperiment_id\030\007 \001(\t\022\026\n\016usage_tra" +
-      "cking\030\010 \001(\010\0325\n\010Response\022)\n\010endpoint\030\001 \001(" +
-      "\0132\027.mlflow.GatewayEndpoint\"8\n\025DeleteGate" +
-      "wayEndpoint\022\023\n\013endpoint_id\030\001 \001(\t\032\n\n\010Resp" +
-      "onse\"s\n\024ListGatewayEndpoints\022\020\n\010provider" +
-      "\030\001 \001(\t\022\021\n\tsecret_id\030\002 \001(\t\0326\n\010Response\022*\n" +
-      "\tendpoints\030\001 \003(\0132\027.mlflow.GatewayEndpoin" +
-      "t\"\303\001\n\034AttachModelToGatewayEndpoint\022\023\n\013en" +
-      "dpoint_id\030\001 \001(\t\0228\n\014model_config\030\002 \001(\0132\"." +
-      "mlflow.GatewayEndpointModelConfig\022\022\n\ncre" +
-      "ated_by\030\003 \001(\t\032@\n\010Response\0224\n\007mapping\030\001 \001" +
-      "(\0132#.mlflow.GatewayEndpointModelMapping\"" +
-      "^\n\036DetachModelFromGatewayEndpoint\022\023\n\013end" +
-      "point_id\030\001 \001(\t\022\033\n\023model_definition_id\030\002 " +
-      "\001(\t\032\n\n\010Response\"\260\001\n\034CreateGatewayEndpoin" +
-      "tBinding\022\023\n\013endpoint_id\030\001 \001(\t\022\025\n\rresourc" +
-      "e_type\030\002 \001(\t\022\023\n\013resource_id\030\003 \001(\t\022\022\n\ncre" +
-      "ated_by\030\004 \001(\t\032;\n\010Response\022/\n\007binding\030\001 \001" +
-      "(\0132\036.mlflow.GatewayEndpointBinding\"k\n\034De" +
-      "leteGatewayEndpointBinding\022\023\n\013endpoint_i" +
-      "d\030\001 \001(\t\022\025\n\rresource_type\030\002 \001(\t\022\023\n\013resour" +
-      "ce_id\030\003 \001(\t\032\n\n\010Response\"\234\001\n\033ListGatewayE" +
-      "ndpointBindings\022\023\n\013endpoint_id\030\001 \001(\t\022\025\n\r" +
-      "resource_type\030\002 \001(\t\022\023\n\013resource_id\030\003 \001(\t" +
-      "\032<\n\010Response\0220\n\010bindings\030\001 \003(\0132\036.mlflow." +
-      "GatewayEndpointBinding\"T\n\025SetGatewayEndp" +
-      "ointTag\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n\003key\030\002 \001(" +
-      "\t\022\r\n\005value\030\003 \001(\t\032\n\n\010Response\"H\n\030DeleteGa" +
-      "tewayEndpointTag\022\023\n\013endpoint_id\030\001 \001(\t\022\013\n" +
-      "\003key\030\002 \001(\t\032\n\n\010Response\"\347\002\n\023GatewayBudget" +
-      "Policy\022\030\n\020budget_policy_id\030\001 \001(\t\022\'\n\013budg" +
-      "et_unit\030\002 \001(\0162\022.mlflow.BudgetUnit\022\025\n\rbud" +
-      "get_amount\030\003 \001(\001\022(\n\010duration\030\004 \001(\0132\026.mlf" +
-      "low.BudgetDuration\022/\n\014target_scope\030\005 \001(\016" +
-      "2\031.mlflow.BudgetTargetScope\022+\n\rbudget_ac" +
-      "tion\030\006 \001(\0162\024.mlflow.BudgetAction\022\022\n\ncrea" +
-      "ted_by\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001(\003\022\027\n\017last" +
-      "_updated_by\030\t \001(\t\022\027\n\017last_updated_at\030\n \001" +
-      "(\003\022\024\n\014target_value\030\013 \001(\t\"\315\002\n\031CreateGatew" +
-      "ayBudgetPolicy\022\'\n\013budget_unit\030\001 \001(\0162\022.ml" +
-      "flow.BudgetUnit\022\025\n\rbudget_amount\030\002 \001(\001\022(" +
-      "\n\010duration\030\003 \001(\0132\026.mlflow.BudgetDuration" +
-      "\022/\n\014target_scope\030\004 \001(\0162\031.mlflow.BudgetTa" +
-      "rgetScope\022+\n\rbudget_action\030\005 \001(\0162\024.mlflo" +
-      "w.BudgetAction\022\022\n\ncreated_by\030\006 \001(\t\022\024\n\014ta" +
-      "rget_value\030\007 \001(\t\032>\n\010Response\0222\n\rbudget_p" +
-      "olicy\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy" +
-      "\"r\n\026GetGatewayBudgetPolicy\022\030\n\020budget_pol" +
-      "icy_id\030\001 \001(\t\032>\n\010Response\0222\n\rbudget_polic" +
-      "y\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"\347\002\n" +
-      "\031UpdateGatewayBudgetPolicy\022\030\n\020budget_pol" +
-      "icy_id\030\001 \001(\t\022\'\n\013budget_unit\030\002 \001(\0162\022.mlfl" +
-      "ow.BudgetUnit\022\025\n\rbudget_amount\030\003 \001(\001\022(\n\010" +
-      "duration\030\004 \001(\0132\026.mlflow.BudgetDuration\022/" +
-      "\n\014target_scope\030\005 \001(\0162\031.mlflow.BudgetTarg" +
-      "etScope\022+\n\rbudget_action\030\006 \001(\0162\024.mlflow." +
-      "BudgetAction\022\022\n\nupdated_by\030\007 \001(\t\022\024\n\014targ" +
-      "et_value\030\010 \001(\t\032>\n\010Response\0222\n\rbudget_pol" +
-      "icy\030\001 \001(\0132\033.mlflow.GatewayBudgetPolicy\"A" +
-      "\n\031DeleteGatewayBudgetPolicy\022\030\n\020budget_po" +
-      "licy_id\030\001 \001(\t\032\n\n\010Response\"\237\001\n\031ListGatewa" +
-      "yBudgetPolicies\022\023\n\013max_results\030\001 \001(\003\022\022\n\n" +
-      "page_token\030\002 \001(\t\032Y\n\010Response\0224\n\017budget_p" +
-      "olicies\030\001 \003(\0132\033.mlflow.GatewayBudgetPoli" +
-      "cy\022\027\n\017next_page_token\030\002 \001(\t\"\327\001\n\030ListGate" +
-      "wayBudgetWindows\032o\n\014BudgetWindow\022\030\n\020budg" +
-      "et_policy_id\030\001 \001(\t\022\027\n\017window_start_ms\030\002 " +
-      "\001(\003\022\025\n\rwindow_end_ms\030\003 \001(\003\022\025\n\rcurrent_sp" +
-      "end\030\004 \001(\001\032J\n\010Response\022>\n\007windows\030\001 \003(\0132-" +
-      ".mlflow.ListGatewayBudgetWindows.BudgetW" +
-      "indow\"\234\002\n\020GatewayGuardrail\022\024\n\014guardrail_" +
-      "id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\036\n\006scorer\030\003 \001(\0132\016" +
-      ".mlflow.Scorer\022%\n\005stage\030\004 \001(\0162\026.mlflow.G" +
-      "uardrailStage\022\'\n\006action\030\005 \001(\0162\027.mlflow.G" +
-      "uardrailAction\022\032\n\022action_endpoint_id\030\006 \001" +
-      "(\t\022\022\n\ncreated_by\030\007 \001(\t\022\022\n\ncreated_at\030\010 \001" +
-      "(\003\022\027\n\017last_updated_by\030\t \001(\t\022\027\n\017last_upda" +
-      "ted_at\030\n \001(\003\"\261\001\n\026GatewayGuardrailConfig\022" +
-      "\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 \001" +
-      "(\t\022\027\n\017execution_order\030\003 \001(\003\022\022\n\ncreated_b" +
-      "y\030\004 \001(\t\022\022\n\ncreated_at\030\005 \001(\003\022+\n\tguardrail" +
-      "\030\006 \001(\0132\030.mlflow.GatewayGuardrail\"\243\002\n\026Cre" +
-      "ateGatewayGuardrail\022\014\n\004name\030\001 \001(\t\022\021\n\tsco" +
-      "rer_id\030\002 \001(\t\022\026\n\016scorer_version\030\003 \001(\003\022%\n\005" +
-      "stage\030\004 \001(\0162\026.mlflow.GuardrailStage\022\'\n\006a" +
-      "ction\030\005 \001(\0162\027.mlflow.GuardrailAction\022\032\n\022" +
-      "action_endpoint_id\030\006 \001(\t\0327\n\010Response\022+\n\t" +
-      "guardrail\030\001 \001(\0132\030.mlflow.GatewayGuardrai" +
-      "l:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\221\001\n\023GetGatewayGuardrail\022\024\n\014guardr" +
-      "ail_id\030\001 \001(\t\0327\n\010Response\022+\n\tguardrail\030\001 " +
-      "\001(\0132\030.mlflow.GatewayGuardrail:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"g\n\026De" +
-      "leteGatewayGuardrail\022\024\n\014guardrail_id\030\001 \001" +
-      "(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\300\001\n\025ListGatewayGuard" +
-      "rails\022\023\n\013max_results\030\001 \001(\003\022\022\n\npage_token" +
-      "\030\002 \001(\t\032Q\n\010Response\022,\n\nguardrails\030\001 \003(\0132\030" +
-      ".mlflow.GatewayGuardrail\022\027\n\017next_page_to" +
-      "ken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\305\001\n\026AddGuardrailToEndpoin" +
-      "t\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002" +
-      " \001(\t\022\027\n\017execution_order\030\003 \001(\003\032:\n\010Respons" +
-      "e\022.\n\006config\030\001 \001(\0132\036.mlflow.GatewayGuardr" +
-      "ailConfig:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\201\001\n\033RemoveGuardrailFromEn" +
-      "dpoint\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail" +
-      "_id\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\235\001\n\034ListEndpo" +
-      "intGuardrailConfigs\022\023\n\013endpoint_id\030\001 \001(\t" +
-      "\032;\n\010Response\022/\n\007configs\030\001 \003(\0132\036.mlflow.G" +
-      "atewayGuardrailConfig:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\314\001\n\035UpdateEnd" +
-      "pointGuardrailConfig\022\023\n\013endpoint_id\030\001 \001(" +
-      "\t\022\024\n\014guardrail_id\030\002 \001(\t\022\027\n\017execution_ord" +
-      "er\030\003 \001(\003\032:\n\010Response\022.\n\006config\030\001 \001(\0132\036.m" +
-      "lflow.GatewayGuardrailConfig:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"9\n\020Get" +
-      "SecretsConfig\032%\n\010Response\022\031\n\021secrets_ava" +
-      "ilable\030\001 \001(\010\"\354\001\n\033CreatePromptOptimizatio" +
-      "nJob\022\025\n\rexperiment_id\030\001 \001(\t\022\031\n\021source_pr" +
-      "ompt_uri\030\002 \001(\t\0223\n\006config\030\003 \001(\0132#.mlflow." +
-      "PromptOptimizationJobConfig\022.\n\004tags\030\004 \003(" +
-      "\0132 .mlflow.PromptOptimizationJobTag\0326\n\010R" +
-      "esponse\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOpti" +
-      "mizationJob\"b\n\030GetPromptOptimizationJob\022" +
-      "\016\n\006job_id\030\001 \001(\t\0326\n\010Response\022*\n\003job\030\001 \001(\013" +
-      "2\035.mlflow.PromptOptimizationJob\"n\n\034Searc" +
-      "hPromptOptimizationJobs\022\025\n\rexperiment_id" +
-      "\030\001 \001(\t\0327\n\010Response\022+\n\004jobs\030\001 \003(\0132\035.mlflo" +
-      "w.PromptOptimizationJob\"e\n\033CancelPromptO" +
-      "ptimizationJob\022\016\n\006job_id\030\001 \001(\t\0326\n\010Respon" +
-      "se\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOptimizat" +
-      "ionJob\"9\n\033DeletePromptOptimizationJob\022\016\n" +
-      "\006job_id\030\001 \001(\t\032\n\n\010Response\":\n\023TraceArchiv" +
-      "alConfig\022\020\n\010location\030\001 \001(\t\022\021\n\tretention\030" +
-      "\002 \001(\t\"\217\001\n\tWorkspace\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\023\n\013description\030\002 \001(\t\022\035\n\025default_artifact" +
-      "_root\030\003 \001(\t\022:\n\025trace_archival_config\030\004 \001" +
-      "(\0132\033.mlflow.TraceArchivalConfig\"p\n\016ListW" +
-      "orkspaces\0321\n\010Response\022%\n\nworkspaces\030\001 \003(" +
+      "\"\221\001\n\023GetGatewayGuardrail\022\024\n\014guardrail_id" +
+      "\030\001 \001(\t\0327\n\010Response\022+\n\tguardrail\030\001 \001(\0132\030." +
+      "mlflow.GatewayGuardrail:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"g\n\026DeleteGa" +
+      "tewayGuardrail\022\024\n\014guardrail_id\030\001 \001(\t\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\300\001\n\025ListGatewayGuardrails\022" +
+      "\023\n\013max_results\030\001 \001(\003\022\022\n\npage_token\030\002 \001(\t" +
+      "\032Q\n\010Response\022,\n\nguardrails\030\001 \003(\0132\030.mlflo" +
+      "w.GatewayGuardrail\022\027\n\017next_page_token\030\002 " +
+      "\001(\t:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\305\001\n\026AddGuardrailToEndpoint\022\023\n\013e" +
+      "ndpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 \001(\t\022\027" +
+      "\n\017execution_order\030\003 \001(\003\032:\n\010Response\022.\n\006c" +
+      "onfig\030\001 \001(\0132\036.mlflow.GatewayGuardrailCon" +
+      "fig:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\201\001\n\033RemoveGuardrailFromEndpoint" +
+      "\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014guardrail_id\030\002 " +
+      "\001(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\235\001\n\034ListEndpointGua" +
+      "rdrailConfigs\022\023\n\013endpoint_id\030\001 \001(\t\032;\n\010Re" +
+      "sponse\022/\n\007configs\030\001 \003(\0132\036.mlflow.Gateway" +
+      "GuardrailConfig:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\314\001\n\035UpdateEndpointG" +
+      "uardrailConfig\022\023\n\013endpoint_id\030\001 \001(\t\022\024\n\014g" +
+      "uardrail_id\030\002 \001(\t\022\027\n\017execution_order\030\003 \001" +
+      "(\003\032:\n\010Response\022.\n\006config\030\001 \001(\0132\036.mlflow." +
+      "GatewayGuardrailConfig:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"9\n\020GetSecret" +
+      "sConfig\032%\n\010Response\022\031\n\021secrets_available" +
+      "\030\001 \001(\010\"\354\001\n\033CreatePromptOptimizationJob\022\025" +
+      "\n\rexperiment_id\030\001 \001(\t\022\031\n\021source_prompt_u" +
+      "ri\030\002 \001(\t\0223\n\006config\030\003 \001(\0132#.mlflow.Prompt" +
+      "OptimizationJobConfig\022.\n\004tags\030\004 \003(\0132 .ml" +
+      "flow.PromptOptimizationJobTag\0326\n\010Respons" +
+      "e\022*\n\003job\030\001 \001(\0132\035.mlflow.PromptOptimizati" +
+      "onJob\"b\n\030GetPromptOptimizationJob\022\016\n\006job" +
+      "_id\030\001 \001(\t\0326\n\010Response\022*\n\003job\030\001 \001(\0132\035.mlf" +
+      "low.PromptOptimizationJob\"n\n\034SearchPromp" +
+      "tOptimizationJobs\022\025\n\rexperiment_id\030\001 \001(\t" +
+      "\0327\n\010Response\022+\n\004jobs\030\001 \003(\0132\035.mlflow.Prom" +
+      "ptOptimizationJob\"e\n\033CancelPromptOptimiz" +
+      "ationJob\022\016\n\006job_id\030\001 \001(\t\0326\n\010Response\022*\n\003" +
+      "job\030\001 \001(\0132\035.mlflow.PromptOptimizationJob" +
+      "\"9\n\033DeletePromptOptimizationJob\022\016\n\006job_i" +
+      "d\030\001 \001(\t\032\n\n\010Response\":\n\023TraceArchivalConf" +
+      "ig\022\020\n\010location\030\001 \001(\t\022\021\n\tretention\030\002 \001(\t\"" +
+      "\217\001\n\tWorkspace\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013des" +
+      "cription\030\002 \001(\t\022\035\n\025default_artifact_root\030" +
+      "\003 \001(\t\022:\n\025trace_archival_config\030\004 \001(\0132\033.m" +
+      "lflow.TraceArchivalConfig\"p\n\016ListWorkspa" +
+      "ces\0321\n\010Response\022%\n\nworkspaces\030\001 \003(\0132\021.ml" +
+      "flow.Workspace:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\364\001\n\017CreateWorkspace\022" +
+      "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t" +
+      "\022\035\n\025default_artifact_root\030\003 \001(\t\022:\n\025trace" +
+      "_archival_config\030\004 \001(\0132\033.mlflow.TraceArc" +
+      "hivalConfig\0320\n\010Response\022$\n\tworkspace\030\001 \001" +
+      "(\0132\021.mlflow.Workspace:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\213\001\n\014GetWorksp" +
+      "ace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001\0320\n\010Res" +
+      "ponse\022$\n\tworkspace\030\001 \001(\0132\021.mlflow.Worksp" +
+      "ace:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\376\001\n\017UpdateWorkspace\022\034\n\016workspac" +
+      "e_name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\022" +
+      "\035\n\025default_artifact_root\030\003 \001(\t\022:\n\025trace_" +
+      "archival_config\030\004 \001(\0132\033.mlflow.TraceArch" +
+      "ivalConfig\0320\n\010Response\022$\n\tworkspace\030\001 \001(" +
       "\0132\021.mlflow.Workspace:+\342?(\n&com.databrick" +
-      "s.rpc.RPC[$this.Response]\"\364\001\n\017CreateWork" +
-      "space\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description" +
-      "\030\002 \001(\t\022\035\n\025default_artifact_root\030\003 \001(\t\022:\n" +
-      "\025trace_archival_config\030\004 \001(\0132\033.mlflow.Tr" +
-      "aceArchivalConfig\0320\n\010Response\022$\n\tworkspa" +
-      "ce\030\001 \001(\0132\021.mlflow.Workspace:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"\213\001\n\014Get" +
-      "Workspace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001\032" +
-      "0\n\010Response\022$\n\tworkspace\030\001 \001(\0132\021.mlflow." +
-      "Workspace:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\376\001\n\017UpdateWorkspace\022\034\n\016wo" +
-      "rkspace_name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030" +
-      "\002 \001(\t\022\035\n\025default_artifact_root\030\003 \001(\t\022:\n\025" +
-      "trace_archival_config\030\004 \001(\0132\033.mlflow.Tra" +
-      "ceArchivalConfig\0320\n\010Response\022$\n\tworkspac" +
-      "e\030\001 \001(\0132\021.mlflow.Workspace:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"h\n\017Delet" +
-      "eWorkspace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001" +
-      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE_" +
-      "ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSou" +
-      "rceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJEC" +
-      "T\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatu" +
-      "s\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHE" +
-      "D\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013TraceStat" +
-      "us\022\034\n\030TRACE_STATUS_UNSPECIFIED\020\000\022\006\n\002OK\020\001" +
-      "\022\t\n\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003*8\n\016MetricVi" +
-      "ewType\022\n\n\006TRACES\020\001\022\t\n\005SPANS\020\002\022\017\n\013ASSESSM" +
-      "ENTS\020\003*P\n\017AggregationType\022\t\n\005COUNT\020\001\022\007\n\003" +
-      "SUM\020\002\022\007\n\003AVG\020\003\022\016\n\nPERCENTILE\020\004\022\007\n\003MIN\020\005\022" +
-      "\007\n\003MAX\020\006*\212\001\n\021LoggedModelStatus\022#\n\037LOGGED" +
-      "_MODEL_STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_MO" +
-      "DEL_PENDING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n" +
-      "\032LOGGED_MODEL_UPLOAD_FAILED\020\003*Z\n\017Routing" +
-      "Strategy\022&\n\034ROUTING_STRATEGY_UNSPECIFIED" +
-      "\020\000\032\004\360\206\031\003\022\037\n\033REQUEST_BASED_TRAFFIC_SPLIT\020" +
-      "\001*K\n\020FallbackStrategy\022\'\n\035FALLBACK_STRATE" +
-      "GY_UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n\nSEQUENTIAL\020\001*X" +
-      "\n\027GatewayModelLinkageType\022\"\n\030LINKAGE_TYP" +
-      "E_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007PRIMARY\020\001\022\014\n\010FA" +
-      "LLBACK\020\002*r\n\022BudgetDurationUnit\022#\n\031DURATI" +
-      "ON_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007MINUTES\020\001" +
-      "\022\t\n\005HOURS\020\002\022\010\n\004DAYS\020\003\022\t\n\005WEEKS\020\004\022\n\n\006MONT" +
-      "HS\020\005*j\n\021BudgetTargetScope\022\"\n\030TARGET_SCOP" +
-      "E_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006GLOBAL\020\001\022\r\n\tWOR" +
-      "KSPACE\020\002\022\014\n\010ENDPOINT\020\003\022\010\n\004USER\020\004*J\n\014Budg" +
-      "etAction\022#\n\031BUDGET_ACTION_UNSPECIFIED\020\000\032" +
-      "\004\360\206\031\003\022\t\n\005ALERT\020\001\022\n\n\006REJECT\020\002*8\n\nBudgetUn" +
-      "it\022!\n\027BUDGET_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022\007\n" +
-      "\003USD\020\001*N\n\016GuardrailStage\022%\n\033GUARDRAIL_ST" +
-      "AGE_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006BEFORE\020\001\022\t\n\005A" +
-      "FTER\020\002*[\n\017GuardrailAction\022&\n\034GUARDRAIL_A",
-      "CTION_UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n\nVALIDATION\020" +
-      "\001\022\020\n\014SANITIZATION\020\0022\337\305\001\n\rMlflowService\022\246" +
-      "\001\n\023getExperimentByName\022\033.mlflow.GetExper" +
-      "imentByName\032$.mlflow.GetExperimentByName" +
-      ".Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experime" +
-      "nts/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment " +
-      "By Name\022\224\001\n\020createExperiment\022\030.mlflow.Cr" +
-      "eateExperiment\032!.mlflow.CreateExperiment" +
+      "s.rpc.RPC[$this.Response]\"h\n\017DeleteWorks" +
+      "pace\022\034\n\016workspace_name\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Re" +
+      "sponse:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001" +
+      "\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTyp" +
+      "e\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n" +
+      "\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007R" +
+      "UNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n" +
+      "\006FAILED\020\004\022\n\n\006KILLED\020\005*O\n\013TraceStatus\022\034\n\030" +
+      "TRACE_STATUS_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ER" +
+      "ROR\020\002\022\017\n\013IN_PROGRESS\020\003*8\n\016MetricViewType" +
+      "\022\n\n\006TRACES\020\001\022\t\n\005SPANS\020\002\022\017\n\013ASSESSMENTS\020\003" +
+      "*P\n\017AggregationType\022\t\n\005COUNT\020\001\022\007\n\003SUM\020\002\022" +
+      "\007\n\003AVG\020\003\022\016\n\nPERCENTILE\020\004\022\007\n\003MIN\020\005\022\007\n\003MAX" +
+      "\020\006*\212\001\n\021LoggedModelStatus\022#\n\037LOGGED_MODEL" +
+      "_STATUS_UNSPECIFIED\020\000\022\030\n\024LOGGED_MODEL_PE" +
+      "NDING\020\001\022\026\n\022LOGGED_MODEL_READY\020\002\022\036\n\032LOGGE" +
+      "D_MODEL_UPLOAD_FAILED\020\003*Z\n\017RoutingStrate" +
+      "gy\022&\n\034ROUTING_STRATEGY_UNSPECIFIED\020\000\032\004\360\206" +
+      "\031\003\022\037\n\033REQUEST_BASED_TRAFFIC_SPLIT\020\001*K\n\020F" +
+      "allbackStrategy\022\'\n\035FALLBACK_STRATEGY_UNS" +
+      "PECIFIED\020\000\032\004\360\206\031\003\022\016\n\nSEQUENTIAL\020\001*X\n\027Gate" +
+      "wayModelLinkageType\022\"\n\030LINKAGE_TYPE_UNSP" +
+      "ECIFIED\020\000\032\004\360\206\031\003\022\013\n\007PRIMARY\020\001\022\014\n\010FALLBACK" +
+      "\020\002*r\n\022BudgetDurationUnit\022#\n\031DURATION_UNI" +
+      "T_UNSPECIFIED\020\000\032\004\360\206\031\003\022\013\n\007MINUTES\020\001\022\t\n\005HO" +
+      "URS\020\002\022\010\n\004DAYS\020\003\022\t\n\005WEEKS\020\004\022\n\n\006MONTHS\020\005*j" +
+      "\n\021BudgetTargetScope\022\"\n\030TARGET_SCOPE_UNSP" +
+      "ECIFIED\020\000\032\004\360\206\031\003\022\n\n\006GLOBAL\020\001\022\r\n\tWORKSPACE" +
+      "\020\002\022\014\n\010ENDPOINT\020\003\022\010\n\004USER\020\004*J\n\014BudgetActi" +
+      "on\022#\n\031BUDGET_ACTION_UNSPECIFIED\020\000\032\004\360\206\031\003\022" +
+      "\t\n\005ALERT\020\001\022\n\n\006REJECT\020\002*8\n\nBudgetUnit\022!\n\027" +
+      "BUDGET_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022\007\n\003USD\020\001" +
+      "*N\n\016GuardrailStage\022%\n\033GUARDRAIL_STAGE_UN",
+      "SPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006BEFORE\020\001\022\t\n\005AFTER\020\002" +
+      "*[\n\017GuardrailAction\022&\n\034GUARDRAIL_ACTION_" +
+      "UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n\nVALIDATION\020\001\022\020\n\014S" +
+      "ANITIZATION\020\0022\337\305\001\n\rMlflowService\022\246\001\n\023get" +
+      "ExperimentByName\022\033.mlflow.GetExperimentB" +
+      "yName\032$.mlflow.GetExperimentByName.Respo" +
+      "nse\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/ge" +
+      "t-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Nam" +
+      "e\022\224\001\n\020createExperiment\022\030.mlflow.CreateEx" +
+      "periment\032!.mlflow.CreateExperiment.Respo" +
+      "nse\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/c" +
+      "reate\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021sea" +
+      "rchExperiments\022\031.mlflow.SearchExperiment" +
+      "s\032\".mlflow.SearchExperiments.Response\"m\362" +
+      "\206\031i\n(\n\004POST\022\032/mlflow/experiments/search\032" +
+      "\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/experiments/search" +
+      "\032\004\010\002\020\000\020\001*\022Search Experiments\022\210\001\n\rgetExpe" +
+      "riment\022\025.mlflow.GetExperiment\032\036.mlflow.G" +
+      "etExperiment.Response\"@\362\206\0318\n$\n\003GET\022\027/mlf" +
+      "low/experiments/get\032\004\010\002\020\000\020\001*\016Get Experim" +
+      "ent\272\214\031\000\022\224\001\n\020deleteExperiment\022\030.mlflow.De" +
+      "leteExperiment\032!.mlflow.DeleteExperiment" +
       ".Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experim" +
-      "ents/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\301" +
-      "\001\n\021searchExperiments\022\031.mlflow.SearchExpe" +
-      "riments\032\".mlflow.SearchExperiments.Respo" +
-      "nse\"m\362\206\031i\n(\n\004POST\022\032/mlflow/experiments/s" +
-      "earch\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/experiments/" +
-      "search\032\004\010\002\020\000\020\001*\022Search Experiments\022\210\001\n\rg" +
-      "etExperiment\022\025.mlflow.GetExperiment\032\036.ml" +
-      "flow.GetExperiment.Response\"@\362\206\0318\n$\n\003GET" +
-      "\022\027/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get E" +
-      "xperiment\272\214\031\000\022\224\001\n\020deleteExperiment\022\030.mlf" +
-      "low.DeleteExperiment\032!.mlflow.DeleteExpe" +
-      "riment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/e" +
-      "xperiments/delete\032\004\010\002\020\000\020\001*\021Delete Experi" +
-      "ment\022\231\001\n\021restoreExperiment\022\031.mlflow.Rest" +
-      "oreExperiment\032\".mlflow.RestoreExperiment" +
-      ".Response\"E\362\206\031A\n)\n\004POST\022\033/mlflow/experim" +
-      "ents/restore\032\004\010\002\020\000\020\001*\022Restore Experiment" +
-      "\022\224\001\n\020updateExperiment\022\030.mlflow.UpdateExp" +
-      "eriment\032!.mlflow.UpdateExperiment.Respon" +
-      "se\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/up" +
-      "date\032\004\010\002\020\000\020\001*\021Update Experiment\022q\n\tcreat" +
-      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
-      "un.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/" +
-      "create\032\004\010\002\020\000\020\001*\nCreate Run\022q\n\tupdateRun\022" +
-      "\021.mlflow.UpdateRun\032\032.mlflow.UpdateRun.Re" +
-      "sponse\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/updat" +
-      "e\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\tdeleteRun\022\021.mlf" +
-      "low.DeleteRun\032\032.mlflow.DeleteRun.Respons" +
-      "e\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002" +
-      "\020\000\020\001*\nDelete Run\022v\n\nrestoreRun\022\022.mlflow." +
-      "RestoreRun\032\033.mlflow.RestoreRun.Response\"" +
-      "7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020" +
-      "\000\020\001*\013Restore Run\022u\n\tlogMetric\022\021.mlflow.L" +
-      "ogMetric\032\032.mlflow.LogMetric.Response\"9\362\206" +
-      "\0315\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020" +
-      "\000\020\001*\nLog Metric\022t\n\010logParam\022\020.mlflow.Log" +
-      "Param\032\031.mlflow.LogParam.Response\";\362\206\0317\n(" +
-      "\n\004POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000" +
-      "\020\001*\tLog Param\022\241\001\n\020setExperimentTag\022\030.mlf" +
-      "low.SetExperimentTag\032!.mlflow.SetExperim" +
-      "entTag.Response\"P\362\206\031L\n4\n\004POST\022&/mlflow/e" +
-      "xperiments/set-experiment-tag\032\004\010\002\020\000\020\001*\022S" +
-      "et Experiment Tag\022\260\001\n\023deleteExperimentTa" +
-      "g\022\033.mlflow.DeleteExperimentTag\032$.mlflow." +
-      "DeleteExperimentTag.Response\"V\362\206\031R\n7\n\004PO" +
-      "ST\022)/mlflow/experiments/delete-experimen" +
-      "t-tag\032\004\010\002\020\000\020\001*\025Delete Experiment Tag\022f\n\006" +
-      "setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag.R" +
-      "esponse\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-" +
-      "tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\013setTraceTag\022\023.m" +
-      "lflow.SetTraceTag\032\034.mlflow.SetTraceTag.R" +
-      "esponse\"F\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{" +
-      "request_id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag\022" +
-      "\217\001\n\rsetTraceTagV3\022\025.mlflow.SetTraceTagV3" +
-      "\032\036.mlflow.SetTraceTagV3.Response\"G\362\206\031C\n-" +
-      "\n\005PATCH\022\036/mlflow/traces/{trace_id}/tags\032" +
-      "\004\010\003\020\000\020\003*\020Set Trace Tag V3\022\225\001\n\016deleteTrac" +
-      "eTag\022\026.mlflow.DeleteTraceTag\032\037.mlflow.De" +
-      "leteTraceTag.Response\"J\362\206\031F\n0\n\006DELETE\022 /" +
-      "mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*" +
-      "\020Delete Trace Tag\022\234\001\n\020deleteTraceTagV3\022\030" +
-      ".mlflow.DeleteTraceTagV3\032!.mlflow.Delete" +
-      "TraceTagV3.Response\"K\362\206\031G\n.\n\006DELETE\022\036/ml" +
-      "flow/traces/{trace_id}/tags\032\004\010\003\020\000\020\003*\023Del" +
-      "ete Trace Tag V3\022u\n\tdeleteTag\022\021.mlflow.D" +
-      "eleteTag\032\032.mlflow.DeleteTag.Response\"9\362\206" +
-      "\0315\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020" +
-      "\000\020\001*\nDelete Tag\022e\n\006getRun\022\016.mlflow.GetRu" +
-      "n\032\027.mlflow.GetRun.Response\"2\362\206\031*\n\035\n\003GET\022" +
-      "\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y" +
-      "\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.mlflo" +
-      "w.SearchRuns.Response\":\362\206\0312\n!\n\004POST\022\023/ml" +
-      "flow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031" +
-      "\000\022\207\001\n\rlistArtifacts\022\025.mlflow.ListArtifac" +
-      "ts\032\036.mlflow.ListArtifacts.Response\"?\362\206\0317" +
-      "\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*" +
-      "\016List Artifacts\272\214\031\000\022\302\001\n\030createPresignedU" +
-      "ploadUrl\022 .mlflow.CreatePresignedUploadU" +
-      "rl\032).mlflow.CreatePresignedUploadUrl.Res" +
-      "ponse\"Y\362\206\031U\n4\n\004POST\022&/mlflow/artifacts/p" +
-      "resigned-upload-url\032\004\010\002\020\000\020\001*\033Create Pres" +
-      "igned Upload URL\022\314\001\n\032createPresignedDown" +
-      "loadUrl\022\".mlflow.CreatePresignedDownload" +
-      "Url\032+.mlflow.CreatePresignedDownloadUrl." +
-      "Response\"]\362\206\031Y\n6\n\004POST\022(/mlflow/artifact" +
-      "s/presigned-download-url\032\004\010\002\020\000\020\001*\035Create" +
-      " Presigned Download URL\022\225\001\n\020getMetricHis" +
-      "tory\022\030.mlflow.GetMetricHistory\032!.mlflow." +
-      "GetMetricHistory.Response\"D\362\206\031@\n(\n\003GET\022\033" +
-      "/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get" +
-      " Metric History\022\267\001\n\034getMetricHistoryBulk" +
-      "Interval\022$.mlflow.GetMetricHistoryBulkIn" +
-      "terval\032-.mlflow.GetMetricHistoryBulkInte" +
-      "rval.Response\"B\362\206\031:\n6\n\003GET\022)/mlflow/metr" +
-      "ics/get-history-bulk-interval\032\004\010\002\020\013\020\003\272\214\031" +
-      "\000\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow" +
-      ".LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflo" +
-      "w/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010l" +
-      "ogModel\022\020.mlflow.LogModel\032\031.mlflow.LogMo" +
-      "del.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs" +
-      "/log-model\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInpu" +
-      "ts\022\021.mlflow.LogInputs\032\032.mlflow.LogInputs" +
-      ".Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/lo" +
-      "g-inputs\032\004\010\002\020\000\020\001*\nLog Inputs\022v\n\nlogOutpu" +
-      "ts\022\022.mlflow.LogOutputs\032\033.mlflow.LogOutpu" +
-      "ts.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/" +
-      "outputs\032\004\010\002\020\000\020\003*\013Log Outputs\022\207\001\n\016searchD" +
-      "atasets\022\026.mlflow.SearchDatasets\032\037.mlflow" +
-      ".SearchDatasets.Response\"<\362\206\0314\n0\n\004POST\022\"" +
-      "mlflow/experiments/search-datasets\032\004\010\002\020\000" +
-      "\020\003\272\214\031\000\022p\n\nstartTrace\022\022.mlflow.StartTrace" +
-      "\032\033.mlflow.StartTrace.Response\"1\362\206\031-\n\034\n\004P" +
-      "OST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\013Start Trace" +
-      "\022v\n\010endTrace\022\020.mlflow.EndTrace\032\031.mlflow." +
-      "EndTrace.Response\"=\362\206\0319\n*\n\005PATCH\022\033/mlflo" +
-      "w/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd Trace" +
-      "\022\211\001\n\014getTraceInfo\022\024.mlflow.GetTraceInfo\032" +
-      "\035.mlflow.GetTraceInfo.Response\"D\362\206\031@\n-\n\003" +
-      "GET\022 /mlflow/traces/{request_id}/info\032\004\010" +
-      "\002\020\000\020\003*\rGet TraceInfo\022\213\001\n\016getTraceInfoV3\022" +
-      "\026.mlflow.GetTraceInfoV3\032\037.mlflow.GetTrac" +
-      "eInfoV3.Response\"@\362\206\031<\n&\n\003GET\022\031/mlflow/t" +
-      "races/{trace_id}\032\004\010\003\020\000\020\003*\020Get TraceInfo " +
-      "v3\022n\n\010getTrace\022\020.mlflow.GetTrace\032\031.mlflo" +
-      "w.GetTrace.Response\"5\362\206\0311\n\037\n\003GET\022\022/mlflo" +
-      "w/traces/get\032\004\010\003\020\000\020\003*\014Get Trace v3\022\203\001\n\016b" +
-      "atchGetTraces\022\026.mlflow.BatchGetTraces\032\037." +
-      "mlflow.BatchGetTraces.Response\"8\362\206\0314\n$\n\003" +
-      "GET\022\027/mlflow/traces/batchGet\032\004\010\003\020\000\020\003*\nGe" +
-      "t Traces\022\240\001\n\022batchGetTraceInfos\022\032.mlflow" +
-      ".BatchGetTraceInfos\032#.mlflow.BatchGetTra" +
-      "ceInfos.Response\"I\362\206\031E\n*\n\004POST\022\034/mlflow/" +
-      "traces/batchGetInfos\032\004\010\003\020\000\020\003*\025Batch Get " +
-      "Trace Infos\022w\n\014searchTraces\022\024.mlflow.Sea" +
-      "rchTraces\032\035.mlflow.SearchTraces.Response" +
-      "\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rS" +
-      "earch Traces\022\210\001\n\016searchTracesV3\022\026.mlflow" +
-      ".SearchTracesV3\032\037.mlflow.SearchTracesV3." +
-      "Response\"=\362\206\0319\n#\n\004POST\022\025/mlflow/traces/s" +
-      "earch\032\004\010\003\020\000\020\003*\020Search Traces V3\022i\n\014start" +
-      "TraceV3\022\024.mlflow.StartTraceV3\032\035.mlflow.S" +
-      "tartTraceV3.Response\"$\362\206\031 \n\034\n\004POST\022\016/mlf" +
-      "low/traces\032\004\010\003\020\000\020\003\022\222\001\n\017linkTracesToRun\022\027" +
-      ".mlflow.LinkTracesToRun\032 .mlflow.LinkTra" +
-      "cesToRun.Response\"D\362\206\031@\n(\n\004POST\022\032/mlflow" +
-      "/traces/link-to-run\032\004\010\002\020\000\020\003*\022Link Traces" +
-      " to Run\022\237\001\n\022linkPromptsToTrace\022\032.mlflow." +
-      "LinkPromptsToTrace\032#.mlflow.LinkPromptsT" +
-      "oTrace.Response\"H\362\206\031D\n)\n\004POST\022\033/mlflow/t" +
-      "races/link-prompts\032\004\010\002\020\000\020\003*\025Link Prompts" +
-      " to Trace\022\242\001\n\031searchUnifiedTraceHandler\022" +
-      "\033.mlflow.SearchUnifiedTraces\032$.mlflow.Se" +
-      "archUnifiedTraces.Response\"B\362\206\031>\n#\n\003GET\022" +
-      "\026/mlflow/unified-traces\032\004\010\002\020\000\020\003*\025Search " +
-      "Unified Traces\022\257\001\n\025getOnlineTraceDetails" +
-      "\022\035.mlflow.GetOnlineTraceDetails\032&.mlflow" +
-      ".GetOnlineTraceDetails.Response\"O\362\206\031K\n-\n" +
-      "\003GET\022 /mlflow/get-online-trace-details\032\004" +
-      "\010\002\020\000\020\003*\030Get Online Trace Details\022\206\001\n\014del" +
-      "eteTraces\022\024.mlflow.DeleteTraces\032\035.mlflow" +
-      ".DeleteTraces.Response\"A\362\206\031=\n*\n\004POST\022\034/m" +
-      "lflow/traces/delete-traces\032\004\010\002\020\000\020\003*\rDele" +
-      "te Traces\022\217\001\n\016deleteTracesV3\022\026.mlflow.De" +
-      "leteTracesV3\032\037.mlflow.DeleteTracesV3.Res" +
-      "ponse\"D\362\206\031@\n*\n\004POST\022\034/mlflow/traces/dele" +
-      "te-traces\032\004\010\003\020\000\020\003*\020Delete Traces V3\022\343\001\n\037" +
-      "calculateTraceFilterCorrelation\022\'.mlflow" +
-      ".CalculateTraceFilterCorrelation\0320.mlflo" +
-      "w.CalculateTraceFilterCorrelation.Respon" +
-      "se\"e\362\206\031a\n9\n\004POST\022+/mlflow/traces/calcula" +
-      "te-filter-correlation\032\004\010\003\020\000\020\003*\"Calculate" +
-      " Trace Filter Correlation\022\225\001\n\021queryTrace" +
-      "Metrics\022\031.mlflow.QueryTraceMetrics\032\".mlf" +
-      "low.QueryTraceMetrics.Response\"A\362\206\031=\n$\n\004" +
-      "POST\022\026/mlflow/traces/metrics\032\004\010\003\020\000\020\003*\023Qu" +
-      "ery Trace Metrics\022\203\001\n\016listWorkspaces\022\026.m" +
-      "lflow.ListWorkspaces\032\037.mlflow.ListWorksp" +
-      "aces.Response\"8\362\206\0314\n\037\n\003GET\022\022/mlflow/work" +
-      "spaces\032\004\010\003\020\000\020\003*\017List Workspaces\022\210\001\n\017crea" +
-      "teWorkspace\022\027.mlflow.CreateWorkspace\032 .m" +
-      "lflow.CreateWorkspace.Response\":\362\206\0316\n \n\004" +
-      "POST\022\022/mlflow/workspaces\032\004\010\003\020\000\020\003*\020Create" +
-      " Workspace\022\214\001\n\014getWorkspace\022\024.mlflow.Get" +
-      "Workspace\032\035.mlflow.GetWorkspace.Response" +
-      "\"G\362\206\031C\n0\n\003GET\022#/mlflow/workspaces/{works" +
-      "pace_name}\032\004\010\003\020\000\020\003*\rGet Workspace\022\232\001\n\017up" +
-      "dateWorkspace\022\027.mlflow.UpdateWorkspace\032 " +
-      ".mlflow.UpdateWorkspace.Response\"L\362\206\031H\n2" +
-      "\n\005PATCH\022#/mlflow/workspaces/{workspace_n" +
-      "ame}\032\004\010\003\020\000\020\003*\020Update Workspace\022\233\001\n\017delet" +
-      "eWorkspace\022\027.mlflow.DeleteWorkspace\032 .ml" +
-      "flow.DeleteWorkspace.Response\"M\362\206\031I\n3\n\006D" +
-      "ELETE\022#/mlflow/workspaces/{workspace_nam" +
-      "e}\032\004\010\003\020\000\020\003*\020Delete Workspace\022\224\001\n\021createL" +
-      "oggedModel\022\031.mlflow.CreateLoggedModel\032\"." +
-      "mlflow.CreateLoggedModel.Response\"@\362\206\031<\n" +
-      "#\n\004POST\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023" +
-      "Create Logged Model\022\250\001\n\023finalizeLoggedMo" +
-      "del\022\033.mlflow.FinalizeLoggedModel\032$.mlflo" +
-      "w.FinalizeLoggedModel.Response\"N\362\206\031J\n/\n\005" +
-      "PATCH\022 /mlflow/logged-models/{model_id}\032" +
-      "\004\010\002\020\000\020\003*\025Finalize Logged Model\022\222\001\n\016getLo" +
-      "ggedModel\022\026.mlflow.GetLoggedModel\032\037.mlfl" +
-      "ow.GetLoggedModel.Response\"G\362\206\031C\n-\n\003GET\022" +
+      "ents/delete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\231" +
+      "\001\n\021restoreExperiment\022\031.mlflow.RestoreExp" +
+      "eriment\032\".mlflow.RestoreExperiment.Respo" +
+      "nse\"E\362\206\031A\n)\n\004POST\022\033/mlflow/experiments/r" +
+      "estore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\224\001\n\020u" +
+      "pdateExperiment\022\030.mlflow.UpdateExperimen" +
+      "t\032!.mlflow.UpdateExperiment.Response\"C\362\206" +
+      "\031?\n(\n\004POST\022\032/mlflow/experiments/update\032\004" +
+      "\010\002\020\000\020\001*\021Update Experiment\022q\n\tcreateRun\022\021" +
+      ".mlflow.CreateRun\032\032.mlflow.CreateRun.Res" +
+      "ponse\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/create" +
+      "\032\004\010\002\020\000\020\001*\nCreate Run\022q\n\tupdateRun\022\021.mlfl" +
+      "ow.UpdateRun\032\032.mlflow.UpdateRun.Response" +
+      "\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020" +
+      "\000\020\001*\nUpdate Run\022q\n\tdeleteRun\022\021.mlflow.De" +
+      "leteRun\032\032.mlflow.DeleteRun.Response\"5\362\206\031" +
+      "1\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001*\n" +
+      "Delete Run\022v\n\nrestoreRun\022\022.mlflow.Restor" +
+      "eRun\032\033.mlflow.RestoreRun.Response\"7\362\206\0313\n" +
+      "\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013R" +
+      "estore Run\022u\n\tlogMetric\022\021.mlflow.LogMetr" +
+      "ic\032\032.mlflow.LogMetric.Response\"9\362\206\0315\n%\n\004" +
+      "POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nL" +
+      "og Metric\022t\n\010logParam\022\020.mlflow.LogParam\032" +
+      "\031.mlflow.LogParam.Response\";\362\206\0317\n(\n\004POST" +
+      "\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLo" +
+      "g Param\022\241\001\n\020setExperimentTag\022\030.mlflow.Se" +
+      "tExperimentTag\032!.mlflow.SetExperimentTag" +
+      ".Response\"P\362\206\031L\n4\n\004POST\022&/mlflow/experim" +
+      "ents/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Exp" +
+      "eriment Tag\022\260\001\n\023deleteExperimentTag\022\033.ml" +
+      "flow.DeleteExperimentTag\032$.mlflow.Delete" +
+      "ExperimentTag.Response\"V\362\206\031R\n7\n\004POST\022)/m" +
+      "lflow/experiments/delete-experiment-tag\032" +
+      "\004\010\002\020\000\020\001*\025Delete Experiment Tag\022f\n\006setTag" +
+      "\022\016.mlflow.SetTag\032\027.mlflow.SetTag.Respons" +
+      "e\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010" +
+      "\002\020\000\020\001*\007Set Tag\022\210\001\n\013setTraceTag\022\023.mlflow." +
+      "SetTraceTag\032\034.mlflow.SetTraceTag.Respons" +
+      "e\"F\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{reques" +
+      "t_id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag\022\217\001\n\rse" +
+      "tTraceTagV3\022\025.mlflow.SetTraceTagV3\032\036.mlf" +
+      "low.SetTraceTagV3.Response\"G\362\206\031C\n-\n\005PATC" +
+      "H\022\036/mlflow/traces/{trace_id}/tags\032\004\010\003\020\000\020" +
+      "\003*\020Set Trace Tag V3\022\225\001\n\016deleteTraceTag\022\026" +
+      ".mlflow.DeleteTraceTag\032\037.mlflow.DeleteTr" +
+      "aceTag.Response\"J\362\206\031F\n0\n\006DELETE\022 /mlflow" +
+      "/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\020Delet" +
+      "e Trace Tag\022\234\001\n\020deleteTraceTagV3\022\030.mlflo" +
+      "w.DeleteTraceTagV3\032!.mlflow.DeleteTraceT" +
+      "agV3.Response\"K\362\206\031G\n.\n\006DELETE\022\036/mlflow/t" +
+      "races/{trace_id}/tags\032\004\010\003\020\000\020\003*\023Delete Tr" +
+      "ace Tag V3\022u\n\tdeleteTag\022\021.mlflow.DeleteT" +
+      "ag\032\032.mlflow.DeleteTag.Response\"9\362\206\0315\n%\n\004" +
+      "POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nD" +
+      "elete Tag\022e\n\006getRun\022\016.mlflow.GetRun\032\027.ml" +
+      "flow.GetRun.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlfl" +
+      "ow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\nsear" +
+      "chRuns\022\022.mlflow.SearchRuns\032\033.mlflow.Sear" +
+      "chRuns.Response\":\362\206\0312\n!\n\004POST\022\023/mlflow/r" +
+      "uns/search\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022\207\001\n\r" +
+      "listArtifacts\022\025.mlflow.ListArtifacts\032\036.m" +
+      "lflow.ListArtifacts.Response\"?\362\206\0317\n#\n\003GE" +
+      "T\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List " +
+      "Artifacts\272\214\031\000\022\302\001\n\030createPresignedUploadU" +
+      "rl\022 .mlflow.CreatePresignedUploadUrl\032).m" +
+      "lflow.CreatePresignedUploadUrl.Response\"" +
+      "Y\362\206\031U\n4\n\004POST\022&/mlflow/artifacts/presign" +
+      "ed-upload-url\032\004\010\002\020\000\020\001*\033Create Presigned " +
+      "Upload URL\022\314\001\n\032createPresignedDownloadUr" +
+      "l\022\".mlflow.CreatePresignedDownloadUrl\032+." +
+      "mlflow.CreatePresignedDownloadUrl.Respon" +
+      "se\"]\362\206\031Y\n6\n\004POST\022(/mlflow/artifacts/pres" +
+      "igned-download-url\032\004\010\002\020\000\020\001*\035Create Presi" +
+      "gned Download URL\022\225\001\n\020getMetricHistory\022\030" +
+      ".mlflow.GetMetricHistory\032!.mlflow.GetMet" +
+      "ricHistory.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflo" +
+      "w/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metri" +
+      "c History\022\267\001\n\034getMetricHistoryBulkInterv" +
+      "al\022$.mlflow.GetMetricHistoryBulkInterval" +
+      "\032-.mlflow.GetMetricHistoryBulkInterval.R" +
+      "esponse\"B\362\206\031:\n6\n\003GET\022)/mlflow/metrics/ge" +
+      "t-history-bulk-interval\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010l" +
+      "ogBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogBa" +
+      "tch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs" +
+      "/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logMode" +
+      "l\022\020.mlflow.LogModel\032\031.mlflow.LogModel.Re" +
+      "sponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-m" +
+      "odel\032\004\010\002\020\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.m" +
+      "lflow.LogInputs\032\032.mlflow.LogInputs.Respo" +
+      "nse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inpu" +
+      "ts\032\004\010\002\020\000\020\001*\nLog Inputs\022v\n\nlogOutputs\022\022.m" +
+      "lflow.LogOutputs\032\033.mlflow.LogOutputs.Res" +
+      "ponse\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/output" +
+      "s\032\004\010\002\020\000\020\003*\013Log Outputs\022\207\001\n\016searchDataset" +
+      "s\022\026.mlflow.SearchDatasets\032\037.mlflow.Searc" +
+      "hDatasets.Response\"<\362\206\0314\n0\n\004POST\022\"mlflow" +
+      "/experiments/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000" +
+      "\022p\n\nstartTrace\022\022.mlflow.StartTrace\032\033.mlf" +
+      "low.StartTrace.Response\"1\362\206\031-\n\034\n\004POST\022\016/" +
+      "mlflow/traces\032\004\010\002\020\000\020\003*\013Start Trace\022v\n\010en" +
+      "dTrace\022\020.mlflow.EndTrace\032\031.mlflow.EndTra" +
+      "ce.Response\"=\362\206\0319\n*\n\005PATCH\022\033/mlflow/trac" +
+      "es/{request_id}\032\004\010\002\020\000\020\003*\tEnd Trace\022\211\001\n\014g" +
+      "etTraceInfo\022\024.mlflow.GetTraceInfo\032\035.mlfl" +
+      "ow.GetTraceInfo.Response\"D\362\206\031@\n-\n\003GET\022 /" +
+      "mlflow/traces/{request_id}/info\032\004\010\002\020\000\020\003*" +
+      "\rGet TraceInfo\022\213\001\n\016getTraceInfoV3\022\026.mlfl" +
+      "ow.GetTraceInfoV3\032\037.mlflow.GetTraceInfoV" +
+      "3.Response\"@\362\206\031<\n&\n\003GET\022\031/mlflow/traces/" +
+      "{trace_id}\032\004\010\003\020\000\020\003*\020Get TraceInfo v3\022n\n\010" +
+      "getTrace\022\020.mlflow.GetTrace\032\031.mlflow.GetT" +
+      "race.Response\"5\362\206\0311\n\037\n\003GET\022\022/mlflow/trac" +
+      "es/get\032\004\010\003\020\000\020\003*\014Get Trace v3\022\203\001\n\016batchGe" +
+      "tTraces\022\026.mlflow.BatchGetTraces\032\037.mlflow" +
+      ".BatchGetTraces.Response\"8\362\206\0314\n$\n\003GET\022\027/" +
+      "mlflow/traces/batchGet\032\004\010\003\020\000\020\003*\nGet Trac" +
+      "es\022\240\001\n\022batchGetTraceInfos\022\032.mlflow.Batch" +
+      "GetTraceInfos\032#.mlflow.BatchGetTraceInfo" +
+      "s.Response\"I\362\206\031E\n*\n\004POST\022\034/mlflow/traces" +
+      "/batchGetInfos\032\004\010\003\020\000\020\003*\025Batch Get Trace " +
+      "Infos\022w\n\014searchTraces\022\024.mlflow.SearchTra" +
+      "ces\032\035.mlflow.SearchTraces.Response\"2\362\206\031." +
+      "\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rSearch " +
+      "Traces\022\210\001\n\016searchTracesV3\022\026.mlflow.Searc" +
+      "hTracesV3\032\037.mlflow.SearchTracesV3.Respon" +
+      "se\"=\362\206\0319\n#\n\004POST\022\025/mlflow/traces/search\032" +
+      "\004\010\003\020\000\020\003*\020Search Traces V3\022i\n\014startTraceV" +
+      "3\022\024.mlflow.StartTraceV3\032\035.mlflow.StartTr" +
+      "aceV3.Response\"$\362\206\031 \n\034\n\004POST\022\016/mlflow/tr" +
+      "aces\032\004\010\003\020\000\020\003\022\222\001\n\017linkTracesToRun\022\027.mlflo" +
+      "w.LinkTracesToRun\032 .mlflow.LinkTracesToR" +
+      "un.Response\"D\362\206\031@\n(\n\004POST\022\032/mlflow/trace" +
+      "s/link-to-run\032\004\010\002\020\000\020\003*\022Link Traces to Ru" +
+      "n\022\237\001\n\022linkPromptsToTrace\022\032.mlflow.LinkPr" +
+      "omptsToTrace\032#.mlflow.LinkPromptsToTrace" +
+      ".Response\"H\362\206\031D\n)\n\004POST\022\033/mlflow/traces/" +
+      "link-prompts\032\004\010\002\020\000\020\003*\025Link Prompts to Tr" +
+      "ace\022\242\001\n\031searchUnifiedTraceHandler\022\033.mlfl" +
+      "ow.SearchUnifiedTraces\032$.mlflow.SearchUn" +
+      "ifiedTraces.Response\"B\362\206\031>\n#\n\003GET\022\026/mlfl" +
+      "ow/unified-traces\032\004\010\002\020\000\020\003*\025Search Unifie" +
+      "d Traces\022\257\001\n\025getOnlineTraceDetails\022\035.mlf" +
+      "low.GetOnlineTraceDetails\032&.mlflow.GetOn" +
+      "lineTraceDetails.Response\"O\362\206\031K\n-\n\003GET\022 " +
+      "/mlflow/get-online-trace-details\032\004\010\002\020\000\020\003" +
+      "*\030Get Online Trace Details\022\206\001\n\014deleteTra" +
+      "ces\022\024.mlflow.DeleteTraces\032\035.mlflow.Delet" +
+      "eTraces.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflow/" +
+      "traces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Tra" +
+      "ces\022\217\001\n\016deleteTracesV3\022\026.mlflow.DeleteTr" +
+      "acesV3\032\037.mlflow.DeleteTracesV3.Response\"" +
+      "D\362\206\031@\n*\n\004POST\022\034/mlflow/traces/delete-tra" +
+      "ces\032\004\010\003\020\000\020\003*\020Delete Traces V3\022\343\001\n\037calcul" +
+      "ateTraceFilterCorrelation\022\'.mlflow.Calcu" +
+      "lateTraceFilterCorrelation\0320.mlflow.Calc" +
+      "ulateTraceFilterCorrelation.Response\"e\362\206" +
+      "\031a\n9\n\004POST\022+/mlflow/traces/calculate-fil" +
+      "ter-correlation\032\004\010\003\020\000\020\003*\"Calculate Trace" +
+      " Filter Correlation\022\225\001\n\021queryTraceMetric" +
+      "s\022\031.mlflow.QueryTraceMetrics\032\".mlflow.Qu" +
+      "eryTraceMetrics.Response\"A\362\206\031=\n$\n\004POST\022\026" +
+      "/mlflow/traces/metrics\032\004\010\003\020\000\020\003*\023Query Tr" +
+      "ace Metrics\022\203\001\n\016listWorkspaces\022\026.mlflow." +
+      "ListWorkspaces\032\037.mlflow.ListWorkspaces.R" +
+      "esponse\"8\362\206\0314\n\037\n\003GET\022\022/mlflow/workspaces" +
+      "\032\004\010\003\020\000\020\003*\017List Workspaces\022\210\001\n\017createWork" +
+      "space\022\027.mlflow.CreateWorkspace\032 .mlflow." +
+      "CreateWorkspace.Response\":\362\206\0316\n \n\004POST\022\022" +
+      "/mlflow/workspaces\032\004\010\003\020\000\020\003*\020Create Works" +
+      "pace\022\214\001\n\014getWorkspace\022\024.mlflow.GetWorksp" +
+      "ace\032\035.mlflow.GetWorkspace.Response\"G\362\206\031C" +
+      "\n0\n\003GET\022#/mlflow/workspaces/{workspace_n" +
+      "ame}\032\004\010\003\020\000\020\003*\rGet Workspace\022\232\001\n\017updateWo" +
+      "rkspace\022\027.mlflow.UpdateWorkspace\032 .mlflo" +
+      "w.UpdateWorkspace.Response\"L\362\206\031H\n2\n\005PATC" +
+      "H\022#/mlflow/workspaces/{workspace_name}\032\004" +
+      "\010\003\020\000\020\003*\020Update Workspace\022\233\001\n\017deleteWorks" +
+      "pace\022\027.mlflow.DeleteWorkspace\032 .mlflow.D" +
+      "eleteWorkspace.Response\"M\362\206\031I\n3\n\006DELETE\022" +
+      "#/mlflow/workspaces/{workspace_name}\032\004\010\003" +
+      "\020\000\020\003*\020Delete Workspace\022\224\001\n\021createLoggedM" +
+      "odel\022\031.mlflow.CreateLoggedModel\032\".mlflow" +
+      ".CreateLoggedModel.Response\"@\362\206\031<\n#\n\004POS" +
+      "T\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023Create" +
+      " Logged Model\022\250\001\n\023finalizeLoggedModel\022\033." +
+      "mlflow.FinalizeLoggedModel\032$.mlflow.Fina" +
+      "lizeLoggedModel.Response\"N\362\206\031J\n/\n\005PATCH\022" +
       " /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020" +
-      "\003*\020Get Logged Model\022\243\001\n\021deleteLoggedMode" +
-      "l\022\031.mlflow.DeleteLoggedModel\032\".mlflow.De" +
-      "leteLoggedModel.Response\"O\362\206\031K\n0\n\006DELETE" +
-      "\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000" +
-      "\020\003*\025Delete a Logged Model\022\236\001\n\022searchLogg" +
-      "edModels\022\032.mlflow.SearchLoggedModels\032#.m" +
-      "lflow.SearchLoggedModels.Response\"G\362\206\031C\n" +
-      "*\n\004POST\022\034/mlflow/logged-models/search\032\004\010" +
-      "\002\020\000\020\003*\023Search LoggedModels\022\251\001\n\022setLogged" +
-      "ModelTags\022\032.mlflow.SetLoggedModelTags\032#." +
-      "mlflow.SetLoggedModelTags.Response\"R\362\206\031N" +
-      "\n4\n\005PATCH\022%/mlflow/logged-models/{model_" +
-      "id}/tags\032\004\010\002\020\000\020\003*\024Set Logged Model Tag\022\275" +
-      "\001\n\024deleteLoggedModelTag\022\034.mlflow.DeleteL" +
-      "oggedModelTag\032%.mlflow.DeleteLoggedModel" +
-      "Tag.Response\"`\362\206\031\\\n?\n\006DELETE\022//mlflow/lo" +
-      "gged-models/{model_id}/tags/{tag_key}\032\004\010" +
-      "\002\020\000\020\003*\027Delete Logged Model Tag\022\326\001\n\030listL" +
-      "oggedModelArtifacts\022 .mlflow.ListLoggedM" +
-      "odelArtifacts\032).mlflow.ListLoggedModelAr" +
-      "tifacts.Response\"m\362\206\031i\nC\n\003GET\0226/mlflow/l" +
-      "ogged-models/{model_id}/artifacts/direct" +
-      "ories\032\004\010\002\020\000\020\003* List Artifacts for Logged" +
-      " Models\022\301\001\n\024LogLoggedModelParams\022#.mlflo" +
-      "w.LogLoggedModelParamsRequest\032,.mlflow.L" +
-      "ogLoggedModelParamsRequest.Response\"V\362\206\031" +
-      "R\n5\n\004POST\022\'/mlflow/logged-models/{model_" +
-      "id}/params\032\004\010\002\020\000\020\003*\027Log Logged Model Par" +
-      "ams\022\260\001\n\rGetAssessment\022\034.mlflow.GetAssess" +
-      "mentRequest\032%.mlflow.GetAssessmentReques" +
-      "t.Response\"Z\362\206\031V\nB\n\003GET\0225/mlflow/traces/" +
-      "{trace_id}/assessments/{assessment_id}\032\004" +
-      "\010\003\020\000\020\003*\016Get Assessment\022\337\001\n\020createAssessm" +
-      "ent\022\030.mlflow.CreateAssessment\032!.mlflow.C" +
-      "reateAssessment.Response\"\215\001\362\206\031\210\001\n>\n\004POST" +
-      "\0220/mlflow/traces/{assessment.trace_id}/a" +
-      "ssessments\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Create an " +
-      "assessment of a trace or a span within t" +
-      "he trace\022\320\001\n\020updateAssessment\022\030.mlflow.U" +
-      "pdateAssessment\032!.mlflow.UpdateAssessmen" +
-      "t.Response\"\177\362\206\031{\nD\n\005PATCH\0225/mlflow/trace" +
-      "s/{trace_id}/assessments/{assessment_id}" +
-      "\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\001*)Update an existing ass" +
-      "essment on a trace.\022\261\001\n\020deleteAssessment" +
-      "\022\030.mlflow.DeleteAssessment\032!.mlflow.Dele" +
-      "teAssessment.Response\"`\362\206\031\\\nE\n\006DELETE\0225/" +
-      "mlflow/traces/{trace_id}/assessments/{as" +
-      "sessment_id}\032\004\010\003\020\000\020\003*\021Delete Assessment\022" +
-      "\205\001\n\013createIssue\022\032.mlflow.issues.CreateIs" +
-      "sue\032#.mlflow.issues.CreateIssue.Response" +
-      "\"5\362\206\0311\n\034\n\004POST\022\016/mlflow/issues\032\004\010\003\020\000\020\003*\017" +
-      "Create an issue\022\232\001\n\013updateIssue\022\032.mlflow" +
-      ".issues.UpdateIssue\032#.mlflow.issues.Upda" +
-      "teIssue.Response\"J\362\206\031F\n(\n\005PATCH\022\031/mlflow" +
-      "/issues/{issue_id}\032\004\010\003\020\000\020\003*\030Update an ex" +
-      "isting issue\022\211\001\n\010getIssue\022\027.mlflow.issue" +
-      "s.GetIssue\032 .mlflow.issues.GetIssue.Resp" +
-      "onse\"B\362\206\031>\n&\n\003GET\022\031/mlflow/issues/{issue" +
-      "_id}\032\004\010\003\020\000\020\003*\022Get an issue by ID\022\215\001\n\014sea" +
-      "rchIssues\022\033.mlflow.issues.SearchIssues\032$" +
-      ".mlflow.issues.SearchIssues.Response\":\362\206" +
-      "\0316\n#\n\004POST\022\025/mlflow/issues/search\032\004\010\003\020\000\020" +
-      "\003*\rSearch issues\022\303\001\n\021createLabelSchema\022\'" +
-      ".mlflow.label_schemas.CreateLabelSchema\032" +
-      "0.mlflow.label_schemas.CreateLabelSchema" +
-      ".Response\"S\362\206\031O\n*\n\004POST\022\034/mlflow/label-s" +
-      "chemas/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\014\030\001*\025Create " +
-      "a label schema\022\267\001\n\016getLabelSchema\022$.mlfl" +
-      "ow.label_schemas.GetLabelSchema\032-.mlflow" +
-      ".label_schemas.GetLabelSchema.Response\"P" +
-      "\362\206\031L\n&\n\003GET\022\031/mlflow/label-schemas/get\032\004" +
-      "\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\030Get a label schema by ID" +
-      "\022\323\001\n\024getLabelSchemaByName\022*.mlflow.label" +
-      "_schemas.GetLabelSchemaByName\0323.mlflow.l" +
-      "abel_schemas.GetLabelSchemaByName.Respon" +
-      "se\"Z\362\206\031V\n.\n\003GET\022!/mlflow/label-schemas/g" +
-      "et-by-name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Get a label " +
-      "schema by name\022\270\001\n\020listLabelSchemas\022&.ml" +
-      "flow.label_schemas.ListLabelSchemas\032/.ml" +
-      "flow.label_schemas.ListLabelSchemas.Resp" +
-      "onse\"K\362\206\031G\n\'\n\003GET\022\032/mlflow/label-schemas" +
-      "/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List label schema" +
-      "s\022\304\001\n\021updateLabelSchema\022\'.mlflow.label_s" +
-      "chemas.UpdateLabelSchema\0320.mlflow.label_" +
-      "schemas.UpdateLabelSchema.Response\"T\362\206\031P" +
-      "\n+\n\005PATCH\022\034/mlflow/label-schemas/update\032" +
-      "\004\010\003\020\000\020\003\030\350\007\030\272\027\030\014\030\001*\025Update a label schema" +
-      "\022\300\001\n\021deleteLabelSchema\022\'.mlflow.label_sc" +
-      "hemas.DeleteLabelSchema\0320.mlflow.label_s" +
-      "chemas.DeleteLabelSchema.Response\"P\362\206\031L\n" +
-      ",\n\006DELETE\022\034/mlflow/label-schemas/delete\032" +
-      "\004\010\003\020\000\020\003\030\350\007\030\001*\025Delete a label schema\022\232\001\n\r" +
-      "createDataset\022\025.mlflow.CreateDataset\032\036.m" +
-      "lflow.CreateDataset.Response\"R\362\206\031N\n%\n\004PO" +
-      "ST\022\027/mlflow/datasets/create\032\004\010\003\020\000\020\003\030\350\007\030\356" +
-      "\007\030\014\030\001*\031Create Evaluation Dataset\022\221\001\n\nget" +
-      "Dataset\022\022.mlflow.GetDataset\032\033.mlflow.Get" +
-      "Dataset.Response\"R\362\206\031N\n*\n\003GET\022\035/mlflow/d" +
-      "atasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\026Ge" +
-      "t Evaluation Dataset\022\240\001\n\rdeleteDataset\022\025" +
-      ".mlflow.DeleteDataset\032\036.mlflow.DeleteDat" +
-      "aset.Response\"X\362\206\031T\n-\n\006DELETE\022\035/mlflow/d" +
-      "atasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\031De" +
-      "lete Evaluation Dataset\022\335\001\n\030searchEvalua" +
-      "tionDatasets\022 .mlflow.SearchEvaluationDa" +
-      "tasets\032).mlflow.SearchEvaluationDatasets" +
-      ".Response\"t\362\206\031p\n%\n\004POST\022\027/mlflow/dataset" +
-      "s/search\032\004\010\003\020\000\n$\n\003GET\022\027/mlflow/datasets/" +
-      "search\032\004\010\003\020\000\020\003\030\350\007\030\001*\032Search Evaluation D" +
-      "atasets\022\251\001\n\016setDatasetTags\022\026.mlflow.SetD" +
-      "atasetTags\032\037.mlflow.SetDatasetTags.Respo" +
-      "nse\"^\362\206\031Z\n1\n\005PATCH\022\"/mlflow/datasets/{da" +
-      "taset_id}/tags\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Set Eval" +
-      "uation Dataset Tags\022\270\001\n\020deleteDatasetTag" +
-      "\022\030.mlflow.DeleteDatasetTag\032!.mlflow.Dele" +
-      "teDatasetTag.Response\"g\362\206\031c\n8\n\006DELETE\022(/" +
-      "mlflow/datasets/{dataset_id}/tags/{key}\032" +
-      "\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\035Delete Evaluation Datas" +
-      "et Tag\022\303\001\n\024upsertDatasetRecords\022\034.mlflow" +
-      ".UpsertDatasetRecords\032%.mlflow.UpsertDat" +
-      "asetRecords.Response\"f\362\206\031b\n3\n\004POST\022%/mlf" +
-      "low/datasets/{dataset_id}/records\032\004\010\003\020\000\020" +
-      "\003\030\350\007\030\272\027\030\001*!Upsert Evaluation Dataset Rec" +
-      "ords\022\326\001\n\027getDatasetExperimentIds\022\037.mlflo" +
-      "w.GetDatasetExperimentIds\032(.mlflow.GetDa" +
-      "tasetExperimentIds.Response\"p\362\206\031l\n9\n\003GET" +
-      "\022,/mlflow/datasets/{dataset_id}/experime" +
-      "nt-ids\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*%Get Evaluation D" +
-      "ataset Experiment IDs\022\212\001\n\016registerScorer" +
-      "\022\026.mlflow.RegisterScorer\032\037.mlflow.Regist" +
-      "erScorer.Response\"?\362\206\031;\n&\n\004POST\022\030/mlflow" +
-      "/scorers/register\032\004\010\003\020\000\020\001*\017Register Scor" +
-      "er\022y\n\013listScorers\022\023.mlflow.ListScorers\032\034" +
-      ".mlflow.ListScorers.Response\"7\362\206\0313\n!\n\003GE" +
-      "T\022\024/mlflow/scorers/list\032\004\010\003\020\000\020\001*\014List Sc" +
-      "orers\022\232\001\n\022listScorerVersions\022\032.mlflow.Li" +
-      "stScorerVersions\032#.mlflow.ListScorerVers" +
-      "ions.Response\"C\362\206\031?\n%\n\003GET\022\030/mlflow/scor" +
-      "ers/versions\032\004\010\003\020\000\020\001*\024List Scorer Versio" +
-      "ns\022p\n\tgetScorer\022\021.mlflow.GetScorer\032\032.mlf" +
-      "low.GetScorer.Response\"4\362\206\0310\n \n\003GET\022\023/ml" +
-      "flow/scorers/get\032\004\010\003\020\000\020\001*\nGet Scorer\022\202\001\n" +
-      "\014deleteScorer\022\024.mlflow.DeleteScorer\032\035.ml" +
-      "flow.DeleteScorer.Response\"=\362\206\0319\n&\n\006DELE" +
-      "TE\022\026/mlflow/scorers/delete\032\004\010\003\020\000\020\001*\rDele" +
-      "te Scorer\022\266\001\n\021getDatasetRecords\022\031.mlflow" +
-      ".GetDatasetRecords\032\".mlflow.GetDatasetRe" +
-      "cords.Response\"b\362\206\031^\n2\n\003GET\022%/mlflow/dat" +
-      "asets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027" +
-      "\030\001*\036Get Evaluation Dataset Records\022\305\001\n\024d" +
-      "eleteDatasetRecords\022\034.mlflow.DeleteDatas" +
-      "etRecords\032%.mlflow.DeleteDatasetRecords." +
-      "Response\"h\362\206\031d\n5\n\006DELETE\022%/mlflow/datase" +
-      "ts/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*" +
-      "!Delete Evaluation Dataset Records\022\315\001\n\027a" +
-      "ddDatasetToExperiments\022\037.mlflow.AddDatas" +
-      "etToExperiments\032(.mlflow.AddDatasetToExp" +
-      "eriments.Response\"g\362\206\031c\n;\n\004POST\022-/mlflow" +
-      "/datasets/{dataset_id}/add-experiments\032\004" +
-      "\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Add Dataset to Experimen" +
-      "ts\022\344\001\n\034removeDatasetFromExperiments\022$.ml" +
-      "flow.RemoveDatasetFromExperiments\032-.mlfl" +
-      "ow.RemoveDatasetFromExperiments.Response" +
-      "\"o\362\206\031k\n>\n\004POST\0220/mlflow/datasets/{datase" +
-      "t_id}/remove-experiments\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001" +
-      "*\037Remove Dataset from Experiments\022\245\001\n\023cr" +
-      "eateGatewaySecret\022\033.mlflow.CreateGateway" +
-      "Secret\032$.mlflow.CreateGatewaySecret.Resp" +
-      "onse\"K\362\206\031G\n,\n\004POST\022\036/mlflow/gateway/secr" +
-      "ets/create\032\004\010\003\020\000\020\001*\025Create Gateway Secre" +
-      "t\022\246\001\n\024getGatewaySecretInfo\022\034.mlflow.GetG" +
-      "atewaySecretInfo\032%.mlflow.GetGatewaySecr" +
-      "etInfo.Response\"I\362\206\031E\n(\n\003GET\022\033/mlflow/ga" +
-      "teway/secrets/get\032\004\010\003\020\000\020\001*\027Get Gateway S" +
-      "ecret Info\022\245\001\n\023updateGatewaySecret\022\033.mlf" +
-      "low.UpdateGatewaySecret\032$.mlflow.UpdateG" +
-      "atewaySecret.Response\"K\362\206\031G\n,\n\004POST\022\036/ml" +
-      "flow/gateway/secrets/update\032\004\010\003\020\000\020\001*\025Upd" +
-      "ate Gateway Secret\022\247\001\n\023deleteGatewaySecr" +
-      "et\022\033.mlflow.DeleteGatewaySecret\032$.mlflow" +
-      ".DeleteGatewaySecret.Response\"M\362\206\031I\n.\n\006D" +
-      "ELETE\022\036/mlflow/gateway/secrets/delete\032\004\010" +
-      "\003\020\000\020\001*\025Delete Gateway Secret\022\252\001\n\026listGat" +
-      "ewaySecretInfos\022\036.mlflow.ListGatewaySecr" +
-      "etInfos\032\'.mlflow.ListGatewaySecretInfos." +
-      "Response\"G\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/s",
-      "ecrets/list\032\004\010\003\020\000\020\001*\024List Gateway Secret" +
-      "s\022\257\001\n\025createGatewayEndpoint\022\035.mlflow.Cre" +
-      "ateGatewayEndpoint\032&.mlflow.CreateGatewa" +
-      "yEndpoint.Response\"O\362\206\031K\n.\n\004POST\022 /mlflo" +
-      "w/gateway/endpoints/create\032\004\010\003\020\000\020\001*\027Crea" +
-      "te Gateway Endpoint\022\237\001\n\022getGatewayEndpoi" +
-      "nt\022\032.mlflow.GetGatewayEndpoint\032#.mlflow." +
-      "GetGatewayEndpoint.Response\"H\362\206\031D\n*\n\003GET" +
-      "\022\035/mlflow/gateway/endpoints/get\032\004\010\003\020\000\020\001*" +
-      "\024Get Gateway Endpoint\022\257\001\n\025updateGatewayE" +
-      "ndpoint\022\035.mlflow.UpdateGatewayEndpoint\032&" +
-      ".mlflow.UpdateGatewayEndpoint.Response\"O" +
-      "\362\206\031K\n.\n\004POST\022 /mlflow/gateway/endpoints/" +
-      "update\032\004\010\003\020\000\020\001*\027Update Gateway Endpoint\022" +
-      "\261\001\n\025deleteGatewayEndpoint\022\035.mlflow.Delet" +
-      "eGatewayEndpoint\032&.mlflow.DeleteGatewayE" +
-      "ndpoint.Response\"Q\362\206\031M\n0\n\006DELETE\022 /mlflo" +
-      "w/gateway/endpoints/delete\032\004\010\003\020\000\020\001*\027Dele" +
-      "te Gateway Endpoint\022\250\001\n\024listGatewayEndpo" +
-      "ints\022\034.mlflow.ListGatewayEndpoints\032%.mlf" +
-      "low.ListGatewayEndpoints.Response\"K\362\206\031G\n" +
-      "+\n\003GET\022\036/mlflow/gateway/endpoints/list\032\004" +
-      "\010\003\020\000\020\001*\026List Gateway Endpoints\022\324\001\n\034creat" +
-      "eGatewayModelDefinition\022$.mlflow.CreateG" +
-      "atewayModelDefinition\032-.mlflow.CreateGat" +
-      "ewayModelDefinition.Response\"_\362\206\031[\n6\n\004PO" +
-      "ST\022(/mlflow/gateway/model-definitions/cr" +
-      "eate\032\004\010\003\020\000\020\001*\037Create Gateway Model Defin" +
-      "ition\022\304\001\n\031getGatewayModelDefinition\022!.ml" +
-      "flow.GetGatewayModelDefinition\032*.mlflow." +
-      "GetGatewayModelDefinition.Response\"X\362\206\031T" +
-      "\n2\n\003GET\022%/mlflow/gateway/model-definitio" +
-      "ns/get\032\004\010\003\020\000\020\001*\034Get Gateway Model Defini" +
-      "tion\022\315\001\n\033listGatewayModelDefinitions\022#.m" +
-      "lflow.ListGatewayModelDefinitions\032,.mlfl" +
-      "ow.ListGatewayModelDefinitions.Response\"" +
-      "[\362\206\031W\n3\n\003GET\022&/mlflow/gateway/model-defi" +
-      "nitions/list\032\004\010\003\020\000\020\001*\036List Gateway Model" +
-      " Definitions\022\324\001\n\034updateGatewayModelDefin" +
-      "ition\022$.mlflow.UpdateGatewayModelDefinit" +
-      "ion\032-.mlflow.UpdateGatewayModelDefinitio" +
-      "n.Response\"_\362\206\031[\n6\n\004POST\022(/mlflow/gatewa" +
-      "y/model-definitions/update\032\004\010\003\020\000\020\001*\037Upda" +
-      "te Gateway Model Definition\022\326\001\n\034deleteGa" +
-      "tewayModelDefinition\022$.mlflow.DeleteGate" +
-      "wayModelDefinition\032-.mlflow.DeleteGatewa" +
-      "yModelDefinition.Response\"a\362\206\031]\n8\n\006DELET" +
-      "E\022(/mlflow/gateway/model-definitions/del" +
-      "ete\032\004\010\003\020\000\020\001*\037Delete Gateway Model Defini" +
-      "tion\022\305\001\n\025attachModelToEndpoint\022$.mlflow." +
-      "AttachModelToGatewayEndpoint\032-.mlflow.At" +
-      "tachModelToGatewayEndpoint.Response\"W\362\206\031" +
-      "S\n5\n\004POST\022\'/mlflow/gateway/endpoints/mod" +
-      "els/attach\032\004\010\003\020\000\020\001*\030Attach Model to Endp" +
-      "oint\022\315\001\n\027detachModelFromEndpoint\022&.mlflo" +
-      "w.DetachModelFromGatewayEndpoint\032/.mlflo" +
-      "w.DetachModelFromGatewayEndpoint.Respons" +
-      "e\"Y\362\206\031U\n5\n\004POST\022\'/mlflow/gateway/endpoin" +
-      "ts/models/detach\032\004\010\003\020\000\020\001*\032Detach Model f" +
-      "rom Endpoint\022\306\001\n\025createEndpointBinding\022$" +
-      ".mlflow.CreateGatewayEndpointBinding\032-.m" +
-      "lflow.CreateGatewayEndpointBinding.Respo" +
-      "nse\"X\362\206\031T\n7\n\004POST\022)/mlflow/gateway/endpo" +
-      "ints/bindings/create\032\004\010\003\020\000\020\001*\027Create End" +
-      "point Binding\022\310\001\n\025deleteEndpointBinding\022" +
-      "$.mlflow.DeleteGatewayEndpointBinding\032-." +
-      "mlflow.DeleteGatewayEndpointBinding.Resp" +
-      "onse\"Z\362\206\031V\n9\n\006DELETE\022)/mlflow/gateway/en" +
-      "dpoints/bindings/delete\032\004\010\003\020\000\020\001*\027Delete " +
-      "Endpoint Binding\022\277\001\n\024listEndpointBinding" +
-      "s\022#.mlflow.ListGatewayEndpointBindings\032," +
-      ".mlflow.ListGatewayEndpointBindings.Resp" +
-      "onse\"T\362\206\031P\n4\n\003GET\022\'/mlflow/gateway/endpo" +
-      "ints/bindings/list\032\004\010\003\020\000\020\001*\026List Endpoin" +
-      "t Bindings\022\261\001\n\025setGatewayEndpointTag\022\035.m" +
-      "lflow.SetGatewayEndpointTag\032&.mlflow.Set" +
-      "GatewayEndpointTag.Response\"Q\362\206\031M\n/\n\004POS" +
-      "T\022!/mlflow/gateway/endpoints/set-tag\032\004\010\003" +
-      "\020\000\020\001*\030Gateway Set Endpoint Tag\022\302\001\n\030delet" +
-      "eGatewayEndpointTag\022 .mlflow.DeleteGatew" +
-      "ayEndpointTag\032).mlflow.DeleteGatewayEndp" +
-      "ointTag.Response\"Y\362\206\031U\n4\n\006DELETE\022$/mlflo" +
-      "w/gateway/endpoints/delete-tag\032\004\010\003\020\000\020\001*\033" +
-      "Gateway Delete Endpoint Tag\022\257\001\n\022createBu" +
-      "dgetPolicy\022!.mlflow.CreateGatewayBudgetP" +
-      "olicy\032*.mlflow.CreateGatewayBudgetPolicy" +
-      ".Response\"J\362\206\031F\n,\n\004POST\022\036/mlflow/gateway" +
-      "/budgets/create\032\004\010\003\020\000\020\001*\024Create Budget P" +
-      "olicy\022\237\001\n\017getBudgetPolicy\022\036.mlflow.GetGa" +
-      "tewayBudgetPolicy\032\'.mlflow.GetGatewayBud" +
-      "getPolicy.Response\"C\362\206\031?\n(\n\003GET\022\033/mlflow" +
-      "/gateway/budgets/get\032\004\010\003\020\000\020\001*\021Get Budget" +
-      " Policy\022\257\001\n\022updateBudgetPolicy\022!.mlflow." +
-      "UpdateGatewayBudgetPolicy\032*.mlflow.Updat" +
-      "eGatewayBudgetPolicy.Response\"J\362\206\031F\n,\n\004P" +
-      "OST\022\036/mlflow/gateway/budgets/update\032\004\010\003\020" +
-      "\000\020\001*\024Update Budget Policy\022\261\001\n\022deleteBudg" +
-      "etPolicy\022!.mlflow.DeleteGatewayBudgetPol" +
-      "icy\032*.mlflow.DeleteGatewayBudgetPolicy.R" +
-      "esponse\"L\362\206\031H\n.\n\006DELETE\022\036/mlflow/gateway" +
-      "/budgets/delete\032\004\010\003\020\000\020\001*\024Delete Budget P" +
-      "olicy\022\254\001\n\022listBudgetPolicies\022!.mlflow.Li" +
-      "stGatewayBudgetPolicies\032*.mlflow.ListGat" +
-      "ewayBudgetPolicies.Response\"G\362\206\031C\n)\n\003GET" +
-      "\022\034/mlflow/gateway/budgets/list\032\004\010\003\020\000\020\001*\024" +
-      "List Budget Policies\022\253\001\n\021listBudgetWindo" +
-      "ws\022 .mlflow.ListGatewayBudgetWindows\032).m" +
-      "lflow.ListGatewayBudgetWindows.Response\"" +
-      "I\362\206\031E\n,\n\003GET\022\037/mlflow/gateway/budgets/wi" +
-      "ndows\032\004\010\003\020\000\020\001*\023List Budget Windows\022\254\001\n\026c" +
-      "reateGatewayGuardrail\022\036.mlflow.CreateGat" +
-      "ewayGuardrail\032\'.mlflow.CreateGatewayGuar" +
-      "drail.Response\"I\362\206\031E\n/\n\004POST\022!/mlflow/ga" +
-      "teway/guardrails/create\032\004\010\003\020\000\020\001*\020Create " +
-      "Guardrail\022\234\001\n\023getGatewayGuardrail\022\033.mlfl" +
-      "ow.GetGatewayGuardrail\032$.mlflow.GetGatew" +
-      "ayGuardrail.Response\"B\362\206\031>\n+\n\003GET\022\036/mlfl" +
-      "ow/gateway/guardrails/get\032\004\010\003\020\000\020\001*\rGet G" +
-      "uardrail\022\256\001\n\026deleteGatewayGuardrail\022\036.ml" +
-      "flow.DeleteGatewayGuardrail\032\'.mlflow.Del" +
-      "eteGatewayGuardrail.Response\"K\362\206\031G\n1\n\006DE" +
-      "LETE\022!/mlflow/gateway/guardrails/delete\032" +
-      "\004\010\003\020\000\020\001*\020Delete Guardrail\022\245\001\n\025listGatewa" +
-      "yGuardrails\022\035.mlflow.ListGatewayGuardrai" +
-      "ls\032&.mlflow.ListGatewayGuardrails.Respon" +
-      "se\"E\362\206\031A\n,\n\003GET\022\037/mlflow/gateway/guardra" +
-      "ils/list\032\004\010\003\020\000\020\001*\017List Guardrails\022\276\001\n\026ad" +
-      "dGuardrailToEndpoint\022\036.mlflow.AddGuardra" +
-      "ilToEndpoint\032\'.mlflow.AddGuardrailToEndp" +
-      "oint.Response\"[\362\206\031W\n8\n\004POST\022*/mlflow/gat" +
-      "eway/guardrails/add-to-endpoint\032\004\010\003\020\000\020\001*" +
-      "\031Add Guardrail to Endpoint\022\331\001\n\033removeGua" +
-      "rdrailFromEndpoint\022#.mlflow.RemoveGuardr" +
-      "ailFromEndpoint\032,.mlflow.RemoveGuardrail" +
-      "FromEndpoint.Response\"g\362\206\031c\n?\n\006DELETE\022//" +
-      "mlflow/gateway/guardrails/remove-from-en" +
-      "dpoint\032\004\010\003\020\000\020\001*\036Remove Guardrail from En" +
-      "dpoint\022\327\001\n\034listEndpointGuardrailConfigs\022" +
-      "$.mlflow.ListEndpointGuardrailConfigs\032-." +
-      "mlflow.ListEndpointGuardrailConfigs.Resp" +
-      "onse\"b\362\206\031^\n9\n\003GET\022,/mlflow/gateway/guard" +
-      "rails/list-for-endpoint\032\004\010\003\020\000\020\001*\037List En" +
-      "dpoint Guardrail Configs\022\331\001\n\035updateEndpo" +
-      "intGuardrailConfig\022%.mlflow.UpdateEndpoi" +
-      "ntGuardrailConfig\032..mlflow.UpdateEndpoin" +
-      "tGuardrailConfig.Response\"a\362\206\031]\n7\n\005PATCH" +
-      "\022(/mlflow/gateway/guardrails/update-conf" +
-      "ig\032\004\010\003\020\000\020\001* Update Endpoint Guardrail Co" +
-      "nfig\022\320\001\n\033createPromptOptimizationJob\022#.m" +
-      "lflow.CreatePromptOptimizationJob\032,.mlfl" +
-      "ow.CreatePromptOptimizationJob.Response\"" +
-      "^\362\206\031Z\n.\n\004POST\022 /mlflow/prompt-optimizati" +
-      "on/jobs\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036Create Prompt O" +
-      "ptimization Job\022\314\001\n\030getPromptOptimizatio" +
-      "nJob\022 .mlflow.GetPromptOptimizationJob\032)" +
-      ".mlflow.GetPromptOptimizationJob.Respons" +
-      "e\"c\362\206\031_\n6\n\003GET\022)/mlflow/prompt-optimizat" +
-      "ion/jobs/{job_id}\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\033Get P" +
-      "rompt Optimization Job\022\220\002\n\034searchPromptO" +
-      "ptimizationJobs\022$.mlflow.SearchPromptOpt" +
-      "imizationJobs\032-.mlflow.SearchPromptOptim" +
-      "izationJobs.Response\"\232\001\362\206\031\225\001\n5\n\004POST\022\'/m" +
-      "lflow/prompt-optimization/jobs/search\032\004\010" +
-      "\003\020\000\n4\n\003GET\022\'/mlflow/prompt-optimization/" +
-      "jobs/search\032\004\010\003\020\000\020\001\030\350\007\030\001*\037Search Prompt " +
-      "Optimization Jobs\022\343\001\n\033cancelPromptOptimi" +
-      "zationJob\022#.mlflow.CancelPromptOptimizat" +
-      "ionJob\032,.mlflow.CancelPromptOptimization" +
-      "Job.Response\"q\362\206\031m\n>\n\004POST\0220/mlflow/prom" +
-      "pt-optimization/jobs/{job_id}/cancel\032\004\010\003" +
-      "\020\000\020\001\030\350\007\030\272\027\030\353\007\030\001*\036Cancel Prompt Optimizat" +
-      "ion Job\022\333\001\n\033deletePromptOptimizationJob\022" +
-      "#.mlflow.DeletePromptOptimizationJob\032,.m" +
-      "lflow.DeletePromptOptimizationJob.Respon" +
-      "se\"i\362\206\031e\n9\n\006DELETE\022)/mlflow/prompt-optim" +
-      "ization/jobs/{job_id}\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036D" +
-      "elete Prompt Optimization Job\022\304\001\n\021create" +
-      "ReviewQueue\022\'.mlflow.review_queues.Creat" +
-      "eReviewQueue\0320.mlflow.review_queues.Crea" +
-      "teReviewQueue.Response\"T\362\206\031P\n*\n\004POST\022\034/m" +
-      "lflow/review-queues/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027" +
-      "\030\271\027\030\001*\025Create a review queue\022\345\001\n\024getOrCr" +
-      "eateUserQueue\022*.mlflow.review_queues.Get" +
-      "OrCreateUserQueue\0323.mlflow.review_queues" +
-      ".GetOrCreateUserQueue.Response\"l\362\206\031h\n6\n\004" +
-      "POST\022(/mlflow/review-queues/get-or-creat" +
-      "e-user\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*!Get or create" +
-      " a user review queue\022\261\001\n\016getReviewQueue\022" +
-      "$.mlflow.review_queues.GetReviewQueue\032-." +
-      "mlflow.review_queues.GetReviewQueue.Resp" +
-      "onse\"J\362\206\031F\n&\n\003GET\022\031/mlflow/review-queues" +
-      "/get\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022Get a review queue" +
-      "\022\323\001\n\024getReviewQueueByName\022*.mlflow.revie" +
-      "w_queues.GetReviewQueueByName\0323.mlflow.r" +
-      "eview_queues.GetReviewQueueByName.Respon" +
-      "se\"Z\362\206\031V\n.\n\003GET\022!/mlflow/review-queues/g" +
-      "et-by-name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Get a review" +
-      " queue by name\022\270\001\n\020listReviewQueues\022&.ml" +
-      "flow.review_queues.ListReviewQueues\032/.ml" +
-      "flow.review_queues.ListReviewQueues.Resp" +
-      "onse\"K\362\206\031G\n\'\n\003GET\022\032/mlflow/review-queues" +
-      "/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List review queue" +
-      "s\022\301\001\n\021updateReviewQueue\022\'.mlflow.review_" +
-      "queues.UpdateReviewQueue\0320.mlflow.review" +
-      "_queues.UpdateReviewQueue.Response\"Q\362\206\031M" +
-      "\n*\n\004POST\022\034/mlflow/review-queues/update\032\004" +
-      "\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\025Update a review queue\022\301\001" +
-      "\n\021deleteReviewQueue\022\'.mlflow.review_queu" +
-      "es.DeleteReviewQueue\0320.mlflow.review_que" +
-      "ues.DeleteReviewQueue.Response\"Q\362\206\031M\n*\n\004" +
-      "POST\022\034/mlflow/review-queues/delete\032\004\010\003\020\000" +
-      "\020\003\030\350\007\030\272\027\030\001*\025Delete a review queue\022\326\001\n\025ad" +
-      "dItemsToReviewQueue\022+.mlflow.review_queu" +
-      "es.AddItemsToReviewQueue\0324.mlflow.review" +
-      "_queues.AddItemsToReviewQueue.Response\"Z" +
-      "\362\206\031V\n-\n\004POST\022\037/mlflow/review-queues/item" +
-      "s/add\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Add items to a re" +
-      "view queue\022\355\001\n\032removeItemsFromReviewQueu" +
-      "e\0220.mlflow.review_queues.RemoveItemsFrom" +
-      "ReviewQueue\0329.mlflow.review_queues.Remov" +
-      "eItemsFromReviewQueue.Response\"b\362\206\031^\n0\n\004" +
-      "POST\022\"/mlflow/review-queues/items/remove" +
-      "\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001* Remove items from a re" +
-      "view queue\022\317\001\n\024listReviewQueueItems\022*.ml" +
-      "flow.review_queues.ListReviewQueueItems\032" +
-      "3.mlflow.review_queues.ListReviewQueueIt" +
-      "ems.Response\"V\362\206\031R\n-\n\003GET\022 /mlflow/revie" +
-      "w-queues/items/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\027Lis" +
-      "t review queue items\022\347\001\n\030setReviewQueueI" +
-      "temStatus\022..mlflow.review_queues.SetRevi" +
-      "ewQueueItemStatus\0327.mlflow.review_queues" +
-      ".SetReviewQueueItemStatus.Response\"b\362\206\031^" +
-      "\n4\n\004POST\022&/mlflow/review-queues/items/se" +
-      "t-status\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\034Set review que" +
-      "ue item statusB\036\n\024org.mlflow.api.proto\220\001" +
-      "\001\342?\002\020\001"
+      "\003*\025Finalize Logged Model\022\222\001\n\016getLoggedMo" +
+      "del\022\026.mlflow.GetLoggedModel\032\037.mlflow.Get" +
+      "LoggedModel.Response\"G\362\206\031C\n-\n\003GET\022 /mlfl" +
+      "ow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\020Get" +
+      " Logged Model\022\243\001\n\021deleteLoggedModel\022\031.ml" +
+      "flow.DeleteLoggedModel\032\".mlflow.DeleteLo" +
+      "ggedModel.Response\"O\362\206\031K\n0\n\006DELETE\022 /mlf" +
+      "low/logged-models/{model_id}\032\004\010\002\020\000\020\003*\025De" +
+      "lete a Logged Model\022\236\001\n\022searchLoggedMode" +
+      "ls\022\032.mlflow.SearchLoggedModels\032#.mlflow." +
+      "SearchLoggedModels.Response\"G\362\206\031C\n*\n\004POS" +
+      "T\022\034/mlflow/logged-models/search\032\004\010\002\020\000\020\003*" +
+      "\023Search LoggedModels\022\251\001\n\022setLoggedModelT" +
+      "ags\022\032.mlflow.SetLoggedModelTags\032#.mlflow" +
+      ".SetLoggedModelTags.Response\"R\362\206\031N\n4\n\005PA" +
+      "TCH\022%/mlflow/logged-models/{model_id}/ta" +
+      "gs\032\004\010\002\020\000\020\003*\024Set Logged Model Tag\022\275\001\n\024del" +
+      "eteLoggedModelTag\022\034.mlflow.DeleteLoggedM" +
+      "odelTag\032%.mlflow.DeleteLoggedModelTag.Re" +
+      "sponse\"`\362\206\031\\\n?\n\006DELETE\022//mlflow/logged-m" +
+      "odels/{model_id}/tags/{tag_key}\032\004\010\002\020\000\020\003*" +
+      "\027Delete Logged Model Tag\022\326\001\n\030listLoggedM" +
+      "odelArtifacts\022 .mlflow.ListLoggedModelAr" +
+      "tifacts\032).mlflow.ListLoggedModelArtifact" +
+      "s.Response\"m\362\206\031i\nC\n\003GET\0226/mlflow/logged-" +
+      "models/{model_id}/artifacts/directories\032" +
+      "\004\010\002\020\000\020\003* List Artifacts for Logged Model" +
+      "s\022\301\001\n\024LogLoggedModelParams\022#.mlflow.LogL" +
+      "oggedModelParamsRequest\032,.mlflow.LogLogg" +
+      "edModelParamsRequest.Response\"V\362\206\031R\n5\n\004P" +
+      "OST\022\'/mlflow/logged-models/{model_id}/pa" +
+      "rams\032\004\010\002\020\000\020\003*\027Log Logged Model Params\022\260\001" +
+      "\n\rGetAssessment\022\034.mlflow.GetAssessmentRe" +
+      "quest\032%.mlflow.GetAssessmentRequest.Resp" +
+      "onse\"Z\362\206\031V\nB\n\003GET\0225/mlflow/traces/{trace" +
+      "_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003" +
+      "*\016Get Assessment\022\337\001\n\020createAssessment\022\030." +
+      "mlflow.CreateAssessment\032!.mlflow.CreateA" +
+      "ssessment.Response\"\215\001\362\206\031\210\001\n>\n\004POST\0220/mlf" +
+      "low/traces/{assessment.trace_id}/assessm" +
+      "ents\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Create an assess" +
+      "ment of a trace or a span within the tra" +
+      "ce\022\320\001\n\020updateAssessment\022\030.mlflow.UpdateA" +
+      "ssessment\032!.mlflow.UpdateAssessment.Resp" +
+      "onse\"\177\362\206\031{\nD\n\005PATCH\0225/mlflow/traces/{tra" +
+      "ce_id}/assessments/{assessment_id}\032\004\010\003\020\000" +
+      "\020\003\030\350\007\030\356\007\030\001*)Update an existing assessmen" +
+      "t on a trace.\022\261\001\n\020deleteAssessment\022\030.mlf" +
+      "low.DeleteAssessment\032!.mlflow.DeleteAsse" +
+      "ssment.Response\"`\362\206\031\\\nE\n\006DELETE\0225/mlflow" +
+      "/traces/{trace_id}/assessments/{assessme" +
+      "nt_id}\032\004\010\003\020\000\020\003*\021Delete Assessment\022\205\001\n\013cr" +
+      "eateIssue\022\032.mlflow.issues.CreateIssue\032#." +
+      "mlflow.issues.CreateIssue.Response\"5\362\206\0311" +
+      "\n\034\n\004POST\022\016/mlflow/issues\032\004\010\003\020\000\020\003*\017Create" +
+      " an issue\022\232\001\n\013updateIssue\022\032.mlflow.issue" +
+      "s.UpdateIssue\032#.mlflow.issues.UpdateIssu" +
+      "e.Response\"J\362\206\031F\n(\n\005PATCH\022\031/mlflow/issue" +
+      "s/{issue_id}\032\004\010\003\020\000\020\003*\030Update an existing" +
+      " issue\022\211\001\n\010getIssue\022\027.mlflow.issues.GetI" +
+      "ssue\032 .mlflow.issues.GetIssue.Response\"B" +
+      "\362\206\031>\n&\n\003GET\022\031/mlflow/issues/{issue_id}\032\004" +
+      "\010\003\020\000\020\003*\022Get an issue by ID\022\215\001\n\014searchIss" +
+      "ues\022\033.mlflow.issues.SearchIssues\032$.mlflo" +
+      "w.issues.SearchIssues.Response\":\362\206\0316\n#\n\004" +
+      "POST\022\025/mlflow/issues/search\032\004\010\003\020\000\020\003*\rSea" +
+      "rch issues\022\303\001\n\021createLabelSchema\022\'.mlflo" +
+      "w.label_schemas.CreateLabelSchema\0320.mlfl" +
+      "ow.label_schemas.CreateLabelSchema.Respo" +
+      "nse\"S\362\206\031O\n*\n\004POST\022\034/mlflow/label-schemas" +
+      "/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\014\030\001*\025Create a labe" +
+      "l schema\022\267\001\n\016getLabelSchema\022$.mlflow.lab" +
+      "el_schemas.GetLabelSchema\032-.mlflow.label" +
+      "_schemas.GetLabelSchema.Response\"P\362\206\031L\n&" +
+      "\n\003GET\022\031/mlflow/label-schemas/get\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\272\027\030\001*\030Get a label schema by ID\022\323\001\n\024g" +
+      "etLabelSchemaByName\022*.mlflow.label_schem" +
+      "as.GetLabelSchemaByName\0323.mlflow.label_s" +
+      "chemas.GetLabelSchemaByName.Response\"Z\362\206" +
+      "\031V\n.\n\003GET\022!/mlflow/label-schemas/get-by-" +
+      "name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Get a label schema" +
+      " by name\022\270\001\n\020listLabelSchemas\022&.mlflow.l" +
+      "abel_schemas.ListLabelSchemas\032/.mlflow.l" +
+      "abel_schemas.ListLabelSchemas.Response\"K" +
+      "\362\206\031G\n\'\n\003GET\022\032/mlflow/label-schemas/list\032" +
+      "\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List label schemas\022\304\001\n\021" +
+      "updateLabelSchema\022\'.mlflow.label_schemas" +
+      ".UpdateLabelSchema\0320.mlflow.label_schema" +
+      "s.UpdateLabelSchema.Response\"T\362\206\031P\n+\n\005PA" +
+      "TCH\022\034/mlflow/label-schemas/update\032\004\010\003\020\000\020" +
+      "\003\030\350\007\030\272\027\030\014\030\001*\025Update a label schema\022\300\001\n\021d" +
+      "eleteLabelSchema\022\'.mlflow.label_schemas." +
+      "DeleteLabelSchema\0320.mlflow.label_schemas" +
+      ".DeleteLabelSchema.Response\"P\362\206\031L\n,\n\006DEL" +
+      "ETE\022\034/mlflow/label-schemas/delete\032\004\010\003\020\000\020" +
+      "\003\030\350\007\030\001*\025Delete a label schema\022\232\001\n\rcreate" +
+      "Dataset\022\025.mlflow.CreateDataset\032\036.mlflow." +
+      "CreateDataset.Response\"R\362\206\031N\n%\n\004POST\022\027/m" +
+      "lflow/datasets/create\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*" +
+      "\031Create Evaluation Dataset\022\221\001\n\ngetDatase" +
+      "t\022\022.mlflow.GetDataset\032\033.mlflow.GetDatase" +
+      "t.Response\"R\362\206\031N\n*\n\003GET\022\035/mlflow/dataset" +
+      "s/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\026Get Eval" +
+      "uation Dataset\022\240\001\n\rdeleteDataset\022\025.mlflo" +
+      "w.DeleteDataset\032\036.mlflow.DeleteDataset.R" +
+      "esponse\"X\362\206\031T\n-\n\006DELETE\022\035/mlflow/dataset" +
+      "s/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\031Delete E" +
+      "valuation Dataset\022\335\001\n\030searchEvaluationDa" +
+      "tasets\022 .mlflow.SearchEvaluationDatasets" +
+      "\032).mlflow.SearchEvaluationDatasets.Respo" +
+      "nse\"t\362\206\031p\n%\n\004POST\022\027/mlflow/datasets/sear" +
+      "ch\032\004\010\003\020\000\n$\n\003GET\022\027/mlflow/datasets/search" +
+      "\032\004\010\003\020\000\020\003\030\350\007\030\001*\032Search Evaluation Dataset" +
+      "s\022\251\001\n\016setDatasetTags\022\026.mlflow.SetDataset" +
+      "Tags\032\037.mlflow.SetDatasetTags.Response\"^\362" +
+      "\206\031Z\n1\n\005PATCH\022\"/mlflow/datasets/{dataset_" +
+      "id}/tags\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Set Evaluation" +
+      " Dataset Tags\022\270\001\n\020deleteDatasetTag\022\030.mlf" +
+      "low.DeleteDatasetTag\032!.mlflow.DeleteData" +
+      "setTag.Response\"g\362\206\031c\n8\n\006DELETE\022(/mlflow" +
+      "/datasets/{dataset_id}/tags/{key}\032\004\010\003\020\000\020" +
+      "\003\030\350\007\030\272\027\030\001*\035Delete Evaluation Dataset Tag" +
+      "\022\303\001\n\024upsertDatasetRecords\022\034.mlflow.Upser" +
+      "tDatasetRecords\032%.mlflow.UpsertDatasetRe" +
+      "cords.Response\"f\362\206\031b\n3\n\004POST\022%/mlflow/da" +
+      "tasets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272" +
+      "\027\030\001*!Upsert Evaluation Dataset Records\022\326" +
+      "\001\n\027getDatasetExperimentIds\022\037.mlflow.GetD" +
+      "atasetExperimentIds\032(.mlflow.GetDatasetE" +
+      "xperimentIds.Response\"p\362\206\031l\n9\n\003GET\022,/mlf" +
+      "low/datasets/{dataset_id}/experiment-ids" +
+      "\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*%Get Evaluation Dataset" +
+      " Experiment IDs\022\212\001\n\016registerScorer\022\026.mlf" +
+      "low.RegisterScorer\032\037.mlflow.RegisterScor" +
+      "er.Response\"?\362\206\031;\n&\n\004POST\022\030/mlflow/score" +
+      "rs/register\032\004\010\003\020\000\020\001*\017Register Scorer\022y\n\013" +
+      "listScorers\022\023.mlflow.ListScorers\032\034.mlflo" +
+      "w.ListScorers.Response\"7\362\206\0313\n!\n\003GET\022\024/ml" +
+      "flow/scorers/list\032\004\010\003\020\000\020\001*\014List Scorers\022" +
+      "\232\001\n\022listScorerVersions\022\032.mlflow.ListScor" +
+      "erVersions\032#.mlflow.ListScorerVersions.R" +
+      "esponse\"C\362\206\031?\n%\n\003GET\022\030/mlflow/scorers/ve" +
+      "rsions\032\004\010\003\020\000\020\001*\024List Scorer Versions\022p\n\t" +
+      "getScorer\022\021.mlflow.GetScorer\032\032.mlflow.Ge" +
+      "tScorer.Response\"4\362\206\0310\n \n\003GET\022\023/mlflow/s" +
+      "corers/get\032\004\010\003\020\000\020\001*\nGet Scorer\022\202\001\n\014delet" +
+      "eScorer\022\024.mlflow.DeleteScorer\032\035.mlflow.D" +
+      "eleteScorer.Response\"=\362\206\0319\n&\n\006DELETE\022\026/m" +
+      "lflow/scorers/delete\032\004\010\003\020\000\020\001*\rDelete Sco" +
+      "rer\022\266\001\n\021getDatasetRecords\022\031.mlflow.GetDa" +
+      "tasetRecords\032\".mlflow.GetDatasetRecords." +
+      "Response\"b\362\206\031^\n2\n\003GET\022%/mlflow/datasets/" +
+      "{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\036Ge" +
+      "t Evaluation Dataset Records\022\305\001\n\024deleteD" +
+      "atasetRecords\022\034.mlflow.DeleteDatasetReco" +
+      "rds\032%.mlflow.DeleteDatasetRecords.Respon" +
+      "se\"h\362\206\031d\n5\n\006DELETE\022%/mlflow/datasets/{da" +
+      "taset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Delet" +
+      "e Evaluation Dataset Records\022\315\001\n\027addData" +
+      "setToExperiments\022\037.mlflow.AddDatasetToEx" +
+      "periments\032(.mlflow.AddDatasetToExperimen" +
+      "ts.Response\"g\362\206\031c\n;\n\004POST\022-/mlflow/datas" +
+      "ets/{dataset_id}/add-experiments\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\272\027\030\001*\032Add Dataset to Experiments\022\344\001\n" +
+      "\034removeDatasetFromExperiments\022$.mlflow.R" +
+      "emoveDatasetFromExperiments\032-.mlflow.Rem" +
+      "oveDatasetFromExperiments.Response\"o\362\206\031k" +
+      "\n>\n\004POST\0220/mlflow/datasets/{dataset_id}/" +
+      "remove-experiments\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\037Remo" +
+      "ve Dataset from Experiments\022\245\001\n\023createGa" +
+      "tewaySecret\022\033.mlflow.CreateGatewaySecret" +
+      "\032$.mlflow.CreateGatewaySecret.Response\"K" +
+      "\362\206\031G\n,\n\004POST\022\036/mlflow/gateway/secrets/cr" +
+      "eate\032\004\010\003\020\000\020\001*\025Create Gateway Secret\022\246\001\n\024" +
+      "getGatewaySecretInfo\022\034.mlflow.GetGateway" +
+      "SecretInfo\032%.mlflow.GetGatewaySecretInfo" +
+      ".Response\"I\362\206\031E\n(\n\003GET\022\033/mlflow/gateway/" +
+      "secrets/get\032\004\010\003\020\000\020\001*\027Get Gateway Secret " +
+      "Info\022\245\001\n\023updateGatewaySecret\022\033.mlflow.Up" +
+      "dateGatewaySecret\032$.mlflow.UpdateGateway" +
+      "Secret.Response\"K\362\206\031G\n,\n\004POST\022\036/mlflow/g" +
+      "ateway/secrets/update\032\004\010\003\020\000\020\001*\025Update Ga" +
+      "teway Secret\022\247\001\n\023deleteGatewaySecret\022\033.m" +
+      "lflow.DeleteGatewaySecret\032$.mlflow.Delet" +
+      "eGatewaySecret.Response\"M\362\206\031I\n.\n\006DELETE\022" +
+      "\036/mlflow/gateway/secrets/delete\032\004\010\003\020\000\020\001*" +
+      "\025Delete Gateway Secret\022\252\001\n\026listGatewaySe" +
+      "cretInfos\022\036.mlflow.ListGatewaySecretInfo",
+      "s\032\'.mlflow.ListGatewaySecretInfos.Respon" +
+      "se\"G\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/secrets" +
+      "/list\032\004\010\003\020\000\020\001*\024List Gateway Secrets\022\257\001\n\025" +
+      "createGatewayEndpoint\022\035.mlflow.CreateGat" +
+      "ewayEndpoint\032&.mlflow.CreateGatewayEndpo" +
+      "int.Response\"O\362\206\031K\n.\n\004POST\022 /mlflow/gate" +
+      "way/endpoints/create\032\004\010\003\020\000\020\001*\027Create Gat" +
+      "eway Endpoint\022\237\001\n\022getGatewayEndpoint\022\032.m" +
+      "lflow.GetGatewayEndpoint\032#.mlflow.GetGat" +
+      "ewayEndpoint.Response\"H\362\206\031D\n*\n\003GET\022\035/mlf" +
+      "low/gateway/endpoints/get\032\004\010\003\020\000\020\001*\024Get G" +
+      "ateway Endpoint\022\257\001\n\025updateGatewayEndpoin" +
+      "t\022\035.mlflow.UpdateGatewayEndpoint\032&.mlflo" +
+      "w.UpdateGatewayEndpoint.Response\"O\362\206\031K\n." +
+      "\n\004POST\022 /mlflow/gateway/endpoints/update" +
+      "\032\004\010\003\020\000\020\001*\027Update Gateway Endpoint\022\261\001\n\025de" +
+      "leteGatewayEndpoint\022\035.mlflow.DeleteGatew" +
+      "ayEndpoint\032&.mlflow.DeleteGatewayEndpoin" +
+      "t.Response\"Q\362\206\031M\n0\n\006DELETE\022 /mlflow/gate" +
+      "way/endpoints/delete\032\004\010\003\020\000\020\001*\027Delete Gat" +
+      "eway Endpoint\022\250\001\n\024listGatewayEndpoints\022\034" +
+      ".mlflow.ListGatewayEndpoints\032%.mlflow.Li" +
+      "stGatewayEndpoints.Response\"K\362\206\031G\n+\n\003GET" +
+      "\022\036/mlflow/gateway/endpoints/list\032\004\010\003\020\000\020\001" +
+      "*\026List Gateway Endpoints\022\324\001\n\034createGatew" +
+      "ayModelDefinition\022$.mlflow.CreateGateway" +
+      "ModelDefinition\032-.mlflow.CreateGatewayMo" +
+      "delDefinition.Response\"_\362\206\031[\n6\n\004POST\022(/m" +
+      "lflow/gateway/model-definitions/create\032\004" +
+      "\010\003\020\000\020\001*\037Create Gateway Model Definition\022" +
+      "\304\001\n\031getGatewayModelDefinition\022!.mlflow.G" +
+      "etGatewayModelDefinition\032*.mlflow.GetGat" +
+      "ewayModelDefinition.Response\"X\362\206\031T\n2\n\003GE" +
+      "T\022%/mlflow/gateway/model-definitions/get" +
+      "\032\004\010\003\020\000\020\001*\034Get Gateway Model Definition\022\315" +
+      "\001\n\033listGatewayModelDefinitions\022#.mlflow." +
+      "ListGatewayModelDefinitions\032,.mlflow.Lis" +
+      "tGatewayModelDefinitions.Response\"[\362\206\031W\n" +
+      "3\n\003GET\022&/mlflow/gateway/model-definition" +
+      "s/list\032\004\010\003\020\000\020\001*\036List Gateway Model Defin" +
+      "itions\022\324\001\n\034updateGatewayModelDefinition\022" +
+      "$.mlflow.UpdateGatewayModelDefinition\032-." +
+      "mlflow.UpdateGatewayModelDefinition.Resp" +
+      "onse\"_\362\206\031[\n6\n\004POST\022(/mlflow/gateway/mode" +
+      "l-definitions/update\032\004\010\003\020\000\020\001*\037Update Gat" +
+      "eway Model Definition\022\326\001\n\034deleteGatewayM" +
+      "odelDefinition\022$.mlflow.DeleteGatewayMod" +
+      "elDefinition\032-.mlflow.DeleteGatewayModel" +
+      "Definition.Response\"a\362\206\031]\n8\n\006DELETE\022(/ml" +
+      "flow/gateway/model-definitions/delete\032\004\010" +
+      "\003\020\000\020\001*\037Delete Gateway Model Definition\022\305" +
+      "\001\n\025attachModelToEndpoint\022$.mlflow.Attach" +
+      "ModelToGatewayEndpoint\032-.mlflow.AttachMo" +
+      "delToGatewayEndpoint.Response\"W\362\206\031S\n5\n\004P" +
+      "OST\022\'/mlflow/gateway/endpoints/models/at" +
+      "tach\032\004\010\003\020\000\020\001*\030Attach Model to Endpoint\022\315" +
+      "\001\n\027detachModelFromEndpoint\022&.mlflow.Deta" +
+      "chModelFromGatewayEndpoint\032/.mlflow.Deta" +
+      "chModelFromGatewayEndpoint.Response\"Y\362\206\031" +
+      "U\n5\n\004POST\022\'/mlflow/gateway/endpoints/mod" +
+      "els/detach\032\004\010\003\020\000\020\001*\032Detach Model from En" +
+      "dpoint\022\306\001\n\025createEndpointBinding\022$.mlflo" +
+      "w.CreateGatewayEndpointBinding\032-.mlflow." +
+      "CreateGatewayEndpointBinding.Response\"X\362" +
+      "\206\031T\n7\n\004POST\022)/mlflow/gateway/endpoints/b" +
+      "indings/create\032\004\010\003\020\000\020\001*\027Create Endpoint " +
+      "Binding\022\310\001\n\025deleteEndpointBinding\022$.mlfl" +
+      "ow.DeleteGatewayEndpointBinding\032-.mlflow" +
+      ".DeleteGatewayEndpointBinding.Response\"Z" +
+      "\362\206\031V\n9\n\006DELETE\022)/mlflow/gateway/endpoint" +
+      "s/bindings/delete\032\004\010\003\020\000\020\001*\027Delete Endpoi" +
+      "nt Binding\022\277\001\n\024listEndpointBindings\022#.ml" +
+      "flow.ListGatewayEndpointBindings\032,.mlflo" +
+      "w.ListGatewayEndpointBindings.Response\"T" +
+      "\362\206\031P\n4\n\003GET\022\'/mlflow/gateway/endpoints/b" +
+      "indings/list\032\004\010\003\020\000\020\001*\026List Endpoint Bind" +
+      "ings\022\261\001\n\025setGatewayEndpointTag\022\035.mlflow." +
+      "SetGatewayEndpointTag\032&.mlflow.SetGatewa" +
+      "yEndpointTag.Response\"Q\362\206\031M\n/\n\004POST\022!/ml" +
+      "flow/gateway/endpoints/set-tag\032\004\010\003\020\000\020\001*\030" +
+      "Gateway Set Endpoint Tag\022\302\001\n\030deleteGatew" +
+      "ayEndpointTag\022 .mlflow.DeleteGatewayEndp" +
+      "ointTag\032).mlflow.DeleteGatewayEndpointTa" +
+      "g.Response\"Y\362\206\031U\n4\n\006DELETE\022$/mlflow/gate" +
+      "way/endpoints/delete-tag\032\004\010\003\020\000\020\001*\033Gatewa" +
+      "y Delete Endpoint Tag\022\257\001\n\022createBudgetPo" +
+      "licy\022!.mlflow.CreateGatewayBudgetPolicy\032" +
+      "*.mlflow.CreateGatewayBudgetPolicy.Respo" +
+      "nse\"J\362\206\031F\n,\n\004POST\022\036/mlflow/gateway/budge" +
+      "ts/create\032\004\010\003\020\000\020\001*\024Create Budget Policy\022" +
+      "\237\001\n\017getBudgetPolicy\022\036.mlflow.GetGatewayB" +
+      "udgetPolicy\032\'.mlflow.GetGatewayBudgetPol" +
+      "icy.Response\"C\362\206\031?\n(\n\003GET\022\033/mlflow/gatew" +
+      "ay/budgets/get\032\004\010\003\020\000\020\001*\021Get Budget Polic" +
+      "y\022\257\001\n\022updateBudgetPolicy\022!.mlflow.Update" +
+      "GatewayBudgetPolicy\032*.mlflow.UpdateGatew" +
+      "ayBudgetPolicy.Response\"J\362\206\031F\n,\n\004POST\022\036/" +
+      "mlflow/gateway/budgets/update\032\004\010\003\020\000\020\001*\024U" +
+      "pdate Budget Policy\022\261\001\n\022deleteBudgetPoli" +
+      "cy\022!.mlflow.DeleteGatewayBudgetPolicy\032*." +
+      "mlflow.DeleteGatewayBudgetPolicy.Respons" +
+      "e\"L\362\206\031H\n.\n\006DELETE\022\036/mlflow/gateway/budge" +
+      "ts/delete\032\004\010\003\020\000\020\001*\024Delete Budget Policy\022" +
+      "\254\001\n\022listBudgetPolicies\022!.mlflow.ListGate" +
+      "wayBudgetPolicies\032*.mlflow.ListGatewayBu" +
+      "dgetPolicies.Response\"G\362\206\031C\n)\n\003GET\022\034/mlf" +
+      "low/gateway/budgets/list\032\004\010\003\020\000\020\001*\024List B" +
+      "udget Policies\022\253\001\n\021listBudgetWindows\022 .m" +
+      "lflow.ListGatewayBudgetWindows\032).mlflow." +
+      "ListGatewayBudgetWindows.Response\"I\362\206\031E\n" +
+      ",\n\003GET\022\037/mlflow/gateway/budgets/windows\032" +
+      "\004\010\003\020\000\020\001*\023List Budget Windows\022\254\001\n\026createG" +
+      "atewayGuardrail\022\036.mlflow.CreateGatewayGu" +
+      "ardrail\032\'.mlflow.CreateGatewayGuardrail." +
+      "Response\"I\362\206\031E\n/\n\004POST\022!/mlflow/gateway/" +
+      "guardrails/create\032\004\010\003\020\000\020\001*\020Create Guardr" +
+      "ail\022\234\001\n\023getGatewayGuardrail\022\033.mlflow.Get" +
+      "GatewayGuardrail\032$.mlflow.GetGatewayGuar" +
+      "drail.Response\"B\362\206\031>\n+\n\003GET\022\036/mlflow/gat" +
+      "eway/guardrails/get\032\004\010\003\020\000\020\001*\rGet Guardra" +
+      "il\022\256\001\n\026deleteGatewayGuardrail\022\036.mlflow.D" +
+      "eleteGatewayGuardrail\032\'.mlflow.DeleteGat" +
+      "ewayGuardrail.Response\"K\362\206\031G\n1\n\006DELETE\022!" +
+      "/mlflow/gateway/guardrails/delete\032\004\010\003\020\000\020" +
+      "\001*\020Delete Guardrail\022\245\001\n\025listGatewayGuard" +
+      "rails\022\035.mlflow.ListGatewayGuardrails\032&.m" +
+      "lflow.ListGatewayGuardrails.Response\"E\362\206" +
+      "\031A\n,\n\003GET\022\037/mlflow/gateway/guardrails/li" +
+      "st\032\004\010\003\020\000\020\001*\017List Guardrails\022\276\001\n\026addGuard" +
+      "railToEndpoint\022\036.mlflow.AddGuardrailToEn" +
+      "dpoint\032\'.mlflow.AddGuardrailToEndpoint.R" +
+      "esponse\"[\362\206\031W\n8\n\004POST\022*/mlflow/gateway/g" +
+      "uardrails/add-to-endpoint\032\004\010\003\020\000\020\001*\031Add G" +
+      "uardrail to Endpoint\022\331\001\n\033removeGuardrail" +
+      "FromEndpoint\022#.mlflow.RemoveGuardrailFro" +
+      "mEndpoint\032,.mlflow.RemoveGuardrailFromEn" +
+      "dpoint.Response\"g\362\206\031c\n?\n\006DELETE\022//mlflow" +
+      "/gateway/guardrails/remove-from-endpoint" +
+      "\032\004\010\003\020\000\020\001*\036Remove Guardrail from Endpoint" +
+      "\022\327\001\n\034listEndpointGuardrailConfigs\022$.mlfl" +
+      "ow.ListEndpointGuardrailConfigs\032-.mlflow" +
+      ".ListEndpointGuardrailConfigs.Response\"b" +
+      "\362\206\031^\n9\n\003GET\022,/mlflow/gateway/guardrails/" +
+      "list-for-endpoint\032\004\010\003\020\000\020\001*\037List Endpoint" +
+      " Guardrail Configs\022\331\001\n\035updateEndpointGua" +
+      "rdrailConfig\022%.mlflow.UpdateEndpointGuar" +
+      "drailConfig\032..mlflow.UpdateEndpointGuard" +
+      "railConfig.Response\"a\362\206\031]\n7\n\005PATCH\022(/mlf" +
+      "low/gateway/guardrails/update-config\032\004\010\003" +
+      "\020\000\020\001* Update Endpoint Guardrail Config\022\320" +
+      "\001\n\033createPromptOptimizationJob\022#.mlflow." +
+      "CreatePromptOptimizationJob\032,.mlflow.Cre" +
+      "atePromptOptimizationJob.Response\"^\362\206\031Z\n" +
+      ".\n\004POST\022 /mlflow/prompt-optimization/job" +
+      "s\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036Create Prompt Optimiz" +
+      "ation Job\022\314\001\n\030getPromptOptimizationJob\022 " +
+      ".mlflow.GetPromptOptimizationJob\032).mlflo" +
+      "w.GetPromptOptimizationJob.Response\"c\362\206\031" +
+      "_\n6\n\003GET\022)/mlflow/prompt-optimization/jo" +
+      "bs/{job_id}\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\033Get Prompt " +
+      "Optimization Job\022\220\002\n\034searchPromptOptimiz" +
+      "ationJobs\022$.mlflow.SearchPromptOptimizat" +
+      "ionJobs\032-.mlflow.SearchPromptOptimizatio" +
+      "nJobs.Response\"\232\001\362\206\031\225\001\n5\n\004POST\022\'/mlflow/" +
+      "prompt-optimization/jobs/search\032\004\010\003\020\000\n4\n" +
+      "\003GET\022\'/mlflow/prompt-optimization/jobs/s" +
+      "earch\032\004\010\003\020\000\020\001\030\350\007\030\001*\037Search Prompt Optimi" +
+      "zation Jobs\022\343\001\n\033cancelPromptOptimization" +
+      "Job\022#.mlflow.CancelPromptOptimizationJob" +
+      "\032,.mlflow.CancelPromptOptimizationJob.Re" +
+      "sponse\"q\362\206\031m\n>\n\004POST\0220/mlflow/prompt-opt" +
+      "imization/jobs/{job_id}/cancel\032\004\010\003\020\000\020\001\030\350" +
+      "\007\030\272\027\030\353\007\030\001*\036Cancel Prompt Optimization Jo" +
+      "b\022\333\001\n\033deletePromptOptimizationJob\022#.mlfl" +
+      "ow.DeletePromptOptimizationJob\032,.mlflow." +
+      "DeletePromptOptimizationJob.Response\"i\362\206" +
+      "\031e\n9\n\006DELETE\022)/mlflow/prompt-optimizatio" +
+      "n/jobs/{job_id}\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036Delete " +
+      "Prompt Optimization Job\022\304\001\n\021createReview" +
+      "Queue\022\'.mlflow.review_queues.CreateRevie" +
+      "wQueue\0320.mlflow.review_queues.CreateRevi" +
+      "ewQueue.Response\"T\362\206\031P\n*\n\004POST\022\034/mlflow/" +
+      "review-queues/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*" +
+      "\025Create a review queue\022\345\001\n\024getOrCreateUs" +
+      "erQueue\022*.mlflow.review_queues.GetOrCrea" +
+      "teUserQueue\0323.mlflow.review_queues.GetOr" +
+      "CreateUserQueue.Response\"l\362\206\031h\n6\n\004POST\022(" +
+      "/mlflow/review-queues/get-or-create-user" +
+      "\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*!Get or create a use" +
+      "r review queue\022\261\001\n\016getReviewQueue\022$.mlfl" +
+      "ow.review_queues.GetReviewQueue\032-.mlflow" +
+      ".review_queues.GetReviewQueue.Response\"J" +
+      "\362\206\031F\n&\n\003GET\022\031/mlflow/review-queues/get\032\004" +
+      "\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022Get a review queue\022\323\001\n\024g" +
+      "etReviewQueueByName\022*.mlflow.review_queu" +
+      "es.GetReviewQueueByName\0323.mlflow.review_" +
+      "queues.GetReviewQueueByName.Response\"Z\362\206" +
+      "\031V\n.\n\003GET\022!/mlflow/review-queues/get-by-" +
+      "name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Get a review queue" +
+      " by name\022\270\001\n\020listReviewQueues\022&.mlflow.r" +
+      "eview_queues.ListReviewQueues\032/.mlflow.r" +
+      "eview_queues.ListReviewQueues.Response\"K" +
+      "\362\206\031G\n\'\n\003GET\022\032/mlflow/review-queues/list\032" +
+      "\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List review queues\022\301\001\n\021" +
+      "updateReviewQueue\022\'.mlflow.review_queues" +
+      ".UpdateReviewQueue\0320.mlflow.review_queue" +
+      "s.UpdateReviewQueue.Response\"Q\362\206\031M\n*\n\004PO" +
+      "ST\022\034/mlflow/review-queues/update\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\272\027\030\001*\025Update a review queue\022\301\001\n\021dele" +
+      "teReviewQueue\022\'.mlflow.review_queues.Del" +
+      "eteReviewQueue\0320.mlflow.review_queues.De" +
+      "leteReviewQueue.Response\"Q\362\206\031M\n*\n\004POST\022\034" +
+      "/mlflow/review-queues/delete\032\004\010\003\020\000\020\003\030\350\007\030" +
+      "\272\027\030\001*\025Delete a review queue\022\326\001\n\025addItems" +
+      "ToReviewQueue\022+.mlflow.review_queues.Add" +
+      "ItemsToReviewQueue\0324.mlflow.review_queue" +
+      "s.AddItemsToReviewQueue.Response\"Z\362\206\031V\n-" +
+      "\n\004POST\022\037/mlflow/review-queues/items/add\032" +
+      "\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Add items to a review q" +
+      "ueue\022\355\001\n\032removeItemsFromReviewQueue\0220.ml" +
+      "flow.review_queues.RemoveItemsFromReview" +
+      "Queue\0329.mlflow.review_queues.RemoveItems" +
+      "FromReviewQueue.Response\"b\362\206\031^\n0\n\004POST\022\"" +
+      "/mlflow/review-queues/items/remove\032\004\010\003\020\000" +
+      "\020\003\030\350\007\030\272\027\030\001* Remove items from a review q" +
+      "ueue\022\317\001\n\024listReviewQueueItems\022*.mlflow.r" +
+      "eview_queues.ListReviewQueueItems\0323.mlfl" +
+      "ow.review_queues.ListReviewQueueItems.Re" +
+      "sponse\"V\362\206\031R\n-\n\003GET\022 /mlflow/review-queu" +
+      "es/items/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\027List revi" +
+      "ew queue items\022\347\001\n\030setReviewQueueItemSta" +
+      "tus\022..mlflow.review_queues.SetReviewQueu" +
+      "eItemStatus\0327.mlflow.review_queues.SetRe" +
+      "viewQueueItemStatus.Response\"b\362\206\031^\n4\n\004PO" +
+      "ST\022&/mlflow/review-queues/items/set-stat" +
+      "us\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\034Set review queue ite" +
+      "m statusB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -311187,7 +312324,7 @@ public final class Service {
     internal_static_mlflow_BatchGetTraces_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_BatchGetTraces_descriptor,
-        new java.lang.String[] { "TraceIds", });
+        new java.lang.String[] { "TraceIds", "ExperimentIds", });
     internal_static_mlflow_BatchGetTraces_Response_descriptor =
       internal_static_mlflow_BatchGetTraces_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_BatchGetTraces_Response_fieldAccessorTable = new
@@ -311199,7 +312336,7 @@ public final class Service {
     internal_static_mlflow_BatchGetTraceInfos_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_BatchGetTraceInfos_descriptor,
-        new java.lang.String[] { "TraceIds", });
+        new java.lang.String[] { "TraceIds", "ExperimentIds", });
     internal_static_mlflow_BatchGetTraceInfos_Response_descriptor =
       internal_static_mlflow_BatchGetTraceInfos_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_BatchGetTraceInfos_Response_fieldAccessorTable = new
@@ -311805,7 +312942,7 @@ public final class Service {
     internal_static_mlflow_ListScorers_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListScorers_descriptor,
-        new java.lang.String[] { "ExperimentId", });
+        new java.lang.String[] { "ExperimentId", "ExperimentIds", });
     internal_static_mlflow_ListScorers_Response_descriptor =
       internal_static_mlflow_ListScorers_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_ListScorers_Response_fieldAccessorTable = new

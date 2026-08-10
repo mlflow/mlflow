@@ -1834,6 +1834,46 @@ def test_search_mcp_server_versions_filter_by_status_in(store):
     assert versions == {"1.0.0", "3.0.0"}
 
 
+def test_search_mcp_servers_filter_by_name_in(store):
+    _setup_server(store, "io.github.test/server1")
+    _setup_server(store, "io.github.test/server2")
+    _setup_server(store, "io.github.test/server3")
+
+    result = store.search_mcp_servers(
+        filter_string="name IN ('io.github.test/server1', 'io.github.test/server3')"
+    )
+    assert {s.name for s in result} == {"io.github.test/server1", "io.github.test/server3"}
+
+    result = store.search_mcp_servers(
+        filter_string="name NOT IN ('io.github.test/server1', 'io.github.test/server3')"
+    )
+    assert {s.name for s in result} == {"io.github.test/server2"}
+
+
+def test_search_mcp_access_endpoints_filter_by_server_name_in_is_currently_broken(store):
+    # Known bug: sqlparse's builtin keyword table includes the literal string
+    # "server_name" (matching a T-SQL/ODBC reserved word), so it tokenizes as a
+    # Keyword rather than an Identifier. `_join_in_comparison_tokens` in
+    # search_utils.py only joins `key IN (...)` when `key` is an Identifier, so
+    # this fails for *any* comparator, not just IN/NOT IN -- pre-dating this
+    # change to LIST_SUPPORTED_KEYS. This test pins the current (broken)
+    # behavior; fixing it requires teaching the tokenizer to recognize a
+    # Keyword-typed token as a valid identifier when it matches a class's
+    # VALID_SEARCH_ATTRIBUTE_KEYS.
+    _setup_server(store, "io.github.test/server1")
+    store.create_mcp_access_endpoint(
+        "io.github.test/server1", "https://a.com", server_version="1.0.0"
+    )
+
+    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
+        store.search_mcp_access_endpoints(filter_string="server_name IN ('io.github.test/server1')")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
+        store.search_mcp_access_endpoints(filter_string="server_name = 'io.github.test/server1'")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_search_mcp_servers_filter_by_status(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server1", "1.0.0"), status=MCPStatus.ACTIVE
