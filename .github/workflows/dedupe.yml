@@ -134,15 +134,26 @@ jobs:
           DUPLICATES: ${{ needs.dedupe.outputs.duplicates }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != "issues" ]; then
-            DUPLICATES='[1,2]'
+          # A re-run of this workflow would otherwise comment a second time.
+          # Assigned before the grep so a `gh` failure aborts the step rather
+          # than reading as "no marker found" and posting a duplicate comment.
+          comments=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json comments --jq '.comments[].body')
+          if grep -qF '<!-- issue-dedupe -->' <<< "$comments"; then
+            commented=1
+          else
+            commented=0
           fi
 
-          # A re-run of this workflow would otherwise comment a second time.
-          if gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json comments \
-              --jq '.comments[].body' | grep -qF '<!-- issue-dedupe -->'; then
-            echo "Already commented on #$ISSUE_NUMBER, skipping."
-            exit 0
+          if [ "$GITHUB_EVENT_NAME" = "issues" ]; then
+            if [ "$commented" -eq 1 ]; then
+              echo "Already commented on #$ISSUE_NUMBER, skipping."
+              exit 0
+            fi
+          else
+            # Smoke path: report the check, then render regardless, so the
+            # coverage does not depend on which issue happens to be newest.
+            echo "Marker already present on #$ISSUE_NUMBER: $commented"
+            DUPLICATES='[1,2]'
           fi
 
           count=$(jq length <<< "$DUPLICATES")
