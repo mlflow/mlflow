@@ -420,14 +420,12 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    # TEMP(textstat-import-probe): one shard running only the textstat tests, so the
-    # swallowed ImportError surfaces in minutes instead of ~40. Revert before merge.
     strategy:
       fail-fast: false
       matrix:
-        group: [1]
+        group: [1, 2, 3]
         include:
-          - splits: 1
+          - splits: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -460,13 +458,23 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           export PATH=$PATH:$HADOOP_HOME/bin
-          uv run --no-sync python -c "
-          import traceback
-          try:
-              import textstat
-          except ImportError:
-              traceback.print_exc()
-          else:
-              print('bare import OK:', textstat.__file__)
-          "
-          uv run --no-sync pytest tests/metrics/test_metric_definitions.py
+          uv run --no-sync pytest tests \
+            --splits=$SPLITS \
+            --group=$GROUP \
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/sagemaker \
+            --ignore=tests/gateway \
+            --ignore=tests/server/auth \
+            --ignore=tests/data/test_spark_dataset.py \
+            --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/data/test_delta_dataset_source.py \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
+            --ignore=tests/docker \
+            --ignore=tests/demo
