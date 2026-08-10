@@ -1,8 +1,6 @@
 ---
 name: fetch-diff
 description: Fetch PR diff with filtering and line numbers for code review.
-allowed-tools:
-  - Bash(uv run --package skills skills fetch-diff:*)
 ---
 
 # Fetch PR Diff
