@@ -1159,6 +1159,10 @@
     "defaultMessage": "On",
     "description": "Usage tracking enabled state"
   },
+  "3AC0g1": {
+    "defaultMessage": "Collapse child runs",
+    "description": "Aria label to collapse child runs"
+  },
   "3CWJEU": {
     "defaultMessage": "Issues",
     "description": "Column label for issues"
@@ -8218,6 +8222,10 @@
   "YamyaP": {
     "defaultMessage": "Auto-refresh",
     "description": "String for the auto-refresh button that refreshes the runs list automatically"
+  },
+  "YbA5cN": {
+    "defaultMessage": "Expand child runs",
+    "description": "Aria label to expand child runs"
   },
   "Yd5ANL": {
     "defaultMessage": "PASS",
