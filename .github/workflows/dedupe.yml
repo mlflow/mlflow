@@ -33,6 +33,7 @@ jobs:
       (github.event_name == 'issues' && github.repository == 'mlflow/mlflow'
        && github.event.issue.user.type != 'Bot')
       || (github.event_name == 'pull_request'
+          && github.repository == 'mlflow/mlflow'
           && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -80,7 +81,7 @@ jobs:
           OUTPUT_FILE="/tmp/output.jsonl"
           EXIT_CODE=0
           timeout 10m claude \
-            --model claude-sonnet-4-6 \
+            --model claude-sonnet-5 \
             --effort medium \
             --max-budget-usd 1 \
             --print \
