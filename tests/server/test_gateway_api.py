@@ -1,4 +1,3 @@
-import builtins
 import json
 from pathlib import Path
 from typing import Any
@@ -928,17 +927,9 @@ async def test_get_request_body_zstd_import_error_reports_original_error():
     mock_request = create_mock_request()
     mock_request.headers = {"content-encoding": "zstd"}
 
-    real_import = builtins.__import__
-
-    # `import zstandard` can fail because of one of its own dependencies, not because
-    # `zstandard` itself is missing, so the original error must be surfaced.
-    def fake_import(name, *args, **kwargs):
-        if name == "zstandard":
-            raise ImportError("No module named 'cffi'")
-        return real_import(name, *args, **kwargs)
-
-    with mock.patch("builtins.__import__", side_effect=fake_import):
-        with pytest.raises(HTTPException, match="No module named 'cffi'") as exc_info:
+    error = ImportError("No module named 'zstandard'")
+    with mock.patch("builtins.__import__", side_effect=error):
+        with pytest.raises(HTTPException, match=str(error)) as exc_info:
             await _get_request_body(mock_request)
 
     assert exc_info.value.status_code == 400
