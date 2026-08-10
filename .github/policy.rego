@@ -176,14 +176,15 @@ deny_unpinned_actions contains msg if {
 	)
 }
 
-deny_workspace_relative_actions contains msg if {
-	actions := workspace_relative_actions(input)
+deny_self_repo_actions contains msg if {
+	actions := self_repo_actions(input)
 	count(actions) > 0
 	msg := sprintf(
 		concat("", [
-			"The following actions are referenced with the workspace-relative './' syntax: %s. ",
-			"Use the self-repository '$/' syntax instead (e.g., $/.github/actions/setup-python), ",
-			"which resolves to this repository at the commit being run without requiring a checkout.",
+			"The following actions are referenced with the self-repository '$/' syntax: %s. ",
+			"'$/' makes the runner download the whole repository tarball during 'Set up job', ",
+			"which costs ~20s per job in this repo. Use the workspace-relative './' syntax ",
+			"instead (e.g., ./.github/actions/setup-python), which resolves against the checkout.",
 		]),
 		[concat(", ", actions)],
 	)
@@ -348,9 +349,11 @@ ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
 }
 
 is_step_unpinned(step) if {
-	# Actions in this repository ('$/' or './') have no ref to pin.
-	not startswith(step.uses, "$/")
+	# Actions in this repository ('./' or '$/') have no ref to pin. '$/' is
+	# reported by deny_self_repo_actions instead, so it is exempt here to keep
+	# a single, actionable message per offending step.
 	not startswith(step.uses, "./")
+	not startswith(step.uses, "$/")
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
@@ -375,9 +378,9 @@ unpinned_actions(inp) := {step.uses |
 	is_step_unpinned(step)
 }
 
-workspace_relative_actions(inp) := {step.uses |
+self_repo_actions(inp) := {step.uses |
 	some step in all_steps(inp)
-	startswith(step.uses, "./")
+	startswith(step.uses, "$/")
 }
 
 any_job_has_repo_check(jobs) if {

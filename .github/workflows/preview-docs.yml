@@ -23,7 +23,7 @@ jobs:
       actions: write # To delete artifacts
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -58,7 +58,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
           path: ${{ env.DOCS_BUILD_DIR }}
-      - uses: $/.github/actions/setup-node
+      - uses: ./.github/actions/setup-node
       - name: Deploy to Netlify
         id: netlify_deploy
         env:
@@ -92,7 +92,7 @@ jobs:
           echo "Extracted PR number: $PR_NUM"
       - name: Create preview link
         if: startsWith(steps.alias.outputs.value, 'pr-')
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           PULL_NUMBER: ${{ steps.pr_number.outputs.value }}

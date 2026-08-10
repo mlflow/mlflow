@@ -62,10 +62,10 @@ jobs:
             default_max_p50_ms: 400
             default_max_p99_ms: 1000
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-python
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         env:
           BACKEND: ${{ matrix.backend }}
@@ -103,7 +103,7 @@ jobs:
           )
           uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}" \
             --output "benchmark-results-$BACKEND.json"
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: benchmark-results-${{ matrix.backend }}-${{ github.run_id }}

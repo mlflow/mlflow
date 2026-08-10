@@ -883,6 +883,7 @@ mlflow.gemini.autolog
 mlflow.genai.Agent
 mlflow.genai.ConversationSimulator
 mlflow.genai.ConversationSimulator.simulate
+mlflow.genai.EvaluationDatasetVersion
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces
@@ -920,6 +921,7 @@ mlflow.genai.datasets.EvaluationDataset.delete_records
 mlflow.genai.datasets.EvaluationDataset.from_dict
 mlflow.genai.datasets.EvaluationDataset.from_proto
 mlflow.genai.datasets.EvaluationDataset.has_records
+mlflow.genai.datasets.EvaluationDataset.list_versions
 mlflow.genai.datasets.EvaluationDataset.merge_records
 mlflow.genai.datasets.EvaluationDataset.set_profile
 mlflow.genai.datasets.EvaluationDataset.to_df
@@ -930,6 +932,7 @@ mlflow.genai.datasets.add_dataset_to_experiments
 mlflow.genai.datasets.create_dataset
 mlflow.genai.datasets.delete_dataset
 mlflow.genai.datasets.delete_dataset_tag
+mlflow.genai.datasets.entities.EvaluationDatasetVersion
 mlflow.genai.datasets.evaluation_dataset.EvaluationDataset
 mlflow.genai.datasets.get_dataset
 mlflow.genai.datasets.remove_dataset_from_experiments
@@ -1023,6 +1026,7 @@ mlflow.genai.labeling.labeling.ReviewApp
 mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
+mlflow.genai.make_scorer_ensemble
 mlflow.genai.optimize.BasePromptOptimizer
 mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.GepaPromptOptimizer
@@ -1151,6 +1155,8 @@ mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
 mlflow.genai.scorers.UserFrustration
 mlflow.genai.scorers.UserFrustration.model_post_init
+mlflow.genai.scorers.agg_all
+mlflow.genai.scorers.agg_any
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
@@ -1286,6 +1292,11 @@ mlflow.genai.scorers.guardrails.ToxicLanguage
 mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
 mlflow.genai.scorers.list_scorers
+mlflow.genai.scorers.majority_vote
+mlflow.genai.scorers.make_scorer_ensemble
+mlflow.genai.scorers.maximum
+mlflow.genai.scorers.mean
+mlflow.genai.scorers.minimum
 mlflow.genai.scorers.phoenix.Hallucination
 mlflow.genai.scorers.phoenix.Hallucination.model_post_init
 mlflow.genai.scorers.phoenix.QA

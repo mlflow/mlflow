@@ -953,12 +953,18 @@ pydantic_ai:
     maximum: "2.16.0"
     unsupported: [">=2.0.0,<2.5.0"]
     requirements:
-      ">= 0.0.0": ["mcp"]
-      # pydantic-ai < 1.0.0 does `from opentelemetry._events import Event`, but doesn't
+      # pydantic-ai < 2.0.0 does `from mcp.client.streamable_http import GetSessionIdCallback`,
+      # but doesn't cap mcp, so it floats to 2.0.0 which removed `GetSessionIdCallback`,
+      # breaking collection with `ImportError: cannot import name 'GetSessionIdCallback'`.
+      # pydantic-ai >= 2.0.0 uses `fastmcp` instead and no longer imports that symbol, so it
+      # can use an uncapped mcp.
+      "< 2.0.0": ["mcp<2"]
+      ">= 2.0.0": ["mcp"]
+      # pydantic-ai < 1.32.0 does `from opentelemetry._events import Event`, but doesn't
       # cap opentelemetry-api, so it floats to 1.44.0 which removed the `_events` module,
       # breaking collection with `ModuleNotFoundError: No module named 'opentelemetry._events'`.
-      # pydantic-ai >= 1.0.0 either caps the api itself or switched to `opentelemetry._logs`.
-      "< 1.0.0": ["opentelemetry-api<1.44"]
+      # pydantic-ai >= 1.32.0 no longer imports `opentelemetry._events`.
+      "< 1.32.0": ["opentelemetry-api<1.44"]
     run: pytest tests/pydantic_ai
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -1004,8 +1010,10 @@ haystack:
       uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.4.0"
-    maximum: "2.31.0"
+    maximum: "3.0.0"
     requirements:
+      # `OpenTelemetryTracer` moved out of the core package in haystack 3.0
+      ">= 3.0.0": ["opentelemetry-haystack"]
     run: pytest tests/haystack
     test_tracing_sdk: true
     test_every_n_versions: 10
