@@ -23,6 +23,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Request Copilot review
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
