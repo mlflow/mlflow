@@ -82,6 +82,11 @@ anything yourself.
    area, so run `gh issue view <number> --repo $owner_repo` on each shortlisted
    candidate and judge against its body.
 
+   Candidates come from step 4's search results only. A number mentioned in the
+   issue body or its comments is not a candidate: those are usually pull requests
+   or related-but-different reports, and `gh issue view` succeeds on a pull
+   request number, so nothing downstream will catch the mistake.
+
 6. Filter hard. Keep a candidate only if a maintainer reading both issues would
    close this one as a duplicate. The same component failing a different way is
    not a duplicate, and neither is the same error message from an unrelated cause.
