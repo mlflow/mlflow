@@ -52,7 +52,7 @@ from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
     _create_provider_from_endpoint_name,
-    _get_request_body,
+    _decompress_zstd,
     anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
@@ -905,32 +905,24 @@ async def test_invocations_handler_zstd_invalid_json(store: SqlAlchemyStore):
     assert exc_info.value.status_code == 400
 
 
-@pytest.mark.asyncio
-async def test_get_request_body_zstd_rejects_decompression_bomb(monkeypatch):
+def test_decompress_zstd_rejects_decompression_bomb(monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.name, "1024")
 
-    mock_request = create_mock_request()
-    mock_request.headers = {"content-encoding": "zstd"}
     # ~1 KB of compressed input declaring a 32 MB decompressed size in its frame header
     compressed = zstandard.ZstdCompressor().compress(b"a" * (32 * 1024 * 1024))
     assert len(compressed) < 2048
-    mock_request.body = AsyncMock(return_value=compressed)
 
     with pytest.raises(HTTPException, match="exceeds the maximum allowed size") as exc_info:
-        await _get_request_body(mock_request)
+        _decompress_zstd(compressed)
 
     assert exc_info.value.status_code == 413
 
 
-@pytest.mark.asyncio
-async def test_get_request_body_zstd_import_error_reports_original_error():
-    mock_request = create_mock_request()
-    mock_request.headers = {"content-encoding": "zstd"}
-
+def test_decompress_zstd_import_error_reports_original_error():
     error = ImportError("No module named 'zstandard'")
     with mock.patch("builtins.__import__", side_effect=error):
         with pytest.raises(HTTPException, match=str(error)) as exc_info:
-            await _get_request_body(mock_request)
+            _decompress_zstd(b"")
 
     assert exc_info.value.status_code == 400
 
