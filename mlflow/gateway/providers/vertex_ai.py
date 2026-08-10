@@ -39,6 +39,28 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 # rather than the Google (Gemini API) type.
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
 
+# Locations that span several regions instead of naming one. They are served from a
+# dedicated host rather than the "{location}-" prefixed regional one.
+_MULTI_REGION_LOCATIONS = frozenset({"eu", "us"})
+
+
+def _get_vertex_ai_host(location: str) -> str:
+    """Return the Vertex AI API host serving ``location``.
+
+    Vertex AI exposes three host shapes:
+
+    - global:       https://aiplatform.googleapis.com
+    - multi-region: https://aiplatform.{eu,us}.rep.googleapis.com
+    - regional:     https://{location}-aiplatform.googleapis.com
+
+    https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
+    """
+    if location == "global":
+        return "https://aiplatform.googleapis.com"
+    if location in _MULTI_REGION_LOCATIONS:
+        return f"https://aiplatform.{location}.rep.googleapis.com"
+    return f"https://{location}-aiplatform.googleapis.com"
+
 
 def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
     """Remove ``id`` from functionCall/functionResponse parts of a Gemini request body.
@@ -105,8 +127,7 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def base_url(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
         return f"{host}{path}"
 
@@ -154,8 +175,7 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     def _api_base(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "us-central1"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         return f"{host}/v1/projects/{project}/locations/{location}/endpoints/openapi"
 
 
@@ -249,10 +269,7 @@ class VertexAIProvider(GeminiProvider):
             return self._delegate._api_base
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.
-        # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         publisher = "anthropic" if self._model_type == "claude" else "google"
         path = f"/v1/projects/{project}/locations/{location}/publishers/{publisher}/models"
         return f"{host}{path}"

@@ -1093,6 +1093,7 @@ module.exports = {
   "mlflow.eval-runs.group-expand-button": "",
   "mlflow.eval-runs.group-tag": "",
   "mlflow.eval-runs.header": "",
+  "mlflow.eval-runs.parent-child-expand-button": "",
   "mlflow.eval-runs.issue-detection-run-icon-tooltip": "",
   "mlflow.eval-runs.model-version-cell": "",
   "mlflow.eval-runs.model-version-cell-tooltip": "",
@@ -2023,6 +2024,8 @@ module.exports = {
   "mlflow.model_trace_explorer.header.session_id_link": "",
   "mlflow.model_trace_explorer.header_details.tag-session-id": "",
   "mlflow.model_trace_explorer.linked_prompts.prompt_link": "",
+  "mlflow.model_trace_explorer.span_link": "",
+  "mlflow.model_trace_explorer.span_link.tooltip": "",
   "mlflow.model_trace_explorer.timeline.gateway_trace_link": "",
 
   // -- mlflow.node-level-metric-charts --
@@ -2192,6 +2195,8 @@ module.exports = {
   // -- mlflow.run-view --
   "mlflow.run-view.compare-button": "",
   "mlflow.run-view.compare-button.tooltip": "",
+  "mlflow.run-view-evaluations.analyze-button": "",
+  "mlflow.run-view-evaluations.analyze-button.tooltip": "",
 
   // -- mlflow.run_details --
   "mlflow.run_details.header.register-model-button.tooltip": "",
@@ -2464,6 +2469,7 @@ module.exports = {
   "shared.model-trace-explorer.cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.cost-hovercard.total-cost.tag": "",
+  "shared.model-trace-explorer.custom-view.markdown.link": "",
   "shared.model-trace-explorer.expand": "",
   "shared.model-trace-explorer.expectation-array-item-tag": "",
   "shared.model-trace-explorer.expectation-learn-more-link": "",
