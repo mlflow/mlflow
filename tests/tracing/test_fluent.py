@@ -1223,6 +1223,12 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         model.predict(2, 5)
         time.sleep(0.1)
 
+        # get_trace(flush=True) only flushes when the first fetch misses. If the batch span
+        # processor happens to export during the sleep above, the trace info is already
+        # fetchable while the async span write (which adds the mlflow.trace.spansLocation
+        # tag) is still in flight, and the snapshot would miss tags that search_traces
+        # sees later. Flush explicitly so the snapshot always reflects fully committed data.
+        mlflow.flush_trace_async_logging()
         trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         expected_traces.append(trace)
 
