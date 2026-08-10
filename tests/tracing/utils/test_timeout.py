@@ -160,3 +160,21 @@ def test_handle_timeout_update(monkeypatch):
     traces = get_traces()
     assert len(traces) == 3
     assert traces[0].info.status == SpanStatusCode.OK
+
+
+def test_expire_does_not_raise_keyerror_for_stale_snapshot(monkeypatch):
+    # A request_id returned by _get_expired_traces() may be removed concurrently
+    # (atexit clear(), a second expire(), or pop_trace) before expire() reads it.
+    # expire() must skip the missing id instead of raising KeyError.
+    cache = MlflowTraceTimeoutCache(timeout=1, maxsize=10)
+    cache["tr1"] = _Trace(None)
+    monkeypatch.setattr(cache, "_get_expired_traces", lambda: ["tr1"])
+    del cache["tr1"]  # simulate a concurrent remover between snapshot and access
+    cache.expire()  # must NOT raise (raises KeyError on base)
+
+    # The valid path still works: a trace that is still present is expired normally.
+    cache["tr2"] = _Trace(None, span_dict={"root": _mock_span("tr2_root")})
+    monkeypatch.setattr(cache, "_get_expired_traces", lambda: ["tr2"])
+    cache.expire()
+    assert "tr2" not in cache
+    cache.clear()  # stop the daemon thread
