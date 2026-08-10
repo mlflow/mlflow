@@ -5411,6 +5411,124 @@ def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
         assert trace_info.trace_id == trace_ids[i]
 
 
+def test_batch_get_traces_with_experiment_ids_filter(store: SqlAlchemyStore) -> None:
+    exp1_id = store.create_experiment("test_batch_traces_exp_filter_1")
+    exp2_id = store.create_experiment("test_batch_traces_exp_filter_2")
+
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    span1 = create_test_span(trace_id=trace_id_1, name="span_exp1", span_id=101, trace_num=90001)
+    store.log_spans(exp1_id, [span1])
+
+    span2 = create_test_span(trace_id=trace_id_2, name="span_exp2", span_id=102, trace_num=90002)
+    store.log_spans(exp2_id, [span2])
+
+    traces = store.batch_get_traces([trace_id_1, trace_id_2], experiment_ids=[exp1_id])
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1
+
+
+def test_batch_get_traces_with_empty_experiment_ids(store: SqlAlchemyStore) -> None:
+    exp_id = store.create_experiment("test_batch_traces_empty_exp_ids")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(trace_id=trace_id, name="span", span_id=103, trace_num=90003)
+    store.log_spans(exp_id, [span])
+
+    traces = store.batch_get_traces([trace_id], experiment_ids=[])
+    assert traces == []
+
+
+def test_batch_get_traces_with_invalid_experiment_id(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.batch_get_traces([trace_id], experiment_ids=["invalid_id"])
+
+
+def test_batch_get_traces_with_experiment_ids_chunking(store: SqlAlchemyStore, monkeypatch) -> None:
+    """
+    The `experiment_ids` authorization scope can span hundreds of ids; force a
+    tiny chunk size to exercise the IN-list chunking loop and the cross-chunk
+    merge + re-sort end-to-end.
+    """
+    exp_ids = [store.create_experiment(f"test_batch_traces_chunk_{i}") for i in range(3)]
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+    for i, (exp_id, trace_id) in enumerate(zip(exp_ids, trace_ids)):
+        span = create_test_span(
+            trace_id=trace_id, name=f"span_{i}", span_id=901 + i, trace_num=91000 + i
+        )
+        store.log_spans(exp_id, [span])
+
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 1)
+
+    # Request order deliberately doesn't match experiment/chunk order.
+    requested_trace_ids = [trace_ids[2], trace_ids[0], trace_ids[1]]
+    traces = store.batch_get_traces(requested_trace_ids, experiment_ids=exp_ids)
+    assert [t.info.trace_id for t in traces] == requested_trace_ids
+
+
+def test_batch_get_trace_infos_with_experiment_ids_filter(store: SqlAlchemyStore) -> None:
+    exp1_id = store.create_experiment("test_batch_infos_exp_filter_1")
+    exp2_id = store.create_experiment("test_batch_infos_exp_filter_2")
+
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    span1 = create_test_span(trace_id=trace_id_1, name="span_exp1", span_id=201, trace_num=90011)
+    store.log_spans(exp1_id, [span1])
+
+    span2 = create_test_span(trace_id=trace_id_2, name="span_exp2", span_id=202, trace_num=90012)
+    store.log_spans(exp2_id, [span2])
+
+    trace_infos = store.batch_get_trace_infos([trace_id_1, trace_id_2], experiment_ids=[exp1_id])
+    assert len(trace_infos) == 1
+    assert trace_infos[0].trace_id == trace_id_1
+
+
+def test_batch_get_trace_infos_with_empty_experiment_ids(store: SqlAlchemyStore) -> None:
+    exp_id = store.create_experiment("test_batch_infos_empty_exp_ids")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(trace_id=trace_id, name="span", span_id=203, trace_num=90013)
+    store.log_spans(exp_id, [span])
+
+    trace_infos = store.batch_get_trace_infos([trace_id], experiment_ids=[])
+    assert trace_infos == []
+
+
+def test_batch_get_trace_infos_with_invalid_experiment_id(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.batch_get_trace_infos([trace_id], experiment_ids=["invalid_id"])
+
+
+def test_batch_get_trace_infos_with_experiment_ids_chunking(
+    store: SqlAlchemyStore, monkeypatch
+) -> None:
+    exp_ids = [store.create_experiment(f"test_batch_infos_chunk_{i}") for i in range(3)]
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+    for i, (exp_id, trace_id) in enumerate(zip(exp_ids, trace_ids)):
+        span = create_test_span(
+            trace_id=trace_id, name=f"span_{i}", span_id=911 + i, trace_num=91010 + i
+        )
+        store.log_spans(exp_id, [span])
+
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 1)
+
+    requested_trace_ids = [trace_ids[2], trace_ids[0], trace_ids[1]]
+    trace_infos = store.batch_get_trace_infos(requested_trace_ids, experiment_ids=exp_ids)
+    assert [ti.trace_id for ti in trace_infos] == requested_trace_ids
+
+
 def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_start_trace_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"

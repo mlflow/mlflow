@@ -6,6 +6,7 @@ import sqlalchemy as sa
 
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
 
@@ -60,3 +61,21 @@ def test_experiment_id_filters_bind_integers(psycopg3_store):
             source_type=EntityAssociationType.EVALUATION_DATASET,
         )
         assert associations.to_list() == []
+
+
+def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
+    # `experiment_id = ...` / `IN (...)` filters bind against the INTEGER
+    # `experiments.experiment_id` column; without coercing the filter value to
+    # int first, psycopg v3's typed VARCHAR bind fails with "operator does not
+    # exist: integer = character varying".
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"filter-{uuid.uuid4().hex}")
+
+        results = psycopg3_store.search_experiments(filter_string=f"experiment_id = '{exp_id}'")
+        assert {e.experiment_id for e in results} == {exp_id}
+
+        results = psycopg3_store.search_experiments(filter_string=f"experiment_id IN ('{exp_id}')")
+        assert {e.experiment_id for e in results} == {exp_id}
+
+        with pytest.raises(MlflowException, match="must be a valid integer"):
+            psycopg3_store.search_experiments(filter_string="experiment_id = 'not-a-number'")
