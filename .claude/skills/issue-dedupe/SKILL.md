@@ -78,7 +78,12 @@ anything yourself.
    the least distinctive term and search again, and move on to the next angle
    only once a two-term query still comes back empty.
 
-5. Filter hard. Keep a candidate only if a maintainer reading both issues would
+5. Shortlist on titles, then read before deciding. Search returns titles, and a
+   title is not enough to tell a duplicate from an unrelated issue in the same
+   area, so run `gh issue view <number> --repo $owner_repo` on each shortlisted
+   candidate and judge against its body.
+
+6. Filter hard. Keep a candidate only if a maintainer reading both issues would
    close this one as a duplicate. The same component failing a different way is
    not a duplicate, and neither is the same error message from an unrelated cause.
    Precision matters more than recall: a wrong link wastes the reporter's time,

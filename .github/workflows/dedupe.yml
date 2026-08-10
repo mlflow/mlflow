@@ -30,7 +30,8 @@ jobs:
     # will not act on. The pull_request branch is a smoke test; `comment` is
     # skipped there.
     if: >
-      (github.event_name == 'issues' && github.event.issue.user.type != 'Bot')
+      (github.event_name == 'issues' && github.repository == 'mlflow/mlflow'
+       && github.event.issue.user.type != 'Bot')
       || (github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
