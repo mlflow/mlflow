@@ -81,6 +81,10 @@ The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `g
 the shallow boundary rather than reaching the commit that actually introduced a line. Neither
 errors, so don't trust them for pre-change history.
 
+Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
+quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
+finding should be dropped rather than hedged.
+
 Evaluate the changed code across these dimensions:
 
 - **Correctness**: logic errors, off-by-one, incorrect API usage, broken invariants, regressions in behavior
