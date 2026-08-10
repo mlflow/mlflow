@@ -13,8 +13,7 @@ permissions: {}
 jobs:
   request-review:
     if: >-
-      (github.event.pull_request.draft == false
-      || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+      github.event.pull_request.draft == false
       && ((contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       && !endsWith(github.event.pull_request.user.login, '[bot]'))
       || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
