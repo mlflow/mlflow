@@ -61,7 +61,6 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,

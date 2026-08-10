@@ -317,4 +317,5 @@ __all__ = [
     "AgentGoalAccuracyWithoutReference",
     # Other tasks
     "SummarizationScore",
+    "experimental",
 ]

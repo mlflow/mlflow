@@ -4,7 +4,6 @@ from typing import ClassVar
 
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.ragas import RagasScorer
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 

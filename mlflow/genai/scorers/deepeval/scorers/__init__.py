@@ -231,4 +231,5 @@ __all__ = [
     # Deterministic metrics
     "ExactMatch",
     "PatternMatch",
+    "experimental",
 ]

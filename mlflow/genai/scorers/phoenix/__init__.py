@@ -275,4 +275,5 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
+    "experimental",
 ]

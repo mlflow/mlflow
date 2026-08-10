@@ -40,7 +40,6 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 if TYPE_CHECKING:

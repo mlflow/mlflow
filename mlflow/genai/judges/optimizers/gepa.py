@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.genai.judges.optimizers.dspy_utils import create_gepa_metric_adapter
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.utils.annotations import experimental
 
 # Import dspy - raise exception if not installed
 try:

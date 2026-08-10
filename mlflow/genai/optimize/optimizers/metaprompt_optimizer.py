@@ -9,7 +9,6 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
