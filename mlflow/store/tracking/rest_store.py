@@ -547,13 +547,19 @@ class RestStore(
                 raise MlflowNotImplementedException()
             raise
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. Should be None for OSS backend.
+            experiment_ids: Unused. Auth scoping is handled by the remote server.
 
         Returns:
             List of Trace objects.
@@ -565,8 +571,22 @@ class RestStore(
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. Should be None for OSS backend.
+            experiment_ids: Unused. Auth scoping is handled by the remote server.
+
+        Returns:
+            List of TraceInfo objects.
+        """
         req_body = message_to_json(BatchGetTraceInfos(trace_ids=trace_ids))
         response_proto = self._call_endpoint(
             BatchGetTraceInfos,
