@@ -51,7 +51,7 @@ def check(path: Path) -> list[str]:
         *validate_description(fm.get("description")),
     ]
     if "allowed-tools" in fm:
-        errors.append("remove `allowed-tools`: tool selection is automatic")
+        errors.append("remove `allowed-tools`: Claude Code auto-selects tools")
     return errors
 
 
