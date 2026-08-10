@@ -38,11 +38,11 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-slim
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Check componentId registry
-        uses: $/.github/actions/check-component-ids
+        uses: ./.github/actions/check-component-ids
 
   js:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -58,10 +58,10 @@ jobs:
       run:
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-node
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           yarn install --immutable
@@ -91,7 +91,7 @@ jobs:
             yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
       - name: Upload profile metrics
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: profile-metrics-${{ strategy.job-index }}
           path: /tmp/profile-metrics.csv

@@ -53,15 +53,15 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           submodules: true
-      - uses: $/.github/actions/untracked
-      - uses: $/.github/actions/free-disk-space
-      - uses: $/.github/actions/setup-python
-      - uses: $/.github/actions/setup-pyenv
-      - uses: $/.github/actions/setup-java
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         env:
           PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
@@ -74,8 +74,8 @@ jobs:
             'tensorflow<2.22.0' \
             torch transformers \
             "protobuf==$PROTOBUF_MAJOR_VERSION.*"
-      - uses: $/.github/actions/show-versions
-      - uses: $/.github/actions/cache-hf
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

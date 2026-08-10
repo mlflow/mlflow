@@ -20,6 +20,7 @@ from mlflow.genai.evaluation.utils import (
     _get_eval_data_size_and_fields,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import flatten_scorers
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.simulators import ConversationSimulator
@@ -370,7 +371,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
         df = _convert_to_eval_set(data)
 
-        builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+        builtin_scorers = [
+            scorer for scorer in flatten_scorers(scorers) if isinstance(scorer, BuiltInScorer)
+        ]
         valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
         sample_input = df.iloc[0][InputDatasetColumn.INPUTS]

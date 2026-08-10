@@ -1159,6 +1159,10 @@
     "defaultMessage": "On",
     "description": "Usage tracking enabled state"
   },
+  "3AC0g1": {
+    "defaultMessage": "Collapse child runs",
+    "description": "Aria label to collapse child runs"
+  },
   "3CWJEU": {
     "defaultMessage": "Issues",
     "description": "Column label for issues"
@@ -4155,6 +4159,10 @@
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
   },
+  "GpoXrL": {
+    "defaultMessage": "Analyze",
+    "description": "Button label for analyzing an evaluation run with Assistant"
+  },
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -4342,6 +4350,10 @@
   "HfcIG/": {
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
     "description": "Hint for ConversationalGuidelines template"
+  },
+  "Hg5XD1": {
+    "defaultMessage": "No links found",
+    "description": "Empty state for the links tab in the model trace explorer. Links connect spans across different traces."
   },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
@@ -8003,6 +8015,10 @@
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
   },
+  "Xo3L6r": {
+    "defaultMessage": "Analyze evaluation run with Assistant",
+    "description": "Tooltip for the assistant analyze button in the evaluation run toolbar"
+  },
   "XpiGwc": {
     "defaultMessage": "Select a queue to get started",
     "description": "Review queue: empty state title when no queue selected"
@@ -8206,6 +8222,10 @@
   "YamyaP": {
     "defaultMessage": "Auto-refresh",
     "description": "String for the auto-refresh button that refreshes the runs list automatically"
+  },
+  "YbA5cN": {
+    "defaultMessage": "Expand child runs",
+    "description": "Aria label to expand child runs"
   },
   "Yd5ANL": {
     "defaultMessage": "PASS",
@@ -9302,6 +9322,10 @@
   "dJaboT": {
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
+  },
+  "dJbsSP": {
+    "defaultMessage": "No assessments to display.",
+    "description": "Empty state text for the custom view assessment board when it has no cards"
   },
   "dMKo75": {
     "defaultMessage": "Search experiments",
@@ -13186,10 +13210,6 @@
   "tatySQ": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
-  },
-  "tdmVWN": {
-    "defaultMessage": "While deleting an experiment run, an error occurred.",
-    "description": "Experiment tracking > delete run modal > error message"
   },
   "tiQptW": {
     "defaultMessage": "Learn more",
