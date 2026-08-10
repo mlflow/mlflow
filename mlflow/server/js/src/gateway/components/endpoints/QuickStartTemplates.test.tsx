@@ -42,22 +42,19 @@ describe('QuickStartTemplates', () => {
     renderComponent();
 
     // OpenAI models
+    expect(screen.getByText('gpt-5.6-sol')).toBeInTheDocument();
     expect(screen.getByText('gpt-5')).toBeInTheDocument();
     expect(screen.getByText('gpt-5-mini')).toBeInTheDocument();
-    expect(screen.getByText('gpt-5.4')).toBeInTheDocument();
-    expect(screen.getByText('o4-mini')).toBeInTheDocument();
 
     // Anthropic models
-    expect(screen.getByText('claude-opus-4-6')).toBeInTheDocument();
+    expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
-    expect(screen.getByText('claude-sonnet-4-5')).toBeInTheDocument();
     expect(screen.getByText('claude-haiku-4-5')).toBeInTheDocument();
 
     // Gemini models
-    expect(screen.getByText('gemini-3.0-pro')).toBeInTheDocument();
-    expect(screen.getByText('gemini-3.0-flash')).toBeInTheDocument();
-    expect(screen.getByText('gemini-2.5-pro')).toBeInTheDocument();
-    expect(screen.getByText('gemini-2.5-flash')).toBeInTheDocument();
+    expect(screen.getByText('gemini-3.1-pro-preview')).toBeInTheDocument();
+    expect(screen.getByText('gemini-3.6-flash')).toBeInTheDocument();
+    expect(screen.getByText('gemini-3.1-flash-lite')).toBeInTheDocument();
 
     // Databricks models
     expect(screen.getByText('databricks-gpt-4.1')).toBeInTheDocument();
@@ -71,8 +68,8 @@ describe('QuickStartTemplates', () => {
 
     const links = screen.getAllByRole('link');
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
-    // 4 providers × 4 models + 3 coding agents + 1 browse all link = 20
-    expect(cardLinks.length).toBe(20);
+    // 3 providers × 3 default models + 1 Databricks card × 4 models + 3 coding agents + 1 browse all link = 17
+    expect(cardLinks.length).toBe(17);
   });
 
   it('renders coding agents section with links to documentation', () => {
@@ -118,8 +115,8 @@ describe('QuickStartTemplatesCompact', () => {
 
     const links = screen.getAllByRole('link');
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
-    // 4 providers × 4 models + 3 coding agents + 1 browse all link = 20
-    expect(cardLinks.length).toBe(20);
+    // 3 providers × 3 default models + 1 Databricks card × 4 models + 3 coding agents + 1 browse all link = 17
+    expect(cardLinks.length).toBe(17);
   });
 
   it('renders coding agents section with links to documentation', () => {

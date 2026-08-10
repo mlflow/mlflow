@@ -137,6 +137,7 @@ CREATE TABLE secrets (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	allowlisted_models TEXT,
 	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
 	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
 )
@@ -324,6 +325,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) DEFAULT 'draft'::character varying NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
+	connect_options JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,

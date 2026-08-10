@@ -60,10 +60,13 @@ describe('SettingsPage', () => {
     expect(await screen.findByText('Clear all demo data')).toBeInTheDocument();
   });
 
-  it('opens LLM Connections from the URL path and embeds API keys', async () => {
+  it('renders the standalone LLM Connections section from the URL path', async () => {
     renderComponent('/settings/llm-connections');
 
     expect(await screen.findByTestId('api-keys-settings-embed')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'LLM Connections' })).toBeInTheDocument();
+    // The dedicated tab must not render the General preferences (demo data lives in General only).
+    expect(screen.queryByText('Clear all demo data')).not.toBeInTheDocument();
   });
 
   it('calls fetchEndpointRaw with the demo delete endpoint when clearing demo data', async () => {

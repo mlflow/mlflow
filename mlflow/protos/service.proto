@@ -5255,6 +5255,13 @@ message Scorer {
 // ========== Gateway Secrets and Endpoints Entities ==========
 
 // Secret metadata entity (does not include the decrypted secret value)
+// A {provider, model} pair the user has allowlisted for a secret.
+// Display/selection metadata only; NEVER used for authentication or credential resolution.
+message GatewayAllowlistedModel {
+  optional string provider = 1;
+  optional string model = 2;
+}
+
 message GatewaySecretInfo {
   // Unique identifier for the secret (UUID)
   optional string secret_id = 1;
@@ -5276,6 +5283,9 @@ message GatewaySecretInfo {
   optional string last_updated_by = 8;
   // Provider-specific auth configuration (e.g., auth_mode, region, project_id)
   map<string, string> auth_config = 9;
+  // Models the user has allowlisted for this key. Display/selection metadata only;
+  // never used for authentication or credential resolution.
+  repeated GatewayAllowlistedModel allowlisted_models = 10;
 }
 
 // Reusable model definition that can be shared across endpoints
@@ -5404,6 +5414,8 @@ message CreateGatewaySecret {
   map<string, string> auth_config = 5;
   // Username of the creator
   optional string created_by = 6;
+  // Models to allowlist for this key. Display/selection metadata only; never used for auth.
+  repeated GatewayAllowlistedModel allowlisted_models = 7;
 
   message Response {
     // The created secret metadata (does not include encrypted value)
@@ -5437,6 +5449,14 @@ message UpdateGatewaySecret {
   map<string, string> auth_config = 4;
   // Username of the updater
   optional string updated_by = 5;
+  // Models to allowlist for this key. Display/selection metadata only; never used for auth.
+  //
+  // Unlike auth_config, proto3 repeated fields cannot distinguish "absent" from "empty",
+  // so there is no None-vs-empty sentinel available here at the proto level. The update
+  // therefore replaces allowlisted_models with whatever is sent; an empty list clears it.
+  // The None-vs-empty ("unchanged" vs "clear") semantics are handled at the STORE layer,
+  // where the Python param defaults to None (unchanged) and [] clears the column.
+  repeated GatewayAllowlistedModel allowlisted_models = 6;
 
   message Response {
     // The updated secret metadata

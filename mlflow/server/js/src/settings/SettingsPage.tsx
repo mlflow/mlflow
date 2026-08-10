@@ -280,7 +280,7 @@ const SettingsPage = () => {
               }
               subtitle={
                 <FormattedMessage
-                  defaultMessage="Create and manage API keys for authenticating to external LLM providers."
+                  defaultMessage="Store provider keys and choose which models MLflow features can use."
                   description="Settings content section subtitle for LLM connections (API keys)"
                 />
               }

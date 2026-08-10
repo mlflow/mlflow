@@ -1,4 +1,10 @@
 from mlflow.entities import GatewaySecretInfo
+from mlflow.protos.service_pb2 import (
+    GatewayAllowlistedModel,
+)
+from mlflow.protos.service_pb2 import (
+    GatewaySecretInfo as ProtoGatewaySecretInfo,
+)
 
 
 def test_secret_creation_full():
@@ -201,3 +207,34 @@ def test_secret_multi_key_proto_round_trip():
     assert "client_id" in restored.masked_values
     assert "client_secret" in restored.masked_values
     assert "tenant_id" in restored.masked_values
+
+
+def test_secret_to_proto_skips_empty_allowlisted_model_rows():
+    secret = GatewaySecretInfo(
+        secret_id="secret-empty-allowlist",
+        secret_name="openai_key",
+        masked_values={"api_key": "sk-...1234"},
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        provider="openai",
+        allowlisted_models=[{"provider": None, "model": None}],
+    )
+
+    assert list(secret.to_proto().allowlisted_models) == []
+
+
+def test_secret_from_proto_skips_empty_allowlisted_model_rows():
+    proto = ProtoGatewaySecretInfo(
+        secret_id="secret-empty-allowlist",
+        secret_name="openai_key",
+        masked_values={"api_key": "sk-...1234"},
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        provider="openai",
+    )
+    proto.allowlisted_models.append(GatewayAllowlistedModel())
+    proto.allowlisted_models.append(GatewayAllowlistedModel(provider="openai", model="gpt-5"))
+
+    secret = GatewaySecretInfo.from_proto(proto)
+
+    assert secret.allowlisted_models == [{"provider": "openai", "model": "gpt-5"}]

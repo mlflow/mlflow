@@ -1,20 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  KeyIcon,
   PlusIcon,
   Popover,
-  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import {
+  useAllowlistedModelPairs,
+  type AllowlistedModelPair,
+} from '../../../../../gateway/hooks/useAllowlistedModelPairs';
 import { CreateEndpointModal } from '../../../../../gateway/components/endpoint-form';
-import { sortModelsByDate } from '../../../../../gateway/utils/formatters';
 import type { Endpoint } from '../../../../../gateway/types';
+import { getRequiredDefaultLLMProvider, type MlflowDefaultLLMProvider } from '../../../../../gateway/defaultModels';
 import OpenAiLogo from '../../../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../../../common/static/logos/openai-dark.svg';
 import AnthropicLogo from '../../../../../common/static/logos/anthropic.svg';
@@ -27,6 +30,11 @@ export interface IssueDetectionModelSelection {
   endpointName?: string;
   provider: string;
   model: string;
+  /**
+   * The connection (secret) backing a `direct` selection, when the user picked a model from a
+   * registered LLM connection. Lets the submit path use that connection's key rather than guessing.
+   */
+  secretId?: string;
 }
 
 export interface ProviderOption {
@@ -35,27 +43,62 @@ export interface ProviderOption {
   logo: string;
   logoDark?: string;
   defaultModel: string;
+  models: MlflowDefaultLLMProvider['models'];
 }
+
+const openAIProvider = getRequiredDefaultLLMProvider('openai');
+const anthropicProvider = getRequiredDefaultLLMProvider('anthropic');
+const geminiProvider = getRequiredDefaultLLMProvider('gemini');
 
 export const ISSUE_DETECTION_PROVIDERS: ProviderOption[] = [
   {
-    id: 'openai',
+    id: openAIProvider.provider,
     name: 'OpenAI',
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
-    defaultModel: 'gpt-5.6-sol',
+    defaultModel: openAIProvider.defaultModel,
+    models: openAIProvider.models,
   },
   {
-    id: 'anthropic',
+    id: anthropicProvider.provider,
     name: 'Anthropic',
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
-    defaultModel: 'claude-opus-4-8',
+    defaultModel: anthropicProvider.defaultModel,
+    models: anthropicProvider.models,
   },
-  { id: 'gemini', name: 'Google Gemini', logo: GeminiLogo, defaultModel: 'gemini-3.6-flash' },
+  {
+    id: geminiProvider.provider,
+    name: 'Google Gemini',
+    logo: GeminiLogo,
+    defaultModel: geminiProvider.defaultModel,
+    models: geminiProvider.models,
+  },
 ];
 
 export const GATEWAY_LOGO = MLflowGatewayLogo;
+
+/**
+ * Providers whose connection Detect Issues can run in direct mode (no AI Gateway endpoint) on ANY
+ * MLflow install. Two backend steps must both support the provider: credential injection
+ * (`_CORE_PROVIDER_ENV_VARS` in mlflow/utils/providers.py) AND the actual call. When LiteLLM is not
+ * installed, the call falls back to MLflow's own provider adapters (`_get_provider_instance` in
+ * mlflow/metrics/genai/model_utils.py), which cover only this set. Providers that need LiteLLM to
+ * call (e.g. groq, deepseek, xai, openrouter) are excluded so a connection can't be picked into a
+ * run that would fail on a LiteLLM-less server. Anything else must go through an AI Gateway endpoint.
+ */
+export const ISSUE_DETECTION_DIRECT_PROVIDERS = new Set([
+  'openai',
+  'azure',
+  'anthropic',
+  'bedrock',
+  'gemini',
+  'mistral',
+  'togetherai',
+]);
+
+export const getIssueDetectionDirectPairs = (pairs: AllowlistedModelPair[]) =>
+  pairs.filter((pair) => ISSUE_DETECTION_DIRECT_PROVIDERS.has(pair.provider.toLowerCase()));
 
 export const ProviderLogo = ({ src, srcDark }: { src: string; srcDark?: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -151,6 +194,61 @@ const GatewayGroup = ({
   );
 };
 
+const ConnectionsGroup = ({
+  pairs,
+  isExpanded,
+  selectedSecretId,
+  selectedModel,
+  onToggle,
+  onSelectPair,
+}: {
+  pairs: AllowlistedModelPair[];
+  isExpanded: boolean;
+  selectedSecretId?: string;
+  selectedModel?: string;
+  onToggle: () => void;
+  onSelectPair: (pair: AllowlistedModelPair) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        css={optionRowCss(theme)}
+        aria-expanded={isExpanded}
+        data-testid="model-group-connections"
+      >
+        {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        <KeyIcon css={{ color: theme.colors.textSecondary }} />
+        <Typography.Text css={{ flex: 1 }}>
+          <FormattedMessage
+            defaultMessage="Existing connections"
+            description="Model dropdown group for models from registered LLM connections"
+          />
+        </Typography.Text>
+      </button>
+      {isExpanded &&
+        pairs.map((pair) => (
+          <button
+            key={`${pair.secretId}::${pair.model}`}
+            type="button"
+            onClick={() => onSelectPair(pair)}
+            css={{ ...optionRowCss(theme), paddingLeft: 44 }}
+            data-testid={`model-option-connection-${pair.secretId}-${pair.model}`}
+          >
+            <Typography.Text css={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {pair.model} · {pair.secretName}
+            </Typography.Text>
+            {selectedSecretId === pair.secretId && selectedModel === pair.model && (
+              <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />
+            )}
+          </button>
+        ))}
+    </div>
+  );
+};
+
 const ProviderGroup = ({
   provider,
   isExpanded,
@@ -165,9 +263,6 @@ const ProviderGroup = ({
   onSelectModel: (model: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { data: models, isLoading } = useModelsQuery({ provider: isExpanded ? provider.id : undefined });
-
-  const modelNames = models?.length ? sortModelsByDate(models).map((m) => m.model) : [provider.defaultModel];
 
   return (
     <div>
@@ -183,23 +278,17 @@ const ProviderGroup = ({
         <Typography.Text css={{ flex: 1 }}>{provider.name}</Typography.Text>
       </button>
       {isExpanded &&
-        (isLoading ? (
-          <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`, paddingLeft: theme.spacing.lg }}>
-            <Spinner size="small" />
-          </div>
-        ) : (
-          modelNames.map((model) => (
-            <button
-              key={model}
-              type="button"
-              onClick={() => onSelectModel(model)}
-              css={{ ...optionRowCss(theme), paddingLeft: 44 }}
-              data-testid={`model-option-${provider.id}-${model}`}
-            >
-              <Typography.Text css={{ flex: 1 }}>{model}</Typography.Text>
-              {selectedModel === model && <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />}
-            </button>
-          ))
+        provider.models.map(({ model }) => (
+          <button
+            key={model}
+            type="button"
+            onClick={() => onSelectModel(model)}
+            css={{ ...optionRowCss(theme), paddingLeft: 44 }}
+            data-testid={`model-option-${provider.id}-${model}`}
+          >
+            <Typography.Text css={{ flex: 1 }}>{model}</Typography.Text>
+            {selectedModel === model && <CheckIcon css={{ color: theme.colors.actionDefaultBorderFocus }} />}
+          </button>
         ))}
     </div>
   );
@@ -216,9 +305,20 @@ export const IssueDetectionModelDropdown = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchEndpoints } = useEndpointsQuery();
+  const { pairs } = useAllowlistedModelPairs();
   const [open, setOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Only connections whose provider Detect Issues can resolve in direct mode are selectable here.
+  // A non-core provider can only be reached through an AI Gateway endpoint (see the constant above).
+  const directPairs = useMemo(() => getIssueDetectionDirectPairs(pairs), [pairs]);
+
+  // The currently-selected registered connection (if any), used to label the trigger "name · model".
+  const selectedConnectionName =
+    value.mode === 'direct' && value.secretId
+      ? directPairs.find((p) => p.secretId === value.secretId && p.model === value.model)?.secretName
+      : undefined;
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -243,7 +343,9 @@ export const IssueDetectionModelDropdown = ({
   const selectedProvider = ISSUE_DETECTION_PROVIDERS.find((p) => p.id === value.provider);
   const triggerLogo = isEndpoint ? GATEWAY_LOGO : selectedProvider?.logo;
   const triggerLogoDark = isEndpoint ? undefined : selectedProvider?.logoDark;
-  const triggerLabel = isEndpoint ? value.endpointName : (selectedProvider?.name ?? value.provider);
+  const triggerLabel = isEndpoint
+    ? value.endpointName
+    : (selectedConnectionName ?? selectedProvider?.name ?? value.provider);
 
   return (
     <Popover.Root
@@ -298,19 +400,19 @@ export const IssueDetectionModelDropdown = ({
             paddingBottom: theme.spacing.xs,
           }}
         >
-          {ISSUE_DETECTION_PROVIDERS.map((provider) => (
-            <ProviderGroup
-              key={provider.id}
-              provider={provider}
-              isExpanded={expandedGroup === provider.id}
-              selectedModel={value.mode === 'direct' && value.provider === provider.id ? value.model : undefined}
-              onToggle={() => toggleGroup(provider.id)}
-              onSelectModel={(model) => {
-                onChange({ mode: 'direct', provider: provider.id, model });
+          {directPairs.length > 0 && (
+            <ConnectionsGroup
+              pairs={directPairs}
+              isExpanded={expandedGroup === 'connections'}
+              selectedSecretId={value.mode === 'direct' ? value.secretId : undefined}
+              selectedModel={value.mode === 'direct' ? value.model : undefined}
+              onToggle={() => toggleGroup('connections')}
+              onSelectPair={(pair) => {
+                onChange({ mode: 'direct', provider: pair.provider, model: pair.model, secretId: pair.secretId });
                 setOpen(false);
               }}
             />
-          ))}
+          )}
           <GatewayGroup
             endpoints={endpoints}
             isExpanded={expandedGroup === 'gateway'}
@@ -319,6 +421,21 @@ export const IssueDetectionModelDropdown = ({
             onSelectEndpoint={selectEndpoint}
             onCreateEndpoint={() => setIsCreateModalOpen(true)}
           />
+          {ISSUE_DETECTION_PROVIDERS.map((provider) => (
+            <ProviderGroup
+              key={provider.id}
+              provider={provider}
+              isExpanded={expandedGroup === provider.id}
+              selectedModel={
+                value.mode === 'direct' && !value.secretId && value.provider === provider.id ? value.model : undefined
+              }
+              onToggle={() => toggleGroup(provider.id)}
+              onSelectModel={(model) => {
+                onChange({ mode: 'direct', provider: provider.id, model });
+                setOpen(false);
+              }}
+            />
+          ))}
         </div>
       </Popover.Content>
       {isCreateModalOpen && (
