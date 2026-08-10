@@ -3,7 +3,7 @@
  * collapsible card whose header shows the tool name, a status badge, and a one-line
  * input summary, and whose expanded body shows the full input and (truncated) output.
  */
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import {
   CheckCircleIcon,
   ChevronDownIcon,
@@ -23,25 +23,28 @@ export type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
 
 // Tool output can be huge (e.g. a full trace); cap what we render in the card.
 const MAX_OUTPUT_CHARS = 4000;
+const MAX_INPUT_SUMMARY_CHARS = 240;
 
-const truncate = (text: string): string =>
-  text.length > MAX_OUTPUT_CHARS
-    ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… (truncated, ${text.length - MAX_OUTPUT_CHARS} more chars)`
+const truncate = (text: string, maxChars: number, markerPrefix = ''): string =>
+  text.length > maxChars
+    ? `${text.slice(0, maxChars)}${markerPrefix}… (truncated, ${text.length - maxChars} more chars)`
     : text;
 
 // One-line summary of a tool call's input for the header. Generic across tools: joins the
 // input's string values in order; falls back to compact JSON when there are none.
-const toolInputSummary = (part: ToolCallPart): string => {
+export const toolInputSummary = (part: ToolCallPart): string => {
   const input = part.input ?? {};
   const strings = Object.values(input).filter((v): v is string => typeof v === 'string' && v.length > 0);
-  if (strings.length > 0) return strings.join(' · ');
+  if (strings.length > 0) {
+    return truncate(strings.join(' · ').replace(/\s+/g, ' ').trim(), MAX_INPUT_SUMMARY_CHARS, ' ');
+  }
   const json = JSON.stringify(input);
-  return json === '{}' ? '' : json;
+  return json === '{}' ? '' : truncate(json, MAX_INPUT_SUMMARY_CHARS, ' ');
 };
 
 // Fixed-size badge box so done/error/running all occupy identical space and
 // keep every tool-call row's columns aligned.
-const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
+const StatusBadge = ({ status, ariaHidden }: { status: ToolCallPart['status']; ariaHidden?: boolean }) => {
   const { theme } = useDesignSystemTheme();
   const icon =
     status === ToolCallStatus.Done ? (
@@ -54,6 +57,7 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
   return (
     <span
       data-testid={`tool-call-status-${status ?? ToolCallStatus.Running}`}
+      aria-hidden={ariaHidden}
       css={{
         width: 16,
         height: 16,
@@ -68,7 +72,11 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
   );
 };
 
-const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}\n\`\`\``;
+export const fencedBlock = (body: string, lang = ''): string => {
+  const longestBacktickRun = (body.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 2);
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  return `${fence}${lang}\n${body}\n${fence}`;
+};
 
 // Overall status for a run of tool calls. Running until every call resolves. Once settled,
 // the run reflects how it *ended*: a failure that a later call recovered from (e.g. a retry)
@@ -90,18 +98,6 @@ export const toolNameSummary = (parts: ToolCallPart[]): string => {
   return [...counts.entries()].map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
 };
 
-const GROUP_STATUS_LABEL: Record<NonNullable<ToolCallPart['status']>, ReactNode> = {
-  [ToolCallStatus.Running]: (
-    <FormattedMessage defaultMessage="Running" description="Status for an in-progress run of assistant tool calls" />
-  ),
-  [ToolCallStatus.Done]: (
-    <FormattedMessage defaultMessage="Completed" description="Status for a finished run of assistant tool calls" />
-  ),
-  [ToolCallStatus.Error]: (
-    <FormattedMessage defaultMessage="Failed" description="Status for a failed run of assistant tool calls" />
-  ),
-};
-
 // Activate a role="button" disclosure row from the keyboard, matching native <button> semantics.
 const onDisclosureKeyDown = (toggle: () => void) => (event: KeyboardEvent) => {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -121,12 +117,21 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
   const [expanded, setExpanded] = useState(false);
   const status = groupStatus(parts);
   const summary = toolNameSummary(parts);
-  const statusColor =
+  const statusLabel =
     status === ToolCallStatus.Done
-      ? theme.colors.textValidationSuccess
+      ? intl.formatMessage({
+          defaultMessage: 'Completed',
+          description: 'Status for a finished run of assistant tool calls',
+        })
       : status === ToolCallStatus.Error
-        ? theme.colors.textValidationDanger
-        : theme.colors.textSecondary;
+        ? intl.formatMessage({
+            defaultMessage: 'Failed',
+            description: 'Status for a failed run of assistant tool calls',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'Running',
+            description: 'Status for an in-progress run of assistant tool calls',
+          });
 
   const toggle = () => setExpanded((prev) => !prev);
 
@@ -136,10 +141,13 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
-        aria-label={intl.formatMessage({
-          defaultMessage: 'Tool calls',
-          description: 'Accessible label for the expandable summary row of a run of assistant tool calls',
-        })}
+        aria-label={intl.formatMessage(
+          {
+            defaultMessage: 'Tool calls: {status}',
+            description: 'Accessible label for the expandable summary row of a run of assistant tool calls',
+          },
+          { status: statusLabel },
+        )}
         onClick={toggle}
         onKeyDown={onDisclosureKeyDown(toggle)}
         css={{
@@ -180,13 +188,12 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
             {summary}
           </Typography.Text>
         )}
-        <Typography.Text
-          size="sm"
+        <span
           data-testid={`tool-group-status-${status}`}
-          css={{ flexShrink: 0, marginLeft: 'auto', color: statusColor }}
+          css={{ flexShrink: 0, marginLeft: 'auto', display: 'inline-flex' }}
         >
-          {GROUP_STATUS_LABEL[status]}
-        </Typography.Text>
+          <StatusBadge status={status} ariaHidden />
+        </span>
       </div>
 
       {expanded && (
@@ -281,7 +288,9 @@ export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
               <Typography.Text size="sm" color="secondary" bold>
                 <FormattedMessage defaultMessage="Output" description="Label for an assistant tool call's output" />
               </Typography.Text>
-              <GenAIMarkdownRenderer>{fencedBlock(truncate(part.result))}</GenAIMarkdownRenderer>
+              <GenAIMarkdownRenderer>
+                {fencedBlock(truncate(part.result, MAX_OUTPUT_CHARS, '\n'))}
+              </GenAIMarkdownRenderer>
             </>
           )}
         </div>

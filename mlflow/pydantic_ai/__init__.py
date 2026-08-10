@@ -3,6 +3,8 @@ import inspect
 import logging
 import typing
 
+from packaging.version import Version
+
 from mlflow.pydantic_ai.autolog import (
     patched_agent_init,
     patched_async_class_call,
@@ -13,10 +15,13 @@ from mlflow.pydantic_ai.autolog import (
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
 FLAVOR_NAME = "pydantic_ai"
+_PYDANTIC_AI_V2_MIN_VERSION = Version("2.5.0")
+
 _logger = logging.getLogger(__name__)
 
 
@@ -121,16 +126,42 @@ def _has_instrumentation_capability() -> bool:
         return False
 
 
+def _get_pydantic_ai_version() -> Version | None:
+    return get_installed_version("pydantic-ai")
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
     Enable (or disable) autologging for Pydantic_AI.
+
+    Pydantic AI 2.x requires version 2.5.0 or newer.
 
     Args:
         log_traces: If True, capture spans for agent + model calls.
         disable:   If True, disable the autologging patches.
         silent:    If True, suppress MLflow warnings/info.
     """
+    version = _get_pydantic_ai_version()
+    if version is not None and version.major >= 2:
+        if version >= _PYDANTIC_AI_V2_MIN_VERSION:
+            from mlflow.pydantic_ai.autolog_v2 import setup_autologging as setup_v2_autologging
+
+            setup_v2_autologging()
+        elif not disable:
+            _logger.warning(
+                "MLflow Pydantic AI autologging requires pydantic-ai >= %s for Pydantic AI "
+                "2.x, but version %s is installed. Autologging has not been enabled. Please "
+                "upgrade pydantic-ai.",
+                _PYDANTIC_AI_V2_MIN_VERSION,
+                version,
+            )
+        _record_event(
+            AutologgingEvent,
+            {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable},
+        )
+        return
+
     # Base methods that exist in all supported versions
     agent_methods = ["run", "run_sync", "run_stream"]
 

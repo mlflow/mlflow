@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  Alert,
   Button,
   Card,
   CloseIcon,
@@ -29,20 +30,23 @@ import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
-import { getAssistantProvider } from './providerRegistry';
-import type { SelectedProvider } from './types';
+import { getAssistantProvider, getLlmProviderDisplay } from './providerRegistry';
+import { AssistantErrorCode } from './types';
+import { ApiKeyPrompt } from './ApiKeyPrompt';
+import { GATEWAY_PROVIDER_ID } from './constants';
+import { AssistantProviderPicker } from './AssistantProviderPicker';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
-import { AssistantSetupWizard } from './setup';
+import { AssistantSettingsPage } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyController';
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
-type CurrentView = 'chat' | 'setup-wizard' | 'settings';
+type CurrentView = 'chat' | 'settings';
 
 // Shared animation keyframes
 const PULSE_ANIMATION = {
@@ -69,42 +73,6 @@ const formatCostUsd = (intl: IntlShape, cost: number): string =>
     currency: 'USD',
     maximumFractionDigits: cost < 1 ? 4 : 2,
   });
-
-/**
- * Read-only indicator of the provider/model backing the session. Shows the provider's brand
- * logo + name, with the model name in a tooltip. Display-only — there is intentionally no
- * affordance to change the provider from the composer (that lives in Settings).
- */
-const ProviderIndicator = ({ provider }: { provider: SelectedProvider }) => {
-  const { theme } = useDesignSystemTheme();
-  const meta = getAssistantProvider(provider.id);
-  const label = meta?.name ?? provider.id;
-  return (
-    <Tooltip
-      componentId="mlflow.assistant.chat_panel.provider_info.tooltip"
-      content={
-        <FormattedMessage
-          defaultMessage="Model: {model}"
-          description="Tooltip on the assistant composer showing the active provider's configured model name"
-          values={{ model: provider.model }}
-        />
-      }
-    >
-      <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
-        {meta?.logo && (
-          <img src={meta.logo} alt="" aria-hidden css={{ width: 14, height: 14, flexShrink: 0, borderRadius: 2 }} />
-        )}
-        <Typography.Text
-          size="sm"
-          color="secondary"
-          css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
-        >
-          {label}
-        </Typography.Text>
-      </div>
-    </Tooltip>
-  );
-};
 
 export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
 
@@ -151,7 +119,6 @@ export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
       {groupParts(parts).map((group, i) =>
         group.kind === 'text' ? (
           group.text ? (
-            // Assumption: Parts are append only, so this ID construction is stable and safe
             <div key={`text-${i}`} css={markdownSpacing}>
               <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
             </div>
@@ -375,18 +342,104 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 /**
  * Chat panel content component.
  */
-const ChatPanelContent = () => {
+/**
+ * A stream error the user can act on directly (install/login/configure), rendered as a
+ * callout above the composer with a shortcut to the settings flow.
+ */
+const RecoverableErrorCallout = ({
+  errorCode,
+  error,
+  onOpenSettings,
+}: {
+  errorCode: string;
+  error: string | null;
+  onOpenSettings: () => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+
+  let message: React.ReactNode;
+  switch (errorCode) {
+    case AssistantErrorCode.CliNotInstalled:
+      message = (
+        <FormattedMessage
+          defaultMessage="The provider's CLI is not installed on the MLflow server. Install it, or switch to another provider."
+          description="Callout shown when the assistant provider CLI is missing"
+        />
+      );
+      break;
+    case AssistantErrorCode.NotAuthenticated:
+      message = (
+        <FormattedMessage
+          defaultMessage="The provider is not authenticated. Fix the credentials, or switch to another provider."
+          description="Callout shown when the assistant provider rejected the credentials"
+        />
+      );
+      break;
+    default:
+      message = (
+        <FormattedMessage
+          defaultMessage="No assistant provider is available. Configure one in Settings."
+          description="Callout shown when no assistant provider could serve the chat"
+        />
+      );
+  }
+
+  return (
+    <Alert
+      componentId="mlflow.assistant.chat_panel.recoverable_error"
+      type="warning"
+      closable={false}
+      css={{ marginBottom: theme.spacing.sm }}
+      message={message}
+      description={
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, alignItems: 'flex-start' }}>
+          {error && (
+            <Typography.Text size="sm" color="secondary" css={{ wordBreak: 'break-word' }}>
+              {error}
+            </Typography.Text>
+          )}
+          <Button
+            componentId="mlflow.assistant.chat_panel.recoverable_error.action"
+            size="small"
+            onClick={onOpenSettings}
+          >
+            <FormattedMessage
+              defaultMessage="Open Settings"
+              description="Button on the assistant error callout that opens the settings flow"
+            />
+          </Button>
+        </div>
+      }
+    />
+  );
+};
+
+// api_key_missing is deliberately absent: it renders the inline ApiKeyPrompt instead.
+const RECOVERABLE_ERROR_CODES = new Set<string>([
+  AssistantErrorCode.CliNotInstalled,
+  AssistantErrorCode.NotAuthenticated,
+  AssistantErrorCode.NoProvider,
+]);
+
+const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const {
     messages,
     isStreaming,
     error,
+    errorCode,
     sendMessage,
     regenerateLastMessage,
     cancelSession,
     tokenUsage,
-    selectedProvider,
+    activeProvider,
+    providers,
+    gatewayVendorOptions,
+    selectProvider,
+    isLocalServer,
+    needsApiKey,
+    refreshConfig,
     pendingPrompt,
     clearPendingPrompt,
     pendingPermission,
@@ -396,6 +449,8 @@ const ChatPanelContent = () => {
   const viewId = useMemo(() => uuidv4(), []);
 
   const [inputValue, setInputValue] = useState('');
+  // A message stashed while the API-key modal collects the missing key; sent on save.
+  const [pendingKeyMessage, setPendingKeyMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -413,8 +468,7 @@ const ChatPanelContent = () => {
     }
   }, [inputValue]);
 
-  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
-  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  // Consume a prompt queued by an onboarding card once the chat input is visible.
   useEffect(() => {
     if (pendingPrompt != null) {
       setInputValue(pendingPrompt);
@@ -423,12 +477,51 @@ const ChatPanelContent = () => {
     }
   }, [pendingPrompt, clearPendingPrompt]);
 
+  // Deliver a message, first collecting the resolved provider's API key when it
+  // is still missing (the ideal-flow popup: the first send doubles as setup).
+  const deliverMessage = useCallback(
+    (message: string) => {
+      if (needsApiKey && activeProvider) {
+        setPendingKeyMessage(message);
+        return;
+      }
+      sendMessage(message);
+    },
+    [activeProvider, needsApiKey, sendMessage],
+  );
+
+  const handleApiKeySaved = useCallback(() => {
+    const message = pendingKeyMessage;
+    setPendingKeyMessage(null);
+    // Send right away: this clears any api_key_missing error in the same render,
+    // so the prompt hides immediately instead of lingering while a refresh runs.
+    // (The key is already saved server-side; the send carries it.) If the prompt
+    // came from a failed send rather than a queued message, retry that turn.
+    if (message) {
+      sendMessage(message);
+    } else {
+      regenerateLastMessage();
+    }
+    // Update the resolved-provider / needsApiKey state in the background.
+    refreshConfig();
+  }, [pendingKeyMessage, sendMessage, regenerateLastMessage, refreshConfig]);
+
+  // If the key prompt is dismissed sideways (e.g. the user switches provider from
+  // the picker instead of entering a key), put the stashed message back in the
+  // input so nothing typed is lost.
+  useEffect(() => {
+    if (pendingKeyMessage != null && !needsApiKey) {
+      setInputValue((current) => current || pendingKeyMessage);
+      setPendingKeyMessage(null);
+    }
+  }, [needsApiKey, pendingKeyMessage]);
+
   const handleSend = useCallback(() => {
     if (inputValue.trim() && !isStreaming) {
-      sendMessage(inputValue.trim());
+      deliverMessage(inputValue.trim());
       setInputValue('');
     }
-  }, [inputValue, isStreaming, sendMessage]);
+  }, [inputValue, isStreaming, deliverMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -451,9 +544,9 @@ const ChatPanelContent = () => {
 
   const handleSuggestionSelect = useCallback(
     (prompt: string) => {
-      sendMessage(prompt);
+      deliverMessage(prompt);
     },
-    [sendMessage],
+    [deliverMessage],
   );
 
   return (
@@ -504,6 +597,26 @@ const ChatPanelContent = () => {
         }}
       >
         {pendingPermission && <ToolPermissionPrompt request={pendingPermission} onRespond={respondToPermission} />}
+        {errorCode && RECOVERABLE_ERROR_CODES.has(errorCode) && (
+          <RecoverableErrorCallout errorCode={errorCode} error={error} onOpenSettings={onOpenSettings} />
+        )}
+        {(pendingKeyMessage != null || errorCode === AssistantErrorCode.ApiKeyMissing) && activeProvider && (
+          <ApiKeyPrompt
+            providerId={activeProvider.name}
+            providerName={
+              (activeProvider.name === GATEWAY_PROVIDER_ID && activeProvider.model_provider
+                ? getLlmProviderDisplay(activeProvider.model_provider)?.name
+                : undefined) ??
+              getAssistantProvider(activeProvider.name)?.name ??
+              activeProvider.name
+            }
+            gatewayVendor={
+              activeProvider.name === GATEWAY_PROVIDER_ID ? (activeProvider.model_provider ?? undefined) : undefined
+            }
+            providerModel={activeProvider.provider_model}
+            onSaved={handleApiKeySaved}
+          />
+        )}
         <div
           css={{
             display: 'flex',
@@ -555,7 +668,15 @@ const ChatPanelContent = () => {
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
             }}
           >
-            {selectedProvider && <ProviderIndicator provider={selectedProvider} />}
+            {activeProvider && (
+              <AssistantProviderPicker
+                provider={activeProvider}
+                providers={providers}
+                gatewayVendorOptions={gatewayVendorOptions}
+                disabled={!isLocalServer}
+                onSelect={selectProvider}
+              />
+            )}
             <div css={{ flex: 1 }} />
             {tokenUsage.totalTokens > 0 && (
               <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
@@ -701,11 +822,57 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
+const RemoteSetupRequiredMessage = ({ onClose }: { onClose: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 0,
+        padding: theme.spacing.lg,
+        paddingBottom: theme.spacing.lg * 3,
+        gap: theme.spacing.lg,
+      }}
+    >
+      <WrenchSparkleIcon color="ai" css={{ fontSize: 64, opacity: 0.5 }} />
+
+      <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
+        <FormattedMessage
+          defaultMessage="Assistant setup required"
+          description="Title shown when a remote client cannot configure Assistant setup"
+        />
+      </Typography.Title>
+
+      <Typography.Text
+        color="secondary"
+        css={{
+          fontSize: theme.typography.fontSizeMd,
+          textAlign: 'center',
+          maxWidth: 400,
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup."
+          description="Message explaining that Assistant setup must be completed locally by a server admin"
+        />
+      </Typography.Text>
+
+      <Button componentId="mlflow.assistant.chat_panel.remote_setup_close" onClick={onClose}>
+        <FormattedMessage defaultMessage="Close" description="Button to close the assistant panel on remote servers" />
+      </Button>
+    </div>
+  );
+};
+
 /**
- * Setup prompt shown when assistant is not set up yet.
- * Shows empty state illustration and setup button.
+ * Empty state shown when no assistant provider can be resolved.
  */
-const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
+const SetupPrompt = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -721,10 +888,6 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
       }}
     >
       <AssistantWelcomeCarousel />
-
-      <Button componentId="mlflow.assistant.chat_panel.setup" type="primary" onClick={onSetup}>
-        Get Started
-      </Button>
     </div>
   );
 };
@@ -737,7 +900,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, isLocalServer, refreshConfig } =
     useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
@@ -752,22 +915,18 @@ export const AssistantChatPanel = () => {
     reset();
   }, [reset]);
 
-  const handleStartSetup = useCallback(() => {
-    setCurrentView('setup-wizard');
-  }, []);
-
-  const handleSetupComplete = useCallback(() => {
-    setCurrentView('chat');
-    completeSetup();
-  }, [completeSetup]);
-
   const handleOpenSettings = useCallback(() => {
     setCurrentView('settings');
   }, []);
 
   const handleBackFromSettings = useCallback(() => {
+    // Re-read the config so the composer's provider indicator reflects any
+    // change made in settings; without this it stays stale until a reload.
+    // `silent` avoids flashing the full-panel loading state over the chat,
+    // since the panel is already open during back-navigation.
+    refreshConfig({ silent: true });
     setCurrentView('chat');
-  }, []);
+  }, [refreshConfig]);
 
   const renderContent = () => {
     // Show message when this client isn't allowed to use the Assistant
@@ -781,24 +940,21 @@ export const AssistantChatPanel = () => {
       return <SetupLoadingState />;
     }
 
+    if (!isLocalServer && !setupComplete) {
+      return <RemoteSetupRequiredMessage onClose={handleClose} />;
+    }
+
     switch (currentView) {
-      case 'setup-wizard':
-        return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
       case 'settings':
-        return (
-          <AssistantSetupWizard
-            experimentId={experimentId}
-            onComplete={handleSetupComplete}
-            initialStep="provider"
-            onBack={handleBackFromSettings}
-          />
-        );
+        return <AssistantSettingsPage experimentId={experimentId} onBack={handleBackFromSettings} />;
       case 'chat':
       default:
+        // With server-side default resolution this only happens when nothing is
+        // usable at all (e.g. a fresh remote-accessible server with no gateway endpoint).
         if (!setupComplete) {
-          return <SetupPrompt onSetup={handleStartSetup} />;
+          return <SetupPrompt />;
         }
-        return <ChatPanelContent />;
+        return <ChatPanelContent onOpenSettings={handleOpenSettings} />;
     }
   };
 

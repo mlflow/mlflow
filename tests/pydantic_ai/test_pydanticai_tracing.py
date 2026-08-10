@@ -5,6 +5,11 @@ from unittest.mock import patch
 
 import pytest
 from packaging.version import Version
+
+PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
+if PYDANTIC_AI_VERSION.major >= 2:
+    pytest.skip("Pydantic AI 1.x tracing tests", allow_module_level=True)
+
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.usage import Usage
@@ -28,7 +33,6 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
-PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 # Usage was deprecated in favor of RequestUsage in 0.7.3
 IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 HAS_INSTRUMENTATION_CAPABILITY = _has_instrumentation_capability()

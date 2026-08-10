@@ -110,6 +110,7 @@ export const ModelTraceExplorerDetailView = ({
     rootNode,
     activeTab,
     setActiveTab,
+    setSelectedNodeAndTab,
     showGraph,
     setShowGraph,
     updatePaneSizeRatios,
@@ -257,7 +258,7 @@ export const ModelTraceExplorerDetailView = ({
     treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
-    setActiveTab,
+    setSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
   });

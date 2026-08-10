@@ -130,10 +130,10 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
 
     try:
         import textstat
-    except ImportError:
+    except ImportError as e:
         _logger.warning(
-            "Failed to import textstat for flesch kincaid metric, skipping metric logging. "
-            "Please install textstat using 'pip install textstat'."
+            f"Failed to import textstat for flesch kincaid metric (error: {e!r}), "
+            "skipping metric logging. Please install textstat using 'pip install textstat'."
         )
         return
 
@@ -150,11 +150,10 @@ def _ari_eval_fn(predictions, targets=None, metrics=None):
 
     try:
         import textstat
-    except ImportError:
+    except ImportError as e:
         _logger.warning(
-            "Failed to import textstat for automated readability index metric, "
-            "skipping metric logging. "
-            "Please install textstat using 'pip install textstat'."
+            f"Failed to import textstat for automated readability index metric (error: {e!r}), "
+            "skipping metric logging. Please install textstat using 'pip install textstat'."
         )
         return
 

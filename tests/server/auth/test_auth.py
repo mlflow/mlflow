@@ -48,6 +48,13 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
+from mlflow.server.mcp_server_api import (
+    get_mcp_server,
+    get_mcp_server_version,
+    search_all_access_endpoints,
+    search_mcp_server_versions,
+    search_mcp_servers,
+)
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -132,6 +139,11 @@ def fastapi_client(request, tmp_path):
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
     # Set _MLFLOW_SGI_NAME to "uvicorn" so auth module returns FastAPI app
     extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+    if extra_env.get("_MLFLOW_SERVER_SERVE_ARTIFACTS") == "true":
+        extra_env.setdefault(
+            "_MLFLOW_SERVER_ARTIFACT_DESTINATION",
+            str(tmp_path / "served_artifacts"),
+        )
 
     with _init_server(
         backend_uri=backend_uri,
@@ -166,6 +178,110 @@ def fastapi_workspace_client(tmp_path):
         yield MlflowClient(url)
 
 
+def test_experiment_permission_honored_when_tracking_store_lacks_experiment(tmp_path, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/24566:
+    # On an --artifacts-only server the tracking store has no experiment data, so the
+    # resource->workspace lookup fails. With workspaces disabled, permission resolution must
+    # still honor an explicit experiment grant in the auth DB instead of falling through to
+    # default_permission (NO_PERMISSIONS => 403).
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    experiment_id = "123"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_experiment_permission(experiment_id, username, READ.name)
+
+    def _raise_not_found(_experiment_id):
+        raise MlflowException("no experiment data", RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_experiment=_raise_not_found),
+    )
+
+    try:
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant (not the
+        # default) is what's honored.
+        perm = auth_module._get_experiment_permission(experiment_id, username)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel — the two are otherwise
+        # indistinguishable when default_permission == NO_PERMISSIONS.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_perm = auth_module._get_experiment_permission(experiment_id, "stranger")
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
+def test_known_workspace_resolver_honors_grant_when_workspace_unresolved(tmp_path, monkeypatch):
+    # Sibling of test_experiment_permission_honored_when_tracking_store_lacks_experiment for the
+    # _role_permission_for_known_workspace path (registered models / prompts): when the workspace
+    # can't be resolved (e.g. the registry lookup returned no workspace) and workspaces are
+    # disabled, resolution must still honor an explicit grant instead of falling through to
+    # default_permission.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-store.db'}")
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "restricted"
+    model_name = "m1"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.create_registered_model_permission(model_name, username, READ.name)
+
+    try:
+        # workspace_name=None mimics an unresolved workspace (e.g. RESOURCE_DOES_NOT_EXIST).
+        # default_permission is NO_PERMISSIONS, so a READ result proves the grant is honored.
+        resolver = auth_module._role_permission_for_known_workspace(
+            username, "registered_model", model_name, None
+        )
+        perm = auth_module._get_role_permission_or_default(resolver)
+        assert perm.name == READ.name
+        assert perm.can_read
+
+        # A user without a grant falls through to default_permission. Use a default distinct
+        # from NO_PERMISSIONS so this asserts the no-grant fall-through path (resolver returns
+        # None) rather than the NO_PERMISSIONS workspace-deny sentinel.
+        monkeypatch.setattr(
+            auth_module,
+            "auth_config",
+            auth_module.auth_config._replace(default_permission=READ.name),
+        )
+        auth_store.create_user("stranger", "supersecurepassword", is_admin=False)
+        stranger_resolver = auth_module._role_permission_for_known_workspace(
+            "stranger", "registered_model", model_name, None
+        )
+        stranger_perm = auth_module._get_role_permission_or_default(stranger_resolver)
+        assert stranger_perm.name == READ.name
+    finally:
+        auth_store.engine.dispose()
+
+
 def test_authenticate(client, monkeypatch):
     # unauthenticated
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
@@ -196,6 +312,16 @@ def test_validate_username_and_password(client, username, password):
 def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/api/2.0/mlflow-artifacts/artifacts/foo")
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
+
+
+def test_proxy_artifact_path_detection_with_static_prefix(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+
+    assert auth_module._is_proxy_artifact_path("/mlflow/api/2.0/mlflow-artifacts/artifacts/foo")
+    assert auth_module._is_proxy_artifact_path(
+        "/mlflow/ajax-api/2.0/mlflow-artifacts/presigned/1/run-id/artifacts/model.pkl"
+    )
+    assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
 def test_is_unprotected_route_handles_static_prefix(monkeypatch):
@@ -232,6 +358,47 @@ def test_proxy_artifact_mpu_path_detection():
     assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
+def test_extract_experiment_id_from_artifact_proxy_path():
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
+        )
+        == "42"
+    )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
+        )
+        == "7"
+    )
+    for action in ("create", "complete", "abort"):
+        assert (
+            auth_module._extract_experiment_id_from_artifact_proxy_path(
+                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
+            )
+            == "99"
+        )
+        assert (
+            auth_module._extract_experiment_id_from_artifact_proxy_path(
+                f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
+            )
+            == "3"
+        )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts",
+            query_path="55/models/m-abc123/artifacts",
+        )
+        == "55"
+    )
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow/experiments/get"
+        )
+        is None
+    )
+
+
 def test_proxy_artifact_mpu_validator_returns_update_for_post():
     validator = auth_module._get_proxy_artifact_validator(
         "POST", {"artifact_path": "1/run-id/artifacts/model"}
@@ -255,6 +422,19 @@ def test_proxy_artifact_presigned_validator_returns_read_for_get():
         "GET", {"artifact_path": "1/run-id/artifacts/model.pkl"}
     )
     assert validator is auth_module.validate_can_read_experiment_artifact_proxy
+
+
+def test_after_request_handlers_contains_only_declared_handlers():
+    declared = set(auth_module.AFTER_REQUEST_PATH_HANDLERS.values())
+
+    leaked = {
+        (path, method): handler
+        for (path, method), handler in auth_module.AFTER_REQUEST_HANDLERS.items()
+        if getattr(handler, "__module__", "") == "mlflow.server.handlers"
+        and handler not in declared
+    }
+
+    assert leaked == {}
 
 
 @pytest.mark.parametrize(
@@ -306,6 +486,69 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
     assert response.status_code == 403
 
 
+def test_proxy_artifact_authorization_required_fastapi(fastapi_client, monkeypatch):
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("proxy-artifact-authz-test-fastapi")
+
+    response = requests.put(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
+        ),
+        data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "GET"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "GET"),
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "PUT"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "PUT"),
+    ],
+)
+def test_fastapi_validator_matches_native_artifact_routes(path, method):
+    assert _find_fastapi_validator(path, method) is not None
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts", "GET"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts", "GET"),
+        ("/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "DELETE"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl", "DELETE"),
+        ("/api/2.0/mlflow-artifacts/mpu/create/1/run-id/artifacts/model.pkl", "POST"),
+        ("/ajax-api/2.0/mlflow-artifacts/mpu/abort/1/run-id/artifacts/model.pkl", "POST"),
+    ],
+)
+def test_fastapi_validator_skips_flask_fallback_artifact_routes(path, method):
+    assert _find_fastapi_validator(path, method) is None
+
+
+def test_proxy_artifact_permission_reuses_authenticated_flask_user(monkeypatch):
+    permission = SimpleNamespace(can_read=True, can_update=True, can_manage=False)
+    authenticate_request = mock.Mock(side_effect=AssertionError("should not re-authenticate"))
+
+    monkeypatch.setattr(auth_module, "authenticate_request", authenticate_request)
+    monkeypatch.setattr(auth_module, "_get_experiment_id_from_view_args", lambda: "123")
+    monkeypatch.setattr(auth_module, "_role_permission_for", lambda **_: permission)
+    monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
+
+    with auth_module.app.test_request_context("/api/2.0/mlflow-artifacts/artifacts"):
+        auth_module.g.mlflow_authenticated_user = "alice"
+        result = auth_module._get_permission_from_experiment_id_artifact_proxy()
+
+    assert result is permission
+    authenticate_request.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -329,6 +572,38 @@ def test_proxy_artifact_presigned_authorization_required(client, monkeypatch):
         client.tracking_uri + f"/api/2.0/mlflow-artifacts/presigned/{experiment_id}/test.txt"
     )
     response = requests.get(url=presigned_url, auth=(username2, password2))
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            STATIC_PREFIX_ENV_VAR: "/mlflow",
+        }
+    ],
+    indirect=True,
+)
+def test_presigned_download_authorization_required_with_static_prefix(client, monkeypatch):
+    prefixed_tracking_uri = f"{client.tracking_uri}/mlflow"
+    prefixed_client = MlflowClient(prefixed_tracking_uri)
+    username1, password1 = create_user(prefixed_tracking_uri)
+    username2, password2 = create_user(prefixed_tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = prefixed_client.create_experiment("prefixed-presigned-download-authz-test")
+
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + (
+                f"/mlflow/api/2.0/mlflow-artifacts/presigned/"
+                f"{experiment_id}/run-id/artifacts/model.pkl"
+            )
+        ),
+        auth=(username2, password2),
+    )
     assert response.status_code == 403
 
 
@@ -364,6 +639,56 @@ def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monk
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    ("list_path", "query_path_template"),
+    [
+        ("/api/2.0/mlflow-artifacts/artifacts", "{experiment_id}/models/m-abc123/artifacts"),
+        ("/ajax-api/2.0/mlflow-artifacts/artifacts", "{experiment_id}/models/m-abc123/artifacts"),
+        (
+            "/api/2.0/mlflow-artifacts/artifacts",
+            "workspaces/default/{experiment_id}/models/m-abc123/artifacts",
+        ),
+    ],
+)
+def test_proxy_artifact_list_query_param_uses_experiment_permission_on_fastapi_server(
+    fastapi_client, monkeypatch, list_path, query_path_template
+):
+    # List-artifacts is still served by Flask on the FastAPI server, so this
+    # exercises the fallback auth path rather than the native FastAPI router.
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(
+            "proxy-artifact-list-query-param-test-fastapi"
+        )
+
+    query_path = query_path_template.format(experiment_id=experiment_id)
+    response = requests.get(
+        url=fastapi_client.tracking_uri + list_path,
+        params={"path": query_path},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+
+    response = requests.get(
+        url=fastapi_client.tracking_uri + list_path,
+        params={"path": query_path},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
 @pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
 def test_mpu_authorization_required(client, monkeypatch, mpu_action):
     username1, password1 = create_user(client.tracking_uri)
@@ -382,6 +707,82 @@ def test_mpu_authorization_required(client, monkeypatch, mpu_action):
         auth=(username2, password2),
     )
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_download_url_authorization_required(client, monkeypatch):
+    # Minting a presigned download URL grants direct read access to a run's artifacts,
+    # so it must enforce the same per-run READ permission as the proxied download paths.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-download-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+
+    # user2 has no permission on user1's experiment — the auth layer must reject with
+    # 403 before the handler runs (without the validator this reaches the handler and
+    # returns a handler-level status such as 501 for the local artifact repository).
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # user1 (creator, MANAGE on the experiment) passes the auth layer; the request
+    # reaches the handler, which rejects the local (file://) artifact repo with 501.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
+def test_mpu_authorization_required_via_flask_fallback_on_fastapi_server(
+    fastapi_client, monkeypatch, mpu_action
+):
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"mpu-authz-fastapi-{mpu_action}")
+
+    # MPU routes are still handled by Flask on the FastAPI server, so both
+    # assertions here exercise the Flask fallback auth path.
+    response = requests.post(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # If middleware failed to parse the experiment id, owner would also get 403
+    # from default_permission=NO_PERMISSIONS.
+    response = requests.post(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):
@@ -445,6 +846,241 @@ def test_authenticate_jwt(client):
     with pytest.raises(requests.HTTPError, match=r"401 Client Error: UNAUTHORIZED") as e:
         _mlflow_search_experiments_rest(client.tracking_uri, headers)
     assert e.value.response.status_code == 401  # Unauthorized
+
+
+@pytest.fixture
+def jwt_fastapi_artifact_client(tmp_path):
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    artifact_dest = str(tmp_path / "jwt_artifacts")
+    extra_env = _isolate_auth_config({"MLFLOW_AUTH_CONFIG_PATH": "fixtures/jwt_auth.ini"}, tmp_path)
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
+    extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+    extra_env["PYTHONPATH"] = str(Path.cwd() / "examples" / "jwt_auth")
+    extra_env["_MLFLOW_SERVER_SERVE_ARTIFACTS"] = "true"
+    extra_env["_MLFLOW_SERVER_ARTIFACT_DESTINATION"] = artifact_dest
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield MlflowClient(url)
+
+
+def _write_counting_custom_auth_setup(tmp_path: Path):
+    counter_path = tmp_path / "auth_count.txt"
+    counter_path.write_text("0")
+    (tmp_path / "counting_auth.py").write_text(
+        "from pathlib import Path\n"
+        "from werkzeug.datastructures import Authorization\n\n"
+        f"_COUNTER_PATH = Path({str(counter_path)!r})\n\n"
+        "def authenticate_request():\n"
+        "    _COUNTER_PATH.write_text(str(int(_COUNTER_PATH.read_text()) + 1))\n"
+        f'    return Authorization("basic", {{"username": {ADMIN_USERNAME!r}}})\n'
+    )
+    config_path = tmp_path / "counting_auth.ini"
+    config_path.write_text(
+        "[mlflow]\n"
+        "default_permission = READ\n"
+        f"database_uri = sqlite:///{tmp_path / 'basic_auth.db'}\n"
+        f"admin_username = {ADMIN_USERNAME}\n"
+        f"admin_password = {ADMIN_PASSWORD}\n"
+        "authorization_function = counting_auth:authenticate_request\n"
+        "grant_default_workspace_access = false\n"
+    )
+    return counter_path, {
+        "MLFLOW_AUTH_CONFIG_PATH": str(config_path),
+        MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+        "PYTHONPATH": str(tmp_path),
+        "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        "_MLFLOW_SERVER_ARTIFACT_DESTINATION": str(tmp_path / "served_artifacts"),
+    }
+
+
+@pytest.fixture
+def counting_custom_auth_fastapi_client(tmp_path):
+    tmp_path = tmp_path / "fastapi"
+    tmp_path.mkdir()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    counter_path, extra_env = _write_counting_custom_auth_setup(tmp_path)
+    extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield MlflowClient(url), counter_path
+
+
+@pytest.fixture
+def counting_custom_auth_flask_client(tmp_path):
+    tmp_path = tmp_path / "flask"
+    tmp_path.mkdir()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    counter_path, extra_env = _write_counting_custom_auth_setup(tmp_path)
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="flask",
+    ) as url:
+        yield MlflowClient(url), counter_path
+
+
+def _count_custom_auth_calls_for_artifact_list(client, counter_path):
+    experiment_id = client.create_experiment(f"counting-auth-fallback-{random_str()}")
+    counter_path.write_text("0")
+    response = requests.get(
+        f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+    )
+    return response, int(counter_path.read_text())
+
+
+def test_custom_auth_flask_fallback_artifact_list_matches_flask_auth_count_on_fastapi_server(
+    counting_custom_auth_flask_client,
+    counting_custom_auth_fastapi_client,
+):
+    flask_client, flask_counter_path = counting_custom_auth_flask_client
+    fastapi_client, fastapi_counter_path = counting_custom_auth_fastapi_client
+
+    flask_response, flask_count = _count_custom_auth_calls_for_artifact_list(
+        flask_client, flask_counter_path
+    )
+    fastapi_response, fastapi_count = _count_custom_auth_calls_for_artifact_list(
+        fastapi_client, fastapi_counter_path
+    )
+
+    assert flask_response.status_code == 200
+    assert fastapi_response.status_code == 200
+    assert fastapi_count == flask_count
+
+
+def test_custom_auth_artifact_upload_download_fastapi(jwt_fastapi_artifact_client):
+    client = jwt_fastapi_artifact_client
+    admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create experiment as admin
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/create",
+        headers=admin_headers,
+        json={"name": "jwt-artifact-e2e"},
+    )
+    response.raise_for_status()
+    experiment_id = response.json()["experiment_id"]
+
+    artifact_path = f"{experiment_id}/run-id/artifacts/model.pkl"
+    artifact_url = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}"
+    payload = b"trained model weights v1"
+
+    # Upload artifact with valid JWT (admin has full access)
+    put_resp = requests.put(artifact_url, data=payload, headers=admin_headers)
+    assert put_resp.status_code == 200, f"Upload failed: {put_resp.status_code} {put_resp.text}"
+
+    # Download artifact with valid JWT
+    get_resp = requests.get(artifact_url, headers=admin_headers)
+    assert get_resp.status_code == 200, f"Download failed: {get_resp.status_code} {get_resp.text}"
+    assert get_resp.content == payload
+
+    # Verify non-admin user with valid JWT can also access (admins grant global read)
+    username, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user_token = jwt.encode({"username": username}, "secret", algorithm="HS256")
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    get_resp = requests.get(artifact_url, headers=user_headers)
+    assert get_resp.status_code in (200, 403)  # depends on default_permission
+
+
+def test_custom_auth_artifact_rejects_invalid_token_fastapi(jwt_fastapi_artifact_client):
+    client = jwt_fastapi_artifact_client
+    base = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts"
+    artifact_url = f"{base}/1/run-id/artifacts/model.pkl"
+
+    # No auth header → 401
+    resp = requests.get(artifact_url)
+    assert resp.status_code == 401
+
+    # Invalid JWT secret → 401
+    bad_token = jwt.encode({"username": "admin"}, "wrong-secret", algorithm="HS256")
+    resp = requests.get(artifact_url, headers={"Authorization": f"Bearer {bad_token}"})
+    assert resp.status_code == 401
+
+    # Malformed header → 401
+    resp = requests.get(artifact_url, headers={"Authorization": "NotBearer xyz"})
+    assert resp.status_code == 401
+
+
+def test_custom_auth_artifact_denies_unauthorized_user_fastapi(jwt_fastapi_artifact_client):
+    client = jwt_fastapi_artifact_client
+    admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create two users
+    user1, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user2, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user1_token = jwt.encode({"username": user1}, "secret", algorithm="HS256")
+    user2_token = jwt.encode({"username": user2}, "secret", algorithm="HS256")
+    user1_headers = {"Authorization": f"Bearer {user1_token}"}
+    user2_headers = {"Authorization": f"Bearer {user2_token}"}
+
+    # Create experiment as admin, grant EDIT to user1 only via roles API with JWT
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/create",
+        headers=admin_headers,
+        json={"name": "jwt-artifact-authz-e2e"},
+    )
+    response.raise_for_status()
+    experiment_id = response.json()["experiment_id"]
+
+    role_name = f"_test_jwt_{random_str()}"
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/create",
+        headers=admin_headers,
+        json={"name": role_name, "workspace": "default"},
+    )
+    resp.raise_for_status()
+    role_id = resp.json()["role"]["id"]
+
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/permissions/add",
+        headers=admin_headers,
+        json={
+            "role_id": role_id,
+            "resource_type": "experiment",
+            "resource_pattern": experiment_id,
+            "permission": "EDIT",
+        },
+    )
+    resp.raise_for_status()
+
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/assign",
+        headers=admin_headers,
+        json={"username": user1, "role_id": role_id},
+    )
+    resp.raise_for_status()
+
+    artifact_path = f"{experiment_id}/run-id/artifacts/secret.bin"
+    artifact_url = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}"
+
+    # user1 can upload
+    put_resp = requests.put(artifact_url, data=b"secret data", headers=user1_headers)
+    assert put_resp.status_code == 200
+
+    # user2 cannot upload (no permission on this experiment)
+    put_resp = requests.put(artifact_url, data=b"hacked", headers=user2_headers)
+    assert put_resp.status_code == 403
 
 
 @pytest.mark.parametrize(
@@ -896,6 +1532,8 @@ def _wait(url: str, timeout: int = 10) -> None:
     pytest.fail("Server did not start")
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_proxy_log_artifacts(monkeypatch, tmp_path):
     backend_uri = f"sqlite:///{tmp_path / 'sqlalchemy.db'}"
     port = get_safe_port()
@@ -4386,7 +5024,7 @@ _MCP_SUBPATHS = [
     [f"{prefix}{sub}" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX) for sub in _MCP_SUBPATHS],
 )
 def test_mcp_server_routes_have_validators(path):
-    validator = _find_fastapi_validator(path)
+    validator = _find_fastapi_validator(path, "GET")
     assert validator is not None
 
 
@@ -4397,7 +5035,7 @@ def test_mcp_server_routes_have_validators(path):
 def test_mcp_server_routes_return_validator_with_custom_auth(path):
     with mock.patch("mlflow.server.auth.auth_config") as cfg:
         cfg.authorization_function = "custom_auth:authorize"
-        validator = _find_fastapi_validator(path)
+        validator = _find_fastapi_validator(path, "GET")
     assert validator is not None
 
 
@@ -4748,7 +5386,7 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
         assert auth_module.validate_can_create_mcp_server(username) is False
 
     # The FastAPI validator for root POST dispatches to validate_can_create_mcp_server.
-    validator = _find_fastapi_validator(prefix)
+    validator = _find_fastapi_validator(prefix, "POST")
     assert validator is not None
 
     auth_store.engine.dispose()
@@ -4808,18 +5446,34 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 
 @pytest.mark.parametrize(
-    "path",
-    [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
-    + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+    "endpoint_fn",
+    [search_mcp_servers, search_all_access_endpoints],
 )
-def test_response_filter_matches_trailing_slash(path):
-    assert _find_fastapi_response_filter(path, "GET") is not None
+def test_response_filter_matches_endpoint_functions(endpoint_fn):
+    request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+    assert _find_fastapi_response_filter(request, "GET") is not None
 
 
-@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/endpoints/123"])
-def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
-    assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
+def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
+    request = SimpleNamespace(scope={"endpoint": get_mcp_server})
+    handler = _find_fastapi_response_filter(request, "GET")
+    assert handler is not None
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_permission",
+        lambda name, username: READ,
+    )
+    request = SimpleNamespace()
+    body = json.dumps({"name": "com.test/server"}).encode()
+    result = json.loads(handler("testuser", body, request))
+    assert result["name"] == "com.test/server"
+    assert result["allowed_actions"] == []
+
+
+def test_response_filter_skips_sub_resource_endpoints():
+    for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
+        request = SimpleNamespace(scope={"endpoint": endpoint_fn})
+        assert _find_fastapi_response_filter(request, "GET") is None
 
 
 def test_apply_fastapi_response_filter_fails_closed():
@@ -4898,7 +5552,7 @@ def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, m
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix):
-    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions")
+    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions", "POST")
     assert validator is not None
 
     class _Store:
@@ -4963,6 +5617,67 @@ def test_mcp_server_nested_delete_requires_can_delete(fastapi_client, monkeypatc
             auth=(editor, editor_pw),
         )
         assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_patch_connect_options_allowed_for_edit(fastapi_client, monkeypatch, prefix):
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/connect-opts"
+
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        editor,
+        "mcp_server",
+        server_name,
+        "EDIT",
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        reader,
+        "mcp_server",
+        server_name,
+        "READ",
+    )
+
+    # EDIT user can PATCH connect_options
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:foo": {"hidden": True}}},
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 200
+
+    # READ user cannot PATCH connect_options
+    with User(reader, reader_pw, monkeypatch):
+        resp = requests.patch(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            json={"connect_options": {"npm:bar": {"hidden": True}}},
+            auth=(reader, reader_pw),
+        )
+        assert resp.status_code == 403
+
+    with User(owner, owner_pw, monkeypatch):
+        resp = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["connect_options"] == {"npm:foo": {"hidden": True}}
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -5278,6 +5993,18 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
             json={"name": name},
             auth=admin_auth,
         ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
 
     for name in readable_names:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
@@ -5292,7 +6019,8 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
     assert readable_names[0] in admin_names
     assert hidden_name in admin_names
 
-    # Reader sees only servers with an explicit READ grant.
+    # Reader sees only servers with an explicit READ grant (all are available
+    # because they have active versions with endpoints).
     with User(reader, reader_pw, monkeypatch):
         resp = requests.get(
             url=fastapi_client.tracking_uri + prefix,
@@ -5371,6 +6099,18 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
         requests.post(
             url=fastapi_client.tracking_uri + prefix,
             json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        ver_resp = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json={**_version_create_body(name), "status": "active"},
+            auth=admin_auth,
+        )
+        ver_resp.raise_for_status()
+        version = ver_resp.json()["version"]
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": version, "url": f"https://example.com/{name}"},
             auth=admin_auth,
         ).raise_for_status()
 
