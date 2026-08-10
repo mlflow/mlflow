@@ -172,7 +172,6 @@ dev = [
   { include-group = "test" },
   { include-group = "build" },
   "mlflow-test-plugin",
-  "skills",
 ]
 lint = [
   "ruff==0.16.0",
@@ -185,6 +184,7 @@ lint = [
   "clint",
   "flavors",
   "pypi",
+  "skills",
   "pyyaml>=6.0.2",
   "types-PyYAML",
   "packaging>=25.0",
