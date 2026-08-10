@@ -359,6 +359,18 @@ class Scorer(BaseModel):
 
         return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
+    def _set_registration_metadata(
+        self,
+        *,
+        backend: str,
+        experiment_id: str | None,
+        sampling_config: ScorerSamplingConfig | None,
+    ) -> "Scorer":
+        self._registered_backend = backend
+        self._experiment_id = experiment_id
+        self._sampling_config = sampling_config
+        return self
+
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
         base_repr = super().__repr__()
@@ -983,7 +995,12 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+        sample_rate = sampling_config.sample_rate
+        if not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be a number"
+            )
+        if sample_rate <= 0:
             raise MlflowException.invalid_parameter_value(
                 "When starting a scorer, provided sample rate must be greater than 0"
             )
@@ -992,10 +1009,10 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
-                sample_rate=sampling_config.sample_rate,
+                sample_rate=sample_rate,
                 filter_string=sampling_config.filter_string,
                 experiment_id=experiment_id,
             )
@@ -1008,7 +1025,7 @@ class Scorer(BaseModel):
         return store.upsert_online_scoring_config(
             scorer=self,
             experiment_id=exp_id,
-            sample_rate=sampling_config.sample_rate,
+            sample_rate=sample_rate,
             filter_string=sampling_config.filter_string,
         )
 
@@ -1071,14 +1088,20 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        sample_rate = sampling_config.sample_rate
+        if sample_rate is not None and not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When updating a scorer, provided sample rate must be a number"
+            )
+
         scorer_name = name or self.name
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
-                sample_rate=sampling_config.sample_rate,
+                sample_rate=sample_rate,
                 filter_string=sampling_config.filter_string,
                 experiment_id=experiment_id,
             )
@@ -1091,7 +1114,7 @@ class Scorer(BaseModel):
         return store.upsert_online_scoring_config(
             scorer=self,
             experiment_id=exp_id,
-            sample_rate=sampling_config.sample_rate,
+            sample_rate=sample_rate,
             filter_string=sampling_config.filter_string,
         )
 

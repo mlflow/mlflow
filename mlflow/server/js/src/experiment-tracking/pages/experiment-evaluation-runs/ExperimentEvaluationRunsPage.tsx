@@ -39,7 +39,7 @@ import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
-import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
+import { getGroupByRunsData, getNestedRuns } from './ExperimentEvaluationRunsPage.utils';
 import {
   ExperimentEvaluationRunsPageMode,
   useExperimentEvaluationRunsPageMode,
@@ -281,7 +281,20 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
-  const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
+  const runsAndGroupValues = useMemo(() => {
+    const runsArray = runs ?? [];
+
+    if (groupBy) return getGroupByRunsData(runsArray, groupBy);
+
+    // Similar to Model training mode, if there's grouping, parent-child view will be disabled.
+    const shouldNest = !groupBy;
+
+    if (shouldNest) {
+      return getNestedRuns(runsArray);
+    }
+
+    return runsArray;
+  }, [runs, groupBy]);
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
