@@ -99,9 +99,17 @@ def _get_profile_from_uri(tracking_uri: str | None) -> str:
     URI selects the profile named by ``DATABRICKS_CONFIG_PROFILE``, or ``DEFAULT``.
     Naming this in an export-failure message tells the user which credential was
     attempted so they can spot a wrong-profile misconfiguration.
+
+    ``get_db_info_from_uri`` raises ``MlflowException`` for malformed URIs (e.g.
+    a single-slash ``databricks:/host``). This function catches that so the caller
+    — which already lives inside an exception handler — can never propagate a
+    secondary exception, per the best-effort tracing contract from issue #24689.
     """
-    profile, _ = get_db_info_from_uri(tracking_uri)
-    return profile or os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
+    try:
+        profile, _ = get_db_info_from_uri(tracking_uri)
+        return profile or os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
+    except Exception:
+        return os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
 
 
 class MlflowV3SpanExporter(SpanExporter):

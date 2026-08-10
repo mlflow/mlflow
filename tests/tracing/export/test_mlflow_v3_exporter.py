@@ -394,6 +394,48 @@ def test_export_error_names_tracking_uri_and_profile(is_async, monkeypatch):
     assert any("profile: 'myworkspace'" in msg for msg in error_msgs)
 
 
+def test_log_trace_does_not_raise_on_malformed_tracking_uri(monkeypatch):
+    """Regression test for issue #24689.
+
+    ``_get_profile_from_uri`` calls ``get_db_info_from_uri``, which raises
+    ``MlflowException`` for malformed Databricks URIs (e.g. a single-slash
+    ``databricks:/host``).  That call lives inside the ``_log_trace`` exception
+    handler, so a secondary raise here would violate the best-effort tracing
+    contract.  The handler must log and return without propagating.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    # A single-slash Databricks URI is valid enough for is_databricks_uri() to
+    # return True, but get_db_info_from_uri() raises MlflowException on it
+    # because the netloc is empty.
+    malformed_uri = "databricks:/single-slash-malformed"
+    exporter = MlflowV3SpanExporter(tracking_uri=malformed_uri)
+
+    # Create a minimal fake Trace to drive _log_trace.
+    trace_info = create_test_trace_info("test-trace-123", experiment_id=_EXPERIMENT_ID)
+    from mlflow.entities.trace_data import TraceData
+
+    fake_trace = mock.MagicMock()
+    fake_trace.info = trace_info
+    fake_trace.data = TraceData()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=Exception("token refresh: cache update: exit status 45"),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        # Must not raise, even though the tracking URI is malformed
+        exporter._log_trace(fake_trace, prompts=[], workspace=None)
+
+    # The auth failure should be logged at ERROR, not raised
+    mock_logger.error.assert_called()
+    error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
+    assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
