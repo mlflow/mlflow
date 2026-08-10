@@ -54,3 +54,5 @@ litellm
 fakeredis[lua]
 # required for testing claude_code tracing
 claude-agent-sdk
+# required for testing zstd-compressed gateway request bodies
+zstandard
