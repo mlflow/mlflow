@@ -4,7 +4,6 @@ description: Find likely duplicates of a GitHub issue and write their numbers to
 disable-model-invocation: true
 allowed-tools:
   - Bash(gh issue view:*)
-  - Bash(gh issue list:*)
   - Bash(gh search issues:*)
   - Write(//tmp/dedupe-payload.json)
 argument-hint: "<owner_repo> <issue_number>"
