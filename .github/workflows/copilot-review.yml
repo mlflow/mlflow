@@ -27,7 +27,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh pr edit "$PR_NUMBER" \
-            --repo "$REPO" \
-            --add-reviewer @copilot
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-reviewer @copilot
