@@ -135,6 +135,8 @@ jobs:
             | join("\n")
           ' <<< "$DUPLICATES")
           {
+            # Marker the skill greps for, so a re-run does not comment twice.
+            echo "<!-- issue-dedupe -->"
             echo "Found $count possible duplicate issue(s):"
             echo
             echo "$links"

@@ -43,7 +43,7 @@ anything yourself.
 
 ## Instructions
 
-1. Read the issue: `gh issue view $issue_number --repo $owner_repo`.
+1. Read the issue: `gh issue view $issue_number --repo $owner_repo --comments`.
 
 2. Stop without writing the file if any of these hold:
 
@@ -51,7 +51,8 @@ anything yourself.
    - There is nothing specific to match on: broad product feedback, a support
      question, positive feedback, or a feature idea with no concrete behavior.
    - It is a security report.
-   - It already has a "possible duplicate" comment from an earlier run.
+   - It already has a comment containing `<!-- issue-dedupe -->`, the marker this
+     workflow stamps on its own comments, meaning an earlier run already ran.
 
 3. Summarize the issue in two or three sentences: the observed behavior, the
    component involved, and any distinctive error text. Everything below matches
@@ -62,16 +63,22 @@ anything yourself.
    Run several searches in parallel covering different angles, since any single
    phrasing misses issues that describe the same bug in other words:
 
-   - the distinctive error message or exception type, verbatim
+   - the exception type, or the most distinctive fragment of the error message
    - the API or component name (e.g. `mlflow.log_model`, `MlflowClient`)
    - the user-facing symptom in the reporter's own words
    - the same symptom in the vocabulary a maintainer would use
    - the flavor, integration, or backend involved (e.g. `langchain`, `sqlalchemy`)
 
+   Keep each query to two or three distinctive terms. GitHub ANDs every term, so
+   a descriptive phrase matches almost nothing: `chart y axis` returns no results
+   on this repo while `y axis` returns several. Quote a phrase only when the
+   words have to be adjacent, such as an error message.
+
    Leave `--state` off. It only accepts `open` or `closed`, and omitting it
    searches both, which is what you want: a closed duplicate is still the right
-   place to point the reporter. Empty output means no matches, not an error, so
-   move on to the next angle rather than retrying the same query.
+   place to point the reporter. Empty output means no matches, not an error: drop
+   the least distinctive term and search again, and move on to the next angle
+   only once a two-term query still comes back empty.
 
 5. Filter hard. Keep a candidate only if a maintainer reading both issues would
    close this one as a duplicate. The same component failing a different way is
