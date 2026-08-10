@@ -14,8 +14,7 @@ jobs:
   request-review:
     if: >-
       github.event.pull_request.draft == false
-      && ((contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
-      && github.event.pull_request.user.type != 'Bot')
+      && (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     timeout-minutes: 5
