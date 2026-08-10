@@ -7,6 +7,7 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
+import io
 import json
 import logging
 import sys
@@ -18,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.config import (
@@ -105,7 +107,8 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
         Parsed JSON body as a dictionary.
 
     Raises:
-        HTTPException: If the request body is not valid JSON.
+        HTTPException: If the request body is not valid JSON, cannot be decompressed,
+            or exceeds the decompressed size limit.
     """
     # Check if body was already parsed by auth middleware
     cached_body = getattr(request.state, "cached_body", None)
@@ -116,21 +119,36 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
     if content_encoding == "zstd":
         try:
             import zstandard
-        except ImportError:
+        except ImportError as e:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Received a zstd-encoded request body, but the `zstandard` package "
-                    "is not installed. Install it with: pip install zstandard"
+                    "Received a zstd-encoded request body, but importing the `zstandard` "
+                    f"package failed: {e!s}. If it is not installed, install it with: "
+                    "pip install zstandard"
                 ),
             )
         raw_body = await request.body()
+        # `ZstdDecompressor.decompress` allocates the size declared in the frame header,
+        # which the client controls, and ignores `max_output_size` when that size is set.
+        # Read incrementally instead, one byte past the cap to detect overflow.
+        max_size = MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.get()
         try:
-            raw_body = zstandard.ZstdDecompressor().decompress(raw_body)
+            with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(raw_body)) as reader:
+                decompressed = reader.read(max_size + 1)
         except zstandard.ZstdError as e:
             raise HTTPException(status_code=400, detail=f"Invalid zstd payload: {e!s}")
+        if len(decompressed) > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Decompressed request body exceeds the maximum allowed size of "
+                    f"{max_size} bytes. Set "
+                    f"{MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.name} to raise this limit."
+                ),
+            )
         try:
-            return json.loads(raw_body)
+            return json.loads(decompressed)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 

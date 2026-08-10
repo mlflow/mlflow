@@ -1,3 +1,4 @@
+import builtins
 import json
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace_state import TraceState
+from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     EndpointType,
@@ -51,6 +53,7 @@ from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
     _create_provider_from_endpoint_name,
+    _get_request_body,
     anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
@@ -899,6 +902,44 @@ async def test_invocations_handler_zstd_invalid_json(store: SqlAlchemyStore):
 
     with pytest.raises(HTTPException, match="Invalid JSON payload") as exc_info:
         await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_get_request_body_zstd_rejects_decompression_bomb(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE.name, "1024")
+
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-encoding": "zstd"}
+    # ~1 KB of compressed input declaring a 32 MB decompressed size in its frame header
+    compressed = zstandard.ZstdCompressor().compress(b"a" * (32 * 1024 * 1024))
+    assert len(compressed) < 2048
+    mock_request.body = AsyncMock(return_value=compressed)
+
+    with pytest.raises(HTTPException, match="exceeds the maximum allowed size") as exc_info:
+        await _get_request_body(mock_request)
+
+    assert exc_info.value.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_get_request_body_zstd_import_error_reports_original_error():
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-encoding": "zstd"}
+
+    real_import = builtins.__import__
+
+    # `import zstandard` can fail because of one of its own dependencies, not because
+    # `zstandard` itself is missing, so the original error must be surfaced.
+    def fake_import(name, *args, **kwargs):
+        if name == "zstandard":
+            raise ImportError("No module named 'cffi'")
+        return real_import(name, *args, **kwargs)
+
+    with mock.patch("builtins.__import__", side_effect=fake_import):
+        with pytest.raises(HTTPException, match="No module named 'cffi'") as exc_info:
+            await _get_request_body(mock_request)
 
     assert exc_info.value.status_code == 400
 
