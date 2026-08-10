@@ -85,7 +85,11 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    # Only create tables if the database is empty. If any table already exists,
+    # it indicates a partial migration or existing schema, and we should let
+    # Alembic handle the migration to avoid conflicts like 'Table already exists'.
+    if _is_empty_database(engine):
+        InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
 
 
