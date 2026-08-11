@@ -33,6 +33,7 @@ const viewState: ModelTraceExplorerViewState = {
   setActiveView: () => {},
   selectedNode: undefined,
   setSelectedNode: () => {},
+  setSelectedNodeAndTab: () => {},
   activeTab: 'content',
   setActiveTab: () => {},
   showGraph: false,
