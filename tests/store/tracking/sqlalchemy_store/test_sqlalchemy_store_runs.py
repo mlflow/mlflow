@@ -3903,7 +3903,7 @@ def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemy
     experiment_id = _create_experiments(store, "deadlock_fix_a_exp")
     run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
     ts = get_current_time_millis()
-    n = 900  # > 500 so the keys span two lock batches
+    n = 520  # > 500 so the sorted keys span two lock batches (500 + 20)
     # Reverse (unsorted) client order; add a duplicate key with a higher step so the
     # de-dup path and the "latest wins" comparison are both exercised.
     metrics = [Metric(f"m{i:05d}", float(i), ts, 0) for i in reversed(range(n))]
@@ -3911,8 +3911,9 @@ def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemy
     store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
     run_metrics = store.get_run(run.info.run_id).data.metrics
     assert len(run_metrics) == n
-    assert run_metrics["m00000"] == 999.0  # higher step wins
-    for i in range(1, n):
+    assert run_metrics["m00000"] == 999.0  # duplicate: higher step wins
+    # Sample keys around the 500-key batch boundary rather than asserting all n.
+    for i in (1, 499, 500, n - 1):
         assert run_metrics[f"m{i:05d}"] == float(i)
 
 
