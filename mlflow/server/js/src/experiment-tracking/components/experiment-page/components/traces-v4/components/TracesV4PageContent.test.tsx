@@ -31,7 +31,6 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () 
 }));
 
 const EXPERIMENT_ID = 'exp-1';
-const STORAGE_UC_SCHEMA = 'cat.sch';
 const PATH = '/ml/experiments/:experimentId/traces';
 const URL = '/ml/experiments/exp-1/traces';
 
@@ -93,7 +92,7 @@ const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) => {
         element: (
           <>
             <LocationSpy />
-            <TracesV4PageContent experimentId={EXPERIMENT_ID} storageUCSchema={STORAGE_UC_SCHEMA} />
+            <TracesV4PageContent experimentId={EXPERIMENT_ID} />
           </>
         ),
       },
@@ -734,12 +733,12 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('OSS data path', () => {
-    test('OSS always uses MLFLOW_EXPERIMENT location regardless of storageUCSchema parameter', async () => {
-      renderPage(); // renderPage uses STORAGE_UC_SCHEMA = 'cat.sch', but OSS ignores it
+    test('OSS searches the MLFLOW_EXPERIMENT location', async () => {
+      renderPage();
       await findTraceRow('tr-000');
 
       const location = state.searchCalls[0]?.locations?.[0];
-      // OSS always uses MLFLOW_EXPERIMENT; the storageUCSchema parameter is for Databricks only
+      // OSS always searches by experiment id; UC-schema locations are a Databricks-only concept.
       expect(location?.type).toBe('MLFLOW_EXPERIMENT');
       expect(location?.mlflow_experiment).toEqual({ experiment_id: EXPERIMENT_ID });
     });
