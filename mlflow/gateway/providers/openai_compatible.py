@@ -95,12 +95,10 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         prompt_tokens_details = None
         if details := usage_data.get("prompt_tokens_details"):
             prompt_tokens_details = chat.PromptTokensDetails(**details)
-        return chat.ChatUsage(
-            prompt_tokens=usage_data.get("prompt_tokens"),
-            completion_tokens=usage_data.get("completion_tokens"),
-            total_tokens=usage_data.get("total_tokens"),
-            prompt_tokens_details=prompt_tokens_details,
-        )
+        return chat.ChatUsage(**{
+            **usage_data,
+            "prompt_tokens_details": prompt_tokens_details,
+        })
 
     @classmethod
     def model_to_chat_streaming(

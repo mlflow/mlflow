@@ -714,6 +714,15 @@ MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
     "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
 )
 
+#: Maximum size in bytes of an AI Gateway request body after decompression.
+#: Requests whose decompressed body exceeds this limit are rejected with HTTP 413.
+#: This bounds the memory a compressed request can consume, since a small compressed
+#: body can expand by several orders of magnitude.
+#: (default: ``104857600`` — 100 MB)
+MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE", int, 100 * 1024 * 1024
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -1571,6 +1580,15 @@ MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
 #: (default: ``300`` (5 minutes))
 MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
+)
+
+#: Default buffer time in seconds applied to the trace scoring window's upper bound.
+#: Traces that started within this buffer period before the current time are excluded from
+#: the scoring window, giving them time to finish before being evaluated. The buffer should
+#: exceed the expected trace duration; traces that remain IN_PROGRESS longer can still be skipped.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
 

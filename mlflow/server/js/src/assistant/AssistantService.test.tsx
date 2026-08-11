@@ -1,6 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { resumeStream, sendMessageStream, processContentBlocks } from './AssistantService';
+import { resumeStream, sendMessageStream, submitClientToolResult, processContentBlocks } from './AssistantService';
 import type { ToolUseInfo, ToolResultInfo } from './types';
 
 // jest.mock is hoisted above imports by babel-jest, so the mock still applies.
@@ -59,6 +59,43 @@ describe('AssistantService permissions', () => {
   });
 });
 
+describe('AssistantService client tool results', () => {
+  beforeEach(() => {
+    mockedFetchAPI.mockClear();
+    FakeEventSource.instances = [];
+    (global as any).EventSource = FakeEventSource;
+  });
+
+  test('submitClientToolResult POSTs the result then opens a fresh stream', async () => {
+    const result = await submitClientToolResult('sess-1', 'req-1', 'view rendered', false, {
+      onMessage: jest.fn(),
+      onError: jest.fn(),
+      onDone: jest.fn(),
+    });
+    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/tool-result', {
+      method: 'POST',
+      body: JSON.stringify({ request_id: 'req-1', content: 'view rendered', is_error: false }),
+    });
+    expect(result.eventSource).toBeDefined();
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  test('submitClientToolResult surfaces a friendly error and returns no stream when the POST fails', async () => {
+    mockedFetchAPI.mockRejectedValueOnce(new Error('network down'));
+    const onError = jest.fn();
+
+    const result = await submitClientToolResult('sess-1', 'req-1', 'boom', true, {
+      onMessage: jest.fn(),
+      onError,
+      onDone: jest.fn(),
+    });
+
+    expect(onError).toHaveBeenCalledWith('Failed to send the client tool result. Please try again.');
+    expect(result.eventSource).toBeNull();
+    expect(FakeEventSource.instances).toHaveLength(0);
+  });
+});
+
 describe('sendMessageStream permission_request event', () => {
   beforeEach(() => {
     FakeEventSource.instances = [];
@@ -91,6 +128,37 @@ describe('sendMessageStream permission_request event', () => {
       toolInput: { command: 'ls' },
     });
     // The turn ends at the prompt: the stream is closed, the decision arrives via resumeStream.
+    expect(es.readyState).toBe(FakeEventSource.CLOSED);
+  });
+
+  test('a client_tool_call SSE event invokes onClientToolCall and closes the stream', async () => {
+    const onClientToolCall = jest.fn();
+    await sendMessageStream(
+      { message: 'build me a view' },
+      {
+        onMessage: jest.fn(),
+        onError: jest.fn(),
+        onDone: jest.fn(),
+        onClientToolCall,
+      },
+    );
+
+    const es = FakeEventSource.instances[0];
+    expect(es).toBeDefined();
+    es.emit('client_tool_call', {
+      request_id: 'req-1',
+      tool_name: 'render_custom_view',
+      tool_input: { title: 'Trace Summary', messages: [] },
+    });
+
+    expect(onClientToolCall).toHaveBeenCalledWith({
+      sessionId: 'sess-1',
+      requestId: 'req-1',
+      toolName: 'render_custom_view',
+      toolInput: { title: 'Trace Summary', messages: [] },
+    });
+    // Like a permission_request, the turn ends here: the client executes the tool and
+    // resumes via submitClientToolResult.
     expect(es.readyState).toBe(FakeEventSource.CLOSED);
   });
 });

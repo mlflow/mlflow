@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.vertex_ai import VertexAIProvider
+from mlflow.gateway.providers.vertex_ai import VertexAIProvider, _get_vertex_ai_host
 from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -366,6 +366,70 @@ def test_anthropic_model_global_location():
     )
 
 
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("global", "https://aiplatform.googleapis.com"),
+        ("eu", "https://aiplatform.eu.rep.googleapis.com"),
+        ("us", "https://aiplatform.us.rep.googleapis.com"),
+        ("europe-west1", "https://europe-west1-aiplatform.googleapis.com"),
+        ("us-central1", "https://us-central1-aiplatform.googleapis.com"),
+        ("us-east5", "https://us-east5-aiplatform.googleapis.com"),
+    ],
+)
+def test_get_vertex_ai_host(location, expected):
+    assert _get_vertex_ai_host(location) == expected
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_gemini_model_multi_region_location(location):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": "gemini-3-pro-preview",
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": location,
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/google/models"
+    )
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_anthropic_model_multi_region_location(location):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": "claude-sonnet-4-5@20251101",
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": location,
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/anthropic/models"
+    )
+    assert provider.get_endpoint_url("llm/v1/chat") == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/anthropic/models"
+        "/claude-sonnet-4-5@20251101:rawPredict"
+    )
+
+
 def _make_claude_provider() -> VertexAIProvider:
     endpoint_config = EndpointConfig(
         name="vertex-claude-endpoint",
@@ -499,6 +563,15 @@ def test_maas_model_uses_openapi_endpoint(model_name):
     assert provider._delegate._api_base == (
         "https://us-central1-aiplatform.googleapis.com"
         "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi"
+    )
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_maas_model_multi_region_location(location):
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas", location=location)
+    assert provider._delegate._api_base == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/endpoints/openapi"
     )
 
 

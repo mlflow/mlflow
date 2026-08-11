@@ -8,7 +8,7 @@ from skills.commands import (
 )
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skills")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -17,5 +17,9 @@ def main() -> None:
     load_rules.register(subparsers)
     validate_review.register(subparsers)
 
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     args.func(args)

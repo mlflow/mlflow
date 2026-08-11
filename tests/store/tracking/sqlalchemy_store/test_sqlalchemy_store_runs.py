@@ -3882,3 +3882,111 @@ def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
 
     store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
     assert len(store.search_traces(**search_args)[0]) == 4
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for the concurrent log_batch latest_metrics deadlock:
+#   Fix A = globally sort + de-duplicate metric keys before batching so the
+#           per-batch ORDER BY lock order holds across all 500-key batches.
+#   Fix B = route the metric write path through the existing
+#           _run_with_deadlock_retry so a deadlock victim is transparently
+#           redriven instead of surfacing an HTTP 503.
+# ---------------------------------------------------------------------------
+
+
+def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemyStore):
+    """Fix A: reverse-ordered + duplicate keys spanning >1 lock batch still yield correct latest
+    metrics (sorting + de-dup before batching preserves write correctness).
+    """
+    experiment_id = _create_experiments(store, "deadlock_fix_a_exp")
+    run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
+    ts = get_current_time_millis()
+    n = 520  # > 500 so the sorted keys span two lock batches (500 + 20)
+    # Reverse (unsorted) client order; add a duplicate key with a higher step so the
+    # de-dup path and the "latest wins" comparison are both exercised.
+    metrics = [Metric(f"m{i:05d}", float(i), ts, 0) for i in reversed(range(n))]
+    metrics.append(Metric("m00000", 999.0, ts, 5))  # duplicate key, newer step -> wins
+    store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+    run_metrics = store.get_run(run.info.run_id).data.metrics
+    assert len(run_metrics) == n
+    assert run_metrics["m00000"] == 999.0  # duplicate: higher step wins
+    # Sample keys around the 500-key batch boundary rather than asserting all n.
+    for i in (1, 499, 500, n - 1):
+        assert run_metrics[f"m{i:05d}"] == float(i)
+
+
+def test_run_with_deadlock_retry_retries_then_succeeds(store: SqlAlchemyStore, monkeypatch):
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    calls = {"n": 0}
+
+    def fn():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+        return "ok"
+
+    assert store._run_with_deadlock_retry(fn) == "ok"
+    assert calls["n"] == 3
+
+
+def test_run_with_deadlock_retry_does_not_retry_non_deadlock(store: SqlAlchemyStore):
+    """Fix B: a non-deadlock error (wrong code, or TEMPORARILY_UNAVAILABLE without 'deadlock')
+    propagates immediately without retry.
+    """
+    calls = {"n": 0}
+
+    def fn_internal():
+        calls["n"] += 1
+        raise MlflowException("boom")  # default INTERNAL_ERROR
+
+    with pytest.raises(MlflowException, match="boom"):
+        store._run_with_deadlock_retry(fn_internal)
+    assert calls["n"] == 1
+
+    calls2 = {"n": 0}
+
+    def fn_transient():
+        calls2["n"] += 1
+        raise MlflowException("connection reset", error_code=TEMPORARILY_UNAVAILABLE)
+
+    with pytest.raises(MlflowException, match="connection reset"):
+        store._run_with_deadlock_retry(fn_transient)
+    assert calls2["n"] == 1
+
+
+def test_run_with_deadlock_retry_exhausts_and_reraises(store: SqlAlchemyStore, monkeypatch):
+    from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
+
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    calls = {"n": 0}
+
+    def fn():
+        calls["n"] += 1
+        raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+
+    with pytest.raises(MlflowException, match="deadlock"):
+        store._run_with_deadlock_retry(fn)
+    assert calls["n"] == _DB_WRITE_MAX_DEADLOCK_RETRIES + 1
+
+
+def test_log_metric_redrives_on_deadlock_and_persists(store: SqlAlchemyStore, monkeypatch):
+    """Fix B end-to-end: a first-attempt deadlock is redriven on a fresh session and the metric
+    persists (client sees success, not a 503).
+    """
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    experiment_id = _create_experiments(store, "deadlock_fix_b_exp")
+    run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
+    real_once = store._log_metrics_once
+    state = {"n": 0}
+
+    def flaky_once(run_id, metrics):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+        return real_once(run_id, metrics)
+
+    monkeypatch.setattr(store, "_log_metrics_once", flaky_once)
+    store.log_metric(run.info.run_id, Metric("acc", 0.9, get_current_time_millis(), 0))
+    run_metrics = store.get_run(run.info.run_id).data.metrics
+    assert state["n"] == 2  # first attempt deadlocked, second succeeded
+    assert run_metrics["acc"] == 0.9
