@@ -28,8 +28,6 @@ jest.mock('@databricks/web-shared/model-trace-explorer/custom-view', () => {
   return { __esModule: true, ...actual, parseCustomView: jest.fn(actual.parseCustomView) };
 });
 
-const LEGACY_TAG_VALUE_MAX_LENGTH = 5000;
-
 const EXPERIMENT_ID = 'exp-123';
 
 // Builds a valid, correctly-typed CustomView by round-tripping a well-formed
@@ -327,7 +325,7 @@ describe('useExperimentCustomViewDefinition', () => {
     });
 
     it('uses UTF-8 bytes to decide whether to compress', async () => {
-      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(9000) });
+      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(2000) });
       const raw = serializeCustomView(view);
       expect(raw.length).toBeLessThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
       expect(getUtf8ByteLength(raw)).toBeGreaterThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
@@ -345,33 +343,8 @@ describe('useExperimentCustomViewDefinition', () => {
       expect(isTextCompressedDeflate(call.value)).toBe(true);
     });
 
-    it('stores compressed views above the legacy 5,000-character cap', async () => {
-      const instruction = Array.from({ length: 3000 }, (_, index) => `field-${index}-value-${index};`).join('');
-      const view = makeView({ id: 'managed-limit', instruction });
-      const raw = serializeCustomView(view);
-      const compressed = await textCompressDeflate(raw);
-      expect(getUtf8ByteLength(raw)).toBeGreaterThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
-      expect(getUtf8ByteLength(compressed)).toBeGreaterThan(LEGACY_TAG_VALUE_MAX_LENGTH);
-      expect(getUtf8ByteLength(compressed)).toBeLessThanOrEqual(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
-
-      const { result } = renderDefinition(queryClient, EXPERIMENT_ID);
-      await waitFor(() => expect(result.current.isLoaded).toBe(true));
-
-      const persistView = result.current.persistView;
-      if (!persistView) {
-        throw new Error('persistView should be defined when an experiment id is present');
-      }
-      await persistView(view);
-
-      expect(mockSetExperimentTag).toHaveBeenCalledWith({
-        experiment_id: EXPERIMENT_ID,
-        key: viewTagKey('managed-limit'),
-        value: compressed,
-      });
-    });
-
-    it('stores raw JSON at the 20,000-byte safe client limit', async () => {
-      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(20000);
+    it('stores raw JSON at the 5,000-byte safe client limit', async () => {
+      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(5000);
       const baseView = makeView({ id: 'raw-boundary', instruction: '' });
       const instructionLength = CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES - getUtf8ByteLength(serializeCustomView(baseView));
       expect(instructionLength).toBeGreaterThanOrEqual(0);
