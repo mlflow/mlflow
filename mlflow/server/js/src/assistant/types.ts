@@ -77,6 +77,19 @@ export interface PermissionRequest {
 }
 
 /**
+ * A tool call the CLIENT (not the server) must execute — e.g. rendering an
+ * agent-authored UI spec in the browser — surfaced so a registered handler
+ * (see `clientToolHandlers.ts`) can run it and report a result back.
+ */
+export interface PendingClientToolCall {
+  /** The session that produced this call, so the result targets the right session */
+  sessionId: string;
+  requestId: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+}
+
+/**
  * Known context keys for the assistant.
  * Type-safe registration for common context values.
  */
@@ -107,6 +120,19 @@ export interface KnownAssistantContext {
 
   // Scorers/Judges
   selectedScorerName?: string;
+
+  /**
+   * Custom View (trace explorer "Custom View" tab) authoring context: the A2UI
+   * guide, the current trace's data snapshot, and the active view's template, if
+   * any. Populated via a pull-based provider (see `contextProviders.ts`) rather
+   * than pushed reactively, since the ESM-only `@a2ui` types it references must
+   * not be imported here. See `ExperimentCustomViewProvider.tsx`.
+   */
+  customTraceView?: {
+    guide: string;
+    traceSample: Record<string, unknown>;
+    currentTemplate?: unknown[];
+  };
 }
 
 /** All known context keys */
@@ -122,6 +148,13 @@ export interface ProviderInfo {
   requires_api_key: boolean;
   has_api_key: boolean;
   allows_remote_access: boolean;
+  /**
+   * Whether this provider can pause a turn on a CLIENT-executed tool call (see
+   * `clientToolHandlers.ts`) and resume it once the client posts a result. False for
+   * CLI-based providers (Claude Code, Codex), which have no such mid-stream channel
+   * without MCP plumbing.
+   */
+  supports_client_tools: boolean;
   /** Curated model options for simple assistant controls; empty when provider decides. */
   model_options: string[];
 }
@@ -133,6 +166,8 @@ export interface ResolvedProviderInfo {
   auto_selected: boolean;
   requires_api_key: boolean;
   has_api_key: boolean;
+  /** See `ProviderInfo.supports_client_tools`. */
+  supports_client_tools: boolean;
   /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
   model_provider?: string | null;
   /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */
@@ -226,6 +261,8 @@ export interface AssistantAgentState {
   pendingPrompt: string | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
   pendingPermission: PermissionRequest | null;
+  /** A tool call awaiting client-side execution (e.g. rendering a UI spec), or null */
+  pendingClientToolCall: PendingClientToolCall | null;
   /** Whether the Assistant can be used from this client, considering server-side remote-access settings */
   canUseAssistant: boolean;
   /** Cumulative token usage for the session (best-effort; only some providers report it) */
@@ -257,6 +294,8 @@ export interface AssistantAgentActions {
   completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */
   respondToPermission: (allow: boolean) => void;
+  /** Report the result of the pending client-executed tool call and resume the stream */
+  submitClientToolResult: (content: string, isError?: boolean) => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;

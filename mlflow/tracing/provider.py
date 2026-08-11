@@ -758,8 +758,19 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
     from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id
 
+    # Model serving runs with a non-databricks tracking URI (the local store), so the experiment's
+    # UC binding lives in the Databricks backend and must be read through a databricks store rather
+    # than the process store. Elsewhere, only resolve when the active tracking URI is databricks.
+    in_serving = (
+        is_in_databricks_model_serving_environment()
+        and is_mlflow_tracing_enabled_in_model_serving()
+    )
     tracking_uri = mlflow.get_tracking_uri()
-    if not tracking_uri or not is_databricks_uri(tracking_uri):
+    if in_serving:
+        store_uri = "databricks"
+    elif tracking_uri and is_databricks_uri(tracking_uri):
+        store_uri = None
+    else:
         return None
 
     try:
@@ -767,7 +778,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         if not experiment_id:
             return None
 
-        experiment = _get_store().get_experiment(experiment_id)
+        experiment = _get_store(store_uri).get_experiment(experiment_id)
         if not experiment:
             return None
 
@@ -814,7 +825,15 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
-            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
+            # In model serving the process tracking URI defaults to the local store, which cannot
+            # reach the backend UC ingestion needs. An explicit databricks URI is kept as-is so a
+            # configured profile (databricks://<profile>) is not discarded.
+            uc_tracking_uri = mlflow.get_tracking_uri()
+            if is_in_databricks_model_serving_environment() and not (
+                uc_tracking_uri and is_databricks_uri(uc_tracking_uri)
+            ):
+                uc_tracking_uri = "databricks"
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=uc_tracking_uri)
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
             _logger.debug("Added DatabricksUCTableSpanProcessor based on trace destination")

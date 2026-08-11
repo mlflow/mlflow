@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
@@ -8,10 +9,49 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark.sql
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _to_evaluation_dataset_version(value: Any) -> EvaluationDatasetVersion | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, EvaluationDatasetVersion):
+        return value
+
+    if isinstance(value, dict):
+        raw_version = value.get("version")
+        created_at = value.get("created_at") or value.get("create_time")
+        created_by = value.get("created_by")
+        operation = value.get("operation")
+    else:
+        raw_version = getattr(value, "version", value)
+        created_at = getattr(value, "created_at", None) or getattr(value, "create_time", None)
+        created_by = getattr(value, "created_by", None)
+        operation = getattr(value, "operation", None)
+    if raw_version in (None, ""):
+        return None
+
+    return EvaluationDatasetVersion(
+        version=int(raw_version),
+        created_at=_parse_datetime(created_at),
+        created_by=created_by,
+        operation=operation,
+    )
 
 
 class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -101,11 +141,28 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._databricks_dataset.dataset_id if self._databricks_dataset else None
 
     @property
+    def version(self) -> int | None:
+        """The resolved dataset version number.
+
+        Returns the version number only. Use :meth:`list_versions` to retrieve full
+        version metadata (``created_at``, ``created_by``, ``operation``).
+        """
+        dataset = (
+            self._mlflow_dataset if self._mlflow_dataset is not None else self._databricks_dataset
+        )
+        resolved = _to_evaluation_dataset_version(getattr(dataset, "version", None))
+        return resolved.version if resolved else None
+
+    @property
     def source(self):
         """Source information for the dataset."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.source
-        return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
+        return DatabricksEvaluationDatasetSource(
+            table_name=self.name,
+            dataset_id=self.dataset_id,
+            version=self.version,
+        )
 
     @property
     def source_type(self) -> str | None:
@@ -189,6 +246,23 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
         with _databricks_profile_env():
             self._databricks_dataset.delete_records(record_ids)
+
+    def list_versions(self) -> list[EvaluationDatasetVersion]:
+        """List immutable versions for this dataset."""
+        if self._mlflow_dataset:
+            raise NotImplementedError(
+                "Dataset versions are only supported for Databricks datasets."
+            )
+
+        from mlflow.genai.datasets import _databricks_profile_env
+
+        with _databricks_profile_env():
+            versions = self._databricks_dataset.list_versions()
+        return [
+            version
+            for version in (_to_evaluation_dataset_version(version) for version in versions)
+            if version is not None
+        ]
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""

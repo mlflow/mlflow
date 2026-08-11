@@ -66,6 +66,17 @@ class AssistantProvider(ABC):
         """Whether this provider can serve requests from remote clients."""
         return False
 
+    @property
+    def supports_client_tools(self) -> bool:
+        """Whether this provider can pause a turn on a CLIENT-executed tool call (see
+        ``tool_executor.CLIENT_TOOLS``) and resume it once the client posts a result,
+        e.g. rendering an agent-authored UI spec in the browser. CLI-based providers
+        (Claude Code, Codex) have no such mid-stream channel without MCP plumbing, so
+        features that need this fall back to a convention (e.g. a fenced code block)
+        for those providers instead.
+        """
+        return False
+
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """

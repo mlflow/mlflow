@@ -847,6 +847,9 @@ class Linter(ast.NodeVisitor):
         if rule := rules.PreferOsEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rule)
 
+        if rules.UnsafeVersionParse.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UnsafeVersionParse())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:

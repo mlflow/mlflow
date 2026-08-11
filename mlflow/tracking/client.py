@@ -130,7 +130,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -2978,7 +2978,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
@@ -5950,31 +5949,39 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload an artifact to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_path: Local path to the artifact to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifact(model_id, local_path)
+        return self._tracking_client.log_model_artifact(model_id, local_path, artifact_path)
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload a set of artifacts to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_dir: Local directory containing the artifacts to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir, artifact_path)
 
     def search_logged_models(
         self,
