@@ -291,7 +291,6 @@ describe('ModelTraceExplorerCustomView', () => {
     const buildButton = screen.getByRole('button', { name: /Build with Assistant/ });
     expect(buildButton).toBeDisabled();
 
-    // eslint-disable-next-line @databricks/no-userevent-type
     await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
     expect(buildButton).toBeEnabled();
   });
@@ -301,7 +300,6 @@ describe('ModelTraceExplorerCustomView', () => {
     setBridge({ openAssistant });
     renderCustomView();
 
-    // eslint-disable-next-line @databricks/no-userevent-type
     await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
     await userEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
 
@@ -384,7 +382,6 @@ describe('ModelTraceExplorerCustomView', () => {
     setBridge({ openAssistant: throwingOpenAssistant });
     renderCustomView();
 
-    // eslint-disable-next-line @databricks/no-userevent-type
     await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
     await userEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
 
