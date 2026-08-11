@@ -1,3 +1,4 @@
+/* eslint-disable @databricks/no-mock-location */
 import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -7,6 +8,8 @@ import { buildStorageKey } from '@databricks/web-shared/hooks/useLocalStorage';
 import {
   AssistantProvider,
   useAssistant,
+  upsertToolCalls,
+  applyToolResult,
   reviveMessages,
   trimForStorage,
   CHAT_STORAGE_KEY_BASE,
@@ -14,8 +17,9 @@ import {
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
-import { GatewayApi } from '../gateway/api';
-import type { AssistantConfig, ChatMessage, ProviderConfig } from './types';
+import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
+
+const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
 
 const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
 
@@ -27,15 +31,34 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
   ...overrides,
 });
 
+const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): ResolvedProviderInfo => ({
+  name: 'claude_code',
+  model: null,
+  auto_selected: true,
+  requires_api_key: false,
+  has_api_key: false,
+  ...overrides,
+});
+
+const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): ProviderInfo => ({
+  display_name: overrides.name,
+  description: '',
+  available: true,
+  selected: false,
+  requires_api_key: false,
+  has_api_key: false,
+  allows_remote_access: false,
+  model_options: [],
+  ...overrides,
+});
+
 jest.mock('./AssistantService', () => ({
   __esModule: true,
   sendMessageStream: jest.fn(),
   getConfig: jest.fn(),
+  getProviders: jest.fn(),
+  updateConfig: jest.fn(() => Promise.resolve({})),
   cancelSession: jest.fn(),
-}));
-
-jest.mock('../gateway/api', () => ({
-  GatewayApi: { listEndpoints: jest.fn() },
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -44,7 +67,9 @@ jest.mock('./AssistantPageContext', () => ({
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
-const mockListEndpoints = jest.mocked(GatewayApi.listEndpoints);
+const mockGetProviders = jest.mocked(AssistantService.getProviders);
+const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
+const originalLocation = window.location;
 
 // A fake EventSource — the real one is created inside sendMessageStream, which we mock,
 // so the context only ever calls .close() on what we hand back here.
@@ -66,6 +91,7 @@ beforeEach(() => {
   fakeEventSource = { close: jest.fn() };
   capturedCallbacks = undefined;
   mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
+  mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
   mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
     capturedCallbacks = callbacks;
     return { eventSource: fakeEventSource as unknown as EventSource };
@@ -77,6 +103,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   jest.restoreAllMocks();
   jest.clearAllMocks();
 });
@@ -266,7 +293,7 @@ describe('AssistantContext — pendingPrompt seed', () => {
 
   // completing setup must NOT drop a queued prompt, so it can be
   // consumed once the chat input appears post-setup.
-  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
+  it('keeps pendingPrompt across completeSetup() (seed survives setup refresh)', async () => {
     const { result } = await renderAssistant();
 
     act(() => {
@@ -274,12 +301,12 @@ describe('AssistantContext — pendingPrompt seed', () => {
     });
     expect(result.current.pendingPrompt).toBe('SEED');
 
-    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
+    // completeSetup() re-fetches config; mirror a finished setup where a provider is selected
     // so setupComplete stays true after the refresh lands.
-    mockGetConfig.mockResolvedValue({
-      providers: { anthropic: { model: 'm', selected: true, permissions: {} } },
-      projects: {},
-    } as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>);
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'claude_code', auto_selected: false }),
+    });
 
     await act(async () => {
       result.current.completeSetup();
@@ -290,65 +317,279 @@ describe('AssistantContext — pendingPrompt seed', () => {
   });
 });
 
-const providerConfig = (overrides: Partial<ProviderConfig>): ProviderConfig => ({
-  model: 'default',
-  selected: false,
-  permissions: { allow_edit_files: true, allow_read_docs: true, full_access: false },
-  ...overrides,
+describe('upsertToolCalls', () => {
+  test('appends a new tool call with running status', () => {
+    const result = upsertToolCalls([], [{ id: 't1', name: 'Bash', input: { command: 'ls' } }]);
+    expect(result).toEqual([
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+    ]);
+  });
+
+  test('keeps a tool call after any text part', () => {
+    const parts: AssistantPart[] = [{ type: 'text', text: 'working' }];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: {} }]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ type: 'text', text: 'working' });
+    expect(result[1]).toMatchObject({ type: 'toolCall', toolUseId: 't1', status: 'running' });
+  });
+
+  test('re-upserting an existing call does not clobber a resolved status/result', () => {
+    const parts: AssistantPart[] = [
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'done', result: 'out' },
+    ];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: { command: 'ls -a' } }]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ status: 'done', result: 'out', input: { command: 'ls -a' } });
+  });
 });
 
-const config = (providers: AssistantConfig['providers']): AssistantConfig => ({
-  providers,
-  projects: {},
+describe('applyToolResult', () => {
+  const parts: AssistantPart[] = [
+    { type: 'text', text: 'let me check' },
+    { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+  ];
+
+  test('resolves the matching tool call to done with its result', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'output', isError: false });
+    expect(result[1]).toMatchObject({ toolUseId: 't1', status: 'done', result: 'output' });
+    expect(result[0]).toEqual({ type: 'text', text: 'let me check' });
+  });
+
+  test('marks the tool call as error when isError is true', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'boom', isError: true });
+    expect(result[1]).toMatchObject({ status: 'error', result: 'boom' });
+  });
+
+  test('leaves parts untouched when no toolUseId matches', () => {
+    const result = applyToolResult(parts, { toolUseId: 'other', content: 'x', isError: false });
+    expect(result).toEqual(parts);
+  });
 });
 
-describe('AssistantProvider setup completeness', () => {
+describe('AssistantProvider setup state from provider discovery', () => {
   const renderAndWaitForConfig = async () => {
     const { result } = renderHook(() => useAssistant(), { wrapper: AssistantProvider });
     await waitFor(() => expect(result.current.isLoadingConfig).toBe(false));
     return result;
   };
 
-  beforeEach(() => {
-    mockGetConfig.mockReset();
-    mockListEndpoints.mockReset();
-  });
-
-  test('gateway selected but no endpoints exist => setup incomplete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [] });
+  test('no resolved provider => setup incomplete, nothing surfaced', async () => {
+    mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
 
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
+    expect(result.current.activeProvider).toBeNull();
+    expect(result.current.needsApiKey).toBe(false);
   });
 
-  test('gateway selected but configured endpoint is missing from the list => setup incomplete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'some-other-endpoint' }] as any });
+  test('explicitly selected provider => setup complete with its model', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'chat-endpoint', auto_selected: false }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.activeProvider).toMatchObject({
+      name: 'mlflow_gateway',
+      model: 'chat-endpoint',
+      auto_selected: false,
+    });
+  });
+
+  test('auto-resolved default provider => chat is ready without any setup', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.activeProvider).toMatchObject({ name: 'claude_code', model: null, auto_selected: true });
+    expect(result.current.needsApiKey).toBe(false);
+  });
+
+  test('resolved provider missing its API key => needsApiKey so the first send prompts for it', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'mlflow-assistant-openai',
+        auto_selected: true,
+        requires_api_key: true,
+        has_api_key: false,
+        model_provider: 'openai',
+        provider_model: 'gpt-5',
+        model_options: ['gpt-5.5', 'gpt-5'],
+      }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.needsApiKey).toBe(true);
+  });
+
+  test('switching provider is optimistic: chip and needsApiKey update without a config write', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5', 'gpt-5-mini'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(result.current.needsApiKey).toBe(false);
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5', 'gpt-5-mini'],
+        requiresApiKey: true,
+        hasApiKey: false,
+      });
+    });
+
+    expect(result.current.activeProvider?.name).toBe('mlflow_gateway');
+    expect(result.current.activeProvider?.model).toBe('mlflow-assistant-openai');
+    expect(result.current.activeProvider?.provider_model).toBe('gpt-5.5');
+    expect(result.current.needsApiKey).toBe(true);
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  test('a pending provider pick is persisted on the next send, then synced', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.sendMessage('hi');
+    });
+
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      providers: {
+        mlflow_gateway: {
+          selected: true,
+          model: 'mlflow-assistant-openai',
+        },
+      },
+    });
+  });
+
+  test('ignores provider selection on remote clients because config updates are local-only', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, hostname: 'remote.example.com' },
+      writable: true,
+    });
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, remote_access_allowed: true });
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+
+    expect(result.current.isLocalServer).toBe(false);
+    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  test('a failed pending provider pick closes the established-session placeholder as failed', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    await act(async () => {
+      result.current.sendMessage('first');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+    });
+    expect(result.current.isStreaming).toBe(false);
+    mockSendMessageStream.mockClear();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+    mockUpdateConfig.mockRejectedValueOnce(new Error('could not save provider'));
+
+    await act(async () => {
+      result.current.sendMessage('second');
+    });
+
+    const failedAssistantTurn = result.current.messages[result.current.messages.length - 1];
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.error).toBe('could not save provider');
+    expect(failedAssistantTurn).toMatchObject({ role: 'assistant', isStreaming: false });
+    expect(failedAssistantTurn.content).toContain('Error: could not save provider');
+
+    await waitFor(() => expect(result.current.activeProvider?.name).toBe('claude_code'));
+
+    mockUpdateConfig.mockClear();
+    mockSendMessageStream.mockClear();
+    await act(async () => {
+      result.current.sendMessage('third');
+    });
+
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+  });
+
+  test('discovery failure => setup treated as incomplete', async () => {
+    mockGetProviders.mockRejectedValue(new Error('boom'));
 
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
-  });
-
-  test('gateway selected and configured endpoint exists => setup complete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'assistant' }] as any });
-
-    const result = await renderAndWaitForConfig();
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(mockListEndpoints).toHaveBeenCalled();
-  });
-
-  test('non-gateway provider selected => setup complete without querying gateway endpoints', async () => {
-    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ model: 'default', selected: true }) }));
-
-    const result = await renderAndWaitForConfig();
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(mockListEndpoints).not.toHaveBeenCalled();
+    expect(result.current.activeProvider).toBeNull();
   });
 });
 
@@ -454,13 +695,25 @@ describe('trimForStorage', () => {
     const messages = [makeMessage({ id: 'only', content: 'x'.repeat(1000) })];
     expect(trimForStorage(messages, 10)).toEqual(messages);
   });
+
+  it('keeps as many recent messages as fit the byte budget', () => {
+    const messages = [makeMessage({ id: 'm1' }), makeMessage({ id: 'm2' }), makeMessage({ id: 'm3' })];
+    // trimForStorage tracks a running size that ignores separator commas, so it can over-count by up
+    // to one char per dropped message; give the budget that headroom so the last two still fit.
+    const budgetForLastTwo = JSON.stringify(messages.slice(1)).length + messages.length;
+    const trimmed = trimForStorage(messages, budgetForLastTwo);
+    expect(trimmed.map((m) => m.id)).toEqual(['m2', 'm3']);
+  });
 });
 
 describe('AssistantContext — localStorage chat persistence', () => {
   it('restores messages from localStorage on mount', async () => {
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify({ messages: [makeMessage({ id: 'restored', content: 'from storage' })] }),
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored', content: 'from storage' })],
+        tokenUsage: EMPTY_TOKEN_USAGE,
+      }),
     );
 
     const { result } = await renderAssistant();
@@ -487,10 +740,19 @@ describe('AssistantContext — localStorage chat persistence', () => {
   });
 
   it('clears persisted messages when reset() is called', async () => {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'restored' })] }));
+    // Seed a non-empty tokenUsage so the assertion below actually exercises the reset
+    // path rather than passing vacuously against a pre-zeroed value.
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored' })],
+        tokenUsage: { ...EMPTY_TOKEN_USAGE, promptTokens: 40, completionTokens: 60, totalTokens: 100 },
+      }),
+    );
 
     const { result } = await renderAssistant();
     expect(result.current.messages).toHaveLength(1);
+    expect(result.current.tokenUsage.totalTokens).toBe(100);
 
     act(() => {
       result.current.reset();
@@ -499,6 +761,50 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(result.current.messages).toHaveLength(0);
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
     expect(stored.messages).toEqual([]);
+    expect(stored.tokenUsage).toEqual(EMPTY_TOKEN_USAGE);
+  });
+
+  it('accumulates per-turn usage deltas, tracking cached tokens separately', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('turn one');
+    });
+    // Turn 1: fresh context, nothing cached yet.
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        cache_read_tokens: 0,
+        total_cost_usd: 0.01,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    // Turn 2: a genuine second turn — its delta lands during a live stream, and the
+    // resent history shows up as cache reads folded into prompt_tokens.
+    await act(async () => {
+      result.current.sendMessage('turn two');
+    });
+    act(() => {
+      capturedCallbacks?.onUsage?.({
+        prompt_tokens: 200,
+        completion_tokens: 30,
+        total_tokens: 230,
+        cache_read_tokens: 120,
+        total_cost_usd: 0.02,
+      });
+      capturedCallbacks?.onDone();
+    });
+
+    expect(result.current.tokenUsage).toEqual({
+      promptTokens: 300,
+      completionTokens: 50,
+      totalTokens: 350,
+      cacheReadTokens: 120,
+      costUsd: 0.03,
+    });
   });
 
   it('persists the interrupted turn when a stream is cancelled mid-stream', async () => {
@@ -555,5 +861,30 @@ describe('AssistantContext — localStorage chat persistence', () => {
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{"messages":[]}');
     expect(stored.messages.some((m: ChatMessage) => m.content === 'still streaming')).toBe(false);
     expect(result.current.isStreaming).toBe(true);
+  });
+});
+
+describe('AssistantContext — buffered text survives a tool call', () => {
+  it('commits unflushed streamed text as a text part before the tool call', async () => {
+    // renderAssistant's rAF mock no-ops, so the streamed token stays buffered in the ref and is
+    // never flushed before the tool call arrives. addToolCalls must snapshot that buffer
+    // synchronously — reading the ref inside the deferred setMessages updater (after the clear)
+    // would drop the text.
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('go');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-tool');
+      capturedCallbacks?.onMessage('Looking into it. ');
+      capturedCallbacks?.onToolUse?.([{ id: 'tool-1', name: 'Bash', input: { command: 'ls' } }]);
+    });
+
+    const assistant = result.current.messages.find((m) => m.role === 'assistant');
+    expect(assistant?.parts).toEqual([
+      { type: 'text', text: 'Looking into it. ' },
+      expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
+    ]);
   });
 });
