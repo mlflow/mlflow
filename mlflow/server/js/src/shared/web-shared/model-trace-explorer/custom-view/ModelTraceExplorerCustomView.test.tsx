@@ -607,7 +607,12 @@ describe('ModelTraceExplorerCustomView', () => {
       <IntlProvider locale="en" messages={{}}>
         <DesignSystemProvider>
           <QueryClientProvider client={new QueryClient()}>
-            <CustomViewDefinitionProvider views={[viewA, viewB]} isLoaded onPersistView={onPersistView} canModifyPersistedViews>
+            <CustomViewDefinitionProvider
+              views={[viewA, viewB]}
+              isLoaded
+              onPersistView={onPersistView}
+              canModifyPersistedViews
+            >
               <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
               <SelectViewProbe selectViewRef={selectViewRef} />
             </CustomViewDefinitionProvider>
@@ -647,7 +652,12 @@ describe('ModelTraceExplorerCustomView', () => {
       <IntlProvider locale="en" messages={{}}>
         <DesignSystemProvider>
           <QueryClientProvider client={new QueryClient()}>
-            <CustomViewDefinitionProvider views={[viewA, viewB]} isLoaded onPersistView={noopPersistView} canModifyPersistedViews>
+            <CustomViewDefinitionProvider
+              views={[viewA, viewB]}
+              isLoaded
+              onPersistView={noopPersistView}
+              canModifyPersistedViews
+            >
               <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
               <SelectViewProbe selectViewRef={selectViewRef} />
             </CustomViewDefinitionProvider>

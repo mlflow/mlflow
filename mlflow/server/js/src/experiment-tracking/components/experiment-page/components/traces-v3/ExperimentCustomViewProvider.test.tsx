@@ -6,7 +6,10 @@ import { ExperimentCustomViewProvider } from './ExperimentCustomViewProvider';
 import { useAssistant } from '../../../../../assistant/AssistantContext';
 import type { ClientToolHandler } from '../../../../../assistant/clientToolHandlers';
 import type { AssistantContextProvider } from '../../../../../assistant/contextProviders';
-import type { CustomViewApplyResult, RenderCustomViewSpec } from '@databricks/web-shared/model-trace-explorer/custom-view';
+import type {
+  CustomViewApplyResult,
+  RenderCustomViewSpec,
+} from '@databricks/web-shared/model-trace-explorer/custom-view';
 
 // This suite exercises ONLY the OSS-specific wiring (MLflow Assistant open/
 // reset/prefill + the Tier 1 client-tool pause/resume + the pull-based context
@@ -53,7 +56,9 @@ const mockGetCurrentApplierSessionId = jest.fn<() => string | undefined>(() => '
 const mockGetCustomViewAuthoringContext = jest.fn<() => any>(() => null);
 const mockLatchDispatchedCustomViewApplyTarget = jest.fn();
 
-let capturedConnectorProviderProps: { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean } } | undefined;
+let capturedConnectorProviderProps:
+  | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean } }
+  | undefined;
 let capturedDefinitionProviderProps:
   | { views: unknown[]; isLoaded: boolean; onPersistView?: unknown; canModifyPersistedViews?: boolean }
   | undefined;

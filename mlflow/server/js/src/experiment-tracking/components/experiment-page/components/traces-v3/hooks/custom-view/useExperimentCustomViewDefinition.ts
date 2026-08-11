@@ -12,7 +12,11 @@ import {
 } from '@databricks/web-shared/model-trace-explorer/custom-view';
 
 import { MlflowService } from '../../../../../../sdk/MlflowService';
-import { isTextCompressedDeflate, textCompressDeflate, textDecompressDeflate } from '../../../../../../../common/utils/StringUtils';
+import {
+  isTextCompressedDeflate,
+  textCompressDeflate,
+  textDecompressDeflate,
+} from '../../../../../../../common/utils/StringUtils';
 
 type ExperimentTag = { key: string; value: string };
 
