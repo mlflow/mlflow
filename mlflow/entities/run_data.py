@@ -45,11 +45,11 @@ class RunData(_MlflowObject):
         full ``Metric`` objects (including ``step`` and ``timestamp``). For each metric key, the
         entry is the most recently logged value at the largest step.
 
-        This is a method rather than a property because :class:`~mlflow.entities._mlflow_object.
-        _MlflowObject` reflects over properties to build its dictionary form, and ``Metric`` objects
-        are not part of that serialized representation.
+        This is a method rather than a property because ``_MlflowObject`` reflects over properties
+        to build its dictionary form, and ``Metric`` objects are not part of that serialized
+        representation. A shallow copy is returned so callers cannot mutate the run's backing list.
         """
-        return self._metric_objs
+        return list(self._metric_objs)
 
     @property
     def params(self):
