@@ -173,6 +173,17 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
 
     const allRows = table.getRowModel().rows;
 
+    // Data rows size themselves from their cells' minWidths; the single-cell
+    // baseline band has no cells to size from, so it needs the total stated.
+    const columnsWidth = useMemo(
+      () =>
+        columns.reduce((total, column) => {
+          const styles = (column as EvalRunsTableColumnDef).meta?.styles as { minWidth?: number } | undefined;
+          return total + (typeof styles?.minWidth === 'number' ? styles.minWidth : 0);
+        }, 0),
+      [columns],
+    );
+
     const renderRow = (row: (typeof allRows)[number], isBaselineRow = false) => {
       const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
       const runStatus = 'info' in row.original ? row.original.info.status : undefined;
@@ -224,7 +235,11 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
 
         {!isLoading && pinnedBaselineRow && (
           <>
-            <EvalRunsBaselineBandRow isOutsideFilter={isBaselineOutsideFilter} baseline={baseline} />
+            <EvalRunsBaselineBandRow
+              isOutsideFilter={isBaselineOutsideFilter}
+              baseline={baseline}
+              columnsWidth={columnsWidth}
+            />
             {renderRow(pinnedBaselineRow, true)}
           </>
         )}

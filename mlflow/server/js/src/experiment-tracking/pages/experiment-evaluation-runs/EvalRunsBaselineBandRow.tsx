@@ -20,9 +20,17 @@ import type { EvalRunsBaselineTagValue } from './EvalRunsBaseline.utils';
 export const EvalRunsBaselineBandRow = ({
   isOutsideFilter = false,
   baseline,
+  columnsWidth,
 }: {
   isOutsideFilter?: boolean;
   baseline?: EvalRunsBaselineTagValue;
+  /**
+   * Total width of the visible columns. The band holds a single cell, so its own
+   * max-content is just the label — it cannot discover the table's width itself,
+   * and without this the tint stopped at the viewport edge while the data rows
+   * carried on to the right.
+   */
+  columnsWidth?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -51,7 +59,17 @@ export const EvalRunsBaselineBandRow = ({
     : undefined;
 
   return (
-    <TableRow css={{ minHeight: 0, backgroundColor: theme.colors.tableBackgroundSelectedDefault }}>
+    <TableRow
+      css={{
+        minHeight: 0,
+        backgroundColor: theme.colors.tableBackgroundSelectedDefault,
+        // Matched to the columns rather than left to flex: a single-cell row's
+        // max-content is only its label, so the tint used to stop at the
+        // viewport edge and the band came apart from the row it labels once the
+        // table scrolled right.
+        ...(columnsWidth ? { width: columnsWidth, minWidth: columnsWidth } : { minWidth: '100%' }),
+      }}
+    >
       <TableCell
         css={{
           paddingTop: theme.spacing.xs,
