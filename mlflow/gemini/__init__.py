@@ -93,6 +93,30 @@ def autolog(
     except ImportError:
         pass
 
+    # Patch the Interactions API (google-genai >= 2.3.0).
+    # client.interactions.create / client.aio.interactions.create are the new primary interface
+    # for Gemini model and agent calls; without this patch they produce no MLflow trace.
+    try:
+        from google.genai._gaos.google_genai import (
+            AsyncGeminiNextGenInteractions,
+            GeminiNextGenInteractions,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            GeminiNextGenInteractions,
+            "create",
+            patched_class_call,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            AsyncGeminiNextGenInteractions,
+            "create",
+            async_patched_class_call,
+        )
+    except ImportError:
+        pass
+
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
     )
