@@ -39,7 +39,7 @@ export interface TracesV4ToolbarParams {
   selectedTraceInfos: ModelTraceInfoV3[];
   /** Opens the AI issue-detection modal (seeded with the current selection). Omit to hide the button. */
   onDetectIssues?: () => void;
-  /** The "Views" saved-views dropdown, rendered pinned right (before refresh). Omit to hide it. */
+  /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
 }
 
@@ -77,7 +77,7 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
 ];
 
 export interface TracesV4ToolbarSlots {
-  /** Rendered before the shared search box: the date-range selector. */
+  /** Rendered before the shared search box: the Views dropdown, then the date-range selector. */
   leftControls: React.ReactNode;
   /** Rendered after the shared search box: filters, columns, a spacer, Detect Issues, and refresh. */
   rightControls: React.ReactNode;
@@ -120,7 +120,12 @@ export const useTracesV4ToolbarSlots = ({
   });
 
   return {
-    leftControls: <TracesV4DateSelector experimentId={experimentId} />,
+    leftControls: (
+      <>
+        {savedViewsButton}
+        <TracesV4DateSelector experimentId={experimentId} />
+      </>
+    ),
     rightControls: (
       <>
         <TraceFilterButton
@@ -168,7 +173,6 @@ export const useTracesV4ToolbarSlots = ({
         {shouldEnableIssueDetection() && onDetectIssues && (
           <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
         )}
-        {savedViewsButton}
         <TracesV4RefreshButton isFetching={isRefreshing} />
       </>
     ),

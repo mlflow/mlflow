@@ -121,7 +121,6 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
             <DialogComboboxCustomButtonTriggerWrapper>
               <Button
                 componentId="mlflow.traces-v4.date-selector.trigger"
-                icon={<CalendarIcon />}
                 endIcon={<ChevronDownIcon />}
                 aria-label={timeRangeButtonLabel}
                 data-testid="time-range-select-dropdown"
