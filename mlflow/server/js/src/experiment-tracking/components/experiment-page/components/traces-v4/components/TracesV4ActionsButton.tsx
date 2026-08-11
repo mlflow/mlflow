@@ -1,4 +1,4 @@
-import { Button, ChevronDownIcon, DropdownMenu, TrashIcon } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DropdownMenu, TrashIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { compact } from 'lodash';
 import React, { useContext, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -40,6 +40,12 @@ export const TracesV4ActionsButton = ({
   selectedTraceInfos,
 }: TracesV4ActionsButtonProps) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
+
+  // Match the shared GenAITracesTable menu: mute the group heading and indent its items so
+  // "Use for evaluation" reads as a section label, not a disabled row.
+  const groupLabelStyles = { color: theme.colors.textSecondary };
+  const groupItemStyles = { paddingLeft: theme.spacing.lg };
 
   const { showAddToEvaluationDatasetModal } = useContext(GenAITracesTableContext);
 
@@ -78,7 +84,7 @@ export const TracesV4ActionsButton = ({
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
         <DropdownMenu.Group>
-          <DropdownMenu.Label>
+          <DropdownMenu.Label css={groupLabelStyles}>
             <FormattedMessage
               defaultMessage="Use for evaluation"
               description="Group label for the evaluation-related bulk actions in the V4 traces toolbar"
@@ -87,6 +93,7 @@ export const TracesV4ActionsButton = ({
           {actions.runJudges && (
             <DropdownMenu.Item
               componentId="mlflow.traces-v4.actions.run-judges"
+              css={groupItemStyles}
               onClick={() => actions.runJudges?.showRunJudgesModal(selectedTraceIds)}
             >
               <FormattedMessage
@@ -97,6 +104,7 @@ export const TracesV4ActionsButton = ({
           )}
           <DropdownMenu.Item
             componentId="mlflow.traces-v4.actions.add-to-dataset"
+            css={groupItemStyles}
             onClick={() => showAddToEvaluationDatasetModal?.(selectedEntries)}
           >
             <FormattedMessage
