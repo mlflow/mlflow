@@ -49,6 +49,12 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
+
+
+class _InvalidPredictResultError(Exception):
+    pass
+
+
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations", "simulation_guidelines"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 _RESERVED_CONTEXT_KEYS = {"input", "messages", "mlflow_session_id"}
@@ -714,7 +720,7 @@ class ConversationSimulator:
                     idx = futures[future]
                     try:
                         all_trace_ids[idx] = future.result()
-                    except MlflowException:
+                    except _InvalidPredictResultError:
                         raise
                     except Exception as e:
                         _logger.error(
@@ -801,7 +807,7 @@ class ConversationSimulator:
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
-            except MlflowException:
+            except _InvalidPredictResultError:
                 raise
             except Exception as e:
                 _logger.error(f"Error during turn {turn}: {e}", exc_info=True)
@@ -856,11 +862,11 @@ class ConversationSimulator:
                 response = raw_result.response
                 external_trace_id = raw_result.trace_id
                 if external_trace_id is not None and not isinstance(external_trace_id, str):
-                    raise MlflowException(
+                    raise _InvalidPredictResultError(
                         f"PredictResult.trace_id must be a string, got {type(external_trace_id)}"
                     )
                 if external_trace_id is not None and not external_trace_id.strip():
-                    raise MlflowException(
+                    raise _InvalidPredictResultError(
                         "PredictResult.trace_id must not be an empty or blank string"
                     )
                 trace_id = external_trace_id or mlflow.get_last_active_trace_id(thread_local=True)
