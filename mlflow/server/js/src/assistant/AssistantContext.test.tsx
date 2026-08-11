@@ -17,6 +17,7 @@ import {
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
+import { registerClientToolHandler } from './clientToolHandlers';
 import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
 
 const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
@@ -37,6 +38,7 @@ const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): Resolv
   auto_selected: true,
   requires_api_key: false,
   has_api_key: false,
+  supports_client_tools: false,
   ...overrides,
 });
 
@@ -48,6 +50,7 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): Prov
   requires_api_key: false,
   has_api_key: false,
   allows_remote_access: false,
+  supports_client_tools: false,
   model_options: [],
   ...overrides,
 });
@@ -59,6 +62,7 @@ jest.mock('./AssistantService', () => ({
   getProviders: jest.fn(),
   updateConfig: jest.fn(() => Promise.resolve({})),
   cancelSession: jest.fn(),
+  submitClientToolResult: jest.fn(),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -69,6 +73,7 @@ const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
 const mockGetProviders = jest.mocked(AssistantService.getProviders);
 const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
+const mockSubmitClientToolResult = jest.mocked(AssistantService.submitClientToolResult);
 const originalLocation = window.location;
 
 // A fake EventSource — the real one is created inside sendMessageStream, which we mock,
@@ -93,6 +98,10 @@ beforeEach(() => {
   mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
   mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
   mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
+    capturedCallbacks = callbacks;
+    return { eventSource: fakeEventSource as unknown as EventSource };
+  });
+  mockSubmitClientToolResult.mockImplementation(async (_sessionId, _requestId, _content, _isError, callbacks) => {
     capturedCallbacks = callbacks;
     return { eventSource: fakeEventSource as unknown as EventSource };
   });
@@ -644,6 +653,119 @@ describe('AssistantContext — a new message supersedes a pending permission pro
     });
 
     expect(result.current.pendingPermission).toBeNull();
+  });
+});
+
+describe('AssistantContext — client_tool_call auto-resume', () => {
+  const pauseAtClientTool = (overrides: Partial<{ toolName: string; toolInput: Record<string, unknown> }> = {}) => {
+    capturedCallbacks?.onClientToolCall?.({
+      sessionId: 'session-1',
+      requestId: 'req-1',
+      toolName: overrides.toolName ?? 'render_custom_view',
+      toolInput: overrides.toolInput ?? { title: 'Trace Summary', messages: [] },
+    });
+  };
+
+  it('runs the registered handler and submits its result to resume the stream', async () => {
+    const handler = jest.fn(async (toolInput: Record<string, any>) => ({
+      content: `applied: ${toolInput['title']}`,
+      isError: false,
+    }));
+    const unregister = registerClientToolHandler('render_custom_view', handler);
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool();
+    });
+
+    expect(handler).toHaveBeenCalledWith({ title: 'Trace Summary', messages: [] });
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'applied: Trace Summary',
+        false,
+        expect.anything(),
+      ),
+    );
+    expect(result.current.pendingClientToolCall).toBeNull();
+
+    unregister();
+  });
+
+  it('submits an error result when no handler is registered for the tool name', async () => {
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool({ toolName: 'unregistered_tool' });
+    });
+
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'No handler is registered for client tool "unregistered_tool".',
+        true,
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('submits an error result when the registered handler rejects', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => {
+      throw new Error('failed to apply spec');
+    });
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool();
+    });
+
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'failed to apply spec',
+        true,
+        expect.anything(),
+      ),
+    );
+
+    unregister();
+  });
+
+  it('clears pendingClientToolCall when a new message supersedes the paused turn', async () => {
+    const unregister = registerClientToolHandler(
+      'render_custom_view',
+      // Never resolves, so the effect stays pending and doesn't clear pendingClientToolCall itself.
+      () => new Promise(() => {}),
+    );
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      pauseAtClientTool();
+    });
+    expect(result.current.pendingClientToolCall).not.toBeNull();
+
+    await act(async () => {
+      result.current.sendMessage('never mind, what is 2+2');
+    });
+
+    expect(result.current.pendingClientToolCall).toBeNull();
+
+    unregister();
   });
 });
 
