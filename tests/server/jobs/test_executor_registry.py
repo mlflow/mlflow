@@ -243,6 +243,10 @@ def test_get_executor_registry_lazy_init(monkeypatch):
     mod._global_registry = None
     monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
     monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements",
+        lambda self: None,
+    )
 
     with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[]):
         registry = get_executor_registry()
@@ -268,6 +272,10 @@ def test_shutdown_executor_registry_is_idempotent():
 def test_validate_executor_config_succeeds(monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
     monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements",
+        lambda self: None,
+    )
 
     with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[]):
         validate_executor_config()
