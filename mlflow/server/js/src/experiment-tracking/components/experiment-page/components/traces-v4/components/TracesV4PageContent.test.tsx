@@ -1033,6 +1033,18 @@ describe('TracesV4PageContent', () => {
       expect(within(menu).getByRole('menuitem', { name: 'Flag for review' })).toBeInTheDocument();
     }, 20000);
 
+    test('offers "Compare" and "Edit tags", gated on the selection size (v3 parity)', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      renderPage();
+      const menu = await openActionsMenuForFirstTrace(user);
+
+      // With one trace selected: Edit tags is actionable, Compare needs 2–3 (both present, matching v3).
+      const editTags = within(menu).getByRole('menuitem', { name: 'Edit tags' });
+      expect(editTags).not.toHaveAttribute('aria-disabled', 'true');
+      const compare = within(menu).getByRole('menuitem', { name: 'Compare' });
+      expect(compare).toHaveAttribute('aria-disabled', 'true');
+    }, 20000);
+
     test('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();

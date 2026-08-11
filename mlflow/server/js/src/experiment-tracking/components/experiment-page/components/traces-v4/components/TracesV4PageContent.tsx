@@ -95,7 +95,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
     assessments.reset();
   }, [columns, assessments]);
 
-  const actions = useTracesV4TraceActions(experimentId);
+  const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
 
   // The selection stores the full `ModelTraceInfoV3` per trace (keyed by id), so this is the entire
   // cross-page selection — every bulk action (judges, Genie, add-to-dataset, labeling, review queue)
@@ -365,6 +365,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
             />
 
             {actions.runJudges?.RunJudgesModal}
+            {actions.editTags.EditTagsModal}
 
             {isIssueDetectionOpen && (
               <IssueDetectionModal
