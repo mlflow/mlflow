@@ -1474,11 +1474,18 @@ MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", True
 )
 
-#: Specifies optional Huey storage backend URL for MLflow server job execution.
+#: Specifies an optional Redis URL for MLflow server job execution.
 #: When set, MLflow uses Redis-backed Huey storage instead of local SQLite files.
 #: (default: ``None``)
-MLFLOW_SERVER_JOB_HUEY_STORAGE_URL = _EnvironmentVariable(
-    "MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", str, None
+MLFLOW_SERVER_JOB_HUEY_REDIS_URL = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_HUEY_REDIS_URL", str, None
+)
+
+#: Specifies whether to flush stale periodic-task locks when the consumer starts.
+#: If unset, this defaults to ``True`` for SQLite and ``False`` for Redis.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP", None
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.

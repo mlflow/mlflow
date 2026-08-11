@@ -142,7 +142,7 @@ def test_get_or_init_huey_instance_uses_sqlite_backend_by_default(monkeypatch, t
     from mlflow.server.jobs import utils as job_utils
 
     job_utils._huey_instance_map.clear()
-    monkeypatch.delenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", raising=False)
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_HUEY_REDIS_URL", raising=False)
     monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(tmp_path))
 
     with mock.patch("huey.SqliteHuey") as mock_sqlite_huey, mock.patch("huey.RedisHuey"):
@@ -163,7 +163,7 @@ def test_get_or_init_huey_instance_uses_redis_backend_when_configured(monkeypatc
     from mlflow.server.jobs import utils as job_utils
 
     job_utils._huey_instance_map.clear()
-    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.delenv(HUEY_STORAGE_PATH_ENV_VAR, raising=False)
 
     with mock.patch("huey.RedisHuey") as mock_redis_huey, mock.patch("huey.SqliteHuey"):
@@ -184,7 +184,7 @@ def test_get_or_init_huey_instance_uses_distinct_redis_names_per_instance_key(mo
     from mlflow.server.jobs import utils as job_utils
 
     job_utils._huey_instance_map.clear()
-    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_STORAGE_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_HUEY_REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.delenv(HUEY_STORAGE_PATH_ENV_VAR, raising=False)
 
     with mock.patch("huey.RedisHuey") as mock_redis_huey, mock.patch("huey.SqliteHuey"):
