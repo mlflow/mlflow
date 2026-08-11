@@ -35,7 +35,6 @@ import { TracesV4SavedViewsButton, TracesV4SharedViewBanner, useTracesV4SavedVie
 
 interface TracesV4PageContentProps {
   experimentId: string;
-  storageUCSchema: string;
 }
 
 // Below this width the tab stops compressing its controls and scrolls horizontally instead (see the
@@ -49,14 +48,14 @@ const MIN_TAB_CONTENT_WIDTH = 850;
  * providers (ModelTraceExplorer, GenAITracesTable), the drawer, the delete modal, and notifications
  * stay MLflow-side.
  */
-export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4PageContentProps) => {
+export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { notify, notificationContainer } = useTracesV4Notifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const controller = useTracesV4Controller({ experimentId, storageUCSchema });
+  const controller = useTracesV4Controller({ experimentId });
   const { url, page, columns, assessments, columnSizing, traceCount, bulk, searchInput, filterModel, flags } =
     controller;
 

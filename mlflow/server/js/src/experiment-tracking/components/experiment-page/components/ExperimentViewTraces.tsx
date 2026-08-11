@@ -28,9 +28,7 @@ const TracesComponent = ({ experimentIds }: { experimentIds: string[] }) => {
   });
 
   if (shouldUseTracesV4Tab()) {
-    // OSS has no UC schema, so we pass an empty string. The V4 controller ignores it and
-    // searches the MLFLOW_EXPERIMENT location instead (see useTracesV4Controller.ts line 95-97).
-    return <TracesV4Tab experimentId={experimentIds[0]} storageUCSchema="" isLoadingExperiment={isLoadingExperiment} />;
+    return <TracesV4Tab experimentId={experimentIds[0]} isLoadingExperiment={isLoadingExperiment} />;
   }
 
   return <TracesV3View experimentIds={experimentIds} isLoadingExperiment={isLoadingExperiment} />;
