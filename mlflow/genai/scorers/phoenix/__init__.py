@@ -37,7 +37,6 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class PhoenixScorer(Scorer):
     """
@@ -124,7 +123,6 @@ class PhoenixScorer(Scorer):
             )
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -158,7 +156,6 @@ def get_scorer(
     )
 
 
-@experimental(version="3.9.0")
 class Hallucination(PhoenixScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.
@@ -182,7 +179,6 @@ class Hallucination(PhoenixScorer):
     metric_name: ClassVar[str] = "Hallucination"
 
 
-@experimental(version="3.9.0")
 class Relevance(PhoenixScorer):
     """
     Evaluates whether the retrieved context is relevant to the input query.
@@ -205,7 +201,6 @@ class Relevance(PhoenixScorer):
     metric_name: ClassVar[str] = "Relevance"
 
 
-@experimental(version="3.9.0")
 class Toxicity(PhoenixScorer):
     """
     Detects toxic content in the model's response.
@@ -225,7 +220,6 @@ class Toxicity(PhoenixScorer):
     metric_name: ClassVar[str] = "Toxicity"
 
 
-@experimental(version="3.9.0")
 class QA(PhoenixScorer):
     """
     Evaluates whether the answer correctly addresses the question based on reference.
@@ -249,7 +243,6 @@ class QA(PhoenixScorer):
     metric_name: ClassVar[str] = "QA"
 
 
-@experimental(version="3.9.0")
 class Summarization(PhoenixScorer):
     """
     Evaluates the quality of a summarization against the original document.
@@ -282,4 +275,5 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
+    "experimental",
 ]

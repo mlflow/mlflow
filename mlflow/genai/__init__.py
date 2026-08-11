@@ -5,6 +5,7 @@ from mlflow.genai import (
 )
 from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -93,6 +94,7 @@ __all__ = [
     "judges",
     "make_judge",
     "scorers",
+    "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",
     "delete_dataset_tag",

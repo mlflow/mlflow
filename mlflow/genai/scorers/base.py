@@ -338,13 +338,11 @@ class Scorer(BaseModel):
         """
         return self._pass_if
 
-    @experimental(version="3.9.0")
     @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
-    @experimental(version="3.9.0")
     @property
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
@@ -358,6 +356,18 @@ class Scorer(BaseModel):
             return ScorerStatus.UNREGISTERED
 
         return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
+
+    def _set_registration_metadata(
+        self,
+        *,
+        backend: str,
+        experiment_id: str | None,
+        sampling_config: ScorerSamplingConfig | None,
+    ) -> "Scorer":
+        self._registered_backend = backend
+        self._experiment_id = experiment_id
+        self._sampling_config = sampling_config
+        return self
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -521,6 +531,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    generate_rationale_first=data.get("generate_rationale_first", False),
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
                 )
@@ -930,7 +941,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = SCORER_BACKEND_TRACKING
         return new_scorer
 
-    @experimental(version="3.9.0")
     def start(
         self,
         *,
@@ -983,7 +993,12 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+        sample_rate = sampling_config.sample_rate
+        if not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be a number"
+            )
+        if sample_rate <= 0:
             raise MlflowException.invalid_parameter_value(
                 "When starting a scorer, provided sample rate must be greater than 0"
             )
@@ -992,10 +1007,10 @@ class Scorer(BaseModel):
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
-                sample_rate=sampling_config.sample_rate,
+                sample_rate=sample_rate,
                 filter_string=sampling_config.filter_string,
                 experiment_id=experiment_id,
             )
@@ -1008,11 +1023,10 @@ class Scorer(BaseModel):
         return store.upsert_online_scoring_config(
             scorer=self,
             experiment_id=exp_id,
-            sample_rate=sampling_config.sample_rate,
+            sample_rate=sample_rate,
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def update(
         self,
         *,
@@ -1071,14 +1085,20 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        sample_rate = sampling_config.sample_rate
+        if sample_rate is not None and not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When updating a scorer, provided sample rate must be a number"
+            )
+
         scorer_name = name or self.name
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
-            return DatabricksStore.update_registered_scorer(
+            return store.update_registered_scorer(
                 name=scorer_name,
                 scorer=self,
-                sample_rate=sampling_config.sample_rate,
+                sample_rate=sample_rate,
                 filter_string=sampling_config.filter_string,
                 experiment_id=experiment_id,
             )
@@ -1091,11 +1111,10 @@ class Scorer(BaseModel):
         return store.upsert_online_scoring_config(
             scorer=self,
             experiment_id=exp_id,
-            sample_rate=sampling_config.sample_rate,
+            sample_rate=sample_rate,
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
