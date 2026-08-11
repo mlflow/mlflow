@@ -51,7 +51,7 @@ _logger = logging.getLogger(__name__)
 _MAX_METADATA_LENGTH = 250
 
 
-class _InvalidPredictResultError(Exception):
+class _InvalidPredictResultError(MlflowException):
     pass
 
 
