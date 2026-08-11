@@ -256,11 +256,8 @@ describe('TracesV4PageContent', () => {
     expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
   });
 
-  // TODO(traces-v4): OSS enables Delete (no UC gate) AND the row-select checkbox → Actions-button flow doesn't register under jsdom (portalled DuBois checkbox). Needs a jsdom-friendly selection interaction + OSS-correct (delete-enabled) assertions.
-
-  test.skip('select rows → Actions → Delete is disabled for UC-backed traces and does not delete', async () => {
+  test('select rows → Actions (2) → Delete is enabled in OSS and opens the confirm modal', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
-    const deleteSpy = jest.spyOn(MlflowService, 'deleteTracesV3').mockResolvedValue({ traces_deleted: 2 } as never);
     renderPage();
     await findTraceRow('tr-000');
 
@@ -272,15 +269,13 @@ describe('TracesV4PageContent', () => {
     expect(actionsButton).toHaveTextContent('Actions (2)');
     await user.click(actionsButton);
 
-    // Every v4 trace is UC-backed, so Delete is disabled with a tooltip; clicking it is a no-op.
-    // (The disabled item appends an info-icon tooltip, so match the label by regex.)
+    // OSS traces have no UC gate (isDeleteDisabled === false), so Delete is enabled and clicking it
+    // opens the delete-confirmation modal (mirrors the datasets-v2 delete flow).
     const deleteItem = await screen.findByRole('menuitem', { name: /Delete/ });
-    expect(deleteItem).toHaveAttribute('aria-disabled', 'true');
+    expect(deleteItem).not.toHaveAttribute('aria-disabled', 'true');
     await user.click(deleteItem);
-    // No confirm modal opens and the mutation never fires.
-    expect(screen.queryByRole('button', { name: /^Delete$/ })).not.toBeInTheDocument();
-    expect(deleteSpy).not.toHaveBeenCalled();
-  });
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/Delete/);
+  }, 20000);
 
   test('searching commits only on Enter, not per keystroke, then sends an ILIKE filter', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -1014,9 +1009,7 @@ describe('TracesV4PageContent', () => {
       return screen.findByRole('menu');
     };
 
-    // TODO(traces-v4): Row-select checkbox → Actions button doesn't surface under jsdom (portalled DuBois selection). Product wiring verified; needs jsdom-friendly selection interaction.
-
-    test.skip('always offers "Run scorers" and "Add to evaluation dataset" for a selection', async () => {
+    test('always offers "Run scorers" and "Add to evaluation dataset" for a selection', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
@@ -1024,9 +1017,11 @@ describe('TracesV4PageContent', () => {
       // These two are always available (no extra feature gate) — the core evaluation actions.
       expect(within(menu).getByRole('menuitem', { name: 'Run scorers' })).toBeInTheDocument();
       expect(within(menu).getByRole('menuitem', { name: 'Add to evaluation dataset' })).toBeInTheDocument();
-      // Delete remains, below the evaluation group (disabled for UC-backed traces).
-      expect(within(menu).getByRole('menuitem', { name: /Delete/ })).toBeInTheDocument();
-    });
+      // Delete remains, below the evaluation group. In OSS traces have no UC gate, so it's enabled.
+      const deleteItem = within(menu).getByRole('menuitem', { name: /Delete/ });
+      expect(deleteItem).toBeInTheDocument();
+      expect(deleteItem).not.toHaveAttribute('aria-disabled', 'true');
+    }, 20000);
 
     // TODO(traces-v4): Review queue is Databricks-only and removed from the OSS Actions menu; the assertion is moot AND the selection→Actions flow is jsdom-blocked.
 
@@ -1049,21 +1044,18 @@ describe('TracesV4PageContent', () => {
       expect(within(menu).getByRole('menuitem', { name: 'Add to labeling session' })).toBeInTheDocument();
     });
 
-    // TODO(traces-v4): Row-select → Actions → menuitem flow is jsdom-blocked (portalled selection/dropdown). Product wiring verified.
-
-    test.skip('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
+    test('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
       await user.click(within(menu).getByRole('menuitem', { name: 'Run scorers' }));
 
-      // The shared run-scorers modal opens scoped to the single selected trace.
-      expect(await screen.findByRole('dialog', { name: 'Run scorer on trace' })).toBeInTheDocument();
-    });
+      // The shared run-judges modal opens scoped to the single selected trace. (The menu item reads
+      // "Run scorers"; the modal title uses the underlying "judge" terminology.)
+      expect(await screen.findByRole('dialog', { name: /Run judge on trace/ })).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
-    // TODO(traces-v4): Cross-page selection depends on the jsdom-blocked checkbox selection flow. Product wiring verified.
-
-    test.skip('bulk actions run on the full cross-page selection (select on page 1, page to 2, Run scorers)', async () => {
+    test('bulk actions run on the full cross-page selection (select on page 1, page to 2, Run scorers)', async () => {
       // The selection now stores each trace's full info keyed by id, so it spans pages. Selecting one
       // trace on page 1, paging to page 2, selecting another there, then running scorers must scope the
       // action to BOTH selected traces — not just the page-2 subset (the reported "Run scorers (2)" runs
@@ -1090,8 +1082,8 @@ describe('TracesV4PageContent', () => {
       await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Run scorers' }));
 
       // The scorer modal launches for the full 2-trace cross-page selection, not the page-2 subset.
-      expect(await screen.findByRole('dialog', { name: 'Run scorer on 2 traces' })).toBeInTheDocument();
-    });
+      expect(await screen.findByRole('dialog', { name: /Run judge on 2 traces/ })).toBeInTheDocument();
+    }, 30000); // heavy: renders two 50-row pages, selects across a page swap, then opens the modal
   });
 
   describe('trace drawer navigation', () => {
@@ -1162,9 +1154,7 @@ describe('TracesV4PageContent', () => {
     // IssueDetectionModal, which fires gateway endpoint + API-key queries this suite's MSW doesn't
     // stub (it hangs). The button→modal wiring mirrors v3's; presence/order is covered above.
 
-    // TODO(traces-v4): The Actions button only renders on selection, which is jsdom-blocked here (portalled DuBois checkbox).
-
-    test.skip('places the selection Actions button between Columns and Refresh', async () => {
+    test('places the selection Actions button between Columns and Refresh', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       await findTraceRow('tr-000');
@@ -1175,6 +1165,6 @@ describe('TracesV4PageContent', () => {
       const refresh = screen.getByRole('button', { name: 'now' });
       expect(columns.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(actions.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
+    }, 20000);
   });
 });

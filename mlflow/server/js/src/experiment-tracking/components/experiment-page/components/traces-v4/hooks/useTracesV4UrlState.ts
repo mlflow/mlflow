@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 // Reuse the generic (branding-free) number-search-param helper from datasets-v2.
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
@@ -100,11 +100,20 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const sortRaw = searchParams.get(SORT_PARAM);
   const dirRaw = searchParams.get(DIR_PARAM);
   const traceId = searchParams.get(TRACE_ID_PARAM) ?? undefined;
-  // getAll → the repeatable `tag` values.
-  const tagFilters = searchParams
-    .getAll(TAG_PARAM)
-    .map(decodeTagFilter)
-    .filter((filter): filter is TagFilter => filter !== undefined);
+  // getAll → the repeatable `tag` values. Memoize on the serialized params: `getAll().map().filter()`
+  // returns a fresh array every render, and consumers use `tagFilters` as an effect dependency (e.g.
+  // the controller's clear-selection effect). Without a stable identity that effect would re-run on
+  // every render and, in this case, wipe the bulk selection the instant it's made.
+  const tagParamsKey = searchParams.getAll(TAG_PARAM).join('\n');
+  const tagFilters = useMemo(
+    () =>
+      tagParamsKey
+        .split('\n')
+        .filter((value) => value !== '')
+        .map(decodeTagFilter)
+        .filter((filter): filter is TagFilter => filter !== undefined),
+    [tagParamsKey],
+  );
 
   const pageSize = toValidPageSize(pageSizeRaw);
   const sort: TraceColumnId = isSortableColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
