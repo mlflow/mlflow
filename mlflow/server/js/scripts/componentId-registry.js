@@ -2131,6 +2131,7 @@ module.exports = {
   // -- mlflow.traces-v4 --
   "mlflow.traces-v4.actions.add-to-dataset": "",
   "mlflow.traces-v4.actions.delete": "",
+  "mlflow.traces-v4.actions.flag-for-review": "",
   "mlflow.traces-v4.actions.run-judges": "",
   "mlflow.traces-v4.actions.trigger": "",
   "mlflow.traces-v4.bulk-delete-confirm-modal": "",
