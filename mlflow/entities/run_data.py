@@ -37,6 +37,20 @@ class RunData(_MlflowObject):
         """
         return self._metrics
 
+    def metric_objects(self):
+        """
+        List of :py:class:`mlflow.entities.Metric` objects for the current run.
+
+        Unlike :py:attr:`metrics`, which maps each metric key to its latest value, this exposes the
+        full ``Metric`` objects (including ``step`` and ``timestamp``). For each metric key, the
+        entry is the most recently logged value at the largest step.
+
+        This is a method rather than a property because :class:`~mlflow.entities._mlflow_object.
+        _MlflowObject` reflects over properties to build its dictionary form, and ``Metric`` objects
+        are not part of that serialized representation.
+        """
+        return self._metric_objs
+
     @property
     def params(self):
         """Dictionary of param key (string) -> param value for the current run."""

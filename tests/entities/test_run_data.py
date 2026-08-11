@@ -20,7 +20,8 @@ def _check_tags(tags_dict, expected_tags):
 
 def _check(rd, metrics, params, tags):
     assert isinstance(rd, RunData)
-    _check_metrics(rd._metric_objs, rd.metrics, metrics)
+    assert rd.metric_objects() == rd._metric_objs
+    _check_metrics(rd.metric_objects(), rd.metrics, metrics)
     _check_params(rd.params, params)
     _check_tags(rd.tags, tags)
 
