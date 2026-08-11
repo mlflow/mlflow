@@ -95,10 +95,12 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         prompt_tokens_details = None
         if details := usage_data.get("prompt_tokens_details"):
             prompt_tokens_details = chat.PromptTokensDetails(**details)
+
+        usage = {
+            key: value for key, value in usage_data.items() if key != "prompt_tokens_details"
+        }
         return chat.ChatUsage(
-            prompt_tokens=usage_data.get("prompt_tokens"),
-            completion_tokens=usage_data.get("completion_tokens"),
-            total_tokens=usage_data.get("total_tokens"),
+            **usage,
             prompt_tokens_details=prompt_tokens_details,
         )
 

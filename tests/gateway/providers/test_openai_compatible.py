@@ -119,6 +119,22 @@ def test_default_api_base():
     assert provider._api_base == "https://api.test-provider.com/v1"
 
 
+def test_chat_preserves_provider_usage_fields():
+    response = _chat_response()
+    response["usage"].update(
+        {
+            "cost": 0.00123,
+            "cost_details": {"upstream_inference_cost": 0.00123},
+        }
+    )
+
+    result = OpenAICompatibleAdapter.model_to_chat(response, _make_endpoint_config())
+
+    assert result.usage is not None
+    assert result.usage.cost == 0.00123
+    assert result.usage.cost_details == {"upstream_inference_cost": 0.00123}
+
+
 def test_custom_api_base():
     provider = _make_provider(api_base="https://custom.example.com/v1")
     assert provider._api_base == "https://custom.example.com/v1"
