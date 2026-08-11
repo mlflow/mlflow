@@ -531,6 +531,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    generate_rationale_first=data.get("generate_rationale_first", False),
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
                 )
