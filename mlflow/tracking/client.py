@@ -130,7 +130,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -2978,7 +2978,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:

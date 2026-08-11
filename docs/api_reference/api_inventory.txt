@@ -1307,6 +1307,7 @@ mlflow.genai.scorers.phoenix.Summarization
 mlflow.genai.scorers.phoenix.Summarization.model_post_init
 mlflow.genai.scorers.phoenix.Toxicity
 mlflow.genai.scorers.phoenix.Toxicity.model_post_init
+mlflow.genai.scorers.phoenix.experimental
 mlflow.genai.scorers.phoenix.get_scorer
 mlflow.genai.scorers.ragas.AgentGoalAccuracyWithReference
 mlflow.genai.scorers.ragas.AgentGoalAccuracyWithReference.model_post_init
@@ -1368,6 +1369,7 @@ mlflow.genai.scorers.ragas.ToolCallF1
 mlflow.genai.scorers.ragas.ToolCallF1.model_post_init
 mlflow.genai.scorers.ragas.TopicAdherence
 mlflow.genai.scorers.ragas.TopicAdherence.model_post_init
+mlflow.genai.scorers.ragas.experimental
 mlflow.genai.scorers.ragas.get_scorer
 mlflow.genai.scorers.ragas.scorers.AnswerAccuracy
 mlflow.genai.scorers.ragas.scorers.AspectCritic
