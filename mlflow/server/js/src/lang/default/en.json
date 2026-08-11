@@ -4671,6 +4671,10 @@
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
   },
+  "IA1Jy3": {
+    "defaultMessage": "{count} of {total}",
+    "description": "Traces table footer showing how many traces are loaded out of the total"
+  },
   "IARcQx": {
     "defaultMessage": "Manage workspace {name}",
     "description": "Aria label on the gear icon for managing a workspace"

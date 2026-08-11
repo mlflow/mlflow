@@ -72,6 +72,9 @@ let state: ServerState;
 
 let lastSearch = '';
 
+// Total returned by the trace-metrics endpoint for the footer "{n} of {total}" count.
+let metricsTotalCount = 42;
+
 const LocationSpy = () => {
   const search = useLocation().search;
   useEffect(() => {
@@ -125,6 +128,10 @@ const server = setupServer(
   // The add-to-dataset provider (GenAITracesTableProvider / ExportTracesToDatasetModal) fetches the
   // datasets list on mount; stub it so an unhandled request doesn't disrupt the toolbar render.
   rest.post('/ajax-api/3.0/mlflow/datasets/search', (_req, res, ctx) => res(ctx.json({ datasets: [] }))),
+  // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint.
+  rest.post('/ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) =>
+    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: metricsTotalCount } }] })),
+  ),
 );
 
 const { history } = setupTestRouter();
@@ -139,6 +146,7 @@ beforeEach(() => {
   // default when unseen), which sets `aria-hidden` on the rest of the page and hides the trace rows
   // from queries — the same returning-user state real sessions land in after the first dismissal.
   window.localStorage.setItem('mlflow.detectIssues.guidanceShown_v1', 'true');
+  metricsTotalCount = 42;
   state = {
     pages: { '': { traces: makeTraces(3), next_page_token: undefined } },
     searchCalls: [],
@@ -536,7 +544,9 @@ describe('TracesV4PageContent', () => {
       // First tag is shown as a pill; the second is collapsed into "+1".
       expect(screen.getByText('env: prod')).toBeInTheDocument();
       expect(screen.getByText('+1')).toBeInTheDocument();
-    });
+      // Heavy full-page render is slow under parallel jsdom load; per-test timeout avoids the
+      // lint-forbidden global jest.setTimeout.
+    }, 20000);
 
     test('hides internal mlflow.* tags from the preview', async () => {
       // Only an internal tag → nothing user-facing → renders the "-" empty value.
@@ -683,6 +693,8 @@ describe('TracesV4PageContent', () => {
 
       expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+      // Heavy full-page render is slow under parallel jsdom load; per-test timeout avoids the
+      // lint-forbidden global jest.setTimeout (matches the sibling pagination tests).
     }, 20000);
 
     test('an exactly-full last page → Next enabled; clicking it shows "No more results" with the bar still present', async () => {
@@ -713,6 +725,16 @@ describe('TracesV4PageContent', () => {
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
       // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
       // avoids the lint-forbidden global jest.setTimeout.
+    }, 20000);
+
+    test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
+      // 3 rows on the page; the trace-metrics endpoint reports 42 total.
+      state.pages = { '': { traces: makeTraces(3), next_page_token: undefined } };
+      metricsTotalCount = 42;
+      renderPage();
+      await findTraceRow('tr-000');
+
+      expect(await screen.findByText('3 of 42')).toBeInTheDocument();
     }, 20000);
   });
 

@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   SimpleSelect,
   SimpleSelectOption,
+  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -22,6 +23,15 @@ export interface TracesPaginationBarProps {
   /** Cursor affordances derived from the token cache — drive the prev/next enabled state. */
   hasNext: boolean;
   hasPrev: boolean;
+  /**
+   * Optional "{n} of {total}" row count shown bottom-left. `count` is the current page's row count;
+   * `total` is the grand total (from a separate count source, since the cursor API returns none).
+   * Omit `count` to hide the count entirely; pass `count` with an undefined `total` while it loads
+   * to show a spinner in place of the total.
+   */
+  count?: number;
+  total?: number;
+  isCountLoading?: boolean;
 }
 
 /**
@@ -36,6 +46,9 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   onPageSizeChange,
   hasNext,
   hasPrev,
+  count,
+  total,
+  isCountLoading,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -45,65 +58,84 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
       css={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        // Space the count (left) from the page-size + cursor controls (right); with no count the
+        // right cluster still hugs the right edge.
+        justifyContent: 'space-between',
         gap: theme.spacing.md,
         minHeight: theme.general.heightSm,
       }}
     >
-      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Typography.Text color="secondary" size="sm">
-          <FormattedMessage
-            defaultMessage="Rows per page"
-            description="Label for the traces table page-size selector"
-          />
-        </Typography.Text>
-        <SimpleSelect
-          componentId={`${COMPONENT_ID}.page-size`}
-          id={`${COMPONENT_ID}.page-size`}
-          value={String(pageSize)}
-          width={80}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Rows per page',
-            description: 'Aria label for the traces table page-size selector',
-          })}
-          onChange={({ target }) => onPageSizeChange(Number(target.value) as PageSize)}
-        >
-          {PAGE_SIZE_OPTIONS.map((size) => (
-            <SimpleSelectOption key={size} value={String(size)}>
-              {size}
-            </SimpleSelectOption>
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        {count !== undefined &&
+          (isCountLoading ? (
+            <Spinner size="small" />
+          ) : (
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage
+                defaultMessage="{count} of {total}"
+                description="Traces table footer showing how many traces are loaded out of the total"
+                values={{ count, total: total ?? count }}
+              />
+            </Typography.Text>
           ))}
-        </SimpleSelect>
       </span>
 
-      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-        <Button
-          componentId={`${COMPONENT_ID}.pagination.prev`}
-          icon={<ChevronLeftIcon />}
-          disabled={!hasPrev}
-          onClick={() => onPageChange(pageIndex - 1)}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Previous page',
-            description: 'Aria label for the previous-page button in the traces table pagination',
-          })}
-        />
-        <Typography.Text color="secondary" size="sm">
-          <FormattedMessage
-            defaultMessage="Page {page}"
-            description="Current page indicator in the traces table pagination"
-            values={{ page: pageIndex }}
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.md }}>
+        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage
+              defaultMessage="Rows per page"
+              description="Label for the traces table page-size selector"
+            />
+          </Typography.Text>
+          <SimpleSelect
+            componentId={`${COMPONENT_ID}.page-size`}
+            id={`${COMPONENT_ID}.page-size`}
+            value={String(pageSize)}
+            width={80}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Rows per page',
+              description: 'Aria label for the traces table page-size selector',
+            })}
+            onChange={({ target }) => onPageSizeChange(Number(target.value) as PageSize)}
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SimpleSelectOption key={size} value={String(size)}>
+                {size}
+              </SimpleSelectOption>
+            ))}
+          </SimpleSelect>
+        </span>
+
+        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Button
+            componentId={`${COMPONENT_ID}.pagination.prev`}
+            icon={<ChevronLeftIcon />}
+            disabled={!hasPrev}
+            onClick={() => onPageChange(pageIndex - 1)}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Previous page',
+              description: 'Aria label for the previous-page button in the traces table pagination',
+            })}
           />
-        </Typography.Text>
-        <Button
-          componentId={`${COMPONENT_ID}.pagination.next`}
-          icon={<ChevronRightIcon />}
-          disabled={!hasNext}
-          onClick={() => onPageChange(pageIndex + 1)}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Next page',
-            description: 'Aria label for the next-page button in the traces table pagination',
-          })}
-        />
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage
+              defaultMessage="Page {page}"
+              description="Current page indicator in the traces table pagination"
+              values={{ page: pageIndex }}
+            />
+          </Typography.Text>
+          <Button
+            componentId={`${COMPONENT_ID}.pagination.next`}
+            icon={<ChevronRightIcon />}
+            disabled={!hasNext}
+            onClick={() => onPageChange(pageIndex + 1)}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Next page',
+              description: 'Aria label for the next-page button in the traces table pagination',
+            })}
+          />
+        </span>
       </span>
     </div>
   );
