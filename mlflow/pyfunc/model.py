@@ -1155,9 +1155,9 @@ def _save_model_with_class_artifacts_params(
                         .as_posix()
                     )
 
-                    saved_artifact_subpath = os.path.join(
+                    saved_artifact_subpath = Path(
                         saved_artifacts_dir_subpath, relative_path
-                    )
+                    ).as_posix()
 
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,

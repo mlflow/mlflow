@@ -1,0 +1,31 @@
+name: Copilot Review
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review]
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  request-review:
+    if: >-
+      github.event.pull_request.draft == false
+      && (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Request Copilot review
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-reviewer @copilot

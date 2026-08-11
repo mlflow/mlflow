@@ -33,6 +33,7 @@ import {
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import { shouldUseInfinitePaginatedTraces, shouldUseTracesV4API } from '../utils/FeatureUtils';
 import { fetchAPI } from '../utils/FetchUtils';
+import { getAvailableOperators } from '../components/filters/TableFilterItem';
 
 // Mock shouldEnableUnifiedEvalTab
 jest.mock('../utils/FeatureUtils', () => ({
@@ -1668,6 +1669,46 @@ describe('useSearchMlflowTraces', () => {
     );
   });
 
+  it('uses server-side numeric assessment comparator filters', async () => {
+    jest.mocked(shouldUseTracesV4API).mockReturnValue(true);
+
+    const apiCallSpy = jest.spyOn(TracesServiceV4, 'searchTracesV4').mockResolvedValueOnce([]);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'UC_SCHEMA',
+              uc_schema: {
+                catalog_name: 'catalog',
+                schema_name: 'schema',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: TracesTableColumnGroup.ASSESSMENT,
+              key: 'score',
+              operator: FilterOperator.GREATER_THAN,
+              value: 0.75,
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(apiCallSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filter: 'feedback.`score` > 0.75',
+        locations: [{ type: 'UC_SCHEMA', uc_schema: { catalog_name: 'catalog', schema_name: 'schema' } }],
+      }),
+    );
+  });
+
   it('uses server-side search query filtering for V4 APIs', async () => {
     jest.mocked(shouldUseTracesV4API).mockReturnValue(true);
 
@@ -2186,6 +2227,76 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain(' AND ');
   });
 
+  test.each([
+    [TracesTableColumnGroup.ASSESSMENT, FilterOperator.GREATER_THAN, 3, 'feedback.`score` > 3'],
+    [TracesTableColumnGroup.ASSESSMENT, FilterOperator.GREATER_THAN_OR_EQUALS, '3.5', 'feedback.`score` >= 3.5'],
+    [TracesTableColumnGroup.ASSESSMENT, FilterOperator.LESS_THAN, 0, 'feedback.`score` < 0'],
+    [TracesTableColumnGroup.ASSESSMENT, FilterOperator.LESS_THAN_OR_EQUALS, '-2.25', 'feedback.`score` <= -2.25'],
+    [TracesTableColumnGroup.EXPECTATION, FilterOperator.GREATER_THAN, 3, 'expectation.`score` > 3'],
+    [TracesTableColumnGroup.EXPECTATION, FilterOperator.GREATER_THAN_OR_EQUALS, '3.5', 'expectation.`score` >= 3.5'],
+    [TracesTableColumnGroup.EXPECTATION, FilterOperator.LESS_THAN, 0, 'expectation.`score` < 0'],
+    [TracesTableColumnGroup.EXPECTATION, FilterOperator.LESS_THAN_OR_EQUALS, '-2.25', 'expectation.`score` <= -2.25'],
+  ])('serializes %s numeric comparator %s with unquoted numeric literal', (column, operator, value, expected) => {
+    const filterString = createMlflowSearchFilter(undefined, undefined, [
+      {
+        column,
+        operator,
+        key: 'score',
+        value,
+      },
+    ]);
+
+    expect(filterString).toBe(expected);
+  });
+
+  test('keeps assessment equality and string operator values quoted', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.EQUALS,
+        key: 'score',
+        value: 3,
+      },
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.NOT_EQUALS,
+        key: 'label',
+        value: 'bad',
+      },
+      {
+        column: TracesTableColumnGroup.EXPECTATION,
+        operator: FilterOperator.EQUALS,
+        key: 'expected_score',
+        value: 4,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe(
+      "feedback.`score` = '3' AND feedback.`label` != 'bad' AND expectation.`expected_score` = '4'",
+    );
+  });
+
+  test('does not serialize invalid numeric assessment comparator values', () => {
+    const filterString = createMlflowSearchFilter(undefined, undefined, [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.GREATER_THAN,
+        key: 'score',
+        value: '',
+      },
+      {
+        column: TracesTableColumnGroup.EXPECTATION,
+        operator: FilterOperator.LESS_THAN,
+        key: 'expected_score',
+        value: 'abc',
+      },
+    ]);
+
+    expect(filterString).toBeUndefined();
+  });
+
   test('creates correct filter string for tag IS NULL', () => {
     const networkFilters = [
       {
@@ -2277,6 +2388,74 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain('tags.environment IS NOT NULL');
     expect(filterString).toContain("attributes.status = 'OK'");
     expect(filterString).toContain(' AND ');
+  });
+});
+
+describe('getAvailableOperators', () => {
+  const assessmentInfos = [
+    {
+      name: 'score',
+      displayName: 'score',
+      isKnown: false,
+      isOverall: false,
+      metricName: 'score',
+      isCustomMetric: false,
+      isEditable: false,
+      isRetrievalAssessment: false,
+      dtype: 'numeric' as const,
+      uniqueValues: new Set([1]),
+      docsLink: '',
+      missingTooltip: '',
+      description: '',
+    },
+    {
+      name: 'is_correct',
+      displayName: 'is_correct',
+      isKnown: false,
+      isOverall: false,
+      metricName: 'is_correct',
+      isCustomMetric: false,
+      isEditable: false,
+      isRetrievalAssessment: false,
+      dtype: 'boolean' as const,
+      uniqueValues: new Set([true]),
+      docsLink: '',
+      missingTooltip: '',
+      description: '',
+    },
+    {
+      name: 'label',
+      displayName: 'label',
+      isKnown: false,
+      isOverall: false,
+      metricName: 'label',
+      isCustomMetric: false,
+      isEditable: false,
+      isRetrievalAssessment: false,
+      dtype: 'string' as const,
+      uniqueValues: new Set(['good']),
+      docsLink: '',
+      missingTooltip: '',
+      description: '',
+    },
+  ];
+
+  test('offers numeric comparators for numeric assessments only', () => {
+    expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'score', true, assessmentInfos)).toEqual(
+      expect.arrayContaining([FilterOperator.GREATER_THAN, FilterOperator.LESS_THAN_OR_EQUALS]),
+    );
+    expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'is_correct', true, assessmentInfos)).toEqual([
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ]);
+    expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'label', true, assessmentInfos)).toEqual([
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ]);
   });
 });
 

@@ -4,6 +4,8 @@ import inspect
 import json
 import logging
 import math
+import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -21,8 +23,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.constants import DEFAULT_TOP_N_SLOWEST_SPANS
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+from mlflow.genai.judges.utils import get_chat_completions_with_structured_output, get_default_model
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
@@ -814,12 +815,55 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
+_RETRIEVER_DOCUMENT_CONTENT_KEYS = ("page_content", "content", "text")
+_RETRIEVER_DOCUMENT_METADATA_KEYS = ("metadata",)
+_MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS = 128
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: OrderedDict[frozenset[str], None] = OrderedDict()
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK = threading.Lock()
+
+
+def _should_warn_for_retriever_document_key_set(key_set: frozenset[str]) -> bool:
+    with _WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK:
+        if key_set in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.move_to_end(key_set)
+            return False
+
+        _WARNED_RETRIEVER_DOCUMENT_KEY_SETS[key_set] = None
+        if len(_WARNED_RETRIEVER_DOCUMENT_KEY_SETS) > _MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.popitem(last=False)
+
+        return True
+
+
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 
-    doc = {"content": chunk.get("page_content")}
-    if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
+    content_key = next(
+        (key for key in _RETRIEVER_DOCUMENT_CONTENT_KEYS if key in chunk),
+        None,
+    )
+    content = chunk.get(content_key) if content_key is not None else None
+
+    if content_key is None:
+        # Many retriever libraries store source/citation details under metadata.
+        # Avoid warning for metadata-only chunks, but warn when other fields are
+        # present because they may contain text under an unsupported key.
+        non_metadata_keys = set(chunk) - set(_RETRIEVER_DOCUMENT_METADATA_KEYS)
+        if non_metadata_keys:
+            key_set = frozenset(map(str, chunk.keys()))
+            if _should_warn_for_retriever_document_key_set(key_set):
+                _logger.warning(
+                    "RETRIEVER span document does not contain any recognized text field. "
+                    "Expected one of %s. Found fields: %s",
+                    list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
+                    sorted(key_set),
+                )
+
+    metadata = chunk.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    doc = {"content": content}
+    if doc_uri := metadata.get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
 
@@ -920,12 +964,16 @@ def construct_eval_result_df(
 
     try:
         trace_id_to_info = {t.info.trace_id: t.info for t in traces}
+        # Skip results whose trace could not be materialized (e.g. a clone read-back miss
+        # nulled eval_item.trace); otherwise a single missing trace would collapse the entire
+        # result DataFrame to None via the except below.
         traces = [
             Trace(
                 info=trace_id_to_info[eval_result.eval_item.trace.info.trace_id],
                 data=eval_result.eval_item.trace.data,
             )
             for eval_result in eval_results
+            if eval_result.eval_item.trace is not None
         ]
         df = traces_to_df(traces)
         # Add unpacked assessment columns. The result df should look like:
@@ -948,10 +996,18 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             and source_run_id != run_id
         ):
             continue
+        name = a["assessment_name"]
         if feedback := a.get("feedback"):
-            result[f"{a['assessment_name']}/value"] = feedback.get("value")
+            result[f"{name}/value"] = feedback.get("value")
+            # Carry the rationale and any scorer error so downstream consumers (e.g.
+            # EvaluationResult.passed/reason) can surface them. Emitted only when
+            # present to keep the result DataFrame compact.
+            if (rationale := a.get("rationale")) is not None:
+                result[f"{name}/rationale"] = rationale
+            if (error := feedback.get("error")) and (msg := error.get("error_message")):
+                result[f"{name}/error_message"] = msg
         elif expectation := a.get("expectation"):
-            result[f"{a['assessment_name']}/value"] = expectation.get("value")
+            result[f"{name}/value"] = expectation.get("value")
 
     return result
 
@@ -1011,7 +1067,11 @@ def batch_link_traces_to_run(
         eval_results: List of evaluation results containing traces
         max_batch_size: Maximum number of traces to link per batch call
     """
-    trace_ids = [eval_result.eval_item.trace.info.trace_id for eval_result in eval_results]
+    trace_ids = [
+        eval_result.eval_item.trace.info.trace_id
+        for eval_result in eval_results
+        if eval_result.eval_item.trace is not None
+    ]
     # Batch the trace IDs to avoid overwhelming the MLflow backend
     for i in range(0, len(trace_ids), max_batch_size):
         batch = trace_ids[i : i + max_batch_size]
@@ -1169,10 +1229,7 @@ def _try_extract_available_tools_with_llm(
         List of ChatTool objects extracted by the LLM, or empty list if extraction fails.
     """
     if model is None:
-        if is_databricks_uri(mlflow.get_tracking_uri()):
-            model = _DATABRICKS_DEFAULT_JUDGE_MODEL
-        else:
-            model = "openai:/gpt-4.1-mini"
+        model = get_default_model()
 
     try:
         from mlflow.types.chat import (

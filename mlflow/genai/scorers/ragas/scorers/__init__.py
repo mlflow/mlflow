@@ -25,6 +25,7 @@ from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    ContextUtilization,
     Faithfulness,
     NoiseSensitivity,
     NonLLMContextPrecisionWithReference,
@@ -35,7 +36,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class AspectCritic(RagasScorer):
     """
@@ -61,7 +61,6 @@ class AspectCritic(RagasScorer):
     metric_name: ClassVar[str] = "AspectCritic"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class DiscreteMetric(RagasScorer):
     """
@@ -114,7 +113,6 @@ class DiscreteMetric(RagasScorer):
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RubricsScore(RagasScorer):
     """
@@ -146,7 +144,6 @@ class RubricsScore(RagasScorer):
     metric_name: ClassVar[str] = "RubricsScore"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class InstanceSpecificRubrics(RagasScorer):
     """
@@ -196,7 +193,6 @@ class InstanceSpecificRubrics(RagasScorer):
     metric_name: ClassVar[str] = "InstanceSpecificRubrics"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class SummarizationScore(RagasScorer):
     """
@@ -221,7 +217,6 @@ class SummarizationScore(RagasScorer):
     metric_name: ClassVar[str] = "SummarizationScore"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerAccuracy(RagasScorer):
     """
@@ -243,7 +238,6 @@ class AnswerAccuracy(RagasScorer):
     metric_name: ClassVar[str] = "AnswerAccuracy"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRelevance(RagasScorer):
     """
@@ -265,7 +259,6 @@ class ContextRelevance(RagasScorer):
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ResponseGroundedness(RagasScorer):
     """
@@ -290,6 +283,7 @@ class ResponseGroundedness(RagasScorer):
 __all__ = [
     # RAG metrics
     "ContextPrecision",
+    "ContextUtilization",
     "NonLLMContextPrecisionWithReference",
     "ContextRecall",
     "NonLLMContextRecall",
@@ -323,4 +317,5 @@ __all__ = [
     "AgentGoalAccuracyWithoutReference",
     # Other tasks
     "SummarizationScore",
+    "experimental",
 ]

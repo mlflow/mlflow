@@ -3,10 +3,16 @@ import { createServer, Server } from 'net';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { BatchingWriter } from '../../../src/exporters/wal/batching_writer';
-import { createIpcConnectionHandler, submitRecord } from '../../../src/exporters/wal/ipc';
+import {
+  createIpcConnectionHandler,
+  ipcRequestByteLength,
+  MAX_REQUEST_BYTES,
+  submitRecord,
+} from '../../../src/exporters/wal/ipc';
 import { getLockSocketPath, getWalPath } from '../../../src/exporters/wal/paths';
 import type { IpcRequest, IpcResponse } from '../../../src/exporters/wal/protocol';
 import type { WalRecord } from '../../../src/exporters/wal/types';
+import { JSONBig } from '../../../src/core/utils/json';
 
 function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRecord {
   return {
@@ -236,23 +242,27 @@ describe('wal/ipc createIpcConnectionHandler', () => {
   });
 
   it('rejects oversized requests without exhausting memory', async () => {
-    // Stream bytes well past the 16 MiB cap without ever sending a
-    // newline. The handler should respond with ok=false, pause its
-    // read side so the kernel buffer stops growing, and half-close
-    // the write side so we observe a clean `'end'` here.
+    // Stream bytes well past the cap without ever sending a newline. The
+    // handler should respond with ok=false, pause its read side so the kernel
+    // buffer stops growing, and half-close the write side so we observe a clean
+    // `'end'` here.
     const writer = new BatchingWriter();
     server = await startHandlerServer(writer);
+
+    // One MiB per chunk; send just enough chunks to overshoot the cap by 1 MiB,
+    // derived from MAX_REQUEST_BYTES so the test tracks the constant.
+    const oneMibBytes = 1024 * 1024;
+    const chunkCount = Math.ceil(MAX_REQUEST_BYTES / oneMibBytes) + 1;
 
     const { createConnection } = await import('node:net');
     const result = await new Promise<string>((resolve, reject) => {
       const socket = createConnection(getLockSocketPath());
       const chunks: Buffer[] = [];
       socket.on('connect', () => {
-        // 1 MiB of 'A's per chunk × 17 chunks = 17 MiB, no trailing
-        // newline. We send chunks back-to-back; once the daemon's
-        // cumulative buffer crosses 16 MiB it must short-circuit and
-        // respond, after which it ignores any further bytes.
-        const oneMib = Buffer.alloc(1024 * 1024, 0x41);
+        // No trailing newline. We send chunks back-to-back; once the daemon's
+        // cumulative buffer crosses the cap it must short-circuit and respond,
+        // after which it ignores any further bytes.
+        const oneMib = Buffer.alloc(oneMibBytes, 0x41);
         const pump = (remaining: number): void => {
           if (remaining === 0 || socket.destroyed) {
             return;
@@ -263,7 +273,7 @@ describe('wal/ipc createIpcConnectionHandler', () => {
           }
           setImmediate(() => pump(remaining - 1));
         };
-        pump(17);
+        pump(chunkCount);
       });
       socket.on('data', (chunk) => chunks.push(chunk));
       socket.on('end', () => resolve(Buffer.concat(chunks).toString('utf8').trim()));
@@ -289,12 +299,18 @@ describe('wal/ipc createIpcConnectionHandler', () => {
     const writer = new BatchingWriter();
     server = await startHandlerServer(writer);
 
+    // Each '中' is 3 UTF-8 bytes but a single UTF-16 code unit, so a cap
+    // measured in code units would count this chunk at a third of its wire
+    // size. Send enough chunks to overshoot the (byte-measured) cap; a
+    // code-unit measurement would stay well under it and never trip.
+    const cjkChunk = Buffer.from('中'.repeat(349_525), 'utf8');
+    const chunkCount = Math.ceil(MAX_REQUEST_BYTES / cjkChunk.length) + 1;
+
     const { createConnection } = await import('node:net');
     const result = await new Promise<string>((resolve, reject) => {
       const socket = createConnection(getLockSocketPath());
       const chunks: Buffer[] = [];
       socket.on('connect', () => {
-        const cjkChunk = Buffer.from('中'.repeat(349_525), 'utf8');
         const pump = (remaining: number): void => {
           if (remaining === 0 || socket.destroyed) {
             return;
@@ -305,7 +321,7 @@ describe('wal/ipc createIpcConnectionHandler', () => {
           }
           setImmediate(() => pump(remaining - 1));
         };
-        pump(17);
+        pump(chunkCount);
       });
       socket.on('data', (chunk) => chunks.push(chunk));
       socket.on('end', () => resolve(Buffer.concat(chunks).toString('utf8').trim()));
@@ -388,5 +404,27 @@ describe('wal/ipc createIpcConnectionHandler', () => {
     await submitRecord(makeRecord('after-probe'));
     const lines = (await readFile(getWalPath(), 'utf8')).split('\n').filter((l) => l.length > 0);
     expect(lines).toHaveLength(1);
+  });
+});
+
+describe('wal/ipc ipcRequestByteLength', () => {
+  it('measures the real wire size of a record, including BigInt fields', () => {
+    const record = makeRecord('measure', {
+      traceData: { spans: [{ startTimeUnixNano: 1_700_000_000_000_000_000n }] },
+    });
+
+    const expected = Buffer.byteLength(JSONBig.stringify({ op: 'append', record }) + '\n', 'utf8');
+    expect(ipcRequestByteLength(record)).toBe(expected);
+  });
+
+  it('returns a value above the cap for a genuinely oversized otlpSpans payload', () => {
+    // A baseline record sits comfortably under the cap...
+    expect(ipcRequestByteLength(makeRecord('small'))).toBeLessThan(MAX_REQUEST_BYTES);
+
+    // ...while a record carrying an over-cap otlpSpans blob measures over it.
+    const oversized = makeRecord('oversized', {
+      otlpSpans: 'A'.repeat(MAX_REQUEST_BYTES + 1),
+    });
+    expect(ipcRequestByteLength(oversized)).toBeGreaterThan(MAX_REQUEST_BYTES);
   });
 });

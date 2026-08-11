@@ -394,6 +394,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/omnigent',
+                  label: 'Omnigent',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/opencode',
                   label: 'OpenCode',
                 },
@@ -681,6 +686,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -925,6 +935,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/review-queues',
+              label: 'Review Queues',
+            },
           ],
         },
         {
@@ -1017,6 +1032,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
         },
       ],
       link: {
@@ -1279,14 +1299,26 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MCP',
+      label: 'MCP Registry',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'mcp/index',
+          id: 'mcp-registry/register-mcp-servers',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/connect-to-servers',
         },
       ],
+      link: {
+        type: 'doc',
+        id: 'mcp-registry/index',
+      },
     },
     {
       type: 'category',
@@ -1318,6 +1350,17 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'html',
       value: '<b>References</b>',
       defaultStyle: true,
+    },
+    {
+      type: 'category',
+      label: 'MLflow MCP Server',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
     },
     {
       type: 'category',

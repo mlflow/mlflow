@@ -9,6 +9,7 @@ from mlflow.entities.trace_location import (
     UnityCatalog,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos import databricks_tracing_pb2 as tracing_pb
 from mlflow.protos import service_pb2 as pb
 
 
@@ -162,3 +163,35 @@ def test_unity_catalog_inequality_on_different_prefix():
     a = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx1")
     b = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx2")
     assert a != b
+
+
+def test_uc_schema_location_from_proto():
+    proto = tracing_pb.UCSchemaLocation(
+        catalog_name="c",
+        schema_name="s",
+        otel_spans_table_name="spans",
+        otel_logs_table_name="logs",
+    )
+    location = UCSchemaLocation.from_proto(proto)
+    assert location.catalog_name == "c"
+    assert location.schema_name == "s"
+    assert location._otel_spans_table_name == "spans"
+    assert location._otel_logs_table_name == "logs"
+
+
+def test_unity_catalog_from_proto():
+    proto = tracing_pb.UcTablePrefixLocation(
+        catalog_name="c",
+        schema_name="s",
+        table_prefix="p",
+        spans_table_name="spans",
+        logs_table_name="logs",
+        annotations_table_name="anns",
+    )
+    location = UnityCatalog.from_proto(proto)
+    assert location.catalog_name == "c"
+    assert location.schema_name == "s"
+    assert location.table_prefix == "p"
+    assert location._otel_spans_table_name == "spans"
+    assert location._otel_logs_table_name == "logs"
+    assert location._annotations_table_name == "anns"

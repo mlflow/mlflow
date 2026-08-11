@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import ntpath
 import os
 import subprocess
 import sys
@@ -20,7 +21,6 @@ import pytest
 import sklearn
 import sklearn.datasets
 import sklearn.linear_model
-import sklearn.neighbors
 import yaml
 
 import mlflow
@@ -128,9 +128,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 @pytest.fixture(scope="module")
@@ -286,7 +286,9 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+def test_signature_and_examples_are_saved_correctly(
+    sklearn_knn_model, iris_data, main_scoped_model_class, tmp_path
+):
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -308,7 +310,10 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                     input_example=example,
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None:
+                    assert mlflow_model.signature == signature
+                elif example is None:
+                    assert mlflow_model.signature is None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -318,6 +323,28 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
 class DummyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         return model_input
+
+
+def test_artifact_paths_use_posix_separators(tmp_path):
+    artifact_path = tmp_path / "payload.txt"
+    artifact_path.write_text("payload")
+    os_join = os.path.join
+
+    def windows_artifacts_subpath(path, *paths):
+        join = ntpath.join if path == "artifacts" else os_join
+        return join(path, *paths)
+
+    model_path = tmp_path / "pyfunc_model"
+    with mock.patch("os.path.join", windows_artifacts_subpath):
+        mlflow.pyfunc.save_model(
+            path=model_path,
+            python_model=DummyModel(),
+            artifacts={"payload": str(artifact_path)},
+        )
+
+    config = Model.load(model_path)
+    saved_artifact_subpath = config.flavors["python_function"]["artifacts"]["payload"]["path"]
+    assert saved_artifact_subpath == "artifacts/payload.txt"
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):

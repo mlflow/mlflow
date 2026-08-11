@@ -75,6 +75,13 @@ AJAX_LIST_USER_ROLES = _get_ajax_path("/mlflow/users/roles/list", version=3)
 LIST_ROLE_USERS = _get_rest_path("/mlflow/roles/users/list", version=3)
 AJAX_LIST_ROLE_USERS = _get_ajax_path("/mlflow/roles/users/list", version=3)
 
+# Online scoring configuration routes. Registered explicitly in auth because
+# they live outside the protobuf service registry.
+ONLINE_SCORING_CONFIGS = _get_rest_path("/mlflow/scorers/online-configs", version=3)
+AJAX_ONLINE_SCORING_CONFIGS = _get_ajax_path("/mlflow/scorers/online-configs", version=3)
+ONLINE_SCORING_CONFIG = _get_rest_path("/mlflow/scorers/online-config", version=3)
+AJAX_ONLINE_SCORING_CONFIG = _get_ajax_path("/mlflow/scorers/online-config", version=3)
+
 # Gateway AJAX-only routes
 GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)
 GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", version=3)

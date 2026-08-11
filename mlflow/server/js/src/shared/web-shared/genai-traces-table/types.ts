@@ -149,6 +149,7 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: boolean;
+  addToReviewQueue?: boolean;
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;

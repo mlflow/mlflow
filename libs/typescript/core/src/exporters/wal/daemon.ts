@@ -342,13 +342,36 @@ function isAuthRefreshableError(err: unknown): boolean {
 }
 
 /**
- * Perform the create-trace + upload-trace-data sequence.
+ * Perform the create-trace + upload-trace-data sequence, then send
+ * the captured OTLP spans to the tracking-store DB.
  */
 async function performUpload(client: MlflowClient, record: WalRecord): Promise<void> {
   const traceInfo = TraceInfo.fromJson(record.traceInfo as unknown as SerializedTraceInfo);
   const traceData = TraceData.fromJson(record.traceData as SerializedTraceData);
   const resolvedInfo = await client.createTrace(traceInfo);
   await client.uploadTraceData(resolvedInfo, traceData);
+  await sendOtlpSpans(client, record);
+}
+
+/**
+ * Ship the record's captured OTLP spans to the tracking store's
+ * span-ingestion endpoint (`exportOtlpSpans` → `/v1/traces`) so they land in the
+ * `SqlSpan` table that powers DB-backed span metrics (e.g. the "Tool calls"
+ * overview).
+ */
+async function sendOtlpSpans(client: MlflowClient, record: WalRecord): Promise<void> {
+  if (!record.otlpSpans) {
+    return;
+  }
+  try {
+    const bytes = Buffer.from(record.otlpSpans, 'base64');
+    await client.exportOtlpSpans(record.experimentId, bytes);
+  } catch (err) {
+    log(
+      `Failed to log OTLP spans for record ${record.id} to ${record.trackingUri}; ` +
+        `spans remain in the JSON artifact only: ${formatError(err)}`,
+    );
+  }
 }
 
 /**

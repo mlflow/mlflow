@@ -27,7 +27,7 @@ from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -38,6 +38,57 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 # No-slash model name prefixes that belong to the MaaS (OpenAI-compatible) type
 # rather than the Google (Gemini API) type.
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
+
+# Locations that span several regions instead of naming one. They are served from a
+# dedicated host rather than the "{location}-" prefixed regional one.
+_MULTI_REGION_LOCATIONS = frozenset({"eu", "us"})
+
+
+def _get_vertex_ai_host(location: str) -> str:
+    """Return the Vertex AI API host serving ``location``.
+
+    Vertex AI exposes three host shapes:
+
+    - global:       https://aiplatform.googleapis.com
+    - multi-region: https://aiplatform.{eu,us}.rep.googleapis.com
+    - regional:     https://{location}-aiplatform.googleapis.com
+
+    https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
+    """
+    if location == "global":
+        return "https://aiplatform.googleapis.com"
+    if location in _MULTI_REGION_LOCATIONS:
+        return f"https://aiplatform.{location}.rep.googleapis.com"
+    return f"https://{location}-aiplatform.googleapis.com"
+
+
+def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove ``id`` from functionCall/functionResponse parts of a Gemini request body.
+
+    The shared GeminiAdapter targets the Developer Gemini API
+    (generativelanguage.googleapis.com), which uses ``functionCall``/``functionResponse``
+    ``id`` to correlate parallel tool calls. Vertex AI's generateContent proto rejects
+    that field with ``400 INVALID_ARGUMENT`` at ``contents[].parts[].function_call.id``,
+    so strip it while leaving ``name`` and ``thoughtSignature`` intact. Mutates and
+    returns ``gemini_payload``.
+    """
+    for content in gemini_payload.get("contents") or []:
+        for part in content.get("parts") or []:
+            if function_call := part.get("functionCall"):
+                function_call.pop("id", None)
+            if function_response := part.get("functionResponse"):
+                function_response.pop("id", None)
+    return gemini_payload
+
+
+class _VertexGeminiAdapter(GeminiAdapter):
+    """GeminiAdapter for Gemini models on Vertex AI, which strips the Vertex-illegal
+    ``functionCall``/``functionResponse`` ``id`` from the translated request.
+    """
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        return _strip_function_call_ids(super().chat_to_model(payload, config))
 
 
 def _classify_model(model_name: str) -> str:
@@ -76,8 +127,7 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def base_url(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
         return f"{host}{path}"
 
@@ -125,8 +175,7 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     def _api_base(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "us-central1"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         return f"{host}/v1/projects/{project}/locations/{location}/endpoints/openapi"
 
 
@@ -143,6 +192,14 @@ class VertexAIProvider(GeminiProvider):
 
     def get_provider_name(self) -> str:
         return "vertex_ai"
+
+    @property
+    def adapter_class(self):
+        # Claude/MaaS models are formatted by their delegate's adapter; only Gemini
+        # models use the Gemini adapter (stripped for Vertex).
+        if self._delegate is not None:
+            return self._delegate.adapter_class
+        return _VertexGeminiAdapter
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         if not isinstance(config.model.config, VertexAIConfig):
@@ -212,10 +269,7 @@ class VertexAIProvider(GeminiProvider):
             return self._delegate._api_base
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.
-        # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         publisher = "anthropic" if self._model_type == "claude" else "google"
         path = f"/v1/projects/{project}/locations/{location}/publishers/{publisher}/models"
         return f"{host}{path}"

@@ -1,6 +1,7 @@
 """Online scoring processor for executing scorers on traces."""
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
@@ -85,6 +86,24 @@ class OnlineTraceScoringProcessor:
             f"{time_window.max_trace_timestamp_ms}]"
         )
 
+        current_time_ms = int(time.time() * 1000)
+        if checkpoint is not None and checkpoint.timestamp_ms > current_time_ms:
+            _logger.warning(
+                f"Trace scoring checkpoint for experiment {self._experiment_id} is in the "
+                "future; resetting it to the current server time"
+            )
+            self._checkpoint_manager.persist_checkpoint(
+                OnlineTraceScoringCheckpoint(timestamp_ms=current_time_ms, trace_id=None)
+            )
+            return
+
+        # A checkpoint created before the completion buffer was enabled can be ahead
+        # of the buffered upper bound. Wait instead of querying an inverted window or
+        # overwriting its trace ID tie-breaker.
+        if checkpoint is not None and time_window.max_trace_timestamp_ms <= checkpoint.timestamp_ms:
+            _logger.debug("Buffered trace scoring window has not advanced, skipping")
+            return
+
         tasks = self._build_scoring_tasks(time_window, checkpoint)
 
         if not tasks:
@@ -110,9 +129,12 @@ class OnlineTraceScoringProcessor:
 
         # Find the trace with the latest timestamp to use for checkpoint
         if full_traces:
-            latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.trace_id))
+            latest_trace = max(
+                full_traces,
+                key=lambda t: (tasks[t.info.trace_id].timestamp_ms, t.info.trace_id),
+            )
             checkpoint = OnlineTraceScoringCheckpoint(
-                timestamp_ms=latest_trace.info.timestamp_ms,
+                timestamp_ms=tasks[latest_trace.info.trace_id].timestamp_ms,
                 trace_id=latest_trace.info.trace_id,
             )
         else:

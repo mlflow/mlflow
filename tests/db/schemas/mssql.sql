@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	target_value VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
@@ -93,6 +94,20 @@ CREATE TABLE jobs (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE mcp_servers (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	display_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_servers_pk PRIMARY KEY (workspace, name)
 )
 
 
@@ -233,6 +248,7 @@ CREATE TABLE label_schemas (
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_time BIGINT NOT NULL,
 	last_update_time BIGINT NOT NULL,
+	is_default BIT DEFAULT ((0)) NOT NULL,
 	CONSTRAINT label_schemas_pk PRIMARY KEY (schema_id),
 	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
@@ -252,6 +268,64 @@ CREATE TABLE logged_models (
 	status_message VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT logged_models_pk PRIMARY KEY (model_id),
 	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE mcp_access_endpoints (
+	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	server_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	server_version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	server_alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	url VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	transport_type VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('streamable-http') NOT NULL,
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_access_endpoints_pk PRIMARY KEY (id),
+	CONSTRAINT mcp_access_endpoints_server_fkey FOREIGN KEY(workspace, server_name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_aliases (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT mcp_server_aliases_pk PRIMARY KEY (workspace, name, alias),
+	CONSTRAINT mcp_server_aliases_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT mcp_server_tags_pk PRIMARY KEY (workspace, name, key),
+	CONSTRAINT mcp_server_tags_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_versions (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version_major INTEGER NOT NULL,
+	version_minor INTEGER NOT NULL,
+	version_patch INTEGER NOT NULL,
+	version_prerelease_sort_key VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	server_json NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('draft') NOT NULL,
+	tools NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_server_versions_pk PRIMARY KEY (workspace, name, version),
+	CONSTRAINT mcp_server_versions_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -312,6 +386,20 @@ CREATE TABLE registered_model_tags (
 )
 
 
+CREATE TABLE review_queues (
+	queue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	queue_type VARCHAR(16) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_time_ms BIGINT NOT NULL,
+	last_update_time_ms BIGINT NOT NULL,
+	name_key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT review_queues_pk PRIMARY KEY (queue_id),
+	CONSTRAINT fk_review_queues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE runs (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -352,7 +440,7 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	db_payload_generation INTEGER DEFAULT ('0') NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -496,6 +584,17 @@ CREATE TABLE logged_model_tags (
 )
 
 
+CREATE TABLE mcp_server_version_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT mcp_server_version_tags_pk PRIMARY KEY (workspace, name, version, key),
+	CONSTRAINT mcp_server_version_tags_version_fkey FOREIGN KEY(workspace, name, version) REFERENCES mcp_server_versions (workspace, name, version) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE metrics (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value FLOAT NOT NULL,
@@ -537,6 +636,36 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__params__run_uuid__59FA5E80" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE review_queue_items (
+	queue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	item_type VARCHAR(16) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	item_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	status VARCHAR(16) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	completed_by VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	completed_time_ms BIGINT,
+	creation_time_ms BIGINT NOT NULL,
+	last_update_time_ms BIGINT NOT NULL,
+	CONSTRAINT review_queue_items_pk PRIMARY KEY (queue_id, item_id),
+	CONSTRAINT fk_review_queue_items_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE review_queue_label_schemas (
+	queue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	schema_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT review_queue_label_schemas_pk PRIMARY KEY (queue_id, schema_id),
+	CONSTRAINT fk_review_queue_label_schemas_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE review_queue_users (
+	queue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	user_id VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT review_queue_users_pk PRIMARY KEY (queue_id, user_id),
+	CONSTRAINT fk_review_queue_users_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
 )
 
 

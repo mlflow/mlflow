@@ -20,6 +20,13 @@ def clear_config_cache() -> None:
     load_config.cache_clear()
 
 
+def load_config_or_default(name: str) -> ProviderConfig:
+    try:
+        return load_config(name)
+    except RuntimeError:
+        return ProviderConfig()
+
+
 class ProviderNotConfiguredError(Exception):
     """Raised when a provider is not properly configured."""
 
@@ -53,6 +60,22 @@ class AssistantProvider(ABC):
     @abstractmethod
     def is_available(self) -> bool:
         """Check if the provider is available and ready to use."""
+
+    @property
+    def allows_remote_access(self) -> bool:
+        """Whether this provider can serve requests from remote clients."""
+        return False
+
+    @property
+    def supports_client_tools(self) -> bool:
+        """Whether this provider can pause a turn on a CLIENT-executed tool call (see
+        ``tool_executor.CLIENT_TOOLS``) and resume it once the client posts a result,
+        e.g. rendering an agent-authored UI spec in the browser. CLI-based providers
+        (Claude Code, Codex) have no such mid-stream channel without MCP plumbing, so
+        features that need this fall back to a convention (e.g. a fenced code block)
+        for those providers instead.
+        """
+        return False
 
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:

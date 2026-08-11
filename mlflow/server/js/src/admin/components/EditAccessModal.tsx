@@ -81,6 +81,10 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const { workspaces } = useWorkspaces(showWorkspaceSelector);
   const initialGrantWorkspace = activeWorkspace ?? DEFAULT_WORKSPACE_NAME;
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // so the ``X-MLFLOW-WORKSPACE`` header is omitted (the server rejects any
+  // workspace header, including ``default``, when workspaces are disabled).
+  const grantWorkspaceForRequest = workspacesEnabled ? grantWorkspace : undefined;
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
   const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
@@ -297,7 +301,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           resource_id: p.resourceId,
           username,
           permission: p.permission,
-          workspace: grantWorkspace,
+          workspace: grantWorkspaceForRequest,
         });
       } catch (e: any) {
         failures.push(
@@ -311,7 +315,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           resource_type: p.resourceType,
           resource_id: p.resourceId,
           username,
-          workspace: grantWorkspace,
+          workspace: grantWorkspaceForRequest,
         });
       } catch (e: any) {
         failures.push(
@@ -328,7 +332,17 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
-  }, [diff, isAdmin, username, grantWorkspace, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
+  }, [
+    diff,
+    isAdmin,
+    username,
+    grantWorkspaceForRequest,
+    queryClient,
+    grantPermission,
+    revokePermission,
+    onClose,
+    renderRoleId,
+  ]);
 
   return (
     <Modal
@@ -481,7 +495,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   key={String(open)}
                   value={directPermissions}
                   onChange={setDirectPermissions}
-                  workspace={grantWorkspace}
+                  workspace={grantWorkspaceForRequest}
                   disabled={submitting}
                   onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />

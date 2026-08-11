@@ -237,6 +237,20 @@ def test_convert_to_legacy_eval_traces(input_type):
     assert "feedback" not in data.columns
 
 
+@pytest.mark.parametrize("input_type", ["list", "pandas"])
+def test_convert_to_eval_set_preserves_explicit_expectations(input_type):
+    sample_data = get_test_traces(type=input_type)
+    explicit_expectations = {"expected_response": "updated response"}
+    if input_type == "list":
+        sample_data[0]["expectations"] = explicit_expectations
+    else:
+        sample_data["expectations"] = [explicit_expectations]
+
+    data = _convert_to_eval_set(sample_data)
+
+    assert data["expectations"][0] == explicit_expectations
+
+
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_convert_to_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)

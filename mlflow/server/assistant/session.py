@@ -5,7 +5,7 @@ import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mlflow.assistant.types import Message
 
@@ -21,6 +21,15 @@ class Session:
     pending_message: Message | None = None
     provider_session_id: str | None = None
     working_dir: Path | None = None  # Working directory for the session (e.g. project path)
+    # tool_call_id -> "allow" | "deny": a decision awaiting the next stream so a
+    # turn paused at a permission prompt can resume. Set by the resume endpoint,
+    # consumed (and cleared) by the stream.
+    pending_tool_decisions: dict[str, Literal["allow", "deny"]] = field(default_factory=dict)
+    # tool_call_id -> {"content": str, "is_error": bool}: the result of a CLIENT
+    # -executed tool call (e.g. render_custom_view), awaiting the next stream so a
+    # turn paused at a client_tool_call can resume. Set by the tool-result
+    # endpoint, consumed (and cleared) by the stream.
+    pending_client_tool_results: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history.
@@ -70,6 +79,8 @@ class Session:
             "pending_message": self.pending_message.model_dump() if self.pending_message else None,
             "provider_session_id": self.provider_session_id,
             "working_dir": self.working_dir.as_posix() if self.working_dir else None,
+            "pending_tool_decisions": self.pending_tool_decisions,
+            "pending_client_tool_results": self.pending_client_tool_results,
         }
 
     @classmethod
@@ -92,6 +103,8 @@ class Session:
             pending_message=pending_msg,
             provider_session_id=data.get("provider_session_id"),
             working_dir=Path(data.get("working_dir")) if data.get("working_dir") else None,
+            pending_tool_decisions=data.get("pending_tool_decisions") or {},
+            pending_client_tool_results=data.get("pending_client_tool_results") or {},
         )
 
 

@@ -469,7 +469,12 @@ def test_pyfunc_serve_and_score_sklearn(model):
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, name="model", input_example=X.head(3))
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name="model",
+            input_example=X.head(3),
+            skops_trusted_types=["xgboost.core.Booster", "xgboost.sklearn.XGBClassifier"],
+        )
 
     inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(

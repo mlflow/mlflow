@@ -8,6 +8,7 @@ import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/M
 import {
   useModelTraceExplorerContext,
   type DrawerComponentType,
+  type RenderAddToReviewQueueDropdownParams,
 } from '../model-trace-explorer/ModelTraceExplorerContext';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { getExperimentIdFromTraceLocation } from './utils/TraceUtils';
@@ -39,6 +40,12 @@ export interface GenAITracesTableContextValue<T> {
    * Provide traces to be added to the dataset. If `undefined` is passed, the modal is closed.
    */
   showAddToEvaluationDatasetModal?: (traces?: RunEvaluationTracesDataEntry[]) => void;
+
+  /**
+   * Render function for the "Add to review queue" dropdown.
+   * Returns a Popover-wrapped trigger element that lets the user pick queues.
+   */
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
 }
 export const GenAITracesTableContext = createContext<GenAITracesTableContextValue<TraceRow>>({
   table: undefined,
@@ -69,7 +76,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [selectedTraces, setSelectedTraces] = useState<RunEvaluationTracesDataEntry[] | undefined>(undefined);
 
-  const { renderExportTracesToDatasetsModal } = useModelTraceExplorerContext();
+  const { renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown } = useModelTraceExplorerContext();
 
   const showAddToEvaluationDatasetModal = useCallback((traces?: RunEvaluationTracesDataEntry[]) => {
     setSelectedTraces(traces);
@@ -85,6 +92,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       setSelectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
+      renderAddToReviewQueueDropdown: renderAddToReviewQueueDropdown,
       DrawerComponent,
     }),
     // prettier-ignore
@@ -94,6 +102,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       selectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
+      renderAddToReviewQueueDropdown,
       DrawerComponent,
     ],
   );

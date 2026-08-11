@@ -29,7 +29,7 @@ interface CreateLabelSchemaResponse {
 export const useCreateLabelSchemaMutation = () => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation<
+  const { mutate, mutateAsync, isLoading, error, reset } = useMutation<
     CreateLabelSchemaResponse,
     Error,
     CreateLabelSchemaParams
@@ -55,5 +55,6 @@ export const useCreateLabelSchemaMutation = () => {
     createLabelSchemaAsync: mutateAsync,
     isCreating: isLoading,
     error,
+    reset,
   };
 };

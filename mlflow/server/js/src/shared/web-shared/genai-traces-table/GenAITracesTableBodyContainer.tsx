@@ -21,7 +21,11 @@ import type {
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
-import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
+import {
+  applyTraceInfoV3ToEvalEntry,
+  DEFAULT_RUN_PLACEHOLDER_NAME,
+  REGRESSION_TEST_RUN_TYPE,
+} from './utils/TraceUtils';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -76,6 +80,9 @@ interface GenAITracesTableBodyContainerProps {
   // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
   assessmentCountMetrics?: AssessmentCountMetrics;
   compareAssessmentCountMetrics?: AssessmentCountMetrics;
+
+  // Run type (e.g. "test") that switches the table into the regression-test view.
+  runType?: string;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -107,7 +114,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       isFetchingNextPage,
       assessmentCountMetrics,
       compareAssessmentCountMetrics,
+      runType,
     } = props;
+    const regressionTestMode = runType === REGRESSION_TEST_RUN_TYPE;
     const { theme } = useDesignSystemTheme();
 
     // Convert trace info v3 to the format expected by GenAITracesTableBody
@@ -126,8 +135,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             metrics: {},
             traceInfo,
           })),
+          { synthesizeResult: regressionTestMode },
         ),
-      [currentTraceInfoV3],
+      [currentTraceInfoV3, regressionTestMode],
     );
     const compareToEvaluationResults = useMemo(
       () =>
@@ -144,8 +154,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             metrics: {},
             traceInfo,
           })),
+          { synthesizeResult: regressionTestMode },
         ),
-      [compareToTraceInfoV3],
+      [compareToTraceInfoV3, regressionTestMode],
     );
 
     const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
@@ -280,6 +291,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 isFetchingNextPage={isFetchingNextPage}
                 assessmentCountMetrics={assessmentCountMetrics}
                 compareAssessmentCountMetrics={compareAssessmentCountMetrics}
+                regressionTestMode={regressionTestMode}
               />
             </AssessmentSchemaContextProvider>
           </div>
