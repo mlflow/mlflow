@@ -557,6 +557,7 @@ async def test_chat_completions_streaming_with_anthropic_cache_tokens(client):
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 5,
     }
 
+
 @pytest.mark.asyncio
 async def test_completions_autolog(client):
     mlflow.openai.autolog()
