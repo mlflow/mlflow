@@ -86,6 +86,12 @@ class AbstractJobExecutor(ABC):
     ) -> None:
         """Submit a job for execution.
 
+        Every successful ``submit_job`` call must be paired with exactly one
+        ``wait_for_job`` call for the same ``job_id``: executors may retain
+        per-job resources (subprocesses, temporary directories, in-memory
+        records) until ``wait_for_job`` observes the terminal state and releases
+        them. ``stop_executor``/``recover_jobs`` reclaim any that are left behind.
+
         Args:
             job_id: Unique job identifier.
             job_name: Static name of the decorated job function.
@@ -93,7 +99,9 @@ class AbstractJobExecutor(ABC):
             params: Job parameters (JSON-serialisable).
             context: Execution metadata including tracking URI and auth.
             python_env: Optional Python environment specification.
-            timeout: Optional per-job timeout in seconds.
+            timeout: Optional per-job timeout in seconds. For executors that
+                provision a Python environment, the timeout covers environment
+                setup in addition to job execution.
         """
 
     @abstractmethod
