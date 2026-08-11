@@ -311,7 +311,16 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ getVal
  * reinforces whether the move was an improvement — which is not the same as
  * whether the number went up (see `isLowerBetterMetric`).
  */
-const DeltaIndicator = ({ delta, metricKey }: { delta: EvalRunsDelta; metricKey: string }) => {
+const DeltaIndicator = ({
+  delta,
+  metricKey,
+  isAverage = false,
+}: {
+  delta: EvalRunsDelta;
+  metricKey: string;
+  /** Group rows compare an average, so the tooltip must not claim a single run's value. */
+  isAverage?: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -321,13 +330,24 @@ const DeltaIndicator = ({ delta, metricKey }: { delta: EvalRunsDelta; metricKey:
     return (
       <Tooltip
         componentId="mlflow.eval-runs.delta.unchanged-tooltip"
-        content={intl.formatMessage(
-          {
-            defaultMessage: 'Unchanged vs baseline ({metricKey})',
-            description: 'Tooltip on a metric whose delta against the baseline is below the noise floor',
-          },
-          { metricKey },
-        )}
+        content={
+          isAverage
+            ? intl.formatMessage(
+                {
+                  defaultMessage: 'Group average unchanged vs baseline ({metricKey})',
+                  description:
+                    'Tooltip on a group row whose average delta against the baseline is below the noise floor',
+                },
+                { metricKey },
+              )
+            : intl.formatMessage(
+                {
+                  defaultMessage: 'Unchanged vs baseline ({metricKey})',
+                  description: 'Tooltip on a metric whose delta against the baseline is below the noise floor',
+                },
+                { metricKey },
+              )
+        }
       >
         <span css={{ color: theme.colors.textSecondary, marginLeft: theme.spacing.xs }}>–</span>
       </Tooltip>
@@ -337,29 +357,37 @@ const DeltaIndicator = ({ delta, metricKey }: { delta: EvalRunsDelta; metricKey:
   const isBetter = delta.direction === 'better';
   const magnitude = formatEvalRunsMetric(Math.abs(delta.value));
   const signed = `${delta.value > 0 ? '+' : '−'}${magnitude}`;
+  const verdict = isBetter
+    ? intl.formatMessage({
+        defaultMessage: 'better',
+        description: 'Verdict when a metric improved relative to the baseline run',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'worse',
+        description: 'Verdict when a metric regressed relative to the baseline run',
+      });
 
-  return (
-    <Tooltip
-      componentId="mlflow.eval-runs.delta.tooltip"
-      content={intl.formatMessage(
+  // Each formatMessage call needs its descriptor written inline: the formatjs
+  // build step extracts the id statically, so a descriptor chosen by a ternary
+  // reaches runtime without one and throws.
+  const tooltipContent = isAverage
+    ? intl.formatMessage(
+        {
+          defaultMessage: 'Group average {signed} vs baseline ({verdict})',
+          description: "Tooltip showing the signed delta of a group's average metric against the baseline run",
+        },
+        { signed, verdict },
+      )
+    : intl.formatMessage(
         {
           defaultMessage: '{signed} vs baseline ({verdict})',
           description: 'Tooltip showing the signed delta of a metric against the baseline run',
         },
-        {
-          signed,
-          verdict: isBetter
-            ? intl.formatMessage({
-                defaultMessage: 'better',
-                description: 'Verdict when a metric improved relative to the baseline run',
-              })
-            : intl.formatMessage({
-                defaultMessage: 'worse',
-                description: 'Verdict when a metric regressed relative to the baseline run',
-              }),
-        },
-      )}
-    >
+        { signed, verdict },
+      );
+
+  return (
+    <Tooltip componentId="mlflow.eval-runs.delta.tooltip" content={tooltipContent}>
       {/* The arrow carries the direction, the number the magnitude. The arrow
           alone cannot separate +0.001 from +0.4, so the size has to be readable
           without hovering every cell. */}
@@ -403,6 +431,19 @@ export const MetricValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, 
     if (!Number.isFinite(mean)) {
       return <div>-</div>;
     }
+    // The group holding the baseline compares against itself, so its own run is
+    // excluded from the average before the delta is taken. Left in, a group of
+    // one would always read as unchanged and a larger group would be pulled
+    // toward the very number it is measured against.
+    const comparableRuns = baselineRun
+      ? row.original.subRuns.filter((subRun) => subRun.info.runUuid !== baselineRun.info.runUuid)
+      : row.original.subRuns;
+    const comparableMean =
+      comparableRuns.length === row.original.subRuns.length
+        ? mean
+        : meta?.getGroupMetricMean?.(comparableRuns, metricKey);
+    const groupDelta = getEvalRunsDelta(metricKey, comparableMean, baselineValue);
+
     return (
       <span css={{ display: 'inline-flex', alignItems: 'baseline', gap: theme.spacing.xs }}>
         <Typography.Text size="sm" color="secondary">
@@ -412,6 +453,7 @@ export const MetricValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, 
           />
         </Typography.Text>
         <Typography.Text bold>{formatEvalRunsMetric(mean)}</Typography.Text>
+        {groupDelta && <DeltaIndicator delta={groupDelta} metricKey={metricKey} isAverage />}
       </span>
     );
   }
