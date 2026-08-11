@@ -267,6 +267,23 @@ def evaluate(
             inputs, outputs, and other additional contexts. MLflow provides pre-defined
             scorers, but you can also define custom ones.
 
+            A scorer can be scoped to a subset of rows with ``scorer.where(filter_string)``,
+            where ``filter_string`` is a ``search_traces``-style filter over the row's tags
+            (e.g. ``"tags.`category` = 'billing'"``). A scoped scorer runs only on rows whose
+            tags match; an unscoped scorer runs on every row.
+
+            .. code-block:: python
+
+                from mlflow.genai.scorers import Correctness, Safety
+
+                mlflow.genai.evaluate(
+                    data=dataset,
+                    scorers=[
+                        Correctness(),  # every row
+                        Safety().where("tags.`pii` = 'true'"),  # only rows tagged pii=true
+                    ],
+                )
+
         predict_fn: The target function to be evaluated. The specified function will be
             executed for each row in the input dataset, and outputs will be used for
             scoring.

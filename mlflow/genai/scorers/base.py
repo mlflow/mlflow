@@ -301,6 +301,11 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
+    # Row filter set via ``.where()``. When set, this scorer only runs on
+    # ``mlflow.genai.evaluate`` rows whose tags match this ``search_traces``-style filter
+    # string. In-process only: it is an offline evaluation concern, is intentionally not
+    # serialized, and is unrelated to the monitoring ``_sampling_config.filter_string``.
+    _row_filter: str | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -349,6 +354,50 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    def row_filter(self) -> str | None:
+        """Tag filter set via :meth:`where`; ``None`` means the scorer runs on every row."""
+        return self._row_filter
+
+    def where(self, filter_string: str) -> "Scorer":
+        """Scope this scorer to evaluation rows whose tags match ``filter_string``.
+
+        Returns a copy of this scorer that, during :func:`mlflow.genai.evaluate`, only runs on
+        rows whose tags satisfy ``filter_string`` and is skipped on the rest. A scorer with no
+        filter runs on every row as usual.
+
+        Args:
+            filter_string: An MLflow ``search_traces``-style filter over the row's tags, e.g.
+                ``"tags.`category` = 'billing'"``. Only tag clauses are supported; ``AND``,
+                ``!=`` and ``IS [NOT] NULL`` work as in ``search_traces``.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import Correctness, Safety
+
+                mlflow.genai.evaluate(
+                    data=dataset,
+                    scorers=[
+                        Correctness(),  # every row
+                        Safety().where("tags.`pii` = 'true'"),  # only rows tagged pii=true
+                    ],
+                )
+        """
+        if not isinstance(filter_string, str) or not filter_string.strip():
+            raise MlflowException.invalid_parameter_value(
+                "`filter_string` passed to `where()` must be a non-empty string."
+            )
+        if self.is_session_level_scorer:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer '{self.name}' is a session-level scorer and cannot be scoped with "
+                f"`where()`. Row-tag filters apply to per-row (single-turn) scorers only."
+            )
+        new_scorer = self.model_copy()
+        new_scorer._row_filter = filter_string
+        return new_scorer
 
     @property
     def status(self) -> ScorerStatus:

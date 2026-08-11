@@ -73,6 +73,7 @@ from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
     is_none_or_nan,
     make_code_type_assessment_source,
+    row_matches_scorer_filter,
     standardize_scorer_value,
     validate_tags,
 )
@@ -95,6 +96,22 @@ _logger = logging.getLogger(__name__)
 
 
 AUTO_INITIAL_RPS = 10.0
+
+
+def _scorers_for_item(eval_item: EvalItem, single_turn_scorers: list[Scorer]) -> list[Scorer]:
+    """Select the scorers that apply to one row.
+
+    A scorer scoped with ``.where(filter_string)`` runs only on rows whose tags match the
+    filter; an unscoped scorer runs on every row.
+    """
+    if not any(scorer.row_filter for scorer in single_turn_scorers):
+        return single_turn_scorers
+    return [
+        scorer
+        for scorer in single_turn_scorers
+        if scorer.row_filter is None
+        or row_matches_scorer_filter(eval_item.tags, scorer.row_filter)
+    ]
 
 
 def _merge_scorer_stats_dicts(target: dict[str, ScorerStat], source: dict[str, ScorerStat]) -> None:
@@ -444,10 +461,11 @@ class _ScoreSubmitter:
     def submit(self, idx: int) -> Future:
         """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
+        eval_item = self._eval_items[idx]
         future = self._pool.submit(
             self._timed_score,
-            self._eval_items[idx],
-            self._single_turn_scorers,
+            eval_item,
+            _scorers_for_item(eval_item, self._single_turn_scorers),
             self._run_id,
             self._limiter,
             self._max_retries,

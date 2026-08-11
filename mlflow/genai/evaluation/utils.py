@@ -464,3 +464,31 @@ def validate_tags(tags: Any) -> None:
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
+
+
+class _RowTags:
+    """Minimal object exposing ``.tags`` so ``SearchTraceUtils`` can match a row's tags."""
+
+    def __init__(self, tags: dict[str, str] | None):
+        self.tags = tags or {}
+
+
+def row_matches_scorer_filter(tags: dict[str, str] | None, filter_string: str) -> bool:
+    """Whether a row's ``tags`` satisfy a scorer's ``where()`` filter string.
+
+    ``filter_string`` is an MLflow ``search_traces``-style filter, but only tag clauses
+    (e.g. ``tags.`category` = 'billing'``) are supported here; a clause on anything else
+    raises, since a dataset row only carries tags.
+    """
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    for clause in parsed:
+        if clause.get("type") != SearchTraceUtils._TAG_IDENTIFIER:
+            raise MlflowException.invalid_parameter_value(
+                "Scorer filters set with `where()` may only reference tags, e.g. "
+                "\"tags.`category` = 'billing'\". "
+                f"Got a filter on '{clause.get('key')}'."
+            )
+    row = _RowTags(tags)
+    return all(SearchTraceUtils._does_trace_match_clause(row, clause) for clause in parsed)
