@@ -37,9 +37,10 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 
 /**
  * Enable the Traces V4 tab in the experiment page. V3 is the fallback when disabled.
- * Hardcoded on for OSS to mount the ported V4 traces tab (PR1).
+ * Ships off for OSS: the ported V4 tab is fully mounted but dark until this is flipped, so V3
+ * stays the default experience while V4 bakes. Rollout is a one-line change to `true`.
  */
-export const shouldUseTracesV4Tab = () => true;
+export const shouldUseTracesV4Tab = () => false;
 
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
