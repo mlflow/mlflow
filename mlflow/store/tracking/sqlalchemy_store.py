@@ -273,10 +273,9 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
-# Max number of times start_trace()/log_spans() retry their transaction when the DB
-# kills it with a deadlock. Deterministic key ordering (see the sorted
-# metadata/metrics writes) is the primary defense; this bounded retry is a safety net.
-_TRACE_WRITE_MAX_DEADLOCK_RETRIES = 2
+# Max deadlock retries for a DB-write path (start_trace/log_spans, log_metric/log_batch).
+# Deterministic key ordering is the primary defense; this bounded retry is the safety net.
+_DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -1284,6 +1283,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return is_nan, value
 
     def _log_metrics(self, run_id, metrics):
+        # Retry on DB deadlock: each attempt opens a fresh session in _log_metrics_once, so the
+        # victim is redriven instead of surfacing an HTTP 503.
+        return self._run_with_deadlock_retry(self._log_metrics_once, run_id, metrics)
+
+    def _log_metrics_once(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
@@ -1471,7 +1475,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
         latest_metrics = {}
-        metric_keys = [m.key for m in logged_metrics]
+        # Globally sort + de-dup keys to prevent cross-batch deadlocks: every transaction locks
+        # rows in the same order (the per-batch ORDER BY below only orders within one 500 batch).
+        metric_keys = sorted({m.key for m in logged_metrics})
         # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
         # query, which may produce limit exceeded errors or poor performance on certain database
         # platforms
@@ -3619,7 +3625,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def _run_with_deadlock_retry(self, fn, *args, **kwargs):
-        """Run a trace-write operation, retrying on DB deadlocks.
+        """Run a DB-write operation, retrying on DB deadlocks.
 
         The managed session (see ``mlflow/store/db/utils.py``) surfaces a psycopg2
         DeadlockDetected / SQLAlchemy OperationalError as an ``MlflowException`` with
@@ -3629,14 +3635,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         session) rather than retrying on a rolled-back session.
         """
         temporarily_unavailable = ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
-        for attempt in range(_TRACE_WRITE_MAX_DEADLOCK_RETRIES + 1):
+        for attempt in range(_DB_WRITE_MAX_DEADLOCK_RETRIES + 1):
             try:
                 return fn(*args, **kwargs)
             except MlflowException as e:
                 is_deadlock = (
                     e.error_code == temporarily_unavailable and "deadlock" in str(e).lower()
                 )
-                if not is_deadlock or attempt >= _TRACE_WRITE_MAX_DEADLOCK_RETRIES:
+                if not is_deadlock or attempt >= _DB_WRITE_MAX_DEADLOCK_RETRIES:
                     raise
                 # Exponential backoff with jitter, matching `_try_insert_tags`.
                 sleep_duration = (2**attempt) - 1
