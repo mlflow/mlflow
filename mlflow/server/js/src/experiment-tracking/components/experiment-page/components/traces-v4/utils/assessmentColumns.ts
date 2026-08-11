@@ -37,10 +37,17 @@ const isDisplayableTraceAssessment = (assessment: Assessment): boolean =>
  * `issue.issue_name` is the display label (falling back to the id).
  */
 export const extractTraceIssues = (trace: ModelTraceInfoV3): Issue[] =>
-  (trace.assessments ?? []).filter(isIssueReferenceAssessment).map((assessment) => ({
-    id: assessment.assessment_name,
-    name: assessment.issue.issue_name || assessment.assessment_name,
-  }));
+  (trace.assessments ?? [])
+    // Skip invalid assessments before collecting issues, matching the prior tab's conversion path
+    // (`TraceUtils.convertTraceInfoV3ToRunEvalEntry`), which drops `valid === false` upfront.
+    .filter(
+      (assessment): assessment is IssueReferenceAssessment =>
+        assessment.valid !== false && isIssueReferenceAssessment(assessment),
+    )
+    .map((assessment) => ({
+      id: assessment.assessment_name,
+      name: assessment.issue.issue_name || assessment.assessment_name,
+    }));
 
 export interface AssessmentColumnSelection {
   /** Names offered in the column selector (on-page ∪ opted-in), sorted for stable order. */

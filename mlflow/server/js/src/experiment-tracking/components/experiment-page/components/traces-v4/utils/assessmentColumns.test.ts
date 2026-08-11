@@ -130,4 +130,12 @@ describe('extractTraceIssues', () => {
     const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]);
     expect(extractTraceIssues(trace)).toEqual([]);
   });
+
+  test('skips invalid issue-reference assessments, matching the prior tab', () => {
+    const trace = traceWith('t1', [
+      makeIssueAssessment('hallucination', { valid: false }),
+      makeIssueAssessment('toxicity'),
+    ]);
+    expect(extractTraceIssues(trace)).toEqual([{ id: 'issue-toxicity', name: 'toxicity' }]);
+  });
 });
