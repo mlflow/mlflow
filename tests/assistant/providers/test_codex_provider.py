@@ -65,6 +65,12 @@ def test_is_available(which_return, expected):
         assert provider.is_available() is expected
 
 
+def test_supports_client_tools_is_false():
+    # A CLI-based provider has no mid-stream client-tool channel without MCP
+    # plumbing, so it inherits the base class's default of False.
+    assert CodexProvider().supports_client_tools is False
+
+
 def test_provider_name():
     assert CodexProvider().name == "codex"
 

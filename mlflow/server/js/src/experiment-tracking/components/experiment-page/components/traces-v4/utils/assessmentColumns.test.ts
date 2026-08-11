@@ -1,0 +1,93 @@
+import { describe, expect, test } from '@jest/globals';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
+import { computeAssessmentColumns, pickCellAssessment } from './assessmentColumns';
+import { makeFeedbackAssessment, makeTrace } from '../test-utils/mockTraces';
+
+const traceWith = (id: string, assessments: ReturnType<typeof makeFeedbackAssessment>[]) =>
+  makeTrace(id, { assessments });
+
+describe('computeAssessmentColumns', () => {
+  test('defaults to a column per assessment name on the page, sorted', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('relevance', 'yes'), makeFeedbackAssessment('safety', 'no')]),
+      traceWith('t2', [makeFeedbackAssessment('correctness', 'yes')]),
+    ];
+    expect(computeAssessmentColumns(traces, {})).toEqual({
+      candidateNames: ['correctness', 'relevance', 'safety'],
+      visibleNames: ['correctness', 'relevance', 'safety'],
+    });
+  });
+
+  test('an opt-out override hides the column but keeps it a candidate', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')])];
+    expect(computeAssessmentColumns(traces, { relevance: false })).toEqual({
+      candidateNames: ['relevance'],
+      visibleNames: [],
+    });
+  });
+
+  test('an opted-in name is a visible column even when absent from the page', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')])];
+    expect(computeAssessmentColumns(traces, { safety: true })).toEqual({
+      candidateNames: ['relevance', 'safety'],
+      visibleNames: ['relevance', 'safety'],
+    });
+  });
+
+  test('an opted-out name absent from the page drops out of the candidate set entirely', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')])];
+    expect(computeAssessmentColumns(traces, { safety: false })).toEqual({
+      candidateNames: ['relevance'],
+      visibleNames: ['relevance'],
+    });
+  });
+
+  test('excludes invalid, session-level, notes, and internal-judge assessments', () => {
+    const traces = [
+      traceWith('t1', [
+        makeFeedbackAssessment('relevance', 'yes'),
+        makeFeedbackAssessment('invalidOne', 'yes', { valid: false }),
+        makeFeedbackAssessment('sessionOne', 'yes', {
+          metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'session-1' },
+        }),
+        makeFeedbackAssessment('mlflow.notes', 'a note'),
+        makeFeedbackAssessment('_issue_discovery_judge', 'yes'),
+      ]),
+    ];
+    expect(computeAssessmentColumns(traces, {})).toEqual({
+      candidateNames: ['relevance'],
+      visibleNames: ['relevance'],
+    });
+  });
+
+  test('dedupes a name that appears across many traces', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]),
+      traceWith('t2', [makeFeedbackAssessment('relevance', 'no')]),
+    ];
+    expect(computeAssessmentColumns(traces, {}).candidateNames).toEqual(['relevance']);
+  });
+
+  test('an empty page with no overrides yields no columns', () => {
+    expect(computeAssessmentColumns([], {})).toEqual({ candidateNames: [], visibleNames: [] });
+  });
+});
+
+describe('pickCellAssessment', () => {
+  test('returns the most recent assessment for the name', () => {
+    const older = makeFeedbackAssessment('relevance', 'no', { create_time: '2025-01-01T00:00:00.000Z' });
+    const newer = makeFeedbackAssessment('relevance', 'yes', { create_time: '2025-06-01T00:00:00.000Z' });
+    const trace = traceWith('t1', [older, newer]);
+    expect(pickCellAssessment(trace, 'relevance')).toBe(newer);
+  });
+
+  test('ignores other names and returns undefined when none match', () => {
+    const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]);
+    expect(pickCellAssessment(trace, 'safety')).toBeUndefined();
+  });
+
+  test('skips non-displayable (invalid) assessments', () => {
+    const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes', { valid: false })]);
+    expect(pickCellAssessment(trace, 'relevance')).toBeUndefined();
+  });
+});
