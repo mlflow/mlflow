@@ -204,7 +204,10 @@ def _move_downloaded_artifacts(
     artifacts_dir = model_path / "artifacts"
     saved_artifacts_config = {}
     for artifact in artifacts:
-        assert artifact.final_root is not None
+        if artifact.final_root is None:
+            raise MlflowException(
+                f"Artifact destination was not resolved for artifact {artifact.names[0]!r}."
+            )
         destination = artifacts_dir / artifact.final_root
         validate_path_within_directory(str(artifacts_dir), str(destination))
 

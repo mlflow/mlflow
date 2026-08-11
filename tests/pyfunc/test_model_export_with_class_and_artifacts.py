@@ -923,6 +923,20 @@ def test_resolve_artifact_path_collisions_skips_occupied_numeric_namespace(tmp_p
     assert {artifact.final_root.parts[0] for artifact in artifacts[:2]} == {"1", "2"}
 
 
+def test_move_downloaded_artifacts_requires_resolved_destination(tmp_path):
+    artifact = mlflow.pyfunc.model._DownloadedArtifact(
+        names=["model"],
+        uri="model",
+        source_root=tmp_path / "model",
+        flat_root=Path("model"),
+    )
+
+    with pytest.raises(
+        MlflowException, match="Artifact destination was not resolved for artifact 'model'"
+    ):
+        mlflow.pyfunc.model._move_downloaded_artifacts(tmp_path, [artifact])
+
+
 def test_save_model_avoids_hugging_face_artifact_root(model_path, monkeypatch):
     huggingface_hub = types.ModuleType("huggingface_hub")
 
