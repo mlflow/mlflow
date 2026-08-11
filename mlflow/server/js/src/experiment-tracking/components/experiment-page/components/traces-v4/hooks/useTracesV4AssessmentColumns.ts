@@ -2,8 +2,14 @@ import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useArrayMemo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { GenericColumnOption, TraceTableColumn } from '@databricks/web-shared/traces-table';
-import { assessmentColumnId, assessmentNameFromColumnId, computeAssessmentColumns } from '../utils/assessmentColumns';
+import {
+  assessmentColumnId,
+  assessmentNameFromColumnId,
+  computeAssessmentColumns,
+  extractTraceIssues,
+} from '../utils/assessmentColumns';
 import { buildAssessmentColumnDefs } from '../utils/buildAssessmentColumnDefs';
+import { buildIssuesColumnDef } from '../utils/buildIssuesColumnDef';
 import { TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
 
 // Bump when the stored schema changes so stale entries reset.
@@ -50,7 +56,13 @@ export const useTracesV4AssessmentColumns = (
   const candidateNames = useArrayMemo(selection.candidateNames);
   const visibleNames = useArrayMemo(selection.visibleNames);
 
-  const columnDefs = useMemo(() => buildAssessmentColumnDefs(visibleNames), [visibleNames]);
+  // The dedicated Issues column shows only when the current page carries detected issues (data-driven,
+  // like the Session column) and renders ahead of the assessment columns, matching the prior tab.
+  const hasIssuesOnPage = useMemo(() => traces.some((trace) => extractTraceIssues(trace).length > 0), [traces]);
+  const columnDefs = useMemo(
+    () => [...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []), ...buildAssessmentColumnDefs(visibleNames)],
+    [hasIssuesOnPage, visibleNames],
+  );
   const visibleIds = useMemo(() => visibleNames.map(assessmentColumnId), [visibleNames]);
   const selectorOptions = useMemo<GenericColumnOption[]>(
     () =>
