@@ -1111,27 +1111,27 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('toolbar order', () => {
-    // Assert the always-present V4 control ordering. Detect Issues renders whenever issue detection
-    // is enabled (true in OSS) and sits just before Refresh; the selection-only Actions button lands
-    // between Columns and Detect Issues.
-    test('renders Date → Search → Filter → Columns → Detect Issues → Views → Refresh', async () => {
+    // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
+    // Detect Issues renders whenever issue detection is enabled (true in OSS) and sits just before
+    // Refresh; the selection-only Actions button lands between Columns and Detect Issues.
+    test('renders Views → Date → Search → Filter → Columns → Detect Issues → Refresh', async () => {
       renderPage();
       await findTraceRow('tr-000');
 
+      const views = screen.getByTestId('trace-v4-saved-views-trigger');
       const date = screen.getByTestId('time-range-select-dropdown');
       const search = screen.getByPlaceholderText('Search traces by id, input, or output');
       const filter = screen.getByRole('button', { name: /Filters/ });
       const columns = screen.getByRole('button', { name: 'Select visible columns' });
       const detectIssues = screen.getByRole('button', { name: 'Detect issues in traces' });
-      const views = screen.getByTestId('trace-v4-saved-views-trigger');
       const refresh = screen.getByRole('button', { name: 'now' });
       // DOCUMENT_POSITION_FOLLOWING (4) means the arg node comes after `this` node in document order.
+      expect(views.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(date.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(filter.compareDocumentPosition(columns) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(columns.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(detectIssues.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(views.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(detectIssues.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       // The full page render (incl. the Detect Issues button's first-visit guidance popover) is slow
       // under parallel jsdom load; per-test timeout avoids the lint-forbidden global jest.setTimeout.
     }, 20000);
