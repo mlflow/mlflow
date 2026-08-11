@@ -15,7 +15,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
@@ -283,9 +283,7 @@ def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
-            side_effect=Exception(
-                "default auth: cannot configure default credentials, token refresh"
-            ),
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
         ),
         mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
     ):
@@ -303,7 +301,7 @@ def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
 @pytest.mark.parametrize(
     ("exc", "expected_auth"),
     [
-        # A rejected credential is identified by its structured error code.
+        # A rejected credential is identified by its structured HTTP status code.
         (MlflowException("nope", error_code=UNAUTHENTICATED), True),
         (MlflowException("nope", error_code=PERMISSION_DENIED), True),
         # A status-like number inside an unrelated message is not an auth failure.
@@ -314,50 +312,13 @@ def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
             ),
             False,
         ),
+        # A plain Exception (not MlflowException) with an auth-like string is not detected.
         (Exception("RESOURCE_DOES_NOT_EXIST: No Experiment with id=401 exists"), False),
-        # Credential failures raised before any HTTP status still match by phrase.
-        (Exception("default auth: cannot configure default credentials, token refresh"), True),
-        (Exception("Invalid access token"), True),
+        (Exception("default auth: cannot configure default credentials, token refresh"), False),
+        (Exception("Invalid access token"), False),
     ],
 )
 def test_is_auth_failure_uses_error_codes_not_bare_numbers(exc, expected_auth):
-    assert _is_auth_failure(exc) is expected_auth
-
-
-@pytest.mark.parametrize(
-    ("exc", "expected_auth"),
-    [
-        # A gateway that receives a request with an expired or wrong-workspace token
-        # commonly returns INTERNAL_ERROR with a short, generic message. The endpoint
-        # was never reached, so this is functionally an auth failure.
-        (RestException({"error_code": "INTERNAL_ERROR", "message": "Not Found"}), True),
-        (RestException({"error_code": "INTERNAL_ERROR", "message": ""}), True),
-        # A genuine missing resource carries RESOURCE_DOES_NOT_EXIST, not INTERNAL_ERROR,
-        # so it is not misread as auth even though its message says "not found".
-        (
-            MlflowException("Experiment not found", error_code=RESOURCE_DOES_NOT_EXIST),
-            False,
-        ),
-        # A real INTERNAL_ERROR with a substantive message is a server error, not auth.
-        (
-            RestException({
-                "error_code": "INTERNAL_ERROR",
-                "message": "Table write failed: partition limit exceeded",
-            }),
-            False,
-        ),
-        # A redirect to a login page yields a non-JSON body; MLflow raises this exact
-        # wording. It is almost always an auth redirect on an API endpoint.
-        (
-            MlflowException(
-                "API request failed, response body was not in a valid JSON format. "
-                "Response body: '<html><body>Sign in</body></html>'"
-            ),
-            True,
-        ),
-    ],
-)
-def test_is_auth_failure_detects_internal_error_and_non_json(exc, expected_auth):
     assert _is_auth_failure(exc) is expected_auth
 
 
@@ -373,13 +334,12 @@ def test_export_error_names_tracking_uri_and_profile(is_async, monkeypatch):
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
-    # INTERNAL_ERROR: Not Found is the wrong-profile / wrong-workspace routing failure.
-    # It is now treated as an auth failure (ERROR) and the message names the profile so
-    # the user can see which credential was attempted.
+    # A structured 401 Unauthorized is detected as an auth failure (ERROR) and the
+    # message names the profile so the user can see which credential was attempted.
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
-            side_effect=RestException({"error_code": "INTERNAL_ERROR", "message": "Not Found"}),
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
         ),
         mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
     ):
@@ -423,7 +383,7 @@ def test_log_trace_does_not_raise_on_malformed_tracking_uri(monkeypatch):
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
-            side_effect=Exception("token refresh: cache update: exit status 45"),
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
         ),
         mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
     ):

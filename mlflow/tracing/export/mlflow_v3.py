@@ -36,60 +36,21 @@ _logger = logging.getLogger(__name__)
 # HTTP statuses that mean the caller's credential was rejected.
 _AUTH_FAILURE_STATUS_CODES = (401, 403)
 
-# Phrases that identify a credential failure raised before any HTTP status exists,
-# such as a local credential provider that cannot build a token at all. These are
-# auth-specific wordings, not bare numbers, so they cannot match an unrelated
-# message that happens to contain a status-like substring.
-_AUTH_FAILURE_MARKERS = (
-    "token refresh",
-    "unauthorized",
-    "invalid access token",
-    "expired token",
-    "credentials have expired",
-    "could not identify databricks workspace configuration",
-    "default auth",
-)
-
-
-# Generic gateway messages that carry INTERNAL_ERROR but actually mean the request
-# never reached the endpoint, typically because a wrong-workspace or expired token
-# was routed to a gateway that returns a short, unhelpful body. A genuine missing
-# resource carries RESOURCE_DOES_NOT_EXIST (not INTERNAL_ERROR), so keying on the
-# INTERNAL_ERROR code plus a short/empty message avoids matching real server errors,
-# which carry a substantive message.
-_INTERNAL_ERROR_AUTH_MESSAGES = ("not found", "")
-
-# MLflow raises this exact wording when an API endpoint returns a non-JSON body,
-# which on a Databricks workspace is almost always a redirect to a login page.
-_NON_JSON_RESPONSE_MARKER = "response body was not in a valid json format"
-
 
 def _is_auth_failure(exc: Exception) -> bool:
-    """Check for an auth or credential failure in an export exception.
+    """Return True if *exc* indicates that the caller's credential was rejected.
 
-    A dropped trace from an auth failure is worth an ERROR rather than a WARNING,
-    because the fix is a user re-auth rather than a transient retry. Numeric
-    statuses are read from the exception's structured error code, so an unrelated
-    message such as ``RESOURCE_DOES_NOT_EXIST: No Experiment with id=403 exists``
-    is not misreported as an authentication problem.
+    A dropped trace from an auth failure is worth an ERROR rather than a WARNING
+    because the fix is a re-auth rather than a transient retry.  Detection relies
+    exclusively on the structured HTTP status code (401 or 403) exposed by
+    ``MlflowException.get_http_status_code()``, so a message such as
+    ``RESOURCE_DOES_NOT_EXIST: No Experiment with id=403 exists`` is never
+    misreported as an authentication problem.
     """
-    if isinstance(exc, MlflowException):
-        if exc.get_http_status_code() in _AUTH_FAILURE_STATUS_CODES:
-            return True
-        # A gateway that rejects the credential often wraps the failure in
-        # INTERNAL_ERROR with a short, generic message ("Not Found" or empty)
-        # instead of a proper auth code. Keyed on the code plus a short message so
-        # a real INTERNAL_ERROR with a substantive message stays a server error.
-        if getattr(exc, "error_code", None) == "INTERNAL_ERROR":
-            rest_json = getattr(exc, "json", None)
-            raw_message = rest_json.get("message", "") if isinstance(rest_json, dict) else ""
-            if raw_message.strip().lower() in _INTERNAL_ERROR_AUTH_MESSAGES:
-                return True
-        # A non-JSON response to a JSON API endpoint is almost always an auth
-        # redirect to a login page.
-        if _NON_JSON_RESPONSE_MARKER in str(exc).lower():
-            return True
-    return any(marker in str(exc).lower() for marker in _AUTH_FAILURE_MARKERS)
+    return (
+        isinstance(exc, MlflowException)
+        and exc.get_http_status_code() in _AUTH_FAILURE_STATUS_CODES
+    )
 
 
 def _get_profile_from_uri(tracking_uri: str | None) -> str:
