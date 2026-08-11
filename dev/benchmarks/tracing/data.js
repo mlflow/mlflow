@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786458772215,
+  "lastUpdate": 1786480483768,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -20681,6 +20681,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.697790600001554,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "32432541+SeiichiroYoshioka@users.noreply.github.com",
+            "name": "Seiichiro Yoshioka",
+            "username": "SeiichiroYoshioka"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e80938dbc8d601eb33f24398ba1f42c1ff3c3f55",
+          "message": "fix: Serve FastAPI-native routers under `--static-prefix` (#24511)\n\nSigned-off-by: Seiichiro Yoshioka <yoshioka_seiichiro@cyberagent.co.jp>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-11T20:31:31Z",
+          "tree_id": "495a13ab8b93588009b6329f89f3e14f9b782a88",
+          "url": "https://github.com/mlflow/mlflow/commit/e80938dbc8d601eb33f24398ba1f42c1ff3c3f55"
+        },
+        "date": 1786480481378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.532816450000496,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.266617530611924,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.923915609022835,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.010731324073648,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.125134067226239,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.046099600012212,
             "unit": "ms"
           }
         ]
