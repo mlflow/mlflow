@@ -15,6 +15,9 @@ export const ExperimentEvaluationRunsTableActions = ({
   compareToRunUuid,
   enableImprovedComparison,
   setIsComparisonMode,
+  onSetBaseline,
+  baselineRunUuid,
+  isSavingBaseline,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -24,6 +27,10 @@ export const ExperimentEvaluationRunsTableActions = ({
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
+  /** Omitted when the baseline feature is off, which hides the menu item. */
+  onSetBaseline?: (runUuid: string) => void;
+  baselineRunUuid?: string;
+  isSavingBaseline?: boolean;
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -71,6 +78,19 @@ export const ExperimentEvaluationRunsTableActions = ({
 
   const noRunsSelected = selectedRunUuids.length === 0;
 
+  // Exactly one run, the same discipline Compare applies with two. The run has to
+  // be unambiguous for "the baseline" to mean anything.
+  const isExactlyOneSelected = selectedRunUuids.length === 1;
+  const isAlreadyBaseline = isExactlyOneSelected && selectedRunUuids[0] === baselineRunUuid;
+  const [promoteModalVisible, setPromoteModalVisible] = useState(false);
+
+  const handleSetBaseline = useCallback(() => {
+    if (isExactlyOneSelected) {
+      onSetBaseline?.(selectedRunUuids[0]);
+    }
+    setPromoteModalVisible(false);
+  }, [isExactlyOneSelected, onSetBaseline, selectedRunUuids]);
+
   return (
     <>
       <DropdownMenu.Root>
@@ -85,6 +105,38 @@ export const ExperimentEvaluationRunsTableActions = ({
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
+          {onSetBaseline && (
+            <DropdownMenu.Item
+              componentId="mlflow.eval-runs.actions.set-baseline"
+              onClick={() => (baselineRunUuid ? setPromoteModalVisible(true) : handleSetBaseline())}
+              disabled={!isExactlyOneSelected || isAlreadyBaseline || isSavingBaseline}
+              disabledReason={
+                isAlreadyBaseline ? (
+                  <FormattedMessage
+                    defaultMessage="This run is already the baseline"
+                    description="Tooltip explaining that the selected run is already the experiment baseline"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Please select exactly 1 run to set as the baseline"
+                    description="Tooltip for the disabled set-as-baseline action in the evaluation runs table"
+                  />
+                )
+              }
+            >
+              {baselineRunUuid ? (
+                <FormattedMessage
+                  defaultMessage="Replace baseline"
+                  description="Action that promotes the selected run over the existing experiment baseline"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Set as baseline"
+                  description="Action that marks the selected run as the experiment baseline"
+                />
+              )}
+            </DropdownMenu.Item>
+          )}
           {/* Original Compare option in dropdown (when flag is OFF) */}
           {!enableImprovedComparison && (
             <DropdownMenu.Item
@@ -146,6 +198,38 @@ export const ExperimentEvaluationRunsTableActions = ({
         <FormattedMessage
           defaultMessage="Are you sure you want to delete these runs?"
           description="Delete evaluation runs modal confirmation text"
+        />
+      </Modal>
+      {/*
+        Replacing the baseline is confirmed because the baseline is an experiment
+        tag: it is shared by everyone viewing the experiment, so silently swapping
+        it moves someone else's comparison anchor out from under them.
+      */}
+      <Modal
+        componentId="mlflow.eval-runs.promote-baseline-modal"
+        visible={promoteModalVisible}
+        onOk={handleSetBaseline}
+        okButtonProps={{ loading: isSavingBaseline }}
+        okText={
+          <FormattedMessage
+            defaultMessage="Replace baseline"
+            description="Confirm button for replacing the shared experiment baseline"
+          />
+        }
+        onCancel={() => setPromoteModalVisible(false)}
+        cancelText={
+          <FormattedMessage defaultMessage="Cancel" description="Cancel button for the replace-baseline modal" />
+        }
+        title={
+          <FormattedMessage
+            defaultMessage="Replace the baseline?"
+            description="Title of the modal confirming replacement of the shared experiment baseline"
+          />
+        }
+      >
+        <FormattedMessage
+          defaultMessage="The baseline is shared with everyone viewing this experiment. Replacing it changes what every run is compared against, for all viewers."
+          description="Body of the modal confirming replacement of the shared experiment baseline"
         />
       </Modal>
     </>

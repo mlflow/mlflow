@@ -11,7 +11,11 @@ import type { ExpandedState, RowSelectionState } from '@tanstack/react-table';
 import { ExperimentEvaluationRunsTableRow } from './ExperimentEvaluationRunsTableRow';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { useCallback, useMemo, useState, forwardRef } from 'react';
-import { KeyedValueCell, SortableHeaderCell } from './ExperimentEvaluationRunsTableCellRenderers';
+import { KeyedValueCell, MetricValueCell, SortableHeaderCell } from './ExperimentEvaluationRunsTableCellRenderers';
+import type { RunEntity } from '../../types';
+import type { EvalRunsBaselineTagValue } from './EvalRunsBaseline.utils';
+import { getMetricMean } from './EvalRunsBaseline.utils';
+import { EvalRunsBaselineBandRow } from './EvalRunsBaselineBandRow';
 import {
   getEvalRunCellValueBasedOnColumn,
   parseEvalRunsTableKeyedColumnKey,
@@ -36,6 +40,14 @@ export interface ExperimentEvaluationRunsTableProps {
   onScroll?: React.UIEventHandler<HTMLDivElement>;
   isGrouped?: boolean;
   enableImprovedComparison?: boolean;
+  baseline?: EvalRunsBaselineTagValue;
+  /**
+   * Resolved separately from `data` because the baseline may be filtered out of
+   * the visible rows while still being a valid comparison anchor.
+   */
+  baselineRun?: RunEntity;
+  /** True when the active filters exclude the baseline from the visible rows. */
+  isBaselineOutsideFilter?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
@@ -57,6 +69,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       onScroll,
       isGrouped,
       enableImprovedComparison,
+      baseline,
+      baselineRun,
+      isBaselineOutsideFilter,
     },
     ref,
   ) => {
@@ -80,16 +95,26 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
             }
             return getEvalRunCellValueBasedOnColumn(column, row);
           },
-          cell: KeyedValueCell,
+          // Metrics get the baseline-aware cell so a value can carry its delta;
+          // params and tags have no baseline to compare against.
+          cell: isMetricColumn ? MetricValueCell : KeyedValueCell,
           header: SortableHeaderCell,
           enableSorting: true,
           // Use 'basic' (numeric) sorting for metrics, 'alphanumeric' for params/tags
           sortingFn: isMetricColumn ? 'basic' : 'alphanumeric',
           meta: {
-            styles: {
-              minWidth: 100,
-              maxWidth: 200,
-            },
+            styles: isMetricColumn
+              ? // Numeric metrics are narrow and right-aligned so digits line up
+                // column-wise, freeing horizontal space for the run name. 128px
+                // rather than 96: the cell carries a value and a signed delta
+                // ("0.953 ▲0.124"), which does not fit in 96.
+                {
+                  minWidth: 128,
+                  maxWidth: 128,
+                  justifyContent: 'flex-end',
+                  textAlign: 'right' as const,
+                }
+              : { minWidth: 100, maxWidth: 200 },
           },
         });
       });
@@ -133,6 +158,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           setSelectedRunUuid,
           setSelectedDatasetWithRun,
           setIsDrawerOpen,
+          baseline,
+          baselineRun,
+          getGroupMetricMean: getMetricMean,
         },
         onRowSelectionChange: setRowSelection,
         state: {
@@ -142,6 +170,36 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         },
       },
     );
+
+    const allRows = table.getRowModel().rows;
+
+    const renderRow = (row: (typeof allRows)[number], isBaselineRow = false) => {
+      const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
+      const runStatus = 'info' in row.original ? row.original.info.status : undefined;
+      return (
+        <ExperimentEvaluationRunsTableRow
+          key={row.id}
+          row={row}
+          isActive={isActive}
+          isSelected={rowSelection[row.id]}
+          isExpanded={row.getIsExpanded()}
+          isHidden={isRowHidden(row.id, row.index, runStatus)}
+          columns={columns}
+          isGrouped={isGrouped}
+          enableImprovedComparison={enableImprovedComparison}
+          isBaseline={isBaselineRow}
+        />
+      );
+    };
+
+    // The baseline is lifted out of the sorted list and pinned above it, so a
+    // row means the same thing whether grouping is on or off: one anchor at the
+    // top, everything else sorted beneath it.
+    const baselineRowIndex = baseline
+      ? allRows.findIndex((row) => 'info' in row.original && row.original.info.runUuid === baseline.runUuid)
+      : -1;
+    const pinnedBaselineRow = baselineRowIndex >= 0 ? allRows[baselineRowIndex] : undefined;
+    const bodyRows = pinnedBaselineRow ? allRows.filter((_, index) => index !== baselineRowIndex) : allRows;
 
     return (
       <Table css={{ flex: 1 }} scrollable onScroll={onScroll} ref={ref}>
@@ -164,24 +222,14 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           })}
         </TableRow>
 
-        {!isLoading &&
-          table.getRowModel().rows.map((row) => {
-            const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
-            const runStatus = 'info' in row.original ? row.original.info.status : undefined;
-            return (
-              <ExperimentEvaluationRunsTableRow
-                key={row.id}
-                row={row}
-                isActive={isActive}
-                isSelected={rowSelection[row.id]}
-                isExpanded={row.getIsExpanded()}
-                isHidden={isRowHidden(row.id, row.index, runStatus)}
-                columns={columns}
-                isGrouped={isGrouped}
-                enableImprovedComparison={enableImprovedComparison}
-              />
-            );
-          })}
+        {!isLoading && pinnedBaselineRow && (
+          <>
+            <EvalRunsBaselineBandRow isOutsideFilter={isBaselineOutsideFilter} baseline={baseline} />
+            {renderRow(pinnedBaselineRow, true)}
+          </>
+        )}
+
+        {!isLoading && bodyRows.map((row) => renderRow(row))}
 
         {(isLoading || hasNextPage) && <TableSkeletonRows table={table} />}
       </Table>

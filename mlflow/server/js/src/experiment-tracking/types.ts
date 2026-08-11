@@ -97,6 +97,11 @@ export interface RunInfoEntity {
   runName: string;
   startTime: number;
   status: 'SCHEDULED' | 'FAILED' | 'FINISHED' | 'RUNNING' | 'KILLED';
+  /**
+   * Resolved from the client environment when the run is created, so it can be
+   * missing on runs made through paths that skip context resolution.
+   */
+  userId?: string;
 }
 
 export interface RunDatasetWithTags {

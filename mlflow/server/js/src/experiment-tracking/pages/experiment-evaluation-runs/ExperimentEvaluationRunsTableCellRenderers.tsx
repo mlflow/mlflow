@@ -17,7 +17,14 @@ import {
   SparkleIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
-import { DatasetSourceTypes, RunEntity } from '../../types';
+import {
+  formatEvalRunsMetric,
+  getEvalRunsDelta,
+  getRunMetricValue,
+  type EvalRunsDelta,
+} from './EvalRunsBaseline.utils';
+import type { RunEntity } from '../../types';
+import { DatasetSourceTypes } from '../../types';
 import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
@@ -28,7 +35,7 @@ import { RunColorPill } from '../../components/experiment-page/components/RunCol
 import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
@@ -132,6 +139,9 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
         css={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flexShrink: 1 }}
         componentId="mlflow.eval-runs.run-name-cell"
         id="run-name-cell"
+        // Long names still ellipsize at narrow widths; the native tooltip is the
+        // only way to recover the full name without opening the run.
+        title={row.original.info.runName}
       >
         {row.original.info.runName}
       </Typography.Link>
@@ -293,6 +303,133 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
 export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ getValue }) => {
   const value = getValue<string>();
   return <span title={value}>{value ?? '-'}</span>;
+};
+
+/**
+ * Renders a ▲/▼ next to a metric value. The glyph carries direction on its own
+ * so the signal survives for colour-blind users and in screenshots, and colour
+ * reinforces whether the move was an improvement — which is not the same as
+ * whether the number went up (see `isLowerBetterMetric`).
+ */
+const DeltaIndicator = ({ delta, metricKey }: { delta: EvalRunsDelta; metricKey: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  // A move under the noise floor is reported as unchanged rather than as a
+  // coloured arrow, so run-to-run jitter doesn't read as a real improvement.
+  if (delta.direction === 'neutral') {
+    return (
+      <Tooltip
+        componentId="mlflow.eval-runs.delta.unchanged-tooltip"
+        content={intl.formatMessage(
+          {
+            defaultMessage: 'Unchanged vs baseline ({metricKey})',
+            description: 'Tooltip on a metric whose delta against the baseline is below the noise floor',
+          },
+          { metricKey },
+        )}
+      >
+        <span css={{ color: theme.colors.textSecondary, marginLeft: theme.spacing.xs }}>–</span>
+      </Tooltip>
+    );
+  }
+
+  const isBetter = delta.direction === 'better';
+  const magnitude = formatEvalRunsMetric(Math.abs(delta.value));
+  const signed = `${delta.value > 0 ? '+' : '−'}${magnitude}`;
+
+  return (
+    <Tooltip
+      componentId="mlflow.eval-runs.delta.tooltip"
+      content={intl.formatMessage(
+        {
+          defaultMessage: '{signed} vs baseline ({verdict})',
+          description: 'Tooltip showing the signed delta of a metric against the baseline run',
+        },
+        {
+          signed,
+          verdict: isBetter
+            ? intl.formatMessage({
+                defaultMessage: 'better',
+                description: 'Verdict when a metric improved relative to the baseline run',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'worse',
+                description: 'Verdict when a metric regressed relative to the baseline run',
+              }),
+        },
+      )}
+    >
+      {/* The arrow carries the direction, the number the magnitude. The arrow
+          alone cannot separate +0.001 from +0.4, so the size has to be readable
+          without hovering every cell. */}
+      <span
+        aria-label={signed}
+        css={{
+          display: 'inline-flex',
+          alignItems: 'baseline',
+          gap: 2,
+          marginLeft: theme.spacing.xs,
+          fontSize: theme.typography.fontSizeSm,
+          // Tabular figures so the deltas form a straight column instead of
+          // jittering with each digit's width.
+          fontVariantNumeric: 'tabular-nums',
+          color: isBetter ? theme.colors.textValidationSuccess : theme.colors.textValidationDanger,
+        }}
+      >
+        <span aria-hidden>{delta.value > 0 ? '▲' : '▼'}</span>
+        {/* The arrow already states the sign; repeating +/- here would say it
+            twice in the same breath. */}
+        <span aria-hidden>{magnitude}</span>
+      </span>
+    </Tooltip>
+  );
+};
+
+/**
+ * Metric cell for the baseline-aware table. Group rows show the mean of their
+ * subruns, which is bounded to the group and so cannot blend populations the
+ * way a whole-column average would across the 50-per-page infinite scroll.
+ */
+export const MetricValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, column, table }) => {
+  const { theme } = useDesignSystemTheme();
+  const meta = table.options.meta as any;
+  const metricKey = parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id;
+  const baselineRun: RunEntity | undefined = meta?.baselineRun;
+  const baselineValue = getRunMetricValue(baselineRun, metricKey);
+
+  if ('subRuns' in row.original) {
+    const mean = meta?.getGroupMetricMean?.(row.original.subRuns, metricKey);
+    if (!Number.isFinite(mean)) {
+      return <div>-</div>;
+    }
+    return (
+      <span css={{ display: 'inline-flex', alignItems: 'baseline', gap: theme.spacing.xs }}>
+        <Typography.Text size="sm" color="secondary">
+          <FormattedMessage
+            defaultMessage="avg"
+            description="Prefix marking a group row value as the average across the runs in that group"
+          />
+        </Typography.Text>
+        <Typography.Text bold>{formatEvalRunsMetric(mean)}</Typography.Text>
+      </span>
+    );
+  }
+
+  const value = getRunMetricValue(row.original, metricKey);
+  if (!Number.isFinite(value)) {
+    return <div>-</div>;
+  }
+
+  const isBaselineRow = baselineRun?.info?.runUuid === row.original.info.runUuid;
+  const delta = isBaselineRow ? undefined : getEvalRunsDelta(metricKey, value, baselineValue);
+
+  return (
+    <span css={{ display: 'inline-flex', alignItems: 'center' }}>
+      {formatEvalRunsMetric(value as number)}
+      {delta && <DeltaIndicator delta={delta} metricKey={metricKey} />}
+    </span>
+  );
 };
 
 export const SortableHeaderCell = ({

@@ -11,6 +11,7 @@ import {
   TypeCell,
   VisiblityCell,
 } from './ExperimentEvaluationRunsTableCellRenderers';
+import { shouldEnableEvalRunsBaseline } from '../../../common/utils/FeatureUtils';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Theme, Interpolation } from '@emotion/react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
@@ -61,8 +62,11 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.checkbox]: true,
   [EvalRunsTableColumnId.visibility]: true,
   [EvalRunsTableColumnId.runName]: true,
-  [EvalRunsTableColumnId.status]: true,
-  [EvalRunsTableColumnId.type]: true,
+  // Status is a column of identical green rings and Type only differentiates
+  // run kinds the type filter already scopes, so neither earns a default slot on
+  // a page whose problem is too many columns. Both stay available under Columns.
+  [EvalRunsTableColumnId.status]: !shouldEnableEvalRunsBaseline(),
+  [EvalRunsTableColumnId.type]: !shouldEnableEvalRunsBaseline(),
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
   [EvalRunsTableColumnId.modelVersion]: false,
@@ -156,7 +160,10 @@ export const getExperimentEvalRunsDefaultColumns = (
       enableResizing: true,
       meta: {
         styles: {
-          minWidth: 100,
+          // Run names are the primary way to tell rows apart, so give them a
+          // wider floor than the metric columns and let them absorb slack.
+          minWidth: 252,
+          flex: '3 1 0%',
         },
       },
     },

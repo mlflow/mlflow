@@ -73,6 +73,7 @@ import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useC
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
+import { EvalRunsAnalyzeButton } from '../../pages/experiment-evaluation-runs/EvalRunsAnalyzeButton';
 
 const ContextProviders = ({
   children,
@@ -428,6 +429,11 @@ const RunViewEvaluationsTabInner = ({
                 isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
                 isGroupedBySession={isGroupedBySession}
                 onToggleSessionGrouping={onToggleSessionGrouping}
+                addons={
+                  compareToRunUuid ? (
+                    <EvalRunsAnalyzeButton runName={runDisplayName} comparedToRunName={compareToRunDisplayName} />
+                  ) : undefined
+                }
               />
               {
                 // prettier-ignore

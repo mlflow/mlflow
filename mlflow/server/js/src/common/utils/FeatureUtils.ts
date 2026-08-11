@@ -227,6 +227,22 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
 };
 
+/**
+ * Enables the date and run type filters on the evaluation runs page.
+ */
+export const shouldEnableEvalRunsFiltering = () => {
+  return true;
+};
+
+/**
+ * Enables the shared per-experiment baseline run on the evaluation runs page:
+ * the pinned baseline band, delta arrows measured against it, per-group metric
+ * means, and the recent-run summary chart.
+ */
+export const shouldEnableEvalRunsBaseline = () => {
+  return true;
+};
+
 export const isScorerModelSelectionEnabled = () => {
   return true;
 };

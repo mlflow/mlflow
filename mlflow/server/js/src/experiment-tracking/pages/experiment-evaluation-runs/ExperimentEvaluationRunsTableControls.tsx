@@ -90,6 +90,11 @@ export const ExperimentEvaluationRunsTableControls = ({
   isComparisonMode,
   setIsComparisonMode,
   enableImprovedComparison,
+  onSetBaseline,
+  baselineRunUuid,
+  isSavingBaseline,
+  filterControls,
+  filterCount,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -111,6 +116,11 @@ export const ExperimentEvaluationRunsTableControls = ({
   isComparisonMode: boolean;
   setIsComparisonMode: (isComparisonMode: boolean) => void;
   enableImprovedComparison?: boolean;
+  onSetBaseline?: (runUuid: string) => void;
+  baselineRunUuid?: string;
+  isSavingBaseline?: boolean;
+  filterControls?: React.ReactNode;
+  filterCount?: React.ReactNode;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -275,6 +285,7 @@ export const ExperimentEvaluationRunsTableControls = ({
           setGroupByConfig={setGroupByConfig}
           runs={runs}
         />
+        {filterControls}
 
         {/* Compare button - only enabled when feature flag is on, hidden in charts mode */}
         {enableImprovedComparison && viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
@@ -317,8 +328,12 @@ export const ExperimentEvaluationRunsTableControls = ({
           selectedRunUuid={selectedRunUuid}
           compareToRunUuid={compareToRunUuid}
           enableImprovedComparison={enableImprovedComparison}
+          onSetBaseline={onSetBaseline}
+          baselineRunUuid={baselineRunUuid}
+          isSavingBaseline={isSavingBaseline}
           setIsComparisonMode={setIsComparisonMode}
         />
+        {filterCount}
       </div>
     </div>
   );

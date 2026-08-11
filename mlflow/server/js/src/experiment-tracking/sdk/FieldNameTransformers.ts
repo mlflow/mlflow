@@ -19,6 +19,7 @@ const transformRunInfoEntity = (snakeCaseRunInfoEntity: any): RunInfoEntity => (
   runUuid: snakeCaseRunInfoEntity.run_uuid,
   runName: snakeCaseRunInfoEntity.run_name,
   startTime: snakeCaseRunInfoEntity.start_time,
+  userId: snakeCaseRunInfoEntity.user_id,
 });
 
 const transformDatasetInputEntity = (snakeCaseDatasetInputEntity: any): RunDatasetWithTags => {

@@ -49,9 +49,18 @@ import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperi
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import {
+  shouldEnableEvalRunsBaseline,
+  shouldEnableEvalRunsFiltering,
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
+import { EvalRunsFilterControls, EvalRunsFilterCount } from './EvalRunsFilterControls';
+import { useEvalRunsFilters } from './hooks/useEvalRunsFilters';
+import { useEvalRunsBaseline } from './hooks/useEvalRunsBaseline';
+import { useGetRunQuery } from '../../components/run-page/hooks/useGetRunQuery';
+import type { RunEntity } from '../../types';
+import { EvalRunsBenchmarkChart } from './EvalRunsBenchmarkChart';
+import { EvalRunsBaselineNudge } from './EvalRunsBaselineNudge';
 
 const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
 
@@ -99,6 +108,15 @@ const ExperimentEvaluationRunsPageImpl = () => {
   useRegisterSelectedIds('selectedRunIds', rowSelection);
 
   const {
+    filters,
+    filterString,
+    isAnyFilterActive,
+    setDatePreset,
+    setTypeFilter,
+    clearAll: clearAllFilters,
+  } = useEvalRunsFilters({ searchFilter });
+
+  const {
     data: runs,
     isLoading,
     isFetching,
@@ -109,8 +127,54 @@ const ExperimentEvaluationRunsPageImpl = () => {
   } = useExperimentEvaluationRunsData({
     experimentId,
     enabled: true,
-    filter: searchFilter,
+    filter: filterString,
   });
+
+  // The filtered query cannot report the unfiltered total, so keep a cheap
+  // unfiltered query alive purely to populate "showing N of M".
+  const { data: unfilteredRuns } = useExperimentEvaluationRunsData({
+    experimentId,
+    enabled: isAnyFilterActive,
+    filter: '',
+  });
+
+  const enableBaseline = shouldEnableEvalRunsBaseline();
+  const { baseline, baselineRunUuid, isSaving: isSavingBaseline, setBaseline } = useEvalRunsBaseline({ experimentId });
+
+  // Fetched by id rather than found in `runs`, because `runs` is the filtered
+  // result: filter to "Test runs" and the baseline drops out of it, which would
+  // take every delta on the page with it. The baseline is the fixed reference the
+  // deltas are measured against, so it has to outlive any filter that hides it.
+  const baselineRunQuery = useGetRunQuery({
+    runUuid: baselineRunUuid ?? '',
+    disabled: !enableBaseline || !baselineRunUuid,
+  });
+
+  // Prefer the row already in `runs` so the pinned row and the list agree, and
+  // fall back to the by-id fetch only when the filter has excluded it. Which of
+  // the two sources answered is itself the signal that the baseline sits outside
+  // the active filter, so it is reported rather than recomputed downstream.
+  const { baselineRun, isBaselineOutsideFilter } = useMemo(() => {
+    const fromLoadedRuns = runs?.find((run) => run.info.runUuid === baselineRunUuid);
+    if (fromLoadedRuns) {
+      return { baselineRun: fromLoadedRuns, isBaselineOutsideFilter: false };
+    }
+    const fetchedById = (baselineRunQuery.data as unknown as RunEntity | undefined) ?? undefined;
+    // Only "outside the filter" once the fetch has actually resolved — while it
+    // is in flight the run is merely unknown, and labelling that as excluded
+    // would flash a wrong explanation on every load.
+    return { baselineRun: fetchedById, isBaselineOutsideFilter: Boolean(fetchedById) };
+  }, [runs, baselineRunUuid, baselineRunQuery.data]);
+
+  const metricKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const run of runs ?? []) {
+      for (const metric of run.data.metrics ?? []) {
+        keys.add(metric.key);
+      }
+    }
+    return Array.from(keys);
+  }, [runs]);
 
   const refetchAll = useCallback(() => {
     refetch();
@@ -281,7 +345,19 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
-  const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
+  // The baseline row is re-inserted when a filter has excluded it, so the pinned
+  // band and the deltas it anchors stay on screen. Prepended rather than appended
+  // because the table lifts it out to pin it anyway, and a filtered-out baseline
+  // has no meaningful sort position among rows it doesn't belong to.
+  const runsForTable = useMemo(() => {
+    const loaded = runs ?? [];
+    if (!enableBaseline || !baselineRun || loaded.some((run) => run.info.runUuid === baselineRun.info.runUuid)) {
+      return loaded;
+    }
+    return [baselineRun, ...loaded];
+  }, [runs, baselineRun, enableBaseline]);
+
+  const runsAndGroupValues = getGroupByRunsData(runsForTable, groupBy);
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
@@ -339,6 +415,25 @@ const ExperimentEvaluationRunsPageImpl = () => {
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const filterControls = shouldEnableEvalRunsFiltering() ? (
+    <EvalRunsFilterControls
+      filters={filters}
+      isAnyFilterActive={isAnyFilterActive}
+      setDatePreset={setDatePreset}
+      setTypeFilter={setTypeFilter}
+      clearAll={clearAllFilters}
+    />
+  ) : null;
+
+  const filterCount = shouldEnableEvalRunsFiltering() ? (
+    <EvalRunsFilterCount
+      isAnyFilterActive={isAnyFilterActive}
+      visibleCount={runs?.length ?? 0}
+      totalCount={isAnyFilterActive ? (unfilteredRuns?.length ?? 0) : (runs?.length ?? 0)}
+      hasMoreRuns={Boolean(hasNextPage)}
+    />
+  ) : null;
+
   const renderTableControls = () => (
     <ExperimentEvaluationRunsTableControls
       runs={runs ?? []}
@@ -361,6 +456,11 @@ const ExperimentEvaluationRunsPageImpl = () => {
       isComparisonMode={isComparisonMode}
       setIsComparisonMode={setIsComparisonMode}
       enableImprovedComparison={enableImprovedComparison}
+      onSetBaseline={enableBaseline ? setBaseline : undefined}
+      baselineRunUuid={enableBaseline ? baselineRunUuid : undefined}
+      isSavingBaseline={isSavingBaseline}
+      filterControls={filterControls}
+      filterCount={filterCount}
     />
   );
 
@@ -401,8 +501,24 @@ const ExperimentEvaluationRunsPageImpl = () => {
       ref={tableContainerRef}
       isGrouped={Boolean(groupBy?.groupByKeys?.length)}
       enableImprovedComparison={enableImprovedComparison}
+      baseline={enableBaseline ? baseline : undefined}
+      baselineRun={enableBaseline ? baselineRun : undefined}
+      isBaselineOutsideFilter={enableBaseline ? isBaselineOutsideFilter : false}
     />
   );
+
+  const renderBenchmark = () =>
+    enableBaseline ? (
+      <>
+        <EvalRunsBaselineNudge
+          experimentId={experimentId}
+          hasBaseline={Boolean(baselineRunUuid)}
+          runCount={runs?.length ?? 0}
+          isLoading={isLoading}
+        />
+        <EvalRunsBenchmarkChart runs={runs ?? []} baselineRun={baselineRun} metricKeys={metricKeys} />
+      </>
+    ) : null;
 
   const renderEmptyState = () => (
     <div
@@ -496,7 +612,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
             }}
           >
             {renderTableControls()}
-            {isEmpty ? renderEmptyState() : renderTable()}
+            {isEmpty ? (
+              renderEmptyState()
+            ) : (
+              <>
+                {renderBenchmark()}
+                {renderTable()}
+              </>
+            )}
           </div>
           {selectedDatasetWithRun && (
             <ExperimentViewDatasetDrawer
