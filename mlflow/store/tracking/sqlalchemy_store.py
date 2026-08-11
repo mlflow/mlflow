@@ -273,10 +273,11 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
-# Max number of times start_trace()/log_spans() retry their transaction when the DB
-# kills it with a deadlock. Deterministic key ordering (see the sorted
-# metadata/metrics writes) is the primary defense; this bounded retry is a safety net.
-_TRACE_WRITE_MAX_DEADLOCK_RETRIES = 2
+# Max number of times a DB-write path (start_trace()/log_spans(), log_metric()/log_batch())
+# retries its transaction when the DB kills it with a deadlock. Deterministic key ordering
+# (see the sorted metadata/metrics writes) is the primary defense; this bounded retry is a
+# safety net.
+_DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -3644,14 +3645,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         session) rather than retrying on a rolled-back session.
         """
         temporarily_unavailable = ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
-        for attempt in range(_TRACE_WRITE_MAX_DEADLOCK_RETRIES + 1):
+        for attempt in range(_DB_WRITE_MAX_DEADLOCK_RETRIES + 1):
             try:
                 return fn(*args, **kwargs)
             except MlflowException as e:
                 is_deadlock = (
                     e.error_code == temporarily_unavailable and "deadlock" in str(e).lower()
                 )
-                if not is_deadlock or attempt >= _TRACE_WRITE_MAX_DEADLOCK_RETRIES:
+                if not is_deadlock or attempt >= _DB_WRITE_MAX_DEADLOCK_RETRIES:
                     raise
                 # Exponential backoff with jitter, matching `_try_insert_tags`.
                 sleep_duration = (2**attempt) - 1
