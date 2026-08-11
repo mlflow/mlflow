@@ -1,19 +1,25 @@
-import inspect
 import json
 from typing import Any, Literal
 
 import click
+from pydantic_core import PydanticUndefined
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.genai.judges import make_judge
-from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers import list_scorers as list_scorers_api
+from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
+    SessionLevelScorer,
+    _get_all_concrete_builtin_scorers,
+)
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils.string_utils import _create_table
 
-# Fields defined on the Scorer base class, excluded when deriving the constructor
-# arguments a built-in scorer requires.
-_SCORER_BASE_FIELDS = set(Scorer.model_fields)
+# Fields shared by all built-in scorers (name, description, required_columns,
+# inference_params, extra_headers). Excluded when deriving the constructor arguments a
+# specific scorer requires, so only scorer-specific required fields (e.g. Guidelines'
+# ``guidelines``) are reported.
+_SHARED_SCORER_FIELDS = set(BuiltInScorer.model_fields)
 
 
 def _builtin_scorer_catalog() -> list[dict[str, Any]]:
@@ -24,25 +30,38 @@ def _builtin_scorer_catalog() -> list[dict[str, Any]]:
     ``ResponseLength``, ``ConversationalGuidelines``) never appear. Reading fields off
     the class instead surfaces all of them, along with the data contract and the
     arguments needed to construct each one.
-    """
-    from mlflow.genai.scorers.builtin_scorers import _get_all_concrete_builtin_scorers
 
+    Reports the statically declared requirements only. Some scorers enforce
+    additional, alternative, or conditional requirements at construction or evaluation
+    time that this flat view does not represent:
+
+    - ``required_columns`` reflects the field default; scorers such as ``correctness``,
+      ``equivalence``, and ``expectations_guidelines`` require one of
+      ``expectations/expected_response`` or ``expectations/expected_facts`` (enforced in
+      ``validate_columns()``).
+    - ``required_args`` lists individually required constructor fields; it does not
+      capture one-of requirements such as ``response_length`` needing at least one of
+      ``min_length`` or ``max_length`` (enforced by a model validator).
+    """
     catalog = []
     for cls in _get_all_concrete_builtin_scorers():
         fields = cls.model_fields
-        required_columns = fields["required_columns"].default
-        session_prop = inspect.getattr_static(cls, "is_session_level_scorer", None)
+        required_columns_field = fields.get("required_columns")
+        required_columns = (
+            required_columns_field.default
+            if required_columns_field is not None
+            and required_columns_field.default is not PydanticUndefined
+            else None
+        )
         catalog.append({
             "name": fields["name"].default,
             "description": fields["description"].default,
             "required_columns": sorted(required_columns) if required_columns else [],
-            "session_level": session_prop.fget(cls)
-            if isinstance(session_prop, property)
-            else False,
+            "session_level": issubclass(cls, SessionLevelScorer),
             "required_args": sorted(
                 name
                 for name, field in fields.items()
-                if field.is_required() and name not in _SCORER_BASE_FIELDS
+                if field.is_required() and name not in _SHARED_SCORER_FIELDS
             ),
         })
     return sorted(catalog, key=lambda s: s["name"])
