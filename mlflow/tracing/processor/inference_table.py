@@ -20,8 +20,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _try_get_prediction_context,
-    aggregate_cost_from_spans,
-    aggregate_usage_from_spans,
+    aggregate_usage_and_cost_from_spans,
     generate_trace_id_v3,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
@@ -143,10 +142,11 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             # Aggregate token usage and cost as best-effort: this metadata is optional, and
             # a failure here must never abort root-span export / trace finalization (#24344).
             try:
-                if usage := aggregate_usage_from_spans(spans):
+                usage, cost = aggregate_usage_and_cost_from_spans(spans)
+                if usage:
                     trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-                if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+                if should_compute_cost_client_side() and cost:
                     trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
             except Exception as e:
                 _logger.warning(

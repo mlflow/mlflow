@@ -887,6 +887,57 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
         assert trace_info.token_usage["total_tokens"] == 300
 
 
+def test_log_spans_usage_and_cost_share_rollup_boundary_in_workspace(
+    workspace_tracking_store,
+):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    wrapper = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 120,
+                "output_tokens": 15,
+                "total_tokens": 135,
+            }
+        },
+    )
+    child = create_test_span(
+        trace_id,
+        name="llm",
+        span_id=2,
+        parent_id=1,
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 40,
+                "output_tokens": 5,
+                "total_tokens": 45,
+            },
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": 0.01,
+                "output_cost": 0.005,
+                "total_cost": 0.015,
+            },
+        },
+    )
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("trace-usage-cost-boundary-workspace")
+        workspace_tracking_store.log_spans(exp_id, [child])
+        workspace_tracking_store.log_spans(exp_id, [wrapper])
+
+        trace_info = workspace_tracking_store.get_trace_info(trace_id)
+        assert trace_info.token_usage == {
+            "input_tokens": 120,
+            "output_tokens": 15,
+            "total_tokens": 135,
+        }
+        assert trace_info.cost is None
+        assert TraceMetadataKey.COST not in trace_info.trace_metadata
+
+
 def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
     initial_span = create_test_span(

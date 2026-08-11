@@ -33,8 +33,7 @@ from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
-    aggregate_cost_from_spans,
-    aggregate_usage_from_spans,
+    aggregate_usage_and_cost_from_spans,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
@@ -368,10 +367,11 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # Aggregate token usage and cost as best-effort: this metadata is optional, and a
         # failure here must never abort root-span export / trace finalization (#24344).
         try:
-            if usage := aggregate_usage_from_spans(spans):
+            usage, cost = aggregate_usage_and_cost_from_spans(spans)
+            if usage:
                 trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-            if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+            if should_compute_cost_client_side() and cost:
                 trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
         except Exception as e:
             _logger.warning(

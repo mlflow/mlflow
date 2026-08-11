@@ -213,8 +213,7 @@ from mlflow.tracing.trace_archival_config import get_trace_archival_server_confi
 from mlflow.tracing.utils import (
     SpanAggregationNode,
     TraceJSONEncoder,
-    aggregate_cost_from_span_nodes,
-    aggregate_usage_from_span_nodes,
+    aggregate_usage_and_cost_from_span_nodes,
     generate_request_id_v2,
     try_json_loads,
 )
@@ -5306,17 +5305,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                                 continue
                             trace_tags_from_root_attr[tag_key] = tag_value
 
-            # Tree-aware aggregation matching the client-side aggregator
-            # (aggregate_usage_from_spans): rollup autologgers (e.g. pydantic_ai, agno,
-            # dspy) set cumulative usage on parent spans, so a flat sum over all spans
-            # would double-count parent and children.
+            # Tree-aware aggregation matching the client-side aggregator:
+            # rollup autologgers (e.g. pydantic_ai, agno, dspy) set cumulative usage on
+            # parent spans, so a flat sum over all spans would double-count parent and
+            # children. Usage and cost must use the same contributing span set because a
+            # wrapper can carry usage without having a model that can be priced.
+            aggregated_token_usage, aggregated_cost = aggregate_usage_and_cost_from_span_nodes(
+                usage_nodes, cost_nodes
+            )
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
                 max_end_ms=max_end_ms,
                 root_span_status=root_span_status,
                 trace_status=root_span_status or TraceState.IN_PROGRESS.value,
-                aggregated_token_usage=aggregate_usage_from_span_nodes(usage_nodes) or {},
-                aggregated_cost=aggregate_cost_from_span_nodes(cost_nodes) or {},
+                aggregated_token_usage=aggregated_token_usage,
+                aggregated_cost=aggregated_cost,
                 session_id=session_id,
                 user_id=user_id,
                 root_span_dict=root_span_dict,
@@ -5429,10 +5432,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # --- Phase 4: Batch-fetch existing metadata records (up to 3 queries) ---
             trace_ids_with_token_usage = [
-                tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_token_usage
+                tid
+                for tid in all_trace_ids
+                if trace_aggregates[tid].aggregated_token_usage is not None
             ]
             trace_ids_with_cost = [
-                tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_cost
+                tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_cost is not None
             ]
             trace_ids_with_session = [
                 tid for tid in all_trace_ids if trace_aggregates[tid].session_id
@@ -5590,19 +5595,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # (flag set AND an existing record is present). If the flag is set but no
                 # record exists yet (start_trace() lost the race or didn't include token
                 # usage), log_spans() must still write it to avoid data loss.
-                if aggregated_token_usage := agg.aggregated_token_usage:
+                if agg.aggregated_token_usage is not None:
                     existing_record = existing_token_usage.get(trace_id)
                     if trace_id not in finalized_trace_ids or not existing_record:
                         if trace_id in created_trace_ids:
-                            trace_token_usage = aggregated_token_usage
+                            trace_token_usage = agg.aggregated_token_usage
                         else:
                             # Recompute over the full span tree (stored + batch) instead
                             # of accumulating onto the stored value, so rollup parents
                             # arriving in a different batch than their children are
                             # de-duplicated. Spans logged by earlier calls are included
                             # via stored_usage_nodes, so overwriting is lossless.
-                            trace_token_usage = aggregate_usage_from_span_nodes(
-                                agg.usage_nodes + stored_usage_nodes[trace_id]
+                            trace_token_usage, _ = aggregate_usage_and_cost_from_span_nodes(
+                                agg.usage_nodes + stored_usage_nodes[trace_id],
+                                agg.cost_nodes + stored_cost_nodes[trace_id],
                             )
                         if trace_token_usage:
                             metadata_writes[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
@@ -5615,17 +5621,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # Cost metadata — skip only if start_trace() has already written the
                 # authoritative value (flag set AND existing record present). If the flag
                 # is set but no record exists, still write to avoid data loss.
-                if aggregated_cost := agg.aggregated_cost:
+                if agg.aggregated_cost is not None or existing_cost.get(trace_id):
                     existing_record = existing_cost.get(trace_id)
                     if trace_id not in finalized_trace_ids or not existing_record:
                         if trace_id in created_trace_ids:
-                            recorded_cost = aggregated_cost
+                            recorded_cost = agg.aggregated_cost
                         else:
-                            recorded_cost = aggregate_cost_from_span_nodes(
-                                agg.cost_nodes + stored_cost_nodes[trace_id]
+                            _, recorded_cost = aggregate_usage_and_cost_from_span_nodes(
+                                agg.usage_nodes + stored_usage_nodes[trace_id],
+                                agg.cost_nodes + stored_cost_nodes[trace_id],
                             )
                         if recorded_cost:
                             metadata_writes[TraceMetadataKey.COST] = json.dumps(recorded_cost)
+                        elif existing_record:
+                            session.delete(existing_record)
 
                 # Session ID metadata
                 if (
@@ -10161,8 +10170,8 @@ class _TraceAggregate:
     max_end_ms: int | None
     root_span_status: str | None
     trace_status: str
-    aggregated_token_usage: dict[str, Any] = field(default_factory=dict)
-    aggregated_cost: dict[str, Any] = field(default_factory=dict)
+    aggregated_token_usage: dict[str, Any] | None = None
+    aggregated_cost: dict[str, Any] | None = None
     session_id: str | None = None
     user_id: str | None = None
     root_span_dict: dict[str, Any] | None = None

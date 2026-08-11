@@ -234,9 +234,17 @@ def _aggregate_from_nodes(
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
     """
-    totals: dict[str, int | float] = dict.fromkeys(keys, default)
-    has_data = False
+    return _aggregate_selected_nodes(
+        nodes,
+        _get_contributing_span_ids(nodes),
+        keys,
+        default,
+        optional_keys,
+    )
 
+
+def _get_contributing_span_ids(nodes: list[SpanAggregationNode]) -> set[str]:
+    """Return span IDs selected by the ancestor-wins aggregation rule."""
     node_ids = {node.span_id for node in nodes}
     children_map: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
     roots: list[SpanAggregationNode] = []
@@ -256,6 +264,7 @@ def _aggregate_from_nodes(
     # each node's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
     # order. So a plain stack (no reversed()) yields identical results.
     stack: list[tuple[SpanAggregationNode, bool]] = [(root, False) for root in roots]
+    contributing_span_ids: set[str] = set()
     while stack:
         node, ancestor_has_data = stack.pop()
 
@@ -263,17 +272,106 @@ def _aggregate_from_nodes(
         node_has_data = data is not None
 
         if node_has_data and not ancestor_has_data:
-            for k in keys:
-                totals[k] += data.get(k, default)
-            for k in optional_keys or []:
-                if k in data:
-                    totals[k] = totals.get(k, default) + data[k]
-            has_data = True
+            contributing_span_ids.add(node.span_id)
 
         next_ancestor_has_data = ancestor_has_data or node_has_data
         stack.extend(
             (child, next_ancestor_has_data) for child in children_map.get(node.span_id, [])
         )
+
+    return contributing_span_ids
+
+
+def _get_contributing_span_ids_for_usage_and_cost(
+    usage_nodes: list[SpanAggregationNode], cost_nodes: list[SpanAggregationNode]
+) -> set[str]:
+    """Select one ancestor-wins contribution set for usage and cost.
+
+    A usage-bearing ancestor wins for its whole subtree because cost is derived from usage. A
+    subtree with no usage data falls back to the cost ancestor-wins rule to preserve legacy
+    cost-only branches in mixed traces.
+    """
+    usage_by_id = {node.span_id: node for node in usage_nodes}
+    cost_by_id = {node.span_id: node for node in cost_nodes}
+    nodes_by_id = {node.span_id: node for node in usage_nodes}
+    nodes_by_id.update({node.span_id: node for node in cost_nodes})
+    children_map: defaultdict[str, list[str]] = defaultdict(list)
+    roots: list[str] = []
+
+    for node_id, node in nodes_by_id.items():
+        parent_id = node.parent_id
+        if parent_id and parent_id in nodes_by_id:
+            children_map[parent_id].append(node_id)
+        else:
+            roots.append(node_id)
+
+    subtree_has_usage: dict[str, bool] = {}
+    stack: list[tuple[str, bool]] = [(root, False) for root in roots]
+    while stack:
+        node_id, visited = stack.pop()
+        if visited:
+            usage_node = usage_by_id.get(node_id)
+            subtree_has_usage[node_id] = (
+                usage_node is not None and usage_node.data is not None
+            ) or any(subtree_has_usage[child_id] for child_id in children_map[node_id])
+            continue
+
+        stack.append((node_id, True))
+        stack.extend((child_id, False) for child_id in children_map[node_id])
+
+    contributing_span_ids: set[str] = set()
+    stack = [(root, False, False) for root in roots]
+    while stack:
+        node_id, ancestor_has_usage, ancestor_has_cost = stack.pop()
+        if ancestor_has_usage:
+            continue
+
+        usage_node = usage_by_id.get(node_id)
+        node_has_usage = usage_node is not None and usage_node.data is not None
+        cost_node = cost_by_id.get(node_id)
+        node_has_cost = cost_node is not None and cost_node.data is not None
+
+        if node_has_usage:
+            contributing_span_ids.add(node_id)
+            next_ancestor_has_usage = True
+            next_ancestor_has_cost = False
+        elif not subtree_has_usage[node_id] and node_has_cost and not ancestor_has_cost:
+            contributing_span_ids.add(node_id)
+            next_ancestor_has_usage = False
+            next_ancestor_has_cost = True
+        else:
+            next_ancestor_has_usage = False
+            next_ancestor_has_cost = ancestor_has_cost
+
+        stack.extend(
+            (child_id, next_ancestor_has_usage, next_ancestor_has_cost)
+            for child_id in children_map[node_id]
+        )
+
+    return contributing_span_ids
+
+
+def _aggregate_selected_nodes(
+    nodes: list[SpanAggregationNode],
+    selected_span_ids: set[str],
+    keys: list[str],
+    default: int | float,
+    optional_keys: list[str] | None = None,
+) -> dict[str, int | float] | None:
+    """Aggregate data from a preselected set of span nodes."""
+    totals: dict[str, int | float] = dict.fromkeys(keys, default)
+    has_data = False
+
+    for node in nodes:
+        if node.span_id not in selected_span_ids or node.data is None:
+            continue
+
+        for k in keys:
+            totals[k] += node.data.get(k, default)
+        for k in optional_keys or []:
+            if k in node.data:
+                totals[k] = totals.get(k, default) + node.data[k]
+        has_data = True
 
     if not has_data:
         return None
@@ -292,9 +390,52 @@ def _to_span_nodes(spans: list[LiveSpan], attribute_key: str) -> list[SpanAggreg
     ]
 
 
+def aggregate_usage_and_cost_from_span_nodes(
+    usage_nodes: list[SpanAggregationNode], cost_nodes: list[SpanAggregationNode]
+) -> tuple[dict[str, int] | None, dict[str, float] | None]:
+    """Aggregate usage and cost from one shared set of contributing spans.
+
+    Usage is the canonical contribution boundary because cost is derived from usage. Subtrees
+    without usage data use cost aggregation for compatibility with legacy cost-only branches.
+    """
+    contributing_span_ids = _get_contributing_span_ids_for_usage_and_cost(usage_nodes, cost_nodes)
+
+    return (
+        _aggregate_selected_nodes(
+            usage_nodes,
+            contributing_span_ids,
+            keys=[
+                TokenUsageKey.INPUT_TOKENS,
+                TokenUsageKey.OUTPUT_TOKENS,
+                TokenUsageKey.TOTAL_TOKENS,
+            ],
+            default=0,
+            optional_keys=TokenUsageKey.cache_keys(),
+        ),
+        _aggregate_selected_nodes(
+            cost_nodes,
+            contributing_span_ids,
+            keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
+            default=0.0,
+        ),
+    )
+
+
+def aggregate_usage_and_cost_from_spans(
+    spans: list[LiveSpan],
+) -> tuple[dict[str, int] | None, dict[str, float] | None]:
+    """Aggregate trace-level usage and cost from one shared set of contributing spans."""
+    spans = list(spans)
+    return aggregate_usage_and_cost_from_span_nodes(
+        _to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE),
+        _to_span_nodes(spans, SpanAttributeKey.LLM_COST),
+    )
+
+
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
-    return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
+    usage, _ = aggregate_usage_and_cost_from_spans(spans)
+    return usage
 
 
 def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
@@ -313,7 +454,8 @@ def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[st
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     """Aggregate cost information from all spans in the trace."""
-    return aggregate_cost_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.LLM_COST))
+    _, cost = aggregate_usage_and_cost_from_spans(spans)
+    return cost
 
 
 def aggregate_cost_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, float] | None:

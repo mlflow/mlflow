@@ -9,7 +9,9 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import (
+    CostKey,
     SpanAttributeKey,
+    TokenUsageKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -177,6 +179,70 @@ def test_on_end():
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}
+
+
+def test_on_end_aggregates_usage_and_cost_from_the_same_span_boundary():
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    root_otel_span = create_mock_otel_span(
+        name="agent",
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    child_otel_span = create_mock_otel_span(
+        name="llm",
+        trace_id="trace_id",
+        span_id=2,
+        parent_id=1,
+        start_time=6_000_000,
+        end_time=8_000_000,
+    )
+    root = LiveSpan(root_otel_span, "request_id")
+    root.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 60_000,
+            TokenUsageKey.OUTPUT_TOKENS: 17_000,
+            TokenUsageKey.TOTAL_TOKENS: 77_000,
+        },
+    )
+    child = LiveSpan(child_otel_span, "request_id")
+    child.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 1_400_000,
+            TokenUsageKey.OUTPUT_TOKENS: 5_000,
+            TokenUsageKey.TOTAL_TOKENS: 1_405_000,
+        },
+    )
+    child.set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 4.2,
+            CostKey.OUTPUT_COST: 0.075,
+            CostKey.TOTAL_COST: 4.275,
+        },
+    )
+    trace_manager.register_span(root)
+    trace_manager.register_span(child)
+
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
+    with mock.patch(
+        "mlflow.tracing.processor.base_mlflow.should_compute_cost_client_side", return_value=True
+    ):
+        processor.on_end(root_otel_span)
+
+    assert json.loads(trace_info.request_metadata[TraceMetadataKey.TOKEN_USAGE]) == {
+        TokenUsageKey.INPUT_TOKENS: 60_000,
+        TokenUsageKey.OUTPUT_TOKENS: 17_000,
+        TokenUsageKey.TOTAL_TOKENS: 77_000,
+    }
+    assert TraceMetadataKey.COST not in trace_info.request_metadata
 
 
 # ── Batch span processor tests ──────────────────────────────────────────

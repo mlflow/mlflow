@@ -4826,6 +4826,67 @@ def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batc
     }
 
 
+def _usage_and_cost_rollup_trace_spans(trace_id: str) -> tuple[Span, list[Span]]:
+    wrapper = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 120,
+                "output_tokens": 15,
+                "total_tokens": 135,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                },
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.005,
+                    "total_cost": 0.015,
+                },
+            },
+        )
+        for i in range(3)
+    ]
+    return wrapper, children
+
+
+@pytest.mark.parametrize("parent_first", [True, False])
+def test_log_spans_usage_and_cost_share_rollup_boundary(
+    store: SqlAlchemyStore, parent_first: bool
+) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_usage_cost_boundary_{parent_first}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    wrapper, children = _usage_and_cost_rollup_trace_spans(trace_id)
+
+    batches = [[wrapper], children] if parent_first else [children, [wrapper]]
+    for batch in batches:
+        store.log_spans(experiment_id, batch)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+    assert trace_info.cost is None
+    assert TraceMetadataKey.COST not in trace_info.trace_metadata
+
+
 def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
     # A span chain deeper than Python's recursion limit (default 1000) must not blow up
     # the tree-aware aggregation (see #24344 for the client-side counterpart).

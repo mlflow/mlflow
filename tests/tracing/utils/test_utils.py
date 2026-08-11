@@ -408,6 +408,106 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     }
 
 
+def test_aggregate_usage_and_cost_use_the_same_contributing_spans():
+    wrapper = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=1, name="wrapper"), trace_id="tr-123"
+    )
+    wrapper.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 60_000,
+            TokenUsageKey.OUTPUT_TOKENS: 17_000,
+            TokenUsageKey.TOTAL_TOKENS: 77_000,
+        },
+    )
+
+    children = []
+    for span_id, input_tokens, output_tokens, input_cost, output_cost in [
+        (2, 1_400_000, 5_000, 4.20, 0.075),
+        (3, 1_450_000, 8_000, 4.35, 0.120),
+    ]:
+        child = LiveSpan(
+            create_mock_otel_span("trace_id", span_id=span_id, name=f"llm_{span_id}", parent_id=1),
+            trace_id="tr-123",
+        )
+        child.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+            },
+        )
+        child.set_attribute(
+            SpanAttributeKey.LLM_COST,
+            {
+                CostKey.INPUT_COST: input_cost,
+                CostKey.OUTPUT_COST: output_cost,
+                CostKey.TOTAL_COST: input_cost + output_cost,
+            },
+        )
+        children.append(child)
+
+    spans = [wrapper, *children]
+
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 60_000,
+        TokenUsageKey.OUTPUT_TOKENS: 17_000,
+        TokenUsageKey.TOTAL_TOKENS: 77_000,
+    }
+    assert aggregate_cost_from_spans(spans) is None
+
+
+def test_aggregate_usage_and_cost_preserve_mixed_cost_only_branches():
+    wrapper = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=1, name="wrapper"), trace_id="tr-123"
+    )
+    wrapper.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 60,
+            TokenUsageKey.OUTPUT_TOKENS: 17,
+            TokenUsageKey.TOTAL_TOKENS: 77,
+        },
+    )
+    child = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+        trace_id="tr-123",
+    )
+    child.set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 4.2,
+            CostKey.OUTPUT_COST: 0.075,
+            CostKey.TOTAL_COST: 4.275,
+        },
+    )
+    independent = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=3, name="cost_only"), trace_id="tr-123"
+    )
+    independent.set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 0.1,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.12,
+        },
+    )
+
+    spans = [wrapper, child, independent]
+
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 60,
+        TokenUsageKey.OUTPUT_TOKENS: 17,
+        TokenUsageKey.TOTAL_TOKENS: 77,
+    }
+    assert aggregate_cost_from_spans(spans) == {
+        CostKey.INPUT_COST: 0.1,
+        CostKey.OUTPUT_COST: 0.02,
+        CostKey.TOTAL_COST: 0.12,
+    }
+
+
 def test_maybe_get_request_id():
     assert maybe_get_request_id(is_evaluate=True) is None
 
