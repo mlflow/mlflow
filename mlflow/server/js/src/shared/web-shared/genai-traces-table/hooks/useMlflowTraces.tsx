@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { escapeRegExp, isNil } from 'lodash';
 import { useMemo } from 'react';
 
 import { useIntl } from '@databricks/i18n';
@@ -29,6 +29,7 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  SPAN_ATTRIBUTE_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
@@ -1086,6 +1087,18 @@ export const createMlflowSearchFilter = (
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
+          }
+          break;
+        case SPAN_ATTRIBUTE_COLUMN_ID:
+          if (networkFilter.key) {
+            const attributeField = `span.attributes.\`${networkFilter.key}\``;
+            if (networkFilter.operator === FilterOperator.EQUALS) {
+              filter.push(`${attributeField} RLIKE '^${escapeRegExp(String(networkFilter.value))}$'`);
+            } else if (networkFilter.operator === FilterOperator.CONTAINS) {
+              filter.push(`${attributeField} ILIKE '%${networkFilter.value}%'`);
+            } else if (networkFilter.operator === FilterOperator.RLIKE) {
+              filter.push(`${attributeField} RLIKE '${networkFilter.value}'`);
+            }
           }
           break;
         case ISSUE_ID_COLUMN_ID:

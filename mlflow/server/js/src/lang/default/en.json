@@ -6839,6 +6839,10 @@
     "defaultMessage": "Create",
     "description": "Create review queue: confirm button"
   },
+  "RpG2DR": {
+    "defaultMessage": "Attribute key",
+    "description": "Label for the span attribute key in the GenAI Traces Table Filter form"
+  },
   "RpxR8e": {
     "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
     "description": "Label for custom LLM judge type filter option"
@@ -13378,6 +13382,10 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
+  },
+  "sRADb5": {
+    "defaultMessage": "Matches traces where any span has an attribute matching this filter.",
+    "description": "Hint explaining span attribute filter matching semantics"
   },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",

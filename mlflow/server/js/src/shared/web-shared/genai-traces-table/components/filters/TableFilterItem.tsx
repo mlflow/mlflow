@@ -30,6 +30,7 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  SPAN_ATTRIBUTE_COLUMN_ID,
   GIT_BRANCH_COLUMN_ID,
   GIT_COMMIT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
@@ -103,6 +104,10 @@ export const getAvailableOperators = (
 
   if (column === SPAN_CONTENT_COLUMN_ID) {
     return [FilterOperator.CONTAINS];
+  }
+
+  if (column === SPAN_ATTRIBUTE_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.CONTAINS, FilterOperator.RLIKE];
   }
 
   if (column === INPUTS_COLUMN_ID || column === RESPONSE_COLUMN_ID) {
@@ -207,6 +212,7 @@ export const TableFilterItem = ({
         { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
         { value: SPAN_STATUS_COLUMN_ID, renderValue: () => 'Span status' },
         { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+        { value: SPAN_ATTRIBUTE_COLUMN_ID, renderValue: () => 'Span attribute' },
       );
     }
 
@@ -214,7 +220,13 @@ export const TableFilterItem = ({
   }, [allColumns, usesV4APIs, availableFilterableInfoColumns]);
 
   return (
-    <>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.xs,
+      }}
+    >
       <div
         css={{
           display: 'flex',
@@ -286,7 +298,7 @@ export const TableFilterItem = ({
             />
           </div>
         )}
-        {column === TracesTableColumnGroup.TAG && (
+        {(column === TracesTableColumnGroup.TAG || column === SPAN_ATTRIBUTE_COLUMN_ID) && (
           <div
             css={{
               display: 'flex',
@@ -294,19 +306,26 @@ export const TableFilterItem = ({
             }}
           >
             <FormUI.Label htmlFor={`filter-key-${index}`}>
-              <FormattedMessage
-                defaultMessage="Key"
-                description="Label for the key field for tags in the GenAI Traces Table Filter form"
-              />
+              {column === SPAN_ATTRIBUTE_COLUMN_ID ? (
+                <FormattedMessage
+                  defaultMessage="Attribute key"
+                  description="Label for the span attribute key in the GenAI Traces Table Filter form"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Key"
+                  description="Label for the key field for tags in the GenAI Traces Table Filter form"
+                />
+              )}
             </FormUI.Label>
             <Input
-              aria-label="Key"
+              aria-label={column === SPAN_ATTRIBUTE_COLUMN_ID ? 'Attribute key' : 'Key'}
               componentId="mlflow.evaluations_review.table_ui.filter_key"
               id={'filter-key-' + index}
               type="text"
               css={{ width: 200 }}
-              placeholder={column === TracesTableColumnGroup.TAG ? 'Key' : 'Name'}
-              value={key}
+              placeholder={column === SPAN_ATTRIBUTE_COLUMN_ID ? 'Attribute key' : 'Key'}
+              value={key ?? ''}
               onChange={(e) => {
                 onChange({ ...tableFilter, key: e.target.value }, index);
               }}
@@ -394,6 +413,14 @@ export const TableFilterItem = ({
           />
         </div>
       </div>
-    </>
+      {column === SPAN_ATTRIBUTE_COLUMN_ID && (
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Matches traces where any span has an attribute matching this filter."
+            description="Hint explaining span attribute filter matching semantics"
+          />
+        </FormUI.Hint>
+      )}
+    </div>
   );
 };

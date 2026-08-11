@@ -26,6 +26,7 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  SPAN_ATTRIBUTE_COLUMN_ID,
   STATE_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -2144,6 +2145,35 @@ describe('invalidateMlflowSearchTracesCache', () => {
 });
 
 describe('createMlflowSearchFilter', () => {
+  test.each([
+    [FilterOperator.EQUALS, 'web.search', "span.attributes.`sidekick.skills.name` RLIKE '^web\\.search$'"],
+    [FilterOperator.CONTAINS, 'search', "span.attributes.`sidekick.skills.name` ILIKE '%search%'"],
+    [FilterOperator.RLIKE, '^web_.*', "span.attributes.`sidekick.skills.name` RLIKE '^web_.*'"],
+  ])('creates a span attribute filter for the %s operator', (operator, value, expectedFilter) => {
+    const filterString = createMlflowSearchFilter(undefined, undefined, [
+      {
+        column: SPAN_ATTRIBUTE_COLUMN_ID,
+        key: 'sidekick.skills.name',
+        operator,
+        value,
+      },
+    ]);
+
+    expect(filterString).toBe(expectedFilter);
+  });
+
+  test('ignores a span attribute filter without an attribute key', () => {
+    const filterString = createMlflowSearchFilter(undefined, undefined, [
+      {
+        column: SPAN_ATTRIBUTE_COLUMN_ID,
+        operator: FilterOperator.CONTAINS,
+        value: 'search',
+      },
+    ]);
+
+    expect(filterString).toBeUndefined();
+  });
+
   test('creates correct filter string for linked prompts', () => {
     const networkFilters = [
       {
@@ -2455,6 +2485,14 @@ describe('getAvailableOperators', () => {
       FilterOperator.NOT_EQUALS,
       FilterOperator.IS_NULL,
       FilterOperator.IS_NOT_NULL,
+    ]);
+  });
+
+  test('offers exact, contains, and regex operators for span attributes', () => {
+    expect(getAvailableOperators(SPAN_ATTRIBUTE_COLUMN_ID, undefined, true)).toEqual([
+      FilterOperator.EQUALS,
+      FilterOperator.CONTAINS,
+      FilterOperator.RLIKE,
     ]);
   });
 });

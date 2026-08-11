@@ -34,6 +34,7 @@ export const SPAN_NAME_COLUMN_ID = 'span.name';
 export const SPAN_TYPE_COLUMN_ID = 'span.type';
 export const SPAN_STATUS_COLUMN_ID = 'span.status';
 export const SPAN_CONTENT_COLUMN_ID = 'span.content';
+export const SPAN_ATTRIBUTE_COLUMN_ID = 'span.attribute';
 export const SIMULATION_GOAL_COLUMN_ID = 'simulation_goal';
 export const SIMULATION_PERSONA_COLUMN_ID = 'simulation_persona';
 export const LINKED_PROMPTS_COLUMN_ID = 'prompt';

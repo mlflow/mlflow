@@ -8,6 +8,7 @@ import { getUser } from '../global-settings/getUser';
 import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
+import { SPAN_ATTRIBUTE_COLUMN_ID } from './hooks/useTableColumns';
 import {
   createTestTraceInfoV3,
   createTestAssessmentInfo,
@@ -325,6 +326,27 @@ describe('GenAITracesTableToolbar - integration test', () => {
 
     // Verify filter is applied and can be interacted with
     expect(setFiltersMock).toBeDefined();
+  });
+
+  it('renders the span attribute filter key and matching semantics', () => {
+    const filters: TableFilter[] = [
+      {
+        column: SPAN_ATTRIBUTE_COLUMN_ID,
+        key: 'sidekick.skills.name',
+        operator: FilterOperator.CONTAINS,
+        value: 'search',
+      },
+    ];
+
+    renderTestComponent([], { filters, usesV4APIs: true });
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters \(1\)/ }));
+
+    expect(screen.getByText('Span attribute')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Attribute key' })).toHaveValue('sidekick.skills.name');
+    expect(
+      screen.getByText('Matches traces where any span has an attribute matching this filter.'),
+    ).toBeInTheDocument();
   });
 
   it('handles column toggle functionality', async () => {
