@@ -127,6 +127,7 @@ def mock_invoke_judge_model(monkeypatch):
         inference_params=None,
         base_url=None,
         extra_headers=None,
+        databricks_profile=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -143,6 +144,7 @@ def mock_invoke_judge_model(monkeypatch):
             "inference_params": inference_params,
             "base_url": base_url,
             "extra_headers": extra_headers,
+            "databricks_profile": databricks_profile,
         })
 
         # Return appropriate Feedback based on whether trace is provided
@@ -663,6 +665,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         inference_params=None,
         base_url=None,
         extra_headers=None,
+        databricks_profile=None,
     ):
         captured_args.update({
             "model_uri": model_uri,
@@ -1531,6 +1534,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         inference_params=None,
         base_url=None,
         extra_headers=None,
+        databricks_profile=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -3923,6 +3927,62 @@ def test_make_judge_without_base_url_and_extra_headers():
     repr_str = repr(judge)
     assert "base_url" not in repr_str
     assert "extra_headers" not in repr_str
+
+
+def test_make_judge_with_databricks_profile(mock_invoke_judge_model):
+    judge = make_judge(
+        name="profile_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="databricks:/judge-endpoint",
+        databricks_profile="judge-workspace",
+    )
+
+    judge(outputs="test output")
+
+    assert judge._databricks_profile == "judge-workspace"
+    assert mock_invoke_judge_model.captured_args["databricks_profile"] == "judge-workspace"
+
+
+@pytest.mark.parametrize("profile", ["", "   ", 123])
+def test_make_judge_databricks_profile_must_be_non_empty_string(profile):
+    with pytest.raises(MlflowException, match="databricks_profile must be a non-empty string"):
+        make_judge(
+            name="profile_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="databricks:/judge-endpoint",
+            databricks_profile=profile,
+        )
+
+
+def test_make_judge_databricks_profile_requires_databricks_model():
+    with pytest.raises(
+        MlflowException,
+        match="databricks_profile is only supported for databricks:/ judge models",
+    ):
+        make_judge(
+            name="profile_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            databricks_profile="judge-workspace",
+        )
+
+
+def test_databricks_profile_preserved_after_round_trip_serialization():
+    judge = make_judge(
+        name="profile_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="databricks:/judge-endpoint",
+        databricks_profile="judge-workspace",
+    )
+
+    serialized = judge.model_dump()
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+
+    pydantic_data = serialized["instructions_judge_pydantic_data"]
+    assert pydantic_data["databricks_profile"] == "judge-workspace"
+    assert restored._databricks_profile == "judge-workspace"
+    assert restored_from_json._databricks_profile == "judge-workspace"
 
 
 def test_model_dump_excludes_base_url_and_extra_headers():

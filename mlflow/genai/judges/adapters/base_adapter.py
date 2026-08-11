@@ -38,6 +38,8 @@ class AdapterInvocationInput:
             requests to the LLM provider will be routed through this URL.
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the LLM provider.
+        databricks_profile: Optional Databricks configuration profile used to authenticate
+            Databricks-backed judge model requests.
     """
 
     model_uri: str
@@ -50,6 +52,7 @@ class AdapterInvocationInput:
     inference_params: dict[str, Any] | None = None
     base_url: str | None = None
     extra_headers: dict[str, str] | None = None
+    databricks_profile: str | None = None
 
     def __post_init__(self):
         self._model_provider: str | None = None

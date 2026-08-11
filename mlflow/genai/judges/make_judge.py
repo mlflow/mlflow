@@ -120,6 +120,7 @@ def make_judge(
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
+    databricks_profile: str | None = None,
 ) -> Judge:
     """
     Create a custom MLflow judge instance.
@@ -175,6 +176,10 @@ def make_judge(
                         slowest spans) to assistant responses when evaluating conversations.
                         Useful for latency-aware evaluation. Default is False for backward
                         compatibility. Only applies when using {{ conversation }} template variable.
+        databricks_profile: Optional Databricks configuration profile used to
+                        authenticate requests for ``databricks:/...`` judge models. This allows
+                        judge inference
+                        to use a workspace that is independent from the MLflow tracking URI.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -284,4 +289,5 @@ def make_judge(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        databricks_profile=databricks_profile,
     )

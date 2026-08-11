@@ -677,6 +677,21 @@ def test_get_provider_instance_gateway_with_base_url():
     assert provider.headers == {}
 
 
+def test_get_provider_databricks_profile_takes_precedence_over_env(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://ambient-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "ambient-token")
+    provider = _get_provider_instance(
+        "databricks",
+        "judge-endpoint",
+        databricks_profile="judge-workspace",
+    )
+
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
+        provider._get_workspace_client()
+
+    mock_workspace_client.assert_called_once_with(profile="judge-workspace")
+
+
 def test_get_provider_unsupported_raises():
     with pytest.raises(MlflowException, match="not supported"):
         _get_provider_instance("nonexistent-provider", "some-model")
