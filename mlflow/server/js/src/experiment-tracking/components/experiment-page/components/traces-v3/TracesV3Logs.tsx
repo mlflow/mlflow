@@ -815,7 +815,7 @@ const TracesV3LogsImpl = React.memo(
     if (shouldEnableModelTraceExplorerCustomTraceView() && singleExperimentId) {
       content = (
         <React.Suspense fallback={tableContent}>
-          <LazyExperimentCustomViewProvider experimentId={singleExperimentId}>
+          <LazyExperimentCustomViewProvider key={singleExperimentId} experimentId={singleExperimentId}>
             {tableContent}
           </LazyExperimentCustomViewProvider>
         </React.Suspense>
