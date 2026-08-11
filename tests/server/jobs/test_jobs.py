@@ -11,7 +11,7 @@ import pytest
 import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_ENV_ROOT, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
@@ -34,6 +34,9 @@ from mlflow.server.jobs.utils import (
     _exec_job,
     _exec_job_in_subproc,
     _exit_when_orphaned,
+    _prepare_job_subprocess,
+    _PreparedJobSetupCommand,
+    _PreparedJobSubprocess,
     _start_huey_consumer_proc,
 )
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
@@ -1092,6 +1095,7 @@ def check_python_env_fn():
 
 def test_job_with_python_env(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
+    monkeypatch.setenv(MLFLOW_ENV_ROOT.name, str(tmp_path / "envs"))
 
     with _setup_job_runner(
         monkeypatch,
@@ -1728,6 +1732,8 @@ def test_exit_when_orphaned_exits_when_parent_pid_changes():
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
         mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
@@ -1744,12 +1750,39 @@ def test_exit_when_orphaned_exits_when_already_orphaned():
             clear=False,
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
         _exit_when_orphaned(poll_interval=0)
 
     mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_does_not_exit_when_server_runs_as_pid_one():
+    # When the original parent legitimately runs as PID 1 (e.g. the MLflow server
+    # as a container's init process), a healthy child also observes getppid()==1,
+    # so the watcher must not treat that as orphaning and kill the process group.
+    class _StopLoop(Exception):
+        pass
+
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "1"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        mock.patch("mlflow.server.jobs.utils.time.sleep", side_effect=_StopLoop("stop loop")),
+        mock.patch("mlflow.server.jobs.utils.os.killpg") as mock_killpg,
+        mock.patch("mlflow.server.jobs.utils.os._exit") as mock_exit,
+        pytest.raises(_StopLoop, match="stop loop"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_not_called()
+    mock_killpg.assert_not_called()
 
 
 def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
@@ -1761,6 +1794,8 @@ def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
         mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
@@ -1813,6 +1848,75 @@ def test_exec_job_in_subproc_passes_original_parent_pid(tmp_path: Path):
     assert job_result.succeeded is True
     assert job_result.result == "3"
     assert popen.call_args.kwargs["env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "654"
+
+
+def test_exec_job_in_subproc_runs_prepared_setup_commands(tmp_path: Path):
+    result_path = tmp_path / "result.json"
+    result_path.write_text(
+        json.dumps({"succeeded": True, "result": "3", "is_transient_error": None, "error": None})
+    )
+    setup_command = _PreparedJobSetupCommand(
+        command=["uv", "venv", "/tmp/job-env"],
+        cwd=str(tmp_path),
+        extra_env={"UV_TEST": "true"},
+    )
+    prepared_subprocess = _PreparedJobSubprocess(
+        command=["python", "-m", "mlflow.server.jobs._job_subproc_entry"],
+        env={},
+        result_path=str(result_path),
+        setup_commands=(setup_command,),
+    )
+    mock_popen = mock.MagicMock()
+    mock_popen.__enter__.return_value = mock_popen
+    mock_popen.__exit__.return_value = False
+    mock_popen.poll.return_value = 0
+    mock_popen.returncode = 0
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.utils._prepare_job_subprocess",
+            return_value=prepared_subprocess,
+        ),
+        mock.patch("mlflow.server.jobs.utils._exec_cmd") as exec_cmd,
+        mock.patch("mlflow.server.jobs.utils.subprocess.Popen", return_value=mock_popen),
+    ):
+        result = _exec_job_in_subproc(
+            function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+            params={"x": 1, "y": 2},
+            python_env=None,
+            transient_error_classes=None,
+            timeout=None,
+            tmpdir=str(tmp_path),
+            job_store=mock.Mock(),
+            job_id="job-1",
+            job_name="basic_job_fun",
+            workspace=None,
+        )
+
+    assert result.succeeded is True
+    exec_cmd.assert_called_once_with(
+        setup_command.command,
+        cwd=setup_command.cwd,
+        extra_env=setup_command.extra_env,
+        capture_output=False,
+    )
+
+
+def test_prepare_job_subprocess_clears_inherited_workspace(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "inherited-workspace")
+
+    prepared_subprocess = _prepare_job_subprocess(
+        function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+        params={"x": 1, "y": 2},
+        python_env=None,
+        transient_error_classes=None,
+        tmpdir=str(tmp_path),
+        job_id="job-1",
+        job_name="basic_job_fun",
+        workspace=None,
+    )
+
+    assert MLFLOW_WORKSPACE.name not in prepared_subprocess.env
 
 
 def test_subproc_entry_telemetry(tmp_path, monkeypatch):
