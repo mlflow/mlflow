@@ -27,6 +27,7 @@ def _remote_agent_worker(
 
     # trace_id is set only after the root span closes
     trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+    mlflow.flush_trace_async_logging()
     result_queue.put(trace_id)
 
 
