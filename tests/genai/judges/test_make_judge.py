@@ -3739,6 +3739,25 @@ def test_make_judge_generate_rationale_first():
     assert [f.name for f in judge_rationale_first.get_output_fields()] == ["rationale", "result"]
 
 
+@pytest.mark.parametrize("generate_rationale_first", [True, False])
+def test_make_judge_generate_rationale_first_survives_serialization(generate_rationale_first):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        generate_rationale_first=generate_rationale_first,
+    )
+
+    deserialized = Scorer.model_validate(judge.model_dump())
+
+    assert deserialized._generate_rationale_first is generate_rationale_first
+    expected_order = (
+        ["rationale", "result"] if generate_rationale_first else ["result", "rationale"]
+    )
+    assert [f.name for f in deserialized.get_output_fields()] == expected_order
+
+
 @pytest.mark.parametrize(
     "description",
     [
