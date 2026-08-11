@@ -1899,6 +1899,10 @@
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of retrieval groundedness judge."
   },
+  "6Qvb1T": {
+    "defaultMessage": "Compare",
+    "description": "Bulk action that opens a side-by-side comparison of the selected traces"
+  },
   "6QwDyx": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the MCP servers table"
@@ -5891,6 +5895,10 @@
     "defaultMessage": "Description",
     "description": "Label for issue description section"
   },
+  "NIX2/p": {
+    "defaultMessage": "Edit tags",
+    "description": "Bulk action that edits the tags on the single selected trace"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -6438,6 +6446,10 @@
   "PYGkI3": {
     "defaultMessage": "Install the <a>MLflow tracing SDK</a> for TypeScript using npm, then initialize it in your application.",
     "description": "Step 1 description for TypeScript traces onboarding"
+  },
+  "PYuJCs": {
+    "defaultMessage": "Edit",
+    "description": "Group label for the trace-editing bulk actions in the V4 traces toolbar"
   },
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
@@ -9834,6 +9846,10 @@
   "dgyN/J": {
     "defaultMessage": "Issue detection completed",
     "description": "Notification title shown when an issue detection job finishes successfully"
+  },
+  "dh5dT7": {
+    "defaultMessage": "Flag for review",
+    "description": "Bulk action that assigns the selected traces to a review queue"
   },
   "dkw8bG": {
     "defaultMessage": "Deny",
