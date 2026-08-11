@@ -3895,10 +3895,8 @@ def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
 
 
 def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemyStore):
-    """Fix A: a log_batch whose metric keys are in reverse (unsorted) client order, include a
-    duplicate, and span more than one 500-key lock batch must still produce correct latest
-    metrics. Guards that globally sorting + de-duplicating the keys before batching (the
-    cross-batch deadlock fix) preserves write correctness.
+    """Fix A: reverse-ordered + duplicate keys spanning >1 lock batch still yield correct latest
+    metrics (sorting + de-dup before batching preserves write correctness).
     """
     experiment_id = _create_experiments(store, "deadlock_fix_a_exp")
     run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
@@ -3918,9 +3916,6 @@ def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemy
 
 
 def test_run_with_deadlock_retry_retries_then_succeeds(store: SqlAlchemyStore, monkeypatch):
-    """Fix B: a deadlock (TEMPORARILY_UNAVAILABLE + 'deadlock' message) is retried and the
-    operation eventually succeeds.
-    """
     monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
     calls = {"n": 0}
 
@@ -3935,8 +3930,8 @@ def test_run_with_deadlock_retry_retries_then_succeeds(store: SqlAlchemyStore, m
 
 
 def test_run_with_deadlock_retry_does_not_retry_non_deadlock(store: SqlAlchemyStore):
-    """Fix B: a non-deadlock error (wrong error code, or TEMPORARILY_UNAVAILABLE without a
-    'deadlock' message) must NOT be retried and must propagate immediately.
+    """Fix B: a non-deadlock error (wrong code, or TEMPORARILY_UNAVAILABLE without 'deadlock')
+    propagates immediately without retry.
     """
     calls = {"n": 0}
 
@@ -3975,8 +3970,8 @@ def test_run_with_deadlock_retry_exhausts_and_reraises(store: SqlAlchemyStore, m
 
 
 def test_log_metric_redrives_on_deadlock_and_persists(store: SqlAlchemyStore, monkeypatch):
-    """Fix B end-to-end: when the first metric-write attempt deadlocks, _log_metrics redrives it
-    on a fresh session and the metric is persisted (client sees success, not a 503).
+    """Fix B end-to-end: a first-attempt deadlock is redriven on a fresh session and the metric
+    persists (client sees success, not a 503).
     """
     monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
     experiment_id = _create_experiments(store, "deadlock_fix_b_exp")

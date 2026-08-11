@@ -273,10 +273,8 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
-# Max number of times a DB-write path (start_trace()/log_spans(), log_metric()/log_batch())
-# retries its transaction when the DB kills it with a deadlock. Deterministic key ordering
-# (see the sorted metadata/metrics writes) is the primary defense; this bounded retry is a
-# safety net.
+# Max deadlock retries for a DB-write path (start_trace/log_spans, log_metric/log_batch).
+# Deterministic key ordering is the primary defense; this bounded retry is the safety net.
 _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
@@ -1285,10 +1283,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return is_nan, value
 
     def _log_metrics(self, run_id, metrics):
-        # Retry the whole metric write on a DB deadlock. Each attempt opens a fresh managed
-        # session inside ``_log_metrics_once`` (retrying a rolled-back session would not work),
-        # so a deadlock victim's log_metric/log_batch is transparently redriven instead of
-        # surfacing an HTTP 503. Reuses the same helper that guards the trace-write path.
+        # Retry on DB deadlock: each attempt opens a fresh session in _log_metrics_once, so the
+        # victim is redriven instead of surfacing an HTTP 503.
         return self._run_with_deadlock_retry(self._log_metrics_once, run_id, metrics)
 
     def _log_metrics_once(self, run_id, metrics):
@@ -1479,14 +1475,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
         latest_metrics = {}
-        # Globally sort and de-duplicate the metric keys BEFORE batching so that every
-        # concurrent transaction acquires the SqlLatestMetric row locks in the same order
-        # across ALL batches. The per-batch ``ORDER BY (run_uuid, key)`` below only enforces a
-        # consistent lock order *within* a single 500-key batch; when metric keys arrive in
-        # client-provided (unsorted) order, two writers logging the same run with
-        # differently-ordered key lists can place the same pair of rows into different batches
-        # and acquire them in opposite order, producing a PostgreSQL deadlock (40P01). Sorting
-        # the full key list first closes that cross-batch gap.
+        # Globally sort + de-dup keys to prevent cross-batch deadlocks: every transaction locks
+        # rows in the same order (the per-batch ORDER BY below only orders within one 500 batch).
         metric_keys = sorted({m.key for m in logged_metrics})
         # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
         # query, which may produce limit exceeded errors or poor performance on certain database
