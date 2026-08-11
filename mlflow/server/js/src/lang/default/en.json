@@ -9103,6 +9103,10 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
+  "afK35c": {
+    "defaultMessage": "Issues",
+    "description": "Column label for the traces table issues column"
+  },
   "agq01I": {
     "defaultMessage": "Create Gateway endpoint",
     "description": "Option to create a new AI Gateway endpoint"
