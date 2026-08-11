@@ -7,12 +7,19 @@ import { IntlProvider } from '@databricks/i18n';
 
 import type { ModelTrace } from './ModelTrace.types';
 import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
-import { ModelTraceExplorerViewStateContext, type ModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
+import {
+  ModelTraceExplorerViewStateContext,
+  type ModelTraceExplorerViewState,
+} from './ModelTraceExplorerViewStateContext';
 import { CustomViewAssistantConnectorProvider } from './custom-view/assistant/CustomViewAssistantConnector';
 
 // The tab bodies are heavy (the custom view tab pulls in @a2ui) and unrelated
 // to the tab-visibility assertions here, so they are stubbed to keep this test
 // focused on the "Custom view" tab's gating logic.
+jest.mock('./FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('./FeatureUtils')>('./FeatureUtils'),
+  shouldEnableModelTraceExplorerCustomTraceView: () => true,
+}));
 jest.mock('./summary-view/ModelTraceExplorerSummaryView', () => ({
   ModelTraceExplorerSummaryView: () => <div>summary-view</div>,
 }));
