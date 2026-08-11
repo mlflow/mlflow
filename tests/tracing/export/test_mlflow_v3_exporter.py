@@ -921,3 +921,82 @@ def test_bsp_export_preserves_workspace_context(monkeypatch):
     assert captured_start_trace_workspace[0] == "bsp-workspace"
     assert len(captured_log_spans_workspace) == 1
     assert captured_log_spans_workspace[0] == "bsp-workspace"
+
+
+# In model serving, the trace export path also populates the in-memory serving buffer so the
+# endpoint can return the trace in its response, without a second backend write. These tests cover
+# the shared MlflowV3SpanExporter path (inherited by the UC table exporter).
+def test_export_populates_serving_buffer_in_model_serving(monkeypatch):
+    from mlflow.tracing.export import inference_table
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+
+    now_ns = int(time.time() * 1e9)
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=54321,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_info.client_request_id = "req-serving-1"
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    inference_table._TRACE_BUFFER.clear()
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace", return_value=trace_info
+        ) as mock_start_trace,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+    assert inference_table.pop_trace("req-serving-1") is not None
+    # Populating the buffer must not double-write the trace to the backend.
+    mock_start_trace.assert_called_once()
+    inference_table._TRACE_BUFFER.clear()
+
+
+def test_export_does_not_populate_serving_buffer_outside_model_serving(monkeypatch):
+    from mlflow.tracing.export import inference_table
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV", raising=False)
+
+    now_ns = int(time.time() * 1e9)
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=54322,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns - 1_000_000,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_info.client_request_id = "req-serving-2"
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    inference_table._TRACE_BUFFER.clear()
+    with (
+        mock.patch("mlflow.tracing.client.TracingClient.start_trace", return_value=trace_info),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+    assert inference_table.pop_trace("req-serving-2") is None
+    inference_table._TRACE_BUFFER.clear()
