@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786440531056,
+  "lastUpdate": 1786443280511,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -20519,6 +20519,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.156820400004449,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "66049888+evanwrm@users.noreply.github.com",
+            "name": "Evan",
+            "username": "evanwrm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76bde43d80f90021de48aede00d50398d24af3c3",
+          "message": "Fix Windows separators in pyfunc artifact paths (#24432)\n\nSigned-off-by: Evan Madill <emadill@outlook.com>",
+          "timestamp": "2026-08-11T10:13:10Z",
+          "tree_id": "c185afbd6039694080733b667d270c2f8363d5e5",
+          "url": "https://github.com/mlflow/mlflow/commit/76bde43d80f90021de48aede00d50398d24af3c3"
+        },
+        "date": 1786443278510,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 52.590108649999934,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.399140019606385,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.96182990647556,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.015123360358982,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.53052427358388,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.078590599988502,
             "unit": "ms"
           }
         ]
