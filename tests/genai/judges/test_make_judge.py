@@ -3716,6 +3716,29 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
 
 
+def test_make_judge_generate_rationale_first():
+    # Default (False): result is emitted before rationale.
+    judge_default = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+    )
+    assert judge_default._generate_rationale_first is False
+    assert [f.name for f in judge_default.get_output_fields()] == ["result", "rationale"]
+
+    # Opt in: rationale is emitted before result so the verdict follows the reasoning.
+    judge_rationale_first = make_judge(
+        name="test_judge_rationale_first",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        generate_rationale_first=True,
+    )
+    assert judge_rationale_first._generate_rationale_first is True
+    assert [f.name for f in judge_rationale_first.get_output_fields()] == ["rationale", "result"]
+
+
 @pytest.mark.parametrize(
     "description",
     [
