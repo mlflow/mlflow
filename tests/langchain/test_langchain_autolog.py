@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import random
@@ -1381,6 +1382,13 @@ def test_autolog_secondary_patch_failure_emits_warning(caplog):
         if call_count >= 2:
             raise RuntimeError("simulated patch failure")
 
+    # `mlflow.langchain.autolog` resolves to the re-exported autolog FUNCTION
+    # (mlflow/langchain/__init__.py does `from mlflow.langchain.autolog import autolog`),
+    # which shadows the submodule of the same name. Patching the string target
+    # "mlflow.langchain.autolog.safe_patch" therefore fails with an AttributeError.
+    # Resolve the module itself and patch the name it imported.
+    autolog_module = importlib.import_module("mlflow.langchain.autolog")
+
     # The "mlflow" logger sets propagate=False, so its records never reach caplog's
     # root handler. Enable propagation for the duration of the test so caplog captures
     # the warning, then restore the original value.
@@ -1388,7 +1396,7 @@ def test_autolog_secondary_patch_failure_emits_warning(caplog):
     original_propagate = mlflow_logger.propagate
     mlflow_logger.propagate = True
     try:
-        with mock.patch("mlflow.langchain.autolog.safe_patch", side_effect=_safe_patch_side_effect):
+        with mock.patch.object(autolog_module, "safe_patch", side_effect=_safe_patch_side_effect):
             with caplog.at_level(logging.WARNING, logger="mlflow.langchain.autolog"):
                 mlflow.langchain.autolog()
     finally:
