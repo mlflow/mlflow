@@ -261,11 +261,11 @@ class MyClass {
 </Tabs>
 </TabsWrapper>
 
-:::warning `set_outputs()` / `setOutputs()` inside a trace decorator is overwritten by the return value
+:::note Overriding auto-captured inputs and outputs inside a decorated function
 
-`span.set_inputs()` (Python) / `span.setInputs()` (TypeScript) called inside a decorated function correctly overrides the auto-captured inputs. `span.set_outputs()` / `span.setOutputs()` called inside the function body does not persist: the decorator records the function's actual return value after the function returns, overwriting your value.
+`span.set_inputs()` / `span.set_outputs()` (Python) and `span.setInputs()` / `span.setOutputs()` (TypeScript) called inside a decorated function override the values the decorator captures automatically. If you set the outputs explicitly, the decorator keeps your value. If you leave them unset, it records the function's return value as before. Inputs behave the same way.
 
-To control the stored output in Python, use `mlflow.start_span()` as a context manager (see [Code Block](#code-block)), which gives you full control over both inputs and outputs. In TypeScript, use `withSpan()`. To control what appears in the `Response` column of the Traces UI without changing the stored span output, use `mlflow.update_current_trace(response_preview=...)` in Python or `updateCurrentTrace(...)` in TypeScript (see [Customizing Request and Response Previews in the UI](#customizing-request-and-response-previews-in-the-ui)).
+To change only what appears in the `Response` column of the Traces UI without changing the stored span output, use `mlflow.update_current_trace(response_preview=...)` in Python or `updateCurrentTrace(...)` in TypeScript (see [Customizing Request and Response Previews in the UI](#customizing-request-and-response-previews-in-the-ui)).
 :::
 
 ## Adding Trace Tags
