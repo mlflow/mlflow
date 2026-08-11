@@ -187,11 +187,8 @@ def _configure_mlflow_loggers(root_module_name):
     ):
         logger = logging.getLogger(name)
         # Replace handlers on these four loggers rather than appending, matching
-        # what `dictConfig` did. This also keeps repeat calls idempotent, since
-        # `addHandler` only de-duplicates by object identity.
-        for stale in logger.handlers[:]:
-            logger.removeHandler(stale)
-        logger.addHandler(handler)
+        # what `dictConfig` did. Direct assignment keeps repeat calls idempotent.
+        logger.handlers = [handler]
         logger.setLevel(level)
         logger.propagate = False
 
