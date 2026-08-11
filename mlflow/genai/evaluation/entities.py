@@ -118,8 +118,6 @@ class EvalItem:
             inputs=None,
             outputs=None,
             expectations=None,
-            # Carry the trace's own tags so scorers scoped with `.where()` can match on them.
-            tags=dict(trace.info.tags) if trace.info.tags else None,
             trace=trace,
         )
 

@@ -190,3 +190,29 @@ def test_unresolvable_filter_clause_errors_at_evaluate():
             data=data,
             scorers=[always_false.where("trace.status = 'OK'")],
         )
+
+
+def test_scoped_scorer_matches_trace_tags(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"sqlite:///{tmp_path / 'mlflow.db'}")
+    mlflow.set_experiment("tag-scoped-trace")
+
+    @mlflow.trace
+    def app(q):
+        mlflow.update_current_trace(tags={"category": "billing" if q == "a" else "greeting"})
+        return "refund" if q == "a" else "hi"
+
+    trace_ids = []
+    for q in ("a", "b"):
+        app(q)
+        trace_ids.append(mlflow.get_last_active_trace_id())
+    traces = [mlflow.get_trace(tid, flush=True) for tid in trace_ids]
+
+    # A list of Trace objects flows through `traces_to_df`, which surfaces each trace's tags
+    # as the row's `tags`, so `.where()` matches on them.
+    result = mlflow.genai.evaluate(
+        data=traces,
+        scorers=[always_true, always_false.where("tags.`category` = 'billing'")],
+    )
+
+    scoped_values = _values(result, "always_false")
+    assert [v for v in scoped_values if not pd.isna(v)] == [False]
