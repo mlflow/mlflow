@@ -57,7 +57,8 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
   useSlashFocusSearch(searchInputRef);
 
   const controller = useTracesV4Controller({ experimentId, storageUCSchema });
-  const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
+  const { url, page, columns, assessments, columnSizing, traceCount, bulk, searchInput, filterModel, flags } =
+    controller;
 
   // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
   // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
@@ -320,6 +321,10 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               onPageSizeChange={url.setPageSize}
               hasNext={page.hasNext}
               hasPrev={page.hasPrev}
+              // "{n} of {total}" footer count (bottom-left).
+              traceCount={traceCount.currentCount}
+              traceTotal={traceCount.totalCount}
+              isTraceCountLoading={traceCount.isTotalLoading}
               // Reserve the pinned pagination bar's height with the floating-obstruction store so the
               // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
               PaginationBarWrapper={AssistantAwareActionBar}

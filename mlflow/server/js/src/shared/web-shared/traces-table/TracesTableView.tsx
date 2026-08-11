@@ -71,6 +71,10 @@ export interface TracesTableViewProps {
   onPageSizeChange: (pageSize: PageSize) => void;
   hasNext: boolean;
   hasPrev: boolean;
+  /** Optional "{n} of {total}" footer count (see `TracesPaginationBar`). */
+  traceCount?: number;
+  traceTotal?: number;
+  isTraceCountLoading?: boolean;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -135,6 +139,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onPageSizeChange={onPageSizeChange}
       hasNext={hasNext}
       hasPrev={hasPrev}
+      count={props.traceCount}
+      total={props.traceTotal}
+      isCountLoading={props.isTraceCountLoading}
     />
   );
   // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare).

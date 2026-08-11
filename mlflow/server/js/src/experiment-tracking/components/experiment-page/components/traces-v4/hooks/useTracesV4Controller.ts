@@ -20,6 +20,7 @@ import { useTracesV4TimeRange } from './useTracesV4TimeRange';
 import { useTracesV4Columns } from './useTracesV4Columns';
 import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
+import { useTracesV4TraceCount } from './useTracesV4TraceCount';
 import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
@@ -35,6 +36,8 @@ export interface UseTracesV4ControllerResult {
   columns: ReturnType<typeof useTracesV4Columns>;
   assessments: ReturnType<typeof useTracesV4AssessmentColumns>;
   columnSizing: ReturnType<typeof useTracesV4ColumnSizing>;
+  /** "{n} of {total}" footer count — current page rows out of the experiment total. */
+  traceCount: ReturnType<typeof useTracesV4TraceCount>;
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
@@ -178,6 +181,7 @@ export const useTracesV4Controller = ({
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
+  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange);
 
   const bulk = useBulkTraceSelection(page.traces);
 
@@ -210,6 +214,7 @@ export const useTracesV4Controller = ({
     columns,
     assessments,
     columnSizing,
+    traceCount,
     bulk,
     searchInput,
     filterModel,
