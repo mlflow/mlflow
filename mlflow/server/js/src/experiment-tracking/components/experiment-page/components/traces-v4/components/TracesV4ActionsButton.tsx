@@ -23,12 +23,16 @@ interface TracesV4ActionsButtonProps {
 
 /**
  * Bulk-actions dropdown, shown only when traces are selected. Offers a "Use for evaluation" group
- * (Evaluate, Run judges, Add to evaluation dataset, Add to labeling session, Flag for review — each
- * feature-gated via `actions`) above v4's own Delete item. The count is surfaced in the trigger so
- * the user always sees how many traces an action will affect.
+ * (Run scorers, Add to evaluation dataset, Flag for review — each feature-gated via `actions`) above
+ * v4's own Delete item. The count is surfaced in the trigger so the user always sees how many traces
+ * an action will affect.
  *
  * The eval actions operate on `selectedTraceInfos` — the entire cross-page selection — because the
  * selection store now carries each selected trace's `ModelTraceInfoV3`, not just the on-page rows.
+ *
+ * "Flag for review" routes the selection into a review queue via `actions.AddToReviewQueueDropdown`,
+ * a controlled popover anchored on the trigger (mirroring `GenAITracesTableActions`): picking it flips
+ * `showReviewQueue`, which swaps the menu for the review-queue picker on the same button.
  */
 export const TracesV4ActionsButton = ({
   selectionCount,
@@ -48,6 +52,10 @@ export const TracesV4ActionsButton = ({
   const groupItemStyles = { paddingLeft: theme.spacing.lg };
 
   const { showAddToEvaluationDatasetModal } = useContext(GenAITracesTableContext);
+
+  // When true, the review-queue picker replaces the menu on the same trigger (v3's pattern).
+  const [showReviewQueue, setShowReviewQueue] = useState(false);
+  const { AddToReviewQueueDropdown } = actions;
 
   // Run-judges takes bare trace ids; the dataset modal takes eval entries.
   const selectedTraceIds = useMemo(
@@ -79,7 +87,23 @@ export const TracesV4ActionsButton = ({
     </Button>
   );
 
-  return (
+  return showReviewQueue ? (
+    // While flagging, the review-queue picker takes over the same trigger button as its popover
+    // anchor; closing it returns to the menu. Only one trigger is ever in the DOM at a time.
+    <AddToReviewQueueDropdown
+      experimentId={experimentId}
+      selectedTraceInfos={selectedTraceInfos}
+      open={showReviewQueue}
+      popoverAlign="end"
+      onOpenChange={(open) => {
+        if (!open) {
+          setShowReviewQueue(false);
+        }
+      }}
+    >
+      {trigger}
+    </AddToReviewQueueDropdown>
+  ) : (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
@@ -110,6 +134,16 @@ export const TracesV4ActionsButton = ({
             <FormattedMessage
               defaultMessage="Add to evaluation dataset"
               description="Bulk action that adds the selected traces to an evaluation dataset"
+            />
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            componentId="mlflow.traces-v4.actions.flag-for-review"
+            css={groupItemStyles}
+            onClick={() => setShowReviewQueue(true)}
+          >
+            <FormattedMessage
+              defaultMessage="Flag for review"
+              description="Bulk action that assigns the selected traces to a review queue"
             />
           </DropdownMenu.Item>
         </DropdownMenu.Group>

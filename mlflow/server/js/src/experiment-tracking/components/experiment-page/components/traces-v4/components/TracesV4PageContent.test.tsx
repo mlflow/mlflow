@@ -1023,26 +1023,15 @@ describe('TracesV4PageContent', () => {
       expect(deleteItem).not.toHaveAttribute('aria-disabled', 'true');
     }, 20000);
 
-    // TODO(traces-v4): Review queue is Databricks-only and removed from the OSS Actions menu; the assertion is moot AND the selection→Actions flow is jsdom-blocked.
-
-    test.skip('hides the review-queue item (OSS feature)', async () => {
+    test('offers "Flag for review" — review queues ship in OSS, matching v3', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
 
-      // Review queues are Databricks-only; "Flag for review" is never shown in OSS.
-      expect(within(menu).queryByRole('menuitem', { name: 'Flag for review' })).not.toBeInTheDocument();
-    });
-
-    // TODO(traces-v4): Add-to-labeling-session was removed from the OSS Actions menu (Databricks-only). Feature not present in OSS.
-
-    test.skip('offers "Add to labeling session" when review queues are off', async () => {
-      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
-      renderPage();
-      const menu = await openActionsMenuForFirstTrace(user);
-
-      expect(within(menu).getByRole('menuitem', { name: 'Add to labeling session' })).toBeInTheDocument();
-    });
+      // v3 (TracesV3Logs) wires AddToReviewQueueDropdown with addToReviewQueue: true in OSS, and OSS
+      // ships a full review-queue page/route, so "Flag for review" must be offered in v4 too.
+      expect(within(menu).getByRole('menuitem', { name: 'Flag for review' })).toBeInTheDocument();
+    }, 20000);
 
     test('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });

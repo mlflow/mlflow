@@ -8,6 +8,7 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { ExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AddToReviewQueueDropdown } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-review-queue/AddToReviewQueueDropdown';
 
 /**
  * The shared trace-action building blocks the v4 Traces tab wires into both the detail drawer and
@@ -19,16 +20,17 @@ export interface TracesV4TraceActions {
   getTrace: GetTraceFunction;
   /** OSS "Add to evaluation dataset" modal. */
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => ReactNode;
+  /**
+   * OSS "Flag for review" flow: the controlled review-queue picker that wraps the Actions trigger.
+   * Present in OSS exactly as v3 wires it (`TracesV3Logs`); the Actions menu drives its open state.
+   */
+  AddToReviewQueueDropdown: typeof AddToReviewQueueDropdown;
   /** Run-judges flow: opener, the modal element, the in-progress banner, and the in-explorer config. */
   runJudges?: {
     showRunJudgesModal: (traceIds: string[]) => void;
     RunJudgesModal: ReactNode;
     JudgesStatusBanner: ReactNode;
     runJudgeConfiguration: ReturnType<typeof useRunScorerInTracesViewConfiguration>;
-  };
-  flags: {
-    /** Show "Add to labeling session" (always true for OSS; in Databricks gated on review queues off). */
-    addToLabelingSession: boolean;
   };
 }
 
@@ -53,8 +55,8 @@ export const useTracesV4TraceActions = (experimentId: string): TracesV4TraceActi
   const actions: TracesV4TraceActions = {
     getTrace,
     renderExportTracesToDatasetsModal: ExportTracesToDatasetModal,
+    AddToReviewQueueDropdown,
     runJudges,
-    flags: { addToLabelingSession: true },
   };
   return actions;
 };
