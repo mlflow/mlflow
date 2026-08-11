@@ -58,14 +58,14 @@ export const useModelTraceSearch = ({
   treeNodes,
   selectedNode,
   setSelectedNode,
-  setActiveTab,
+  setSelectedNodeAndTab,
   setExpandedKeys,
   modelTraceInfo,
 }: {
   treeNodes: ModelTraceSpanNode[];
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode) => void;
-  setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  setSelectedNodeAndTab: (node: ModelTraceSpanNode, tab: ModelTraceExplorerTab) => void;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string | number>>>;
   modelTraceInfo: ModelTrace['info'] | null;
 }): {
@@ -117,8 +117,7 @@ export const useModelTraceSearch = ({
       }
       setActiveMatchIndex(newMatchIndex);
       const match = matches[newMatchIndex];
-      setSelectedNode(match.span);
-      setActiveTab(getTabForMatch(match));
+      setSelectedNodeAndTab(match.span, getTabForMatch(match));
       // Make sure parents are expanded
       const parents = getSpanNodeParentIds(match.span, nodeMap);
       setExpandedKeys((expandedKeys) => {
@@ -126,7 +125,7 @@ export const useModelTraceSearch = ({
         return new Set([...expandedKeys, ...parents]);
       });
     },
-    [matches, setSelectedNode, setActiveTab, nodeMap, setExpandedKeys],
+    [matches, setSelectedNodeAndTab, nodeMap, setExpandedKeys],
   );
 
   const handleNextSearchMatch = useCallback(() => {
@@ -152,8 +151,7 @@ export const useModelTraceSearch = ({
       const selectedNodeKey = selectedNode?.key ?? '';
       if (!(selectedNodeKey in nodeMap)) {
         const newSpan = filteredTreeNodes[0];
-        setSelectedNode(newSpan);
-        setActiveTab(newSpan?.chatMessages ? 'chat' : 'content');
+        setSelectedNodeAndTab(newSpan, newSpan?.chatMessages ? 'chat' : 'content');
       } else {
         // another reason the tree can change is if modelTraceInfo changes.
         // (e.g. tags/assessments were updated). if this happens, we need
@@ -170,11 +168,10 @@ export const useModelTraceSearch = ({
 
     // when matches update, select the first match
     setActiveMatchIndex(0);
-    setSelectedNode(matches[0].span);
-    setActiveTab(getTabForMatch(matches[0]));
+    setSelectedNodeAndTab(matches[0].span, getTabForMatch(matches[0]));
     // don't subscribe to selectedNode to prevent infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTreeNodes, matches, setSelectedNode]);
+  }, [filteredTreeNodes, matches, setSelectedNodeAndTab]);
 
   return {
     matchData: {

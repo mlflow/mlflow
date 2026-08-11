@@ -333,6 +333,22 @@ def test_is_api_endpoint(path, expected):
     assert is_api_endpoint(path) == expected
 
 
+def test_is_api_endpoint_handles_static_prefix(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
+    assert not is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert not is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    assert is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+    # The prefixed path replaces the unprefixed one, which no longer matches.
+    assert not is_api_endpoint("/api/2.0/mlflow/experiments/list")
+    assert not is_api_endpoint("/myprefix/health")
+    # artifact_router stays unprefixed, so its routes must still be recognized.
+    assert is_api_endpoint("/api/2.0/mlflow-artifacts/artifacts/x")
+    assert is_api_endpoint("/ajax-api/2.0/mlflow-artifacts/artifacts/x")
+
+
 @pytest.mark.parametrize(
     ("origin", "expect_cors_header"),
     [
