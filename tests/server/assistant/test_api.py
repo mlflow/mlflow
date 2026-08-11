@@ -301,6 +301,7 @@ def test_get_providers_auto_resolves_available_default(client):
             "requires_api_key": False,
             "has_api_key": False,
             "allows_remote_access": False,
+            "supports_client_tools": False,
             "model_options": [],
         }
     ]
@@ -310,6 +311,7 @@ def test_get_providers_auto_resolves_available_default(client):
         "auto_selected": True,
         "requires_api_key": False,
         "has_api_key": False,
+        "supports_client_tools": False,
         "model_provider": None,
         "model_options": [],
         "provider_model": None,
@@ -346,6 +348,7 @@ def test_get_providers_resolves_selected_managed_gateway_endpoint():
         "auto_selected": False,
         "requires_api_key": False,
         "has_api_key": True,
+        "supports_client_tools": True,
         "model_provider": "openai",
         "model_options": ["gpt-5.5"],
         "provider_model": "gpt-5.5",
