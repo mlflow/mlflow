@@ -35,65 +35,113 @@ def _resolve_file_path(raw_path: str, cwd: Path | None) -> Path:
     return p.resolve()
 
 
-def _extract_option_value(argv: list[str], names: set[str]) -> str | None:
-    """Return the value passed to any of the given CLI option names (e.g. {"-u",
-    "--artifact-uri"}), handling both "--name value" and "--name=value" forms. None if
-    the option isn't present or has no value.
+# Command paths (the resolved chain of subcommand names, e.g. ("artifacts", "download"))
+# that are safe to run unprompted with no configured project directory: they only ever
+# read already-tracked MLflow metadata and can't reach an arbitrary local path.
+_MLFLOW_READ_ONLY_COMMAND_PATHS = {
+    (),  # root-only calls, e.g. "mlflow --version" / "mlflow --help"
+    ("experiments", "search"),
+    ("experiments", "get"),
+    ("runs", "list"),
+    ("runs", "describe"),
+    ("traces", "search"),
+    ("traces", "get"),
+    ("datasets", "list"),
+    ("artifacts", "list"),
+}
+
+# Command paths that read or write a local filesystem path outside any run/experiment
+# concept, so mlflow does not confine them to a workspace on its own. Each maps to the
+# resolved Click parameter name(s) holding that local path.
+_MLFLOW_ARTIFACT_FILE_PARAMS = {
+    ("artifacts", "download"): ("dst_path", "--dst-path"),
+    ("artifacts", "log-artifact"): ("local_file", "--local-file"),
+    ("artifacts", "log-artifacts"): ("local_dir", "--local-dir"),
+}
+
+
+def _is_local_artifact_uri(uri: str) -> bool:
+    # mlflow's artifact repository registry maps an empty scheme, and the "file" scheme,
+    # to a LocalArtifactRepository rooted at the raw path -- unlike runs:/, models:/,
+    # s3://, etc., which go through real tracked/remote storage. A single-letter scheme
+    # is a Windows drive letter (e.g. "C:\\...") misparsed by urlparse, also local.
+    from urllib.parse import urlparse
+
+    scheme = urlparse(uri).scheme.lower()
+    return scheme in ("", "file") or len(scheme) == 1
+
+
+def _resolve_mlflow_command(argv: list[str]) -> tuple[tuple[str, ...], dict[str, Any]] | None:
+    """Resolve which mlflow subcommand chain and options ``argv`` (excluding "mlflow"
+    itself) would actually invoke, using mlflow's own Click command tree -- the same
+    parser mlflow itself uses -- rather than a hand-rolled reimplementation of it, so
+    root options (e.g. ``--env-file``), repeated flags, and attached short options are
+    all resolved exactly as they would be at runtime. Returns (path, params), where path
+    is empty for a root-only call (e.g. --version/--help). None if resolution fails.
     """
-    for i, tok in enumerate(argv):
-        if tok in names and i + 1 < len(argv):
-            return argv[i + 1]
-        for name in names:
-            if tok.startswith(name + "="):
-                return tok[len(name) + 1 :]
-    return None
+    import click
+
+    from mlflow.cli import cli as mlflow_cli
+
+    try:
+        path: list[str] = []
+        cmd: click.BaseCommand = mlflow_cli
+        ctx = click.Context(mlflow_cli, info_name="mlflow", resilient_parsing=True)
+        remaining = argv
+        while isinstance(cmd, click.Group):
+            parser = cmd.make_parser(ctx)
+            _, args, _ = parser.parse_args(args=remaining)
+            if not args:
+                return tuple(path), {}
+            name, sub, remaining = cmd.resolve_command(ctx, args)
+            if sub is None:
+                return None
+            path.append(name)
+            cmd = sub
+            ctx = click.Context(sub, info_name=name, parent=ctx, resilient_parsing=True)
+        cmd.parse_args(ctx, remaining)
+        return tuple(path), ctx.params
+    except Exception:
+        _logger.exception("Failed to resolve mlflow command for permission check")
+        return None
 
 
-def _mlflow_subcommand_denial(argv: list[str], cwd: Path | None) -> str | None:
-    """Deny mlflow CLI subcommands that can touch the local filesystem or execute code
-    independently of any configured project directory, unlike ordinary read-only
-    commands (e.g. ``--version``, ``experiments search``), which stay usable without one.
+def _mlflow_command_denial(argv: list[str], cwd: Path | None) -> str | None:
+    """Allowlist mlflow CLI commands that are safe to run unprompted: everything else is
+    denied by default rather than trying to enumerate every dangerous mlflow subcommand
+    (mlflow has dozens across projects, models, deployments, db, server, ...).
     """
-    subcommand = argv[1] if len(argv) > 1 else None
+    resolved = _resolve_mlflow_command(argv[1:])
+    if resolved is None:
+        return "Permission denied: could not validate this mlflow command"
+    path, params = resolved
 
-    # "mlflow run <uri>" executes the target project's entry-point ``command:`` via a
-    # real shell (see mlflow/projects/backend/local.py), regardless of cwd. There's no
-    # argument to validate here: the entry point is arbitrary shell content by design,
-    # so this is denied outright rather than gated like the checks below.
-    if subcommand == "run":
-        return "Permission denied: mlflow run is not allowed outside full access"
+    if path in _MLFLOW_READ_ONLY_COMMAND_PATHS:
+        return None
 
-    if subcommand == "artifacts":
-        artifacts_subcommand = argv[2] if len(argv) > 2 else None
-        # "list" only returns metadata for a run's already-tracked artifacts; it can't
-        # reach an arbitrary local path, so it needs no extra check.
-        if artifacts_subcommand not in {"download", "log-artifact", "log-artifacts"}:
-            return None
-        # download/log-artifact/log-artifacts read or write local filesystem paths that
-        # mlflow does not confine to any workspace on its own, so require the same
-        # configured project directory Read/Write/Edit/python do.
-        if cwd is None:
-            return "Permission denied: mlflow artifacts requires a configured project directory"
+    file_param = _MLFLOW_ARTIFACT_FILE_PARAMS.get(path)
+    if file_param is None:
+        return f"Permission denied: mlflow {' '.join(path)} is not allowed outside full access"
 
-        if artifacts_subcommand == "download":
-            # A "file://" artifact URI is a raw absolute filesystem path, independent of
-            # any run/experiment tracking and of --dst-path; runs:/, models:/, s3://, etc.
-            # go through real tracked storage and are unaffected.
-            artifact_uri = _extract_option_value(argv, {"-u", "--artifact-uri"})
-            if artifact_uri and artifact_uri.lower().startswith("file://"):
-                return "Permission denied: mlflow artifacts download does not allow file:// URIs"
-            path_value, flag = _extract_option_value(argv, {"-d", "--dst-path"}), "--dst-path"
-        else:
-            path_value = _extract_option_value(argv, {"-l", "--local-file", "--local-dir"})
-            flag = "--local-file/--local-dir"
+    # download/log-artifact/log-artifacts read or write local filesystem paths, so
+    # require the same configured project directory Read/Write/Edit/python do.
+    if cwd is None:
+        return "Permission denied: mlflow artifacts requires a configured project directory"
 
-        if path_value:
-            try:
-                target = _resolve_file_path(path_value, cwd)
-            except (ValueError, OSError):
-                return f"Permission denied: malformed path {path_value!r}"
-            if not _is_path_within(target, cwd):
-                return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
+    if path == ("artifacts", "download"):
+        artifact_uri = params.get("artifact_uri")
+        if artifact_uri and _is_local_artifact_uri(artifact_uri):
+            return "Permission denied: mlflow artifacts download does not allow local artifact URIs"
+
+    param_name, flag = file_param
+    path_value = params.get(param_name)
+    if path_value:
+        try:
+            target = _resolve_file_path(path_value, cwd)
+        except (ValueError, OSError):
+            return f"Permission denied: malformed path {path_value!r}"
+        if not _is_path_within(target, cwd):
+            return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
 
     return None
 
@@ -135,11 +183,13 @@ def static_permission_error(
         if argv[0] in {"python", "python3"} and cwd is None:
             return f"Permission denied: {argv[0]} requires a configured project directory"
 
-        # Most mlflow CLI commands (--version, experiments search, runs list, ...) don't
-        # carry an arbitrary file-access or code-execution surface and stay usable
-        # without a configured project directory. A few specific subcommands do and are
-        # checked individually rather than gated by cwd alone.
-        if argv[0] == "mlflow" and (denial := _mlflow_subcommand_denial(argv, cwd)) is not None:
+        # mlflow has dozens of subcommands (projects, models, deployments, db, server,
+        # ...), several of which execute code or touch the local filesystem in ways
+        # that have nothing to do with a configured project directory. Rather than
+        # denylisting the ones known to be dangerous today, only a small allowlist of
+        # audited read-only/contained commands is allowed unprompted; anything else
+        # falls through to the interactive per-call approval prompt.
+        if argv[0] == "mlflow" and (denial := _mlflow_command_denial(argv, cwd)) is not None:
             return denial
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:

@@ -233,6 +233,83 @@ def test_bash_mlflow_run_actually_denies_entry_point_execution(tmp_path):
     assert not marker.exists()
 
 
+def test_bash_mlflow_root_option_before_subcommand_does_not_bypass_allowlist(tmp_path):
+    # Regression guard for a review finding: a naive parser that assumes argv[1] is the
+    # subcommand can be fooled by a root-level option before it, e.g. mlflow's
+    # "--env-file" flag. "mlflow --env-file X run <project>" must resolve to "run" and
+    # be denied the same as "mlflow run <project>", not fall through as unrecognized.
+    project_dir = tmp_path / "evil-project"
+    project_dir.mkdir()
+    marker = tmp_path / "pwned.txt"
+    (project_dir / "MLproject").write_text(
+        f'name: evil\nentry_points:\n  main:\n    command: "touch {marker}"\n'
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text("")
+    command = f"mlflow --env-file {env_file} run {project_dir} --env-manager local"
+    result, is_error = _run(execute_tool("Bash", {"command": command}))
+    assert is_error
+    assert not marker.exists()
+
+
+def test_bash_mlflow_artifacts_download_schemeless_local_path_denied(workspace):
+    # Regression guard: mlflow treats a schemeless absolute path the same as a "file://"
+    # URI (both resolve to a LocalArtifactRepository), so checking only for the literal
+    # "file://" prefix misses this. "-u /etc/passwd" must be denied the same way.
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {
+                "command": (
+                    f"mlflow artifacts download --artifact-uri /etc/passwd --dst-path {workspace}"
+                )
+            },
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_repeated_flag_uses_last_value(workspace):
+    # Regression guard: Click uses the LAST occurrence of a repeated option, so a
+    # permission check that inspects the first occurrence can be shown a safe URI while
+    # the command that actually runs uses a later, dangerous one.
+    command = (
+        "mlflow artifacts download --artifact-uri runs:/abc/model "
+        f"--artifact-uri file:///etc/passwd --dst-path {workspace}"
+    )
+    result, is_error = _run(execute_tool("Bash", {"command": command}, cwd=workspace))
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_attached_short_option_denied(workspace):
+    # Regression guard: "-uVALUE" (no space) is valid Click syntax for a short option
+    # with an argument; a parser that only recognizes "-u VALUE" as two tokens misses it.
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {"command": f"mlflow artifacts download -ufile:///etc/passwd -d{workspace}"},
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_models_predict_not_on_allowlist():
+    # Regression guard: mlflow has dozens of subcommands beyond run/artifacts that
+    # execute code or touch the local filesystem (models predict/serve, deployments
+    # run-local, db upgrade, server, ...). The allowlist denies anything not
+    # specifically audited, rather than only the two subcommands found so far.
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "mlflow models predict --env-manager local -m x"})
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
 def test_bash_mlflow_artifacts_download_requires_cwd():
     result, is_error = _run(
         execute_tool(
