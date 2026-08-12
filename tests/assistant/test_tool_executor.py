@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import pytest
 
@@ -305,6 +306,67 @@ def test_bash_mlflow_models_predict_not_on_allowlist():
     # specifically audited, rather than only the two subcommands found so far.
     result, is_error = _run(
         execute_tool("Bash", {"command": "mlflow models predict --env-manager local -m x"})
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_env_file_outside_workspace_denied(workspace, tmp_path_factory):
+    # Regression guard: "--env-file" is an eager root option that loads a dotenv file's
+    # content as environment variables before any subcommand runs. The allowlist only
+    # validated the resolved subcommand path, not root options, so
+    # "mlflow --env-file <secret> experiments search" resolved to an allowed path
+    # while the real CLI loaded an arbitrary local file regardless of that path.
+    secret = tmp_path_factory.mktemp("outside") / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    command = f"mlflow --env-file {secret} experiments search"
+    result, is_error = _run(execute_tool("Bash", {"command": command}, cwd=workspace))
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_env_file_requires_cwd():
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "mlflow --env-file /etc/hosts experiments search"})
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_env_file_actually_denies_loading(workspace, tmp_path_factory):
+    # End-to-end regression guard: confirms the real "mlflow" CLI never gets to load the
+    # file, not just that static_permission_error objects to it.
+    secret = tmp_path_factory.mktemp("outside") / "secret.env"
+    secret.write_text("MLFLOW_POC_LEAK=leaked-value-12345")
+    command = f"mlflow --env-file {secret} experiments search"
+    result, is_error = _run(execute_tool("Bash", {"command": command}, cwd=workspace))
+    assert is_error
+    assert os.environ.get("MLFLOW_POC_LEAK") is None
+
+
+def test_bash_mlflow_env_file_within_workspace_allowed(workspace):
+    env_file = workspace / "local.env"
+    env_file.write_text("")
+    denial = static_permission_error(
+        "Bash",
+        {"command": f"mlflow --env-file {env_file} experiments search"},
+        PermissionsConfig(),
+        workspace,
+    )
+    assert denial is None
+
+
+def test_bash_mlflow_artifacts_download_missing_dst_path_denied(workspace):
+    # Regression guard: --dst-path is optional; omitting it left path_value=None, which
+    # skipped the containment check entirely and allowed mlflow to pick its own
+    # destination outside the workspace. Downloads must specify an in-workspace
+    # destination explicitly.
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {"command": "mlflow artifacts download --artifact-uri runs:/abc/model"},
+            cwd=workspace,
+        )
     )
     assert is_error
     assert "Permission denied" in result

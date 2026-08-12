@@ -71,13 +71,24 @@ def _is_local_artifact_uri(uri: str) -> bool:
     return scheme in ("", "file") or len(scheme) == 1
 
 
-def _resolve_mlflow_command(argv: list[str]) -> tuple[tuple[str, ...], dict[str, Any]] | None:
+# Root-level mlflow options with no side effect: safe regardless of which (if any)
+# subcommand follows. Any other root option is either handled explicitly below
+# (--env-file) or, if unrecognized, denied by default rather than silently ignored.
+_MLFLOW_HARMLESS_ROOT_OPTIONS = {"version"}
+
+
+def _resolve_mlflow_command(
+    argv: list[str],
+) -> tuple[tuple[str, ...], dict[str, Any], dict[str, Any]] | None:
     """Resolve which mlflow subcommand chain and options ``argv`` (excluding "mlflow"
     itself) would actually invoke, using mlflow's own Click command tree -- the same
     parser mlflow itself uses -- rather than a hand-rolled reimplementation of it, so
     root options (e.g. ``--env-file``), repeated flags, and attached short options are
-    all resolved exactly as they would be at runtime. Returns (path, params), where path
-    is empty for a root-only call (e.g. --version/--help). None if resolution fails.
+    all resolved exactly as they would be at runtime. Returns (path, params, root_opts):
+    path is empty for a root-only call (e.g. --version/--help); root_opts holds
+    whatever root-level options (e.g. --env-file) were parsed, independent of path,
+    since those can have effects regardless of which subcommand follows. None if
+    resolution fails.
     """
     import click
 
@@ -88,11 +99,16 @@ def _resolve_mlflow_command(argv: list[str]) -> tuple[tuple[str, ...], dict[str,
         cmd: click.BaseCommand = mlflow_cli
         ctx = click.Context(mlflow_cli, info_name="mlflow", resilient_parsing=True)
         remaining = argv
+        root_opts: dict[str, Any] = {}
+        root_parsed = False
         while isinstance(cmd, click.Group):
             parser = cmd.make_parser(ctx)
-            _, args, _ = parser.parse_args(args=remaining)
+            opts, args, _ = parser.parse_args(args=remaining)
+            if not root_parsed:
+                root_opts = opts
+                root_parsed = True
             if not args:
-                return tuple(path), {}
+                return tuple(path), {}, root_opts
             name, sub, remaining = cmd.resolve_command(ctx, args)
             if sub is None:
                 return None
@@ -100,10 +116,20 @@ def _resolve_mlflow_command(argv: list[str]) -> tuple[tuple[str, ...], dict[str,
             cmd = sub
             ctx = click.Context(sub, info_name=name, parent=ctx, resilient_parsing=True)
         cmd.parse_args(ctx, remaining)
-        return tuple(path), ctx.params
+        return tuple(path), ctx.params, root_opts
     except Exception:
         _logger.exception("Failed to resolve mlflow command for permission check")
         return None
+
+
+def _require_workspace_path(path_value: str, cwd: Path, flag: str) -> str | None:
+    try:
+        target = _resolve_file_path(path_value, cwd)
+    except (ValueError, OSError):
+        return f"Permission denied: malformed path {path_value!r}"
+    if not _is_path_within(target, cwd):
+        return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
+    return None
 
 
 def _mlflow_command_denial(argv: list[str], cwd: Path | None) -> str | None:
@@ -114,7 +140,23 @@ def _mlflow_command_denial(argv: list[str], cwd: Path | None) -> str | None:
     resolved = _resolve_mlflow_command(argv[1:])
     if resolved is None:
         return "Permission denied: could not validate this mlflow command"
-    path, params = resolved
+    path, params, root_opts = resolved
+
+    # "--env-file" is an eager root option: it loads a dotenv file's content as
+    # environment variables before any subcommand even runs, regardless of which (if
+    # any) subcommand follows, so it needs the same containment as any other
+    # local-path argument, checked before the subcommand allowlist below.
+    env_file = root_opts.get("env_file")
+    if env_file:
+        if cwd is None:
+            return "Permission denied: mlflow --env-file requires a configured project directory"
+        if (denial := _require_workspace_path(env_file, cwd, "--env-file")) is not None:
+            return denial
+    if set(root_opts) - _MLFLOW_HARMLESS_ROOT_OPTIONS - {"env_file"}:
+        # A root option other than the ones explicitly accounted for above: the
+        # command paths below were only audited assuming no other root option is in
+        # play, so don't assume it's safe just because the subcommand looks familiar.
+        return "Permission denied: unrecognized mlflow option"
 
     if path in _MLFLOW_READ_ONLY_COMMAND_PATHS:
         return None
@@ -135,15 +177,12 @@ def _mlflow_command_denial(argv: list[str], cwd: Path | None) -> str | None:
 
     param_name, flag = file_param
     path_value = params.get(param_name)
-    if path_value:
-        try:
-            target = _resolve_file_path(path_value, cwd)
-        except (ValueError, OSError):
-            return f"Permission denied: malformed path {path_value!r}"
-        if not _is_path_within(target, cwd):
-            return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
-
-    return None
+    if not path_value:
+        # Left to its default, mlflow downloads to a new directory outside any
+        # workspace concept, so an explicit, contained destination is required rather
+        # than silently allowing whatever mlflow's own default happens to be.
+        return f"Permission denied: {flag} must be set to a path inside the workspace"
+    return _require_workspace_path(path_value, cwd, flag)
 
 
 def static_permission_error(
