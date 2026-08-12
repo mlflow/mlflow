@@ -5,9 +5,6 @@ on:
     # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
     - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
-  # pull_request runs only the generate job as a dry run: it fetches,
-  # regenerates, and uploads the patch without a write token; the publish
-  # job (tag push, PR creation, release publish) is skipped.
   pull_request:
     paths:
       - .github/workflows/update-model-catalog.yml
