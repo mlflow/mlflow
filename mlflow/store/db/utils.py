@@ -80,7 +80,13 @@ def _all_tables_exist(engine):
 def _is_empty_database(engine):
     # Alembic's bookkeeping table is ignored so a previously failed upgrade attempt
     # doesn't make the DB look populated.
-    return all(t.startswith("alembic_") for t in sqlalchemy.inspect(engine).get_table_names())
+    # Also ignore any tables that aren't part of the current MLflow schema, e.g., leftover
+    # 'secrets' table from a partially applied migration. This ensures we trigger
+    # _initialize_tables which will create all tables consistently and stamp Alembic.
+    return all(
+        t.startswith("alembic_") or t not in Base.metadata.tables
+        for t in sqlalchemy.inspect(engine).get_table_names()
+    )
 
 
 def _initialize_tables(engine):
