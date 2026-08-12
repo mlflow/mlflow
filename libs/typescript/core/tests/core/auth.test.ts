@@ -1,7 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createAuthProvider, createKubernetesAuth } from '../../src/auth';
+import {
+  createAuthProvider,
+  createKubernetesAuth,
+  _setKubeconfigLoader,
+  _setKubeconfigCacheKeyFn,
+} from '../../src/auth';
 
 const ENV_KEYS = [
   'MLFLOW_TRACKING_TOKEN',
@@ -146,6 +151,8 @@ describe('createAuthProvider', () => {
     });
 
     afterEach(() => {
+      _setKubeconfigLoader(null);
+      _setKubeconfigCacheKeyFn(null);
       for (const key of ENV_KEYS) {
         if (savedEnv[key] === undefined) {
           delete process.env[key];
@@ -169,12 +176,19 @@ describe('createAuthProvider', () => {
       expect(headers['Content-Type']).toBe('application/json');
     });
 
-    it('kubernetes: throws when token file is missing and no kubeconfig', async () => {
-      const provider = createKubernetesAuth('http://mlflow:5000', DISABLE_WORKSPACES, nonExistentTokenPath);
+    it('kubernetes: propagates kubeconfig error when SA token file is missing', async () => {
+      _setKubeconfigLoader(() => {
+        throw new Error('kubeconfig not found');
+      });
 
-      await expect(provider.getHeadersProvider()()).rejects.toThrow(
-        'Could not determine Kubernetes credentials',
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        DISABLE_WORKSPACES,
+        nonExistentTokenPath,
+        nonExistentNamespacePath,
       );
+
+      await expect(provider.getHeadersProvider()()).rejects.toThrow('kubeconfig not found');
     });
 
     it('kubernetes: caches token reads within TTL (60s)', async () => {
@@ -232,7 +246,11 @@ describe('createAuthProvider', () => {
 
       // namespacePath is undefined — irrelevant because enableWorkspaces is false
       const provider = createKubernetesAuth(
-        'http://mlflow:5000', DISABLE_WORKSPACES, tokenPath, undefined, 'options-namespace',
+        'http://mlflow:5000',
+        DISABLE_WORKSPACES,
+        tokenPath,
+        undefined,
+        'options-namespace',
       );
       const headers = await provider.getHeadersProvider()();
 
@@ -257,22 +275,34 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(tokenPath, 'sa-token-abc123');
       fs.writeFileSync(namespacePath, 'my-namespace');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['Authorization']).toBe('Bearer sa-token-abc123');
       expect(headers['X-MLFLOW-WORKSPACE']).toBe('my-namespace');
     });
 
-    it('kubernetes-namespaced: throws when namespace file is missing and no kubeconfig', async () => {
+    it('kubernetes-namespaced: propagates kubeconfig error when SA namespace file is missing', async () => {
+      _setKubeconfigLoader(() => {
+        throw new Error('kubeconfig not found');
+      });
+
       const tokenPath = path.join(tmpDir, 'token');
       fs.writeFileSync(tokenPath, 'sa-token-abc123');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, nonExistentNamespacePath);
-
-      await expect(provider.getHeadersProvider()()).rejects.toThrow(
-        'Could not determine Kubernetes namespace',
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        nonExistentNamespacePath,
       );
+
+      await expect(provider.getHeadersProvider()()).rejects.toThrow('kubeconfig not found');
     });
 
     it('kubernetes-namespaced: strips whitespace from namespace file', async () => {
@@ -281,7 +311,12 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(tokenPath, 'sa-token');
       fs.writeFileSync(namespacePath, '  my-ns  \n');
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['X-MLFLOW-WORKSPACE']).toBe('my-ns');
@@ -294,7 +329,12 @@ describe('createAuthProvider', () => {
       fs.writeFileSync(namespacePath, 'auto-namespace');
       process.env.MLFLOW_WORKSPACE = 'explicit-namespace';
 
-      const provider = createKubernetesAuth('http://mlflow:5000', ENABLE_WORKSPACES, tokenPath, namespacePath);
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        tokenPath,
+        namespacePath,
+      );
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['X-MLFLOW-WORKSPACE']).toBe('explicit-namespace');
@@ -310,14 +350,13 @@ describe('createAuthProvider', () => {
         token: 'kubeconfig-token',
         namespace: 'kubeconfig-ns',
       });
+      _setKubeconfigLoader(mockLoader);
 
       const provider = createKubernetesAuth(
         'http://mlflow:5000',
         ENABLE_WORKSPACES,
         nonExistentTokenPath,
         nonExistentNamespacePath,
-        undefined,
-        mockLoader,
       );
       const headers = await provider.getHeadersProvider()();
 
@@ -326,10 +365,52 @@ describe('createAuthProvider', () => {
       expect(mockLoader).toHaveBeenCalledTimes(1);
     });
 
-    it('kubernetes-namespaced: picks up kubeconfig context changes after TTL', async () => {
-      const mockLoader = jest.fn()
+    it('kubernetes-namespaced: picks up kubeconfig context changes immediately via cache key', async () => {
+      const mockLoader = jest
+        .fn()
         .mockResolvedValueOnce({ token: 'token-a', namespace: 'namespace-a' })
         .mockResolvedValueOnce({ token: 'token-b', namespace: 'namespace-b' });
+      _setKubeconfigLoader(mockLoader);
+
+      // eslint-disable-next-line require-await, @typescript-eslint/require-await
+      _setKubeconfigCacheKeyFn(async () => 'DEFAULT:context-a');
+
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000',
+        ENABLE_WORKSPACES,
+        nonExistentTokenPath,
+        nonExistentNamespacePath,
+      );
+
+      // First call reads context A
+      const headers1 = await provider.getHeadersProvider()();
+      expect(headers1['Authorization']).toBe('Bearer token-a');
+      expect(headers1['X-MLFLOW-WORKSPACE']).toBe('namespace-a');
+
+      // Same cache key — returns cached context A
+      const headers2 = await provider.getHeadersProvider()();
+      expect(headers2['Authorization']).toBe('Bearer token-a');
+      expect(mockLoader).toHaveBeenCalledTimes(1);
+
+      // Simulate context switch (oc project / kubectl config use-context)
+      // eslint-disable-next-line require-await, @typescript-eslint/require-await
+      _setKubeconfigCacheKeyFn(async () => 'DEFAULT:context-b');
+
+      // Invalidates immediately without waiting for TTL
+      const headers3 = await provider.getHeadersProvider()();
+      expect(headers3['Authorization']).toBe('Bearer token-b');
+      expect(headers3['X-MLFLOW-WORKSPACE']).toBe('namespace-b');
+      expect(mockLoader).toHaveBeenCalledTimes(2);
+    });
+
+    it('kubernetes-namespaced: refreshes kubeconfig after TTL within same context', async () => {
+      const mockLoader = jest
+        .fn()
+        .mockResolvedValueOnce({ token: 'token-v1', namespace: 'ns' })
+        .mockResolvedValueOnce({ token: 'token-v2', namespace: 'ns' });
+      _setKubeconfigLoader(mockLoader);
+      // eslint-disable-next-line require-await, @typescript-eslint/require-await
+      _setKubeconfigCacheKeyFn(async () => 'DEFAULT:same-context');
 
       jest.useFakeTimers();
       try {
@@ -338,27 +419,21 @@ describe('createAuthProvider', () => {
           ENABLE_WORKSPACES,
           nonExistentTokenPath,
           nonExistentNamespacePath,
-          undefined,
-          mockLoader,
         );
 
-        // First call reads context A
         const headers1 = await provider.getHeadersProvider()();
-        expect(headers1['Authorization']).toBe('Bearer token-a');
-        expect(headers1['X-MLFLOW-WORKSPACE']).toBe('namespace-a');
+        expect(headers1['Authorization']).toBe('Bearer token-v1');
 
-        // Still within TTL — returns cached context A
+        // 10s later, still under 60s TTL — cached
+        jest.advanceTimersByTime(10_000);
         const headers2 = await provider.getHeadersProvider()();
-        expect(headers2['Authorization']).toBe('Bearer token-a');
+        expect(headers2['Authorization']).toBe('Bearer token-v1');
         expect(mockLoader).toHaveBeenCalledTimes(1);
 
-        // Advance past 60s TTL
+        // Advance past TTL — token rotation picked up
         jest.advanceTimersByTime(61_000);
-
-        // Now picks up context B
         const headers3 = await provider.getHeadersProvider()();
-        expect(headers3['Authorization']).toBe('Bearer token-b');
-        expect(headers3['X-MLFLOW-WORKSPACE']).toBe('namespace-b');
+        expect(headers3['Authorization']).toBe('Bearer token-v2');
         expect(mockLoader).toHaveBeenCalledTimes(2);
       } finally {
         jest.useRealTimers();
@@ -375,9 +450,10 @@ describe('createAuthProvider', () => {
     });
   });
 
-  // Tests that verify createAuthProvider routes correctly and that
-  // explicit credentials (token, username/password) take precedence
-  // over MLFLOW_TRACKING_AUTH, matching Python SDK behavior.
+  // Tests that verify createAuthProvider routes correctly when
+  // MLFLOW_TRACKING_AUTH=kubernetes* is combined with explicit credentials.
+  // Tokens pass through; username/password are ignored (basic auth doesn't
+  // overlap with kubernetes auth).
   describe('Auth precedence (createAuthProvider)', () => {
     const savedEnv: Record<string, string | undefined> = {};
 
@@ -389,6 +465,8 @@ describe('createAuthProvider', () => {
     });
 
     afterEach(() => {
+      _setKubeconfigLoader(null);
+      _setKubeconfigCacheKeyFn(null);
       for (const key of ENV_KEYS) {
         if (savedEnv[key] === undefined) {
           delete process.env[key];
@@ -408,7 +486,9 @@ describe('createAuthProvider', () => {
       expect(headers['Authorization']).toBe('Bearer explicit-token');
     });
 
-    it('username/password takes precedence over MLFLOW_TRACKING_AUTH', async () => {
+    it('kubernetes + username/password: basic auth ignored, k8s token used', async () => {
+      // eslint-disable-next-line require-await, @typescript-eslint/require-await
+      _setKubeconfigLoader(async () => ({ token: 'k8s-resolved-token' }));
       process.env.MLFLOW_TRACKING_USERNAME = 'admin';
       process.env.MLFLOW_TRACKING_PASSWORD = 'secret';
       process.env.MLFLOW_TRACKING_AUTH = 'kubernetes';
@@ -416,8 +496,7 @@ describe('createAuthProvider', () => {
       const provider = createAuthProvider({ trackingUri: 'http://mlflow:5000' });
       const headers = await provider.getHeadersProvider()();
 
-      const expected = `Basic ${Buffer.from('admin:secret').toString('base64')}`;
-      expect(headers['Authorization']).toBe(expected);
+      expect(headers['Authorization']).toBe('Bearer k8s-resolved-token');
     });
 
     it('programmatic trackingServerToken skips kubernetes auth', async () => {
@@ -430,6 +509,47 @@ describe('createAuthProvider', () => {
       const headers = await provider.getHeadersProvider()();
 
       expect(headers['Authorization']).toBe('Bearer code-token');
+    });
+
+    it('kubernetes-namespaced + explicit token: uses token but still auto-discovers workspace', async () => {
+      // eslint-disable-next-line require-await, @typescript-eslint/require-await
+      _setKubeconfigLoader(async () => ({}));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mlflow-auth-prec-'));
+      try {
+        const namespacePath = path.join(tmpDir, 'namespace');
+        fs.writeFileSync(namespacePath, 'discovered-ns');
+
+        const provider = createKubernetesAuth(
+          'http://mlflow:5000',
+          true,
+          path.join(tmpDir, 'no-token'),
+          namespacePath,
+          undefined,
+          'Bearer explicit-token',
+        );
+        const headers = await provider.getHeadersProvider()();
+
+        expect(headers['Authorization']).toBe('Bearer explicit-token');
+        expect(headers['X-MLFLOW-WORKSPACE']).toBe('discovered-ns');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('kubernetes-namespaced + username/password: basic auth ignored, k8s auth + auto workspace', async () => {
+      _setKubeconfigLoader(
+        // eslint-disable-next-line require-await, @typescript-eslint/require-await
+        async () => ({ token: 'k8s-resolved-token', namespace: 'discovered-ns' }),
+      );
+      process.env.MLFLOW_TRACKING_USERNAME = 'admin';
+      process.env.MLFLOW_TRACKING_PASSWORD = 'secret';
+      process.env.MLFLOW_TRACKING_AUTH = 'kubernetes-namespaced';
+
+      const provider = createAuthProvider({ trackingUri: 'http://mlflow:5000' });
+      const headers = await provider.getHeadersProvider()();
+
+      expect(headers['Authorization']).toBe('Bearer k8s-resolved-token');
+      expect(headers['X-MLFLOW-WORKSPACE']).toBe('discovered-ns');
     });
   });
 });
