@@ -63,4 +63,61 @@ function extractComponentIdsFromSource(actionDir) {
   return extractComponentIds(files);
 }
 
-module.exports = { extractComponentIdsFromSource };
+/**
+ * Build the canonical source text of the componentId registry. This exact
+ * output is enforced byte-for-byte by index.js — the registry is excluded
+ * from prettier, so the generator's output is the only formatting authority.
+ * @param {Set<string>} codeIds - componentIds extracted from source
+ * @param {Object} existingDescriptions - id -> description map to preserve
+ * @returns {string} registry module source
+ */
+function buildRegistrySource(codeIds, existingDescriptions) {
+  const sorted = [...codeIds].sort();
+
+  // Group by prefix for readability
+  const groups = {};
+  for (const id of sorted) {
+    let prefix;
+    if (id.startsWith("codegen_")) {
+      prefix = "Codegen (auto-generated)";
+    } else if (id.startsWith("mlflow.")) {
+      const parts = id.split(".");
+      prefix = parts[0] + "." + parts[1];
+    } else if (id.startsWith("shared.")) {
+      const parts = id.split(".");
+      prefix = parts[0] + "." + parts[1];
+    } else {
+      prefix = "Other";
+    }
+    if (!groups[prefix]) groups[prefix] = [];
+    groups[prefix].push(id);
+  }
+
+  let output = `/**
+ * Curated registry of all componentIds used in the MLflow UI.
+ *
+ * Every static componentId string literal in non-test source files must
+ * have an entry here. The CI job \`check-component-ids\` verifies this
+ * bidirectionally: code IDs must be in the registry, and registry
+ * entries must exist in code.
+ *
+ * Format: key = componentId string, value = optional description of the
+ * component (blank by default, especially for generated entries)
+ */
+module.exports = {\n`;
+
+  for (const gk of Object.keys(groups).sort()) {
+    output += `  // -- ${gk} --\n`;
+    for (const id of groups[gk]) {
+      const escaped = id.replace(/"/g, '\\"');
+      const desc = (existingDescriptions[id] || "").replace(/"/g, '\\"');
+      output += `  "${escaped}": "${desc}",\n`;
+    }
+    output += "\n";
+  }
+  // Drop the blank line after the last group
+  output = output.slice(0, -1) + "};\n";
+  return output;
+}
+
+module.exports = { extractComponentIdsFromSource, buildRegistrySource };
