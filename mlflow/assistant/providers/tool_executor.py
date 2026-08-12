@@ -78,7 +78,14 @@ def static_permission_error(
         if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
             if cwd is None:
                 return f"Permission denied: {tool_name} requires a configured project directory"
-            target = _resolve_file_path(raw_path, cwd)
+            try:
+                target = _resolve_file_path(raw_path, cwd)
+            except (ValueError, OSError):
+                # e.g. an embedded NUL byte: Path.resolve() raises rather than returning a
+                # path, so this must be caught here rather than left to propagate out of
+                # execute_tool, which only wraps the tool dispatch (below) in try/except,
+                # not this static check.
+                return f"Permission denied: malformed path {raw_path!r}"
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
 
@@ -100,7 +107,9 @@ async def execute_tool(
     try:
         match tool_name:
             case "Bash":
-                return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
+                return await _execute_bash(
+                    tool_input, cwd=cwd, tracking_uri=tracking_uri, full_access=perms.full_access
+                )
             case "Read":
                 return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
             case "Write":
@@ -118,8 +127,12 @@ async def _execute_bash(
     tool_input: dict[str, Any],
     cwd: Path | None,
     tracking_uri: str | None,
+    full_access: bool = False,
 ) -> tuple[str, bool]:
-    command = tool_input.get("command", "")
+    # Stripped the same way static_permission_error strips before its own shlex.split, so
+    # the two can't tokenize argv[0] differently (e.g. a leading non-ASCII whitespace
+    # character that str.strip() removes but shlex's default whitespace set does not).
+    command = tool_input.get("command", "").strip()
     if not command:
         return "No command provided", True
 
@@ -128,14 +141,36 @@ async def _execute_bash(
         env["MLFLOW_TRACKING_URI"] = tracking_uri
 
     try:
-        # Shell required: LLM-generated commands may use pipes, redirects, or && chaining.
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env,
-        )
+        if full_access:
+            # Shell required: LLM-generated commands may use pipes, redirects, or && chaining.
+            # Safe here because full access has no allowlist to bypass in the first place.
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+            )
+        else:
+            # Restricted mode: static_permission_error only validates argv[0] against the
+            # allowlist. Running the raw string through a shell would let shell operators
+            # after argv[0] (&&, ;, |, `` `` , $()) smuggle in commands the allowlist never
+            # saw, e.g. "mlflow --help && python3 -c '...'" passes the argv[0] check but a
+            # shell would still execute the chained python3 call. Executing the
+            # already-validated argv directly, with no shell, means anything after argv[0]
+            # is passed as a literal argument to the allowlisted program and never
+            # interpreted as a separate command.
+            try:
+                argv = shlex.split(command)
+            except ValueError:
+                return "Permission denied: malformed command", True
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+            )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
         output = stdout.decode("utf-8", errors="replace")
         err_output = stderr.decode("utf-8", errors="replace")

@@ -93,6 +93,17 @@ def test_path_containment_blocks_escape(workspace):
     assert "Permission denied" in result
 
 
+def test_read_malformed_path_denied_not_raised(workspace):
+    # Regression guard: an embedded NUL byte makes Path.resolve() raise ValueError.
+    # static_permission_error must catch this and return a normal denial instead of
+    # letting the exception propagate out of execute_tool, which only wraps the tool
+    # dispatch (not the static permission check) in try/except, so an unhandled
+    # ValueError here would abort the whole assistant turn instead of denying the call.
+    result, is_error = _run(execute_tool("Read", {"file_path": "foo\x00bar"}, cwd=workspace))
+    assert is_error
+    assert "Permission denied" in result
+
+
 def test_bash_python_denied_without_cwd():
     # Regression guard for GHSA-27c7-qx3r-x4f8: without a configured project
     # directory (cwd=None), python/python3 must be denied. Bash previously
@@ -126,6 +137,46 @@ def test_bash_python_sensitive_file_denied_without_cwd(tmp_path):
     assert "SECRET_API_KEY" not in result
 
 
+def test_bash_shell_chaining_does_not_bypass_allowlist_without_cwd(tmp_path):
+    # Regression guard for the review follow-up on GHSA-27c7-qx3r-x4f8: the
+    # allowlist in static_permission_error only validates argv[0]. Executing
+    # the raw command string via a shell would let a shell operator after
+    # argv[0] (&&, ;, |, backticks) smuggle in an unvalidated command, e.g.
+    # "mlflow --help && python3 -c '...'" passes the argv[0]=="mlflow" check
+    # but a shell would still run the chained python3 read. Execution must
+    # run the pre-validated argv directly, with no shell, so anything after
+    # argv[0] is a literal argument to mlflow rather than a separate command.
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    command = f'mlflow --help && python3 -c "print(open({str(secret)!r}).read())"'
+    result, is_error = _run(execute_tool("Bash", {"command": command}))
+    assert "SECRET_API_KEY" not in result
+
+
+def test_bash_shell_chaining_does_not_bypass_allowlist_with_cwd(workspace, tmp_path):
+    # Same class of bug as above, but chained after a python3 call that is
+    # itself allowed because cwd is configured: the second, chained python3
+    # invocation must never run as its own command.
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    command = f'python3 -c "print(\'hello\')" && python3 -c "print(open({str(secret)!r}).read())"'
+    result, is_error = _run(execute_tool("Bash", {"command": command}, cwd=workspace))
+    assert "SECRET_API_KEY" not in result
+
+
+def test_bash_full_access_still_allows_shell_chaining():
+    # Full access has no allowlist to bypass, so it should keep using a real
+    # shell and continue to support the && / pipe / redirect chaining the
+    # assistant relies on in that mode.
+    perms = PermissionsConfig(full_access=True)
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "echo hello && echo world"}, permissions=perms)
+    )
+    assert not is_error
+    assert "hello" in result
+    assert "world" in result
+
+
 def test_bash_blocks_non_mlflow_commands():
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}))
     assert is_error
@@ -134,6 +185,17 @@ def test_bash_blocks_non_mlflow_commands():
 
 def test_bash_allows_mlflow_commands():
     result, is_error = _run(execute_tool("Bash", {"command": "mlflow --version"}))
+    assert not is_error
+
+
+def test_bash_strips_command_consistently_before_tokenizing():
+    # Regression guard: static_permission_error stripped the command before shlex.split
+    # but _execute_bash did not, so a leading non-ASCII whitespace character (e.g. NBSP,
+    # which str.strip() removes but shlex's default whitespace set does not) could pass
+    # the allowlist check as "mlflow" while _execute_bash's own unstripped shlex.split
+    # saw "\xa0mlflow" instead and failed to find a matching executable. Both must
+    # tokenize the command identically.
+    result, is_error = _run(execute_tool("Bash", {"command": "\xa0mlflow --version"}))
     assert not is_error
 
 
