@@ -162,6 +162,8 @@ assistant_router = APIRouter(
     route_class=_AssistantAPIRoute,
 )
 
+_TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
+
 
 class MessageRequest(BaseModel):
     message: str
@@ -359,7 +361,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
         session = SessionManager.create(
             context=request.context, working_dir=Path(project_path) if project_path else None
         )
-    elif request.context:
+    else:
+        # Page context is merged for conversation continuity, but feature modes
+        # are turn-scoped. Remove omitted transient keys so leaving a feature
+        # cannot keep later turns in its provider/output mode.
+        for key in _TURN_SCOPED_CONTEXT_KEYS - request.context.keys():
+            session.context.pop(key, None)
         session.update_context(request.context)
 
     # Store the pending message with role

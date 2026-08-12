@@ -896,7 +896,9 @@ describe('AssistantContext — client_tool_call auto-resume', () => {
           toolInput: { title: 'Trace Summary', messages: [] },
           continuation: 'terminal',
         });
+        callbacks?.onDone();
       });
+      expect(result.current.isStreaming).toBe(attempt < 2);
     }
 
     expect(mockSendMessageStream).toHaveBeenCalledTimes(3);

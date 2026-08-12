@@ -37,6 +37,7 @@ export {
   registerCustomViewSpecApplier,
   getCurrentApplierSessionId,
   waitForCustomViewSpecApplier,
+  CustomViewValidationError,
   type CustomViewSpecApplier,
   type RenderCustomViewSpec,
   type CustomViewApplyResult,

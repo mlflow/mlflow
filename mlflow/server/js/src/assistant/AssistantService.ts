@@ -260,6 +260,8 @@ const attachStreamListeners = (
       if (terminalClientToolCall) {
         await onClientToolCall?.(terminalClientToolCall);
       }
+      // Starting an automatic repair rotates the active request token, so these
+      // guarded callbacks become no-ops instead of finalizing the repair stream.
       onToolUse?.([]);
       onDone();
     };

@@ -230,13 +230,26 @@ describe('ExperimentCustomViewProvider', () => {
       makeAssistant();
       const applier = jest
         .fn<(spec: RenderCustomViewSpec) => Promise<CustomViewApplyResult>>()
-        .mockResolvedValue({ ok: false, error: 'Unknown component "Widget"' });
+        .mockResolvedValue({ ok: false, error: 'Unknown component "Widget"', retryable: true });
       mockWaitForCustomViewSpecApplier.mockResolvedValue(applier);
       renderProvider();
 
       const result = await capturedToolHandler!({ title: 'My view', messages: [] });
 
       expect(result).toEqual({ content: 'Unknown component "Widget"', isError: true, retryable: true });
+    });
+
+    it('does not retry non-validation applier failures', async () => {
+      makeAssistant();
+      const applier = jest
+        .fn<(spec: RenderCustomViewSpec) => Promise<CustomViewApplyResult>>()
+        .mockResolvedValue({ ok: false, error: 'Custom views cannot be modified.', retryable: false });
+      mockWaitForCustomViewSpecApplier.mockResolvedValue(applier);
+      renderProvider();
+
+      const result = await capturedToolHandler!({ title: 'My view', messages: [] });
+
+      expect(result).toEqual({ content: 'Custom views cannot be modified.', isError: true, retryable: false });
     });
   });
 

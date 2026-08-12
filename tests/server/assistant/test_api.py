@@ -149,6 +149,31 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_clears_omitted_turn_scoped_context(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Build a view",
+            "context": {
+                "trace_id": "tr-123",
+                "customTraceView": {"guide": "authoring guide"},
+            },
+        },
+    )
+    session_id = response.json()["session_id"]
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "What is 2+2?", "session_id": session_id},
+    )
+
+    assert response.status_code == 200
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert "customTraceView" not in session.context
+    assert session.context["trace_id"] == "tr-123"
+
+
 def test_message_stream_url_includes_static_prefix(client, monkeypatch):
     monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
     response = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hello"})

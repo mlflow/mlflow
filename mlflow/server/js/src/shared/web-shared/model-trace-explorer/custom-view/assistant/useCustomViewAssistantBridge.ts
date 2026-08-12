@@ -4,7 +4,11 @@ import { buildAgentDataSnapshot, buildCustomViewAuthoringGuide, type AgentTraceD
 import { toCustomViewApplyTarget, type CustomView } from '../customViewDefinition';
 import { useCustomViewAssistantConnector, type OpenCustomViewAssistantOptions } from './CustomViewAssistantConnector';
 import { registerCustomViewAuthoringContext } from './customViewAuthoringContext';
-import { registerCustomViewSpecApplier, type RenderCustomViewSpec } from './customViewSpecApplier';
+import {
+  CustomViewValidationError,
+  registerCustomViewSpecApplier,
+  type RenderCustomViewSpec,
+} from './customViewSpecApplier';
 
 // The static authoring guide is computed once — it has no per-trace state.
 const AUTHORING_GUIDE = buildCustomViewAuthoringGuide();
@@ -27,11 +31,8 @@ export type CustomViewAssistantBridge = {
  * 1. publishes the current authoring context (guide + this trace's snapshot +
  *    the active view's template) to a module-level store so the assistant's
  *    context plugin can include it in the agent prompt;
- * 2. registers an applier so the `render_custom_view` tool can hand the
- *    agent-produced spec back to this host's `onSpec` (validate + render).
- *    CLI-based providers (Claude Code, Codex) have no mid-stream client-tool
- *    channel without MCP plumbing and are not supported yet — a fenced-block
- *    convention for those is tracked as a follow-up;
+ * 2. registers an applier so native tool calls and terminal structured responses
+ *    can hand the agent-produced spec back to this host's `onSpec` (validate + render);
  * 3. exposes the connector's chat opener + streaming state.
  *
  * The agent itself (tool/skill registration, panel opening) is wired at a
@@ -97,7 +98,7 @@ export const useCustomViewAssistantBridge = ({
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to render the custom view.';
         setApplyError(message);
-        return { ok: false, error: message };
+        return { ok: false, error: message, retryable: error instanceof CustomViewValidationError };
       }
     });
   }, [enabled]);

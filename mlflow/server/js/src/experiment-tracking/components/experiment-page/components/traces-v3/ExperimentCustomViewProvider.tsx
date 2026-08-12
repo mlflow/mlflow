@@ -87,7 +87,7 @@ export const ExperimentCustomViewProvider = ({
       const result = await applier({ title: toolInput['title'], messages: toolInput['messages'] });
       return result.ok
         ? { content: 'The custom view was rendered successfully.' }
-        : { content: result.error, isError: true, retryable: true };
+        : { content: result.error, isError: true, retryable: result.retryable };
     });
   }, []);
 
