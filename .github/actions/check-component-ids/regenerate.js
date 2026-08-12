@@ -63,7 +63,8 @@ for (const gk of Object.keys(groups).sort()) {
   }
   output += "\n";
 }
-output += "};\n";
+// Drop the blank line after the last group
+output = output.slice(0, -1) + "};\n";
 
 const outPath = path.join(__dirname, "componentId-registry.js");
 fs.writeFileSync(outPath, output);
