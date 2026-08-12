@@ -1,5 +1,6 @@
-import { describe, it, expect } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
@@ -13,20 +14,24 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
   </IntlProvider>
 );
 
-const longString = JSON.stringify('a'.repeat(500));
+const rawString = 'a'.repeat(500);
+const longString = JSON.stringify(rawString);
 
 describe('ModelTraceExplorerCodeSnippetBody', () => {
+  beforeEach(() => {
+    Object.defineProperty(global.navigator, 'clipboard', {
+      value: { writeText: jest.fn(async () => {}) },
+      writable: true,
+    });
+  });
+
   it('renders a copy button in JSON render mode', () => {
     const { container } = render(
       <ModelTraceExplorerCodeSnippetBody data={longString} renderMode={CodeSnippetRenderMode.JSON} />,
       { wrapper: Wrapper },
     );
 
-    // The DS Button spreads componentId as data-component-id onto the real DOM element.
-    // DesignSystemEventProvider.tsx line 225-226: componentId -> 'data-component-id'.
-    expect(
-      container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]')).not.toBeNull();
   });
 
   it('renders a copy button in markdown render mode', () => {
@@ -35,9 +40,6 @@ describe('ModelTraceExplorerCodeSnippetBody', () => {
       { wrapper: Wrapper },
     );
 
-    // The markdown branch uses componentId="shared.model-trace-explorer.copy-snippet-markdown",
-    // which is distinct from the JSON/text branch. This assertion verifies the markdown path
-    // specifically — a tooltip-portal failure cannot cause a false pass.
     expect(
       container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet-markdown"]'),
     ).not.toBeNull();
@@ -49,8 +51,24 @@ describe('ModelTraceExplorerCodeSnippetBody', () => {
       { wrapper: Wrapper },
     );
 
-    expect(
-      container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[data-component-id="shared.model-trace-explorer.copy-snippet"]')).not.toBeNull();
+  });
+
+  it('copies the full unescaped value in markdown mode while the preview is truncated', async () => {
+    const { container } = render(
+      <ModelTraceExplorerCodeSnippetBody data={longString} renderMode={CodeSnippetRenderMode.MARKDOWN} />,
+      { wrapper: Wrapper },
+    );
+
+    // the value is long enough to be truncated behind "See more"
+    expect(screen.getByText('See more')).toBeInTheDocument();
+
+    const copyButton = container.querySelector(
+      '[data-component-id="shared.model-trace-explorer.copy-snippet-markdown"]',
+    );
+    await userEvent.click(copyButton as Element);
+
+    // the full parsed value is copied, not the truncated preview or the raw JSON-escaped string
+    expect(global.navigator.clipboard.writeText).toHaveBeenCalledWith(rawString);
   });
 });

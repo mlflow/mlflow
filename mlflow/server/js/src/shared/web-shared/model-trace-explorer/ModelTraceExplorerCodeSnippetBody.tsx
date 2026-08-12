@@ -166,6 +166,8 @@ export function ModelTraceExplorerCodeSnippetBody({
           css={{
             position: 'relative',
             padding: theme.spacing.md,
+            // keep text clear of the floating copy button
+            paddingRight: theme.spacing.md * 2,
             backgroundColor: theme.colors.backgroundSecondary,
             marginBottom: -theme.spacing.md,
           }}
