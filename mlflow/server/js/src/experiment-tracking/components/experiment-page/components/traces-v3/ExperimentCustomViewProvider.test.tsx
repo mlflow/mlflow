@@ -11,10 +11,6 @@ import type {
   RenderCustomViewSpec,
 } from '@databricks/web-shared/model-trace-explorer/custom-view';
 
-// This suite exercises ONLY the OSS-specific wiring (MLflow Assistant open/
-// reset/prefill + the Tier 1 client-tool pause/resume + the pull-based context
-// provider), not the Databricks Genie/MFE RPC wiring the universe equivalent of
-// this file tests — that plumbing does not exist in OSS.
 // `useExperimentCustomViewDefinition` / `useCanEditExperimentCustomViews` / the
 // `@databricks/web-shared/model-trace-explorer/custom-view` barrel are stubbed
 // (and their inputs captured) so this test is isolated to the provider's own
