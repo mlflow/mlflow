@@ -6,6 +6,7 @@ on:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
       - .github/actions/setup-node/**
@@ -20,6 +21,7 @@ on:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
       - .github/actions/setup-node/**

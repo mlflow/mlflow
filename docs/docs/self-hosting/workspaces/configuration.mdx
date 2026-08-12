@@ -106,6 +106,28 @@ Use `--dry-run` to preview what would be moved without making changes, and `-y` 
 confirmation prompt. The command aborts if any resource name would conflict with an existing
 resource in the target workspace.
 
+### Retargeting experiment artifact roots
+
+By default, moving an experiment preserves its stored `artifact_location`, so artifacts from new
+runs keep using the pre-move storage path. Pass `--artifact-policy retarget` (experiments only)
+to repoint every moved experiment to the artifact root resolved for the target workspace:
+
+```bash
+mlflow db move-resources <database_uri> \
+  --from default --to team-a --resource-type experiments \
+  --name training-v1 --artifact-policy retarget \
+  --default-artifact-root s3://mlflow-artifacts
+```
+
+The target root comes from the workspace provider. A workspace-level `default_artifact_root` is
+used as is, otherwise pass `--default-artifact-root` with the value the tracking server is
+started with and the `workspaces/<name>` suffix is appended.
+
+Only the experiment's `artifact_location` changes, in the same transaction as the move. Artifact
+objects are not copied or deleted, and stored run, logged model and trace URIs stay unchanged, so
+everything already logged keeps resolving at its current location while new runs land under the
+target workspace's artifact root.
+
 ## Client Workspace Selection (summary)
 
 - Explicit: `mlflow.set_workspace("team-a")`
