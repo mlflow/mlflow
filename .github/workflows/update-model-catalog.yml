@@ -5,8 +5,8 @@ on:
     # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
     - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
-  # pull_request runs are a dry run: fetch, regenerate, and diff without a
-  # write token, skipping the tag push, PR creation, and release publish.
+  # pull_request runs only the dry-run job: fetch, regenerate, and diff
+  # without a write token, tag push, PR creation, or release publish.
   pull_request:
     paths:
       - .github/workflows/update-model-catalog.yml
@@ -21,8 +21,48 @@ defaults:
 permissions: {}
 
 jobs:
+  dry-run:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Fetch and transform model catalog
+        run: uv run python dev/update_model_catalog.py
+
+      - name: Regenerate claude-code pricing snapshot
+        working-directory: libs/typescript
+        run: |
+          # --ignore-scripts skips the root `prepare` script, which builds every
+          # workspace package; sync:pricing only needs node and prettier.
+          npm ci --ignore-scripts
+          npm run -C integrations/claude-code sync:pricing
+
+      - name: Run pre-commit on generated files
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
+
+      - name: Show what would be committed
+        run: git --no-pager diff --stat
+
   update-model-catalog:
-    if: github.repository == 'mlflow/mlflow'
+    if: github.event_name != 'pull_request' && github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -30,7 +70,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: github.event_name != 'pull_request'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -39,15 +78,9 @@ jobs:
           permission-pull-requests: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name != 'pull_request'
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request'
-        with:
-          persist-credentials: false
 
       - uses: ./.github/actions/setup-python
         with:
@@ -85,7 +118,7 @@ jobs:
           fi
 
       - name: Update model-catalog/latest tag
-        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true'
         run: |
           git fetch origin master --depth=1
           git tag -f model-catalog/latest origin/master
@@ -93,7 +126,7 @@ jobs:
 
       - name: Create or update pull request
         id: pr
-        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
@@ -130,7 +163,7 @@ jobs:
           exit 1
 
       - name: Publish to GitHub Releases
-        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: bash dev/publish_model_catalog.sh
