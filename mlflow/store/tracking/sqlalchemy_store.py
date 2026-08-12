@@ -273,6 +273,10 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
+# Chunk size for exact-identity recovery lookups in _log_metrics.
+# 100 keeps bound-parameter counts well under all supported dialect limits.
+_METRIC_DEDUP_CHUNK_SIZE = 100
+
 # Max deadlock retries for a DB-write path (start_trace/log_spans, log_metric/log_batch).
 # Deterministic key ordering is the primary defense; this bounded retry is the safety net.
 _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
@@ -1334,30 +1338,69 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # continue using the session. In this case, we re-use the session to query
                 # SqlMetric
                 session.rollback()
-                # Divide metric keys into batches of 100 to avoid loading too much metric
-                # history data into memory at once
-                metric_keys = list({m.key for m in metric_instances})
-                metric_key_batches = [
-                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
-                ]
-                # Iteratively filter out metric_instances per batch to avoid
-                # loading all metric history into memory at once
-                # (see https://github.com/mlflow/mlflow/issues/19144)
-                for metric_key_batch in metric_key_batches:
-                    # obtain the metric history corresponding to the given metrics
-                    metric_history = (
+                # Determine which metrics from this batch already exist in the DB.
+                # Uses chunked exact-PK lookups (OR-of-AND on all identity columns)
+                # so recovery work is bounded by the batch size rather than the run's
+                # history size. Each predicate matches at most one row, so recovery
+                # returns at most one row per candidate identity.
+                #
+                # This replaces an earlier approach that scanned the full per-key
+                # history and caused OOM / gateway timeouts on large runs
+                # (see https://github.com/mlflow/mlflow/issues/24577).
+
+                def _metric_id(key, timestamp, step, value, is_nan):
+                    """Build the dedup identity for a metric within one run.
+
+                    Covers metric_pk minus run_uuid: (key, timestamp, step, value, is_nan).
+                    NaN metrics are stored as value=0, is_nan=True; keying on is_nan
+                    (not float('nan')) avoids Python's nan != nan breaking set lookups.
+                    """
+                    return (key, timestamp, step, value, is_nan)
+
+                # Build an ordered identity-to-instance mapping. Using a dict
+                # preserves insertion order and deduplicates same-batch entries
+                # (e.g. multiple NaN objects that sanitize to the same DB identity).
+                metrics_by_id = {}
+                for m in metric_instances:
+                    metrics_by_id.setdefault(
+                        _metric_id(m.key, m.timestamp, m.step, m.value, m.is_nan), m
+                    )
+
+                candidates = list(metrics_by_id)
+
+                existing_ids = set()
+                for i in range(0, len(candidates), _METRIC_DEDUP_CHUNK_SIZE):
+                    chunk = candidates[i : i + _METRIC_DEDUP_CHUNK_SIZE]
+                    row_predicates = [
+                        and_(
+                            SqlMetric.key == key,
+                            SqlMetric.timestamp == timestamp,
+                            SqlMetric.step == step,
+                            SqlMetric.value == value,
+                            SqlMetric.is_nan == is_nan,
+                        )
+                        for key, timestamp, step, value, is_nan in chunk
+                    ]
+                    rows = (
                         session
-                        .query(SqlMetric)
+                        .query(
+                            SqlMetric.key,
+                            SqlMetric.timestamp,
+                            SqlMetric.step,
+                            SqlMetric.value,
+                            SqlMetric.is_nan,
+                        )
                         .filter(
                             SqlMetric.run_uuid == run_id,
-                            SqlMetric.key.in_(metric_key_batch),
+                            or_(*row_predicates),
                         )
                         .all()
                     )
-                    metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    metric_instances = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in metric_history
-                    ]
+                    existing_ids.update(_metric_id(*row) for row in rows)
+
+                metric_instances = [
+                    m for metric_id, m in metrics_by_id.items() if metric_id not in existing_ids
+                ]
                 # if there exist metrics that were tried to be logged & rolled back even
                 # though they were not violating the PK, log them
                 if non_existing_metrics := metric_instances:
