@@ -538,6 +538,36 @@ async def test_astream_forwards_empty_custom_view_messages_for_client_validation
 
 
 @pytest.mark.asyncio
+async def test_astream_reports_missing_structured_custom_view_response():
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert errors[0].data["error"] == "Codex did not return a structured Custom View response"
+
+
+@pytest.mark.asyncio
 async def test_astream_includes_model_flag_when_configured(tmp_path):
     config_file = tmp_path / "config.json"
     config_file.write_text('{"providers": {"codex": {"model": "o4-mini"}}}')

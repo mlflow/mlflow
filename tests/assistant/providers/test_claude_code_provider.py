@@ -397,6 +397,52 @@ async def test_astream_does_not_retry_invalid_custom_view_transport(tmp_path):
     assert "messages must be a JSON-encoded array" in errors[0].data["error"]
 
 
+@pytest.mark.asyncio
+async def test_astream_requires_session_id_in_structured_result(tmp_path):
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [{"version": "v0.9", "updateComponents": {}}],
+    }
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "structured_output": response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=process,
+        ),
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                session_id="previous-session-id",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert errors[0].data["error"] == "Claude Code result did not include a session ID"
+    assert not any(event.type == EventType.CLIENT_TOOL_CALL for event in events)
+
+
 def test_filter_structured_output_text_preserves_tool_blocks():
     message = {
         "type": "assistant",

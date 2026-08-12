@@ -267,6 +267,11 @@ class CodexProvider(AssistantProvider):
                 yield Event.from_error(error_msg)
             else:
                 if structured_custom_view:
+                    if structured_response_text is None:
+                        yield Event.from_error(
+                            "Codex did not return a structured Custom View response"
+                        )
+                        return
                     try:
                         response = parse_custom_view_response(structured_response_text)
                     except Exception as e:

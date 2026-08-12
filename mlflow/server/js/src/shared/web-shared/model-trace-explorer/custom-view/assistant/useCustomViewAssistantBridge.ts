@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { buildAgentDataSnapshot, buildCustomViewAuthoringGuide, type AgentTraceData } from '../agent/buildAgentPrompt';
+import { buildAgentDataSnapshot, type AgentTraceData } from '../agent/buildAgentPrompt';
 import { toCustomViewApplyTarget, type CustomView } from '../customViewDefinition';
 import { useCustomViewAssistantConnector, type OpenCustomViewAssistantOptions } from './CustomViewAssistantConnector';
 import { registerCustomViewAuthoringContext } from './customViewAuthoringContext';
@@ -9,9 +9,6 @@ import {
   registerCustomViewSpecApplier,
   type RenderCustomViewSpec,
 } from './customViewSpecApplier';
-
-// The static authoring guide is computed once — it has no per-trace state.
-const AUTHORING_GUIDE = buildCustomViewAuthoringGuide();
 
 export type CustomViewAssistantBridge = {
   isAvailable: boolean;
@@ -28,8 +25,8 @@ export type CustomViewAssistantBridge = {
  * Bridges the Custom View host to the host application's agent (MLflow
  * Assistant). It:
  *
- * 1. publishes the current authoring context (guide + this trace's snapshot +
- *    the active view's template) to a module-level store so the assistant's
+ * 1. publishes the current authoring context (this trace's snapshot + the
+ *    active view's template) to a module-level store so the assistant's
  *    context plugin can include it in the agent prompt;
  * 2. registers an applier so native tool calls and terminal structured responses
  *    can hand the agent-produced spec back to this host's `onSpec` (validate + render);
@@ -76,7 +73,6 @@ export const useCustomViewAssistantBridge = ({
       return;
     }
     return registerCustomViewAuthoringContext({
-      guide: AUTHORING_GUIDE,
       currentTemplate: activeView?.template,
       traceSample,
       applyTarget: activeView ? toCustomViewApplyTarget(activeView) : undefined,

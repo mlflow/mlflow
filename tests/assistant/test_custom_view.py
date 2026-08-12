@@ -51,13 +51,14 @@ def test_parse_response_with_stringified_messages():
     assert response.messages == messages
 
 
-def test_parse_response_rejects_invalid_stringified_messages():
+@pytest.mark.parametrize("messages", ["not-json", "{}", '"text"', "null"])
+def test_parse_response_rejects_invalid_stringified_messages(messages):
     with pytest.raises(ValidationError, match="messages must be a JSON-encoded array"):
         parse_custom_view_response({
             "type": "render_custom_view",
             "text": "Updated the view.",
             "title": "Trace Summary",
-            "messages": "not-json",
+            "messages": messages,
         })
 
 

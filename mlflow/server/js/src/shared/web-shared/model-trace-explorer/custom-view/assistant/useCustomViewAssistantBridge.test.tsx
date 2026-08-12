@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe('useCustomViewAssistantBridge', () => {
-  test('publishes the authoring context (guide + trace sample + template + applyTarget) while enabled', () => {
+  test('publishes the authoring context (trace sample + template + applyTarget) while enabled', () => {
     const view = activeView({ template: [{ version: 'v0.9' } as any] });
     const { unmount } = renderHook(() =>
       useCustomViewAssistantBridge({ data: traceData(), activeView: view, onSpec: noopOnSpec }),
@@ -52,7 +52,6 @@ describe('useCustomViewAssistantBridge', () => {
 
     const context = getCustomViewAuthoringContext();
     expect(context).not.toBeNull();
-    expect(context?.guide).toContain('CUSTOM TRACE VIEW AUTHORING MODE');
     expect(context?.currentTemplate).toBe(view.template);
     expect(context?.applyTarget).toMatchObject({ id: 'view-1', name: 'My view' });
     expect(context?.traceSample).toMatchObject({ metrics: { status: 'OK' } });

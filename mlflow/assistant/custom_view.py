@@ -80,9 +80,12 @@ The decoded string must start with "[", end with "]", and contain nothing after 
 
 def _parse_stringified_messages(value: str) -> Any:
     try:
-        return json.loads(value)
+        parsed = json.loads(value)
     except json.JSONDecodeError as e:
         raise ValueError("messages must be a JSON-encoded array") from e
+    if not isinstance(parsed, list):
+        raise ValueError("messages must be a JSON-encoded array")
+    return parsed
 
 
 class CustomViewResponse(BaseModel):

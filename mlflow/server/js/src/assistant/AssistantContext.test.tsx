@@ -836,6 +836,61 @@ describe('AssistantContext — client_tool_call auto-resume', () => {
     unregister();
   });
 
+  it('completes a terminal call with no registered handler without posting a result', async () => {
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    const callbacks = capturedCallbacks;
+    await act(async () => {
+      await callbacks?.onClientToolCall?.({
+        sessionId: 'session-1',
+        requestId: 'req-1',
+        toolName: 'unregistered_tool',
+        toolInput: {},
+        continuation: 'terminal',
+      });
+      callbacks?.onDone();
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it('completes a terminal non-retryable handler error without starting a repair', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Custom View rendering failed',
+      isError: true,
+      retryable: false,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    const callbacks = capturedCallbacks;
+    await act(async () => {
+      await callbacks?.onClientToolCall?.({
+        sessionId: 'session-1',
+        requestId: 'req-1',
+        toolName: 'render_custom_view',
+        toolInput: { title: 'Trace Summary', messages: [] },
+        continuation: 'terminal',
+      });
+      callbacks?.onDone();
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+
+    unregister();
+  });
+
   it('starts a hidden structured repair turn with the validation error and original context', async () => {
     const originalContext = {
       experimentId: 'exp-1',

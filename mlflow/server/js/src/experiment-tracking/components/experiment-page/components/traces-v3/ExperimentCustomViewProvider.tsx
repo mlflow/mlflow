@@ -49,6 +49,7 @@ export const ExperimentCustomViewProvider = ({
   const { views, isLoaded, persistView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
   const { openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming, activeProvider } = useAssistant();
+  const clientToolDelivery = activeProvider?.client_tool_delivery;
 
   const connector = useMemo<CustomViewAssistantConnector>(
     () => ({
@@ -63,14 +64,14 @@ export const ExperimentCustomViewProvider = ({
           // Submit the build directive immediately. A brand-new build requests a
           // fresh Assistant thread atomically so it cannot inherit an unrelated
           // conversation; prompted edits can continue the current thread.
-          const delivery = activeProvider?.client_tool_delivery === 'structured' ? 'structured' : 'tool';
+          const delivery = clientToolDelivery === 'structured' ? 'structured' : 'tool';
           sendMessageWhenReady(buildRenderCustomViewPrompt(instruction, delivery), options);
         }
       },
       isStreaming,
       isPending: Boolean(pendingAutomaticMessage),
     }),
-    [activeProvider, openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
+    [clientToolDelivery, openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
   );
 
   // The assistant backend delivers a `render_custom_view` client action. API-based
@@ -98,10 +99,10 @@ export const ExperimentCustomViewProvider = ({
   // serve the turn. The guide matches the provider's native-tool or structured-output
   // delivery mode so the model never receives conflicting output instructions.
   useEffect(() => {
-    if (!activeProvider?.client_tool_delivery || activeProvider.client_tool_delivery === 'unsupported') {
+    if (!clientToolDelivery || clientToolDelivery === 'unsupported') {
       return undefined;
     }
-    const deliveryMode = activeProvider.client_tool_delivery === 'structured' ? 'structured' : 'tool';
+    const deliveryMode = clientToolDelivery === 'structured' ? 'structured' : 'tool';
     return registerAssistantContextProvider('customTraceView', () => {
       const ctx = getCustomViewAuthoringContext();
       if (!ctx) {
@@ -116,7 +117,7 @@ export const ExperimentCustomViewProvider = ({
         currentTemplate: ctx.currentTemplate,
       };
     });
-  }, [activeProvider]);
+  }, [clientToolDelivery]);
 
   return (
     <CustomViewAssistantConnectorProvider connector={connector}>

@@ -609,18 +609,17 @@ class ClaudeCodeProvider(AssistantProvider):
                 )
                 yield Event.from_error(error_msg)
             elif structured_custom_view:
-                result_session_id = structured_session_id or session_id
+                if not structured_session_id:
+                    yield Event.from_error("Claude Code result did not include a session ID")
+                    return
                 try:
                     response = parse_custom_view_response(structured_response)
                 except Exception as e:
                     yield Event.from_error(f"Claude Code returned invalid Custom View output: {e}")
                     return
-                if not result_session_id:
-                    yield Event.from_error("Claude Code result did not include a session ID")
-                    return
                 for event in custom_view_response_events(response):
                     yield event
-                yield Event.from_result(result=None, session_id=result_session_id)
+                yield Event.from_result(result=None, session_id=structured_session_id)
 
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")

@@ -288,7 +288,6 @@ describe('ExperimentCustomViewProvider', () => {
       makeAssistant({ activeProvider: { client_tool_delivery: 'structured' } });
       const applyTarget = { id: 'v1', name: 'My view', instruction: 'do it', createdAtMs: 1 };
       mockGetCustomViewAuthoringContext.mockReturnValue({
-        guide: 'the-guide',
         traceSample: { foo: 'bar' },
         currentTemplate: [{ id: 'root' }],
         applyTarget,

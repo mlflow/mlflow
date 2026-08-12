@@ -1,18 +1,17 @@
 /**
- * Module-level store for the Custom View authoring context (the A2UI guide + the
- * current trace's data snapshot + the active view's template). The Custom View
- * host lives deep inside the trace drawer (web-shared), while the assistant's
- * page context is assembled at a higher level; rather than thread per-trace
- * state up through every layer, the host registers the current authoring
- * context here and the assistant's context plugin reads it when building the
- * agent prompt. Last-writer-wins (a single Custom View tab is open at a time).
+ * Module-level store for the Custom View authoring context (the current trace's
+ * data snapshot + the active view's template). The Custom View host lives deep
+ * inside the trace drawer (web-shared), while the assistant's page context is
+ * assembled at a higher level; rather than thread per-trace state up through
+ * every layer, the host registers the current authoring context here and the
+ * assistant's context plugin reads it when building the agent prompt.
+ * Last-writer-wins (a single Custom View tab is open at a time).
  */
 import type { A2uiMessage } from '@a2ui/web_core/v0_9';
 
 import type { CustomViewApplyTarget } from '../customViewDefinition';
 
 export type CustomViewAuthoringContext = {
-  guide: string;
   currentTemplate?: A2uiMessage[];
   traceSample: Record<string, unknown>;
   // The view `currentTemplate` was taken from. Published alongside the template
