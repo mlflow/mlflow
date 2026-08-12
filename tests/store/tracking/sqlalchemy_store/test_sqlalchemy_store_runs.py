@@ -2026,6 +2026,65 @@ def test_search_runs_datasets(store: SqlAlchemyStore):
     assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
 
+def test_search_runs_datasets_in_clause_digits_and_uppercase(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_datasets_in_clause")
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+
+    dataset1 = entities.Dataset(
+        name="123",
+        digest="06409663",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = entities.Dataset(
+        name="MyDataset",
+        digest="A1B2C3D4",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    context_tag1 = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="2024")]
+    context_tag2 = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="Train")]
+
+    store.log_inputs(run1.info.run_id, [entities.DatasetInput(dataset1, context_tag1)])
+    store.log_inputs(run2.info.run_id, [entities.DatasetInput(dataset2, context_tag2)])
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name IN ('123', 'MyDataset')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('06409663')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('A1B2C3D4')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context IN ('2024', 'Train')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+
 def test_search_runs_datasets_with_param_filters(store: SqlAlchemyStore):
     """Test that combining param/tag filters with dataset filters works correctly.
 
