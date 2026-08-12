@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786501220003,
+  "lastUpdate": 1786502350975,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -20843,6 +20843,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 16.940543333333835,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "58540575+jiahao6635@users.noreply.github.com",
+            "name": "Jiahao",
+            "username": "jiahao6635"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c46e5031f8450caca05646c63e21a9b38ca0c41f",
+          "message": "Fix `pydantic-ai-slim` version detection in autologging (#24959)\n\nSigned-off-by: 李嘉豪 <li15733056635@163.com>\nCo-authored-by: OpenAI Codex <noreply@openai.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-08-12T02:37:47Z",
+          "tree_id": "aeffa69beacbad2eeaf5d595e89e7f2f425c8e06",
+          "url": "https://github.com/mlflow/mlflow/commit/c46e5031f8450caca05646c63e21a9b38ca0c41f"
+        },
+        "date": 1786502348812,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 53.66292994999711,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.347897531915198,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.681647488372747,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.614683232759248,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.91264067500082,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.678138800004831,
             "unit": "ms"
           }
         ]
