@@ -360,6 +360,15 @@ def test_ndcg_at_k():
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
 
+    # When fewer than k docs are retrieved, IDCG must still use k so scores
+    # are not inflated to 1.0 for a single relevant hit (issue #24541).
+    predictions = pd.Series([["1"]])
+    targets = pd.Series([["1", "2", "3", "4", "5"]])
+    result = ndcg_at_k(5).eval_fn(predictions, targets)
+    # DCG@5 = 1; IDCG@5 = sum 1/log2(i+2) for i in 0..4 ≈ 2.948459
+    assert result.scores[0] == pytest.approx(1.0 / 2.948459122426006, rel=1e-5)
+    assert result.scores[0] < 0.5
+
 
 def test_bleu():
     predictions = ["hello world", "this is a test"]
