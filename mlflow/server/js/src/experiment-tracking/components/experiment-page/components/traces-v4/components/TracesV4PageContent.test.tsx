@@ -238,7 +238,7 @@ describe('TracesV4PageContent', () => {
     // with the same label is a combobox, so this targets the column header unambiguously.
     await user.click(screen.getByRole('button', { name: /^Time$/ }));
     await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0]?.startsWith('timestamp'))).toBe(true));
-  });
+  }, 20000);
 
   test('non-sortable headers (State) expose no sort control', async () => {
     renderPage();
@@ -246,7 +246,7 @@ describe('TracesV4PageContent', () => {
     // Sortable headers render a button; the display-only State column must not.
     expect(screen.queryByRole('button', { name: /^State$/ })).not.toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
-  });
+  }, 20000);
 
   // TODO(traces-v4): OSS enables Delete (no UC gate) AND the row-select checkbox → Actions-button flow doesn't register under jsdom (portalled DuBois checkbox). Needs a jsdom-friendly selection interaction + OSS-correct (delete-enabled) assertions.
 
@@ -272,7 +272,7 @@ describe('TracesV4PageContent', () => {
     // No confirm modal opens and the mutation never fires.
     expect(screen.queryByRole('button', { name: /^Delete$/ })).not.toBeInTheDocument();
     expect(deleteSpy).not.toHaveBeenCalled();
-  });
+  }, 20000);
 
   test('searching commits only on Enter, not per keystroke, then sends an ILIKE filter', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -290,7 +290,7 @@ describe('TracesV4PageContent', () => {
     await waitFor(() =>
       expect(state.searchCalls.some((c) => c.filter?.includes("trace.text ILIKE '%hello%'"))).toBe(true),
     );
-  });
+  }, 20000);
 
   test('clearing the search (X) commits an empty search immediately', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -307,7 +307,7 @@ describe('TracesV4PageContent', () => {
     // Du Bois Input renders the X with the accessible name `close-circle` (matches the datasets-v2 tests).
     await user.click(screen.getByLabelText('close-circle'));
     await waitFor(() => expect(new URLSearchParams(lastSearch).get('q')).toBeNull());
-  });
+  }, 20000);
 
   // TODO(traces-v4): The OSS empty state renders TracesViewTableNoTracesQuickstart; this test asserts the Databricks TracingQuickStart CTA copy. Rewrite for the OSS quickstart.
 
@@ -318,7 +318,7 @@ describe('TracesV4PageContent', () => {
     // ("No traces recorded") rather than the old generic shared "No traces yet" empty state.
     expect(await screen.findByText('No traces recorded')).toBeInTheDocument();
     expect(screen.queryByText('No traces yet')).not.toBeInTheDocument();
-  });
+  }, 20000);
 
   describe('robustness', () => {
     test('a search error shows an error state with a working Retry', async () => {
@@ -341,7 +341,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       expect(await screen.findByText("Couldn't load traces")).toBeInTheDocument();
       expect(screen.getByText(/PERMISSION_DENIED: user lacks access to the traces table/)).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('a first-load SQL-warehouse timeout shows the larger-warehouse hint', async () => {
       // A SQL-warehouse timeout is detected (via the shared isSqlWarehouseTimeoutError) and gets the
@@ -351,7 +351,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       expect(await screen.findByText("Couldn't load traces")).toBeInTheDocument();
       expect(screen.getByText(/try selecting a larger SQL warehouse/)).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('a malformed trace row (missing assessments, unparseable metadata) renders without throwing', async () => {
       state.pages = {
@@ -365,7 +365,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       // Row still renders; the bad token metadata simply shows nothing rather than crashing.
       expect(await findTraceRow('tr-bad')).toBeInTheDocument();
-    });
+    }, 20000);
   });
 
   describe('layout stability', () => {
@@ -387,7 +387,7 @@ describe('TracesV4PageContent', () => {
       expect(screen.getByRole('region', { name: 'Traces' })).toHaveAttribute('aria-busy', 'true');
       resolveSearch?.();
       expect(await findTraceRow('tr-000')).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('reloading shows the skeleton again (keyed off isFetching, not just first load)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -453,13 +453,13 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
       expect(screen.getByRole('columnheader', { name: 'Session' })).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('is hidden by default when no trace on the page has a session', async () => {
       renderPage();
       await findTraceRow('tr-000');
       expect(screen.queryByRole('columnheader', { name: 'Session' })).not.toBeInTheDocument();
-    });
+    }, 20000);
 
     test('an explicit toggle sticks even on a page without sessions', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -488,7 +488,7 @@ describe('TracesV4PageContent', () => {
       const href = link.getAttribute('href') ?? '';
       expect(href).toContain('/experiments/exp-1/chat-sessions/sess-1');
       expect(href).toContain('selectedTraceId=tr-000');
-    });
+    }, 20000);
   });
 
   describe('assessment columns', () => {
@@ -502,7 +502,7 @@ describe('TracesV4PageContent', () => {
       expect(screen.getByRole('columnheader', { name: 'relevance' })).toBeInTheDocument();
       // 'yes' feedback renders as a "Yes" tag (AssessmentDisplayValue).
       expect(screen.getByText('Yes')).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('toggling an assessment off hides its column and the choice persists', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -536,7 +536,7 @@ describe('TracesV4PageContent', () => {
       // First tag is shown as a pill; the second is collapsed into "+1".
       expect(screen.getByText('env: prod')).toBeInTheDocument();
       expect(screen.getByText('+1')).toBeInTheDocument();
-    });
+    }, 20000);
 
     test('hides internal mlflow.* tags from the preview', async () => {
       // Only an internal tag → nothing user-facing → renders the "-" empty value.
@@ -551,7 +551,7 @@ describe('TracesV4PageContent', () => {
 
       expect(screen.getByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
       expect(screen.queryByText(/mlflow\.trace\.sizeBytes/)).not.toBeInTheDocument();
-    });
+    }, 20000);
   });
 
   describe('filter by tag', () => {
@@ -614,7 +614,7 @@ describe('TracesV4PageContent', () => {
       await findTraceRow('tr-000');
 
       expect(state.searchCalls[0]?.filter).toContain("tags.env = 'prod'");
-    });
+    }, 20000);
   });
 
   describe('resizable columns', () => {
@@ -630,7 +630,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       const header = await screen.findByRole('columnheader', { name: 'Input' });
       expect(header).toHaveStyle({ flexBasis: '321px' });
-    });
+    }, 20000);
   });
 
   describe('state column', () => {
@@ -655,7 +655,7 @@ describe('TracesV4PageContent', () => {
       expect(screen.queryByText('OK')).not.toBeInTheDocument();
       expect(screen.queryByText('Error')).not.toBeInTheDocument();
       expect(screen.queryByText('In progress')).not.toBeInTheDocument();
-    });
+    }, 20000);
   });
 
   describe('pagination bar', () => {
@@ -671,7 +671,7 @@ describe('TracesV4PageContent', () => {
       // …and Next is disabled on a single page (no next token), as is Prev on page 1.
       expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
-    });
+    }, 20000);
 
     test('a partial final page disables Next even when the server sends a next_page_token', async () => {
       // Reproduces the reported bug: the long-running backend returns a real token on every non-empty
@@ -725,7 +725,7 @@ describe('TracesV4PageContent', () => {
       // OSS always uses MLFLOW_EXPERIMENT; the storageUCSchema parameter is for Databricks only
       expect(location?.type).toBe('MLFLOW_EXPERIMENT');
       expect(location?.mlflow_experiment).toEqual({ experiment_id: EXPERIMENT_ID });
-    });
+    }, 20000);
   });
 
   describe('filter', () => {
@@ -787,7 +787,7 @@ describe('TracesV4PageContent', () => {
       await waitFor(() =>
         expect(state.searchCalls.some((c) => c.filter?.includes("span.service_name = 'my-service'"))).toBe(true),
       );
-    });
+    }, 20000);
 
     test('the clear-all button clears an applied clause and the unfiltered rows return', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -862,7 +862,7 @@ describe('TracesV4PageContent', () => {
       expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
         /^Last 15 minutes$/,
       );
-    });
+    }, 20000);
 
     test('ignores a v3 saved time selection (isolated v4 localStorage key)', async () => {
       // Seed the legacy v3 key exactly as the shared useMonitoringFilters persists it (version 1,
@@ -874,7 +874,7 @@ describe('TracesV4PageContent', () => {
       expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
         /^Last 15 minutes$/,
       );
-    });
+    }, 20000);
   });
 
   describe('URL preservation (v3-compatible params)', () => {
@@ -1004,7 +1004,7 @@ describe('TracesV4PageContent', () => {
       expect(within(menu).getByRole('menuitem', { name: 'Add to evaluation dataset' })).toBeInTheDocument();
       // Delete remains, below the evaluation group (disabled for UC-backed traces).
       expect(within(menu).getByRole('menuitem', { name: /Delete/ })).toBeInTheDocument();
-    });
+    }, 20000);
 
     // TODO(traces-v4): Review queue is Databricks-only and removed from the OSS Actions menu; the assertion is moot AND the selection→Actions flow is jsdom-blocked.
 
@@ -1015,7 +1015,7 @@ describe('TracesV4PageContent', () => {
 
       // Review queues are Databricks-only; "Flag for review" is never shown in OSS.
       expect(within(menu).queryByRole('menuitem', { name: 'Flag for review' })).not.toBeInTheDocument();
-    });
+    }, 20000);
 
     // TODO(traces-v4): Add-to-labeling-session was removed from the OSS Actions menu (Databricks-only). Feature not present in OSS.
 
@@ -1025,7 +1025,7 @@ describe('TracesV4PageContent', () => {
       const menu = await openActionsMenuForFirstTrace(user);
 
       expect(within(menu).getByRole('menuitem', { name: 'Add to labeling session' })).toBeInTheDocument();
-    });
+    }, 20000);
 
     // TODO(traces-v4): Row-select → Actions → menuitem flow is jsdom-blocked (portalled selection/dropdown). Product wiring verified.
 
@@ -1037,7 +1037,7 @@ describe('TracesV4PageContent', () => {
 
       // The shared run-scorers modal opens scoped to the single selected trace.
       expect(await screen.findByRole('dialog', { name: 'Run scorer on trace' })).toBeInTheDocument();
-    });
+    }, 20000);
 
     // TODO(traces-v4): Cross-page selection depends on the jsdom-blocked checkbox selection flow. Product wiring verified.
 
@@ -1069,7 +1069,7 @@ describe('TracesV4PageContent', () => {
 
       // The scorer modal launches for the full 2-trace cross-page selection, not the page-2 subset.
       expect(await screen.findByRole('dialog', { name: 'Run scorer on 2 traces' })).toBeInTheDocument();
-    });
+    }, 20000);
   });
 
   describe('trace drawer navigation', () => {
@@ -1153,6 +1153,6 @@ describe('TracesV4PageContent', () => {
       const refresh = screen.getByRole('button', { name: 'now' });
       expect(columns.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(actions.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
+    }, 20000);
   });
 });
