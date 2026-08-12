@@ -392,6 +392,7 @@ describe('AssistantContext — automatic message delivery', () => {
       result.current.sendMessageWhenReady('build a view', { newSession: true });
     });
 
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
     expect(result.current.pendingAutomaticMessage).toBeNull();
     expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build a view' });
     expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');

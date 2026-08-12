@@ -1002,19 +1002,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleSendMessage(message, options);
   }, [pendingAutomaticMessage, handleSendMessage]);
 
-  const sendMessageWhenReady = useCallback(
-    (message: string, options?: SendMessageOptions) => {
-      // Automatic delivery is distinct from composer prefilling: retain the
-      // message and its session options until the selected provider can send it.
-      setPendingPrompt(null);
-      if (!canUseAssistant || isLoadingConfig || !setupComplete || !activeProvider || needsApiKey) {
-        setPendingAutomaticMessage({ message, options });
-        return;
-      }
-      handleSendMessage(message, options);
-    },
-    [canUseAssistant, isLoadingConfig, setupComplete, activeProvider, needsApiKey, handleSendMessage],
-  );
+  const sendMessageWhenReady = useCallback((message: string, options?: SendMessageOptions) => {
+    // Automatic delivery is distinct from composer prefilling: retain the
+    // message and its session options until the selected provider can send it.
+    setPendingPrompt(null);
+    setPendingAutomaticMessage({ message, options });
+  }, []);
 
   useEffect(() => {
     if (
