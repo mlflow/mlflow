@@ -746,6 +746,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       setErrorCode(null);
       setIsStreaming(true);
+      // A direct send supersedes any prompt queued for the composer.
+      setPendingPrompt(null);
       // A new message supersedes any prompt the user was deciding on. Clearing it
       // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
       // backend closes the orphaned tool call out as cancelled.
@@ -790,7 +792,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         const result = await sendMessageStream(
           {
             message: prompt || '',
-            session_id: sessionId ?? undefined,
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
@@ -806,15 +807,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      beginRequest,
-      attachStreamIfCurrent,
-      flushPendingProvider,
-      getPageContext,
-      streamCallbacks,
-      failStreamingTurn,
-    ],
+    [beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks, failStreamingTurn],
   );
 
   const respondToPermission = useCallback(
@@ -908,7 +901,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, [pendingClientToolCall, submitClientToolResult]);
 
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, options?: { newSession?: boolean }) => {
+      if (options?.newSession) {
+        // Reset and start through the explicit fresh-chat path in the same
+        // action. Calling reset() followed by the regular session-aware branch
+        // would still see this render's stale sessionId closure.
+        reset();
+        startChat(message);
+        return;
+      }
       if (!sessionId) {
         startChat(message);
         return;
@@ -974,6 +975,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      reset,
       startChat,
       beginRequest,
       attachStreamIfCurrent,

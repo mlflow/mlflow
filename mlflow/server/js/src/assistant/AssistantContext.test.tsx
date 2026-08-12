@@ -172,6 +172,35 @@ describe('AssistantContext — reset() tears down the active stream', () => {
     expect(result.current.sessionId).toBeNull();
     expect(result.current.messages).toHaveLength(0);
   });
+
+  it('atomically sends a new-session message without reusing the current session id', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('old turn');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-OLD');
+      result.current.prefillPrompt('stale composer prompt');
+    });
+    expect(result.current.sessionId).toBe('session-OLD');
+
+    mockSendMessageStream.mockClear();
+    fakeEventSource.close.mockClear();
+    await act(async () => {
+      result.current.sendMessage('fresh turn', { newSession: true });
+    });
+
+    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'fresh turn' });
+    expect(result.current.pendingPrompt).toBeNull();
+    expect(result.current.messages.map(({ role, content }) => ({ role, content }))).toEqual([
+      { role: 'user', content: 'fresh turn' },
+      { role: 'assistant', content: '' },
+    ]);
+  });
 });
 
 describe('AssistantContext — reset() during the in-flight send window', () => {

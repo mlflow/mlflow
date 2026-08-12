@@ -20,8 +20,8 @@ import { registerClientToolHandler } from '../../../../../assistant/clientToolHa
 import { registerAssistantContextProvider } from '../../../../../assistant/contextProviders';
 
 // The empty-state prompt box hands us the user's natural-language request. This
-// prompt is seeded ONLY for the initial build (handleSubmitPrompt); the edit flow
-// (handleEditWithAssistant) seeds nothing, just opens the panel.
+// prompt is submitted ONLY for the initial build (handleSubmitPrompt); the edit
+// flow (handleEditWithAssistant) sends nothing and just opens the panel.
 const buildRenderCustomViewPrompt = (request: string): string =>
   [`Build my custom trace view: "${request}".`, '', 'Use the `render_custom_view` tool to build this view.'].join('\n');
 
@@ -40,33 +40,27 @@ export const ExperimentCustomViewProvider = ({
 }) => {
   const { views, isLoaded, persistView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
-  const { openPanel, prefillPrompt, reset, isStreaming, activeProvider } = useAssistant();
+  const { openPanel, sendMessage, isStreaming, activeProvider } = useAssistant();
 
   const connector = useMemo<CustomViewAssistantConnector>(
     () => ({
       openAssistant: (prompt?: string, options?: OpenCustomViewAssistantOptions) => {
         const instruction = prompt?.trim();
-        // Building a brand-new custom view: start a FRESH assistant session so the
-        // build doesn't inherit an unrelated conversation. Edits omit newSession and
-        // reuse the current thread.
-        if (options?.newSession) {
-          reset();
-        }
         openPanel();
         // "Edit with assistant" (no instruction): just open/focus the panel. The
         // custom-view authoring context is already published while the tab is open
         // (see useCustomViewAssistantBridge), so the user can describe the change
         // with full context instead of us auto-triggering an unprompted rebuild.
         if (instruction) {
-          // Empty-state "Build with assistant": seed the composer with the directive
-          // for the user to review and send, rather than auto-firing it — MLflow
-          // Assistant always shows the user their own outgoing message.
-          prefillPrompt(buildRenderCustomViewPrompt(instruction));
+          // Submit the build directive immediately. A brand-new build requests a
+          // fresh Assistant thread atomically so it cannot inherit an unrelated
+          // conversation; prompted edits can continue the current thread.
+          sendMessage(buildRenderCustomViewPrompt(instruction), options);
         }
       },
       isStreaming,
     }),
-    [openPanel, prefillPrompt, reset, isStreaming],
+    [openPanel, sendMessage, isStreaming],
   );
 
   // Tier 1 (Gateway/Ollama): the assistant backend calls a real `render_custom_view`

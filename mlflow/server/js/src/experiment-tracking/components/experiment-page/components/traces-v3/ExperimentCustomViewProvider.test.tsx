@@ -12,7 +12,7 @@ import type {
 } from '@databricks/web-shared/model-trace-explorer/custom-view';
 
 // This suite exercises ONLY the OSS-specific wiring (MLflow Assistant open/
-// reset/prefill + the Tier 1 client-tool pause/resume + the pull-based context
+// direct send + the Tier 1 client-tool pause/resume + the pull-based context
 // provider), not the Databricks Genie/MFE RPC wiring the universe equivalent of
 // this file tests — that plumbing does not exist in OSS.
 // `useExperimentCustomViewDefinition` / `useCanEditExperimentCustomViews` / the
@@ -85,8 +85,7 @@ const mockUseAssistant = jest.mocked(useAssistant);
 const makeAssistant = (overrides: Record<string, unknown> = {}) => {
   const value = {
     openPanel: jest.fn(),
-    prefillPrompt: jest.fn(),
-    reset: jest.fn(),
+    sendMessage: jest.fn(),
     isStreaming: false,
     activeProvider: null,
     ...overrides,
@@ -130,18 +129,19 @@ describe('ExperimentCustomViewProvider', () => {
   });
 
   describe('connector.openAssistant', () => {
-    it('starts a fresh session, opens the panel, and prefills a render_custom_view directive for a new build', () => {
+    it('opens the panel and directly submits a render_custom_view directive in a fresh session', () => {
       const assistant = makeAssistant();
       renderProvider();
 
       capturedConnectorProviderProps?.connector.openAssistant?.('Show me the failed spans', { newSession: true });
 
-      expect(assistant.reset).toHaveBeenCalledTimes(1);
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).toHaveBeenCalledTimes(1);
-      const [prefilled] = jest.mocked(assistant.prefillPrompt).mock.calls[0];
-      expect(prefilled).toContain('Show me the failed spans');
-      expect(prefilled).toContain('render_custom_view');
+      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('Show me the failed spans'), {
+        newSession: true,
+      });
+      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
+        newSession: true,
+      });
     });
 
     it('reuses the current session (no reset) for a prompted edit without newSession', () => {
@@ -150,20 +150,18 @@ describe('ExperimentCustomViewProvider', () => {
 
       capturedConnectorProviderProps?.connector.openAssistant?.('Add a chart');
 
-      expect(assistant.reset).not.toHaveBeenCalled();
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).toHaveBeenCalledTimes(1);
+      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
     });
 
-    it('only opens the panel for "Edit with Assistant" (no prompt), seeding nothing', () => {
+    it('only opens the panel for "Edit with Assistant" when there is no prompt', () => {
       const assistant = makeAssistant();
       renderProvider();
 
       capturedConnectorProviderProps?.connector.openAssistant?.();
 
-      expect(assistant.reset).not.toHaveBeenCalled();
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).not.toHaveBeenCalled();
+      expect(assistant.sendMessage).not.toHaveBeenCalled();
     });
 
     it('exposes the assistant context streaming state on the connector', () => {

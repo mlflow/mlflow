@@ -274,8 +274,8 @@ export interface AssistantAgentActions {
   openPanel: () => void;
   /** Close the Assistant panel */
   closePanel: () => void;
-  /** Send a message to Assistant */
-  sendMessage: (message: string) => void;
+  /** Send a message to Assistant, optionally starting a fresh conversation */
+  sendMessage: (message: string, options?: { newSession?: boolean }) => void;
   /** Optimistically switch the active provider (persisted on the next send). */
   selectProvider: (selection: AssistantProviderSelection) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives setup/settings navigation) */

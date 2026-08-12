@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react';
 
 /** Options for opening the assistant chat panel. */
 export type OpenCustomViewAssistantOptions = {
-  // Start a FRESH assistant session (thread) before opening. Set only when
+  // Submit the prompt in a FRESH assistant session (thread). Set only when
   // building a brand-new custom view; edits reuse the current session so the
   // conversation continues.
   newSession?: boolean;
@@ -11,8 +11,8 @@ export type OpenCustomViewAssistantOptions = {
 
 /**
  * Connects the Custom View to the host application's agent (MLflow Assistant).
- * The host app provides a way to open the assistant chat panel (optionally
- * seeded with a prompt) and reports whether the assistant is currently
+ * The host app provides a way to open the assistant chat panel and optionally
+ * submit a prompt immediately, and reports whether the assistant is currently
  * streaming.
  */
 export type CustomViewAssistantConnector = {
