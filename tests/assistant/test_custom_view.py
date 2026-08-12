@@ -2,7 +2,6 @@ import json
 from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
 
 from mlflow.assistant.custom_view import (
     CUSTOM_VIEW_RESPONSE_SCHEMA,
@@ -52,14 +51,19 @@ def test_parse_response_with_stringified_messages():
 
 
 @pytest.mark.parametrize("messages", ["not-json", "{}", '"text"', "null"])
-def test_parse_response_rejects_invalid_stringified_messages(messages):
-    with pytest.raises(ValidationError, match="messages must be a JSON-encoded array"):
-        parse_custom_view_response({
-            "type": "render_custom_view",
-            "text": "Updated the view.",
-            "title": "Trace Summary",
-            "messages": messages,
-        })
+def test_parse_response_leaves_invalid_stringified_messages_for_client_validation(messages):
+    response = parse_custom_view_response({
+        "type": "render_custom_view",
+        "text": "Updated the view.",
+        "title": "Trace Summary",
+        "messages": messages,
+    })
+
+    assert response.messages == messages
+
+    events = custom_view_response_events(response)
+    client_tool_call = next(event for event in events if event.type == EventType.CLIENT_TOOL_CALL)
+    assert client_tool_call.data["tool_input"]["messages"] == messages
 
 
 def test_parse_render_response_allows_empty_title():

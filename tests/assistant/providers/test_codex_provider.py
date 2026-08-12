@@ -454,7 +454,7 @@ async def test_astream_cleans_up_custom_view_schema_when_serialization_fails(tmp
 
 
 @pytest.mark.asyncio
-async def test_astream_does_not_retry_invalid_custom_view_transport():
+async def test_astream_forwards_invalid_custom_view_transport_for_client_validation():
     invalid_response = {
         "type": "render_custom_view",
         "text": "Created the trace summary.",
@@ -489,9 +489,10 @@ async def test_astream_does_not_retry_invalid_custom_view_transport():
         ]
 
     mock_exec.assert_called_once()
-    errors = [event for event in events if event.type == EventType.ERROR]
-    assert len(errors) == 1
-    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert not any(event.type == EventType.ERROR for event in events)
+    client_tool_calls = [event for event in events if event.type == EventType.CLIENT_TOOL_CALL]
+    assert len(client_tool_calls) == 1
+    assert client_tool_calls[0].data["tool_input"]["messages"] == "not-json"
 
 
 @pytest.mark.asyncio
