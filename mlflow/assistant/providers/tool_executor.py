@@ -35,6 +35,69 @@ def _resolve_file_path(raw_path: str, cwd: Path | None) -> Path:
     return p.resolve()
 
 
+def _extract_option_value(argv: list[str], names: set[str]) -> str | None:
+    """Return the value passed to any of the given CLI option names (e.g. {"-u",
+    "--artifact-uri"}), handling both "--name value" and "--name=value" forms. None if
+    the option isn't present or has no value.
+    """
+    for i, tok in enumerate(argv):
+        if tok in names and i + 1 < len(argv):
+            return argv[i + 1]
+        for name in names:
+            if tok.startswith(name + "="):
+                return tok[len(name) + 1 :]
+    return None
+
+
+def _mlflow_subcommand_denial(argv: list[str], cwd: Path | None) -> str | None:
+    """Deny mlflow CLI subcommands that can touch the local filesystem or execute code
+    independently of any configured project directory, unlike ordinary read-only
+    commands (e.g. ``--version``, ``experiments search``), which stay usable without one.
+    """
+    subcommand = argv[1] if len(argv) > 1 else None
+
+    # "mlflow run <uri>" executes the target project's entry-point ``command:`` via a
+    # real shell (see mlflow/projects/backend/local.py), regardless of cwd. There's no
+    # argument to validate here: the entry point is arbitrary shell content by design,
+    # so this is denied outright rather than gated like the checks below.
+    if subcommand == "run":
+        return "Permission denied: mlflow run is not allowed outside full access"
+
+    if subcommand == "artifacts":
+        artifacts_subcommand = argv[2] if len(argv) > 2 else None
+        # "list" only returns metadata for a run's already-tracked artifacts; it can't
+        # reach an arbitrary local path, so it needs no extra check.
+        if artifacts_subcommand not in {"download", "log-artifact", "log-artifacts"}:
+            return None
+        # download/log-artifact/log-artifacts read or write local filesystem paths that
+        # mlflow does not confine to any workspace on its own, so require the same
+        # configured project directory Read/Write/Edit/python do.
+        if cwd is None:
+            return "Permission denied: mlflow artifacts requires a configured project directory"
+
+        if artifacts_subcommand == "download":
+            # A "file://" artifact URI is a raw absolute filesystem path, independent of
+            # any run/experiment tracking and of --dst-path; runs:/, models:/, s3://, etc.
+            # go through real tracked storage and are unaffected.
+            artifact_uri = _extract_option_value(argv, {"-u", "--artifact-uri"})
+            if artifact_uri and artifact_uri.lower().startswith("file://"):
+                return "Permission denied: mlflow artifacts download does not allow file:// URIs"
+            path_value, flag = _extract_option_value(argv, {"-d", "--dst-path"}), "--dst-path"
+        else:
+            path_value = _extract_option_value(argv, {"-l", "--local-file", "--local-dir"})
+            flag = "--local-file/--local-dir"
+
+        if path_value:
+            try:
+                target = _resolve_file_path(path_value, cwd)
+            except (ValueError, OSError):
+                return f"Permission denied: malformed path {path_value!r}"
+            if not _is_path_within(target, cwd):
+                return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
+
+    return None
+
+
 def static_permission_error(
     tool_name: str,
     tool_input: dict[str, Any],
@@ -68,11 +131,16 @@ def static_permission_error(
         # Read/Write/Edit do below. Without this, GHSA-27c7-qx3r-x4f8's impact
         # (arbitrary file read when cwd is None) is reachable via
         # Bash("python3 -c \"print(open(path).read())\"") even though Read
-        # itself is denied. mlflow CLI commands are unaffected: they don't
-        # carry the same arbitrary file-access surface, so they stay usable
-        # without a configured project directory.
+        # itself is denied.
         if argv[0] in {"python", "python3"} and cwd is None:
             return f"Permission denied: {argv[0]} requires a configured project directory"
+
+        # Most mlflow CLI commands (--version, experiments search, runs list, ...) don't
+        # carry an arbitrary file-access or code-execution surface and stay usable
+        # without a configured project directory. A few specific subcommands do and are
+        # checked individually rather than gated by cwd alone.
+        if argv[0] == "mlflow" and (denial := _mlflow_subcommand_denial(argv, cwd)) is not None:
+            return denial
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
         return f"Permission denied: {tool_name} is not allowed"

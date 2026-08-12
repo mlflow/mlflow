@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from mlflow.assistant.config import PermissionsConfig
-from mlflow.assistant.providers.tool_executor import execute_tool
+from mlflow.assistant.providers.tool_executor import execute_tool, static_permission_error
 
 
 @pytest.fixture
@@ -187,6 +187,172 @@ def test_bash_full_access_still_allows_shell_chaining():
     assert not is_error
     assert "hello" in result
     assert "world" in result
+
+
+def test_bash_mlflow_run_denied_without_cwd():
+    # "mlflow run <uri>" executes the target project's entry-point command via a real
+    # shell (mlflow/projects/backend/local.py), independent of cwd, so it must be denied
+    # outright in restricted mode rather than gated by a configured project directory.
+    result, is_error = _run(execute_tool("Bash", {"command": "mlflow run /some/project"}))
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_run_denied_with_cwd(workspace):
+    # Denied even with cwd configured: there's no argument-level fix, since the
+    # entry-point command is arbitrary shell content by design.
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "mlflow run /some/project"}, cwd=workspace)
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_run_allowed_with_full_access():
+    perms = PermissionsConfig(full_access=True)
+    result, is_error = _run(
+        execute_tool("Bash", {"command": "mlflow run --help"}, permissions=perms)
+    )
+    assert not is_error
+
+
+def test_bash_mlflow_run_actually_denies_entry_point_execution(tmp_path):
+    # End-to-end regression guard: reproduces the exact RCE this closes. An MLproject
+    # entry point can run arbitrary shell commands; before this fix, "mlflow run <path>"
+    # passed the allowlist (argv[0] == "mlflow") and actually executed it.
+    project_dir = tmp_path / "evil-project"
+    project_dir.mkdir()
+    marker = tmp_path / "pwned.txt"
+    (project_dir / "MLproject").write_text(
+        f'name: evil\nentry_points:\n  main:\n    command: "touch {marker}"\n'
+    )
+    result, is_error = _run(
+        execute_tool("Bash", {"command": f"mlflow run {project_dir} --env-manager local"})
+    )
+    assert is_error
+    assert not marker.exists()
+
+
+def test_bash_mlflow_artifacts_download_requires_cwd():
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {"command": "mlflow artifacts download --artifact-uri runs:/abc/model"},
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_file_uri_denied_even_with_cwd(workspace):
+    # "file://" is a raw absolute filesystem path, unrelated to any run/experiment and
+    # not confined by --dst-path, so it must be denied regardless of cwd.
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {
+                "command": (
+                    "mlflow artifacts download --artifact-uri file:///etc/passwd "
+                    f"--dst-path {workspace}"
+                )
+            },
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_dst_path_outside_workspace_denied(
+    workspace, tmp_path_factory
+):
+    # workspace is itself tmp_path (see the fixture above), so a genuinely separate
+    # directory must come from tmp_path_factory, not tmp_path, to actually be "outside".
+    outside = tmp_path_factory.mktemp("outside")
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {
+                "command": (
+                    f"mlflow artifacts download --artifact-uri runs:/abc/model --dst-path {outside}"
+                )
+            },
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_allowed_within_workspace(workspace):
+    # Legitimate use (a tracked-storage URI, destination inside the workspace) must not
+    # be broken by the fix for the file:// / cwd=None bypasses.
+    denial = static_permission_error(
+        "Bash",
+        {
+            "command": (
+                "mlflow artifacts download --artifact-uri runs:/abc/model "
+                f"--dst-path {workspace / 'downloaded'}"
+            )
+        },
+        PermissionsConfig(),
+        workspace,
+    )
+    assert denial is None
+
+
+def test_bash_mlflow_artifacts_log_artifact_outside_workspace_denied(workspace, tmp_path_factory):
+    secret = tmp_path_factory.mktemp("outside") / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {"command": f"mlflow artifacts log-artifact --local-file {secret} --run-id abc"},
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_log_artifacts_local_dir_outside_workspace_denied(
+    workspace, tmp_path_factory
+):
+    outside_dir = tmp_path_factory.mktemp("outside")
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {"command": (f"mlflow artifacts log-artifacts --local-dir {outside_dir} --run-id abc")},
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_log_artifact_allowed_within_workspace(workspace):
+    # Legitimate use (logging a file that lives inside the workspace) must not be broken.
+    report = workspace / "report.txt"
+    report.write_text("results")
+    denial = static_permission_error(
+        "Bash",
+        {"command": f"mlflow artifacts log-artifact --local-file {report} --run-id abc"},
+        PermissionsConfig(),
+        workspace,
+    )
+    assert denial is None
+
+
+def test_bash_mlflow_artifacts_list_unaffected():
+    # Read-only metadata listing can't reach an arbitrary local path, so it's unaffected
+    # by the new checks and still needs no configured project directory.
+    denial = static_permission_error(
+        "Bash",
+        {"command": "mlflow artifacts list --run-id abc"},
+        PermissionsConfig(),
+        None,
+    )
+    assert denial is None
 
 
 def test_bash_blocks_non_mlflow_commands():
