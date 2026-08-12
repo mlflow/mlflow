@@ -485,9 +485,8 @@ def prepopulate_trace_analytics(
             )
     except sa.exc.OperationalError as e:
         raise RuntimeError(
-            "Could not add the trace analytics columns. Adding columns requires brief exclusive "
-            "table locks; verify ALTER permission and retry during a low-traffic period after "
-            "long-running transactions finish."
+            "Could not add the trace analytics columns. Verify ALTER permission and retry during a "
+            "low-traffic period after long-running transactions finish."
         ) from e
 
     with engine.connect() as connection:

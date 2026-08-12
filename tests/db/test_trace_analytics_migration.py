@@ -370,6 +370,7 @@ def test_trace_analytics_migration_operation_order(monkeypatch):
         "_backfill_span_analytics",
         "_backfill_assessment_analytics",
         "_validate_backfill",
+        "_finalize_assessment_not_null",
         "_create_rollup_tables",
         "_create_analytics_indexes",
         "_cleanup_legacy_analytics",

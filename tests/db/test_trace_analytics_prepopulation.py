@@ -563,12 +563,39 @@ def test_prepopulation_schema_contract_matches_orm_models(tmp_path):
                 assert trace_analytics.types_are_compatible(
                     expected.type, actual.type, engine.dialect
                 )
-                assert expected.nullable == actual.nullable
+                if expected.name == "is_numeric_value":
+                    # The prepopulation helper adds is_numeric_value nullable for a fast online
+                    # schema change; the offline migration tightens it to NOT NULL to match the ORM.
+                    assert expected.nullable
+                    assert not actual.nullable
+                else:
+                    assert expected.nullable == actual.nullable
                 assert (expected.server_default is None) == (actual.server_default is None)
                 if expected.server_default is not None:
                     assert trace_analytics._normalized_false_default(actual.server_default.arg)
     finally:
         engine.dispose()
+
+
+def test_frozen_migration_columns_match_the_live_helper():
+    live_columns_by_table = trace_analytics.analytics_columns_by_table()
+    frozen_columns_by_table = MIGRATION_MODULE._analytics_columns_by_table()
+    assert live_columns_by_table.keys() == frozen_columns_by_table.keys()
+
+    dialect = sqlite.dialect()
+    for table_name, live_columns in live_columns_by_table.items():
+        frozen_columns = {column.name: column for column in frozen_columns_by_table[table_name]}
+        assert {column.name for column in live_columns} == set(frozen_columns)
+        for live_column in live_columns:
+            frozen_column = frozen_columns[live_column.name]
+            assert trace_analytics.types_are_compatible(
+                live_column.type, frozen_column.type, dialect
+            )
+            assert trace_analytics.types_are_compatible(
+                frozen_column.type, live_column.type, dialect
+            )
+            assert live_column.nullable == frozen_column.nullable
+            assert (live_column.server_default is None) == (frozen_column.server_default is None)
 
 
 @pytest.mark.parametrize(

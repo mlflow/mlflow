@@ -43,10 +43,13 @@ def analytics_columns_by_table() -> dict[str, list[sa.Column]]:
             sa.Column("experiment_id", sa.Integer(), nullable=True),
             sa.Column("trace_timestamp_ms", sa.BigInteger(), nullable=True),
             sa.Column("aggregate_value", sa.Float(precision=53), nullable=True),
+            # Added nullable so the online prepopulation utility expands the schema with a fast
+            # metadata-only ALTER. The offline migration tightens it to NOT NULL to match the ORM
+            # model; the false server default keeps a concurrent insert from leaving a NULL.
             sa.Column(
                 "is_numeric_value",
                 sa.Boolean(),
-                nullable=False,
+                nullable=True,
                 server_default=sa.false(),
             ),
         ],

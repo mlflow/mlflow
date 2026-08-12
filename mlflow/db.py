@@ -38,8 +38,8 @@ def upgrade(url):
     default=250,
     show_default=True,
     help=(
-        "Number of rows processed per committed transaction. The 250-row limit bounds lock "
-        "duration and stays below supported-database parameter limits."
+        "Number of rows processed per committed transaction. The 250-row limit keeps each "
+        "transaction below supported-database parameter limits."
     ),
 )
 def prepopulate_trace_analytics(url, batch_size):
@@ -54,8 +54,8 @@ def prepopulate_trace_analytics(url, batch_size):
     analytics data. The final `mlflow db upgrade` is still required and remains the authoritative
     validation and cleanup step.
 
-    Adding the columns requires brief exclusive table locks. Run the command during a low-traffic
-    period; it fails quickly if those locks cannot be acquired.
+    Do not run this command concurrently with `mlflow db upgrade`. Run it to completion first, then
+    run the upgrade. Prefer a low-traffic period.
 
     Always take a database backup before changing the schema.
     """
