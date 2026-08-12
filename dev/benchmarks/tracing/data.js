@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786552633092,
+  "lastUpdate": 1786554266695,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21329,6 +21329,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 17.304359600007047,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yunli@redhat.com",
+            "name": "kaikaila",
+            "username": "kaikaila"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e6a3c7130936493adc148e111cfae0e9c0e712de",
+          "message": "fix: Stop `SearchUtils._get_value` from silently dropping dataset IN clause values (#25045)\n\nSigned-off-by: Yunkai Li <yunli@redhat.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-12T17:03:06Z",
+          "tree_id": "ccff7e4669f29f30dc70512b08b830ef9b166e8d",
+          "url": "https://github.com/mlflow/mlflow/commit/e6a3c7130936493adc148e111cfae0e9c0e712de"
+        },
+        "date": 1786554264473,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.16799450000275,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.918134150944281,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.500605537414041,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.473267931035309,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.8640477000007145,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 48.95578799999498,
             "unit": "ms"
           }
         ]
