@@ -386,6 +386,39 @@ def test_model_to_chat():
     assert result.choices[0].message.content == "Hello!"
 
 
+def test_model_to_chat_preserves_provider_usage_fields():
+    config = _make_endpoint_config()
+    resp = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "test-model",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+            "cost": 0.001,
+            "cost_details": {"upstream_inference_cost": 0.0008},
+            "prompt_tokens_details": {"cached_tokens": 2},
+        },
+    }
+
+    result = OpenAICompatibleAdapter.model_to_chat(resp, config)
+    usage = result.usage
+
+    assert usage.cost == 0.001
+    assert usage.cost_details == {"upstream_inference_cost": 0.0008}
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 2
+
+
 def test_model_to_embeddings():
     config = _make_endpoint_config()
     resp = {

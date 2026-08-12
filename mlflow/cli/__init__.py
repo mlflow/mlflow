@@ -361,6 +361,8 @@ def _validate_static_prefix(ctx, param, value):
             raise UsageError("--static-prefix must begin with a '/'.")
         if value.endswith("/"):
             raise UsageError("--static-prefix should not end with a '/'.")
+        if "{" in value or "}" in value:
+            raise UsageError("--static-prefix must not contain '{' or '}'.")
     return value
 
 
