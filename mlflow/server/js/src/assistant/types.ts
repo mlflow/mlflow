@@ -226,6 +226,15 @@ export interface TokenUsage {
   costUsd: number | null;
 }
 
+export interface SendMessageOptions {
+  newSession?: boolean;
+}
+
+export interface PendingAutomaticMessage {
+  message: string;
+  options?: SendMessageOptions;
+}
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -259,6 +268,8 @@ export interface AssistantAgentState {
   needsApiKey: boolean;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
+  /** A message waiting for Assistant setup or credentials before it can be sent automatically */
+  pendingAutomaticMessage: PendingAutomaticMessage | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
   pendingPermission: PermissionRequest | null;
   /** A tool call awaiting client-side execution (e.g. rendering a UI spec), or null */
@@ -275,7 +286,11 @@ export interface AssistantAgentActions {
   /** Close the Assistant panel */
   closePanel: () => void;
   /** Send a message to Assistant, optionally starting a fresh conversation */
-  sendMessage: (message: string, options?: { newSession?: boolean }) => void;
+  sendMessage: (message: string, options?: SendMessageOptions) => void;
+  /** Send immediately when ready, otherwise queue until setup or credentials are available */
+  sendMessageWhenReady: (message: string, options?: SendMessageOptions) => void;
+  /** Force-send the queued automatic message after external setup (e.g. API-key save) */
+  sendPendingAutomaticMessage: () => void;
   /** Optimistically switch the active provider (persisted on the next send). */
   selectProvider: (selection: AssistantProviderSelection) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives setup/settings navigation) */

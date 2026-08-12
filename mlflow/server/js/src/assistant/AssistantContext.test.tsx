@@ -380,6 +380,90 @@ describe('AssistantContext — pendingPrompt seed', () => {
   });
 });
 
+describe('AssistantContext — automatic message delivery', () => {
+  it('sends immediately when a configured provider is ready', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'ollama', auto_selected: false }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessageWhenReady('build a view', { newSession: true });
+    });
+
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build a view' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+  });
+
+  it('queues during setup and drains automatically after a provider resolves', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('build after setup', { newSession: true });
+    });
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.pendingAutomaticMessage).toEqual({
+      message: 'build after setup',
+      options: { newSession: true },
+    });
+
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'ollama', auto_selected: false }),
+    });
+    await act(async () => {
+      await result.current.refreshConfig();
+    });
+
+    await waitFor(() => expect(mockSendMessageStream).toHaveBeenCalledTimes(1));
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build after setup' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+  });
+
+  it('keeps a missing-key message queued until explicitly released after key setup', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({
+        name: 'mlflow_gateway',
+        requires_api_key: true,
+        has_api_key: false,
+        supports_client_tools: true,
+      }),
+    });
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('build after key', { newSession: true });
+    });
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.pendingAutomaticMessage?.message).toBe('build after key');
+
+    await act(async () => {
+      result.current.sendPendingAutomaticMessage();
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build after key' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+  });
+
+  it('abandons a queued automatic message when the panel closes', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('abandon me', { newSession: true });
+      result.current.closePanel();
+    });
+
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+  });
+});
+
 describe('upsertToolCalls', () => {
   test('appends a new tool call with running status', () => {
     const result = upsertToolCalls([], [{ id: 't1', name: 'Bash', input: { command: 'ls' } }]);

@@ -240,6 +240,7 @@ export const ModelTraceExplorerCustomView = ({
 
   // The prompt typed in the empty-state box before/while a view is being built.
   const [instruction, setInstruction] = useState('');
+  const [isAwaitingAssistantDispatch, setIsAwaitingAssistantDispatch] = useState(false);
 
   const isInitialBuilding = cv.isBuilding;
   const { stopBuilding } = cv;
@@ -275,6 +276,7 @@ export const ModelTraceExplorerCustomView = ({
   // for an EXISTING view the authoring-context latch is authoritative instead
   // (see onSpec). Consumed (cleared) by the spec it launched.
   const pendingApplyTargetRef = useRef<CustomViewApplyTarget | undefined>(undefined);
+  const hasObservedPendingDispatchRef = useRef(false);
 
   // The rebuild effect mutates the processor model AFTER render (creating new
   // surface objects). We render by reading the SurfaceModel out of the processor
@@ -397,6 +399,8 @@ export const ModelTraceExplorerCustomView = ({
       draftViewIdRef.current = id;
     },
   });
+  const { isStreaming: isAssistantStreaming, isPending: isAssistantPending, clearApplyError } = assistant;
+  const { startBuilding } = cv;
 
   useEffect(() => {
     setInstruction('');
@@ -457,7 +461,7 @@ export const ModelTraceExplorerCustomView = ({
   // call is applied via onSpec. Used by the empty state.
   const handleSubmitPrompt = () => {
     const prompt = instruction.trim();
-    if (!cv.canPersist || !prompt || !assistant.openAssistant) {
+    if (!cv.canPersist || !prompt || !assistant.openAssistant || assistant.isPending || isAwaitingAssistantDispatch) {
       return;
     }
     try {
@@ -484,12 +488,48 @@ export const ModelTraceExplorerCustomView = ({
       instruction: prompt,
       createdAtMs: Date.now(),
     };
-    setInstruction('');
-    // Clear any leftover error from a prior failed build so the skeleton effect
-    // (which cancels on applyError) doesn't immediately suppress this retry.
-    assistant.clearApplyError();
-    cv.startBuilding();
+    hasObservedPendingDispatchRef.current = false;
+    setIsAwaitingAssistantDispatch(true);
   };
+
+  // A queued automatic message may wait on provider setup or an API key. Keep
+  // the prompt form visible until the Assistant actually begins streaming. If
+  // the panel closes first, its queue is cleared and this launch is abandoned
+  // without entering the building skeleton.
+  useEffect(() => {
+    if (!isAwaitingAssistantDispatch) {
+      return;
+    }
+    if (activeView) {
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+      return;
+    }
+    if (isAssistantStreaming) {
+      setInstruction('');
+      clearApplyError();
+      startBuilding();
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+      return;
+    }
+    if (isAssistantPending) {
+      hasObservedPendingDispatchRef.current = true;
+      return;
+    }
+    if (hasObservedPendingDispatchRef.current) {
+      pendingApplyTargetRef.current = undefined;
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+    }
+  }, [
+    isAwaitingAssistantDispatch,
+    activeView,
+    isAssistantStreaming,
+    isAssistantPending,
+    clearApplyError,
+    startBuilding,
+  ]);
 
   // Clears the building skeleton once the built view exists (success) or the
   // spec apply failed (error). Do NOT clear on the isStreaming falling edge -
@@ -890,7 +930,9 @@ export const ModelTraceExplorerCustomView = ({
                 <div>
                   <AssistantSparkleButton
                     componentId="shared.model-trace-explorer.custom-view.build"
-                    disabled={!instruction.trim()}
+                    disabled={
+                      !instruction.trim() || assistant.isPending || assistant.isStreaming || isAwaitingAssistantDispatch
+                    }
                     onClick={handleSubmitPrompt}
                   >
                     <FormattedMessage

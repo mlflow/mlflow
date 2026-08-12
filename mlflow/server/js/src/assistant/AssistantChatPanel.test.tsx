@@ -1,12 +1,19 @@
 import { describe, test, expect, jest, beforeEach, beforeAll } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
 import * as AssistantService from './AssistantService';
-import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo, TokenUsage } from './types';
+import type {
+  AssistantPart,
+  ChatMessage,
+  PendingAutomaticMessage,
+  ProviderInfo,
+  ResolvedProviderInfo,
+  TokenUsage,
+} from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import type { Endpoint } from '../gateway/types';
 
@@ -23,6 +30,7 @@ const mockSendMessage = jest.fn();
 const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
+const mockSendPendingAutomaticMessage = jest.fn();
 const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
   void options;
   return Promise.resolve();
@@ -30,6 +38,7 @@ const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
 const mockRespondToPermission = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
+let mockPendingAutomaticMessage: PendingAutomaticMessage | null = null;
 let mockActiveProvider: ResolvedProviderInfo | null = null;
 let mockProviders: ProviderInfo[] = [];
 let mockGatewayVendorOptions: Record<string, string[]> = {};
@@ -79,11 +88,14 @@ jest.mock('./AssistantContext', () => ({
     gatewayVendorOptions: mockGatewayVendorOptions,
     needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
+    pendingAutomaticMessage: mockPendingAutomaticMessage,
     canUseAssistant: mockCanUseAssistant,
     tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
+    sendMessageWhenReady: jest.fn(),
+    sendPendingAutomaticMessage: mockSendPendingAutomaticMessage,
     selectProvider: mockSelectProvider,
     prefillPrompt: jest.fn(),
     clearPendingPrompt: mockClearPendingPrompt,
@@ -134,11 +146,13 @@ describe('AssistantChatPanel', () => {
     mockSelectProvider.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
+    mockSendPendingAutomaticMessage.mockClear();
     mockRefreshConfig.mockClear();
     mockRespondToPermission.mockClear();
     mockUpdateConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
+    mockPendingAutomaticMessage = null;
     mockActiveProvider = null;
     mockProviders = [];
     mockGatewayVendorOptions = {};
@@ -299,6 +313,39 @@ describe('AssistantChatPanel', () => {
     expect(
       screen.getByText('Add your OpenAI API key to continue, or pick another provider below.'),
     ).toBeInTheDocument();
+  });
+
+  test('a queued automatic message uses the key prompt and sends after the key is saved', async () => {
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
+      model: 'mlflow-assistant-openai',
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5'],
+      requires_api_key: true,
+      has_api_key: false,
+      supports_client_tools: true,
+    };
+    mockNeedsApiKey = true;
+    mockPendingAutomaticMessage = {
+      message: 'Build my custom trace view',
+      options: { newSession: true },
+    };
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    expect(
+      screen.getByText('Add your OpenAI API key to continue, or pick another provider below.'),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask a question...')).toHaveValue('');
+
+    await user.type(screen.getByPlaceholderText('sk-...'), 'sk-test');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
   });
 
   test('an api_key_missing stream error also shows the inline key prompt', () => {

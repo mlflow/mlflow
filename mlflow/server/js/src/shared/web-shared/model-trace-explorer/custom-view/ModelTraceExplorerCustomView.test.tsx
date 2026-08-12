@@ -67,6 +67,7 @@ const setBridge = (overrides: Partial<CustomViewAssistantBridge> = {}): CustomVi
     isAvailable: true,
     openAssistant: jest.fn(),
     isStreaming: false,
+    isPending: false,
     applyError: undefined,
     clearApplyError: jest.fn(),
     ...overrides,
@@ -297,6 +298,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
   it('hands the typed prompt to the assistant and shows the building skeleton on submit', async () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant });
     renderCustomView();
 
@@ -312,16 +314,12 @@ describe('ModelTraceExplorerCustomView', () => {
 
   it('keeps the building skeleton after streaming ends until a view is created', () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant, isStreaming: false });
     const { rerender } = renderCustomView();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
     fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
-    expect(screen.getByText('Building this view…')).toBeInTheDocument();
-
-    // Streaming starts: the skeleton stays.
-    setBridge({ openAssistant, isStreaming: true });
-    rerender(customView());
     expect(screen.getByText('Building this view…')).toBeInTheDocument();
 
     // Streaming finishes but render_custom_view has not applied a view yet. The
@@ -332,32 +330,30 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.getByText('Building this view…')).toBeInTheDocument();
   });
 
-  it('does not revert to the prompt after a start timeout (no timeout guard)', () => {
-    jest.useFakeTimers();
-    try {
-      setBridge({ isStreaming: false });
-      renderCustomView();
+  it('keeps the prompt visible while queued and abandons cleanly when the queue is cleared', () => {
+    const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isPending: true }));
+    setBridge({ openAssistant });
+    const { rerender } = renderCustomView();
 
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
-      fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
-      expect(screen.getByText('Building this view…')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
+    fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
 
-      // The MLflow connector never reports streaming, so an old start-timeout
-      // guard would have flashed the prompt back before render_custom_view
-      // completed. With no such guard, the skeleton persists past any window.
-      act(() => {
-        jest.advanceTimersByTime(60_000);
-      });
+    expect(screen.getByRole('textbox')).toHaveValue('Show me the failed spans');
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeDisabled();
+    expect(screen.queryByText('Building this view…')).not.toBeInTheDocument();
 
-      expect(screen.getByText('Building this view…')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
-    } finally {
-      jest.useRealTimers();
-    }
+    setBridge({ openAssistant, isPending: false });
+    rerender(customView());
+
+    expect(screen.getByRole('textbox')).toHaveValue('Show me the failed spans');
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeEnabled();
+    expect(screen.queryByText('Building this view…')).not.toBeInTheDocument();
   });
 
   it('clears the building skeleton and surfaces the error when the spec apply fails', () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant });
     const { rerender } = renderCustomView();
 

@@ -57,7 +57,7 @@ const mockGetCustomViewAuthoringContext = jest.fn<() => any>(() => null);
 const mockLatchDispatchedCustomViewApplyTarget = jest.fn();
 
 let capturedConnectorProviderProps:
-  | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean } }
+  | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean; isPending?: boolean } }
   | undefined;
 let capturedDefinitionProviderProps:
   | { views: unknown[]; isLoaded: boolean; onPersistView?: unknown; canModifyPersistedViews?: boolean }
@@ -85,7 +85,8 @@ const mockUseAssistant = jest.mocked(useAssistant);
 const makeAssistant = (overrides: Record<string, unknown> = {}) => {
   const value = {
     openPanel: jest.fn(),
-    sendMessage: jest.fn(),
+    sendMessageWhenReady: jest.fn(),
+    pendingAutomaticMessage: null,
     isStreaming: false,
     activeProvider: null,
     ...overrides,
@@ -136,10 +137,10 @@ describe('ExperimentCustomViewProvider', () => {
       capturedConnectorProviderProps?.connector.openAssistant?.('Show me the failed spans', { newSession: true });
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('Show me the failed spans'), {
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Show me the failed spans'), {
         newSession: true,
       });
-      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
         newSession: true,
       });
     });
@@ -151,7 +152,7 @@ describe('ExperimentCustomViewProvider', () => {
       capturedConnectorProviderProps?.connector.openAssistant?.('Add a chart');
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.sendMessage).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
     });
 
     it('only opens the panel for "Edit with Assistant" when there is no prompt', () => {
@@ -161,7 +162,7 @@ describe('ExperimentCustomViewProvider', () => {
       capturedConnectorProviderProps?.connector.openAssistant?.();
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.sendMessage).not.toHaveBeenCalled();
+      expect(assistant.sendMessageWhenReady).not.toHaveBeenCalled();
     });
 
     it('exposes the assistant context streaming state on the connector', () => {
@@ -169,6 +170,13 @@ describe('ExperimentCustomViewProvider', () => {
       renderProvider();
 
       expect(capturedConnectorProviderProps?.connector.isStreaming).toBe(true);
+    });
+
+    it('exposes whether an automatic Assistant message is queued', () => {
+      makeAssistant({ pendingAutomaticMessage: { message: 'queued build' } });
+      renderProvider();
+
+      expect(capturedConnectorProviderProps?.connector.isPending).toBe(true);
     });
   });
 

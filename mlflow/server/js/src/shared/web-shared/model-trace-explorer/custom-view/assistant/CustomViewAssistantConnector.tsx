@@ -18,6 +18,7 @@ export type OpenCustomViewAssistantOptions = {
 export type CustomViewAssistantConnector = {
   openAssistant?: (prompt?: string, options?: OpenCustomViewAssistantOptions) => void;
   isStreaming?: boolean;
+  isPending?: boolean;
 };
 
 const CustomViewAssistantConnectorContext = createContext<CustomViewAssistantConnector>({});

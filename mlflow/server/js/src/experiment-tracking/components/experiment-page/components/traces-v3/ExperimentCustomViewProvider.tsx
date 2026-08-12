@@ -40,7 +40,7 @@ export const ExperimentCustomViewProvider = ({
 }) => {
   const { views, isLoaded, persistView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
-  const { openPanel, sendMessage, isStreaming, activeProvider } = useAssistant();
+  const { openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming, activeProvider } = useAssistant();
 
   const connector = useMemo<CustomViewAssistantConnector>(
     () => ({
@@ -55,12 +55,13 @@ export const ExperimentCustomViewProvider = ({
           // Submit the build directive immediately. A brand-new build requests a
           // fresh Assistant thread atomically so it cannot inherit an unrelated
           // conversation; prompted edits can continue the current thread.
-          sendMessage(buildRenderCustomViewPrompt(instruction), options);
+          sendMessageWhenReady(buildRenderCustomViewPrompt(instruction), options);
         }
       },
       isStreaming,
+      isPending: Boolean(pendingAutomaticMessage),
     }),
-    [openPanel, sendMessage, isStreaming],
+    [openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
   );
 
   // Tier 1 (Gateway/Ollama): the assistant backend calls a real `render_custom_view`
