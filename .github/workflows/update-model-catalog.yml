@@ -22,7 +22,7 @@ env:
   CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
 
 jobs:
-  generate:
+  sync:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -81,8 +81,8 @@ jobs:
           retention-days: 1
 
   publish:
-    needs: generate
-    if: github.event_name != 'pull_request' && needs.generate.outputs.changed == 'true'
+    needs: sync
+    if: github.event_name != 'pull_request' && needs.sync.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
