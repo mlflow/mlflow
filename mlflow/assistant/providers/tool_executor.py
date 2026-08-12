@@ -74,7 +74,8 @@ def _is_local_artifact_uri(uri: str) -> bool:
 # Root-level mlflow options with no side effect: safe regardless of which (if any)
 # subcommand follows. Any other root option is either handled explicitly below
 # (--env-file) or, if unrecognized, denied by default rather than silently ignored.
-_MLFLOW_HARMLESS_ROOT_OPTIONS = {"version"}
+# Click adds an implicit "--help" on every group, parsed under the key "help".
+_MLFLOW_HARMLESS_ROOT_OPTIONS = {"version", "help"}
 
 
 def _resolve_mlflow_command(
@@ -126,7 +127,7 @@ def _resolve_mlflow_command(
 def _require_workspace_path(path_value: str, cwd: Path, flag: str) -> str | None:
     try:
         target = _resolve_file_path(path_value, cwd)
-    except (ValueError, OSError):
+    except (ValueError, OSError, TypeError):
         return f"Permission denied: malformed path {path_value!r}"
     if not _is_path_within(target, cwd):
         return f"Permission denied: {flag} {path_value} is outside the workspace {cwd}"
@@ -244,11 +245,13 @@ def static_permission_error(
                 return f"Permission denied: {tool_name} requires a configured project directory"
             try:
                 target = _resolve_file_path(raw_path, cwd)
-            except (ValueError, OSError):
-                # e.g. an embedded NUL byte: Path.resolve() raises rather than returning a
-                # path, so this must be caught here rather than left to propagate out of
-                # execute_tool, which only wraps the tool dispatch (below) in try/except,
-                # not this static check.
+            except (ValueError, OSError, TypeError):
+                # e.g. an embedded NUL byte (ValueError/OSError), or a non-string
+                # file_path such as a list or int from malformed tool-call JSON
+                # (TypeError from the Path() constructor itself): Path.resolve()
+                # raises rather than returning a path, so this must be caught here
+                # rather than left to propagate out of execute_tool, which only wraps
+                # the tool dispatch (below) in try/except, not this static check.
                 return f"Permission denied: malformed path {raw_path!r}"
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"

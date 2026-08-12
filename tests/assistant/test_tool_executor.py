@@ -105,6 +105,15 @@ def test_read_malformed_path_denied_not_raised(workspace):
     assert "Permission denied" in result
 
 
+def test_read_non_string_path_denied_not_raised(workspace):
+    # Regression guard: malformed tool-call JSON (e.g. a nonempty list instead of a
+    # string) makes Path() raise TypeError, not ValueError/OSError. This must be caught
+    # the same way, rather than propagating out of execute_tool and aborting the turn.
+    result, is_error = _run(execute_tool("Read", {"file_path": [1]}, cwd=workspace))
+    assert is_error
+    assert "Permission denied" in result
+
+
 def test_bash_python_denied_without_cwd():
     # Regression guard for GHSA-27c7-qx3r-x4f8: without a configured project
     # directory (cwd=None), python/python3 must be denied. Bash previously
@@ -502,6 +511,14 @@ def test_bash_blocks_non_mlflow_commands():
 
 def test_bash_allows_mlflow_commands():
     result, is_error = _run(execute_tool("Bash", {"command": "mlflow --version"}))
+    assert not is_error
+
+
+def test_bash_allows_mlflow_help():
+    # Regression guard: Click adds an implicit "--help" on every group, parsed under
+    # the key "help". _MLFLOW_HARMLESS_ROOT_OPTIONS must include it, or the "unrecognized
+    # root option" defensive check denies the documented-as-allowed "mlflow --help".
+    result, is_error = _run(execute_tool("Bash", {"command": "mlflow --help"}))
     assert not is_error
 
 
