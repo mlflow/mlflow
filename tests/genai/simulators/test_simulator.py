@@ -1,4 +1,6 @@
+import multiprocessing
 import re
+import uuid
 from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
@@ -1160,40 +1162,37 @@ def test_predict_result_invalid_trace_id_raises(
 
 
 def test_predict_fn_untraced_creates_fallback_span(simple_test_case):
+    @contextmanager
+    def _noop_ctx(**kwargs):
+        yield
+
+    span_cm = Mock()
+    span_cm.__enter__ = Mock(return_value=Mock(set_inputs=Mock(), set_outputs=Mock()))
+    span_cm.__exit__ = Mock(return_value=False)
 
     with (
-        patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.tracing.context") as mock_ctx,
-        patch("mlflow.get_last_active_trace_id", return_value=None) as mock_get_id,
-        patch("mlflow.start_span") as mock_span,
+        patch(
+            "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+            side_effect=[
+                "Test message",
+                '{"rationale": "Goal achieved!", "result": "yes"}',
+            ],
+        ),
+        patch("mlflow.tracing.context", side_effect=_noop_ctx),
+        # First two calls: prev_trace_id + post-predict check both return None,
+        # triggering the fallback span. Third call returns the new trace ID.
+        patch(
+            "mlflow.get_last_active_trace_id",
+            side_effect=[None, None, "fallback-trace-id", "fallback-trace-id"],
+        ),
+        patch("mlflow.start_span", return_value=span_cm) as mock_span,
         patch(
             "mlflow.tracing.client.TracingClient",
             return_value=Mock(
                 get_trace=lambda _: Mock(info=Mock(trace_metadata={}, assessments=[]))
             ),
         ),
-        patch("mlflow.flush_trace_async_logging"),
     ):
-
-        @contextmanager
-        def _noop_ctx(**kwargs):
-            yield
-
-        mock_ctx.side_effect = _noop_ctx
-
-        span_cm = Mock()
-        span_cm.__enter__ = Mock(return_value=Mock(set_inputs=Mock(), set_outputs=Mock()))
-        span_cm.__exit__ = Mock(return_value=False)
-        mock_span.return_value = span_cm
-
-        # First two calls: prev_trace_id + post-predict check both return None,
-        # triggering the fallback span. Third call returns the new trace ID.
-        mock_get_id.side_effect = [None, None, "fallback-trace-id", "fallback-trace-id"]
-
-        mock_invoke.side_effect = [
-            "Test message",
-            '{"rationale": "Goal achieved!", "result": "yes"}',
-        ]
 
         def untraced_predict_fn(input=None, **kwargs):
             return {"output": [{"role": "assistant", "content": [{"type": "text", "text": "hi"}]}]}
@@ -1201,51 +1200,34 @@ def test_predict_fn_untraced_creates_fallback_span(simple_test_case):
         simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
         simulator.simulate(untraced_predict_fn)
 
-        mock_span.assert_called_once()
+    mock_span.assert_called_once()
 
 
-def test_predict_result_expectations_logged_against_external_trace_id(simple_test_case):
+def test_predict_result_expectations_logged_against_external_trace_id(
+    simple_test_case, simulation_mocks
+):
     external_trace_id = "remote-trace-xyz"
     logged = []
 
-    with (
-        patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.tracing.context") as mock_ctx,
-        patch("mlflow.get_last_active_trace_id", return_value=None),
-        patch("mlflow.log_expectation", side_effect=lambda **kw: logged.append(kw)),
-        patch(
-            "mlflow.tracing.client.TracingClient",
-            return_value=Mock(
-                get_trace=lambda _: Mock(info=Mock(trace_metadata={}, assessments=[]))
-            ),
-        ),
-        patch("mlflow.flush_trace_async_logging"),
-    ):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
 
-        @contextmanager
-        def _noop_ctx(**kwargs):
-            yield
+    def predict_fn_with_result(input=None, **kwargs):
+        response = {
+            "output": [
+                {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                }
+            ]
+        }
+        return PredictResult(response=response, trace_id=external_trace_id)
 
-        mock_ctx.side_effect = _noop_ctx
-
-        mock_invoke.side_effect = [
-            "Test message",
-            '{"rationale": "Goal achieved!", "result": "yes"}',
-        ]
-
-        def predict_fn_with_result(input=None, **kwargs):
-            response = {
-                "output": [
-                    {
-                        "id": "msg_1",
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": "Hello"}],
-                    }
-                ]
-            }
-            return PredictResult(response=response, trace_id=external_trace_id)
-
+    with patch("mlflow.log_expectation", side_effect=lambda **kw: logged.append(kw)):
         test_case = {**simple_test_case, "expectations": {"expected_topic": "MLflow"}}
         simulator = ConversationSimulator(test_cases=[test_case], max_turns=1)
         simulator.simulate(predict_fn_with_result)
@@ -1253,3 +1235,87 @@ def test_predict_result_expectations_logged_against_external_trace_id(simple_tes
     assert len(logged) == 1
     assert logged[0]["trace_id"] == external_trace_id
     assert logged[0]["name"] == "expected_topic"
+
+
+# ----------------------------------------
+# Multiprocess tests
+# ----------------------------------------
+
+
+def _remote_agent_worker(
+    correlation_id: str,
+    tracking_uri: str,
+    experiment_id: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(experiment_id=experiment_id)
+
+    with mlflow.start_span(name="remote-agent-root", span_type="CHAIN") as span:
+        span.set_inputs({"correlation_id": correlation_id, "query": "test"})
+        # Embed the correlation_id in the span output so trace-search can find it
+        span.set_outputs({"answer": "42", "correlation_id": correlation_id})
+
+    # trace_id is set only after the root span closes
+    trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+    mlflow.flush_trace_async_logging()
+    result_queue.put(trace_id)
+
+
+@pytest.mark.notrackingurimock
+def test_multiprocess_remote_agent_trace_retrieval(tmp_path):
+    tracking_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment_name = f"multiprocess-test-{uuid.uuid4().hex[:8]}"
+    mlflow.set_experiment(experiment_name)
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+    experiment_id = experiment.experiment_id
+
+    # Correlation ID that ties the predict_fn call to the remote trace.
+    correlation_id = uuid.uuid4().hex
+
+    result_queue: multiprocessing.Queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(
+        target=_remote_agent_worker,
+        args=(correlation_id, tracking_uri, experiment_id, result_queue),
+    )
+    proc.start()
+    proc.join(timeout=30)
+    assert proc.exitcode == 0, "Remote agent process failed"
+
+    remote_trace_id: str = result_queue.get_nowait()
+    assert remote_trace_id is not None
+
+    # Verify the trace was actually written by the child process.
+    mlflow.flush_trace_async_logging()
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient(tracking_uri=tracking_uri)
+    traces = client.search_traces(
+        locations=[experiment_id],
+        filter_string=f"trace.text LIKE '%{correlation_id}%'",
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == remote_trace_id
+
+    # predict_fn uses PredictResult to hand back the externally-obtained trace ID.
+    def predict_fn(input=None, **kwargs):
+        response = {"output": [{"role": "assistant", "content": "42"}]}
+        return PredictResult(response=response, trace_id=remote_trace_id)
+
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.side_effect = [
+            "Test message",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        simulator = ConversationSimulator(
+            test_cases=[{"goal": "Test remote agent"}],
+            max_turns=1,
+        )
+        with mlflow.start_run():
+            all_traces = simulator.simulate(predict_fn)
+
+    assert len(all_traces) == 1
+    assert len(all_traces[0]) == 1
+    assert all_traces[0][0].info.trace_id == remote_trace_id
