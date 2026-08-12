@@ -9,7 +9,6 @@ on:
     paths:
       - .github/workflows/update-model-catalog.yml
       - dev/update_model_catalog.py
-      - dev/publish_model_catalog.sh
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 defaults:
@@ -66,6 +65,8 @@ jobs:
       - name: Check for changes and create patch
         id: diff
         run: |
+          # Intent-to-add so new files (e.g. a new provider catalog) show up in the diff
+          git add -N -- $CATALOG_PATHS
           git --no-pager diff --stat -- $CATALOG_PATHS
           if git diff --quiet -- $CATALOG_PATHS; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
