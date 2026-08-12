@@ -38,7 +38,7 @@ const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): Resolv
   auto_selected: true,
   requires_api_key: false,
   has_api_key: false,
-  supports_client_tools: false,
+  client_tool_delivery: 'unsupported',
   ...overrides,
 });
 
@@ -50,7 +50,7 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): Prov
   requires_api_key: false,
   has_api_key: false,
   allows_remote_access: false,
-  supports_client_tools: false,
+  client_tool_delivery: 'unsupported',
   model_options: [],
   ...overrides,
 });
@@ -61,12 +61,13 @@ jest.mock('./AssistantService', () => ({
   getConfig: jest.fn(),
   getProviders: jest.fn(),
   updateConfig: jest.fn(() => Promise.resolve({})),
-  cancelSession: jest.fn(),
+  cancelSession: jest.fn(() => Promise.resolve({ message: 'cancelled' })),
   submitClientToolResult: jest.fn(),
 }));
 
+let mockPageContext: Record<string, unknown> = {};
 jest.mock('./AssistantPageContext', () => ({
-  useAssistantPageContextActions: () => ({ getContext: () => ({}) }),
+  useAssistantPageContextActions: () => ({ getContext: () => mockPageContext }),
 }));
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
@@ -95,6 +96,7 @@ beforeEach(() => {
   localStorage.clear();
   fakeEventSource = { close: jest.fn() };
   capturedCallbacks = undefined;
+  mockPageContext = {};
   mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
   mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
   mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
@@ -796,14 +798,146 @@ describe('AssistantContext — a new message supersedes a pending permission pro
 });
 
 describe('AssistantContext — client_tool_call auto-resume', () => {
-  const pauseAtClientTool = (overrides: Partial<{ toolName: string; toolInput: Record<string, unknown> }> = {}) => {
-    capturedCallbacks?.onClientToolCall?.({
+  const pauseAtClientTool = (
+    overrides: Partial<{
+      toolName: string;
+      toolInput: Record<string, unknown>;
+      continuation: 'resume' | 'terminal';
+    }> = {},
+  ) => {
+    return capturedCallbacks?.onClientToolCall?.({
       sessionId: 'session-1',
       requestId: 'req-1',
       toolName: overrides.toolName ?? 'render_custom_view',
       toolInput: overrides.toolInput ?? { title: 'Trace Summary', messages: [] },
+      ...(overrides.continuation ? { continuation: overrides.continuation } : {}),
     });
   };
+
+  it('executes a terminal structured-output call without posting a result', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'rendered terminal output',
+      isError: false,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    await act(async () => {
+      await pauseAtClientTool({ continuation: 'terminal' });
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(fakeEventSource.close).not.toHaveBeenCalled();
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(true);
+
+    unregister();
+  });
+
+  it('starts a hidden structured repair turn with the validation error and original context', async () => {
+    const originalContext = {
+      experimentId: 'exp-1',
+      customTraceView: { guide: 'structured guide', currentTemplate: [{ id: 'existing-root' }] },
+    };
+    mockPageContext = originalContext;
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Unknown component "Widget"',
+      isError: true,
+      retryable: true,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    mockPageContext = {
+      experimentId: 'exp-1',
+      customTraceView: { guide: 'different view', currentTemplate: [{ id: 'different-root' }] },
+    };
+
+    await act(async () => {
+      await pauseAtClientTool({ continuation: 'terminal' });
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(2);
+    const repairRequest = mockSendMessageStream.mock.calls[1][0];
+    expect(repairRequest).toMatchObject({
+      session_id: 'session-1',
+      experiment_id: 'exp-1',
+      context: originalContext,
+    });
+    expect(repairRequest.message).toContain('Unknown component \\"Widget\\"');
+    expect(repairRequest.message).toContain('automatic repair 1/2');
+    expect(result.current.isStreaming).toBe(true);
+
+    unregister();
+  });
+
+  it('bounds structured Custom View repair to two attempts', async () => {
+    mockPageContext = { customTraceView: { guide: 'structured guide' } };
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Invalid component',
+      isError: true,
+      retryable: true,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const callbacks = capturedCallbacks;
+      await act(async () => {
+        await callbacks?.onClientToolCall?.({
+          sessionId: 'session-1',
+          requestId: `req-${attempt}`,
+          toolName: 'render_custom_view',
+          toolInput: { title: 'Trace Summary', messages: [] },
+          continuation: 'terminal',
+        });
+      });
+    }
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(3);
+    expect(mockSendMessageStream.mock.calls[2][0].message).toContain('automatic repair 2/2');
+
+    unregister();
+  });
+
+  it('does not start a repair after cancellation while browser validation is pending', async () => {
+    mockPageContext = { customTraceView: { guide: 'structured guide' } };
+    let finishValidation!: (result: { content: string; isError: true; retryable: true }) => void;
+    const unregister = registerClientToolHandler(
+      'render_custom_view',
+      () =>
+        new Promise((resolve) => {
+          finishValidation = resolve;
+        }),
+    );
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+    });
+
+    let terminalExecution: void | Promise<void> = undefined;
+    act(() => {
+      terminalExecution = pauseAtClientTool({ continuation: 'terminal' });
+    });
+    act(() => {
+      result.current.cancelSession();
+    });
+    await act(async () => {
+      finishValidation({ content: 'Invalid component', isError: true, retryable: true });
+      await terminalExecution;
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    unregister();
+  });
 
   it('runs the registered handler and submits its result to resume the stream', async () => {
     const handler = jest.fn(async (toolInput: Record<string, any>) => ({

@@ -22,8 +22,16 @@ import { registerAssistantContextProvider } from '../../../../../assistant/conte
 // The empty-state prompt box hands us the user's natural-language request. This
 // prompt is submitted ONLY for the initial build (handleSubmitPrompt); the edit
 // flow (handleEditWithAssistant) sends nothing and just opens the panel.
-const buildRenderCustomViewPrompt = (request: string): string =>
-  [`Build my custom trace view: "${request}".`, '', 'Use the `render_custom_view` tool to build this view.'].join('\n');
+// The structured Custom View response format is defined and validated by the backend
+// in mlflow/assistant/custom_view.py; this prompt only selects that delivery contract.
+const buildRenderCustomViewPrompt = (request: string, delivery: 'tool' | 'structured'): string =>
+  [
+    `Build my custom trace view: "${request}".`,
+    '',
+    delivery === 'tool'
+      ? 'Use the `render_custom_view` tool to build this view.'
+      : 'Return the view using the structured Custom View response format.',
+  ].join('\n');
 
 /**
  * Wires the trace explorer's Custom View feature to the experiment's persistence
@@ -55,20 +63,21 @@ export const ExperimentCustomViewProvider = ({
           // Submit the build directive immediately. A brand-new build requests a
           // fresh Assistant thread atomically so it cannot inherit an unrelated
           // conversation; prompted edits can continue the current thread.
-          sendMessageWhenReady(buildRenderCustomViewPrompt(instruction), options);
+          const delivery = activeProvider?.client_tool_delivery === 'structured' ? 'structured' : 'tool';
+          sendMessageWhenReady(buildRenderCustomViewPrompt(instruction, delivery), options);
         }
       },
       isStreaming,
       isPending: Boolean(pendingAutomaticMessage),
     }),
-    [openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
+    [activeProvider, openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
   );
 
-  // Tier 1 (Gateway/Ollama): the assistant backend calls a real `render_custom_view`
-  // client tool and pauses the turn; this handler runs it by handing the spec to
-  // whichever Custom View host is currently registered (the applier), then reports
-  // the result back to resume the stream. Scoped to the session that was active
-  // when the call started, so a different tab remounting mid-call can't steal it.
+  // The assistant backend delivers a `render_custom_view` client action. API-based
+  // providers use a native tool call; local providers translate structured final
+  // output into a terminal action. This handler hands the spec to whichever Custom View host is
+  // registered, scoped to the session that was active when the call started so a
+  // different tab remounting mid-call can't steal it.
   useEffect(() => {
     return registerClientToolHandler(RENDER_CUSTOM_VIEW_TOOL_NAME, async (toolInput) => {
       const applier = await waitForCustomViewSpecApplier(getCurrentApplierSessionId());
@@ -78,7 +87,7 @@ export const ExperimentCustomViewProvider = ({
       const result = await applier({ title: toolInput['title'], messages: toolInput['messages'] });
       return result.ok
         ? { content: 'The custom view was rendered successfully.' }
-        : { content: result.error, isError: true };
+        : { content: result.error, isError: true, retryable: true };
     });
   }, []);
 
@@ -86,15 +95,13 @@ export const ExperimentCustomViewProvider = ({
   // useCustomViewAssistantBridge) into the assistant's page context. Pull-based (read
   // at message-send time, see contextProviders.ts) rather than pushed into React
   // state, since whether to publish at all depends on which provider is about to
-  // serve the turn. Only providers that support a real client-tool call
-  // (`render_custom_view`) can act on this guide today — CLI providers (Claude
-  // Code, Codex) have no mid-stream client-tool channel without MCP plumbing, so
-  // publishing the guide for them would be a no-op at best. Support for those is
-  // tracked as a follow-up (a fenced-block convention), not yet implemented.
+  // serve the turn. The guide matches the provider's native-tool or structured-output
+  // delivery mode so the model never receives conflicting output instructions.
   useEffect(() => {
-    if (!activeProvider?.supports_client_tools) {
+    if (!activeProvider?.client_tool_delivery || activeProvider.client_tool_delivery === 'unsupported') {
       return undefined;
     }
+    const deliveryMode = activeProvider.client_tool_delivery === 'structured' ? 'structured' : 'tool';
     return registerAssistantContextProvider('customTraceView', () => {
       const ctx = getCustomViewAuthoringContext();
       if (!ctx) {
@@ -104,7 +111,7 @@ export const ExperimentCustomViewProvider = ({
       // returns lands on the right view even if the user switches views mid-turn.
       latchDispatchedCustomViewApplyTarget(ctx.applyTarget);
       return {
-        guide: buildCustomViewAuthoringGuide(),
+        guide: buildCustomViewAuthoringGuide(deliveryMode),
         traceSample: ctx.traceSample,
         currentTemplate: ctx.currentTemplate,
       };

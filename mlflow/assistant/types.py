@@ -113,13 +113,22 @@ class Event(BaseModel):
 
     @classmethod
     def from_client_tool_call(
-        cls, request_id: str, tool_name: str, tool_input: dict[str, Any]
+        cls,
+        request_id: str,
+        tool_name: str,
+        tool_input: dict[str, Any],
+        *,
+        continuation: Literal["resume", "terminal"] = "resume",
     ) -> "Event":
         """A tool call the CLIENT (not the server) must execute, e.g. rendering an
-        agent-authored UI spec in the browser. Ends the turn the same way a
-        permission request does: the client posts the result to resume.
+        agent-authored UI spec in the browser. ``resume`` calls pause the provider
+        until the result is posted; ``terminal`` calls come from structured final
+        output and finish after the browser executes them without resuming the model.
         """
+        data = {"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input}
+        if continuation == "terminal":
+            data["continuation"] = continuation
         return cls(
             type=EventType.CLIENT_TOOL_CALL,
-            data={"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input},
+            data=data,
         )

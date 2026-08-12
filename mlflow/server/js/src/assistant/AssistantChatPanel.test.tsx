@@ -298,7 +298,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5', 'gpt-5-mini'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = true;
     const user = userEvent.setup();
@@ -379,7 +379,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5', 'gpt-5-mini'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockError = 'OpenAI requires an API key.';
     mockErrorCode = 'api_key_missing';

@@ -310,7 +310,7 @@ def test_get_providers_auto_resolves_available_default(client):
             "requires_api_key": False,
             "has_api_key": False,
             "allows_remote_access": False,
-            "supports_client_tools": False,
+            "client_tool_delivery": "unsupported",
             "model_options": [],
         }
     ]
@@ -320,12 +320,28 @@ def test_get_providers_auto_resolves_available_default(client):
         "auto_selected": True,
         "requires_api_key": False,
         "has_api_key": False,
-        "supports_client_tools": False,
+        "client_tool_delivery": "unsupported",
         "model_provider": None,
         "model_options": [],
         "provider_model": None,
     }
     assert data["gateway_vendor_options"]["openai"] == ["gpt-5.5"]
+
+
+def test_get_providers_reports_native_client_tool_delivery_for_ollama():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    ollama_provider = OllamaProvider()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[ollama_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    provider = response.json()["providers"][0]
+    assert provider["client_tool_delivery"] == "tool"
 
 
 def test_get_providers_resolves_selected_managed_gateway_endpoint():
@@ -357,7 +373,7 @@ def test_get_providers_resolves_selected_managed_gateway_endpoint():
         "auto_selected": False,
         "requires_api_key": False,
         "has_api_key": True,
-        "supports_client_tools": True,
+        "client_tool_delivery": "tool",
         "model_provider": "openai",
         "model_options": ["gpt-5.5"],
         "provider_model": "gpt-5.5",

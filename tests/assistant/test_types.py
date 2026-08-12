@@ -43,3 +43,10 @@ def test_client_tool_call_event_serializes_to_a_valid_sse_frame():
         "tool_name": "render_custom_view",
         "tool_input": {"title": "t"},
     }
+
+
+def test_terminal_client_tool_call_carries_continuation():
+    event = Event.from_client_tool_call(
+        "req-1", "render_custom_view", {"title": "t"}, continuation="terminal"
+    )
+    assert event.data["continuation"] == "terminal"

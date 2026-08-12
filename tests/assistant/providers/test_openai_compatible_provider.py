@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.base import clear_config_cache
+from mlflow.assistant.providers.ollama import OllamaProvider
 from mlflow.assistant.providers.openai_compatible import (
     _MAX_SESSION_BYTES,
     OpenAICompatibleProvider,
@@ -109,17 +110,29 @@ def provider():
 @pytest.fixture(autouse=True)
 def config_file(tmp_path):
     cfg = tmp_path / "config.json"
-    cfg.write_text(json.dumps({"providers": {"oai_test": {"model": "model-a"}}}))
+    cfg.write_text(
+        json.dumps({
+            "providers": {
+                "oai_test": {"model": "model-a"},
+                "ollama": {"model": "llama3.2"},
+            }
+        })
+    )
     clear_config_cache()
     with patch("mlflow.assistant.config.CONFIG_PATH", cfg):
         yield cfg
     clear_config_cache()
 
 
-def test_supports_client_tools_is_true(provider):
+def test_uses_native_client_tool_delivery(provider):
     # Schema-based providers pause on a CLIENT_TOOLS call and resume on the next
     # stream once a result is posted (see the pause/resume tests below).
-    assert provider.supports_client_tools is True
+    assert provider.client_tool_delivery == "tool"
+
+
+def test_ollama_uses_native_client_tool_delivery():
+    provider = OllamaProvider()
+    assert provider.client_tool_delivery == "tool"
 
 
 # ---------------------------------------------------------------------------

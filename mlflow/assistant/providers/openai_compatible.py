@@ -14,7 +14,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 import aiohttp
 
@@ -290,10 +290,10 @@ class OpenAICompatibleProvider(AssistantProvider):
         return self._allows_remote_access
 
     @property
-    def supports_client_tools(self) -> bool:
+    def client_tool_delivery(self) -> Literal["tool"]:
         # Schema-based providers: the tool loop below pauses on a CLIENT_TOOLS call
         # and resumes on the next stream once a result is posted (see astream()).
-        return True
+        return "tool"
 
     def is_available(self) -> bool:
         return True

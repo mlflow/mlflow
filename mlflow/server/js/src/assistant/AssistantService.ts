@@ -128,7 +128,7 @@ export interface SendMessageStreamCallbacks {
   onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
-  onClientToolCall?: (request: PendingClientToolCall) => void;
+  onClientToolCall?: (request: PendingClientToolCall) => void | Promise<void>;
   onUsage?: (usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -163,6 +163,7 @@ const attachStreamListeners = (
     onClientToolCall,
     onUsage,
   } = callbacks;
+  let terminalClientToolCall: PendingClientToolCall | null = null;
 
   // Listen for 'message' events (contains assistant's response)
   // Backend sends: {"message": {"role": "assistant", "content": "..."}}
@@ -222,31 +223,49 @@ const attachStreamListeners = (
     eventSource.close();
   });
 
-  // A 'client_tool_call' also ENDS the turn: the tool must be executed by the
-  // client (e.g. rendering an agent-authored UI spec), not the server. We
-  // surface it and close the stream; the result is delivered via
-  // submitClientToolResult, which opens a fresh stream to continue.
+  // Native client tool calls pause the provider and resume on a fresh stream.
+  // Structured-output providers emit a terminal call instead. Defer terminal
+  // execution until `done` so the backend has persisted the provider's latest
+  // session before a browser validation error starts an automatic repair turn.
   eventSource.addEventListener('client_tool_call', (event) => {
+    let continuation: PendingClientToolCall['continuation'] = 'resume';
     try {
       const data = JSON.parse((event as MessageEvent).data);
-      onClientToolCall?.({
+      continuation = data.continuation === 'terminal' ? 'terminal' : 'resume';
+      const request: PendingClientToolCall = {
         sessionId,
         requestId: data.request_id,
         toolName: data.tool_name,
         toolInput: data.tool_input ?? {},
-      });
+        ...(continuation === 'terminal' ? { continuation } : {}),
+      };
+      if (continuation === 'terminal') {
+        terminalClientToolCall = request;
+      } else {
+        onClientToolCall?.(request);
+      }
     } catch (err) {
       onError('Failed to read a client tool call from the assistant.');
     }
-    eventSource.close();
+    if (continuation === 'resume') {
+      eventSource.close();
+    }
   });
 
   // Listen for 'done' event (completion)
   // Backend sends: {"result": null, "session_id": "..."}
   eventSource.addEventListener('done', () => {
-    onToolUse?.([]);
-    onDone();
     eventSource.close();
+    const finish = async () => {
+      if (terminalClientToolCall) {
+        await onClientToolCall?.(terminalClientToolCall);
+      }
+      onToolUse?.([]);
+      onDone();
+    };
+    void finish().catch((error) => {
+      onError(error instanceof Error ? error.message : 'Failed to execute the client tool.');
+    });
   });
 
   // Listen for 'interrupted' event (cancelled by user)

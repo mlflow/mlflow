@@ -51,6 +51,7 @@ const mockWaitForCustomViewSpecApplier = jest.fn<(sessionId: string | undefined)
 const mockGetCurrentApplierSessionId = jest.fn<() => string | undefined>(() => 'session-1');
 const mockGetCustomViewAuthoringContext = jest.fn<() => any>(() => null);
 const mockLatchDispatchedCustomViewApplyTarget = jest.fn();
+const mockBuildCustomViewAuthoringGuide = jest.fn((mode: string) => `the-${mode}-guide`);
 
 let capturedConnectorProviderProps:
   | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean; isPending?: boolean } }
@@ -69,7 +70,7 @@ jest.mock('@databricks/web-shared/model-trace-explorer/custom-view', () => ({
     return <>{props.children}</>;
   },
   RENDER_CUSTOM_VIEW_TOOL_NAME: 'render_custom_view',
-  buildCustomViewAuthoringGuide: () => 'the-guide',
+  buildCustomViewAuthoringGuide: (mode: string) => mockBuildCustomViewAuthoringGuide(mode),
   getCurrentApplierSessionId: () => mockGetCurrentApplierSessionId(),
   getCustomViewAuthoringContext: () => mockGetCustomViewAuthoringContext(),
   latchDispatchedCustomViewApplyTarget: (target: unknown) => mockLatchDispatchedCustomViewApplyTarget(target),
@@ -151,6 +152,19 @@ describe('ExperimentCustomViewProvider', () => {
       expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
     });
 
+    it('submits structured-output instructions for a structured local provider', () => {
+      const assistant = makeAssistant({
+        activeProvider: { client_tool_delivery: 'structured' },
+      });
+      renderProvider();
+
+      capturedConnectorProviderProps?.connector.openAssistant?.('Show me the failed spans');
+
+      const [message] = jest.mocked(assistant.sendMessageWhenReady).mock.calls[0];
+      expect(message).toContain('structured Custom View response format');
+      expect(message).not.toContain('Use the `render_custom_view` tool');
+    });
+
     it('only opens the panel for "Edit with Assistant" when there is no prompt', () => {
       const assistant = makeAssistant();
       renderProvider();
@@ -222,13 +236,13 @@ describe('ExperimentCustomViewProvider', () => {
 
       const result = await capturedToolHandler!({ title: 'My view', messages: [] });
 
-      expect(result).toEqual({ content: 'Unknown component "Widget"', isError: true });
+      expect(result).toEqual({ content: 'Unknown component "Widget"', isError: true, retryable: true });
     });
   });
 
   describe('pull-based assistant context provider', () => {
-    it('does not register a context provider when the active provider lacks client-tool support', () => {
-      makeAssistant({ activeProvider: { supports_client_tools: false } });
+    it('does not register a context provider when Custom View delivery is unsupported', () => {
+      makeAssistant({ activeProvider: { client_tool_delivery: 'unsupported' } });
       renderProvider();
 
       expect(mockRegisterAssistantContextProvider).not.toHaveBeenCalled();
@@ -241,15 +255,15 @@ describe('ExperimentCustomViewProvider', () => {
       expect(mockRegisterAssistantContextProvider).not.toHaveBeenCalled();
     });
 
-    it('registers a context provider once the active provider supports client tools', () => {
-      makeAssistant({ activeProvider: { supports_client_tools: true } });
+    it('registers a context provider for native tool delivery', () => {
+      makeAssistant({ activeProvider: { client_tool_delivery: 'tool' } });
       renderProvider();
 
       expect(mockRegisterAssistantContextProvider).toHaveBeenCalledWith('customTraceView', expect.any(Function));
     });
 
     it('returns null and latches nothing when there is no published authoring context', () => {
-      makeAssistant({ activeProvider: { supports_client_tools: true } });
+      makeAssistant({ activeProvider: { client_tool_delivery: 'tool' } });
       mockGetCustomViewAuthoringContext.mockReturnValue(null);
       renderProvider();
 
@@ -258,7 +272,7 @@ describe('ExperimentCustomViewProvider', () => {
     });
 
     it('latches the apply target and returns the guide + trace sample + current template', () => {
-      makeAssistant({ activeProvider: { supports_client_tools: true } });
+      makeAssistant({ activeProvider: { client_tool_delivery: 'structured' } });
       const applyTarget = { id: 'v1', name: 'My view', instruction: 'do it', createdAtMs: 1 };
       mockGetCustomViewAuthoringContext.mockReturnValue({
         guide: 'the-guide',
@@ -272,10 +286,11 @@ describe('ExperimentCustomViewProvider', () => {
 
       expect(mockLatchDispatchedCustomViewApplyTarget).toHaveBeenCalledWith(applyTarget);
       expect(result).toEqual({
-        guide: 'the-guide',
+        guide: 'the-structured-guide',
         traceSample: { foo: 'bar' },
         currentTemplate: [{ id: 'root' }],
       });
+      expect(mockBuildCustomViewAuthoringGuide).toHaveBeenCalledWith('structured');
     });
   });
 });

@@ -13,8 +13,16 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
+from mlflow.assistant.custom_view import (
+    CUSTOM_VIEW_RESPONSE_SCHEMA,
+    CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    StructuredResponseRetry,
+    custom_view_response_events,
+    is_custom_view_request,
+    parse_custom_view_response,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -343,6 +351,10 @@ class ClaudeCodeProvider(AssistantProvider):
     def description(self) -> str:
         return "AI-powered assistant using Claude Code CLI"
 
+    @property
+    def client_tool_delivery(self) -> Literal["structured"]:
+        return "structured"
+
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
 
@@ -414,6 +426,7 @@ class ClaudeCodeProvider(AssistantProvider):
         mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
+        _structured_response_retry: StructuredResponseRetry = StructuredResponseRetry(),
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
@@ -426,6 +439,7 @@ class ClaudeCodeProvider(AssistantProvider):
             cwd: Working directory for Claude Code CLI
             context: Additional context for the assistant, such as information from
                 the current UI page the user is viewing (e.g., experimentId, traceId)
+            _structured_response_retry: Internal state for a bounded structured-output repair
 
         Yields:
             Event objects
@@ -442,6 +456,9 @@ class ClaudeCodeProvider(AssistantProvider):
             user_message = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
         else:
             user_message = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_message = f"{user_message}\n\n{CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
 
         # Build command
         # Note: --verbose is required when using --output-format=stream-json with -p.
@@ -462,6 +479,8 @@ class ClaudeCodeProvider(AssistantProvider):
 
         system_prompt = _build_system_prompt(tracking_uri)
         config = load_config_or_default(self.name)
+        if structured_custom_view:
+            cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
 
         # Handle permission mode
         if config.permissions.full_access:
@@ -485,7 +504,9 @@ class ClaudeCodeProvider(AssistantProvider):
             cmd.extend(["--resume", session_id])
 
         process = None
-        system_prompt_path = None
+        system_prompt_path: str | None = None
+        structured_response: Any | None = None
+        structured_session_id: str | None = None
         try:
             # Write the system prompt to a temp file referenced with
             # --append-system-prompt-file. mkstemp (rather than NamedTemporaryFile)
@@ -547,11 +568,20 @@ class ClaudeCodeProvider(AssistantProvider):
 
                         if self._should_filter_out_message(data):
                             continue
+                        if structured_custom_view:
+                            data = self._filter_structured_output_text(data)
+                        if data is None:
+                            continue
 
                         # Emit token usage before the result event, which closes
                         # the stream on the client once received.
                         if data.get("type") == "result" and (usage := data.get("usage")):
                             yield self._build_usage_event(usage, data.get("total_cost_usd"))
+
+                        if data.get("type") == "result" and structured_custom_view:
+                            structured_response = data.get("structured_output", data.get("result"))
+                            structured_session_id = data.get("session_id")
+                            continue
 
                         if msg := self._parse_message_to_event(data):
                             yield msg
@@ -581,6 +611,33 @@ class ClaudeCodeProvider(AssistantProvider):
                     or f"Process exited with code {process.returncode}"
                 )
                 yield Event.from_error(error_msg)
+            elif structured_custom_view:
+                result_session_id = structured_session_id or session_id
+                try:
+                    response = parse_custom_view_response(structured_response)
+                except Exception as e:
+                    repair = _structured_response_retry.next_attempt(e)
+                    if repair and result_session_id:
+                        repair_prompt, next_retry = repair
+                        async for event in self.astream(
+                            repair_prompt,
+                            tracking_uri,
+                            session_id=result_session_id,
+                            mlflow_session_id=mlflow_session_id,
+                            cwd=cwd,
+                            context=context,
+                            _structured_response_retry=next_retry,
+                        ):
+                            yield event
+                        return
+                    yield Event.from_error(f"Claude Code returned invalid Custom View output: {e}")
+                    return
+                if not result_session_id:
+                    yield Event.from_error("Claude Code result did not include a session ID")
+                    return
+                for event in custom_view_response_events(response):
+                    yield event
+                yield Event.from_result(result=None, session_id=result_session_id)
 
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")
@@ -788,3 +845,21 @@ class ClaudeCodeProvider(AssistantProvider):
             and block.get("text", "").startswith("Base directory for this skill:")
             for block in content
         )
+
+    @staticmethod
+    def _filter_structured_output_text(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Hide the JSON final answer; its parsed fields are emitted from the result event."""
+        if data.get("type") != "assistant":
+            return data
+
+        message = data.get("message", {})
+        content = message.get("content")
+        if not isinstance(content, list):
+            return data
+
+        filtered = [block for block in content if block.get("type") != "text"]
+        if len(filtered) == len(content):
+            return data
+        if not filtered:
+            return None
+        return {**data, "message": {**message, "content": filtered}}

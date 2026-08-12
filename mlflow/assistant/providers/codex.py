@@ -4,9 +4,18 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
+from mlflow.assistant.custom_view import (
+    STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA,
+    STRINGIFIED_CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    StructuredResponseRetry,
+    custom_view_response_events,
+    is_custom_view_request,
+    parse_custom_view_response,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -36,6 +45,10 @@ class CodexProvider(AssistantProvider):
     @property
     def description(self) -> str:
         return "AI-powered assistant using the Codex CLI"
+
+    @property
+    def client_tool_delivery(self) -> Literal["structured"]:
+        return "structured"
 
     def is_available(self) -> bool:
         return shutil.which(_CODEX_BINARY) is not None
@@ -112,6 +125,7 @@ class CodexProvider(AssistantProvider):
         mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
+        _structured_response_retry: StructuredResponseRetry = StructuredResponseRetry(),
     ) -> AsyncGenerator[Event, None]:
         codex_path = shutil.which(_CODEX_BINARY)
         if not codex_path:
@@ -127,6 +141,9 @@ class CodexProvider(AssistantProvider):
             user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
         else:
             user_text = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_text = f"{user_text}\n\n{STRINGIFIED_CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
 
         if session_id:
             user_message = user_text
@@ -145,6 +162,16 @@ class CodexProvider(AssistantProvider):
             "--skip-git-repo-check",
         ]
 
+        schema_path: Path | None = None
+        if structured_custom_view:
+            fd, raw_schema_path = tempfile.mkstemp(
+                prefix="mlflow-custom-view-", suffix=".schema.json"
+            )
+            schema_path = Path(raw_schema_path)
+            with os.fdopen(fd, "w") as schema_file:
+                json.dump(STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA, schema_file)
+            cmd.extend(["--output-schema", str(schema_path)])
+
         if config.model and config.model != "default":
             cmd.extend(["-m", config.model])
 
@@ -154,6 +181,8 @@ class CodexProvider(AssistantProvider):
         cmd.append("-")
 
         thread_id = ""
+        structured_response_text: str | None = None
+        codex_error: str | None = None
         process = None
         try:
             process = await asyncio.create_subprocess_exec(
@@ -186,8 +215,27 @@ class CodexProvider(AssistantProvider):
                 except json.JSONDecodeError:
                     continue
 
+                if data.get("type") == "error":
+                    codex_error = self._unwrap_error_message(data.get("message"))
+                    continue
+
+                if data.get("type") == "turn.failed":
+                    codex_error = self._unwrap_error_message(
+                        (data.get("error") or {}).get("message")
+                    )
+                    continue
+
                 if data.get("type") == "thread.started":
                     thread_id = data.get("thread_id", "")
+                    continue
+
+                item = data.get("item") or {}
+                if (
+                    structured_custom_view
+                    and data.get("type") == "item.completed"
+                    and item.get("type") == "agent_message"
+                ):
+                    structured_response_text = item.get("text")
                     continue
 
                 # Emit token usage before the result event, which closes the
@@ -211,11 +259,35 @@ class CodexProvider(AssistantProvider):
                 assert process.stderr is not None
                 stderr_bytes = await process.stderr.read()
                 error_msg = (
-                    stderr_bytes.decode("utf-8", errors="replace").strip()
+                    codex_error
+                    or stderr_bytes.decode("utf-8", errors="replace").strip()
                     or f"Process exited with code {process.returncode}"
                 )
                 yield Event.from_error(error_msg)
             else:
+                if structured_custom_view:
+                    try:
+                        response = parse_custom_view_response(structured_response_text)
+                    except Exception as e:
+                        repair = _structured_response_retry.next_attempt(e)
+                        repair_session_id = thread_id or session_id
+                        if repair and repair_session_id:
+                            repair_prompt, next_retry = repair
+                            async for event in self.astream(
+                                repair_prompt,
+                                tracking_uri,
+                                session_id=repair_session_id,
+                                mlflow_session_id=mlflow_session_id,
+                                cwd=cwd,
+                                context=context,
+                                _structured_response_retry=next_retry,
+                            ):
+                                yield event
+                            return
+                        yield Event.from_error(f"Codex returned invalid Custom View output: {e}")
+                        return
+                    for event in custom_view_response_events(response):
+                        yield event
                 yield Event.from_result(result=None, session_id=thread_id)
 
         except Exception as e:
@@ -227,6 +299,31 @@ class CodexProvider(AssistantProvider):
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
+            if schema_path:
+                schema_path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _unwrap_error_message(message: Any) -> str | None:
+        value = message
+        for _ in range(4):
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    return value
+            elif isinstance(value, dict):
+                error = value.get("error")
+                if isinstance(error, dict) and error.get("message"):
+                    value = error["message"]
+                elif value.get("message"):
+                    value = value["message"]
+                else:
+                    return json.dumps(value)
+            elif value is None:
+                return None
+            else:
+                return str(value)
+        return str(value)
 
     @staticmethod
     def _build_usage_event(usage: dict[str, Any], model: str | None) -> Event:

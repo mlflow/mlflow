@@ -1,4 +1,5 @@
 import errno
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -78,10 +79,9 @@ def test_is_available(which_return, expected):
         assert provider.is_available() is expected
 
 
-def test_supports_client_tools_is_false():
-    # A CLI-based provider has no mid-stream client-tool channel without MCP
-    # plumbing, so it inherits the base class's default of False.
-    assert ClaudeCodeProvider().supports_client_tools is False
+def test_uses_structured_client_tool_delivery():
+    provider = ClaudeCodeProvider()
+    assert provider.client_tool_delivery == "structured"
 
 
 def test_check_connection_runs_auth_verification_prompt():
@@ -236,6 +236,199 @@ async def test_astream_passes_cwd_and_env(tmp_path, monkeypatch):
     assert call_kwargs["cwd"] == tmp_path
     assert call_kwargs["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
     assert call_kwargs["env"]["TEST_ENV_VAR"] == "test_value"
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_custom_view_json_schema(tmp_path):
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [{"version": "v0.9", "updateComponents": {}}],
+    }
+    mock_process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": json.dumps(response)}]},
+            }).encode()
+            + b"\n",
+            json.dumps({
+                "type": "result",
+                "session_id": "claude-session",
+                "structured_output": response,
+            }).encode()
+            + b"\n",
+        ],
+        pid=None,
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [
+            event
+            async for event in provider.astream(
+                "build a view",
+                "http://localhost:5000",
+                session_id="previous-claude-session",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    args = mock_exec.call_args.args
+    schema = json.loads(args[args.index("--json-schema") + 1])
+    assert schema["required"] == ["type", "text", "title", "messages"]
+    assert args[args.index("--resume") + 1] == "previous-claude-session"
+    assert "--mcp-config" not in args
+    assert [event.type for event in events] == [
+        EventType.MESSAGE,
+        EventType.MESSAGE,
+        EventType.CLIENT_TOOL_CALL,
+        EventType.DONE,
+    ]
+    assert events[0].data["message"]["content"][0]["text"] == response["text"]
+    assert events[2].data["continuation"] == "terminal"
+
+
+@pytest.mark.asyncio
+async def test_astream_repairs_invalid_custom_view_output_once(tmp_path):
+    invalid_response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [],
+    }
+    valid_response = {
+        **invalid_response,
+        "messages": [{"version": "v0.9", "updateComponents": {}}],
+    }
+
+    def result_process(response):
+        return _mock_process(
+            stdout_lines=[
+                json.dumps({
+                    "type": "result",
+                    "session_id": "repair-session",
+                    "structured_output": response,
+                }).encode()
+                + b"\n"
+            ],
+            pid=None,
+        )
+
+    invalid_process = result_process(invalid_response)
+    valid_process = result_process(valid_response)
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            side_effect=[invalid_process, valid_process],
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert mock_exec.call_count == 2
+    repair_args = mock_exec.call_args_list[1].args
+    assert repair_args[repair_args.index("--resume") + 1] == "repair-session"
+    repair_prompt = valid_process.stdin.write.call_args.args[0].decode()
+    assert "structured response failed validation" in repair_prompt
+    assert "non-empty messages" in repair_prompt
+    assert not any(event.type == EventType.ERROR for event in events)
+    assert [event.type for event in events] == [
+        EventType.MESSAGE,
+        EventType.MESSAGE,
+        EventType.CLIENT_TOOL_CALL,
+        EventType.DONE,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_astream_stops_after_one_invalid_custom_view_output_repair(tmp_path):
+    invalid_response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [],
+    }
+
+    def invalid_process():
+        return _mock_process(
+            stdout_lines=[
+                json.dumps({
+                    "type": "result",
+                    "session_id": "repair-session",
+                    "structured_output": invalid_response,
+                }).encode()
+                + b"\n"
+            ],
+            pid=None,
+        )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            side_effect=[invalid_process(), invalid_process()],
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert mock_exec.call_count == 2
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "non-empty messages" in errors[0].data["error"]
+
+
+def test_filter_structured_output_text_preserves_tool_blocks():
+    message = {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {"type": "text", "text": '{"type":"message"}'},
+                {
+                    "type": "tool_use",
+                    "id": "tool-id",
+                    "name": "Bash",
+                    "input": {},
+                },
+            ]
+        },
+    }
+
+    filtered = ClaudeCodeProvider._filter_structured_output_text(message)
+    assert filtered["message"]["content"] == [message["message"]["content"][1]]
 
 
 @pytest.mark.asyncio
