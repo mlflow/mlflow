@@ -1,5 +1,21 @@
 module.exports = async ({ github, context }) => {
   const { owner, repo } = context.repo;
+
+  // A bypass-protect grant only covers the commits it was reviewed against:
+  // drop the label when new commits are pushed so protect re-enforces.
+  if (context.payload.action === "synchronize") {
+    const { labels, number } = context.payload.pull_request;
+    if (labels.some(({ name }) => name === "bypass-protect")) {
+      await github.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: number,
+        name: "bypass-protect",
+      });
+    }
+    return;
+  }
+
   const { body, number: issue_number } = context.payload.issue || context.payload.pull_request;
   const pattern = /- \[(.*?)\]\s*`(.+?)`/g;
   // Labels extracted from the issue/PR body

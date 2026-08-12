@@ -9,6 +9,8 @@ on:
     types:
       - opened
       - edited
+      # To drop the bypass-protect label when new commits are pushed
+      - synchronize
 
 defaults:
   run:
