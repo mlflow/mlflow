@@ -329,6 +329,31 @@ describe('AssistantContext — pendingPrompt seed', () => {
     expect(result.current.pendingPrompt).toBeNull();
   });
 
+  it('direct send clears a queued pendingPrompt when continuing an established session', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('first turn');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+      result.current.prefillPrompt('STALE SEED');
+    });
+    expect(result.current.pendingPrompt).toBe('STALE SEED');
+
+    mockSendMessageStream.mockClear();
+    await act(async () => {
+      result.current.sendMessage('direct follow-up');
+    });
+
+    expect(result.current.pendingPrompt).toBeNull();
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({
+      session_id: 'session-1',
+      message: 'direct follow-up',
+    });
+  });
+
   // completing setup must NOT drop a queued prompt, so it can be
   // consumed once the chat input appears post-setup.
   it('keeps pendingPrompt across completeSetup() (seed survives setup refresh)', async () => {

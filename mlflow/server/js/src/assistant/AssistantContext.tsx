@@ -746,8 +746,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       setErrorCode(null);
       setIsStreaming(true);
-      // A direct send supersedes any prompt queued for the composer.
-      setPendingPrompt(null);
       // A new message supersedes any prompt the user was deciding on. Clearing it
       // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
       // backend closes the orphaned tool call out as cancelled.
@@ -902,6 +900,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSendMessage = useCallback(
     async (message: string, options?: { newSession?: boolean }) => {
+      // A direct send supersedes any prompt queued for the composer, regardless
+      // of whether it starts a fresh thread or continues the current one.
+      setPendingPrompt(null);
       if (options?.newSession) {
         // Reset and start through the explicit fresh-chat path in the same
         // action. Calling reset() followed by the regular session-aware branch
