@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786554266695,
+  "lastUpdate": 1786576517201,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21383,6 +21383,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 48.95578799999498,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "samrajmoorjani@gmail.com",
+            "name": "Samraj Moorjani",
+            "username": "smoorjani"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "082588fe6d3a281bd72eea5f6eefac1edfb15ca0",
+          "message": "Fix `make_scorer_ensemble` experimental version to 3.16.0 (#24914)\n\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>",
+          "timestamp": "2026-08-12T23:13:49Z",
+          "tree_id": "aeaaea153b4a5efc8339bfd9d3e15f9e80e0e5db",
+          "url": "https://github.com/mlflow/mlflow/commit/082588fe6d3a281bd72eea5f6eefac1edfb15ca0"
+        },
+        "date": 1786576514951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.632725849999844,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.613722340000322,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.053974609374846,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.082973596330639,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.428813663551245,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.346546400000875,
             "unit": "ms"
           }
         ]
