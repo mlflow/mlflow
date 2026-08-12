@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786502350975,
+  "lastUpdate": 1786509062817,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -20897,6 +20897,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.678138800004831,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "guojayce@gmail.com",
+            "name": "Jayce Guo",
+            "username": "jayceguo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "61a5401606c27ddd8578e0a35f741119fa82a8ca",
+          "message": "Bound `log_batch` duplicate-metric recovery in `SqlAlchemyStore` by batch size (#24683)\n\nSigned-off-by: Jayce Guo <jiahaog@amazon.com>\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Daniel Lok <daniel.lok@databricks.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-12T04:29:41Z",
+          "tree_id": "510de477e629c9383ef7fcb11659a180ddccb066",
+          "url": "https://github.com/mlflow/mlflow/commit/61a5401606c27ddd8578e0a35f741119fa82a8ca"
+        },
+        "date": 1786509061545,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 53.013653949999906,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 11.608204291668459,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.659277851851949,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 8.375500282608288,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.069100181818393,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.104431799996291,
             "unit": "ms"
           }
         ]
