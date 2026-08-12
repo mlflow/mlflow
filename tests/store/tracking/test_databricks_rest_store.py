@@ -1829,6 +1829,12 @@ def test_search_datasets_basic():
                 "source": '{"table_name":"main.default.test"}',
                 "source_type": "databricks-uc-table",
                 "last_sync_time": "1970-01-01T00:00:00Z",
+                "version": {
+                    "version": 7,
+                    "create_time": "2025-11-28T20:30:53.195Z",
+                    "created_by": "user@example.com",
+                    "operation": "WRITE",
+                },
             }
         ],
         "next_page_token": None,
@@ -1861,6 +1867,7 @@ def test_search_datasets_basic():
         assert result[0].digest == "abc123"
         assert result[0].created_by == "user@example.com"
         assert result[0].last_updated_by == "user@example.com"
+        assert result[0].version["version"] == 7
         assert result.token is None
 
 
