@@ -131,6 +131,11 @@ export const SELECTED_ISSUE_ID_PARAM = 'selectedIssueId';
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';
 export const IMAGE_COMPRESSED_FILE_EXTENSION = 'webp';
+// Videos are logged into the same `images/` prefix under the same
+// `<key>+step+<N>+timestamp+<T>+<uuid>` convention as images, with a webp
+// poster frame as the `+compressed` companion, so the existing grid and step
+// slider are reused. See MlflowClient.log_video.
+export const VIDEO_FILE_EXTENSIONS = ['mp4', 'webm', 'mov'];
 export const EXPERIMENT_RUNS_IMAGE_AUTO_REFRESH_INTERVAL = 30000;
 export const DEFAULT_IMAGE_GRID_CHART_NAME = 'Image grid';
 

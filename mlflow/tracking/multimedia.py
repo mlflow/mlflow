@@ -6,12 +6,18 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 import warnings
 from typing import TYPE_CHECKING, Any, Union
 
+
 if TYPE_CHECKING:
     import numpy
     import PIL
 
 
 COMPRESSED_IMAGE_SIZE = 256
+
+# Video containers accepted by log_video. Kept in sync with
+# VIDEO_FILE_EXTENSIONS in the web UI (experiment-tracking/constants.ts);
+# the UI skips any logged-media artifact whose extension it does not know.
+VIDEO_FILE_EXTENSIONS = frozenset({"mp4", "webm", "mov"})
 
 
 def compress_image_size(

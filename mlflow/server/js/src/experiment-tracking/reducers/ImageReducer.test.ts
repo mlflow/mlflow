@@ -196,4 +196,50 @@ describe('ImageReducer', () => {
       },
     });
   });
+
+  it('should group video artifacts by key and step alongside their poster', () => {
+    const stem = 'rollout+step+3+timestamp+1786553450112+UUID';
+    const action: AsyncFulfilledAction<ListImagesAction> = {
+      type: 'LIST_IMAGES_API_FULFILLED',
+      payload: {
+        files: [
+          { path: `images/${stem}.mp4`, is_dir: false, file_size: 123 },
+          { path: `images/${stem}+compressed.webp`, is_dir: false, file_size: 12 },
+        ],
+        root_uri: '',
+      },
+      meta: { id: '123', runUuid: 'run1' },
+    } as AsyncFulfilledAction<ListImagesAction>;
+
+    const newState = imagesByRunUuid({}, action);
+    const entry = newState['run1']['rollout'][stem];
+    expect(entry.filepath).toEqual(`images/${stem}.mp4`);
+    expect(entry.compressed_filepath).toEqual(`images/${stem}+compressed.webp`);
+    expect(entry.step).toEqual(3);
+  });
+
+  it('should keep a video whose poster is absent', () => {
+    // The poster is optional, so log_video needs no transcoding dependency.
+    const stem = 'rollout+step+0+timestamp+1786553450112+UUID';
+    const action: AsyncFulfilledAction<ListImagesAction> = {
+      type: 'LIST_IMAGES_API_FULFILLED',
+      payload: { files: [{ path: `images/${stem}.mp4`, is_dir: false, file_size: 123 }], root_uri: '' },
+      meta: { id: '123', runUuid: 'run1' },
+    } as AsyncFulfilledAction<ListImagesAction>;
+
+    const entry = imagesByRunUuid({}, action)['run1']['rollout'][stem];
+    expect(entry.filepath).toEqual(`images/${stem}.mp4`);
+    expect(entry.compressed_filepath).toBeUndefined();
+  });
+
+  it('should ignore artifacts whose extension is neither image nor video', () => {
+    const stem = 'rollout+step+0+timestamp+1+UUID';
+    const action: AsyncFulfilledAction<ListImagesAction> = {
+      type: 'LIST_IMAGES_API_FULFILLED',
+      payload: { files: [{ path: `images/${stem}.txt`, is_dir: false, file_size: 1 }], root_uri: '' },
+      meta: { id: '123', runUuid: 'run1' },
+    } as AsyncFulfilledAction<ListImagesAction>;
+
+    expect(imagesByRunUuid({}, action)['run1']?.['rollout']).toBeUndefined();
+  });
 });

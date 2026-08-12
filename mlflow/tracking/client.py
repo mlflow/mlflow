@@ -13,6 +13,8 @@ import os
 import posixpath
 import re
 import sys
+import pathlib
+import shutil
 import tempfile
 import threading
 import urllib
@@ -127,7 +129,12 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._workspace.client import WorkspaceProviderClient
 from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIException
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
-from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
+from mlflow.tracking.multimedia import (
+    VIDEO_FILE_EXTENSIONS,
+    Image,
+    compress_image_size,
+    convert_to_pil_image,
+)
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter
@@ -3316,6 +3323,101 @@ class MlflowClient:
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
+
+    def log_video(
+        self,
+        run_id: str,
+        video: str,
+        key: str,
+        step: int | None = None,
+        timestamp: int | None = None,
+        poster: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image", None] = None,
+    ) -> None:
+        """
+        Logs a video against a key and step, the video counterpart of
+        :py:meth:`log_image` time-stepped logging.
+
+        Videos are stored alongside logged images and share their step axis, so the
+        MLflow UI renders them in the metrics section with a step slider.
+
+        The following video formats are supported: mp4, webm, mov.
+
+        MLflow does not transcode. The file is uploaded as given, so it must already be
+        in a format browsers can play; H.264 in an mp4 container is the safest choice.
+
+        Args:
+            run_id: String ID of the run.
+            video: Local path to the video file.
+            key: Video name, the series the step slider scrubs over. May only contain
+                alphanumerics, underscores (_), dashes (-), periods (.), spaces ( ),
+                and slashes (/).
+            step: Integer training step (iteration) at which the video was saved.
+                Defaults to 0.
+            timestamp: Time when this video was saved. Defaults to the current system
+                time.
+            poster: Optional still shown before playback begins, accepting the same
+                types as :py:meth:`log_image`. When omitted the browser renders its own
+                first frame, which requires downloading part of the video, so supplying
+                a poster keeps a grid of many videos cheap.
+
+        .. code-block:: python
+
+            import mlflow
+
+            with mlflow.start_run():
+                for step, path in enumerate(rollout_paths):
+                    mlflow.log_video(path, key="rollout", step=step)
+        """
+        video_path = pathlib.Path(video)
+        extension = video_path.suffix.lstrip(".").lower()
+        if extension not in VIDEO_FILE_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported video format: {video_path.suffix!r}. `video` must be one of "
+                f"{', '.join(sorted(VIDEO_FILE_EXTENSIONS))}."
+            )
+        if not video_path.is_file():
+            raise FileNotFoundError(f"No such video file: {video}")
+
+        # Same key rule as log_image. This also excludes '+', which is the delimiter in
+        # the stored filename and would otherwise corrupt the step/timestamp parse.
+        if not re.match(r"^[a-zA-Z0-9_\-./ ]+$", key):
+            raise ValueError(
+                "The `key` parameter may only contain alphanumerics, underscores (_), "
+                "dashes (-), periods (.), spaces ( ), and slashes (/)."
+                f"The provided key `{key}` contains invalid characters."
+            )
+
+        step = step or 0
+        timestamp = timestamp or get_current_time_millis()
+
+        # Mirrors log_image: '/' becomes '~' so the key cannot create subdirectories,
+        # and '+' separates the fields the UI parses back out.
+        sanitized_key = re.sub(r"/", "~", key)
+        stem = f"images/{sanitized_key}+step+{step}+timestamp+{timestamp}+{uuid.uuid4()}"
+
+        with self._log_artifact_helper(run_id, f"{stem}.{extension}") as tmp_path:
+            shutil.copyfile(video_path, tmp_path)
+
+        if poster is not None:
+            import numpy as np
+
+            if isinstance(poster, np.ndarray):
+                poster = convert_to_pil_image(poster)
+            elif isinstance(poster, Image):
+                poster = poster.to_pil()
+            else:
+                import PIL.Image
+
+                if not isinstance(poster, PIL.Image.Image):
+                    raise TypeError(
+                        f"Unsupported poster object type: {type(poster)}. `poster` must be "
+                        "one of numpy.ndarray, PIL.Image.Image, and mlflow.Image."
+                    )
+            with self._log_artifact_helper(run_id, f"{stem}+compressed.webp") as tmp_path:
+                compress_image_size(poster).save(tmp_path)
+
+        # The UI only fetches the logged-media prefix when this tag is present.
+        self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True)
 
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.

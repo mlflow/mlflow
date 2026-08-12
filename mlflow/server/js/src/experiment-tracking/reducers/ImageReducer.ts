@@ -6,6 +6,7 @@ import {
   IMAGE_COMPRESSED_FILE_EXTENSION,
   IMAGE_FILE_EXTENSION,
   MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH,
+  VIDEO_FILE_EXTENSIONS,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import type { ArtifactFileInfo, ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { AsyncFulfilledAction } from '@mlflow/mlflow/src/redux-types';
@@ -88,7 +89,11 @@ export const imagesByRunUuid = (
               );
 
               // Double check extension of image files
-              if (extension === IMAGE_FILE_EXTENSION || extension === IMAGE_COMPRESSED_FILE_EXTENSION) {
+              if (
+                extension === IMAGE_FILE_EXTENSION ||
+                extension === IMAGE_COMPRESSED_FILE_EXTENSION ||
+                (extension !== undefined && VIDEO_FILE_EXTENSIONS.includes(extension))
+              ) {
                 if (isCompressed) {
                   acc[imageKey] = {
                     ...acc[imageKey],
