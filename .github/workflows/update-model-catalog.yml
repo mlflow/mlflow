@@ -5,6 +5,14 @@ on:
     # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
     - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
+  # pull_request runs are a dry run: fetch, regenerate, and diff without a
+  # write token, skipping the tag push, PR creation, and release publish.
+  pull_request:
+    paths:
+      - .github/workflows/update-model-catalog.yml
+      - dev/update_model_catalog.py
+      - dev/publish_model_catalog.sh
+      - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 defaults:
   run:
@@ -22,6 +30,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        if: github.event_name != 'pull_request'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -30,9 +39,15 @@ jobs:
           permission-pull-requests: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'pull_request'
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-python
         with:
@@ -70,7 +85,7 @@ jobs:
           fi
 
       - name: Update model-catalog/latest tag
-        if: steps.diff.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
         run: |
           git fetch origin master --depth=1
           git tag -f model-catalog/latest origin/master
@@ -78,7 +93,7 @@ jobs:
 
       - name: Create or update pull request
         id: pr
-        if: steps.diff.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
@@ -115,7 +130,7 @@ jobs:
           exit 1
 
       - name: Publish to GitHub Releases
-        if: steps.diff.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: bash dev/publish_model_catalog.sh
