@@ -12,7 +12,7 @@ updates:
       - "/"
       - "/.github/actions/*"
     schedule:
-      interval: weekly
+      interval: monthly
     # Match the 7-day package cooldown used for Python (exclude-newer) and
     # JavaScript (min-release-age) dependencies.
     cooldown:
