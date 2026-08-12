@@ -2,6 +2,7 @@ import base64
 import gc
 import importlib.util
 import json
+import logging
 import math
 import os
 import pathlib
@@ -410,6 +411,41 @@ def test_basic_save_model_with_torch_dtype(text2text_generation_pipeline, model_
 
     loaded = mlflow.transformers.load_model(model_path, torch_dtype=torch.float32)
     assert loaded.model.dtype == torch.float32
+
+
+def test_load_model_does_not_emit_torch_dtype_deprecation_warning(
+    text_classification_pipeline, model_path
+):
+    mlflow.transformers.save_model(
+        transformers_model=text_classification_pipeline,
+        path=model_path,
+    )
+
+    # The pipeline's dtype is recorded into the flavor config on save even without an explicit
+    # `torch_dtype` argument, so the load path always forwards it and would warn on newer
+    # transformers versions. Assert it was recorded so the renamed-kwarg path is exercised.
+    flavor_conf = Model.load(model_path).flavors[mlflow.transformers.FLAVOR_NAME]
+    assert flavor_conf["torch_dtype"] == str(text_classification_pipeline.model.dtype)
+
+    # transformers >= 4.56.0 warns via `logger.warning_once` when the deprecated `torch_dtype`
+    # kwarg is passed to `from_pretrained`/`pipeline`, so capture the transformers logger output.
+    messages = []
+
+    class _CaptureHandler(logging.Handler):
+        def emit(self, record):
+            messages.append(record.getMessage())
+
+    handler = _CaptureHandler()
+    transformers_logger = logging.getLogger("transformers")
+    transformers_logger.addHandler(handler)
+    try:
+        loaded = mlflow.transformers.load_model(model_path)
+    finally:
+        transformers_logger.removeHandler(handler)
+
+    assert not any("torch_dtype` is deprecated" in msg for msg in messages)
+    # The recorded dtype is still applied on load.
+    assert loaded.model.dtype == text_classification_pipeline.model.dtype
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):

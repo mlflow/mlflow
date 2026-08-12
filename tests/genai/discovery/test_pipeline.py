@@ -28,6 +28,7 @@ from mlflow.genai.discovery.pipeline import (
 from mlflow.genai.discovery.utils import get_session_id, verify_scorer
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 from tests.genai.discovery.conftest import _TestScorer
@@ -61,20 +62,27 @@ def create_identified_issue(**kwargs) -> _IdentifiedIssue:
         "example_indices": [0],
         "severity": "high",
         "categories": [],
+        "category_rationale": "",
     }
     defaults.update(kwargs)
     return _IdentifiedIssue(**defaults)
 
 
-def test_identified_issue_defaults_example_indices():
-    issue = _IdentifiedIssue.model_validate({
-        "name": "Issue: Test",
-        "description": "A test",
-        "root_cause": "Unknown",
-        "severity": "low",
-        "categories": [],
-    })
-    assert issue.example_indices == []
+def _schema_contains_key(node, key: str) -> bool:
+    if isinstance(node, dict):
+        return key in node or any(_schema_contains_key(value, key) for value in node.values())
+    if isinstance(node, list):
+        return any(_schema_contains_key(value, key) for value in node)
+    return False
+
+
+def test_identified_issue_response_format_is_strict_schema():
+    response_format = pydantic_to_response_format(_IdentifiedIssue)
+    schema = response_format["json_schema"]["schema"]
+
+    assert set(schema["required"]) == set(schema["properties"])
+    assert schema["additionalProperties"] is False
+    assert not _schema_contains_key(schema, "default")
 
 
 def test_discover_issues_no_experiment():
@@ -136,6 +144,7 @@ def test_discover_issues_full_pipeline(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(name="slow_response", description="Responses take too long")
@@ -198,6 +207,7 @@ def test_discover_issues_low_severity_issues_filtered(make_trace):
         example_indices=[0],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -347,6 +357,7 @@ def test_is_non_issue(name, severity, expected):
         example_indices=[0],
         severity=severity,
         categories=[],
+        category_rationale="",
     )
     assert _is_non_issue(issue) == expected
 
@@ -367,6 +378,7 @@ def test_discover_issues_filters_non_issues(make_trace, issue_name):
         example_indices=[0, 1, 2],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with mlflow.start_run() as run:
@@ -631,6 +643,7 @@ def test_recluster_merges_similar_singletons():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="Issue B",
@@ -639,6 +652,7 @@ def test_recluster_merges_similar_singletons():
             example_indices=[1],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "[tool_call] API timeout", 1: "[tool_call] API timeout"}
@@ -650,6 +664,7 @@ def test_recluster_merges_similar_singletons():
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -691,6 +706,7 @@ def test_recluster_keeps_unmerged_singletons():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="Issue B",
@@ -699,6 +715,7 @@ def test_recluster_keeps_unmerged_singletons():
             example_indices=[1],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "[path_a] symptom a", 1: "[path_b] symptom b"}
@@ -724,6 +741,7 @@ def test_recluster_single_singleton_returns_as_is():
             example_indices=[0],
             severity="high",
             categories=[],
+            category_rationale="",
         ),
     ]
     result = recluster_singletons(singletons, {0: "label"}, [], "m", 25, categories=[])
@@ -750,6 +768,7 @@ def test_recluster_low_severity_merge_keeps_originals():
             example_indices=[0],
             severity="low",
             categories=[],
+            category_rationale="",
         ),
         _IdentifiedIssue(
             name="B",
@@ -758,6 +777,7 @@ def test_recluster_low_severity_merge_keeps_originals():
             example_indices=[1],
             severity="low",
             categories=[],
+            category_rationale="",
         ),
     ]
     labels = {0: "label a", 1: "label b"}
@@ -769,6 +789,7 @@ def test_recluster_low_severity_merge_keeps_originals():
         example_indices=[0, 1],
         severity="not_an_issue",
         categories=[],
+        category_rationale="",
     )
 
     with (
@@ -950,6 +971,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=[],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(name="slow_response", description="Responses take too long")
@@ -1063,6 +1085,7 @@ def test_discover_issues_filters_invalid_categories(make_trace):
         example_indices=[0, 1],
         severity="high",
         categories=["hallucination", "invalid_category", "tool_error", "another_invalid"],
+        category_rationale="",
     )
 
     mock_issue = _make_issue(

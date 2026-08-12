@@ -70,7 +70,8 @@ import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
-import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
+import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
+import Utils from '../../../common/utils/Utils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -87,17 +88,16 @@ import {
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
+import { getExperimentPageTracesTabRoute } from './routes';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
-  // TODO: display error notification in OSS
-  return;
+  Utils.displayGlobalErrorNotification(errorMessage);
 };
 
 export const displaySuccessNotification = (successMessage: string) => {
-  // TODO: display success notification in OSS
-  return;
+  Utils.displayGlobalInfoNotification(successMessage);
 };
 
 export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
@@ -238,6 +238,39 @@ export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: stri
   return matches;
 };
 
+export const getLinkFieldKey = (index: number, field: string): string => {
+  return `link-${index}-${field}`;
+};
+
+const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
+  const links = span.links;
+  if (!links) {
+    return [];
+  }
+
+  const matches: SearchMatch[] = [];
+  links.forEach((link, index) => {
+    const attributes = link.attributes;
+    if (!attributes || Object.keys(attributes).length === 0) return;
+
+    Object.entries(attributes).forEach(([attrKey, attrValue]) => {
+      const key = getLinkFieldKey(index, attrKey);
+      const isKeyMatch = attrKey.toLowerCase().includes(searchFilter);
+      if (isKeyMatch) {
+        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
+      }
+
+      const value = JSON.stringify(attrValue, null, 2).toLowerCase();
+      const numValueMatches = value.split(searchFilter).length - 1;
+      for (let i = 0; i < numValueMatches; i++) {
+        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
+      }
+    });
+  });
+
+  return matches;
+};
+
 /**
  * This function extracts all the matches from a span based on the search filter,
  * and appends some necessary metadata that is necessary for the jump-to-search
@@ -257,11 +290,16 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
     outputs: span?.outputs,
     attributes: span?.attributes,
     events: span?.events,
+    links: span?.links,
   };
 
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events') => {
+  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
       matches.push(...getMatchesFromEvent(span, searchFilter));
+      return;
+    }
+    if (label === 'links') {
+      matches.push(...getMatchesFromLinks(span, searchFilter));
       return;
     }
 
@@ -527,6 +565,7 @@ export const normalizeNewSpanData = (
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -548,6 +587,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    links,
     chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
@@ -607,6 +647,22 @@ export function isV3ModelTraceInfo(
 
   return 'trace_location' in info;
 }
+
+export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | undefined): string | undefined => {
+  if (!traceInfo) return undefined;
+
+  let experimentId: string | undefined;
+  if (isV3ModelTraceInfo(traceInfo)) {
+    if (traceInfo.trace_location?.type === 'MLFLOW_EXPERIMENT') {
+      experimentId = traceInfo.trace_location.mlflow_experiment?.experiment_id;
+    }
+  } else {
+    experimentId = traceInfo.experiment_id;
+  }
+
+  if (!experimentId) return undefined;
+  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+};
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
   return 'start_time_unix_nano' in span && Array.isArray(span.attributes);
@@ -1345,22 +1401,9 @@ export const getDefaultActiveTab = (
  */
 export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
   const getValue = (value: any) => {
-    if (!isObject(value)) {
-      return value;
-    }
-    if ('string_value' in value) {
-      return value.string_value;
-    }
-    if ('bool_value' in value) {
-      return value.bool_value;
-    }
-    if ('int_value' in value) {
-      return value.int_value;
-    }
-    if ('double_value' in value) {
-      return value.double_value;
-    }
-    return value;
+    // OTLP AnyValues (e.g. kvlist_value for dict-valued attributes like
+    // mlflow.spanInputs) need to be decoded recursively into plain JS values
+    return isOtelAnyValue(value) ? decodeOtelAnyValue(value) : value;
   };
 
   const convertAttributes = (attributes: any) => {
@@ -1387,6 +1430,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links }),
   };
 };
 

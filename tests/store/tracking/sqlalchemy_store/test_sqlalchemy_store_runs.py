@@ -2820,6 +2820,158 @@ def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore
     assert returned_steps == set(range(20, 31))
 
 
+def test_get_metric_history_bulk_interval_same_step_is_bounded(store: SqlAlchemyStore):
+    # Many values logged under a single step (the default step=0 used by log_metric without an
+    # explicit step) must not blow up the response. Previously the step-based downsampling
+    # collapsed to a single step and returned every row (up to 25000), causing memory spikes.
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "loss"
+    n = 5000
+    for start in range(0, n, 1000):
+        store.log_batch(
+            run_id,
+            metrics=[
+                models.SqlMetric(
+                    key=metric_key, value=float(i), timestamp=1000 + i, step=0
+                ).to_mlflow_entity()
+                for i in range(start, start + 1000)
+            ],
+            params=[],
+            tags=[],
+        )
+
+    max_results = 100
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=max_results,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Bounded to max_results, not the full 5000 rows logged at step 0.
+    assert len(result) == max_results
+    values = [m.value for m in result]
+    # The sample spans the full range: first and last logged values are both present.
+    assert values[0] == 0.0
+    assert values[-1] == float(n - 1)
+    # Values are an evenly spread sample, not just the first N rows (the old behavior).
+    assert max(values) == float(n - 1)
+
+
+def test_get_metric_history_bulk_interval_python_fallback_is_bounded(store: SqlAlchemyStore):
+    # Backends without window functions (MySQL < 8.0 / MariaDB < 10.2) take the Python sampling
+    # path. It must produce the same bounded, full-range result as the window-function path.
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "loss"
+    n = 5000
+    for start in range(0, n, 1000):
+        store.log_batch(
+            run_id,
+            metrics=[
+                models.SqlMetric(
+                    key=metric_key, value=float(i), timestamp=1000 + i, step=0
+                ).to_mlflow_entity()
+                for i in range(start, start + 1000)
+            ],
+            params=[],
+            tags=[],
+        )
+
+    max_results = 100
+    with mock.patch.object(
+        SqlAlchemyStore, "_supports_window_functions", return_value=False
+    ) as supports:
+        result = store.get_metric_history_bulk_interval(
+            run_ids=[run_id],
+            metric_key=metric_key,
+            max_results=max_results,
+            start_step=None,
+            end_step=None,
+        )
+    supports.assert_called()
+
+    assert len(result) == max_results
+    values = [m.value for m in result]
+    assert values[0] == 0.0
+    assert values[-1] == float(n - 1)
+    assert max(values) == float(n - 1)
+
+
+@pytest.mark.parametrize(
+    ("db_type", "server_version_info", "is_mariadb", "expected"),
+    [
+        (SQLITE, None, False, True),
+        (POSTGRES, None, False, True),
+        (MYSQL, (8, 0, 32), False, True),
+        (MYSQL, (5, 7, 40), False, False),
+        (MYSQL, (10, 5, 0), True, True),
+        (MYSQL, (10, 1, 0), True, False),
+        (MYSQL, None, False, True),
+    ],
+)
+def test_supports_window_functions(
+    store: SqlAlchemyStore, db_type, server_version_info, is_mariadb, expected
+):
+    session = mock.Mock()
+    dialect = session.get_bind.return_value.dialect
+    dialect.server_version_info = server_version_info
+    dialect._is_mariadb = is_mariadb
+    with mock.patch.object(store, "db_type", db_type):
+        assert store._supports_window_functions(session) is expected
+
+
+def test_get_metric_history_bulk_interval_fewer_than_max_results_returns_all(
+    store: SqlAlchemyStore,
+):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "test_metric"
+    for i in range(5):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=100,
+        start_step=None,
+        end_step=None,
+    )
+
+    assert [m.step for m in result] == [0, 1, 2, 3, 4]
+    assert [m.value for m in result] == [0.0, 1.0, 2.0, 3.0, 4.0]
+
+
+def test_get_metric_history_bulk_interval_preserves_nan(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_key = "test_metric"
+    store.log_metric(
+        run_id,
+        models.SqlMetric(
+            key=metric_key, value=float("nan"), timestamp=1000, step=0, is_nan=True
+        ).to_mlflow_entity(),
+    )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    assert len(result) == 1
+    assert math.isnan(result[0].value)
+
+
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
         # cursor = conn.cursor()
@@ -3730,3 +3882,111 @@ def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
 
     store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
     assert len(store.search_traces(**search_args)[0]) == 4
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for the concurrent log_batch latest_metrics deadlock:
+#   Fix A = globally sort + de-duplicate metric keys before batching so the
+#           per-batch ORDER BY lock order holds across all 500-key batches.
+#   Fix B = route the metric write path through the existing
+#           _run_with_deadlock_retry so a deadlock victim is transparently
+#           redriven instead of surfacing an HTTP 503.
+# ---------------------------------------------------------------------------
+
+
+def test_log_batch_unsorted_duplicate_keys_across_lock_batches(store: SqlAlchemyStore):
+    """Fix A: reverse-ordered + duplicate keys spanning >1 lock batch still yield correct latest
+    metrics (sorting + de-dup before batching preserves write correctness).
+    """
+    experiment_id = _create_experiments(store, "deadlock_fix_a_exp")
+    run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
+    ts = get_current_time_millis()
+    n = 520  # > 500 so the sorted keys span two lock batches (500 + 20)
+    # Reverse (unsorted) client order; add a duplicate key with a higher step so the
+    # de-dup path and the "latest wins" comparison are both exercised.
+    metrics = [Metric(f"m{i:05d}", float(i), ts, 0) for i in reversed(range(n))]
+    metrics.append(Metric("m00000", 999.0, ts, 5))  # duplicate key, newer step -> wins
+    store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+    run_metrics = store.get_run(run.info.run_id).data.metrics
+    assert len(run_metrics) == n
+    assert run_metrics["m00000"] == 999.0  # duplicate: higher step wins
+    # Sample keys around the 500-key batch boundary rather than asserting all n.
+    for i in (1, 499, 500, n - 1):
+        assert run_metrics[f"m{i:05d}"] == float(i)
+
+
+def test_run_with_deadlock_retry_retries_then_succeeds(store: SqlAlchemyStore, monkeypatch):
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    calls = {"n": 0}
+
+    def fn():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+        return "ok"
+
+    assert store._run_with_deadlock_retry(fn) == "ok"
+    assert calls["n"] == 3
+
+
+def test_run_with_deadlock_retry_does_not_retry_non_deadlock(store: SqlAlchemyStore):
+    """Fix B: a non-deadlock error (wrong code, or TEMPORARILY_UNAVAILABLE without 'deadlock')
+    propagates immediately without retry.
+    """
+    calls = {"n": 0}
+
+    def fn_internal():
+        calls["n"] += 1
+        raise MlflowException("boom")  # default INTERNAL_ERROR
+
+    with pytest.raises(MlflowException, match="boom"):
+        store._run_with_deadlock_retry(fn_internal)
+    assert calls["n"] == 1
+
+    calls2 = {"n": 0}
+
+    def fn_transient():
+        calls2["n"] += 1
+        raise MlflowException("connection reset", error_code=TEMPORARILY_UNAVAILABLE)
+
+    with pytest.raises(MlflowException, match="connection reset"):
+        store._run_with_deadlock_retry(fn_transient)
+    assert calls2["n"] == 1
+
+
+def test_run_with_deadlock_retry_exhausts_and_reraises(store: SqlAlchemyStore, monkeypatch):
+    from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
+
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    calls = {"n": 0}
+
+    def fn():
+        calls["n"] += 1
+        raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+
+    with pytest.raises(MlflowException, match="deadlock"):
+        store._run_with_deadlock_retry(fn)
+    assert calls["n"] == _DB_WRITE_MAX_DEADLOCK_RETRIES + 1
+
+
+def test_log_metric_redrives_on_deadlock_and_persists(store: SqlAlchemyStore, monkeypatch):
+    """Fix B end-to-end: a first-attempt deadlock is redriven on a fresh session and the metric
+    persists (client sees success, not a 503).
+    """
+    monkeypatch.setattr(time, "sleep", lambda *args, **kwargs: None)
+    experiment_id = _create_experiments(store, "deadlock_fix_b_exp")
+    run = _run_factory(store, _get_run_configs(experiment_id=experiment_id))
+    real_once = store._log_metrics_once
+    state = {"n": 0}
+
+    def flaky_once(run_id, metrics):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise MlflowException("deadlock detected", error_code=TEMPORARILY_UNAVAILABLE)
+        return real_once(run_id, metrics)
+
+    monkeypatch.setattr(store, "_log_metrics_once", flaky_once)
+    store.log_metric(run.info.run_id, Metric("acc", 0.9, get_current_time_millis(), 0))
+    run_metrics = store.get_run(run.info.run_id).data.metrics
+    assert state["n"] == 2  # first attempt deadlocked, second succeeded
+    assert run_metrics["acc"] == 0.9

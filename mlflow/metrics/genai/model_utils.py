@@ -213,7 +213,7 @@ def _call_llm_provider_api(
             URL for the LLM provider will be used.
         messages: Pre-built list of message dicts (``[{"role": ..., "content": ...}]``).
             Mutually exclusive with ``input_data``.
-        response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
+        response_format: Response format dict (e.g. from ``pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
@@ -511,6 +511,14 @@ def _get_provider_instance(
             vertex_credentials=os.environ.get("VERTEX_CREDENTIALS"),
         )
         return VertexAIProvider(_get_route_config(config))
+
+    elif provider == Provider.SAP_AI_CORE:
+        from mlflow.gateway.providers.sap_ai_core import SapAiCoreConfig, SapAiCoreProvider
+
+        # SapAiCoreProvider reads MLFLOW_GENAI_JUDGE_BASE_URL at request time.
+        # Auth is handled by the egress gateway; no API key is stored.
+        config = SapAiCoreConfig()
+        return SapAiCoreProvider(_get_route_config(config))
 
     raise MlflowException(
         f"Provider '{provider}' is not supported for evaluation.",

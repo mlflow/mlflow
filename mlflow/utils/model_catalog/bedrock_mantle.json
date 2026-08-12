@@ -140,6 +140,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "xai.grok-4.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-06"
     }
   }
 }

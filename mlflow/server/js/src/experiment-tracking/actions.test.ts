@@ -10,6 +10,8 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import {
+  DELETE_EXPERIMENT_TAG_API,
+  deleteExperimentTagApi,
   fetchMissingParents,
   fetchMissingParentsWithSearchRuns,
   getEvaluationTableArtifact,
@@ -228,6 +230,37 @@ describe('createRun', () => {
         }),
       }),
     );
+  });
+});
+
+describe('deleteExperimentTagApi', () => {
+  beforeEach(() => {
+    jest.spyOn(MlflowService, 'deleteExperimentTag').mockImplementation(() => Promise.resolve({} as any));
+  });
+
+  afterEach(() => {
+    (MlflowService.deleteExperimentTag as any).mockRestore();
+  });
+
+  it('should dispatch DELETE_EXPERIMENT_TAG_API and call the service with the experiment id and key', () => {
+    const action = deleteExperimentTagApi('experiment-123', 'mlflow.sharedViewState.abc', 'req-id');
+
+    expect(action.type).toEqual(DELETE_EXPERIMENT_TAG_API);
+    expect(action.payload).toBeInstanceOf(Promise);
+    expect(MlflowService.deleteExperimentTag).toHaveBeenCalledWith({
+      experiment_id: 'experiment-123',
+      key: 'mlflow.sharedViewState.abc',
+    });
+    expect(action.meta).toEqual({
+      id: 'req-id',
+      experimentId: 'experiment-123',
+      key: 'mlflow.sharedViewState.abc',
+    });
+  });
+
+  it('should default the request id when one is not provided', () => {
+    const action = deleteExperimentTagApi('experiment-123', 'mlflow.sharedViewState.abc');
+    expect(action.meta.id).toEqual(expect.any(String));
   });
 });
 

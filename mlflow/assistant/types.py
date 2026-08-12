@@ -58,6 +58,7 @@ class EventType(str, Enum):
     ERROR = "error"
     INTERRUPTED = "interrupted"
     PERMISSION_REQUEST = "permission_request"
+    CLIENT_TOOL_CALL = "client_tool_call"
 
     def __str__(self):
         return self.value
@@ -76,6 +77,14 @@ class Event(BaseModel):
     @classmethod
     def from_error(cls, error: str) -> "Event":
         return cls(type=EventType.ERROR, data={"error": error})
+
+    @classmethod
+    def from_exception(cls, exc: Exception) -> "Event":
+        # Some exceptions (e.g. NotImplementedError()) stringify to an empty
+        # string, which would surface to the client as an undiagnosable
+        # `{"error": ""}`. Fall back to the exception's repr so the error is
+        # always identifiable.
+        return cls.from_error(str(exc) or repr(exc))
 
     @classmethod
     def from_message(cls, message: Message) -> "Event":
@@ -99,5 +108,18 @@ class Event(BaseModel):
     ) -> "Event":
         return cls(
             type=EventType.PERMISSION_REQUEST,
+            data={"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input},
+        )
+
+    @classmethod
+    def from_client_tool_call(
+        cls, request_id: str, tool_name: str, tool_input: dict[str, Any]
+    ) -> "Event":
+        """A tool call the CLIENT (not the server) must execute, e.g. rendering an
+        agent-authored UI spec in the browser. Ends the turn the same way a
+        permission request does: the client posts the result to resume.
+        """
+        return cls(
+            type=EventType.CLIENT_TOOL_CALL,
             data={"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input},
         )

@@ -16,6 +16,7 @@ export const MLFLOW_EXPERIMENT_NAME = 'MLFLOW_EXPERIMENT_NAME';
  * workspace; the SDK does not create it.
  */
 export const MLFLOW_TRACE_LOCATION = 'MLFLOW_TRACE_LOCATION';
+export const MLFLOW_WORKSPACE = 'MLFLOW_WORKSPACE';
 
 type ConfigSource = 'environment' | 'project' | 'user' | 'none';
 
@@ -31,6 +32,7 @@ export interface TracingConfig {
   experimentName?: string;
   /** Raw `catalog.schema.table_prefix` UC trace location, if configured. */
   traceLocation?: string;
+  workspace?: string;
   source: ConfigSource;
   settingsPath?: string;
 }
@@ -82,6 +84,7 @@ function hasAnyTracingKey(env: Record<string, string | undefined>): boolean {
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACE_LOCATION,
+    MLFLOW_WORKSPACE,
   ].some((key) => env[key] !== undefined);
 }
 
@@ -106,6 +109,7 @@ function parseTracingConfig(
     experimentId: env[MLFLOW_EXPERIMENT_ID],
     experimentName: env[MLFLOW_EXPERIMENT_NAME],
     traceLocation: env[MLFLOW_TRACE_LOCATION],
+    workspace: env[MLFLOW_WORKSPACE],
     source,
     settingsPath,
   };
@@ -160,6 +164,7 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
     experimentId: userConfig.experimentId,
     experimentName: userConfig.experimentName,
     traceLocation: userConfig.traceLocation,
+    workspace: userConfig.workspace,
     ...(hasTracingConfig(projectConfig)
       ? {
           enabled: projectConfig.enabled,
@@ -167,6 +172,7 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
           experimentId: projectConfig.experimentId,
           experimentName: projectConfig.experimentName,
           traceLocation: projectConfig.traceLocation,
+          workspace: projectConfig.workspace,
         }
       : {}),
   };
@@ -179,6 +185,7 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
     experimentId: process.env[MLFLOW_EXPERIMENT_ID] ?? merged.experimentId,
     experimentName: process.env[MLFLOW_EXPERIMENT_NAME] ?? merged.experimentName,
     traceLocation: process.env[MLFLOW_TRACE_LOCATION] ?? merged.traceLocation,
+    workspace: process.env[MLFLOW_WORKSPACE] ?? merged.workspace,
     source: 'none',
   };
 
@@ -253,6 +260,7 @@ export function writeTracingSettings(
     experimentId: string;
     experimentName?: string;
     traceLocation?: string;
+    workspace?: string;
     enabled?: boolean;
   },
 ): void {
@@ -279,6 +287,12 @@ export function writeTracingSettings(
     env[MLFLOW_TRACE_LOCATION] = config.traceLocation.trim();
   } else {
     delete env[MLFLOW_TRACE_LOCATION];
+  }
+
+  if (hasConfigValue(config.workspace)) {
+    env[MLFLOW_WORKSPACE] = config.workspace;
+  } else {
+    delete env[MLFLOW_WORKSPACE];
   }
 
   settings.env = env;
@@ -344,6 +358,7 @@ export async function ensureInitialized(): Promise<boolean> {
       trackingUri: config.trackingUri,
       experimentId: resolvedExperiment.experimentId,
       ...(traceLocation ? { traceLocation } : {}),
+      workspace: config.workspace,
     });
     initializedKey = initKey;
     return true;
