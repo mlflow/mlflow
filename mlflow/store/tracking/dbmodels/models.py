@@ -306,7 +306,9 @@ class SqlRun(Base):
 
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name="source_type"),
-        CheckConstraint(status.in_(RunStatusTypes), name="status"),
+        # Historical migrations generate this SQLite CHECK constraint without a stable name.
+        # Keep ORM metadata aligned with that schema so Alembic autogenerate sees no drift.
+        CheckConstraint(status.in_(RunStatusTypes)),
         CheckConstraint(
             lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
             name="runs_lifecycle_stage",
@@ -822,6 +824,7 @@ class SqlTraceInfo(Base):
         # which is the default view in the UI. Also every search query should have experiment_id(s)
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
+        Index(f"index_{__tablename__}_timestamp_ms_request_id", "timestamp_ms", "request_id"),
     )
 
     def to_mlflow_entity(self):

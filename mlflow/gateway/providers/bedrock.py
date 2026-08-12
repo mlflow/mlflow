@@ -316,19 +316,11 @@ class AmazonBedrockProvider(BaseProvider):
         system_prompts = []
         converse_messages = []
 
-        for msg in messages:
+        index = 0
+        while index < len(messages):
+            msg = messages[index]
             role = msg.get("role", "user")
-            content = msg.get("content", "")
-
-            # Normalize content: extract text from list of content parts
-            if content is None:
-                content = ""
-            elif isinstance(content, list):
-                content = "\n".join(
-                    p.get("text", "")
-                    for p in content
-                    if isinstance(p, dict) and p.get("type") == "text"
-                )
+            content = self._normalize_content_text(msg.get("content"))
 
             if role == "system":
                 system_prompts.append({"text": content})
@@ -381,22 +373,29 @@ class AmazonBedrockProvider(BaseProvider):
                     "content": assistant_content,
                 })
             elif role == "tool":
+                tool_result_content = []
+                while index < len(messages) and messages[index].get("role") == "tool":
+                    tool_msg = messages[index]
+                    tool_result_content.append({
+                        "toolResult": {
+                            "toolUseId": tool_msg.get("tool_call_id", ""),
+                            "content": [
+                                {"text": self._normalize_content_text(tool_msg.get("content"))}
+                            ],
+                        }
+                    })
+                    index += 1
                 converse_messages.append({
                     "role": "user",
-                    "content": [
-                        {
-                            "toolResult": {
-                                "toolUseId": msg.get("tool_call_id", ""),
-                                "content": [{"text": content}],
-                            }
-                        }
-                    ],
+                    "content": tool_result_content,
                 })
+                continue
             else:
                 converse_messages.append({
                     "role": "user",
                     "content": [{"text": content}],
                 })
+            index += 1
 
         kwargs = {
             "modelId": self.config.model.name,
@@ -438,6 +437,18 @@ class AmazonBedrockProvider(BaseProvider):
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
         return kwargs
+
+    @staticmethod
+    def _normalize_content_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            return "\n".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        return str(content)
 
     def _converse_to_chat_response(self, response: dict[str, Any]) -> chat.ResponsePayload:
         """Convert Bedrock Converse response to OpenAI chat format."""

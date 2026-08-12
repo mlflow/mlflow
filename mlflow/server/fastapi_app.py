@@ -8,6 +8,7 @@ to FastAPI endpoints.
 
 import inspect
 import json
+import os
 import time
 import typing
 
@@ -28,6 +29,7 @@ from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _add_static_prefix
 from mlflow.server.job_api import job_api_router
 from mlflow.server.mcp_server_api import (
     _mlflow_error_response,
@@ -132,9 +134,11 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     if getattr(fastapi_app.state, "gateway_timing_middleware_added", False):
         return
 
+    gateway_path_prefix = _add_static_prefix("/gateway/")
+
     @fastapi_app.middleware("http")
     async def gateway_timing_middleware(request: Request, call_next):
-        if not get_routed_asgi_path(request).startswith("/gateway/"):
+        if not get_routed_asgi_path(request).startswith(gateway_path_prefix):
             return await call_next(request)
 
         # Reset the ContextVar so the handler task starts at 0. The handler task
@@ -201,6 +205,10 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     Returns:
         FastAPI application instance with the Flask app mounted via WSGIMiddleware.
     """
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if "{" in static_prefix or "}" in static_prefix:
+        raise MlflowException(f"{STATIC_PREFIX_ENV_VAR} must not contain '{{' or '}}'.")
+
     # Create FastAPI app with metadata
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
@@ -221,17 +229,17 @@ def create_fastapi_app(flask_app: Flask = flask_app):
 
     # Include OpenTelemetry API router BEFORE mounting Flask app
     # This ensures FastAPI routes take precedence over the catch-all Flask mount
-    fastapi_app.include_router(otel_router)
+    fastapi_app.include_router(otel_router, prefix=static_prefix)
 
-    fastapi_app.include_router(job_api_router)
+    fastapi_app.include_router(job_api_router, prefix=static_prefix)
 
     # Include Gateway API router for database-backed endpoints
     # This provides /gateway/{endpoint_name}/mlflow/invocations routes
-    fastapi_app.include_router(gateway_router)
+    fastapi_app.include_router(gateway_router, prefix=static_prefix)
 
     # Include Assistant API router for AI-powered trace analysis
     # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
-    fastapi_app.include_router(assistant_router)
+    fastapi_app.include_router(assistant_router, prefix=static_prefix)
 
     # Include native artifact upload/download router for ASGI streaming
     # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes

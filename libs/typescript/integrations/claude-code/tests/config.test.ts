@@ -50,6 +50,7 @@ describe('Claude Code tracing config', () => {
     delete process.env.MLFLOW_EXPERIMENT_ID;
     delete process.env.MLFLOW_EXPERIMENT_NAME;
     delete process.env.MLFLOW_TRACE_LOCATION;
+    delete process.env.MLFLOW_WORKSPACE;
     initMock.mockReset();
     getExperimentByNameMock.mockReset();
     createExperimentMock.mockReset();
@@ -127,6 +128,71 @@ describe('Claude Code tracing config', () => {
       trackingUri: 'http://localhost:5000',
       experimentId: '123',
     });
+  });
+
+  it('writes and reads workspace in tracing settings', () => {
+    const settingsPath = resolveSettingsPath(true, { home: tmpHome, cwd: tmpCwd });
+    writeTracingSettings(settingsPath, {
+      trackingUri: 'http://localhost:5000',
+      experimentId: '42',
+      workspace: 'my-workspace',
+    });
+
+    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env: Record<string, string>;
+    };
+    expect(stored.env).toMatchObject({
+      MLFLOW_WORKSPACE: 'my-workspace',
+    });
+
+    expect(getEffectiveTracingConfig({ home: tmpHome, cwd: tmpCwd })).toMatchObject({
+      workspace: 'my-workspace',
+    });
+  });
+
+  it('lets MLFLOW_WORKSPACE env var override saved workspace', () => {
+    writeTracingSettings(resolveSettingsPath(false, { home: tmpHome, cwd: tmpCwd }), {
+      trackingUri: 'http://saved.example',
+      experimentId: '7',
+      workspace: 'saved-ws',
+    });
+
+    process.env.MLFLOW_WORKSPACE = 'env-ws';
+
+    expect(getEffectiveTracingConfig({ home: tmpHome, cwd: tmpCwd })).toMatchObject({
+      workspace: 'env-ws',
+    });
+  });
+
+  it('omits MLFLOW_WORKSPACE from settings when workspace is not provided', () => {
+    const settingsPath = resolveSettingsPath(true, { home: tmpHome, cwd: tmpCwd });
+    writeTracingSettings(settingsPath, {
+      trackingUri: 'http://localhost:5000',
+      experimentId: '42',
+    });
+
+    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env: Record<string, string>;
+    };
+    expect(stored.env).not.toHaveProperty('MLFLOW_WORKSPACE');
+
+    expect(getEffectiveTracingConfig({ home: tmpHome, cwd: tmpCwd }).workspace).toBeUndefined();
+  });
+
+  it('passes workspace to init during ensureInitialized', async () => {
+    writeTracingSettings(resolveSettingsPath(true, { home: tmpHome, cwd: tmpCwd }), {
+      trackingUri: 'http://localhost:5000',
+      experimentId: '42',
+      workspace: 'test-ws',
+    });
+    process.chdir(tmpCwd);
+
+    await expect(ensureInitialized()).resolves.toBe(true);
+    expect(initMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace: 'test-ws',
+      }),
+    );
   });
 
   it('creates the experiment when a configured experiment name does not exist', async () => {
