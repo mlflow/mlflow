@@ -6,10 +6,9 @@ Native-tool providers use ``tool_executor`` instead.
 
 import json
 import uuid
-from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from mlflow.assistant.types import Event, Message, TextBlock, ToolUseBlock
 
@@ -78,48 +77,12 @@ the transport encoding: the decoded value must be the same A2UI message array de
 The decoded string must start with "[", end with "]", and contain nothing after that final "]".
 """
 
-# This per-provider-request budget repairs malformed response envelopes. Browser-side
-# A2UI validation has a separate budget, and each browser repair starts a new request.
-_MAX_STRUCTURED_RESPONSE_REPAIRS = 1
-
-
-@dataclass(frozen=True)
-class StructuredResponseRetry:
-    """Provider-independent state and prompt for a bounded structured-output repair."""
-
-    attempts: int = 0
-
-    def next_attempt(self, error: Exception) -> tuple[str, "StructuredResponseRetry"] | None:
-        if self.attempts >= _MAX_STRUCTURED_RESPONSE_REPAIRS:
-            return None
-
-        detail = str(error) or repr(error)
-        prompt = (
-            "Your previous structured response failed validation:\n"
-            f"{detail}\n\n"
-            "Regenerate the complete response and follow the same output schema exactly. "
-            "Return only the schema-conforming response."
-        )
-        return prompt, StructuredResponseRetry(attempts=self.attempts + 1)
-
 
 def _parse_stringified_messages(value: str) -> Any:
     try:
         return json.loads(value)
-    except json.JSONDecodeError as original_error:
-        try:
-            parsed, end = json.JSONDecoder().raw_decode(value)
-        except json.JSONDecodeError:
-            raise ValueError("messages must be a JSON-encoded array") from original_error
-
-        # Codex can close the strict outer response envelope inside the string,
-        # leaving an otherwise complete A2UI array followed by an extra `}`. Only
-        # discard a short suffix of unmatched closing delimiters; do not guess at
-        # truncated JSON or repair content within the array.
-        trailing = value[end:].strip()
-        if isinstance(parsed, list) and 0 < len(trailing) <= 4 and set(trailing) <= {"}", "]"}:
-            return parsed
-        raise ValueError("messages must be a JSON-encoded array") from original_error
+    except json.JSONDecodeError as e:
+        raise ValueError("messages must be a JSON-encoded array") from e
 
 
 class CustomViewResponse(BaseModel):
@@ -136,14 +99,6 @@ class CustomViewResponse(BaseModel):
         if isinstance(value, str):
             return _parse_stringified_messages(value)
         return value
-
-    @model_validator(mode="after")
-    def validate_action_fields(self) -> "CustomViewResponse":
-        # Match the browser's top-level acceptance rule: render actions need
-        # content, while title and conversational text may be empty.
-        if self.type == RENDER_CUSTOM_VIEW_TOOL_NAME and not self.messages:
-            raise ValueError("render_custom_view responses require non-empty messages")
-        return self
 
 
 def parse_custom_view_response(value: Any) -> CustomViewResponse:

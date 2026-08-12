@@ -11,7 +11,6 @@ from typing import Any, AsyncGenerator, Callable, Literal
 from mlflow.assistant.custom_view import (
     STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA,
     STRINGIFIED_CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS,
-    StructuredResponseRetry,
     custom_view_response_events,
     is_custom_view_request,
     parse_custom_view_response,
@@ -125,7 +124,6 @@ class CodexProvider(AssistantProvider):
         mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-        _structured_response_retry: StructuredResponseRetry = StructuredResponseRetry(),
     ) -> AsyncGenerator[Event, None]:
         codex_path = shutil.which(_CODEX_BINARY)
         if not codex_path:
@@ -272,21 +270,6 @@ class CodexProvider(AssistantProvider):
                     try:
                         response = parse_custom_view_response(structured_response_text)
                     except Exception as e:
-                        repair = _structured_response_retry.next_attempt(e)
-                        repair_session_id = thread_id or session_id
-                        if repair and repair_session_id:
-                            repair_prompt, next_retry = repair
-                            async for event in self.astream(
-                                repair_prompt,
-                                tracking_uri,
-                                session_id=repair_session_id,
-                                mlflow_session_id=mlflow_session_id,
-                                cwd=cwd,
-                                context=context,
-                                _structured_response_retry=next_retry,
-                            ):
-                                yield event
-                            return
                         yield Event.from_error(f"Codex returned invalid Custom View output: {e}")
                         return
                     for event in custom_view_response_events(response):

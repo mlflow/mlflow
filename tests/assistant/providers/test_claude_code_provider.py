@@ -301,33 +301,24 @@ async def test_astream_uses_custom_view_json_schema(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_astream_repairs_invalid_custom_view_output_once(tmp_path):
-    invalid_response = {
+async def test_astream_forwards_empty_custom_view_messages_for_client_validation(tmp_path):
+    response = {
         "type": "render_custom_view",
         "text": "Created the trace summary.",
         "title": "Trace Summary",
         "messages": [],
     }
-    valid_response = {
-        **invalid_response,
-        "messages": [{"version": "v0.9", "updateComponents": {}}],
-    }
-
-    def result_process(response):
-        return _mock_process(
-            stdout_lines=[
-                json.dumps({
-                    "type": "result",
-                    "session_id": "repair-session",
-                    "structured_output": response,
-                }).encode()
-                + b"\n"
-            ],
-            pid=None,
-        )
-
-    invalid_process = result_process(invalid_response)
-    valid_process = result_process(valid_response)
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "session_id": "session-id",
+                "structured_output": response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
     with (
         patch(
             "mlflow.assistant.providers.claude_code.shutil.which",
@@ -335,7 +326,7 @@ async def test_astream_repairs_invalid_custom_view_output_once(tmp_path):
         ),
         patch(
             "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
-            side_effect=[invalid_process, valid_process],
+            return_value=process,
         ) as mock_exec,
     ):
         events = [
@@ -348,12 +339,7 @@ async def test_astream_repairs_invalid_custom_view_output_once(tmp_path):
             )
         ]
 
-    assert mock_exec.call_count == 2
-    repair_args = mock_exec.call_args_list[1].args
-    assert repair_args[repair_args.index("--resume") + 1] == "repair-session"
-    repair_prompt = valid_process.stdin.write.call_args.args[0].decode()
-    assert "structured response failed validation" in repair_prompt
-    assert "non-empty messages" in repair_prompt
+    mock_exec.assert_called_once()
     assert not any(event.type == EventType.ERROR for event in events)
     assert [event.type for event in events] == [
         EventType.MESSAGE,
@@ -361,29 +347,29 @@ async def test_astream_repairs_invalid_custom_view_output_once(tmp_path):
         EventType.CLIENT_TOOL_CALL,
         EventType.DONE,
     ]
+    assert events[2].data["tool_input"]["messages"] == []
 
 
 @pytest.mark.asyncio
-async def test_astream_stops_after_one_invalid_custom_view_output_repair(tmp_path):
+async def test_astream_does_not_retry_invalid_custom_view_transport(tmp_path):
     invalid_response = {
         "type": "render_custom_view",
         "text": "Created the trace summary.",
         "title": "Trace Summary",
-        "messages": [],
+        "messages": "not-json",
     }
 
-    def invalid_process():
-        return _mock_process(
-            stdout_lines=[
-                json.dumps({
-                    "type": "result",
-                    "session_id": "repair-session",
-                    "structured_output": invalid_response,
-                }).encode()
-                + b"\n"
-            ],
-            pid=None,
-        )
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "session_id": "session-id",
+                "structured_output": invalid_response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
 
     with (
         patch(
@@ -392,7 +378,7 @@ async def test_astream_stops_after_one_invalid_custom_view_output_repair(tmp_pat
         ),
         patch(
             "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
-            side_effect=[invalid_process(), invalid_process()],
+            return_value=process,
         ) as mock_exec,
     ):
         events = [
@@ -405,10 +391,10 @@ async def test_astream_stops_after_one_invalid_custom_view_output_repair(tmp_pat
             )
         ]
 
-    assert mock_exec.call_count == 2
+    mock_exec.assert_called_once()
     errors = [event for event in events if event.type == EventType.ERROR]
     assert len(errors) == 1
-    assert "non-empty messages" in errors[0].data["error"]
+    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
 
 
 def test_filter_structured_output_text_preserves_tool_blocks():

@@ -18,7 +18,6 @@ from typing import Any, AsyncGenerator, Callable, Literal
 from mlflow.assistant.custom_view import (
     CUSTOM_VIEW_RESPONSE_SCHEMA,
     CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS,
-    StructuredResponseRetry,
     custom_view_response_events,
     is_custom_view_request,
     parse_custom_view_response,
@@ -426,7 +425,6 @@ class ClaudeCodeProvider(AssistantProvider):
         mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-        _structured_response_retry: StructuredResponseRetry = StructuredResponseRetry(),
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
@@ -439,7 +437,6 @@ class ClaudeCodeProvider(AssistantProvider):
             cwd: Working directory for Claude Code CLI
             context: Additional context for the assistant, such as information from
                 the current UI page the user is viewing (e.g., experimentId, traceId)
-            _structured_response_retry: Internal state for a bounded structured-output repair
 
         Yields:
             Event objects
@@ -616,20 +613,6 @@ class ClaudeCodeProvider(AssistantProvider):
                 try:
                     response = parse_custom_view_response(structured_response)
                 except Exception as e:
-                    repair = _structured_response_retry.next_attempt(e)
-                    if repair and result_session_id:
-                        repair_prompt, next_retry = repair
-                        async for event in self.astream(
-                            repair_prompt,
-                            tracking_uri,
-                            session_id=result_session_id,
-                            mlflow_session_id=mlflow_session_id,
-                            cwd=cwd,
-                            context=context,
-                            _structured_response_retry=next_retry,
-                        ):
-                            yield event
-                        return
                     yield Event.from_error(f"Claude Code returned invalid Custom View output: {e}")
                     return
                 if not result_session_id:

@@ -7,7 +7,6 @@ from pydantic import ValidationError
 from mlflow.assistant.custom_view import (
     CUSTOM_VIEW_RESPONSE_SCHEMA,
     STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA,
-    StructuredResponseRetry,
     custom_view_response_events,
     parse_custom_view_response,
 )
@@ -52,18 +51,6 @@ def test_parse_response_with_stringified_messages():
     assert response.messages == messages
 
 
-def test_parse_response_ignores_unmatched_trailing_closers_in_stringified_messages():
-    messages = [{"version": "v0.9", "updateComponents": {}}]
-    response = parse_custom_view_response({
-        "type": "render_custom_view",
-        "text": "Updated the view.",
-        "title": "Trace Summary",
-        "messages": f"{json.dumps(messages)}}}",
-    })
-
-    assert response.messages == messages
-
-
 def test_parse_response_rejects_invalid_stringified_messages():
     with pytest.raises(ValidationError, match="messages must be a JSON-encoded array"):
         parse_custom_view_response({
@@ -71,17 +58,6 @@ def test_parse_response_rejects_invalid_stringified_messages():
             "text": "Updated the view.",
             "title": "Trace Summary",
             "messages": "not-json",
-        })
-
-
-@pytest.mark.parametrize("suffix", ["garbage", "} garbage", "}}}}}"])
-def test_parse_response_rejects_unsafe_stringified_messages_repair(suffix):
-    with pytest.raises(ValidationError, match="messages must be a JSON-encoded array"):
-        parse_custom_view_response({
-            "type": "render_custom_view",
-            "text": "Updated the view.",
-            "title": "Trace Summary",
-            "messages": f"[]{suffix}",
         })
 
 
@@ -97,24 +73,15 @@ def test_parse_render_response_allows_empty_title():
 
 
 @pytest.mark.parametrize("messages", [[], "[]"])
-def test_parse_render_response_requires_messages(messages):
-    with pytest.raises(ValidationError, match="non-empty messages"):
-        parse_custom_view_response({
-            "type": "render_custom_view",
-            "text": "Updated the view.",
-            "title": "Trace Summary",
-            "messages": messages,
-        })
+def test_parse_render_response_leaves_empty_messages_for_client_validation(messages):
+    response = parse_custom_view_response({
+        "type": "render_custom_view",
+        "text": "Updated the view.",
+        "title": "Trace Summary",
+        "messages": messages,
+    })
 
-
-def test_structured_response_retry_is_bounded_and_includes_validation_error():
-    retry = StructuredResponseRetry()
-
-    prompt, next_retry = retry.next_attempt(ValueError("messages cannot be empty"))
-
-    assert "structured response failed validation" in prompt
-    assert "messages cannot be empty" in prompt
-    assert next_retry.next_attempt(ValueError("still invalid")) is None
+    assert response.messages == []
 
 
 def test_render_response_emits_terminal_client_tool_call():

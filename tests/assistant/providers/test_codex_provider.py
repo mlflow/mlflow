@@ -454,21 +454,16 @@ async def test_astream_cleans_up_custom_view_schema_when_serialization_fails(tmp
 
 
 @pytest.mark.asyncio
-async def test_astream_repairs_invalid_custom_view_output_once():
+async def test_astream_does_not_retry_invalid_custom_view_transport():
     invalid_response = {
         "type": "render_custom_view",
         "text": "Created the trace summary.",
         "title": "Trace Summary",
         "messages": "not-json",
     }
-    valid_messages = [{"version": "v0.9", "updateComponents": {}}]
-    valid_response = {
-        **invalid_response,
-        "messages": json.dumps(valid_messages),
-    }
-    invalid_proc = _mock_process(
+    process = _mock_process(
         stdout_lines=_make_stdout_lines(
-            {"type": "thread.started", "thread_id": "repair-thread"},
+            {"type": "thread.started", "thread_id": "thread-id"},
             {
                 "type": "item.completed",
                 "item": {"type": "agent_message", "text": json.dumps(invalid_response)},
@@ -476,12 +471,44 @@ async def test_astream_repairs_invalid_custom_view_output_once():
             {"type": "turn.completed"},
         )
     )
-    valid_proc = _mock_process(
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_forwards_empty_custom_view_messages_for_client_validation():
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": "[]",
+    }
+
+    process = _mock_process(
         stdout_lines=_make_stdout_lines(
-            {"type": "thread.started", "thread_id": "repair-thread"},
+            {"type": "thread.started", "thread_id": "thread-id"},
             {
                 "type": "item.completed",
-                "item": {"type": "agent_message", "text": json.dumps(valid_response)},
+                "item": {"type": "agent_message", "text": json.dumps(response)},
             },
             {"type": "turn.completed"},
         )
@@ -491,7 +518,7 @@ async def test_astream_repairs_invalid_custom_view_output_once():
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            side_effect=[invalid_proc, valid_proc],
+            return_value=process,
         ) as mock_exec,
     ):
         events = [
@@ -503,59 +530,11 @@ async def test_astream_repairs_invalid_custom_view_output_once():
             )
         ]
 
-    assert mock_exec.call_count == 2
-    repair_args = mock_exec.call_args_list[1].args
-    assert repair_args[repair_args.index("resume") + 1] == "repair-thread"
-    repair_prompt = valid_proc.stdin.write.call_args.args[0].decode()
-    assert "structured response failed validation" in repair_prompt
-    assert "messages must be a JSON-encoded array" in repair_prompt
+    mock_exec.assert_called_once()
     assert not any(event.type == EventType.ERROR for event in events)
     client_tool_calls = [event for event in events if event.type == EventType.CLIENT_TOOL_CALL]
     assert len(client_tool_calls) == 1
-    assert client_tool_calls[0].data["tool_input"]["messages"] == valid_messages
-
-
-@pytest.mark.asyncio
-async def test_astream_stops_after_one_invalid_custom_view_output_repair():
-    invalid_response = {
-        "type": "render_custom_view",
-        "text": "Created the trace summary.",
-        "title": "Trace Summary",
-        "messages": "not-json",
-    }
-
-    def invalid_process():
-        return _mock_process(
-            stdout_lines=_make_stdout_lines(
-                {"type": "thread.started", "thread_id": "repair-thread"},
-                {
-                    "type": "item.completed",
-                    "item": {"type": "agent_message", "text": json.dumps(invalid_response)},
-                },
-                {"type": "turn.completed"},
-            )
-        )
-
-    with (
-        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
-        patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            side_effect=[invalid_process(), invalid_process()],
-        ) as mock_exec,
-    ):
-        events = [
-            event
-            async for event in CodexProvider().astream(
-                "build a view",
-                "http://localhost:5000",
-                context={"customTraceView": {"guide": "guide"}},
-            )
-        ]
-
-    assert mock_exec.call_count == 2
-    errors = [event for event in events if event.type == EventType.ERROR]
-    assert len(errors) == 1
-    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert client_tool_calls[0].data["tool_input"]["messages"] == []
 
 
 @pytest.mark.asyncio
