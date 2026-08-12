@@ -1,8 +1,12 @@
 const fs = require("fs");
-const path = require("path");
-const { extractComponentIdsFromSource, buildRegistrySource } = require("./utils");
+const {
+  extractComponentIdsFromSource,
+  buildRegistrySource,
+  getRegistryPath,
+  REGISTRY_PATH,
+} = require("./utils");
 
-const registryPath = path.join(__dirname, "componentId-registry.js");
+const registryPath = getRegistryPath(__dirname);
 const registry = require(registryPath);
 
 // --- Main ---
@@ -25,7 +29,7 @@ if (unregistered.length > 0) {
   for (const id of unregistered) {
     console.error(`  + ${id}`);
   }
-  console.error("\nAdd these to .github/actions/check-component-ids/componentId-registry.js");
+  console.error(`\nAdd these to ${REGISTRY_PATH}`);
 }
 
 if (stale.length > 0) {
@@ -34,7 +38,7 @@ if (stale.length > 0) {
   for (const id of stale) {
     console.error(`  - ${id}`);
   }
-  console.error("\nRemove these from .github/actions/check-component-ids/componentId-registry.js");
+  console.error(`\nRemove these from ${REGISTRY_PATH}`);
 }
 
 // Check 3: file must be byte-identical to the generator's output. The
