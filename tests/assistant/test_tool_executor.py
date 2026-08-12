@@ -164,6 +164,18 @@ def test_bash_shell_chaining_does_not_bypass_allowlist_with_cwd(workspace, tmp_p
     assert "SECRET_API_KEY" not in result
 
 
+def test_bash_shell_chaining_with_semicolon_does_not_bypass_allowlist_without_cwd(tmp_path):
+    # Same class of bug as test_bash_shell_chaining_does_not_bypass_allowlist_without_cwd,
+    # but with ";" instead of "&&" — the review comment's second example
+    # ("mlflow --help; cat ~/.ssh/id_rsa") used a different shell operator, and the fix
+    # must reject shell metacharacters generically, not just "&&".
+    secret = tmp_path / "secret.env"
+    secret.write_text("SECRET_API_KEY=sk-super-secret-12345")
+    command = f'mlflow --help; python3 -c "print(open({str(secret)!r}).read())"'
+    result, is_error = _run(execute_tool("Bash", {"command": command}))
+    assert "SECRET_API_KEY" not in result
+
+
 def test_bash_full_access_still_allows_shell_chaining():
     # Full access has no allowlist to bypass, so it should keep using a real
     # shell and continue to support the && / pipe / redirect chaining the
