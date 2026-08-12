@@ -19,7 +19,7 @@ defaults:
 permissions: {}
 
 env:
-  GENERATED_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
+  CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
 
 jobs:
   generate:
@@ -64,12 +64,12 @@ jobs:
       - name: Check for changes and create patch
         id: diff
         run: |
-          git --no-pager diff --stat -- $GENERATED_PATHS
-          if git diff --quiet -- $GENERATED_PATHS; then
+          git --no-pager diff --stat -- $CATALOG_PATHS
+          if git diff --quiet -- $CATALOG_PATHS; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            git diff -- $GENERATED_PATHS > model-catalog.patch
+            git diff -- $CATALOG_PATHS > model-catalog.patch
           fi
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -126,7 +126,7 @@ jobs:
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           branch="update-model-catalog"
           git checkout -b "$branch"
-          git add $GENERATED_PATHS
+          git add $CATALOG_PATHS
           git commit -m "Update model catalog from upstream sources"
           git push -f -u origin "$branch"
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
