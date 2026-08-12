@@ -188,6 +188,7 @@ describe('CompareRunPage', () => {
     await waitFor(() => {
       expect(getRunSpy).toHaveBeenCalledTimes(runUuids.length);
     });
+    expect(getRunSpy.mock.calls.map(([{ run_id }]: [{ run_id: string }]) => run_id)).toEqual(runUuids);
     expect(searchRunsRequestBodies).toHaveLength(0);
   });
 
