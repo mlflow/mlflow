@@ -319,12 +319,24 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def _build_chat_usage(cls, usage_metadata: dict[str, Any]) -> chat_schema.ChatUsage:
+        extra = {
+            key: value
+            for key, value in usage_metadata.items()
+            if key
+            not in {
+                "promptTokenCount",
+                "candidatesTokenCount",
+                "totalTokenCount",
+                "cachedContentTokenCount",
+            }
+        }
         prompt_tokens_details = None
         if "cachedContentTokenCount" in usage_metadata:
             prompt_tokens_details = chat_schema.PromptTokensDetails(
                 cached_tokens=usage_metadata["cachedContentTokenCount"]
             )
         return chat_schema.ChatUsage(
+            **extra,
             prompt_tokens=usage_metadata.get("promptTokenCount"),
             completion_tokens=usage_metadata.get("candidatesTokenCount"),
             total_tokens=usage_metadata.get("totalTokenCount"),

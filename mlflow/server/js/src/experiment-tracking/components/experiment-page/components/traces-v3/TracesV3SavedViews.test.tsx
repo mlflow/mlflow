@@ -318,3 +318,133 @@ describe('TracesV3SavedViewsButton', () => {
     expect(discard).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useTraceSavedViews stale-tag refetch on active share key', () => {
+  // Renders just the hook at a URL carrying the given share key, so we can assert its refetch
+  // behavior without the button UI. `useGetExperimentQuery`/`refetch` are mocked at module scope.
+  const HookProbe = ({ experimentId }: { experimentId: string }) => {
+    useTraceSavedViews({ experimentId });
+    return null;
+  };
+
+  const renderHookAt = (shareKey?: string) =>
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <HookProbe experimentId="exp-1" />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter
+            routes={[testRoute(<>{children}</>, '/')]}
+            history={history}
+            initialEntries={[shareKey ? `/?traceViewShareKey=${shareKey}` : '/']}
+          />
+        ),
+      },
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('refetches once when the active share key is not in the cached views (stale tag cache)', async () => {
+    // The cached experiment has v1/v2 but the pasted link references a just-saved view absent here.
+    mockExperiment(savedViewTags);
+
+    renderHookAt('freshly-saved-id');
+
+    await waitFor(() => expect(stableRefetch).toHaveBeenCalledTimes(1));
+  });
+
+  test('does not refetch again while the key stays missing after a tags update (anti-loop guard)', async () => {
+    mockExperiment(savedViewTags);
+
+    const { rerender } = renderHookAt('freshly-saved-id');
+    await waitFor(() => expect(stableRefetch).toHaveBeenCalledTimes(1));
+
+    // Simulate the refetch resolving with a NEW tags array that still lacks the key (e.g. a genuinely
+    // deleted view): views changes identity → the effect re-runs → the per-key guard must hold and
+    // NOT fire a second refetch, or a missing key would loop forever.
+    mockExperiment([...savedViewTags]);
+    rerender(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <HookProbe experimentId="exp-1" />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    // Assert via waitFor so a second refetch firing on a later tick would push the count past 1 and
+    // fail this (a synchronous expect could pass before an async re-fire lands).
+    await waitFor(() => expect(stableRefetch).toHaveBeenCalledTimes(1));
+  });
+
+  test('does not refetch when the active share key is already in the cached views', async () => {
+    mockExperiment(savedViewTags);
+
+    // render() flushes the mount effect under act, and the effect calls refetch() synchronously, so a
+    // stray refetch would already be recorded here — no timing anchor needed.
+    renderHookAt('v1');
+
+    expect(stableRefetch).not.toHaveBeenCalled();
+  });
+
+  test('does not refetch when there is no active share key', async () => {
+    mockExperiment(savedViewTags);
+
+    renderHookAt();
+
+    expect(stableRefetch).not.toHaveBeenCalled();
+  });
+
+  test('the trigger label catches up to the view name once the refetch reveals the tag', async () => {
+    // Stale cache: the active share key's view isn't in the tags yet, so the trigger shows the
+    // generic "Views" and a refetch fires.
+    mockExperiment(savedViewTags);
+
+    const { rerender } = render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <SavedViewsButtonHarness experimentId="exp-1" />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter
+            routes={[testRoute(<>{children}</>, '/')]}
+            history={history}
+            initialEntries={['/?traceViewShareKey=v3']}
+          />
+        ),
+      },
+    );
+
+    expect(screen.getByTestId('trace-saved-views-trigger')).toHaveTextContent('Views');
+    await waitFor(() => expect(stableRefetch).toHaveBeenCalledTimes(1));
+
+    // Refetch resolves with the freshly-saved view now present → the trigger shows its name.
+    mockExperiment([
+      ...savedViewTags,
+      { key: 'mlflow.traceViewState.v3', value: encodeSavedViewEnvelope('P95 spikes', 'x', 3000) },
+    ]);
+    rerender(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <SavedViewsButtonHarness experimentId="exp-1" />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('trace-saved-views-trigger')).toHaveTextContent('P95 spikes'));
+  });
+});

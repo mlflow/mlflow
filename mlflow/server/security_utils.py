@@ -126,9 +126,19 @@ def should_block_cors_request(origin: str, method: str, allowed_origins: list[st
 
 def is_api_endpoint(path: str) -> bool:
     """Check if a path is an API endpoint that should have CORS/OPTIONS handling."""
+    # Imported lazily to keep this shared module's own import graph light.
+    from mlflow.server.handlers import _add_static_prefix
+
     return (
-        path.startswith(API_PATH_PREFIX) or path.startswith(AJAX_API_PATH_PREFIX)
-    ) and path not in TEST_ENDPOINTS
+        path.startswith((
+            _add_static_prefix(API_PATH_PREFIX),
+            _add_static_prefix(AJAX_API_PATH_PREFIX),
+            # artifact_router serves these unprefixed even under `--static-prefix`
+            "/api/2.0/mlflow-artifacts/artifacts",
+            "/ajax-api/2.0/mlflow-artifacts/artifacts",
+        ))
+        and path not in TEST_ENDPOINTS
+    )
 
 
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:

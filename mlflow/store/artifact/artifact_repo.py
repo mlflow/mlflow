@@ -479,6 +479,25 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
+    def download_trace_data_to_file(self, dst_path: Path) -> Path:
+        """
+        Download the trace data file to the specified local path without parsing it.
+
+        Args:
+            dst_path: Local filesystem path to write the trace data file to.
+
+        Returns:
+            The ``dst_path`` argument, for convenience.
+
+        Raises:
+            - `MlflowTraceDataNotFound`: The trace data is not found.
+        """
+        try:
+            self._download_file(TRACE_DATA_FILE_NAME, dst_path)
+        except Exception as e:
+            raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
+        return dst_path
+
     def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
@@ -492,12 +511,7 @@ class ArtifactRepository:
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-            try:
-                self._download_file(TRACE_DATA_FILE_NAME, temp_file)
-            except Exception as e:
-                # `MlflowTraceDataNotFound` is caught in `TrackingServiceClient.search_traces` and
-                # is used to filter out traces with failed trace data download.
-                raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
+            self.download_trace_data_to_file(temp_file)
             return try_read_trace_data(temp_file)
 
     def download_archived_trace_data(self) -> TraceData:
@@ -523,11 +537,26 @@ class ArtifactRepository:
                 return TraceData(spans=[])
             return TraceData(spans=_try_read_trace_data_pb(temp_file))
 
+    def download_trace_attachment_to_file(self, path: str, dst_path: Path) -> Path:
+        """
+        Download a trace attachment to the specified local path.
+
+        Args:
+            path: The attachment identifier (UUID).
+            dst_path: Local filesystem path to write the attachment to.
+
+        Returns:
+            The ``dst_path`` argument, for convenience.
+        """
+        _validate_attachment_path(path)
+        self._download_file(posixpath.join("attachments", path), dst_path)
+        return dst_path
+
     def download_trace_attachment(self, path: str) -> bytes:
         _validate_attachment_path(path)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, path)
-            self._download_file(posixpath.join("attachments", path), temp_file)
+            self.download_trace_attachment_to_file(path, temp_file)
             return temp_file.read_bytes()
 
     def upload_trace_data(self, trace_data: str) -> None:

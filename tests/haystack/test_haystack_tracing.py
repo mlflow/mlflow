@@ -1,5 +1,7 @@
+import sys
 from unittest.mock import patch
 
+import pytest
 from haystack import Document, Pipeline, component
 from haystack.components.rankers import LostInTheMiddleRanker
 from haystack.components.retrievers import InMemoryBM25Retriever
@@ -8,6 +10,8 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.exceptions import MlflowException
+from mlflow.haystack.autolog import _get_opentelemetry_tracer_class
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -211,3 +215,13 @@ def test_haystack_autolog_shared_provider_no_recursion(monkeypatch):
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].inputs == {"adder": {"a": 1, "b": 2}}
     assert spans[0].outputs == {"adder": {"sum": 3}}
+
+
+def test_get_opentelemetry_tracer_class_error_when_unavailable(monkeypatch):
+    # Simulate an environment where neither `opentelemetry-haystack` (haystack >= 3) nor the
+    # in-core `OpenTelemetryTracer` (haystack < 3) is available
+    monkeypatch.setitem(sys.modules, "haystack_integrations.tracing.opentelemetry", None)
+    monkeypatch.delattr("haystack.tracing.OpenTelemetryTracer", raising=False)
+
+    with pytest.raises(MlflowException, match="pip install opentelemetry-haystack"):
+        _get_opentelemetry_tracer_class()

@@ -160,6 +160,7 @@ def test_evaluation_dataset_to_from_dict():
         last_update_time=987654321,
         created_by="user1",
         last_updated_by="user2",
+        version={"version": 7, "created_by": "user1"},
     )
     dataset.experiment_ids = ["exp1", "exp2"]
 
@@ -184,6 +185,7 @@ def test_evaluation_dataset_to_from_dict():
     assert data["last_update_time"] == 987654321
     assert data["created_by"] == "user1"
     assert data["last_updated_by"] == "user2"
+    assert data["version"] == {"version": 7, "created_by": "user1"}
     assert data["experiment_ids"] == ["exp1", "exp2"]
     assert len(data["records"]) == 1
     assert data["records"][0]["inputs"]["question"] == "What is MLflow?"
@@ -199,6 +201,7 @@ def test_evaluation_dataset_to_from_dict():
     assert dataset2.last_update_time == dataset.last_update_time
     assert dataset2.created_by == dataset.created_by
     assert dataset2.last_updated_by == dataset.last_updated_by
+    assert dataset2.version == dataset.version
     assert dataset2._experiment_ids == ["exp1", "exp2"]
     assert dataset2.experiment_ids == ["exp1", "exp2"]
     assert len(dataset2._records) == 1
