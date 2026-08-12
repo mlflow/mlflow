@@ -496,6 +496,49 @@ async def test_astream_forwards_invalid_custom_view_transport_for_client_validat
 
 
 @pytest.mark.asyncio
+async def test_astream_strips_trailing_delimiter_from_complete_custom_view_messages():
+    messages = [{"version": "v0.9", "updateComponents": {}}]
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": f"{json.dumps(messages)}}}",
+    }
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": json.dumps(response)},
+            },
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    assert not any(event.type == EventType.ERROR for event in events)
+    client_tool_calls = [event for event in events if event.type == EventType.CLIENT_TOOL_CALL]
+    assert len(client_tool_calls) == 1
+    assert client_tool_calls[0].data["tool_input"]["messages"] == messages
+
+
+@pytest.mark.asyncio
 async def test_astream_forwards_empty_custom_view_messages_for_client_validation():
     response = {
         "type": "render_custom_view",

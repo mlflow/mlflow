@@ -50,6 +50,30 @@ def test_parse_response_with_stringified_messages():
     assert response.messages == messages
 
 
+def test_parse_response_strips_trailing_closing_delimiter_from_complete_messages():
+    messages = [{"version": "v0.9", "updateComponents": {}}]
+    response = parse_custom_view_response({
+        "type": "render_custom_view",
+        "text": "Updated the view.",
+        "title": "Trace Summary",
+        "messages": f"{json.dumps(messages)}}}",
+    })
+
+    assert response.messages == messages
+
+
+def test_parse_response_preserves_non_delimiter_suffix_for_client_validation():
+    messages = f"{json.dumps([{'version': 'v0.9'}])} trailing"
+    response = parse_custom_view_response({
+        "type": "render_custom_view",
+        "text": "Updated the view.",
+        "title": "Trace Summary",
+        "messages": messages,
+    })
+
+    assert response.messages == messages
+
+
 @pytest.mark.parametrize("messages", ["not-json", "{}", '"text"', "null"])
 def test_parse_response_leaves_invalid_stringified_messages_for_client_validation(messages):
     response = parse_custom_view_response({

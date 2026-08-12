@@ -82,6 +82,17 @@ def _decode_stringified_messages(value: str) -> Any:
     try:
         parsed = json.loads(value)
     except json.JSONDecodeError:
+        try:
+            parsed, end = json.JSONDecoder().raw_decode(value)
+        except json.JSONDecodeError:
+            parsed = None
+        else:
+            # Codex can close the strict outer response envelope inside the string,
+            # leaving a complete A2UI array followed by an extra `}`. Discard only
+            # a short suffix of unmatched closing delimiters; never repair content.
+            trailing = value[end:].strip()
+            if isinstance(parsed, list) and 0 < len(trailing) <= 4 and set(trailing) <= {"}", "]"}:
+                return parsed
         # The browser owns A2UI validation and bounded repair. Preserve malformed
         # payloads so they reach that lifecycle instead of terminating on the server.
         return value
