@@ -112,6 +112,8 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
         get_otlp_exporter()
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 @pytest.mark.parametrize("dual_export", [True, False, None], ids=["enable", "disable", "default"])
 def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):

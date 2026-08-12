@@ -20,7 +20,18 @@ runs:
       shell: bash
       run: |
         # Pin to pyenv v2.6.25 by tag + SHA verification for reproducible builds
-        git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        # Retry the clone to tolerate transient network/DNS failures on the runner
+        for attempt in 1 2 3; do
+          rm -rf "$HOME/.pyenv"
+          if git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"; then
+            break
+          fi
+          if [ "$attempt" = 3 ]; then
+            echo "::error::Failed to clone pyenv after 3 attempts"
+            exit 1
+          fi
+          sleep $((attempt * 10))
+        done
         actual_sha=$(git -C "$HOME/.pyenv" rev-parse HEAD)
         expected_sha="aa2e8b82605b8ba085dd15f7a31fe1990fabdcfa"
         if [ "$actual_sha" != "$expected_sha" ]; then

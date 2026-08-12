@@ -10,9 +10,9 @@ a retry masks a genuine product bug and should not be applied blindly.
 The verdict is advisory: it is written into the report / PR body so a human reviewer
 sees the rationale, and the annotate step only ever acts on `action == "annotate"`.
 
-Auth mirrors .github/workflows/triage.py: an `ANTHROPIC_API_KEY` secret and a direct
-call to the Anthropic Messages API. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL`
-may override the endpoint and model (e.g. to route through an internal gateway).
+Auth uses an `ANTHROPIC_API_KEY` secret and a direct call to the Anthropic Messages
+API. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL` may override the endpoint and
+model (e.g. to route through an internal gateway).
 
 Usage:
   python dev/classify_flaky_tests.py --in flakes.json --out classified.json

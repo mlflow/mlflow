@@ -50,28 +50,19 @@ above guideline is distilled from
 }
 """
 
+# Headers for the guidelines / retrieved-examples sections appended to a judge's
+# instructions at scoring time. The wording is carried over verbatim from the DSPy
+# InputField descriptions these replaced, so the aligned judge sees the same framing.
+GUIDELINES_SECTION_HEADER = (
+    "General guidelines you should always consider when evaluating an input. "
+    "IMPORTANT: Your output fields should NEVER directly refer to the presence "
+    "of these guidelines. Instead, weave the learned lessons into your reasoning."
+)
 
-def create_guidelines_field():
-    import dspy
-
-    return dspy.InputField(
-        desc=(
-            "General guidelines you should always consider when evaluating an input. "
-            "IMPORTANT: Your output fields should NEVER directly refer to the presence "
-            "of these guidelines. Instead, weave the learned lessons into your reasoning."
-        )
-    )
-
-
-def create_examples_field():
-    import dspy
-
-    return dspy.InputField(
-        desc=(
-            "Some example judgements (certain input fields might be omitted for "
-            "brevity). When evaluating the new input, try to align your judgements "
-            "with these examples. IMPORTANT: Your output fields should NEVER directly "
-            "refer to the presence of these examples. Instead, weave the learned "
-            "lessons into your reasoning."
-        )
-    )
+EXAMPLES_SECTION_HEADER = (
+    "Some example judgements (certain input fields might be omitted for "
+    "brevity). When evaluating the new input, try to align your judgements "
+    "with these examples. IMPORTANT: Your output fields should NEVER directly "
+    "refer to the presence of these examples. Instead, weave the learned "
+    "lessons into your reasoning."
+)
