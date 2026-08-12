@@ -866,7 +866,7 @@ class ConversationSimulator:
                     )
                 if external_trace_id is not None and not external_trace_id.strip():
                     raise _InvalidPredictResultError(
-                        "PredictResult.trace_id must not be an empty or blank string"
+                        "PredictResult.trace_id must not be a blank string"
                     )
                 trace_id = external_trace_id or mlflow.get_last_active_trace_id(thread_local=True)
             else:

@@ -1137,8 +1137,8 @@ def test_predict_fn_returning_plain_tuple_is_not_treated_as_predict_result(
 @pytest.mark.parametrize(
     ("trace_id", "expected_error"),
     [
-        ("", "empty or blank"),
-        ("   ", "empty or blank"),
+        ("", "blank"),
+        ("   ", "blank"),
         (123, "must be a string"),
     ],
     ids=["empty", "blank", "non_string"],
