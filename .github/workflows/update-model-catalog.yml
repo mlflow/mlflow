@@ -33,9 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Pin to the trigger commit so both jobs see the same tree and the
-          # patch created here applies cleanly in `publish` even if the branch
-          # advances between the two jobs.
+          # Pin both jobs to the same commit so the patch applies cleanly in `publish`
           ref: ${{ github.sha }}
           persist-credentials: false
 
