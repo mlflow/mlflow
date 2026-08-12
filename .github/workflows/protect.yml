@@ -9,6 +9,9 @@ on:
       - opened
       - synchronize
       - reopened
+      # Re-evaluate when the bypass-protect label is applied or removed
+      - labeled
+      - unlabeled
   merge_group:
     types:
       - checks_requested
@@ -32,6 +35,7 @@ jobs:
     permissions:
       checks: read # to read check statuses
       actions: read # to read workflow runs and jobs
+      pull-requests: read # to read PR labels for the bypass-protect escape hatch
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

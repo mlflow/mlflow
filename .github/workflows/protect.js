@@ -21,6 +21,26 @@ module.exports = async ({ github, context }) => {
 
   const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
 
+  // Escape hatch for failures unrelated to the PR. Read via the API rather than
+  // the payload, which goes stale when a run is manually re-run. One read at
+  // startup suffices: any label change cancels in-flight runs and re-triggers
+  // this workflow.
+  const BYPASS_LABEL = "bypass-protect";
+  // A single request suffices: GitHub caps labels at 100 per issue
+  const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+    owner,
+    repo,
+    issue_number: context.payload.pull_request.number,
+    per_page: 100,
+  });
+  if (labels.some(({ name }) => name === BYPASS_LABEL)) {
+    console.log(
+      `⚠️ The '${BYPASS_LABEL}' label is applied; passing without checking statuses. ` +
+        "Remove the label to re-enable enforcement."
+    );
+    return;
+  }
+
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -170,7 +190,9 @@ module.exports = async ({ github, context }) => {
 
     if (checks.some(({ status }) => status === STATE.failure)) {
       throw new Error(
-        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
+        "This job ensures that all checks except for this one have passed to prevent accidental " +
+          `auto-merges. If the failures are known to be unrelated to this PR, a maintainer can ` +
+          `apply the '${BYPASS_LABEL}' label to bypass this check.`
       );
     }
 
