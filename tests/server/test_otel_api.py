@@ -286,7 +286,7 @@ def test_otlp_invalid_protobuf_data(monkeypatch):
     # Test with invalid protobuf data
     response = client.post(
         OTLP_TRACES_PATH,
-        data=b"this is not valid protobuf data",
+        content=b"this is not valid protobuf data",
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
