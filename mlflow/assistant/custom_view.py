@@ -78,14 +78,14 @@ The decoded string must start with "[", end with "]", and contain nothing after 
 """
 
 
-def _decode_stringified_messages(value: str) -> Any:
+def _parse_stringified_messages(value: str) -> Any:
     try:
         parsed = json.loads(value)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as original_error:
         try:
             parsed, end = json.JSONDecoder().raw_decode(value)
         except json.JSONDecodeError:
-            parsed = None
+            raise ValueError("messages must be a JSON-encoded array") from original_error
         else:
             # Codex can close the strict outer response envelope inside the string,
             # leaving a complete A2UI array followed by an extra `}`. Discard only
@@ -93,10 +93,10 @@ def _decode_stringified_messages(value: str) -> Any:
             trailing = value[end:].strip()
             if isinstance(parsed, list) and 0 < len(trailing) <= 4 and set(trailing) <= {"}", "]"}:
                 return parsed
-        # The browser owns A2UI validation and bounded repair. Preserve malformed
-        # payloads so they reach that lifecycle instead of terminating on the server.
-        return value
-    return parsed if isinstance(parsed, list) else value
+        raise ValueError("messages must be a JSON-encoded array") from original_error
+    if not isinstance(parsed, list):
+        raise ValueError("messages must be a JSON-encoded array")
+    return parsed
 
 
 class CustomViewResponse(BaseModel):
@@ -105,13 +105,13 @@ class CustomViewResponse(BaseModel):
     type: Literal["message", "render_custom_view"]
     text: str
     title: str
-    messages: list[Any] | str
+    messages: list[dict[str, Any]]
 
     @field_validator("messages", mode="before")
     @classmethod
-    def decode_stringified_messages(cls, value: Any) -> Any:
+    def parse_stringified_messages(cls, value: Any) -> Any:
         if isinstance(value, str):
-            return _decode_stringified_messages(value)
+            return _parse_stringified_messages(value)
         return value
 
 
