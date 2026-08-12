@@ -8,21 +8,20 @@
  */
 
 const fs = require("fs");
-const path = require("path");
-const { extractComponentIdsFromSource, buildRegistrySource } = require("./utils");
+const { extractComponentIdsFromSource, buildRegistrySource, getRegistryPath } = require("./utils");
 
 const codeIds = extractComponentIdsFromSource(__dirname);
 
 // Load existing registry to preserve descriptions
 let existingDescriptions = {};
 try {
-  existingDescriptions = require("./componentId-registry");
+  existingDescriptions = require(getRegistryPath(__dirname));
 } catch {
   // First run or broken registry — start fresh
 }
 
 const output = buildRegistrySource(codeIds, existingDescriptions);
 
-const outPath = path.join(__dirname, "componentId-registry.js");
+const outPath = getRegistryPath(__dirname);
 fs.writeFileSync(outPath, output);
 console.log(`✅ Registry regenerated with ${codeIds.size} entries at ${outPath}`);

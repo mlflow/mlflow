@@ -49,18 +49,32 @@ function extractComponentIds(files) {
   return ids;
 }
 
+function getRepoRoot(actionDir) {
+  return process.env.GITHUB_WORKSPACE || path.join(actionDir, "../../..");
+}
+
 /**
  * Extract all static componentIds from the MLflow UI source directory.
  * @param {string} actionDir - path to this action's directory (used to resolve the repo root)
  * @returns {Set<string>} set of componentId strings found in source
  */
 function extractComponentIdsFromSource(actionDir) {
-  const srcDir = path.resolve(
-    process.env.GITHUB_WORKSPACE || path.join(actionDir, "../../.."),
-    "mlflow/server/js/src"
-  );
+  const srcDir = path.resolve(getRepoRoot(actionDir), "mlflow/server/js/src");
   const files = findFiles(srcDir);
   return extractComponentIds(files);
+}
+
+// The registry lives under mlflow/server/js so that registry-only updates in
+// UI PRs don't escape master.yml's paths-ignore and trigger the Python suite.
+const REGISTRY_PATH = "mlflow/server/js/scripts/componentId-registry.js";
+
+/**
+ * Resolve the absolute path to the componentId registry.
+ * @param {string} actionDir - path to this action's directory (used to resolve the repo root)
+ * @returns {string} absolute path to the registry module
+ */
+function getRegistryPath(actionDir) {
+  return path.resolve(getRepoRoot(actionDir), REGISTRY_PATH);
 }
 
 /**
@@ -120,4 +134,9 @@ module.exports = {\n`;
   return output;
 }
 
-module.exports = { extractComponentIdsFromSource, buildRegistrySource };
+module.exports = {
+  extractComponentIdsFromSource,
+  buildRegistrySource,
+  getRegistryPath,
+  REGISTRY_PATH,
+};
