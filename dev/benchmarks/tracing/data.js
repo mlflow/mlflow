@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786525693353,
+  "lastUpdate": 1786540987796,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21059,6 +21059,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.81901760000028,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gauthierpiarrette@gmail.com",
+            "name": "Gauthier Piarrette",
+            "username": "gauthierpiarrette"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b5354717fb4cf641c486eddb958006ad5dc008ee",
+          "message": "Add `--artifact-policy retarget` to `mlflow db move-resources` for repointing experiment artifact roots (#24635)\n\nSigned-off-by: Gauthier Piarrette <gauthierpiarrette@gmail.com>",
+          "timestamp": "2026-08-12T09:21:29-04:00",
+          "tree_id": "706245dcf60c36751fef28821918eca4fd7482bb",
+          "url": "https://github.com/mlflow/mlflow/commit/b5354717fb4cf641c486eddb958006ad5dc008ee"
+        },
+        "date": 1786540984783,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 90.21976380000325,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.741288447760899,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.1694557500004565,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.89410670469805,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.531750151514561,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.367055599998594,
             "unit": "ms"
           }
         ]
