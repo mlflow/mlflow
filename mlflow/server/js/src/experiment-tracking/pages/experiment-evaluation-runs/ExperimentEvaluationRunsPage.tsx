@@ -516,7 +516,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
           runCount={runs?.length ?? 0}
           isLoading={isLoading}
         />
-        <EvalRunsBenchmarkChart runs={runs ?? []} baselineRun={baselineRun} metricKeys={metricKeys} />
+        <EvalRunsBenchmarkChart
+          runs={runs ?? []}
+          baselineRun={baselineRun}
+          metricKeys={metricKeys}
+          selectedRunUuids={selectedRunUuidsFromCheckbox}
+        />
       </>
     ) : null;
 
