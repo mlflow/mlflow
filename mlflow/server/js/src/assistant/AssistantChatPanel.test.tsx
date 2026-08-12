@@ -348,6 +348,27 @@ describe('AssistantChatPanel', () => {
     expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
   });
 
+  test('a queued automatic message does not show the key prompt when the provider needs no key', () => {
+    mockActiveProvider = {
+      name: 'ollama',
+      model: 'llama3.2',
+      auto_selected: true,
+      model_options: [],
+      requires_api_key: false,
+      has_api_key: false,
+      supports_client_tools: true,
+    };
+    mockNeedsApiKey = false;
+    mockPendingAutomaticMessage = {
+      message: 'Build my custom trace view',
+      options: { newSession: true },
+    };
+    renderChatPanel();
+
+    expect(screen.queryByText(/Add your .* API key to continue/)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask a question...')).toHaveValue('');
+  });
+
   test('an api_key_missing stream error also shows the inline key prompt', () => {
     mockActiveProvider = {
       name: 'mlflow_gateway',

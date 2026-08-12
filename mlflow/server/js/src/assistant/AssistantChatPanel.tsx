@@ -612,7 +612,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
           <RecoverableErrorCallout errorCode={errorCode} error={error} onOpenSettings={onOpenSettings} />
         )}
         {(pendingKeyMessage != null ||
-          pendingAutomaticMessage != null ||
+          (pendingAutomaticMessage != null && needsApiKey) ||
           errorCode === AssistantErrorCode.ApiKeyMissing) &&
           activeProvider && (
             <ApiKeyPrompt
