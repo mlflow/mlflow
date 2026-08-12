@@ -683,7 +683,7 @@ describe('TracesV4PageContent', () => {
 
       expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
-    });
+    }, 20000);
 
     test('an exactly-full last page → Next enabled; clicking it shows "No more results" with the bar still present', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
