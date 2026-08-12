@@ -115,8 +115,9 @@ def _resolve_mlflow_command(
             path.append(name)
             cmd = sub
             ctx = click.Context(sub, info_name=name, parent=ctx, resilient_parsing=True)
-        cmd.parse_args(ctx, remaining)
-        return tuple(path), ctx.params, root_opts
+        parser = cmd.make_parser(ctx)
+        opts, _, _ = parser.parse_args(args=remaining)
+        return tuple(path), opts, root_opts
     except Exception:
         _logger.exception("Failed to resolve mlflow command for permission check")
         return None
