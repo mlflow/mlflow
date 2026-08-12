@@ -5979,7 +5979,7 @@ def _create_gateway_secret():
         schema={
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
-            "provider": [_assert_string],
+            "provider": [_assert_required, _assert_string],
             "created_by": [_assert_string],
         },
     )

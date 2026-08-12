@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -56,7 +57,10 @@ def test_fetch_provider_credentials_success(
 ):
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = secret_value
-    mock_store.get_secret_info.return_value.auth_config = auth_config
+    mock_store.get_secret_info.return_value = SimpleNamespace(
+        provider=provider,
+        auth_config=auth_config,
+    )
     credentials = _fetch_provider_credentials(mock_store, provider, "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
@@ -69,10 +73,32 @@ def test_fetch_provider_credentials_unknown_provider():
         _fetch_provider_credentials(mock_store, "unknown", "secret-123")
 
 
+def test_fetch_provider_credentials_provider_mismatch_raises():
+    mock_store = mock.MagicMock()
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider="anthropic", auth_config={})
+
+    with pytest.raises(MlflowException, match="cannot be used") as exc:
+        _fetch_provider_credentials(mock_store, "openai", "secret-123")
+
+    assert "INVALID_PARAMETER_VALUE" == exc.value.error_code
+    mock_store._get_decrypted_secret.assert_not_called()
+
+
+def test_fetch_provider_credentials_missing_provider_scope_raises():
+    mock_store = mock.MagicMock()
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider=None, auth_config={})
+
+    with pytest.raises(MlflowException, match="no provider scope") as exc:
+        _fetch_provider_credentials(mock_store, "openai", "secret-123")
+
+    assert "INVALID_PARAMETER_VALUE" == exc.value.error_code
+    mock_store._get_decrypted_secret.assert_not_called()
+
+
 def test_fetch_provider_credentials_case_insensitive():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
-    mock_store.get_secret_info.return_value.auth_config = {}
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider="openai", auth_config={})
     credentials = _fetch_provider_credentials(mock_store, "OpenAI", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
@@ -82,7 +108,7 @@ def test_fetch_provider_credentials_case_insensitive():
 def test_fetch_provider_credentials_missing_api_key():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {}
-    mock_store.get_secret_info.return_value.auth_config = {}
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider="openai", auth_config={})
     credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
@@ -95,7 +121,7 @@ def test_fetch_provider_credentials_bedrock_missing_optional_token():
         "aws_access_key_id": "access-key",
         "aws_secret_access_key": "secret-key",
     }
-    mock_store.get_secret_info.return_value.auth_config = {}
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider="bedrock", auth_config={})
     credentials = _fetch_provider_credentials(mock_store, "bedrock", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
@@ -108,7 +134,7 @@ def test_fetch_provider_credentials_bedrock_missing_optional_token():
 def test_fetch_provider_credentials_none_auth_config():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
-    mock_store.get_secret_info.return_value.auth_config = None
+    mock_store.get_secret_info.return_value = SimpleNamespace(provider="openai", auth_config=None)
     credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
@@ -118,9 +144,10 @@ def test_fetch_provider_credentials_none_auth_config():
 def test_fetch_provider_credentials_azure_partial_auth_config():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
-    mock_store.get_secret_info.return_value.auth_config = {
-        "api_base": "https://my-resource.openai.azure.com"
-    }
+    mock_store.get_secret_info.return_value = SimpleNamespace(
+        provider="azure",
+        auth_config={"api_base": "https://my-resource.openai.azure.com"},
+    )
     credentials = _fetch_provider_credentials(mock_store, "azure", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
     mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")

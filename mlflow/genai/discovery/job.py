@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
+from mlflow.store.tracking.gateway.credential_scope import validate_gateway_secret_provider_scope
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
 
@@ -27,8 +28,15 @@ def _fetch_provider_credentials(
             "To use other providers, create an AI Gateway endpoint instead."
         )
 
+    secret_info = store.get_secret_info(secret_id=secret_id)
+    auth_config = secret_info.auth_config or {}
+    validate_gateway_secret_provider_scope(
+        getattr(secret_info, "provider", None),
+        provider,
+        auth_config,
+    )
+
     secret_value = store._get_decrypted_secret(secret_id)
-    auth_config = store.get_secret_info(secret_id=secret_id).auth_config or {}
     secret_dict = secret_value | auth_config
     credentials = {}
     if isinstance(env_var_config, dict):

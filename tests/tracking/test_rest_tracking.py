@@ -4280,6 +4280,21 @@ def test_create_and_get_secret(mlflow_client_with_secrets):
     assert fetched.secret_id == secret.secret_id
 
 
+def test_create_secret_requires_provider(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "providerless-secret",
+            "secret_value": {"api_key": "sk-test-12345"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 def test_update_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
@@ -4324,6 +4339,7 @@ def test_delete_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
     secret = store.create_gateway_secret(
+        provider="openai",
         secret_name="temp-key",
         secret_value={"api_key": "temp-value"},
     )

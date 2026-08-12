@@ -6,14 +6,16 @@ for resources. These functions are privileged operations that should only be
 called server-side and never exposed to clients via MlflowClient.
 """
 
-import json
-
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+)
+from mlflow.store.tracking.gateway.credential_scope import (
+    load_gateway_auth_config,
+    validate_gateway_secret_provider_scope,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -104,6 +106,13 @@ def get_resource_endpoint_configs(
                     "GatewaySecret",
                 )
 
+                auth_config = load_gateway_auth_config(sql_secret.auth_config)
+                validate_gateway_secret_provider_scope(
+                    sql_secret.provider,
+                    sql_model_def.provider,
+                    auth_config,
+                )
+
                 # Decrypt secret (returns dict since we always store as JSON)
                 secret_value = _decrypt_secret(
                     encrypted_value=sql_secret.encrypted_value,
@@ -112,9 +121,6 @@ def get_resource_endpoint_configs(
                     secret_id=sql_secret.secret_id,
                     secret_name=sql_secret.secret_name,
                 )
-
-                # Parse auth_config
-                auth_config = json.loads(sql_secret.auth_config) if sql_secret.auth_config else None
 
                 model_configs.append(
                     GatewayModelConfig(
@@ -214,6 +220,13 @@ def get_endpoint_config(
                 "GatewaySecret",
             )
 
+            auth_config = load_gateway_auth_config(sql_secret.auth_config)
+            validate_gateway_secret_provider_scope(
+                sql_secret.provider,
+                sql_model_def.provider,
+                auth_config,
+            )
+
             decrypted_value = _decrypt_secret(
                 encrypted_value=sql_secret.encrypted_value,
                 wrapped_dek=sql_secret.wrapped_dek,
@@ -228,9 +241,7 @@ def get_endpoint_config(
                     provider=sql_model_def.provider,
                     model_name=sql_model_def.model_name,
                     secret_value=decrypted_value,
-                    auth_config=json.loads(sql_secret.auth_config)
-                    if sql_secret.auth_config
-                    else None,
+                    auth_config=auth_config,
                     weight=sql_mapping.weight,
                     linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
                     fallback_order=sql_mapping.fallback_order,

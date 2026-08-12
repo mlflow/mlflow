@@ -40,7 +40,7 @@ class GatewayStoreMixin:
         self,
         secret_name: str,
         secret_value: dict[str, str],
-        provider: str | None = None,
+        provider: str,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -53,7 +53,7 @@ class GatewayStoreMixin:
                 For simple API keys: {"api_key": "sk-xxx"}
                 For compound credentials: {"aws_access_key_id": "...",
                   "aws_secret_access_key": "..."}
-            provider: LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
+            provider: Required LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock").
             auth_config: Optional provider-specific auth configuration. For providers
                 with multiple auth modes, include "auth_mode" key (e.g.,
                 {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
