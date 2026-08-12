@@ -78,6 +78,8 @@ the transport encoding: the decoded value must be the same A2UI message array de
 The decoded string must start with "[", end with "]", and contain nothing after that final "]".
 """
 
+# This per-provider-request budget repairs malformed response envelopes. Browser-side
+# A2UI validation has a separate budget, and each browser repair starts a new request.
 _MAX_STRUCTURED_RESPONSE_REPAIRS = 1
 
 

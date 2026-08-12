@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -381,6 +382,75 @@ async def test_astream_uses_custom_view_output_schema():
     assert events[0].data["message"]["content"][0]["text"] == response["text"]
     assert events[2].data["tool_input"]["messages"] == [{"version": "v0.9", "updateComponents": {}}]
     assert events[2].data["continuation"] == "terminal"
+
+
+@pytest.mark.asyncio
+async def test_astream_cleans_up_custom_view_schema_when_fdopen_fails(tmp_path):
+    schema_path = tmp_path / "custom-view.schema.json"
+    schema_fd = None
+
+    def make_schema_file(*args, **kwargs):
+        nonlocal schema_fd
+        schema_fd = os.open(schema_path, os.O_CREAT | os.O_RDWR)
+        return schema_fd, str(schema_path)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch("mlflow.assistant.providers.codex.tempfile.mkstemp", side_effect=make_schema_file),
+        patch("mlflow.assistant.providers.codex.os.fdopen", side_effect=OSError("fdopen failed")),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert schema_fd is not None
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(schema_fd)
+    assert not schema_path.exists()
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "fdopen failed" in events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_cleans_up_custom_view_schema_when_serialization_fails(tmp_path):
+    schema_path = tmp_path / "custom-view.schema.json"
+    schema_fd = None
+
+    def make_schema_file(*args, **kwargs):
+        nonlocal schema_fd
+        schema_fd = os.open(schema_path, os.O_CREAT | os.O_RDWR)
+        return schema_fd, str(schema_path)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch("mlflow.assistant.providers.codex.tempfile.mkstemp", side_effect=make_schema_file),
+        patch(
+            "mlflow.assistant.providers.codex.json.dump",
+            side_effect=TypeError("schema serialization failed"),
+        ),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert schema_fd is not None
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(schema_fd)
+    assert not schema_path.exists()
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "schema serialization failed" in events[0].data["error"]
 
 
 @pytest.mark.asyncio

@@ -163,28 +163,31 @@ class CodexProvider(AssistantProvider):
         ]
 
         schema_path: Path | None = None
-        if structured_custom_view:
-            fd, raw_schema_path = tempfile.mkstemp(
-                prefix="mlflow-custom-view-", suffix=".schema.json"
-            )
-            schema_path = Path(raw_schema_path)
-            with os.fdopen(fd, "w") as schema_file:
-                json.dump(STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA, schema_file)
-            cmd.extend(["--output-schema", str(schema_path)])
-
-        if config.model and config.model != "default":
-            cmd.extend(["-m", config.model])
-
-        if session_id:
-            cmd.extend(["resume", session_id])
-
-        cmd.append("-")
-
+        schema_fd: int | None = None
         thread_id = ""
         structured_response_text: str | None = None
         codex_error: str | None = None
         process = None
         try:
+            if structured_custom_view:
+                schema_fd, raw_schema_path = tempfile.mkstemp(
+                    prefix="mlflow-custom-view-", suffix=".schema.json"
+                )
+                schema_path = Path(raw_schema_path)
+                schema_file = os.fdopen(schema_fd, "w")
+                schema_fd = None  # fdopen owns and closes the descriptor from here.
+                with schema_file:
+                    json.dump(STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA, schema_file)
+                cmd.extend(["--output-schema", str(schema_path)])
+
+            if config.model and config.model != "default":
+                cmd.extend(["-m", config.model])
+
+            if session_id:
+                cmd.extend(["resume", session_id])
+
+            cmd.append("-")
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
@@ -294,13 +297,21 @@ class CodexProvider(AssistantProvider):
             _logger.exception("Error running Codex CLI")
             yield Event.from_exception(e)
         finally:
+            if schema_fd is not None:
+                try:
+                    os.close(schema_fd)
+                except OSError:
+                    _logger.warning("Failed to close temp Custom View schema file descriptor")
             if mlflow_session_id:
                 clear_process_pid(mlflow_session_id)
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
             if schema_path:
-                schema_path.unlink(missing_ok=True)
+                try:
+                    schema_path.unlink(missing_ok=True)
+                except OSError:
+                    _logger.warning("Failed to remove temp Custom View schema file %s", schema_path)
 
     @staticmethod
     def _unwrap_error_message(message: Any) -> str | None:

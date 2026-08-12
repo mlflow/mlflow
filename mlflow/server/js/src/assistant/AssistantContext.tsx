@@ -43,6 +43,8 @@ const AssistantReactContext = createContext<AssistantAgentContextType | null>(nu
 // Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
 // keeping it well under the ~5 MB localStorage limit.
 const MAX_PERSISTED_CHARS = 1_500_000;
+// This browser budget repairs schema-valid envelopes rejected by A2UI validation. It is
+// independent of the provider's envelope-repair budget, which resets for each request.
 const MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS = 2;
 const MAX_CUSTOM_VIEW_ERROR_CHARS = 4000;
 
