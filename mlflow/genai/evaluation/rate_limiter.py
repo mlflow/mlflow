@@ -20,9 +20,9 @@ def eval_retry_context():
     for every active provider, so that rate-limit errors propagate to the evaluate
     pipeline's own retry/AIMD logic.
     """
-    # Lazy imports to avoid circular dependency: genai.evaluation → genai.judges.
-    # databricks_adapter import triggers its register_retry_adapter() side-effect.
-    from mlflow.genai.judges.adapters import databricks_adapter  # noqa: F401
+    # Lazy import to avoid circular dependency: genai.evaluation → genai.judges.
+    # Importing rate_limit_retry_adapters triggers all register_retry_adapter() calls.
+    from mlflow.genai.judges.adapters import rate_limit_retry_adapters  # noqa: F401
     from mlflow.genai.judges.adapters.litellm_adapter import get_retry_adapters
 
     active_adapters = []
@@ -31,7 +31,7 @@ def eval_retry_context():
             if adapter.is_adapter_active():
                 active_adapters.append(adapter)
         except Exception:
-            _logger.debug(
+            _logger.warning(
                 f"eval_retry_context: is_adapter_active() raised for adapter "
                 f"'{adapter.name}', skipping",
                 exc_info=True,
@@ -40,6 +40,9 @@ def eval_retry_context():
     _logger.debug(
         f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}"
     )
+    # Adapters are disjoint (each targets a separate provider), so activation order
+    # does not matter — the ExitStack unwinds them in reverse order, but there are
+    # no shared resources between adapters that could be affected by ordering.
     with contextlib.ExitStack() as stack:
         for adapter in active_adapters:
             stack.enter_context(adapter.disable_internal_retries())

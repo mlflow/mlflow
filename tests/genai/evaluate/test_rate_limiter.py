@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import patch
 
+import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401 — ensure adapters are registered before any @patch
+
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
     _make_rate_limiter,
@@ -13,14 +15,13 @@ from mlflow.genai.evaluation.rate_limiter import (
     eval_retry_context,
     is_rate_limit_error,
 )
-from mlflow.genai.judges.adapters.databricks_adapter import _disable_databricks_429_retry
 from mlflow.genai.judges.adapters.litellm_adapter import (
     RateLimitRetryAdapter,
     _get_litellm_retry_policy,
     disable_litellm_rate_limit_retries,
     is_litellm_rate_limit_retries_disabled,
 )
-from mlflow.utils.rest_utils import is_429_retry_disabled
+from mlflow.utils.rest_utils import disable_429_retry, is_429_retry_disabled
 
 
 class FakeClock:
@@ -389,7 +390,7 @@ _BOTH_ADAPTERS_ACTIVE = [
     RateLimitRetryAdapter(
         name="databricks-sdk",
         is_adapter_active=lambda: True,
-        disable_internal_retries=_disable_databricks_429_retry,
+        disable_internal_retries=disable_429_retry,
     ),
 ]
 

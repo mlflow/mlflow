@@ -104,9 +104,6 @@ class RateLimitRetryAdapter:
     disable_internal_retries: Callable[[], contextlib.AbstractContextManager]
 
 
-# Keep RetryAdapter as an alias for backwards compatibility
-RetryAdapter = RateLimitRetryAdapter
-
 _RETRY_ADAPTER_REGISTRY: list[RateLimitRetryAdapter] = []
 
 
@@ -126,17 +123,6 @@ def register_retry_adapter(adapter: RateLimitRetryAdapter) -> None:
 def get_retry_adapters() -> list[RateLimitRetryAdapter]:
     """Return the registered RateLimitRetryAdapters (read-only view for callers)."""
     return list(_RETRY_ADAPTER_REGISTRY)
-
-
-# --- Built-in registration: LiteLLM ---
-
-register_retry_adapter(
-    RateLimitRetryAdapter(
-        name="litellm",
-        is_adapter_active=lambda: _is_litellm_available(),
-        disable_internal_retries=disable_litellm_rate_limit_retries,
-    )
-)
 
 
 # Global cache to track model capabilities across function calls
