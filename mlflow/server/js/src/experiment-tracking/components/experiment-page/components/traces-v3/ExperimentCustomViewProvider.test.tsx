@@ -53,7 +53,7 @@ const mockGetCustomViewAuthoringContext = jest.fn<() => any>(() => null);
 const mockLatchDispatchedCustomViewApplyTarget = jest.fn();
 
 let capturedConnectorProviderProps:
-  | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean } }
+  | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean; isPending?: boolean } }
   | undefined;
 let capturedDefinitionProviderProps:
   | { views: unknown[]; isLoaded: boolean; onPersistView?: unknown; canModifyPersistedViews?: boolean }
@@ -81,8 +81,8 @@ const mockUseAssistant = jest.mocked(useAssistant);
 const makeAssistant = (overrides: Record<string, unknown> = {}) => {
   const value = {
     openPanel: jest.fn(),
-    prefillPrompt: jest.fn(),
-    reset: jest.fn(),
+    sendMessageWhenReady: jest.fn(),
+    pendingAutomaticMessage: null,
     isStreaming: false,
     activeProvider: null,
     ...overrides,
@@ -126,18 +126,19 @@ describe('ExperimentCustomViewProvider', () => {
   });
 
   describe('connector.openAssistant', () => {
-    it('starts a fresh session, opens the panel, and prefills a render_custom_view directive for a new build', () => {
+    it('opens the panel and directly submits a render_custom_view directive in a fresh session', () => {
       const assistant = makeAssistant();
       renderProvider();
 
       capturedConnectorProviderProps?.connector.openAssistant?.('Show me the failed spans', { newSession: true });
 
-      expect(assistant.reset).toHaveBeenCalledTimes(1);
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).toHaveBeenCalledTimes(1);
-      const [prefilled] = jest.mocked(assistant.prefillPrompt).mock.calls[0];
-      expect(prefilled).toContain('Show me the failed spans');
-      expect(prefilled).toContain('render_custom_view');
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Show me the failed spans'), {
+        newSession: true,
+      });
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
+        newSession: true,
+      });
     });
 
     it('reuses the current session (no reset) for a prompted edit without newSession', () => {
@@ -146,20 +147,18 @@ describe('ExperimentCustomViewProvider', () => {
 
       capturedConnectorProviderProps?.connector.openAssistant?.('Add a chart');
 
-      expect(assistant.reset).not.toHaveBeenCalled();
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).toHaveBeenCalledTimes(1);
+      expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
     });
 
-    it('only opens the panel for "Edit with Assistant" (no prompt), seeding nothing', () => {
+    it('only opens the panel for "Edit with Assistant" when there is no prompt', () => {
       const assistant = makeAssistant();
       renderProvider();
 
       capturedConnectorProviderProps?.connector.openAssistant?.();
 
-      expect(assistant.reset).not.toHaveBeenCalled();
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
-      expect(assistant.prefillPrompt).not.toHaveBeenCalled();
+      expect(assistant.sendMessageWhenReady).not.toHaveBeenCalled();
     });
 
     it('exposes the assistant context streaming state on the connector', () => {
@@ -167,6 +166,13 @@ describe('ExperimentCustomViewProvider', () => {
       renderProvider();
 
       expect(capturedConnectorProviderProps?.connector.isStreaming).toBe(true);
+    });
+
+    it('exposes whether an automatic Assistant message is queued', () => {
+      makeAssistant({ pendingAutomaticMessage: { message: 'queued build' } });
+      renderProvider();
+
+      expect(capturedConnectorProviderProps?.connector.isPending).toBe(true);
     });
   });
 

@@ -21,7 +21,11 @@ const activeView = (overrides: Partial<CustomView> = {}): CustomView => ({
   ...overrides,
 });
 
-const wrapperWithConnector = (connector: { openAssistant?: (prompt?: string) => void; isStreaming?: boolean }) =>
+const wrapperWithConnector = (connector: {
+  openAssistant?: (prompt?: string) => void;
+  isStreaming?: boolean;
+  isPending?: boolean;
+}) =>
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <CustomViewAssistantConnectorProvider connector={connector}>{children}</CustomViewAssistantConnectorProvider>
@@ -135,9 +139,9 @@ describe('useCustomViewAssistantBridge', () => {
     unmount();
   });
 
-  test('exposes the connector openAssistant/isStreaming when enabled', () => {
+  test('exposes the connector openAssistant/isStreaming/isPending when enabled', () => {
     const openAssistant = jest.fn();
-    const wrapper = wrapperWithConnector({ openAssistant, isStreaming: true });
+    const wrapper = wrapperWithConnector({ openAssistant, isStreaming: true, isPending: true });
     const { result, unmount } = renderHook(
       () => useCustomViewAssistantBridge({ data: traceData(), activeView: activeView(), onSpec: noopOnSpec }),
       { wrapper },
@@ -145,15 +149,16 @@ describe('useCustomViewAssistantBridge', () => {
 
     expect(result.current.isAvailable).toBe(true);
     expect(result.current.isStreaming).toBe(true);
+    expect(result.current.isPending).toBe(true);
     result.current.openAssistant?.('hi');
     expect(openAssistant).toHaveBeenCalledWith('hi');
 
     unmount();
   });
 
-  test('isAvailable is false and isStreaming/openAssistant are suppressed when disabled', () => {
+  test('isAvailable is false and connector state/actions are suppressed when disabled', () => {
     const openAssistant = jest.fn();
-    const wrapper = wrapperWithConnector({ openAssistant, isStreaming: true });
+    const wrapper = wrapperWithConnector({ openAssistant, isStreaming: true, isPending: true });
     const { result, unmount } = renderHook(
       () =>
         useCustomViewAssistantBridge({
@@ -168,6 +173,7 @@ describe('useCustomViewAssistantBridge', () => {
     expect(result.current.isAvailable).toBe(false);
     expect(result.current.openAssistant).toBeUndefined();
     expect(result.current.isStreaming).toBe(false);
+    expect(result.current.isPending).toBe(false);
 
     unmount();
   });
