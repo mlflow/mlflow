@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from databricks.sdk.core import Config
 
 
-def log_diagnostics(cfg: Config) -> None:
+def log_diagnostics(expiry: datetime | None) -> None:
     """Record when this token was minted and when it expires.
 
     Stdout is reserved for the bare credential, and a caller like Claude Code's
@@ -50,10 +50,6 @@ def log_diagnostics(cfg: Config) -> None:
 
     Diagnostics must never fail the exchange, so every step here is best-effort.
     """
-    try:
-        expiry = str(cfg.oauth_token().expiry)
-    except Exception as e:
-        expiry = f"unavailable ({e})"
     line = f"{datetime.now(timezone.utc).isoformat()} minted, expires {expiry}"
     print(line, file=sys.stderr)
     if path := os.environ.get("MINT_TOKEN_LOG"):
@@ -91,12 +87,16 @@ def main() -> None:
             f"Refusing to print a {cfg.auth_type!r} credential. This script mints a "
             "federated token for CI; set DATABRICKS_AUTH_TYPE=github-oidc."
         )
-    scheme, _, token = cfg.authenticate()["Authorization"].partition(" ")
-    if scheme != "Bearer" or not token:
-        sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {scheme!r}")
-    log_diagnostics(cfg)
-    record_token(token)
-    print(token)
+    # One exchange, and everything derived from it. The SDK builds a fresh
+    # credentials source per call, so `authenticate()` and `oauth_token()` each
+    # hit the token endpoint and return *different* tokens — calling both would
+    # print one credential while logging and scrubbing another.
+    token = cfg.oauth_token()
+    if token.token_type != "Bearer" or not token.access_token:
+        sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {token.token_type!r}")
+    log_diagnostics(token.expiry)
+    record_token(token.access_token)
+    print(token.access_token)
 
 
 if __name__ == "__main__":

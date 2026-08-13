@@ -92,7 +92,7 @@ jobs:
     # reading untrusted diffs, so the agent can mint the service principal's token
     # and reach anything that principal is entitled to — not only gateway
     # inference. The bound is therefore the SP's own entitlements, which are kept
-    # to workspace access alone, plus the token's ~10 minute life.
+    # to workspace access alone, plus the token's ~5 minute life.
     permissions:
       id-token: write
     # The OIDC subject is pinned to `repo:<org>/<repo>:environment:ai-gateway`,
@@ -214,9 +214,10 @@ jobs:
       # endpoints, so no Anthropic API key exists anywhere in the chain.
       #
       # Refreshing is mandatory, not an optimization: the federated token expires
-      # in ~10 minutes (measured — the ~1h figure in the docs describes U2M
-      # tokens), well inside the 20m Claude cap below. The helper TTL is kept
-      # under that lifetime so the credential is replaced before it lapses.
+      # ~5 minutes after it is minted (measured from the token's own expiry — the
+      # ~1h figure in the docs describes U2M auth), far inside the 20m Claude cap
+      # below. The helper TTL is kept under that lifetime so the credential is
+      # replaced before it lapses.
       # `databricks auth token` cannot serve as the helper — it is U2M-only.
       - name: Review
         id: review
