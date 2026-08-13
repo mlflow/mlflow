@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786594286722,
+  "lastUpdate": 1786597488740,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21545,6 +21545,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.093749599998091,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "128332426+adamgurary@users.noreply.github.com",
+            "name": "adamgurary",
+            "username": "adamgurary"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11a89bda6624eb3985a71eb20bb12b45a29a6752",
+          "message": "docs: clarify Databricks profile, LangGraph autolog, runs-vs-traces, span attributes (#24954)\n\nSigned-off-by: Adam Gurary <guraryadam@gmail.com>",
+          "timestamp": "2026-08-12T22:03:30-07:00",
+          "tree_id": "29441f5d8e0f8a040ea027d8ae57fb00ac4cea0f",
+          "url": "https://github.com/mlflow/mlflow/commit/11a89bda6624eb3985a71eb20bb12b45a29a6752"
+        },
+        "date": 1786597487560,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.28255390000004,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.550818017857255,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.383962810810772,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.249947871794621,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.682431015384937,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.070249999998168,
             "unit": "ms"
           }
         ]
