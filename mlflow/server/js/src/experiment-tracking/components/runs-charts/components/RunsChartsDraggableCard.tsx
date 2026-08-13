@@ -42,16 +42,8 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
   const { setDraggedCardUuid, onDropChartCard } = useRunsChartsDraggableGridActionsContext();
 
   const draggedCardElementRef = useRef<HTMLDivElement | null>(null);
-
-  // const onStartDrag = useCallback<DraggableEventHandler>(
-  //   (_, { x, y }) => {
-  //     setIsDragging(true);
-  //     setDraggedCardUuid(uuid ?? null);
-  //     setOrigin({ x, y });
-  //   },
-  //   [setDraggedCardUuid, uuid],
-  // );
   const dragActiveRef = useRef(false);
+
   const onStartDrag = useCallback<DraggableEventHandler>(
     (_, { x, y }) => {
       dragActiveRef.current = true;
@@ -61,6 +53,7 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     },
     [setDraggedCardUuid, uuid],
   );
+
   const onDrag = useCallback(
     (e, { x, y }) => {
       if (draggedCardElementRef.current) {
@@ -85,14 +78,7 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     },
     [origin],
   );
-  // const onStopDrag = useCallback(() => {
-  //   onDropChartCard();
-  //   setDraggedCardUuid(null);
-  //   if (draggedCardElementRef.current) {
-  //     draggedCardElementRef.current.style.transform = '';
-  //   }
-  //   setIsDragging(false);
-  // }, [onDropChartCard, setDraggedCardUuid, draggedCardElementRef]);
+
   const onStopDrag = useCallback(() => {
     dragActiveRef.current = false;
     onDropChartCard();
@@ -103,16 +89,18 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     setIsDragging(false);
   }, [onDropChartCard, setDraggedCardUuid, draggedCardElementRef]);
 
-  // Force-end the drag if the mouse leaves the browser window entirely,
-  // since native mouseup never fires in that case.
+  // Force-end the drag if a real mouseup was swallowed before reaching
+  // DraggableCore's own document-level listener (e.g. an ancestor element
+  // like the sidebar calling stopPropagation). We intentionally do NOT key
+  // off `mouseleave`: the browser keeps delivering real mousemove/mouseup
+  // events to the document even when the cursor is outside the window, as
+  // long as the window still has focus, so DraggableCore's own drag state
+  // stays valid there and forcing a stop on mouseleave just desyncs us
+  // from it instead of fixing anything.
   useEffect(() => {
     if (!isDragging) return;
 
     const forceStopDrag = () => {
-      // Defer until the current event has finished propagating.
-      // If DraggableCore's own mouseup handler already ran, it will
-      // have set dragActiveRef.current = false via onStopDrag — in
-      // that case, do nothing to avoid a duplicate reorder.
       requestAnimationFrame(() => {
         if (dragActiveRef.current) {
           onStopDrag();
@@ -120,10 +108,8 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
       });
     };
 
-    document.addEventListener('mouseleave', forceStopDrag);
     document.addEventListener('mouseup', forceStopDrag, true);
     return () => {
-      document.removeEventListener('mouseleave', forceStopDrag);
       document.removeEventListener('mouseup', forceStopDrag, true);
     };
   }, [isDragging, onStopDrag]);
