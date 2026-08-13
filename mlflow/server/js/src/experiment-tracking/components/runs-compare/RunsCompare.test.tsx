@@ -252,8 +252,13 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
   };
 
   const getChartArea = (chartTitle: string) => {
-    const firstMetricHeading = screen.getByRole('heading', { name: chartTitle });
-    return firstMetricHeading.closest('[data-testid="experiment-view-compare-runs-card"]') as HTMLElement;
+    const displayTitle = chartTitle.split('/').pop() ?? chartTitle;
+    const chartPlot =
+      screen.queryByText(`[bar plot for ${chartTitle}]`) ??
+      screen.queryByText(`[line plot for ${chartTitle}]`) ??
+      screen.queryByRole('heading', { name: chartTitle }) ??
+      screen.getByRole('heading', { name: displayTitle });
+    return chartPlot.closest('[data-testid="experiment-view-compare-runs-card"]') as HTMLElement;
   };
 
   const getSectionArea = (sectionName: string) => {
@@ -321,6 +326,25 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
         screen.getByText('[bar plot for metric-static]'),
         screen.getByText('[line plot for metric-with-history]'),
       ]);
+    });
+  });
+
+  test('uses full metric paths to disambiguate duplicate leaf names', async () => {
+    currentUIState.compareRunCharts = undefined;
+
+    createComponentMock({
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: {} }] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'groupA/duplicate_leaf': { key: 'groupA/duplicate_leaf', value: 1, step: 0 },
+          'groupB/duplicate_leaf': { key: 'groupB/duplicate_leaf', value: 2, step: 0 },
+        },
+      } as any,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'groupA/duplicate_leaf' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'groupB/duplicate_leaf' })).toBeInTheDocument();
     });
   });
 

@@ -20,6 +20,22 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 
 ## Installation
 
+### From GitHub Container Registry (recommended)
+
+Released chart versions are published to GitHub Container Registry as OCI artifacts:
+
+```bash
+helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> \
+  --namespace mlflow \
+  --create-namespace
+```
+
+Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
+New chart versions are published by the MLflow release automation.
+
+### From a local checkout
+
 ```bash
 helm install mlflow ./charts --namespace mlflow --create-namespace
 ```
@@ -43,7 +59,7 @@ helm install mlflow ./charts \
   --create-namespace \
   --set storage.enabled=true \
   --set mlflow.backendStoreUri="sqlite:////mlflow/mlflow.db" \
-  --set mlflow.defaultArtifactRoot="/mlflow/artifacts"
+  --set mlflow.artifactsDestination="/mlflow/artifacts"
 ```
 
 Access the UI via port-forward:
@@ -114,7 +130,7 @@ storage:
 
 mlflow:
   backendStoreUri: "sqlite:////mlflow/mlflow.db"
-  defaultArtifactRoot: "/mlflow/artifacts"
+  artifactsDestination: "/mlflow/artifacts"
 ```
 
 ### TLS

@@ -1,20 +1,32 @@
 /**
  * CLI script to bump the version of MLflow TypeScript libraries.
  *
- * This script updates the version in:
- * - libs/typescript/core/package.json
- * - libs/typescript/integrations/openai/package.json (version and peerDependencies)
+ * Updates the version of the core package and every published integration
+ * package, and rewrites each integration's `@mlflow/core` constraint (declared
+ * in either `dependencies` or `peerDependencies`) to match.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// list of packages that contain `@mlflow/core` in peerDependencies
-const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini', 'vercel'];
+// Published integration packages to bump alongside `@mlflow/core`.
+// `openclaw` is intentionally omitted until its first npm publish (see #23137).
+// `helpers` is a shared test utility, not a published package.
+const INTEGRATION_PACKAGES = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'vercel',
+  'claude-code',
+  'codex',
+  'opencode',
+  'qwen-code',
+];
 
 interface PackageJson {
   name: string;
   version: string;
+  dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   [key: string]: any;
 }
@@ -59,6 +71,8 @@ function bumpVersion(version: string): void {
   writeFileSync(corePackagePath, JSON.stringify(corePackage, null, 2) + '\n', 'utf-8');
   console.log(`  ✓ Updated version: ${oldCoreVersion} → ${version}`);
 
+  const coreRange = `^${version}`;
+
   for (const packageName of INTEGRATION_PACKAGES) {
     const packagePath = join(tsRoot, 'integrations', packageName, 'package.json');
     console.log(`Updating integrations/${packageName}/package.json...`);
@@ -67,16 +81,21 @@ function bumpVersion(version: string): void {
 
     const oldVersion = packageJson.version;
     packageJson.version = version;
-
-    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
     console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
 
-    if (packageJson.peerDependencies && '@mlflow/core' in packageJson.peerDependencies) {
-      const oldPeerDep = packageJson.peerDependencies['@mlflow/core'];
-      packageJson.peerDependencies['@mlflow/core'] = `^${version}`;
-      writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
-      console.log(`  ✓ Updated peerDependency @mlflow/core: ${oldPeerDep} → ^${version}`);
+    // The `@mlflow/core` constraint may live in either `dependencies` (bundled
+    // integrations) or `peerDependencies` (host-provided core). Rewrite whichever
+    // one declares it so the integration pins the matching core release.
+    for (const depKey of ['dependencies', 'peerDependencies'] as const) {
+      const deps = packageJson[depKey];
+      if (deps && '@mlflow/core' in deps) {
+        const oldRange = deps['@mlflow/core'];
+        deps['@mlflow/core'] = coreRange;
+        console.log(`  ✓ Updated ${depKey} @mlflow/core: ${oldRange} → ${coreRange}`);
+      }
     }
+
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
   }
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);

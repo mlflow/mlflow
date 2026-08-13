@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, ParamSpec, 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import NoOpSpan, Session, SpanLogLevel, SpanType, Trace
+from mlflow.entities import Link, NoOpSpan, Session, SpanLogLevel, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
@@ -46,13 +46,18 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     capture_function_input_args,
+    construct_trace_id_v4,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    parse_trace_id_v4,
 )
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.thread_utils import map_with_context
+from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -97,6 +102,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[_P, _R]: ...
 
 
@@ -110,6 +116,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
@@ -122,6 +129,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -231,6 +239,7 @@ def trace(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span.
     """
 
     # Validate sampling_ratio_override
@@ -258,6 +267,7 @@ def trace(
                 trace_destination,
                 sampling_ratio_override,
                 log_level,
+                links,
             )
         else:
             if output_reducer is not None:
@@ -272,6 +282,7 @@ def trace(
                 trace_destination,
                 sampling_ratio_override,
                 log_level,
+                links,
             )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
@@ -293,6 +304,7 @@ def _wrap_function(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -307,6 +319,7 @@ def _wrap_function(
                 attributes=attributes,
                 trace_destination=trace_destination,
                 log_level=log_level,
+                links=links,
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
@@ -367,6 +380,7 @@ def _wrap_generator(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -405,6 +419,7 @@ def _wrap_generator(
                 inputs=inputs,
                 experiment_id=getattr(trace_destination, "experiment_id", None),
                 log_level=log_level,
+                links=links,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -517,6 +532,7 @@ def start_span(
     trace_destination: TraceLocationBase | None = None,
     log_level: SpanLogLevel | str | None = None,
     run_id: str | None = None,
+    links: list[Link] | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -582,6 +598,8 @@ def start_span(
             `trace_destination`, the trace will be logged to the run's experiment. If an
             active MLflow run is already set via `mlflow.start_run()`, this parameter takes
             precedence over the active run.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -637,6 +655,13 @@ def start_span(
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
         noop_span = NoOpSpan()
 
+    if noop_span is None:
+        for link in links or []:
+            try:
+                mlflow_span.add_link(link)
+            except MlflowException:
+                _logger.warning("Skipping invalid link: %s", link)
+
     # Yield NoOp spans outside the try/except block so that exceptions thrown
     # back into the generator (via contextmanager's throw()) propagate correctly
     # instead of being caught by the broad "except Exception" above.
@@ -666,6 +691,7 @@ def start_span_no_context(
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> LiveSpan:
     """
     Start a span without attaching it to the global tracing context.
@@ -693,6 +719,8 @@ def start_span_no_context(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         A :py:class:`mlflow.entities.Span` that represents the created span.
@@ -776,13 +804,56 @@ def start_span_no_context(
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.trace_metadata.update(metadata)
 
-        return mlflow_span
     except Exception as e:
         _logger.warning(
             f"Failed to start span {name}: {e}. For full traceback, set logging level to debug.",
             exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
-    return NoOpSpan()
+        return NoOpSpan()
+
+    for link in links or []:
+        try:
+            mlflow_span.add_link(link)
+        except MlflowException:
+            _logger.warning("Skipping invalid link: %s", link)
+
+    return mlflow_span
+
+
+def _carries_trace_location(trace_id: str) -> bool:
+    """
+    Whether ``trace_id`` already carries a location (``trace:/<location>/<id>``).
+
+    ``parse_trace_id_v4`` raises on a malformed V4 ID. Such an ID is reported as already
+    carrying a location so that callers leave it untouched and the tracking store remains
+    the single place that reports the malformed ID, preserving ``get_trace``'s contract of
+    returning ``None`` rather than raising.
+    """
+    try:
+        return parse_trace_id_v4(trace_id)[0] is not None
+    except MlflowException:
+        return True
+
+
+def _resolve_uc_trace_id(trace_id: str) -> str:
+    """
+    Resolve a plain trace ID to its Unity Catalog V4 form using the active experiment.
+
+    If ``trace_id`` already carries a location (``trace:/<location>/<id>``) or the active
+    experiment does not store its traces in Unity Catalog, ``trace_id`` is returned
+    unchanged. Otherwise it is qualified with the experiment's UC location so it can be
+    routed to the UC-backed endpoints.
+    """
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    if _carries_trace_location(trace_id):
+        return trace_id
+
+    location = TracingClient()._resolve_uc_trace_location(_get_experiment_id())
+    if location is None:
+        return trace_id
+
+    return construct_trace_id_v4(location, trace_id)
 
 
 @deprecated_parameter("request_id", "trace_id")
@@ -821,6 +892,14 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
+    # UC-backed trace storage only exists on Databricks. Branch early so the non-Databricks
+    # path never enters the resolution logic below.
+    is_databricks = is_databricks_uri(get_tracking_uri())
+    if is_databricks:
+        # A plain trace ID does not carry the Unity Catalog location needed to fetch traces
+        # stored in UC. Resolve it from the active experiment's trace destination.
+        trace_id = _resolve_uc_trace_id(trace_id)
+
     exc: MlflowException | None = None
     try:
         return TracingClient().get_trace(trace_id)
@@ -841,6 +920,15 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
             if not flush
             else ""
         )
+        # If the ID is still a plain ID, the active experiment did not resolve a Unity
+        # Catalog location. Point the user to the fully-qualified form for UC traces.
+        # Only relevant on Databricks, where UC-backed trace storage exists.
+        if is_databricks and not _carries_trace_location(trace_id):
+            hint += (
+                " If this trace is stored in Unity Catalog, pass the fully-qualified trace ID "
+                "in the form `trace:/<catalog>.<schema>.<table>/<trace_id>`, or set an active "
+                "experiment linked to the UC location."
+            )
         _logger.warning(
             f"Failed to get trace from the tracking store: {exc}.{hint} "
             "For full traceback, set logging level to debug.",
@@ -1255,7 +1343,7 @@ def search_sessions(
         max_workers=max_workers,
         thread_name_prefix="search_sessions",
     ) as executor:
-        session_results = list(executor.map(fetch_session_traces, session_ids))
+        session_results = list(map_with_context(executor, fetch_session_traces, session_ids))
 
     # Filter out empty sessions, wrap in Session objects, and preserve order
     sessions: list[Session] = [Session(s) for s in session_results if s]

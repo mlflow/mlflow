@@ -139,27 +139,62 @@ def test_get_namespace_source_priority(tmp_path, sa_namespace, kubeconfig_namesp
 
 
 @pytest.mark.parametrize(
-    ("default_headers", "api_key", "expected"),
+    ("default_headers", "api_key", "auth_settings", "expected"),
     [
-        ({"Authorization": "Bearer tok"}, {}, "Bearer tok"),
-        ({"authorization": "Bearer lower"}, {}, "Bearer lower"),
-        ({}, {"authorization": "raw-tok"}, "Bearer raw-tok"),
-        ({}, {"authorization": "Bearer prefixed"}, "Bearer prefixed"),
-        ({}, {}, None),
+        ({"Authorization": "Bearer tok"}, {}, None, "Bearer tok"),
+        ({"authorization": "Bearer lower"}, {}, None, "Bearer lower"),
+        ({}, {"authorization": "raw-tok"}, None, "Bearer raw-tok"),
+        ({}, {"authorization": "Bearer prefixed"}, None, "Bearer prefixed"),
+        # kubernetes-client 36+ stores the token under BearerToken instead of authorization
+        ({}, {"BearerToken": "Bearer k8s36-tok"}, None, "Bearer k8s36-tok"),
+        ({}, {"BearerToken": "k8s36-raw"}, None, "Bearer k8s36-raw"),
+        (
+            {},
+            {},
+            {
+                "BearerToken": {
+                    "type": "api_key",
+                    "in": "header",
+                    "key": "authorization",
+                    "value": "Bearer from-auth-settings",
+                }
+            },
+            "Bearer from-auth-settings",
+        ),
+        # Non-bearer Authorization schemes must not be treated as tokens.
+        ({"Authorization": "Basic abc"}, {}, {}, None),
+        (
+            {"Authorization": "Basic abc"},
+            {"BearerToken": "fallback-tok"},
+            None,
+            "Bearer fallback-tok",
+        ),
+        ({}, {"authorization": "raw with spaces"}, {}, None),
+        ({}, {}, {}, None),
     ],
     ids=[
         "default-header-bearer",
         "lowercase-header",
         "api-key-fallback",
         "api-key-strips-bearer",
+        "api-key-bearertoken-key",
+        "api-key-bearertoken-raw",
+        "auth-settings-fallback",
+        "rejects-basic-auth-header",
+        "skips-basic-auth-then-api-key",
+        "rejects-raw-token-with-whitespace",
         "no-token",
     ],
 )
-def test_token_from_kubeconfig_extraction(default_headers, api_key, expected):
+def test_token_from_kubeconfig_extraction(default_headers, api_key, auth_settings, expected):
     mock_api_client = mock.MagicMock()
     mock_api_client.__enter__.return_value = mock_api_client
     mock_api_client.default_headers = default_headers
     mock_api_client.configuration.api_key = api_key
+    if auth_settings is None:
+        mock_api_client.configuration.auth_settings.side_effect = Exception("unused")
+    else:
+        mock_api_client.configuration.auth_settings.return_value = auth_settings
     with (
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),

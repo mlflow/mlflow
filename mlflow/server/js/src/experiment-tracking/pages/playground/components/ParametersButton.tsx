@@ -9,7 +9,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
+import type { PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersForm } from './ParametersForm';
 import { ResponseFormatForm } from './ResponseFormatForm';
 import { ToolsForm } from './ToolsForm';
@@ -17,9 +17,10 @@ import { ToolsForm } from './ToolsForm';
 interface Props {
   value: PlaygroundParams;
   onChange: (next: PlaygroundParams) => void;
-  toolsText: string;
-  onToolsChange: (next: string) => void;
-  toolsError?: string | null;
+  tools: PlaygroundTool[];
+  onAddTool: () => void;
+  onRemoveTool: (id: string) => void;
+  onUpdateTool: (id: string, patch: Partial<PlaygroundTool>) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -48,9 +49,10 @@ const sectionHeaderCss = (theme: ReturnType<typeof useDesignSystemTheme>['theme'
 export const ParametersButton = ({
   value,
   onChange,
-  toolsText,
-  onToolsChange,
-  toolsError,
+  tools,
+  onAddTool,
+  onRemoveTool,
+  onUpdateTool,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -81,7 +83,7 @@ export const ParametersButton = ({
       </Drawer.Trigger>
       <Drawer.Content
         componentId="mlflow.playground.params.drawer"
-        width={420}
+        width={580}
         title={
           <span
             css={{
@@ -163,58 +165,44 @@ export const ParametersButton = ({
               <Popover.Content align="start" css={{ maxWidth: 360 }}>
                 <Typography.Paragraph withoutMargins>
                   <FormattedMessage
-                    defaultMessage="Have the model call functions you define. Tool choice strategies:"
+                    defaultMessage="Provide one or more function definitions the model can call. Choose how the model invokes them:"
                     description="Intro line of the info popover next to the Tools section header"
                   />
                 </Typography.Paragraph>
                 <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
                   <li>
-                    <Typography.Text bold>None</Typography.Text>{' '}
-                    <FormattedMessage
-                      defaultMessage="— never call a tool (default)."
-                      description="Description of the None tool choice in the Tools info popover"
-                    />
-                  </li>
-                  <li>
                     <Typography.Text bold>Auto</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model decides whether to call a tool."
+                      defaultMessage="— The model decides whether to call one or more tools (default)."
                       description="Description of the Auto tool choice in the Tools info popover"
                     />
                   </li>
                   <li>
                     <Typography.Text bold>Required</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model must call a tool."
+                      defaultMessage="— The model must call at least one tool."
                       description="Description of the Required tool choice in the Tools info popover"
                     />
                   </li>
                 </ul>
                 <Typography.Paragraph withoutMargins css={{ marginTop: theme.spacing.xs }}>
                   <FormattedMessage
-                    defaultMessage="Pick Auto or Required to enter the JSON tool definitions."
-                    description="Closing line of the Tools info popover hinting at the conditional definitions input"
+                    defaultMessage="Use the trash icon to remove the tools from the request."
+                    description="Closing line of the Tools info popover explaining how the trash icon removes tools"
                   />
                 </Typography.Paragraph>
                 <Popover.Arrow />
               </Popover.Content>
             </Popover.Root>
           </div>
-          <div
-            css={{
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.general.borderRadiusBase,
-              padding: theme.spacing.md,
-            }}
-          >
-            <ToolsForm
-              value={toolsText}
-              onChange={onToolsChange}
-              error={toolsError}
-              toolChoice={toolChoice}
-              onToolChoiceChange={onToolChoiceChange}
-            />
-          </div>
+          <ToolsForm
+            tools={tools}
+            onAddTool={onAddTool}
+            onRemoveTool={onRemoveTool}
+            onUpdateTool={onUpdateTool}
+            toolChoice={toolChoice}
+            onToolChoiceChange={onToolChoiceChange}
+          />
 
           <Spacer size="md" />
 

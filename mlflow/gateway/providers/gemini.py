@@ -12,6 +12,7 @@ from mlflow.gateway.providers.base import (
     _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import (
+    parse_base64_data_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -49,6 +50,35 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
+    """Translate a user message's content into Gemini ``parts``.
+
+    A string becomes a single text part (unchanged behavior). A multimodal list has each
+    part translated: text -> ``{"text": ...}``, ``image_url`` base64 data URL ->
+    ``{"inlineData": {"mimeType": ..., "data": ...}}``. Non-base64 image URLs fall back to
+    a text note since the judge image tool only ever emits base64 data URLs. Any other part
+    type is passed through unchanged rather than coerced to empty text, so a non-text part
+    (e.g. ``input_audio``) isn't silently dropped.
+    """
+    if not isinstance(content, list):
+        return [{"text": content}]
+
+    parts: list[dict[str, Any]] = []
+    for part in content:
+        if part.get("type") == "text":
+            parts.append({"text": part.get("text", "")})
+        elif part.get("type") == "image_url":
+            url = part.get("image_url", {}).get("url", "")
+            if parsed := parse_base64_data_url(url):
+                mime, data = parsed
+                parts.append({"inlineData": {"mimeType": mime, "data": data}})
+            else:
+                parts.append({"text": f"[unsupported image reference: {url}]"})
+        else:
+            parts.append(part)
+    return parts
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -144,7 +174,9 @@ class GeminiAdapter(ProviderAdapter):
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
-                    contents.append({"role": role, "parts": [{"text": message["content"]}]})
+                    # _to_gemini_parts translates multimodal list content (e.g. an image_url
+                    # part) to Gemini parts; string content stays a single text part.
+                    contents.append({"role": role, "parts": _to_gemini_parts(message["content"])})
             elif role == "system":
                 if system_message is None:
                     system_message = {"parts": []}
@@ -287,12 +319,24 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def _build_chat_usage(cls, usage_metadata: dict[str, Any]) -> chat_schema.ChatUsage:
+        extra = {
+            key: value
+            for key, value in usage_metadata.items()
+            if key
+            not in {
+                "promptTokenCount",
+                "candidatesTokenCount",
+                "totalTokenCount",
+                "cachedContentTokenCount",
+            }
+        }
         prompt_tokens_details = None
         if "cachedContentTokenCount" in usage_metadata:
             prompt_tokens_details = chat_schema.PromptTokensDetails(
                 cached_tokens=usage_metadata["cachedContentTokenCount"]
             )
         return chat_schema.ChatUsage(
+            **extra,
             prompt_tokens=usage_metadata.get("promptTokenCount"),
             completion_tokens=usage_metadata.get("candidatesTokenCount"),
             total_tokens=usage_metadata.get("totalTokenCount"),

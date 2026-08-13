@@ -40,7 +40,18 @@ export type ResponseFormat =
       json_schema: { name: string; schema: unknown; strict?: boolean };
     };
 
-export type ToolChoice = 'auto' | 'none' | 'required';
+export type ToolChoice = 'auto' | 'required';
+
+export interface PlaygroundTool {
+  // Stable client-side id for React keys and per-tool updates; not sent to the gateway.
+  id: string;
+  // Function name (the `function.name` sent to the gateway).
+  name: string;
+  // Optional human-readable description shown to the model.
+  description: string;
+  // JSON text for the function's parameters JSON Schema (the `function.parameters` object).
+  params: string;
+}
 
 export interface ChatCompletionRequest {
   model: string;

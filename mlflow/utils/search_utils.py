@@ -471,11 +471,11 @@ class SearchUtils:
             elif isinstance(token, Parenthesis):
                 if key not in ("name", "digest", "context"):
                     raise MlflowException(
-                        "Only the dataset 'name' and 'digest' supports comparison with a list of "
-                        "quoted string values.",
+                        "Only the dataset 'name', 'digest', and 'context' support comparison "
+                        "with a list of quoted string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return cls._parse_run_ids(token)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value for dataset attributes. "
@@ -2763,6 +2763,56 @@ class SearchLoggedModelsPaginationToken:
                 f"Order by in the page token does not match the requested order by. "
                 f"Expected: {order_by}. Found: {self.order_by}"
             )
+
+
+class SearchMCPServerUtils(SearchUtils):
+    """Utility class for parsing MCP server search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "display_name",
+        "status",
+        "has_access_endpoints",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key not in ("status",):
+            raise MlflowException(
+                f"Only 'status' supports IN comparisons for MCP servers, got '{key}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+class SearchMCPServerVersionUtils(SearchUtils):
+    """Utility class for parsing MCP server version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "version", "status", "created_at", "last_updated_at"}
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key not in ("status",):
+            raise MlflowException(
+                f"Only 'status' supports IN comparisons for MCP server versions, got '{key}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+class SearchMCPAccessEndpointUtils(SearchUtils):
+    """Utility class for parsing MCP access endpoint search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "server_name",
+        "transport_type",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
 
 
 class SearchIssuesUtils(SearchUtils):
