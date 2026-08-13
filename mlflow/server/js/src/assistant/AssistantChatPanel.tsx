@@ -443,7 +443,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     pendingPrompt,
     clearPendingPrompt,
     pendingAutomaticMessage,
-    sendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
     pendingPermission,
     respondToPermission,
   } = useAssistant();
@@ -500,7 +500,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     // (The key is already saved server-side; the send carries it.) If the prompt
     // came from a failed send rather than a queued message, retry that turn.
     if (pendingAutomaticMessage) {
-      sendPendingAutomaticMessage();
+      forceSendPendingAutomaticMessage();
     } else if (message) {
       sendMessage(message);
     } else {
@@ -511,7 +511,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
   }, [
     pendingKeyMessage,
     pendingAutomaticMessage,
-    sendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
     sendMessage,
     regenerateLastMessage,
     refreshConfig,

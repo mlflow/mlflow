@@ -8,7 +8,6 @@ import {
 } from './customViewAuthoringContext';
 
 const makeContext = (overrides: Partial<CustomViewAuthoringContext> = {}): CustomViewAuthoringContext => ({
-  guide: 'guide text',
   traceSample: { metrics: { status: 'OK' } },
   ...overrides,
 });
@@ -32,8 +31,8 @@ describe('customViewAuthoringContext', () => {
   });
 
   test('a later registration overwrites the earlier one (last-writer-wins)', () => {
-    const first = makeContext({ guide: 'first' });
-    const second = makeContext({ guide: 'second' });
+    const first = makeContext({ traceSample: { id: 'first' } });
+    const second = makeContext({ traceSample: { id: 'second' } });
     const unregisterFirst = registerCustomViewAuthoringContext(first);
     const unregisterSecond = registerCustomViewAuthoringContext(second);
 
@@ -44,8 +43,8 @@ describe('customViewAuthoringContext', () => {
   });
 
   test('unregistering a superseded registration is a no-op (does not clear the current one)', () => {
-    const first = makeContext({ guide: 'first' });
-    const second = makeContext({ guide: 'second' });
+    const first = makeContext({ traceSample: { id: 'first' } });
+    const second = makeContext({ traceSample: { id: 'second' } });
     const unregisterFirst = registerCustomViewAuthoringContext(first);
     const unregisterSecond = registerCustomViewAuthoringContext(second);
 

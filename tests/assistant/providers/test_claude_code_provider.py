@@ -1,4 +1,5 @@
 import errno
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -78,10 +79,9 @@ def test_is_available(which_return, expected):
         assert provider.is_available() is expected
 
 
-def test_supports_client_tools_is_false():
-    # A CLI-based provider has no mid-stream client-tool channel without MCP
-    # plumbing, so it inherits the base class's default of False.
-    assert ClaudeCodeProvider().supports_client_tools is False
+def test_uses_structured_client_tool_delivery():
+    provider = ClaudeCodeProvider()
+    assert provider.client_tool_delivery == "structured"
 
 
 def test_check_connection_runs_auth_verification_prompt():
@@ -236,6 +236,232 @@ async def test_astream_passes_cwd_and_env(tmp_path, monkeypatch):
     assert call_kwargs["cwd"] == tmp_path
     assert call_kwargs["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
     assert call_kwargs["env"]["TEST_ENV_VAR"] == "test_value"
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_custom_view_json_schema(tmp_path):
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [{"version": "v0.9", "updateComponents": {}}],
+    }
+    mock_process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": json.dumps(response)}]},
+            }).encode()
+            + b"\n",
+            json.dumps({
+                "type": "result",
+                "session_id": "claude-session",
+                "structured_output": response,
+            }).encode()
+            + b"\n",
+        ],
+        pid=None,
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [
+            event
+            async for event in provider.astream(
+                "build a view",
+                "http://localhost:5000",
+                session_id="previous-claude-session",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    args = mock_exec.call_args.args
+    schema = json.loads(args[args.index("--json-schema") + 1])
+    assert schema["required"] == ["type", "text", "title", "messages"]
+    assert args[args.index("--resume") + 1] == "previous-claude-session"
+    assert "--mcp-config" not in args
+    assert [event.type for event in events] == [
+        EventType.MESSAGE,
+        EventType.MESSAGE,
+        EventType.CLIENT_TOOL_CALL,
+        EventType.DONE,
+    ]
+    assert events[0].data["message"]["content"][0]["text"] == response["text"]
+    assert events[2].data["continuation"] == "terminal"
+
+
+@pytest.mark.asyncio
+async def test_astream_forwards_empty_custom_view_messages_for_client_validation(tmp_path):
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [],
+    }
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "session_id": "session-id",
+                "structured_output": response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    assert not any(event.type == EventType.ERROR for event in events)
+    assert [event.type for event in events] == [
+        EventType.MESSAGE,
+        EventType.MESSAGE,
+        EventType.CLIENT_TOOL_CALL,
+        EventType.DONE,
+    ]
+    assert events[2].data["tool_input"]["messages"] == []
+
+
+@pytest.mark.asyncio
+async def test_astream_does_not_retry_invalid_custom_view_transport(tmp_path):
+    invalid_response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": "not-json",
+    }
+
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "session_id": "session-id",
+                "structured_output": invalid_response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert errors[0].data["session_id"] == "session-id"
+
+
+@pytest.mark.asyncio
+async def test_astream_requires_session_id_in_structured_result(tmp_path):
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": [{"version": "v0.9", "updateComponents": {}}],
+    }
+    process = _mock_process(
+        stdout_lines=[
+            json.dumps({
+                "type": "result",
+                "structured_output": response,
+            }).encode()
+            + b"\n"
+        ],
+        pid=None,
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=process,
+        ),
+    ):
+        events = [
+            event
+            async for event in ClaudeCodeProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                session_id="previous-session-id",
+                cwd=tmp_path,
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert errors[0].data["error"] == "Claude Code result did not include a session ID"
+    assert not any(event.type == EventType.CLIENT_TOOL_CALL for event in events)
+
+
+def test_filter_structured_output_text_preserves_tool_blocks():
+    message = {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {"type": "text", "text": '{"type":"message"}'},
+                {
+                    "type": "tool_use",
+                    "id": "tool-id",
+                    "name": "Bash",
+                    "input": {},
+                },
+            ]
+        },
+    }
+
+    filtered = ClaudeCodeProvider._filter_structured_output_text(message)
+    assert filtered["message"]["content"] == [message["message"]["content"][1]]
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,11 @@ import type { AgentTraceData } from '../agent/buildAgentPrompt';
 import type { CustomView } from '../customViewDefinition';
 import { CustomViewAssistantConnectorProvider } from './CustomViewAssistantConnector';
 import { getCustomViewAuthoringContext } from './customViewAuthoringContext';
-import { getCustomViewSpecApplier, type RenderCustomViewSpec } from './customViewSpecApplier';
+import {
+  CustomViewValidationError,
+  getCustomViewSpecApplier,
+  type RenderCustomViewSpec,
+} from './customViewSpecApplier';
 import { useCustomViewAssistantBridge } from './useCustomViewAssistantBridge';
 
 const traceData = (): AgentTraceData => ({ metrics: { status: 'OK' } });
@@ -40,7 +44,7 @@ afterEach(() => {
 });
 
 describe('useCustomViewAssistantBridge', () => {
-  test('publishes the authoring context (guide + trace sample + template + applyTarget) while enabled', () => {
+  test('publishes the authoring context (trace sample + template + applyTarget) while enabled', () => {
     const view = activeView({ template: [{ version: 'v0.9' } as any] });
     const { unmount } = renderHook(() =>
       useCustomViewAssistantBridge({ data: traceData(), activeView: view, onSpec: noopOnSpec }),
@@ -48,7 +52,6 @@ describe('useCustomViewAssistantBridge', () => {
 
     const context = getCustomViewAuthoringContext();
     expect(context).not.toBeNull();
-    expect(context?.guide).toContain('CUSTOM TRACE VIEW AUTHORING MODE');
     expect(context?.currentTemplate).toBe(view.template);
     expect(context?.applyTarget).toMatchObject({ id: 'view-1', name: 'My view' });
     expect(context?.traceSample).toMatchObject({ metrics: { status: 'OK' } });
@@ -111,9 +114,26 @@ describe('useCustomViewAssistantBridge', () => {
       applyResult = await applier?.({ title: 't', messages: [] });
     });
 
-    expect(applyResult).toEqual({ ok: false, error: 'invalid template' });
+    expect(applyResult).toEqual({ ok: false, error: 'invalid template', retryable: false });
     expect(result.current.applyError).toBe('invalid template');
 
+    unmount();
+  });
+
+  test('marks validation failures as retryable', async () => {
+    const onSpec = jest.fn(async () => {
+      throw new CustomViewValidationError('unknown component');
+    });
+    const { unmount } = renderHook(() =>
+      useCustomViewAssistantBridge({ data: traceData(), activeView: activeView(), onSpec }),
+    );
+
+    let applyResult;
+    await act(async () => {
+      applyResult = await getCustomViewSpecApplier()?.({ title: 't', messages: [] });
+    });
+
+    expect(applyResult).toEqual({ ok: false, error: 'unknown component', retryable: true });
     unmount();
   });
 

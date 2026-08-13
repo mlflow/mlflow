@@ -45,7 +45,7 @@ import { validateAndPrepareMessages, validateTemplate } from './agent/validateA2
 import { resolveTemplate } from './resolveTemplate';
 import { useCustomViewAssistantBridge } from './assistant/useCustomViewAssistantBridge';
 import { getDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
-import type { RenderCustomViewSpec } from './assistant/customViewSpecApplier';
+import { CustomViewValidationError, type RenderCustomViewSpec } from './assistant/customViewSpecApplier';
 import {
   CUSTOM_VIEW_CATALOG_ID,
   type CustomViewData,
@@ -292,7 +292,7 @@ export const ModelTraceExplorerCustomView = ({
   const prepareTemplate = (spec: RenderCustomViewSpec): A2uiMessage[] => {
     const result = validateTemplate(spec);
     if (!result.ok) {
-      throw new Error(result.error);
+      throw new CustomViewValidationError(result.error);
     }
     return result.messages;
   };

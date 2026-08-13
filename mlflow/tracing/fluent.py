@@ -325,7 +325,13 @@ def _wrap_function(
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
-                span.set_outputs(result)
+                # Honor an explicit set_outputs() call made inside the function body.
+                # set_inputs() can already be overridden this way because the decorator
+                # captures inputs before the body runs, while outputs are captured after
+                # it returns. Fall back to the return value only when the user did not
+                # set outputs themselves, so the two are symmetric.
+                if span.outputs is None:
+                    span.set_outputs(result)
                 try:
                     yield result
                 except GeneratorExit:
