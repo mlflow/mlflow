@@ -464,9 +464,9 @@ def _validate_custom_view_tag_write(experiment, tag: ExperimentTag) -> None:
         return
 
     # Only writes that add a tag are capped. Overwriting an existing custom-view tag keeps the
-    # count flat, so edit and rename remain available when the experiment is at the limit. As in
-    # the managed backend, this uses a snapshot read: concurrent saves at the boundary can exceed
-    # the cap, after which new saves are rejected until a view is deleted.
+    # count flat, so edit and rename remain available when the experiment is at the limit. This
+    # uses a snapshot read, so concurrent saves at the boundary can exceed the cap, after which new
+    # saves are rejected until a view is deleted.
     if tag.key in experiment.tags:
         return
 
