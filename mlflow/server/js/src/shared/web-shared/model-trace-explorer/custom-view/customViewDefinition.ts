@@ -16,6 +16,11 @@ export const viewTagKey = (id: string): string => `${CUSTOM_VIEW_PREFIX}${id}`;
 // below its character count, so nothing that passes here can exceed the
 // server's limit.
 export const CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES = 5000;
+
+// Each saved view costs one experiment tag, so cap creation before the user authors a view that
+// the backend will reject. The server is authoritative; this constant only drives the UI hint.
+// Keep it in sync with MAX_CUSTOM_VIEWS_PER_EXPERIMENT in mlflow/utils/validation.py.
+export const MAX_CUSTOM_VIEWS_PER_EXPERIMENT = 50;
 const UTF8_ENCODER = new TextEncoder();
 export const getUtf8ByteLength = (value: string): number => UTF8_ENCODER.encode(value).byteLength;
 

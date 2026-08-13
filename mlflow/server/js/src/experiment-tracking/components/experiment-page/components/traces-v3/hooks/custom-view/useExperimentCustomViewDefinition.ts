@@ -102,7 +102,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
     queryFn: async (): Promise<CustomView[]> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
-      const viewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX) && tag.value !== '');
+      const viewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX));
       const parsed = await Promise.all(
         viewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX.length), tag.value)),
       );

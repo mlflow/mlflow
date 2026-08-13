@@ -55,7 +55,7 @@ import {
   getMetricsFromTraceInfo,
   mapToAgentAssessments,
 } from './customViewBuilders';
-import { type CustomView, type CustomViewApplyTarget } from './customViewDefinition';
+import { type CustomView, type CustomViewApplyTarget, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 import { useCustomViewDefinition } from './CustomViewDefinitionContext';
 
 // Deterministic surface id per view so React/A2UI reuse the same surface across
@@ -260,6 +260,16 @@ export const ModelTraceExplorerCustomView = ({
   // Capture the delete target so a background selection change cannot retarget
   // the confirmation modal to another view.
   const [deleteTarget, setDeleteTarget] = useState<Pick<CustomView, 'id' | 'name'> | undefined>(undefined);
+
+  const viewLimitReachedMessage = intl.formatMessage(
+    {
+      defaultMessage:
+        'This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.',
+      description:
+        'Explains that no more custom trace views can be created because the per-experiment limit is reached',
+    },
+    { maxViews: MAX_CUSTOM_VIEWS_PER_EXPERIMENT },
+  );
 
   const surfaceId = activeView ? surfaceIdForView(activeView) : '';
   const surface = activeView ? processor.model.getSurface(surfaceId) : undefined;
@@ -711,6 +721,7 @@ export const ModelTraceExplorerCustomView = ({
                     <DropdownMenu.Item
                       componentId="shared.model-trace-explorer.custom-view.create-view"
                       onClick={handleCreateView}
+                      disabled={cv.hasReachedViewLimit}
                     >
                       <DropdownMenu.IconWrapper>
                         <PlusIcon />
@@ -719,6 +730,27 @@ export const ModelTraceExplorerCustomView = ({
                         defaultMessage="Create view"
                         description="Menu item to create a new custom trace view"
                       />
+                      {cv.hasReachedViewLimit && (
+                        <Tooltip
+                          componentId="shared.model-trace-explorer.custom-view.create-view-disabled-reason"
+                          side="right"
+                          content={viewLimitReachedMessage}
+                          zIndex={DropdownMenu.getZIndex() + 1}
+                        >
+                          <span
+                            css={{
+                              display: 'inline-flex',
+                              marginLeft: 'auto',
+                              paddingLeft: theme.spacing.xs,
+                              color: theme.colors.textSecondary,
+                              pointerEvents: 'all',
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <InfoIcon aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
                     </DropdownMenu.Item>
                   </>
                 )}

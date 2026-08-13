@@ -11,6 +11,7 @@ import threading
 import time
 import unicodedata
 import urllib
+from collections.abc import Iterable
 from functools import partial, wraps
 from typing import Any, Callable
 from zlib import adler32
@@ -107,6 +108,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
+    RESOURCE_EXHAUSTED,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
@@ -368,6 +370,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
@@ -395,6 +398,7 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
+    MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
@@ -430,6 +434,44 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+
+
+def _is_custom_view_tag(key: str) -> bool:
+    return key.startswith(MLFLOW_CUSTOM_VIEW_TAG_PREFIX)
+
+
+def _count_custom_views(tags: Iterable[tuple[str, str]]) -> int:
+    return sum(_is_custom_view_tag(key) for key, _value in tags)
+
+
+def _raise_custom_view_limit_exceeded(experiment_id: str | None = None) -> None:
+    experiment_ref = f" for experiment {experiment_id}" if experiment_id else ""
+    raise MlflowException(
+        f"Unable to create another custom view{experiment_ref}; the maximum number of custom "
+        f"views per experiment is {MAX_CUSTOM_VIEWS_PER_EXPERIMENT}. Delete an existing custom "
+        "view before creating a new one.",
+        error_code=RESOURCE_EXHAUSTED,
+    )
+
+
+def _validate_custom_view_count(tags: list[ExperimentTag]) -> None:
+    if _count_custom_views((tag.key, tag.value) for tag in tags) > MAX_CUSTOM_VIEWS_PER_EXPERIMENT:
+        _raise_custom_view_limit_exceeded()
+
+
+def _validate_custom_view_tag_write(experiment, tag: ExperimentTag) -> None:
+    if not _is_custom_view_tag(tag.key):
+        return
+
+    # Only writes that add a tag are capped. Overwriting an existing custom-view tag keeps the
+    # count flat, so edit and rename remain available when the experiment is at the limit. As in
+    # the managed backend, this uses a snapshot read: concurrent saves at the boundary can briefly
+    # exceed the cap, after which new saves are rejected until a view is deleted.
+    if tag.key in experiment.tags:
+        return
+
+    if _count_custom_views(experiment.tags.items()) >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT:
+        _raise_custom_view_limit_exceeded(experiment.experiment_id)
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -1650,6 +1692,7 @@ def _create_experiment():
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
+    _validate_custom_view_count(tags)
 
     if request_message.artifact_location:
         _validate_storage_location_uri(request_message.artifact_location, "artifact_location")
@@ -1941,7 +1984,11 @@ def _set_experiment_tag():
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
-    _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
+    store = _get_tracking_store()
+    if _is_custom_view_tag(tag.key):
+        experiment = store.get_experiment(request_message.experiment_id)
+        _validate_custom_view_tag_write(experiment, tag)
+    store.set_experiment_tag(request_message.experiment_id, tag)
     response_message = SetExperimentTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

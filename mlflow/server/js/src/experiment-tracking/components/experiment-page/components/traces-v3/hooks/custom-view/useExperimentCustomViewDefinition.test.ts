@@ -114,7 +114,7 @@ describe('useExperimentCustomViewDefinition', () => {
   });
 
   describe('load path', () => {
-    it('skips empty-value tombstones and non-custom-view tags, keeps corrupt tags as unreadable placeholders, and sorts by createdAtMs', async () => {
+    it('loads all custom-view tags, keeps corrupt values as unreadable placeholders, and sorts by createdAtMs', async () => {
       const newer = makeView({ id: 'newer', createdAtMs: 200 });
       const older = makeView({ id: 'older', createdAtMs: 100 });
 
@@ -123,9 +123,9 @@ describe('useExperimentCustomViewDefinition', () => {
           // Presented newest-first so the sort has something to reorder.
           customViewTag(newer),
           customViewTag(older),
-          // Soft-deleted tombstone: correct prefix but empty value → the ONLY case
-          // that is excluded from the list.
-          { key: viewTagKey('deleted'), value: '' },
+          // Empty values are not tombstones in OSS because deletion hard-deletes the tag. Treat a
+          // directly-created empty tag like any other corrupt value so it still consumes a slot.
+          { key: viewTagKey('empty'), value: '' },
           // Corrupt payloads under the custom-view prefix → kept as `unreadable`
           // placeholders (keyed by the recovered id) rather than dropped, so an
           // incompatible saved view stays selectable instead of vanishing.
@@ -143,9 +143,10 @@ describe('useExperimentCustomViewDefinition', () => {
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       expect(mockGetExperiment).toHaveBeenCalledWith({ experiment_id: EXPERIMENT_ID });
-      // Unreadable placeholders get createdAtMs 0, so they sort ahead of the valid
-      // views; the soft-delete tombstone and the non-prefixed note are excluded.
+      // Unreadable placeholders get createdAtMs 0, so they sort ahead of the valid views; only the
+      // non-prefixed note is excluded.
       expect(result.current.views.map((view) => view.id)).toEqual([
+        'empty',
         'bad-json',
         'wrong-shape',
         'named-bad',
@@ -155,6 +156,7 @@ describe('useExperimentCustomViewDefinition', () => {
 
       const byId = (id: string) => result.current.views.find((view) => view.id === id);
       // Unparseable bytes and shape mismatches are kept and flagged unreadable.
+      expect(byId('empty')?.unreadable).toBe(true);
       expect(byId('bad-json')?.unreadable).toBe(true);
       expect(byId('wrong-shape')?.unreadable).toBe(true);
       expect(byId('named-bad')?.unreadable).toBe(true);
