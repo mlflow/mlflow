@@ -150,11 +150,11 @@ class Rag(Preset):
         )
 
         scorers = [
-            RetrievalRelevance(model=model) if model else RetrievalRelevance(),
-            RetrievalGroundedness(model=model) if model else RetrievalGroundedness(),
-            RelevanceToQuery(model=model) if model else RelevanceToQuery(),
-            Safety(model=model) if model else Safety(),
-            Completeness(model=model) if model else Completeness(),
+            RetrievalRelevance(model=model),
+            RetrievalGroundedness(model=model),
+            RelevanceToQuery(model=model),
+            Safety(model=model),
+            Completeness(model=model),
         ]
         super().__init__(name="rag", scorers=scorers)
 
@@ -188,11 +188,11 @@ class Agent(Preset):
         )
 
         scorers = [
-            ToolCallCorrectness(model=model) if model else ToolCallCorrectness(),
-            ToolCallEfficiency(model=model) if model else ToolCallEfficiency(),
-            RelevanceToQuery(model=model) if model else RelevanceToQuery(),
-            Safety(model=model) if model else Safety(),
-            Completeness(model=model) if model else Completeness(),
+            ToolCallCorrectness(model=model),
+            ToolCallEfficiency(model=model),
+            RelevanceToQuery(model=model),
+            Safety(model=model),
+            Completeness(model=model),
         ]
         super().__init__(name="agent", scorers=scorers)
 
@@ -232,17 +232,15 @@ class ConversationalAgent(Preset):
         )
 
         scorers = [
-            ToolCallCorrectness(model=model) if model else ToolCallCorrectness(),
-            ToolCallEfficiency(model=model) if model else ToolCallEfficiency(),
-            RelevanceToQuery(model=model) if model else RelevanceToQuery(),
-            Safety(model=model) if model else Safety(),
-            Completeness(model=model) if model else Completeness(),
-            UserFrustration(model=model) if model else UserFrustration(),
-            ConversationCompleteness(model=model) if model else ConversationCompleteness(),
-            ConversationalSafety(model=model) if model else ConversationalSafety(),
-            ConversationalToolCallEfficiency(model=model)
-            if model
-            else ConversationalToolCallEfficiency(),
-            KnowledgeRetention(model=model) if model else KnowledgeRetention(),
+            ToolCallCorrectness(model=model),
+            ToolCallEfficiency(model=model),
+            RelevanceToQuery(model=model),
+            Safety(model=model),
+            Completeness(model=model),
+            UserFrustration(model=model),
+            ConversationCompleteness(model=model),
+            ConversationalSafety(model=model),
+            ConversationalToolCallEfficiency(model=model),
+            KnowledgeRetention(model=model),
         ]
         super().__init__(name="conversational_agent", scorers=scorers)

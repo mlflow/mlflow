@@ -48,14 +48,21 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
 
     valid_scorers = []
     legacy_metrics = []
+    seen_scorer_keys = set()
 
     for scorer in scorers:
         # Preset is not a Scorer subclass — check it first to expand into individual scorers.
         if isinstance(scorer, Preset):
             for s in scorer:
-                valid_scorers.append(s)
+                key = (type(s), s.name)
+                if key not in seen_scorer_keys:
+                    seen_scorer_keys.add(key)
+                    valid_scorers.append(s)
         elif isinstance(scorer, Scorer):
-            valid_scorers.append(scorer)
+            key = (type(scorer), scorer.name)
+            if key not in seen_scorer_keys:
+                seen_scorer_keys.add(key)
+                valid_scorers.append(scorer)
         else:
             if IS_DBX_AGENTS_INSTALLED:
                 from databricks.rag_eval.evaluation.metrics import Metric

@@ -3399,8 +3399,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     results.append(latest.to_mlflow_entity())
 
             results.sort(key=lambda p: p.preset_name)
-            # Pagination not yet implemented — return all results
-            return results, None
+            return self._paginate(results, max_results, page_token)
 
     def list_scorer_preset_versions(
         self,
@@ -3438,7 +3437,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
 
             results = [v.to_mlflow_entity() for v in versions]
-            return results, None
+            return self._paginate(results, max_results, page_token)
+
+    @staticmethod
+    def _paginate(
+        items: list, max_results: int | None, page_token: str | None
+    ) -> tuple[list, str | None]:
+        offset = int(page_token) if page_token else 0
+        if max_results is not None:
+            page = items[offset : offset + max_results]
+            next_offset = offset + max_results
+            next_token = str(next_offset) if next_offset < len(items) else None
+            return page, next_token
+        return items[offset:], None
 
     def delete_scorer_preset(
         self, experiment_id: str, name: str, version: str | None = None
@@ -3480,6 +3491,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         RESOURCE_DOES_NOT_EXIST,
                     )
                 session.delete(pv)
+                session.flush()
+                # Clean up the preset record if no versions remain
+                remaining = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(SqlScorerPresetVersion.preset_id == preset.preset_id)
+                    .count()
+                )
+                if remaining == 0:
+                    session.delete(preset)
             else:
                 session.delete(preset)
 

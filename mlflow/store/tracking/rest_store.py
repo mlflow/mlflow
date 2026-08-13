@@ -1761,7 +1761,7 @@ class RestStore(
             endpoint="/api/3.0/mlflow/scorers/register",
         )
 
-        return ScorerVersion(
+        sv = ScorerVersion(
             experiment_id=response_proto.experiment_id,
             scorer_name=response_proto.name,
             scorer_version=response_proto.version,
@@ -1769,6 +1769,22 @@ class RestStore(
             creation_time=response_proto.creation_time,
             scorer_id=response_proto.scorer_id,
         )
+        if response_proto.bumped_preset_versions:
+            bumped = [
+                {
+                    "preset_name": bp.preset_name,
+                    "version": bp.version,
+                    "preset_id": bp.preset_id,
+                }
+                for bp in response_proto.bumped_preset_versions
+            ]
+            sv._bumped_presets = bumped
+            _logger.info(
+                "Scorer version update auto-bumped %d preset(s): %s",
+                len(bumped),
+                ", ".join(bp["preset_name"] for bp in bumped),
+            )
+        return sv
 
     def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
         """

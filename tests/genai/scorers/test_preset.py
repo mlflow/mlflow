@@ -209,10 +209,15 @@ class TestValidateScorersWithPresets:
         assert len(result) == 6
         assert all(isinstance(s, Scorer) for s in result)
 
-    def test_multiple_presets_flattened(self):
+    def test_multiple_presets_flattened_with_dedup(self):
+        # Rag has 5 scorers, Agent has 5, but they share 3 (RelevanceToQuery, Safety, Completeness)
         result = validate_scorers([Rag(), Agent()])
-        assert len(result) == 10
+        assert len(result) == 7
         assert all(isinstance(s, Scorer) for s in result)
+        names = [s.name for s in result]
+        assert names.count("safety") == 1
+        assert names.count("completeness") == 1
+        assert names.count("relevance_to_query") == 1
 
     def test_preset_scorers_property_works_directly(self):
         preset = Agent()
