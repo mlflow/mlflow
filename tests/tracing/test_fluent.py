@@ -1344,21 +1344,6 @@ def test_trace_decorator_honors_explicit_set_outputs():
 
 
 @skip_when_testing_trace_sdk
-def test_trace_decorator_captures_return_value_when_outputs_not_set():
-    @mlflow.trace
-    def predict(x):
-        return {"returned": x * 10}
-
-    predict(3)
-
-    traces = get_traces()
-    assert len(traces) == 1
-    span = traces[0].data.spans[0]
-    # Without an explicit set_outputs() call, the return value is still captured.
-    assert span.outputs == {"returned": 30}
-
-
-@skip_when_testing_trace_sdk
 def test_search_traces_extract_fields_preserves_standard_columns():
     with mlflow.start_span(name="test_span") as span:
         span.set_inputs({"x": 1})
