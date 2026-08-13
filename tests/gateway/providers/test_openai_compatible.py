@@ -205,7 +205,6 @@ async def test_chat_stream():
     assert result["choices"][0]["delta"]["content"] == "Hi"
 
 
-
 @pytest.mark.asyncio
 async def test_chat_stream_missing_finish_reason():
     # Anthropic-compatible upstreams omit finish_reason on intermediate streaming chunks.
