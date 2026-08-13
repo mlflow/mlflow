@@ -209,6 +209,7 @@ test = [
   { include-group = "pytest" },
   "psutil",
   "pyspark",
+  "texttable",
   "opentelemetry-exporter-otlp-proto-grpc",
   "opentelemetry-exporter-otlp-proto-http",
 ]
