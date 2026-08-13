@@ -102,8 +102,14 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
         usedforsecurity=False,
     ).hexdigest()
     with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
-        if not _all_tables_exist(engine):
+        # Only initialize tables from ORM models if the database is completely empty.
+        # If tables already exist (e.g., from an older MLflow version), rely on Alembic
+        # migrations to add/alter tables. Re-running create_all on existing tables can
+        # cause "Table already exists" errors.
+        if _is_empty_database(engine):
             _initialize_tables(engine)
+        else:
+            _upgrade_db(engine)
 
 
 def _get_latest_schema_revision():
