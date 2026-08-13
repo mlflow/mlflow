@@ -1,32 +1,22 @@
 # /// script
 # dependencies = ["databricks-sdk"]
 # [tool.uv]
-# # Mirrors pyproject.toml's cooldown. `uv run --no-project` skips project
-# # discovery, so without this the repo's 7-day guard against freshly-published
-# # (possibly compromised) releases would not cover a dependency installed on a
-# # job that holds an OIDC identity.
+# # `uv run --no-project` skips project discovery, so pyproject's cooldown would
+# # not otherwise cover this dependency.
 # exclude-newer = "P7D"
 # ///
 """Mint a short-lived Databricks OAuth token from a GitHub Actions OIDC JWT.
 
-`review.yml` routes Claude Code through the Databricks AI Gateway rather than the
-Anthropic API, so it needs a Databricks bearer token instead of an API key. The
-token comes from workload identity federation: GitHub issues an OIDC JWT scoped to
-the job, and the service principal's federation policy exchanges it for an OAuth
-token. Nothing is stored as a GitHub secret.
-
-The Databricks CLI cannot do this. `databricks auth token` reads the U2M token
-cache and explicitly rejects machine-to-machine auth, so the SDK owns the exchange.
+`databricks auth token` cannot do this — it reads the U2M token cache and rejects
+machine-to-machine auth — so the SDK owns the exchange.
 
 `DATABRICKS_TOKEN_AUDIENCE` must equal the `audiences` entry on the federation
-policy. Without it the SDK defaults the audience to the workspace token endpoint
-URL, which the policy rejects as a mismatch.
+policy; the SDK otherwise defaults it to the workspace token endpoint URL, which
+the policy rejects.
 
 Usage:
   DATABRICKS_HOST=... DATABRICKS_CLIENT_ID=... DATABRICKS_TOKEN_AUDIENCE=... \
     DATABRICKS_AUTH_TYPE=github-oidc uv run dev/mint_gateway_token.py
-
-`MINT_TOKEN_LOG` and `MINT_TOKEN_SECRETS` are optional; see the functions below.
 """
 
 from __future__ import annotations
@@ -41,13 +31,8 @@ from databricks.sdk.oauth import Token
 
 
 def mint(cfg: Config, attempts: int = 3) -> Token:
-    """Exchange the OIDC JWT for a Databricks token, retrying transient failures.
-
-    The SDK posts to the token endpoint with a bare ``requests.post`` and no retry
-    adapter. A caller that refreshes every couple of minutes runs this many times
-    per session, so a single transient 5xx or network blip would end the session —
-    exactly the failure the refresh exists to prevent.
-    """
+    # The SDK's exchange is a bare `requests.post` with no retry adapter, and a
+    # refreshing caller runs it many times per session.
     for attempt in range(1, attempts + 1):
         try:
             return cfg.oauth_token()
@@ -61,20 +46,14 @@ def mint(cfg: Config, attempts: int = 3) -> Token:
 
 
 def log_diagnostics(expiry: datetime | None) -> None:
-    """Record when this token was minted and how long it is valid for.
+    """Log the token's lifetime, which callers size their refresh interval against.
 
-    Stdout is reserved for the bare credential, and a caller like Claude Code's
-    `apiKeyHelper` captures stderr into its own process, so a stderr-only line
-    never reaches the surrounding log. ``MINT_TOKEN_LOG`` makes the line count
-    (did a refresh fire?) and the lifetime observable to whoever set the caller's
-    refresh interval.
-
-    Diagnostics must never fail the exchange, so every step here is best-effort.
+    Stdout is the credential and `apiKeyHelper` swallows stderr, so `MINT_TOKEN_LOG`
+    is the only channel that reaches the surrounding log. Best-effort throughout:
+    diagnostics must never fail the exchange.
     """
-    # The SDK builds `expiry` from a naive local `datetime.now()`, so measuring it
-    # against an aware UTC clock is only accidentally correct on UTC runners.
-    # Match whatever tzinfo it carries — `datetime.now(None)` is naive local — and
-    # log the lifetime directly rather than leaving a subtraction to the reader.
+    # The SDK builds `expiry` from a naive local `datetime.now()`, so an aware UTC
+    # clock would only match on UTC runners. `datetime.now(None)` is naive local.
     now = datetime.now(expiry.tzinfo) if expiry else None
     lifetime = f"{(expiry - now).total_seconds():.0f}s" if expiry and now else "unknown"
     line = f"{datetime.now(timezone.utc).isoformat()} minted, lifetime {lifetime}"
@@ -88,12 +67,10 @@ def log_diagnostics(expiry: datetime | None) -> None:
 
 
 def record_token(token: str) -> None:
-    """Append the minted credential to ``MINT_TOKEN_SECRETS`` for later scrubbing.
+    """Record the credential for the caller to scrub from its logs.
 
-    This covers only the credentials handed out by this script. A caller shares
-    its environment with whatever else it runs, so an agent can perform its own
-    exchange and obtain a token this file never sees — that residual exposure is
-    bounded by the principal's entitlements and the token's short life, not here.
+    Covers only what this script hands out; an agent sharing the environment can
+    run its own exchange and obtain a token this never sees.
     """
     if not (path := os.environ.get("MINT_TOKEN_SECRETS")):
         return
@@ -105,24 +82,18 @@ def record_token(token: str) -> None:
 
 
 def main() -> None:
-    # Narrow the credential to gateway inference. The SDK's default `all-apis`
-    # would let a leaked token reach any workspace API the principal is entitled
-    # to, which is a wider blast radius than the Anthropic API key this replaces;
-    # `ai-gateway` is advertised by the workspace's OIDC discovery document and is
-    # the only capability a review actually needs.
+    # `ai-gateway` rather than the default `all-apis`: it is all a review needs.
+    # Not a control on an attacker, who can request any scope — see review.yml.
     cfg = Config(scopes=["ai-gateway"])
-    # This script prints a credential on stdout, so it must never be reachable by
-    # ambient auth. Without this guard, running it on a developer machine happily
-    # resolves the default ~/.databrickscfg profile and prints that PAT instead.
+    # This prints a credential on stdout, so ambient auth must never reach it —
+    # otherwise running it locally prints the default profile's PAT.
     if cfg.auth_type != "github-oidc":
         sys.exit(
             f"Refusing to print a {cfg.auth_type!r} credential. This script mints a "
             "federated token for CI; set DATABRICKS_AUTH_TYPE=github-oidc."
         )
-    # One exchange, and everything derived from it. The SDK builds a fresh
-    # credentials source per call, so `authenticate()` and `oauth_token()` each
-    # hit the token endpoint and return *different* tokens — calling both would
-    # print one credential while logging and scrubbing another.
+    # One exchange: the SDK mints a fresh token per call, so asking twice would
+    # print one credential and log another's expiry.
     token = mint(cfg)
     if token.token_type != "Bearer" or not token.access_token:
         sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {token.token_type!r}")

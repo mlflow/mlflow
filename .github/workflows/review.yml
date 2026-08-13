@@ -85,40 +85,26 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
-    # minted below, and `id-token: write` grants GITHUB_TOKEN no repo scope.
-    #
-    # It does open a path on the Databricks side, though: it puts
-    # ACTIONS_ID_TOKEN_REQUEST_TOKEN in the job env, which the agent shares while
-    # reading untrusted diffs, so the agent can mint the service principal's token
-    # itself. Two things bound what that token can do — the principal's own
-    # entitlements are kept to workspace access alone, and the token expires
-    # ~5 minutes after minting. The `ai-gateway` scope this job requests is not
-    # one of them: scope is chosen by the exchange request and the federation
-    # policy pins only issuer, subject, and audience, so an agent replaying the
-    # exchange can ask for `all-apis` instead. The scope narrows the credential
-    # this job hands to Claude Code, not what an attacker can obtain.
+    # minted below, and `id-token: write` grants it no repo scope. It does put
+    # ACTIONS_ID_TOKEN_REQUEST_TOKEN in the job env, though, which the agent
+    # shares while reading untrusted diffs: it can mint the service principal's
+    # token itself, at any scope it likes. What bounds that is the principal's
+    # entitlements (workspace access only) and the ~5 minute expiry — not the
+    # `ai-gateway` scope this job requests, which the federation policy cannot
+    # pin.
     permissions:
       id-token: write
-    # The OIDC subject is pinned to `repo:<org>/<repo>:environment:ai-gateway`,
-    # which is stable across both triggers. Ref pinning would need two policies:
-    # `issue_comment` runs on the default branch, `pull_request` on the PR ref.
-    # The environment is shared by every workflow that needs gateway model
-    # access, so its name is not review-specific.
+    # Subject-pinned to `repo:<org>/<repo>:environment:ai-gateway`, which is
+    # stable across both triggers; ref pinning would need two policies, since
+    # `issue_comment` runs on the default branch and `pull_request` on the PR ref.
     environment: ai-gateway
     timeout-minutes: 30
-    # Written by dev/mint_gateway_token.py, read by the steps that report token
-    # refreshes and scrub the transcript. Declared once at job level so those
-    # three steps cannot drift apart on the path — a silent rename would
-    # otherwise disable the scrubbing rather than fail.
     env:
       MINT_TOKEN_LOG: /tmp/mint-token.log
       MINT_TOKEN_SECRETS: /tmp/minted-tokens
-      # How often Claude Code re-invokes apiKeyHelper. This must stay below the
-      # federated token's real lifetime — measured at ~5 minutes, but Databricks
-      # owns that number and can change it, which is why the refresh report below
-      # compares the two rather than trusting this comment. Setting it at the
-      # lifetime races the expiry instead of avoiding it; an earlier revision
-      # minted once per job and died mid-review with `401 Invalid Token`.
+      # Must stay below the federated token's lifetime, measured at ~5 minutes.
+      # Databricks owns that number, so the refresh report below checks it rather
+      # than trusting this comment.
       CLAUDE_CODE_API_KEY_HELPER_TTL_MS: "120000"
     steps:
       # Two app tokens with split scopes:
@@ -218,15 +204,10 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      # Workload identity federation: Claude Code invokes `apiKeyHelper` to
-      # exchange the job's GitHub OIDC JWT for a Databricks OAuth token, so no
-      # model credential is stored as a GitHub secret and none is ever written to
-      # the job environment. The gateway fronts Databricks-hosted Claude
-      # endpoints, so no Anthropic API key exists anywhere in the chain.
-      #
-      # Refreshing is mandatory rather than an optimization; see the TTL in the
-      # job env above. `databricks auth token` cannot serve as the helper — it
-      # reads the U2M token cache and rejects machine-to-machine auth.
+      # Claude Code's `apiKeyHelper` exchanges the job's GitHub OIDC JWT for a
+      # Databricks token, so no model credential is stored as a GitHub secret.
+      # The gateway fronts Databricks-hosted Claude endpoints, so there is no
+      # Anthropic API key anywhere in the chain.
       - name: Review
         id: review
         env:
@@ -235,9 +216,8 @@ jobs:
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
           DATABRICKS_AUTH_TYPE: github-oidc
-          # Must equal the `audiences` entry on the service principal's
-          # federation policy. Without it the SDK defaults the audience to the
-          # workspace token endpoint URL, which the policy would reject.
+          # Must equal the federation policy's `audiences`; the SDK otherwise
+          # defaults it to the token endpoint URL, which the policy rejects.
           DATABRICKS_TOKEN_AUDIENCE: ${{ vars.DATABRICKS_ACCOUNT_ID }}
           ANTHROPIC_BASE_URL: ${{ vars.DATABRICKS_HOST }}/ai-gateway/anthropic
           # The gateway's beta allowlist rejects several of the CLI's experimental
@@ -251,24 +231,17 @@ jobs:
           : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID repository variable}"
           : "${DATABRICKS_TOKEN_AUDIENCE:?Set the DATABRICKS_ACCOUNT_ID repository variable}"
 
-          # Resolve the helper's dependencies now. Its first invocation gates
-          # Claude's first API request, so a cold PyPI resolve there would surface
-          # as an opaque auth failure rather than an install failure.
+          # Pre-resolve: the helper's first call gates Claude's first API request,
+          # where a cold PyPI resolve would look like an auth failure.
           uv sync --script "$GITHUB_WORKSPACE/dev/mint_gateway_token.py"
 
-          # Absolute path: the helper runs with Claude's working directory, which
-          # the agent may change during the session.
+          # Absolute path: the helper inherits Claude's working directory, which
+          # the agent may change.
           jq -n --arg cmd "uv run --no-project $GITHUB_WORKSPACE/dev/mint_gateway_token.py" \
             '{apiKeyHelper: $cmd}' > /tmp/claude-settings.json
 
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # Records the credentials this job hands to Claude Code so the redaction
-          # step can scrub them from the uploaded transcript. Deliberately not
-          # more than that: a token the agent exchanges itself never passes
-          # through the helper, so no amount of bookkeeping here can cover it.
-          # The real bounds are the principal's entitlements and the ~5 minute
-          # expiry, not this file.
           : > "$MINT_TOKEN_SECRETS"
           chmod 600 "$MINT_TOKEN_SECRETS"
 
@@ -291,11 +264,9 @@ jobs:
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
-            # This dumps the raw, unredacted transcript into the job log, ahead of
-            # the redaction step. Re-register every credential synchronously: the
-            # background masker above may not have observed the most recent one,
-            # and a minted Databricks token is not a GitHub secret, so nothing
-            # masks it automatically the way it did under ANTHROPIC_API_KEY.
+            # Dumps the unredacted transcript into a public log, ahead of the
+            # redaction step. A minted token is not a GitHub secret, so nothing
+            # masks it the way it did under ANTHROPIC_API_KEY.
             if [ -s "$MINT_TOKEN_SECRETS" ]; then
               while read -r token; do
                 [ -n "$token" ] && echo "::add-mask::$token"
@@ -305,8 +276,8 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # One line per apiKeyHelper invocation, and the only direct measurement of
-      # the token lifetime the TTL depends on.
+      # One line per apiKeyHelper invocation, and the only measurement of the
+      # token lifetime the TTL depends on.
       - name: Report gateway token refreshes
         if: always()
         run: |
@@ -316,13 +287,11 @@ jobs:
           fi
           nl -ba "$MINT_TOKEN_LOG"
 
-          # Databricks owns the lifetime and can shorten it, which would silently
-          # reintroduce the mid-review 401 this TTL was chosen to avoid. Compare
-          # rather than trust.
+          # Databricks can shorten the lifetime, silently reintroducing the
+          # mid-review 401 the TTL was chosen to avoid.
           ttl_s=$((CLAUDE_CODE_API_KEY_HELPER_TTL_MS / 1000))
-          # `|| true`: steps run under `-eo pipefail`, so a log with no parseable
-          # lifetime would abort this step and fail the job after a review that
-          # actually succeeded, before it could be posted.
+          # `|| true`: under `-eo pipefail` an unparseable log would abort the
+          # step, failing the job after a review that actually succeeded.
           shortest=$(grep -oE 'lifetime [0-9]+s' "$MINT_TOKEN_LOG" | grep -oE '[0-9]+' | sort -n | head -1 || true)
           if [ -n "$shortest" ] && [ "$shortest" -le "$ttl_s" ]; then
             echo "::warning::Token lifetime ${shortest}s is not above the ${ttl_s}s refresh interval; the credential can lapse mid-session."
