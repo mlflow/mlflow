@@ -492,6 +492,7 @@ async def test_astream_does_not_retry_invalid_custom_view_transport():
     errors = [event for event in events if event.type == EventType.ERROR]
     assert len(errors) == 1
     assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert errors[0].data["session_id"] == "thread-id"
 
 
 @pytest.mark.asyncio
@@ -608,6 +609,7 @@ async def test_astream_reports_missing_structured_custom_view_response():
     errors = [event for event in events if event.type == EventType.ERROR]
     assert len(errors) == 1
     assert errors[0].data["error"] == "Codex did not return a structured Custom View response"
+    assert errors[0].data["session_id"] == "thread-id"
 
 
 @pytest.mark.asyncio

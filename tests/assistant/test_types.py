@@ -20,6 +20,14 @@ def test_from_exception_never_yields_empty_error(exc, expected):
     assert event.data["error"] == expected
 
 
+def test_from_error_includes_session_id_only_when_provided():
+    assert Event.from_error("boom").data == {"error": "boom"}
+    assert Event.from_error("boom", session_id="provider-session").data == {
+        "error": "boom",
+        "session_id": "provider-session",
+    }
+
+
 def test_from_client_tool_call_carries_request_id_tool_name_and_input():
     event = Event.from_client_tool_call(
         "req-1", "render_custom_view", {"title": "Trace Summary", "messages": []}

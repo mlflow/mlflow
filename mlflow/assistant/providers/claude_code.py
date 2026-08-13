@@ -567,6 +567,7 @@ class ClaudeCodeProvider(AssistantProvider):
                             continue
                         if structured_custom_view:
                             data = self._filter_structured_output_text(data)
+                        # Suppress the structured JSON envelope from the visible chat stream.
                         if data is None:
                             continue
 
@@ -615,7 +616,10 @@ class ClaudeCodeProvider(AssistantProvider):
                 try:
                     response = parse_custom_view_response(structured_response)
                 except Exception as e:
-                    yield Event.from_error(f"Claude Code returned invalid Custom View output: {e}")
+                    yield Event.from_error(
+                        f"Claude Code returned invalid Custom View output: {e}",
+                        session_id=structured_session_id,
+                    )
                     return
                 for event in custom_view_response_events(response):
                     yield event

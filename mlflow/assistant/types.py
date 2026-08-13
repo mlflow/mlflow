@@ -75,8 +75,11 @@ class Event(BaseModel):
         return f"event: {self.type}\ndata: {json.dumps(self.data)}\n\n"
 
     @classmethod
-    def from_error(cls, error: str) -> "Event":
-        return cls(type=EventType.ERROR, data={"error": error})
+    def from_error(cls, error: str, session_id: str | None = None) -> "Event":
+        data = {"error": error}
+        if session_id:
+            data["session_id"] = session_id
+        return cls(type=EventType.ERROR, data=data)
 
     @classmethod
     def from_exception(cls, exc: Exception) -> "Event":

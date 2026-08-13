@@ -450,10 +450,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             context=context,
         ):
             # Store provider session ID if returned (for conversation continuity).
-            # On a paused turn this persists the history with the unanswered
-            # tool_call so a later resume can continue from it.
-            if event.type == EventType.DONE:
-                session.provider_session_id = event.data.get("session_id")
+            # On a paused or failed turn this lets a later request resume the same
+            # provider conversation instead of losing its history.
+            provider_session_id = event.data.get("session_id")
+            if event.type in {EventType.DONE, EventType.ERROR} and provider_session_id:
+                session.provider_session_id = provider_session_id
                 SessionManager.save(session_id, session)
 
             yield event.to_sse_event()

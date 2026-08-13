@@ -269,13 +269,17 @@ class CodexProvider(AssistantProvider):
                 if structured_custom_view:
                     if structured_response_text is None:
                         yield Event.from_error(
-                            "Codex did not return a structured Custom View response"
+                            "Codex did not return a structured Custom View response",
+                            session_id=thread_id or session_id,
                         )
                         return
                     try:
                         response = parse_custom_view_response(structured_response_text)
                     except Exception as e:
-                        yield Event.from_error(f"Codex returned invalid Custom View output: {e}")
+                        yield Event.from_error(
+                            f"Codex returned invalid Custom View output: {e}",
+                            session_id=thread_id or session_id,
+                        )
                         return
                     for event in custom_view_response_events(response):
                         yield event

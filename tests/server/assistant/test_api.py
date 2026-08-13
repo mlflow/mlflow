@@ -946,6 +946,59 @@ class _CaptureProvider(MockProvider):
         yield Event.from_result(result=None, session_id="prov-done")
 
 
+class _ErrorThenCaptureProvider(MockProvider):
+    def __init__(self):
+        self.session_ids: list[str | None] = []
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.session_ids.append(session_id)
+        if len(self.session_ids) == 1:
+            yield Event.from_error("invalid structured output", session_id="prov-error")
+        else:
+            assert session_id is not None
+            yield Event.from_result(result=None, session_id=session_id)
+
+
+@pytest.mark.asyncio
+async def test_stream_preserves_provider_session_id_from_error_for_next_turn():
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="build a view")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    provider = _ErrorThenCaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        first = "".join([chunk async for chunk in response.body_iterator])
+
+    assert "event: error" in first
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert session.provider_session_id == "prov-error"
+
+    session.set_pending_message(role="user", content="repair the view")
+    SessionManager.save(session_id, session)
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([chunk async for chunk in response.body_iterator])
+
+    assert provider.session_ids == [None, "prov-error"]
+
+
 @pytest.mark.asyncio
 async def test_stream_prefers_new_message_over_stale_tool_decision():
     """A pending message and a stale decision can coexist if a resume stream never

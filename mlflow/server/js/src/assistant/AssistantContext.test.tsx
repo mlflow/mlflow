@@ -433,7 +433,7 @@ describe('AssistantContext — automatic message delivery', () => {
         name: 'mlflow_gateway',
         requires_api_key: true,
         has_api_key: false,
-        supports_client_tools: true,
+        client_tool_delivery: 'tool',
       }),
     });
     const { result } = await renderAssistant();

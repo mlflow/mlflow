@@ -70,10 +70,11 @@ class AssistantProvider(ABC):
 
     @property
     def client_tool_delivery(self) -> ClientToolDelivery:
-        """How this provider delivers actions that must be executed by the client.
+        """How this provider delivers actions executed by the client.
 
-        ``tool`` providers pause and resume around a native client-tool call.
-        ``structured`` providers encode the action in their terminal structured output.
+        ``tool`` pauses and resumes around a native client-tool call, ``structured`` encodes the
+        action in a schema-constrained final response, and ``unsupported`` cannot request
+        client-executed tools.
         """
         return "unsupported"
 

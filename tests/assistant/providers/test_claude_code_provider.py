@@ -395,6 +395,7 @@ async def test_astream_does_not_retry_invalid_custom_view_transport(tmp_path):
     errors = [event for event in events if event.type == EventType.ERROR]
     assert len(errors) == 1
     assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert errors[0].data["session_id"] == "session-id"
 
 
 @pytest.mark.asyncio

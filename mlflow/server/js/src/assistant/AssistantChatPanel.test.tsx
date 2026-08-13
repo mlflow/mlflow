@@ -325,7 +325,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = true;
     mockPendingAutomaticMessage = {
@@ -356,7 +356,7 @@ describe('AssistantChatPanel', () => {
       model_options: [],
       requires_api_key: false,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = false;
     mockPendingAutomaticMessage = {
