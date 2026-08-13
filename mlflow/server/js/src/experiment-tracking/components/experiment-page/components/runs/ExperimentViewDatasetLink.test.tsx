@@ -6,14 +6,6 @@ import type { RunDatasetWithTags } from '../../../../types';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 
-const mockNavigate = jest.fn();
-jest.mock('../../../../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
-    '../../../../../common/utils/RoutingUtils',
-  ),
-  useNavigate: () => mockNavigate,
-}));
-
 const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWithTags =>
   ({
     dataset: {
@@ -25,11 +17,11 @@ const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWi
     tags: [],
   }) as any;
 
-const renderComponent = (datasetWithTags: RunDatasetWithTags, experimentId?: string) => {
+const renderComponent = (datasetWithTags: RunDatasetWithTags) => {
   return renderWithIntl(
     <MemoryRouter>
       <DesignSystemProvider>
-        <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} experimentId={experimentId} />
+        <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
       </DesignSystemProvider>
     </MemoryRouter>,
   );
@@ -40,7 +32,6 @@ describe('ExperimentViewDatasetLink', () => {
 
   beforeEach(() => {
     windowOpenSpy = jest.spyOn(window, 'open').mockReturnValue(null);
-    mockNavigate.mockClear();
   });
 
   afterEach(() => {
@@ -79,30 +70,6 @@ describe('ExperimentViewDatasetLink', () => {
       '_blank',
       'noopener,noreferrer',
     );
-  });
-
-  test('renders open dataset button for evaluation dataset and navigates to the dataset detail page', () => {
-    const dataset = createDatasetWithTags(
-      DatasetSourceTypes.EVALUATION_DATASET,
-      JSON.stringify({ dataset_id: 'd-123' }),
-    );
-    renderComponent(dataset, 'exp-1');
-
-    const button = screen.getByText(/Open dataset/i);
-    expect(button).toBeInTheDocument();
-    button.click();
-    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/experiments/exp-1/datasets/d-123'));
-    expect(windowOpenSpy).not.toHaveBeenCalled();
-  });
-
-  test('renders nothing for an evaluation dataset when experimentId is missing', () => {
-    const dataset = createDatasetWithTags(
-      DatasetSourceTypes.EVALUATION_DATASET,
-      JSON.stringify({ dataset_id: 'd-123' }),
-    );
-    const { container } = renderComponent(dataset);
-    expect(container.innerHTML).toBe('');
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   test('renders nothing for local source type', () => {

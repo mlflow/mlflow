@@ -6,23 +6,6 @@ export function datasetSummariesEqual(summary1: DatasetSummary, summary2: Datase
   );
 }
 
-/**
- * Extracts the evaluation dataset id from a run input dataset. Evaluation datasets
- * (`mlflow.genai.datasets`) store the id inside the `source` JSON rather than as a
- * top-level field, so it must be parsed out to link to the dataset detail page.
- */
-export function getEvaluationDatasetId(datasetWithTags: RunDatasetWithTags): string | null {
-  const { dataset } = datasetWithTags;
-  if (dataset.sourceType !== DatasetSourceTypes.EVALUATION_DATASET) {
-    return null;
-  }
-  try {
-    return JSON.parse(dataset.source)?.dataset_id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function getDatasetSourceUrl(datasetWithTags: RunDatasetWithTags): string | null {
   const { dataset } = datasetWithTags;
 
