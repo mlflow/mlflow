@@ -1658,7 +1658,7 @@ class EnsembleScorer(Scorer):
         return Feedback(name=self.name, value=result, metadata=sub_metadata)
 
 
-@experimental(version="3.15.0")
+@experimental(version="3.16.0")
 def make_scorer_ensemble(
     *,
     name: str,

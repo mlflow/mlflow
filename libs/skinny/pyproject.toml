@@ -24,6 +24,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
 ]
 requires-python = ">=3.10"
+# Dependency version ranges express compatibility, not security. We do not raise version
+# floors to exclude dependency versions with known CVEs; patched versions are already
+# installable within the existing ranges, and pinning them is the responsibility of the
+# application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",

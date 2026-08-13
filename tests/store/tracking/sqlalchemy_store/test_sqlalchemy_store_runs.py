@@ -2026,6 +2026,65 @@ def test_search_runs_datasets(store: SqlAlchemyStore):
     assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
 
 
+def test_search_runs_datasets_in_clause_digits_and_uppercase(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_datasets_in_clause")
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+
+    dataset1 = entities.Dataset(
+        name="123",
+        digest="06409663",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = entities.Dataset(
+        name="MyDataset",
+        digest="A1B2C3D4",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    context_tag1 = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="2024")]
+    context_tag2 = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="Train")]
+
+    store.log_inputs(run1.info.run_id, [entities.DatasetInput(dataset1, context_tag1)])
+    store.log_inputs(run2.info.run_id, [entities.DatasetInput(dataset2, context_tag2)])
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name IN ('123', 'MyDataset')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('06409663')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('A1B2C3D4')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context IN ('2024', 'Train')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+
 def test_search_runs_datasets_with_param_filters(store: SqlAlchemyStore):
     """Test that combining param/tag filters with dataset filters works correctly.
 
@@ -2494,6 +2553,216 @@ def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: Sq
     _verify_logged(
         store, run.info.run_id, params=[], metrics=initial_metrics + new_metrics, tags=[]
     )
+
+
+def test_dedup_recovery_exact_duplicate_and_mixed_insert(store: SqlAlchemyStore):
+    # Resending exact duplicates mixed with new metrics should only insert the new ones.
+    run = _run_factory(store)
+    # Log initial batch of 10 metrics
+    initial_metrics = [Metric(key="m", value=float(i), timestamp=i, step=i) for i in range(10)]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+
+    # Resend the same 10 + 5 new metrics - triggers IntegrityError recovery
+    new_metrics = [Metric(key="m", value=float(i), timestamp=i, step=i) for i in range(10, 15)]
+    retry_batch = initial_metrics + new_metrics
+    store.log_batch(run.info.run_id, params=[], metrics=retry_batch, tags=[])
+
+    # Assert only the 5 new metrics are added (15 total)
+    all_expected = initial_metrics + new_metrics
+    _verify_logged(store, run.info.run_id, params=[], metrics=all_expected, tags=[])
+
+
+def test_dedup_recovery_nan_metrics(store: SqlAlchemyStore):
+    # NaN metrics are deduped correctly (stored as value=0, is_nan=True internally).
+    run = _run_factory(store)
+    # Log a NaN metric at step 0
+    nan_step0 = Metric(key="nan_metric", value=float("nan"), timestamp=1, step=0)
+    store.log_batch(run.info.run_id, params=[], metrics=[nan_step0], tags=[])
+
+    # Resend the same NaN metric + a new NaN metric at step 1 - triggers IntegrityError
+    nan_step1 = Metric(key="nan_metric", value=float("nan"), timestamp=2, step=1)
+    store.log_batch(run.info.run_id, params=[], metrics=[nan_step0, nan_step1], tags=[])
+
+    # Assert: no duplicate at step 0, new NaN at step 1 added, total = 2
+    history = store.get_metric_history(run.info.run_id, "nan_metric")
+    assert len(history) == 2
+    steps = sorted(m.step for m in history)
+    assert steps == [0, 1]
+    assert all(math.isnan(m.value) for m in history)
+
+
+def test_dedup_recovery_sparse_steps_bounded_result(store: SqlAlchemyStore):
+    # Regression test: sparse steps must not cause over-fetching.
+    # The old step-BETWEEN approach would scan all 500 rows between step 104 and 50000.
+    # The new OR-of-AND exact-PK lookup examines only the 6 candidate rows in the retry batch.
+    from sqlalchemy import event
+
+    run = _run_factory(store)
+    # Preload 500 rows at steps 0-499
+    preload_metrics = [
+        Metric(key="sparse", value=float(i), timestamp=i, step=i) for i in range(500)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=preload_metrics, tags=[])
+
+    # Build retry batch: 5 duplicates at steps [100..104] + 1 new at step 50000
+    duplicates = [
+        Metric(key="sparse", value=float(i), timestamp=i, step=i) for i in range(100, 105)
+    ]
+    new_metric = Metric(key="sparse", value=50000.0, timestamp=50000, step=50000)
+    retry_batch = duplicates + [new_metric]
+
+    # Capture SQL during recovery to verify bounded lookups
+    captured = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        captured.append((statement, parameters))
+
+    engine = store.engine
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        store.log_batch(run.info.run_id, params=[], metrics=retry_batch, tags=[])
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+
+    # Filter for recovery SELECT queries: they target the metrics table and include
+    # identity-column predicates (is_nan distinguishes them from other metric SELECTs).
+    recovery_queries = [
+        stmt
+        for stmt, _ in captured
+        if "SELECT" in stmt
+        and "is_nan" in stmt
+        and "FROM metrics" in stmt
+        and "latest_metrics" not in stmt
+    ]
+    # Exactly ONE recovery lookup query (6 candidate identities fit in one chunk of 100)
+    assert len(recovery_queries) == 1
+    # The statement does NOT contain BETWEEN
+    assert "BETWEEN" not in recovery_queries[0]
+    # The statement contains predicates on all identity columns
+    assert "timestamp" in recovery_queries[0]
+    assert "step" in recovery_queries[0]
+    assert "value" in recovery_queries[0]
+
+    # Assert: total history = 501 (500 original + 1 new)
+    history = store.get_metric_history(run.info.run_id, "sparse")
+    assert len(history) == 501
+    # The new metric at step 50000 must be present
+    assert any(m.step == 50000 and m.value == 50000.0 for m in history)
+
+
+def test_dedup_recovery_repeated_step_different_values(store: SqlAlchemyStore):
+    # Multiple metrics at the same step with different values dedup correctly.
+    run = _run_factory(store)
+    # Log 5 metrics at the SAME step with different timestamps and values
+    initial_metrics = [Metric("k", value=float(v), timestamp=v * 100, step=42) for v in range(1, 6)]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+
+    # Retry ONE exact duplicate + ONE new metric - triggers IntegrityError
+    exact_dup = Metric("k", value=3.0, timestamp=300, step=42)
+    new_metric = Metric("k", value=6.0, timestamp=600, step=42)
+    store.log_batch(run.info.run_id, params=[], metrics=[exact_dup, new_metric], tags=[])
+
+    # Assert: total history = 6 (5 original + 1 new)
+    all_expected = initial_metrics + [new_metric]
+    _verify_logged(store, run.info.run_id, params=[], metrics=all_expected, tags=[])
+
+
+def test_dedup_recovery_max_batch_chunking(store: SqlAlchemyStore):
+    # 1000 duplicate metrics (MAX_METRICS_PER_BATCH) across multiple dedup chunks.
+    # Verifies exactly 10 recovery lookup queries (1000 / 100 chunk size).
+    from sqlalchemy import event
+
+    run = _run_factory(store)
+    # Log 1000 metrics with unique keys
+    metrics = [Metric(key=f"k{i}", value=1.0, timestamp=1, step=0) for i in range(1000)]
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+
+    # Capture SQL during the duplicate resend to verify chunking
+    captured = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        captured.append((statement, parameters))
+
+    engine = store.engine
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        # Resend all 1000 as duplicates - triggers IntegrityError recovery
+        store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+
+    # Filter for recovery SELECT queries: they target the metrics table and include
+    # identity-column predicates (is_nan distinguishes them from other metric SELECTs).
+    recovery_queries = [
+        stmt
+        for stmt, _ in captured
+        if "SELECT" in stmt
+        and "is_nan" in stmt
+        and "FROM metrics" in stmt
+        and "latest_metrics" not in stmt
+    ]
+    # Exactly 10 chunks: 1000 candidates / 100 chunk size
+    assert len(recovery_queries) == 10
+    # No BETWEEN in recovery queries - uses exact-PK lookups only
+    for stmt in recovery_queries:
+        assert "BETWEEN" not in stmt
+
+    # Final history should still be exactly 1000 (no duplicates inserted)
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_dedup_recovery_partial_chunk_boundary(store: SqlAlchemyStore):
+    # 101 duplicate metrics: one full chunk (100) plus one partial chunk (1).
+    # Verifies chunk-boundary arithmetic issues exactly 2 recovery lookup queries.
+    from sqlalchemy import event
+
+    run = _run_factory(store)
+    metrics = [Metric(key=f"k{i}", value=1.0, timestamp=1, step=0) for i in range(101)]
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+
+    captured = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        captured.append((statement, parameters))
+
+    engine = store.engine
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        # Resend all 101 as duplicates - triggers IntegrityError recovery
+        store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+
+    # Filter for recovery SELECT queries: is_nan predicate distinguishes them.
+    recovery_queries = [
+        stmt
+        for stmt, _ in captured
+        if "SELECT" in stmt
+        and "is_nan" in stmt
+        and "FROM metrics" in stmt
+        and "latest_metrics" not in stmt
+    ]
+    # Exactly 2 chunks: 100 + 1
+    assert len(recovery_queries) == 2
+    for stmt in recovery_queries:
+        assert "BETWEEN" not in stmt
+
+    # Final history should still be exactly 101 (no duplicates inserted)
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_dedup_recovery_same_batch_duplicate_nan(store: SqlAlchemyStore):
+    # Two distinct Metric objects with identical NaN payloads: nan != nan in Python,
+    # so they bypass the entity-level dedup, but both sanitize to the same DB identity
+    # (value=0, is_nan=True). The recovery path must retry only one instance.
+    run = _run_factory(store)
+    dup_a = Metric(key="nan", value=float("nan"), timestamp=1, step=0)
+    dup_b = Metric(key="nan", value=float("nan"), timestamp=1, step=0)
+    store.log_batch(run.info.run_id, params=[], metrics=[dup_a, dup_b], tags=[])
+    history = store.get_metric_history(run.info.run_id, "nan")
+    assert len(history) == 1
+    assert math.isnan(history[0].value)
 
 
 def test_log_batch_null_metrics(store: SqlAlchemyStore):

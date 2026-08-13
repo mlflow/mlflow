@@ -1,4 +1,4 @@
-import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, afterEach, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import CompareRunPage, { COMPARE_RUNS_SEARCH_RUN_LIMIT } from './CompareRunPage';
@@ -9,6 +9,7 @@ import { setupServer } from '../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { MlflowService } from '../sdk/MlflowService';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000);
@@ -50,12 +51,10 @@ describe('CompareRunPage', () => {
   };
 
   let searchRunsRequestBodies: { filter?: string; max_results?: number; run_view_type?: string }[] = [];
-  let getRunRequestCount = 0;
-
-  const countingRunsHandler = rest.get('/ajax-api/2.0/mlflow/runs/get', (req, res, ctx) => {
-    getRunRequestCount += 1;
-    return res(ctx.json({ experiments: [] }));
-  });
+  // Individual run fetches are observed via a service spy instead of an MSW handler: the fallback
+  // test fires over a thousand of them, and that many interceptor round-trips routinely exceed
+  // even the 60s timeout on loaded CI workers.
+  let getRunSpy: any;
 
   const server = setupServer(
     // Setup handlers for the API calls
@@ -71,7 +70,12 @@ describe('CompareRunPage', () => {
 
   beforeEach(() => {
     searchRunsRequestBodies = [];
-    getRunRequestCount = 0;
+    // The response body is irrelevant: the mocked store has no reducers consuming it
+    getRunSpy = jest.spyOn(MlflowService, 'getRun').mockResolvedValue({} as any);
+  });
+
+  afterEach(() => {
+    getRunSpy.mockRestore();
   });
 
   const createPageUrl = ({
@@ -157,7 +161,7 @@ describe('CompareRunPage', () => {
     });
     // An empty `run_id IN ()` filter is rejected by the server, so no search should be made
     expect(searchRunsRequestBodies).toHaveLength(0);
-    expect(getRunRequestCount).toBe(0);
+    expect(getRunSpy).not.toHaveBeenCalled();
   });
 
   test('should fetch all compared runs using a single search request', async () => {
@@ -174,17 +178,17 @@ describe('CompareRunPage', () => {
     expect(requestBody.max_results).toBe(runUuids.length);
     // Deleted runs should still show up in the comparison
     expect(requestBody.run_view_type).toBe('ALL');
-    expect(getRunRequestCount).toBe(0);
+    expect(getRunSpy).not.toHaveBeenCalled();
   });
 
   test('should fall back to fetching runs individually when there are too many to search for', async () => {
-    server.resetHandlers(countingRunsHandler, apiHandlers.artifactsSuccess, apiHandlers.experimentsSuccess);
     const runUuids = Array.from({ length: COMPARE_RUNS_SEARCH_RUN_LIMIT + 1 }, (_, index) => `run-${index}`);
     renderTestComponent(createPageUrl({ runUuids }));
 
     await waitFor(() => {
-      expect(getRunRequestCount).toBe(runUuids.length);
+      expect(getRunSpy).toHaveBeenCalledTimes(runUuids.length);
     });
+    expect(getRunSpy.mock.calls.map(([{ run_id }]: [{ run_id: string }]) => run_id)).toEqual(runUuids);
     expect(searchRunsRequestBodies).toHaveLength(0);
   });
 

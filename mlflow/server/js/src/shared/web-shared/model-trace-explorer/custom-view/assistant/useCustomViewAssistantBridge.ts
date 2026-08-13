@@ -13,6 +13,7 @@ export type CustomViewAssistantBridge = {
   isAvailable: boolean;
   openAssistant?: (prompt?: string, options?: OpenCustomViewAssistantOptions) => void;
   isStreaming: boolean;
+  isPending: boolean;
   applyError?: string;
   // Clears a leftover apply error, e.g. when the user retries a build so the
   // building skeleton isn't immediately suppressed by the previous failure.
@@ -114,6 +115,7 @@ export const useCustomViewAssistantBridge = ({
     isAvailable: Boolean(openAssistant),
     openAssistant,
     isStreaming: enabled && Boolean(connector.isStreaming),
+    isPending: enabled && Boolean(connector.isPending),
     applyError: enabled ? applyError : undefined,
     clearApplyError,
   };
