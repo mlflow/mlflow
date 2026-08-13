@@ -30,6 +30,7 @@ const mockSendMessage = jest.fn();
 const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
+const mockClearComposerFocusRequest = jest.fn();
 const mockForceSendPendingAutomaticMessage = jest.fn();
 const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
   void options;
@@ -152,6 +153,7 @@ describe('AssistantChatPanel', () => {
     mockSelectProvider.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
+    mockClearComposerFocusRequest.mockClear();
     mockForceSendPendingAutomaticMessage.mockClear();
     mockRefreshConfig.mockClear();
     mockRespondToPermission.mockClear();
