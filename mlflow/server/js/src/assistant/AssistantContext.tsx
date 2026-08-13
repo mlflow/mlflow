@@ -12,6 +12,7 @@ import {
   type ChatMessage,
   type PermissionRequest,
   type PendingClientToolCall,
+  type PendingAutomaticMessage,
   type AssistantProviderSelection,
   type ProviderInfo,
   type ProvidersResponse,
@@ -19,6 +20,7 @@ import {
   type ToolUseInfo,
   type ToolResultInfo,
   type TokenUsage,
+  type SendMessageOptions,
 } from './types';
 import {
   cancelSession as cancelSessionApi,
@@ -287,6 +289,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
   const [pendingClientToolCall, setPendingClientToolCall] = useState<PendingClientToolCall | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [pendingAutomaticMessage, setPendingAutomaticMessage] = useState<PendingAutomaticMessage | null>(null);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
 
   // Setup state
@@ -687,6 +690,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Drop any queued prompt — closing the panel is an abandon, so a stale seed shouldn't
     // inject into an unrelated chat opened later.
     setPendingPrompt(null);
+    setPendingAutomaticMessage(null);
   }, [setIsPanelOpen]);
 
   const prefillPrompt = useCallback((prompt: string) => setPendingPrompt(prompt), []);
@@ -717,6 +721,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openTextBufferRef.current = '';
     setPendingPermission(null);
     setPendingClientToolCall(null);
+    setPendingAutomaticMessage(null);
   }, [setPersistedChat]);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
@@ -790,7 +795,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         const result = await sendMessageStream(
           {
             message: prompt || '',
-            session_id: sessionId ?? undefined,
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
@@ -806,15 +810,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      beginRequest,
-      attachStreamIfCurrent,
-      flushPendingProvider,
-      getPageContext,
-      streamCallbacks,
-      failStreamingTurn,
-    ],
+    [beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks, failStreamingTurn],
   );
 
   const respondToPermission = useCallback(
@@ -908,7 +904,19 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, [pendingClientToolCall, submitClientToolResult]);
 
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, options?: SendMessageOptions) => {
+      // A direct send supersedes any prompt queued for the composer, regardless
+      // of whether it starts a fresh thread or continues the current one.
+      setPendingPrompt(null);
+      setPendingAutomaticMessage(null);
+      if (options?.newSession) {
+        // Reset and start through the explicit fresh-chat path in the same
+        // action. Calling reset() followed by the regular session-aware branch
+        // would still see this render's stale sessionId closure.
+        reset();
+        startChat(message);
+        return;
+      }
       if (!sessionId) {
         startChat(message);
         return;
@@ -974,6 +982,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      reset,
       startChat,
       beginRequest,
       attachStreamIfCurrent,
@@ -983,6 +992,43 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       failStreamingTurn,
     ],
   );
+
+  const sendPendingAutomaticMessage = useCallback(() => {
+    if (!pendingAutomaticMessage) {
+      return;
+    }
+    const { message, options } = pendingAutomaticMessage;
+    setPendingAutomaticMessage(null);
+    handleSendMessage(message, options);
+  }, [pendingAutomaticMessage, handleSendMessage]);
+
+  const sendMessageWhenReady = useCallback((message: string, options?: SendMessageOptions) => {
+    // Automatic delivery is distinct from composer prefilling: retain the
+    // message and its session options until the selected provider can send it.
+    setPendingPrompt(null);
+    setPendingAutomaticMessage({ message, options });
+  }, []);
+
+  useEffect(() => {
+    if (
+      pendingAutomaticMessage &&
+      canUseAssistant &&
+      !isLoadingConfig &&
+      setupComplete &&
+      activeProvider &&
+      !needsApiKey
+    ) {
+      sendPendingAutomaticMessage();
+    }
+  }, [
+    pendingAutomaticMessage,
+    canUseAssistant,
+    isLoadingConfig,
+    setupComplete,
+    activeProvider,
+    needsApiKey,
+    sendPendingAutomaticMessage,
+  ]);
 
   const handleCancelSession = useCallback(() => {
     if (!sessionId || !isStreaming) return;
@@ -1120,6 +1166,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     gatewayVendorOptions,
     needsApiKey,
     pendingPrompt,
+    pendingAutomaticMessage,
     pendingPermission,
     pendingClientToolCall,
     canUseAssistant,
@@ -1128,6 +1175,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    sendMessageWhenReady,
+    sendPendingAutomaticMessage,
     selectProvider,
     prefillPrompt,
     clearPendingPrompt,
@@ -1161,6 +1210,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   gatewayVendorOptions: {},
   needsApiKey: false,
   pendingPrompt: null,
+  pendingAutomaticMessage: null,
   pendingPermission: null,
   pendingClientToolCall: null,
   canUseAssistant: false,
@@ -1168,6 +1218,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  sendMessageWhenReady: () => {},
+  sendPendingAutomaticMessage: () => {},
   selectProvider: () => {},
   prefillPrompt: () => {},
   clearPendingPrompt: () => {},
