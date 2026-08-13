@@ -41,12 +41,12 @@ Traces come from tracing calls, not from logging. `mlflow.log_metric()`, `mlflow
 
 To generate a trace, use automatic tracing (e.g. `mlflow.openai.autolog()`, `mlflow.langchain.autolog()`) or manual tracing (e.g. `@mlflow.trace`, `mlflow.start_span()`). The Traces tab stays empty until one of these is called and the instrumented code runs.
 
-| What you called | Where it appears |
-|---|---|
-| `mlflow.log_metric()` | Runs tab |
-| `mlflow.openai.autolog()` + OpenAI call | Traces tab |
-| `mlflow.langchain.autolog()` + LangGraph invoke | Traces tab |
-| `@mlflow.trace` decorator | Traces tab |
+| What you called                                 | Where it appears |
+| ----------------------------------------------- | ---------------- |
+| `mlflow.log_metric()`                           | Runs tab         |
+| `mlflow.openai.autolog()` + OpenAI call         | Traces tab       |
+| `mlflow.langchain.autolog()` + LangGraph invoke | Traces tab       |
+| `@mlflow.trace` decorator                       | Traces tab       |
 
 ## User Interface and Jupyter Integration
 
