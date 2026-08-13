@@ -532,6 +532,13 @@ def test_prepopulation_rejects_the_wrong_revision(tmp_path):
         engine.dispose()
 
 
+def test_prepopulation_revision_matches_migration_down_revision():
+    # Prepopulation must target the revision immediately before the trace analytics migration.
+    # Compare against the migration's own down_revision so a rebase that reparents the migration
+    # fails here instead of silently rejecting a correctly positioned production database.
+    assert prepopulation.PREPOPULATION_SCHEMA_REVISION == MIGRATION_MODULE.down_revision
+
+
 def test_prepopulation_rejects_an_empty_database_without_bootstrapping(tmp_path):
     engine = sa.create_engine(f"sqlite:///{tmp_path / 'empty.sqlite'}")
     try:

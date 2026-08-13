@@ -26,7 +26,12 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
-PREPOPULATION_SCHEMA_REVISION = "a8b9c0d1e2f3"
+# Must equal the down_revision of the trace analytics migration (75868b020152): prepopulation runs
+# on a database sitting at exactly that revision, then the migration finishes. Kept as a literal so
+# this app module does not import a migration. A parity test
+# (test_prepopulation_revision_matches_migration_down_revision) keeps it aligned after a rebase
+# reparents the migration.
+PREPOPULATION_SCHEMA_REVISION = "6f8d9c3b2a1e"
 DEFAULT_BATCH_SIZE = 250
 DEFAULT_PROGRESS_EVERY_BATCHES = 100
 

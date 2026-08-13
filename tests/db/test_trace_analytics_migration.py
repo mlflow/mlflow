@@ -24,14 +24,17 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
-REVISION = "75868b020152"
-PREVIOUS_REVISION = "a8b9c0d1e2f3"
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
 
 MIGRATION_MODULE = import_module(
     "mlflow.store.db_migrations.versions.75868b020152_add_sql_trace_analytics_schema"
 )
+
+# Derive from the migration so the harness provisions the database at the true immediate predecessor
+# and self-corrects if a rebase reparents the migration.
+REVISION = MIGRATION_MODULE.revision
+PREVIOUS_REVISION = MIGRATION_MODULE.down_revision
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
