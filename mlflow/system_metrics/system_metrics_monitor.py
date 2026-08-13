@@ -97,7 +97,7 @@ class SystemMetricsMonitor:
         # `get_metric_history`, which would materialize the entire metric history into memory and
         # is prohibitively expensive for long-running runs (see GH issue #22991).
         max_step = None
-        for metric in run.data._metric_objs:
+        for metric in run.data.metric_objects():
             if metric.key.startswith(self._metrics_prefix):
                 max_step = metric.step if max_step is None else max(max_step, metric.step)
         return 0 if max_step is None else max_step + 1
