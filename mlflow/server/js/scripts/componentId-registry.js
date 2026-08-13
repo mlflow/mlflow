@@ -2226,7 +2226,6 @@ module.exports = {
   "shared.model-trace-explorer.custom-view.apply-error": "",
   "shared.model-trace-explorer.custom-view.build": "",
   "shared.model-trace-explorer.custom-view.create-view": "",
-  "shared.model-trace-explorer.custom-view.create-view-disabled-reason": "",
   "shared.model-trace-explorer.custom-view.delete-view-modal": "",
   "shared.model-trace-explorer.custom-view.delete-view-modal-open-button": "",
   "shared.model-trace-explorer.custom-view.draft-indicator": "",

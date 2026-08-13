@@ -5,7 +5,8 @@ import type { A2uiMessage } from '@a2ui/web_core/v0_9';
 // isUserFacingTag). Raw JSON is stored when it fits the safe limit below, and
 // larger definitions are compressed before persistence. Saving fails if the
 // compressed value still exceeds that limit.
-export const CUSTOM_VIEW_PREFIX = 'mlflow.customView.view.v1.';
+export const CUSTOM_VIEW_TAG_PREFIX = 'mlflow.customView.view';
+export const CUSTOM_VIEW_PREFIX = `${CUSTOM_VIEW_TAG_PREFIX}.v1.`;
 export const viewTagKey = (id: string): string => `${CUSTOM_VIEW_PREFIX}${id}`;
 
 // The OSS backend caps an experiment tag value at MAX_EXPERIMENT_TAG_VAL_LENGTH

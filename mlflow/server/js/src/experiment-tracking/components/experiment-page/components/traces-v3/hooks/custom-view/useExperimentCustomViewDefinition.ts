@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/qu
 import {
   type CustomView,
   CUSTOM_VIEW_PREFIX,
+  CUSTOM_VIEW_TAG_PREFIX,
   CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES,
   getUtf8ByteLength,
   parseCustomView,
@@ -79,6 +80,9 @@ const serializeViewForTag = async (view: CustomView): Promise<string> => {
 
 export type ExperimentCustomViewDefinition = {
   views: CustomView[];
+  // Counts every persisted custom-view tag version. Only supported v1 tags are parsed into views,
+  // but future versions still consume the backend's version-agnostic quota.
+  persistedViewCount: number;
   isLoaded: boolean;
   // Undefined (no experiment scope) → the host falls back to a session-local,
   // non-persisting engine.
@@ -96,17 +100,21 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['experiment-custom-views', experimentId], [experimentId]);
 
-  const { data: views, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey,
     enabled: Boolean(experimentId),
-    queryFn: async (): Promise<CustomView[]> => {
+    queryFn: async (): Promise<{ views: CustomView[]; persistedViewCount: number }> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
-      const viewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX));
+      const allViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
+      const viewTags = allViewTags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX));
       const parsed = await Promise.all(
         viewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX.length), tag.value)),
       );
-      return parsed.sort((a, b) => a.createdAtMs - b.createdAtMs);
+      return {
+        views: parsed.sort((a, b) => a.createdAtMs - b.createdAtMs),
+        persistedViewCount: allViewTags.length,
+      };
     },
   });
 
@@ -140,7 +148,8 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   );
 
   return {
-    views: views ?? [],
+    views: data?.views ?? [],
+    persistedViewCount: data?.persistedViewCount ?? 0,
     isLoaded: experimentId ? !isLoading : true,
     persistView: experimentId ? persistView : undefined,
     deleteView: experimentId ? deleteView : undefined,

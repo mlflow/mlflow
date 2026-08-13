@@ -722,6 +722,7 @@ export const ModelTraceExplorerCustomView = ({
                       componentId="shared.model-trace-explorer.custom-view.create-view"
                       onClick={handleCreateView}
                       disabled={cv.hasReachedViewLimit}
+                      disabledReason={cv.hasReachedViewLimit ? viewLimitReachedMessage : undefined}
                     >
                       <DropdownMenu.IconWrapper>
                         <PlusIcon />
@@ -730,27 +731,6 @@ export const ModelTraceExplorerCustomView = ({
                         defaultMessage="Create view"
                         description="Menu item to create a new custom trace view"
                       />
-                      {cv.hasReachedViewLimit && (
-                        <Tooltip
-                          componentId="shared.model-trace-explorer.custom-view.create-view-disabled-reason"
-                          side="right"
-                          content={viewLimitReachedMessage}
-                          zIndex={DropdownMenu.getZIndex() + 1}
-                        >
-                          <span
-                            css={{
-                              display: 'inline-flex',
-                              marginLeft: 'auto',
-                              paddingLeft: theme.spacing.xs,
-                              color: theme.colors.textSecondary,
-                              pointerEvents: 'all',
-                            }}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <InfoIcon aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
                     </DropdownMenu.Item>
                   </>
                 )}

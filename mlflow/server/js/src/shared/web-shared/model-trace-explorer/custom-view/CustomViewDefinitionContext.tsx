@@ -126,6 +126,7 @@ export const useCustomViewDefinitionState = (
   onPersistView?: (view: CustomView) => Promise<void>,
   canModifyPersistedViews?: boolean,
   onDeleteView?: (id: string) => Promise<void>,
+  initialPersistedViewCount?: number,
 ): CustomViewDefinitionContextValue => {
   const canPersist = Boolean(onPersistView) && Boolean(canModifyPersistedViews);
   const canDelete = Boolean(onDeleteView) && Boolean(canModifyPersistedViews);
@@ -199,7 +200,13 @@ export const useCustomViewDefinitionState = (
     return persisted ? !isViewRenderable(persisted) : false;
   }, [activeViewId, persistedViews]);
 
-  const hasReachedViewLimit = persistedViews.length >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT;
+  // Future tag versions still consume backend quota even though this client cannot parse them.
+  // Keep that count as an offset so local v1 saves/deletes update the limit state immediately.
+  const unparsedPersistedViewCount = Math.max(
+    0,
+    (initialPersistedViewCount ?? initialViews.length) - initialViews.length,
+  );
+  const hasReachedViewLimit = persistedViews.length + unparsedPersistedViewCount >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT;
 
   const draftViewIds = useMemo(() => {
     const ids = new Set<string>();
@@ -413,6 +420,7 @@ export const useCustomViewDefinitionState = (
 // (e.g. in the traces table) that it survives drawer close / trace cycling.
 export const CustomViewDefinitionProvider = ({
   views,
+  persistedViewCount,
   isLoaded,
   onPersistView,
   onDeleteView,
@@ -420,13 +428,21 @@ export const CustomViewDefinitionProvider = ({
   children,
 }: {
   views: CustomView[];
+  persistedViewCount?: number;
   isLoaded: boolean;
   onPersistView?: (view: CustomView) => Promise<void>;
   onDeleteView?: (id: string) => Promise<void>;
   canModifyPersistedViews?: boolean;
   children: ReactNode;
 }): JSX.Element => {
-  const value = useCustomViewDefinitionState(views, isLoaded, onPersistView, canModifyPersistedViews, onDeleteView);
+  const value = useCustomViewDefinitionState(
+    views,
+    isLoaded,
+    onPersistView,
+    canModifyPersistedViews,
+    onDeleteView,
+    persistedViewCount,
+  );
   return <CustomViewDefinitionContext.Provider value={value}>{children}</CustomViewDefinitionContext.Provider>;
 };
 

@@ -842,6 +842,7 @@ describe('ModelTraceExplorerCustomView', () => {
     await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
     const createItem = screen.getByRole('menuitem', { name: /Create view/ });
     expect(createItem).toHaveAttribute('aria-disabled', 'true');
+    expect(createItem.querySelector('[data-disabled-tooltip]')).toBeInTheDocument();
 
     // Dispatch directly because userEvent intentionally refuses pointer events on disabled items.
     // The context guard must also keep the authoring UI closed.

@@ -20,6 +20,7 @@ export {
   toCustomViewApplyTarget,
   parseCustomView,
   serializeCustomView,
+  CUSTOM_VIEW_TAG_PREFIX,
   CUSTOM_VIEW_PREFIX,
   CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES,
   MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
