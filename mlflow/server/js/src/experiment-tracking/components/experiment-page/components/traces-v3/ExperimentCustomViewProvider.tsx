@@ -48,7 +48,14 @@ export const ExperimentCustomViewProvider = ({
 }) => {
   const { views, isLoaded, persistView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
-  const { openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming, activeProvider } = useAssistant();
+  const {
+    openPanel,
+    requestComposerFocus,
+    sendMessageWhenReady,
+    pendingAutomaticMessage,
+    isStreaming,
+    activeProvider,
+  } = useAssistant();
   const clientToolDelivery = activeProvider?.client_tool_delivery;
 
   const connector = useMemo<CustomViewAssistantConnector>(
@@ -56,10 +63,10 @@ export const ExperimentCustomViewProvider = ({
       openAssistant: (prompt?: string, options?: OpenCustomViewAssistantOptions) => {
         const instruction = prompt?.trim();
         openPanel();
-        // "Edit with assistant" (no instruction): just open/focus the panel. The
-        // custom-view authoring context is already published while the tab is open
-        // (see useCustomViewAssistantBridge), so the user can describe the change
-        // with full context instead of us auto-triggering an unprompted rebuild.
+        requestComposerFocus();
+        // "Edit with assistant" (no instruction) only opens/focuses the panel. The
+        // custom-view authoring context is already published while the tab is open,
+        // so the user can describe the change without an unprompted rebuild.
         if (instruction) {
           // Submit the build directive immediately. A brand-new build requests a
           // fresh Assistant thread atomically so it cannot inherit an unrelated
@@ -71,7 +78,7 @@ export const ExperimentCustomViewProvider = ({
       isStreaming,
       isPending: Boolean(pendingAutomaticMessage),
     }),
-    [clientToolDelivery, openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
+    [clientToolDelivery, openPanel, requestComposerFocus, sendMessageWhenReady, pendingAutomaticMessage, isStreaming],
   );
 
   // The assistant backend delivers a `render_custom_view` client action. API-based

@@ -382,6 +382,45 @@ describe('AssistantContext — pendingPrompt seed', () => {
   });
 });
 
+describe('AssistantContext — composer focus request', () => {
+  it('sets and clears a focus-only request', async () => {
+    const { result } = await renderAssistant();
+    expect(result.current.pendingComposerFocus).toBe(false);
+
+    act(() => {
+      result.current.requestComposerFocus();
+    });
+    expect(result.current.pendingComposerFocus).toBe(true);
+
+    act(() => {
+      result.current.clearComposerFocusRequest();
+    });
+    expect(result.current.pendingComposerFocus).toBe(false);
+  });
+
+  it('abandons an unconsumed focus request when the panel closes', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.requestComposerFocus();
+      result.current.closePanel();
+    });
+
+    expect(result.current.pendingComposerFocus).toBe(false);
+  });
+
+  it('preserves a focus request across a fresh-session reset', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.requestComposerFocus();
+      result.current.reset();
+    });
+
+    expect(result.current.pendingComposerFocus).toBe(true);
+  });
+});
+
 describe('AssistantContext — automatic message delivery', () => {
   it('sends immediately when a configured provider is ready', async () => {
     mockGetProviders.mockResolvedValue({

@@ -442,6 +442,8 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     refreshConfig,
     pendingPrompt,
     clearPendingPrompt,
+    pendingComposerFocus,
+    clearComposerFocusRequest,
     pendingAutomaticMessage,
     sendPendingAutomaticMessage,
     pendingPermission,
@@ -478,6 +480,13 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
       textareaRef.current?.focus();
     }
   }, [pendingPrompt, clearPendingPrompt]);
+
+  useEffect(() => {
+    if (pendingComposerFocus) {
+      textareaRef.current?.focus();
+      clearComposerFocusRequest();
+    }
+  }, [pendingComposerFocus, clearComposerFocusRequest]);
 
   // Deliver a message, first collecting the resolved provider's API key when it
   // is still missing (the ideal-flow popup: the first send doubles as setup).
