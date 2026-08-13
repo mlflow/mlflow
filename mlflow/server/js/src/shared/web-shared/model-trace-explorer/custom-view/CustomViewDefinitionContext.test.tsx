@@ -38,13 +38,26 @@ describe('useCustomViewDefinitionState', () => {
       useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), true),
     );
     expect(withPersist.result.current.canPersist).toBe(true);
+    expect(withPersist.result.current.canDelete).toBe(false);
+
+    const withDelete = renderHook(() =>
+      useCustomViewDefinitionState(NO_VIEWS, true, noopPersistView, true, jest.fn<() => Promise<void>>()),
+    );
+    expect(withDelete.result.current.canDelete).toBe(true);
   });
 
   it('reports canPersist false when a persist callback exists but edit permission is denied', () => {
     const { result } = renderHook(() =>
-      useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), false),
+      useCustomViewDefinitionState(
+        NO_VIEWS,
+        true,
+        jest.fn<() => Promise<void>>(),
+        false,
+        jest.fn<() => Promise<void>>(),
+      ),
     );
     expect(result.current.canPersist).toBe(false);
+    expect(result.current.canDelete).toBe(false);
   });
 
   it('does not create or update working views when modification permission is denied', () => {
@@ -512,6 +525,82 @@ describe('useCustomViewDefinitionState', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it('deletes a persisted view and clears the active selection', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const initialViews = [makeView('a'), makeView('b')];
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(initialViews, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(onDeleteView).toHaveBeenCalledWith('a');
+    expect(result.current.views.map((view) => view.id)).toEqual(['b']);
+    expect(result.current.activeViewId).toBeUndefined();
+  });
+
+  it('keeps the view and surfaces the error when deletion fails', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockRejectedValue(new Error('delete exploded'));
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(result.current.saveError).toBe('delete exploded');
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+    expect(result.current.activeViewId).toBe('a');
+    expect(result.current.isSaving).toBe(false);
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a', { label: 'updated' }));
+    });
+    expect(applied).toBe(true);
+    expect(result.current.activeView?.label).toBe('updated');
+  });
+
+  it('rejects an update that lands while deletion is in flight', async () => {
+    let resolveDelete: () => void = () => {};
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    let deletePromise: Promise<void> | undefined;
+    act(() => {
+      deletePromise = result.current.deleteView('a');
+    });
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a'));
+    });
+
+    expect(applied).toBe(false);
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+
+    await act(async () => {
+      resolveDelete();
+      await deletePromise;
+    });
+
+    expect(result.current.views).toEqual([]);
+    expect(result.current.activeViewId).toBeUndefined();
   });
 
   it('keeps isSaving true until the LAST of two overlapping mutations settles', async () => {

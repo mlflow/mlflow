@@ -115,6 +115,7 @@ const renderWithProvider = () =>
 
 const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: CustomView[] = [persistedView]) => {
   const onPersistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+  const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
   render(
     <IntlProvider locale="en" messages={{}}>
       <DesignSystemProvider>
@@ -123,6 +124,7 @@ const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: Cust
             views={views}
             isLoaded
             onPersistView={onPersistView}
+            onDeleteView={onDeleteView}
             canModifyPersistedViews={canModifyPersistedViews}
           >
             <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
@@ -131,7 +133,7 @@ const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: Cust
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onPersistView };
+  return { onPersistView, onDeleteView };
 };
 
 const renderWithChangingPermission = (canModifyPersistedViews: boolean) => {
@@ -516,6 +518,96 @@ describe('ModelTraceExplorerCustomView', () => {
 
     // A readable view: rename is enabled (not aria-disabled).
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).toBeInTheDocument();
+  });
+
+  it('hides Delete view when the provider does not supply a delete callback', async () => {
+    setBridge();
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient()}>
+            <CustomViewDefinitionProvider
+              views={[persistedView]}
+              isLoaded
+              onPersistView={noopPersistView}
+              canModifyPersistedViews
+            >
+              <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+            </CustomViewDefinitionProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+
+    expect(screen.getByRole('menuitem', { name: /Rename view/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Delete view/ })).not.toBeInTheDocument();
+  });
+
+  it('confirms and deletes the selected persisted view', async () => {
+    setBridge();
+    const { onDeleteView } = renderWithPersistProvider(true);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+    await user.click(screen.getByRole('menuitem', { name: /Delete view/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Delete view/ });
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    expect(onDeleteView).toHaveBeenCalledWith('v1');
+    expect(await screen.findByText('Build a custom trace view')).toBeInTheDocument();
+  });
+
+  it('deletes the view the modal was opened for when selection changes in the background', async () => {
+    setBridge();
+    const viewA = makeView('v1');
+    const viewB = makeView('v2');
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const selectViewRef: { current?: (id: string) => void } = {};
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient()}>
+            <CustomViewDefinitionProvider
+              views={[viewA, viewB]}
+              isLoaded
+              onPersistView={noopPersistView}
+              onDeleteView={onDeleteView}
+              canModifyPersistedViews
+            >
+              <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+              <SelectViewProbe selectViewRef={selectViewRef} />
+            </CustomViewDefinitionProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+    await user.click(screen.getByRole('menuitem', { name: /Delete view/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Delete view/ });
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+
+    act(() => selectViewRef.current?.('v2'));
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(onDeleteView).toHaveBeenCalledWith('v1');
+    expect(onDeleteView).not.toHaveBeenCalledWith('v2');
+    expect(await screen.findByRole('button', { name: /name-v2/ })).toBeInTheDocument();
   });
 
   it('disables (not hides) Rename view for an unreadable persisted view', async () => {
@@ -532,6 +624,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
     // Rename is rendered but disabled (not removed from the menu).
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('disables Rename for a valid-shape view whose template fails validation (Case-2 unreadable derived at selection)', async () => {
@@ -551,6 +644,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
     await user.click(screen.getByRole('button', { name: 'More view options' }));
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renames the selected view: prefills the current name and persists the trimmed new name against the saved template', async () => {

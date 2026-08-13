@@ -46,7 +46,7 @@ export const ExperimentCustomViewProvider = ({
   experimentId?: string;
   children: ReactNode;
 }) => {
-  const { views, isLoaded, persistView } = useExperimentCustomViewDefinition(experimentId);
+  const { views, isLoaded, persistView, deleteView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
   const { openPanel, sendMessageWhenReady, pendingAutomaticMessage, isStreaming, activeProvider } = useAssistant();
   const clientToolDelivery = activeProvider?.client_tool_delivery;
@@ -125,6 +125,7 @@ export const ExperimentCustomViewProvider = ({
         views={views}
         isLoaded={isLoaded}
         onPersistView={persistView}
+        onDeleteView={deleteView}
         canModifyPersistedViews={canModifyPersistedViews}
       >
         {children}

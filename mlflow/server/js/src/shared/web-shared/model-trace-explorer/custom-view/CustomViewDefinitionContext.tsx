@@ -24,6 +24,9 @@ export type CustomViewDefinitionContextValue = {
   // wired AND the host reports experiment edit permission). False for read-only
   // users and the session-local fallback outside the experiment provider.
   canPersist: boolean;
+  // Whether persisted views can be deleted (delete callback wired AND the host
+  // reports experiment edit permission).
+  canDelete: boolean;
   isSaving: boolean;
   // Whether the active view differs from its persisted counterpart (or has none).
   isDirty: boolean;
@@ -72,6 +75,7 @@ export type CustomViewDefinitionContextValue = {
   // saveActiveView, which commits the full dirty working copy. Resolves when the
   // persist settles; callers may ignore the returned promise.
   renameView: (id: string, name: string) => Promise<void>;
+  deleteView: (id: string) => Promise<void>;
   // Mark that an initial build has been launched (shows the building skeleton
   // until the spec applies or the build errors).
   startBuilding: () => void;
@@ -112,14 +116,16 @@ const upsertById = (views: CustomView[], view: CustomView): CustomView[] => {
 // Core state hook shared by the persistent provider and the session-local
 // fallback. It manages the working view registry + active selection, tracks
 // per-view dirtiness against the last persisted snapshot, and (when given)
-// delegates persistence to `onPersistView`.
+// delegates persistence to `onPersistView` / `onDeleteView`.
 export const useCustomViewDefinitionState = (
   initialViews: CustomView[],
   isLoaded: boolean,
   onPersistView?: (view: CustomView) => Promise<void>,
   canModifyPersistedViews?: boolean,
+  onDeleteView?: (id: string) => Promise<void>,
 ): CustomViewDefinitionContextValue => {
   const canPersist = Boolean(onPersistView) && Boolean(canModifyPersistedViews);
+  const canDelete = Boolean(onDeleteView) && Boolean(canModifyPersistedViews);
   const [views, setViews] = useState<CustomView[]>(initialViews);
   const [persistedViews, setPersistedViews] = useState<CustomView[]>(initialViews);
   // No view is selected by default: the host shows a "Select a custom view"
@@ -129,7 +135,7 @@ export const useCustomViewDefinitionState = (
   const [activeViewId, setActiveViewId] = useState<string | undefined>(undefined);
   const [isDraft, setIsDraft] = useState(false);
   const [draftName, setDraftName] = useState('');
-  // Count of in-flight persistence mutations (save / rename) rather than a
+  // Count of in-flight persistence mutations (save / rename / delete) rather than a
   // boolean: with a shared boolean, whichever of two overlapping mutations
   // finished first would clear the flag while the other is still writing,
   // re-enabling the UI mid-flight. isSaving stays true until the LAST one settles.
@@ -140,10 +146,16 @@ export const useCustomViewDefinitionState = (
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
   const [isBuilding, setIsBuilding] = useState(false);
 
+  // Ids of views deleted in this session. `upsertViewContent` refuses them, so a
+  // write that was already in flight when the user deleted its target cannot
+  // bring the view back. A ref is sufficient because nothing renders from it and
+  // every reader is a callback that must see the latest set.
+  const deletedViewIdsRef = useRef<Set<string>>(new Set());
+
   // Keep the working set in sync with `initialViews` while the session is still
   // pristine — this adopts views that load ASYNCHRONOUSLY (arriving as a new
   // `initialViews` reference after mount, even if `isLoaded` was already true).
-  // Once the user diverges (creates / saves a view) we stop, so a later refetch
+  // Once the user diverges (creates / saves / deletes a view) we stop, so a later refetch
   // can't clobber unsaved local edits. The active selection is left untouched
   // (no default) so the host shows the placeholder until the user picks a view.
   //
@@ -221,6 +233,9 @@ export const useCustomViewDefinitionState = (
   const upsertViewContent = useCallback(
     (view: CustomView) => {
       if (!canPersist) {
+        return false;
+      }
+      if (deletedViewIdsRef.current.has(view.id)) {
         return false;
       }
       hasLocalEditsRef.current = true;
@@ -331,6 +346,35 @@ export const useCustomViewDefinitionState = (
     [canPersist, onPersistView, persistedViews, beginSaving, endSaving],
   );
 
+  const deleteView = useCallback(
+    async (id: string) => {
+      setSaveError(undefined);
+      if (!canDelete || !onDeleteView) {
+        return;
+      }
+      beginSaving();
+      // Tombstone before the backend request so an Assistant response that lands
+      // while deletion is in flight cannot update a view the user chose to delete.
+      deletedViewIdsRef.current.add(id);
+      try {
+        if (persistedViews.some((view) => view.id === id)) {
+          await onDeleteView(id);
+        }
+        hasLocalEditsRef.current = true;
+        setPersistedViews((prev) => prev.filter((view) => view.id !== id));
+        setViews((prev) => prev.filter((view) => view.id !== id));
+        setActiveViewId((current) => (current === id ? undefined : current));
+      } catch (error) {
+        // The view remains when persistence fails, so allow subsequent updates.
+        deletedViewIdsRef.current.delete(id);
+        setSaveError(error instanceof Error ? error.message : 'Failed to delete the custom view.');
+      } finally {
+        endSaving();
+      }
+    },
+    [canDelete, onDeleteView, persistedViews, beginSaving, endSaving],
+  );
+
   return {
     views,
     activeViewId,
@@ -339,6 +383,7 @@ export const useCustomViewDefinitionState = (
     draftName,
     isLoaded,
     canPersist,
+    canDelete,
     isSaving,
     isDirty,
     isActivePersisted,
@@ -351,28 +396,31 @@ export const useCustomViewDefinitionState = (
     upsertViewContent,
     saveActiveView,
     renameView,
+    deleteView,
     startBuilding,
     stopBuilding,
   };
 };
 
 // Generic provider: experiment-tracking wires this up with the loaded views +
-// persist callback that writes per-view experiment tags. Mounted high enough
+// persist/delete callbacks that write per-view experiment tags. Mounted high enough
 // (e.g. in the traces table) that it survives drawer close / trace cycling.
 export const CustomViewDefinitionProvider = ({
   views,
   isLoaded,
   onPersistView,
+  onDeleteView,
   canModifyPersistedViews,
   children,
 }: {
   views: CustomView[];
   isLoaded: boolean;
   onPersistView?: (view: CustomView) => Promise<void>;
+  onDeleteView?: (id: string) => Promise<void>;
   canModifyPersistedViews?: boolean;
   children: ReactNode;
 }): JSX.Element => {
-  const value = useCustomViewDefinitionState(views, isLoaded, onPersistView, canModifyPersistedViews);
+  const value = useCustomViewDefinitionState(views, isLoaded, onPersistView, canModifyPersistedViews, onDeleteView);
   return <CustomViewDefinitionContext.Provider value={value}>{children}</CustomViewDefinitionContext.Provider>;
 };
 
