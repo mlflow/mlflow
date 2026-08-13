@@ -313,7 +313,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-10-02",
+      "last_updated_at": "2026-08-12"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -879,7 +880,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2027-05-07",
+      "last_updated_at": "2026-08-12"
     },
     "gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -1185,7 +1187,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2028-05-14",
+      "last_updated_at": "2026-08-12"
     },
     "gemini-embedding-2": {
       "mode": "embedding",
@@ -1561,6 +1564,33 @@
       },
       "last_updated_at": "2026-08-06"
     },
+    "gemini-robotics-er-2-streaming-preview": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 2.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.014,
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-12"
+    },
     "gemma-3-27b-it": {
       "mode": "chat",
       "context_window": {
@@ -1627,7 +1657,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-08-17",
+      "last_updated_at": "2026-08-12"
     },
     "imagen-4.0-generate-001": {
       "mode": "image_generation",
@@ -1638,7 +1669,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-08-17",
+      "last_updated_at": "2026-08-12"
     },
     "imagen-4.0-ultra-generate-001": {
       "mode": "image_generation",
@@ -1649,7 +1681,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-08-17",
+      "last_updated_at": "2026-08-12"
     },
     "learnlm-1.5-pro-experimental": {
       "mode": "chat",

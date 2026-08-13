@@ -27,6 +27,7 @@ from mlflow.assistant.providers import (
 )
 from mlflow.assistant.providers.base import (
     AssistantProvider,
+    ClientToolDelivery,
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
@@ -35,7 +36,9 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
+from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
+from mlflow.server.handlers import _add_static_prefix
 
 
 def _get_provider(name: str):
@@ -159,6 +162,8 @@ assistant_router = APIRouter(
     route_class=_AssistantAPIRoute,
 )
 
+_TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
+
 
 class MessageRequest(BaseModel):
     message: str
@@ -193,9 +198,9 @@ class ProviderInfo(BaseModel):
     requires_api_key: bool
     has_api_key: bool
     allows_remote_access: bool
-    # Whether this provider can pause a turn on a CLIENT-executed tool call and
-    # resume it once the client posts a result. See AssistantProvider.supports_client_tools.
-    supports_client_tools: bool = False
+    # How client-executed actions are delivered: as native tool calls, terminal
+    # structured output, or not supported by this provider.
+    client_tool_delivery: ClientToolDelivery = "unsupported"
     model_options: list[str] = Field(default_factory=list)
 
 
@@ -205,7 +210,7 @@ class ResolvedProviderInfo(BaseModel):
     auto_selected: bool
     requires_api_key: bool
     has_api_key: bool
-    supports_client_tools: bool = False
+    client_tool_delivery: ClientToolDelivery = "unsupported"
     model_provider: str | None = None
     model_options: list[str] = Field(default_factory=list)
     provider_model: str | None = None
@@ -292,7 +297,7 @@ def _resolved_provider_info(
         auto_selected=auto_selected,
         requires_api_key=False,
         has_api_key=False,
-        supports_client_tools=provider.supports_client_tools,
+        client_tool_delivery=provider.client_tool_delivery,
     )
     if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
         if vendor := _gateway_vendor_from_managed_endpoint(model):
@@ -356,7 +361,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
         session = SessionManager.create(
             context=request.context, working_dir=Path(project_path) if project_path else None
         )
-    elif request.context:
+    else:
+        # Page context is merged for conversation continuity, but feature modes
+        # are turn-scoped. Remove omitted transient keys so leaving a feature
+        # cannot keep later turns in its provider/output mode.
+        for key in _TURN_SCOPED_CONTEXT_KEYS - request.context.keys():
+            session.context.pop(key, None)
         session.update_context(request.context)
 
     # Store the pending message with role
@@ -366,7 +376,9 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
     return MessageResponse(
         session_id=session_id,
-        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
     )
 
 
@@ -416,7 +428,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # Extract the MLflow server URL from the request for the assistant to use.
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
-    tracking_uri = str(request.base_url).rstrip("/")
+    tracking_uri = get_server_base_url(request)
     is_remote = not _is_localhost(request)
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -438,10 +450,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             context=context,
         ):
             # Store provider session ID if returned (for conversation continuity).
-            # On a paused turn this persists the history with the unanswered
-            # tool_call so a later resume can continue from it.
-            if event.type == EventType.DONE:
-                session.provider_session_id = event.data.get("session_id")
+            # On a paused or failed turn this lets a later request resume the same
+            # provider conversation instead of losing its history.
+            provider_session_id = event.data.get("session_id")
+            if event.type in {EventType.DONE, EventType.ERROR} and provider_session_id:
+                session.provider_session_id = provider_session_id
                 SessionManager.save(session_id, session)
 
             yield event.to_sse_event()
@@ -516,7 +529,9 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
     return MessageResponse(
         session_id=session_id,
-        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
     )
 
 
@@ -587,7 +602,7 @@ async def get_providers() -> ProvidersResponse:
             requires_api_key=False,
             has_api_key=False,
             allows_remote_access=provider.allows_remote_access,
-            supports_client_tools=provider.supports_client_tools,
+            client_tool_delivery=provider.client_tool_delivery,
             model_options=[],
         )
         for provider in providers

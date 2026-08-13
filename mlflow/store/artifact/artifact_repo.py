@@ -86,6 +86,20 @@ def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
         return try_func(new_creds)
 
 
+def _is_object_key_within_path(object_key: str, path: str) -> bool:
+    """
+    Return whether an object-store key belongs to a path.
+
+    Prefix listings can include sibling keys such as ``foobar`` when querying ``foo``, so require
+    either an exact match or a ``/`` boundary. An empty path represents the repository root.
+    """
+    if not path:
+        return True
+    if path.endswith("/"):
+        return object_key.startswith(path)
+    return object_key == path or object_key.startswith(f"{path}/")
+
+
 def _sanitize_path_component_for_windows(component: str) -> str:
     """
     Sanitize a path component by replacing Windows-invalid characters with underscores.

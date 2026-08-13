@@ -205,7 +205,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-12"
     },
     "container": {
       "mode": "chat",
@@ -258,7 +259,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-3.5-turbo-0125": {
       "mode": "chat",
@@ -278,7 +280,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-3.5-turbo-1106": {
       "mode": "chat",
@@ -339,7 +342,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4-0125-preview": {
       "mode": "chat",
@@ -401,8 +405,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2025-06-06",
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4-1106-preview": {
       "mode": "chat",
@@ -422,8 +426,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-03-26",
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4-turbo": {
       "mode": "chat",
@@ -443,7 +447,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4-turbo-2024-04-09": {
       "mode": "chat",
@@ -463,7 +468,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4-turbo-preview": {
       "mode": "chat",
@@ -643,7 +649,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4.1-nano-2025-04-14": {
       "mode": "chat",
@@ -675,7 +682,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-10"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o": {
       "mode": "chat",
@@ -737,7 +745,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-2024-08-06": {
       "mode": "chat",
@@ -827,7 +836,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-audio-preview-2024-12-17": {
       "mode": "chat",
@@ -853,7 +863,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-audio-preview-2025-06-03": {
       "mode": "chat",
@@ -879,7 +890,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-mini": {
       "mode": "chat",
@@ -976,7 +988,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-mini-audio-preview-2024-12-17": {
       "mode": "chat",
@@ -1002,7 +1015,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-4o-mini-realtime-preview": {
       "mode": "chat",
@@ -1327,7 +1341,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-5-chat": {
       "mode": "chat",
@@ -1435,7 +1450,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-5-nano": {
       "mode": "chat",
@@ -1497,7 +1513,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-10"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-5-search-api": {
       "mode": "chat",
@@ -2267,7 +2284,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-audio-1.5": {
       "mode": "chat",
@@ -2319,7 +2337,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-audio-mini": {
       "mode": "chat",
@@ -2345,7 +2364,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-20",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-audio-mini-2025-10-06": {
       "mode": "chat",
@@ -2418,7 +2438,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-image-1-mini": {
       "mode": "image_generation",
@@ -2439,7 +2460,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-image-1.5": {
       "mode": "image_generation",
@@ -2461,7 +2483,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-image-1.5-2025-12-16": {
       "mode": "image_generation",
@@ -2483,7 +2506,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-12"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -2804,7 +2828,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "o1-2024-12-17": {
       "mode": "chat",
@@ -2825,7 +2850,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "o3": {
       "mode": "chat",
@@ -2891,7 +2917,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-10"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-08-12"
     },
     "o3-mini": {
       "mode": "chat",
@@ -2912,7 +2939,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "o3-mini-2025-01-31": {
       "mode": "chat",
@@ -2933,7 +2961,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "o4-mini": {
       "mode": "chat",
@@ -2966,7 +2995,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "o4-mini-2025-04-16": {
       "mode": "chat",
@@ -2999,7 +3029,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-10"
+      "deprecation_date": "2026-10-23",
+      "last_updated_at": "2026-08-12"
     },
     "sora-2": {
       "mode": "video_generation",
@@ -3017,7 +3048,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "deprecation_date": "2026-09-24",
+      "last_updated_at": "2026-08-12"
     },
     "sora-2-pro": {
       "mode": "video_generation",
@@ -3035,7 +3067,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "deprecation_date": "2026-09-24",
+      "last_updated_at": "2026-08-12"
     },
     "sora-2-pro-high-res": {
       "mode": "video_generation",

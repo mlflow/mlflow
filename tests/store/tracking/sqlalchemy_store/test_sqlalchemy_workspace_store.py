@@ -280,6 +280,66 @@ def test_search_datasets_is_workspace_scoped(workspace_tracking_store):
         assert workspace_tracking_store._search_datasets([exp_b_id]) == []
 
 
+def test_search_runs_datasets_in_clause_is_workspace_scoped(workspace_tracking_store):
+    exp_a_id, run_a = _create_run(workspace_tracking_store, "team-a", "exp-ds-a", "run-ds-a")
+    exp_b_id, run_b = _create_run(workspace_tracking_store, "team-b", "exp-ds-b", "run-ds-b")
+
+    dataset_a = Dataset(
+        name="123",
+        digest="06409663",
+        source_type="delta",
+        source="source-a",
+    )
+    dataset_b = Dataset(
+        name="MyDataset",
+        digest="A1B2C3D4",
+        source_type="delta",
+        source="source-b",
+    )
+
+    with WorkspaceContext("team-a"):
+        workspace_tracking_store.log_inputs(
+            run_a.info.run_id,
+            [DatasetInput(dataset_a, [InputTag(MLFLOW_DATASET_CONTEXT, "2024")])],
+        )
+
+    with WorkspaceContext("team-b"):
+        workspace_tracking_store.log_inputs(
+            run_b.info.run_id,
+            [DatasetInput(dataset_b, [InputTag(MLFLOW_DATASET_CONTEXT, "Train")])],
+        )
+
+    with WorkspaceContext("team-a"):
+        result = workspace_tracking_store.search_runs(
+            [exp_a_id],
+            filter_string="datasets.digest IN ('06409663')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert {r.info.run_id for r in result} == {run_a.info.run_id}
+
+        result = workspace_tracking_store.search_runs(
+            [exp_a_id],
+            filter_string="datasets.digest IN ('A1B2C3D4')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
+    with WorkspaceContext("team-b"):
+        result = workspace_tracking_store.search_runs(
+            [exp_b_id],
+            filter_string="datasets.context IN ('Train')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert {r.info.run_id for r in result} == {run_b.info.run_id}
+
+        result = workspace_tracking_store.search_runs(
+            [exp_b_id],
+            filter_string="datasets.context IN ('2024')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
+
 def test_search_datasets_public_api_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a_id = workspace_tracking_store.create_experiment("search-exp-a")
@@ -371,6 +431,7 @@ def test_artifact_locations_are_scoped_to_workspace(workspace_tracking_store):
 
 
 def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
 
@@ -473,6 +534,7 @@ def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, m
 
 def test_create_experiment_requires_effective_artifact_root(workspace_tracking_store, monkeypatch):
     monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     workspace_tracking_store.artifact_root_uri = None
 
     class EmptyProvider:

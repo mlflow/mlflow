@@ -531,6 +531,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    generate_rationale_first=data.get("generate_rationale_first", False),
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
                 )
@@ -1657,7 +1658,7 @@ class EnsembleScorer(Scorer):
         return Feedback(name=self.name, value=result, metadata=sub_metadata)
 
 
-@experimental(version="3.15.0")
+@experimental(version="3.16.0")
 def make_scorer_ensemble(
     *,
     name: str,
