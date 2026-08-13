@@ -90,10 +90,13 @@ jobs:
     # It does open a path on the Databricks side, though: it puts
     # ACTIONS_ID_TOKEN_REQUEST_TOKEN in the job env, which the agent shares while
     # reading untrusted diffs, so the agent can mint the service principal's token
-    # itself. Three things bound what that token can do — it is requested with the
-    # `ai-gateway` scope rather than `all-apis` so it only reaches inference, the
-    # principal's own entitlements are kept to workspace access alone, and it
-    # expires ~5 minutes after minting.
+    # itself. Two things bound what that token can do — the principal's own
+    # entitlements are kept to workspace access alone, and the token expires
+    # ~5 minutes after minting. The `ai-gateway` scope this job requests is not
+    # one of them: scope is chosen by the exchange request and the federation
+    # policy pins only issuer, subject, and audience, so an agent replaying the
+    # exchange can ask for `all-apis` instead. The scope narrows the credential
+    # this job hands to Claude Code, not what an attacker can obtain.
     permissions:
       id-token: write
     # The OIDC subject is pinned to `repo:<org>/<repo>:environment:ai-gateway`,
@@ -260,6 +263,22 @@ jobs:
 
           OUTPUT_FILE="/tmp/output.jsonl"
 
+          # stream.sh echoes tool_use inputs to the job log as the session runs,
+          # and that log is public on this repo, so a token the agent minted and
+          # passed to a command would appear there live. ::add-mask:: only affects
+          # output written after it is registered, so register each credential as
+          # it is minted rather than waiting for the failure dump below. This
+          # narrows the exposure window to the poll interval; it does not close it.
+          # Pre-created here, so the helper's own 0600 opener never applies —
+          # tighten it now rather than leaving the file at the runner's umask.
+          : > "$MINT_TOKEN_SECRETS"
+          chmod 600 "$MINT_TOKEN_SECRETS"
+          tail -F "$MINT_TOKEN_SECRETS" 2>/dev/null | while read -r token; do
+            [ -n "$token" ] && echo "::add-mask::$token"
+          done &
+          MASK_PID=$!
+          trap 'kill "$MASK_PID" 2>/dev/null || true' EXIT
+
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
@@ -279,10 +298,11 @@ jobs:
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
-            # This dumps the raw, unredacted transcript into the job log, ahead
-            # of the redaction step. A minted Databricks token is not a GitHub
-            # secret, so nothing masks it automatically the way it did when this
-            # ran on ANTHROPIC_API_KEY — register each one first.
+            # This dumps the raw, unredacted transcript into the job log, ahead of
+            # the redaction step. Re-register every credential synchronously: the
+            # background masker above may not have observed the most recent one,
+            # and a minted Databricks token is not a GitHub secret, so nothing
+            # masks it automatically the way it did under ANTHROPIC_API_KEY.
             if [ -s "$MINT_TOKEN_SECRETS" ]; then
               while read -r token; do
                 [ -n "$token" ] && echo "::add-mask::$token"
@@ -307,7 +327,10 @@ jobs:
           # reintroduce the mid-review 401 this TTL was chosen to avoid. Compare
           # rather than trust.
           ttl_s=$((CLAUDE_CODE_API_KEY_HELPER_TTL_MS / 1000))
-          shortest=$(grep -oE 'lifetime [0-9]+s' "$MINT_TOKEN_LOG" | grep -oE '[0-9]+' | sort -n | head -1)
+          # `|| true`: steps run under `-eo pipefail`, so a log with no parseable
+          # lifetime would abort this step and fail the job after a review that
+          # actually succeeded, before it could be posted.
+          shortest=$(grep -oE 'lifetime [0-9]+s' "$MINT_TOKEN_LOG" | grep -oE '[0-9]+' | sort -n | head -1 || true)
           if [ -n "$shortest" ] && [ "$shortest" -le "$ttl_s" ]; then
             echo "::warning::Token lifetime ${shortest}s is not above the ${ttl_s}s refresh interval; the credential can lapse mid-session."
           fi

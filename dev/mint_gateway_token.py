@@ -33,9 +33,31 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 from databricks.sdk.core import Config
+from databricks.sdk.oauth import Token
+
+
+def mint(cfg: Config, attempts: int = 3) -> Token:
+    """Exchange the OIDC JWT for a Databricks token, retrying transient failures.
+
+    The SDK posts to the token endpoint with a bare ``requests.post`` and no retry
+    adapter. A caller that refreshes every couple of minutes runs this many times
+    per session, so a single transient 5xx or network blip would end the session —
+    exactly the failure the refresh exists to prevent.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return cfg.oauth_token()
+        except Exception as e:
+            if attempt == attempts:
+                raise
+            delay = 2 ** (attempt - 1)
+            print(f"Token exchange failed ({e}); retrying in {delay}s", file=sys.stderr)
+            time.sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def log_diagnostics(expiry: datetime | None) -> None:
@@ -101,7 +123,7 @@ def main() -> None:
     # credentials source per call, so `authenticate()` and `oauth_token()` each
     # hit the token endpoint and return *different* tokens — calling both would
     # print one credential while logging and scrubbing another.
-    token = cfg.oauth_token()
+    token = mint(cfg)
     if token.token_type != "Bearer" or not token.access_token:
         sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {token.token_type!r}")
     log_diagnostics(token.expiry)
