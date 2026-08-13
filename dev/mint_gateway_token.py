@@ -1,5 +1,11 @@
 # /// script
 # dependencies = ["databricks-sdk"]
+# [tool.uv]
+# # Mirrors pyproject.toml's cooldown. `uv run --no-project` skips project
+# # discovery, so without this the repo's 7-day guard against freshly-published
+# # (possibly compromised) releases would not cover a dependency installed on a
+# # job that holds an OIDC identity.
+# exclude-newer = "P7D"
 # ///
 """Mint a short-lived Databricks OAuth token from a GitHub Actions OIDC JWT.
 
@@ -77,6 +83,14 @@ def record_token(token: str) -> None:
 
 def main() -> None:
     cfg = Config()
+    # This script prints a credential on stdout, so it must never be reachable by
+    # ambient auth. Without this guard, running it on a developer machine happily
+    # resolves the default ~/.databrickscfg profile and prints that PAT instead.
+    if cfg.auth_type != "github-oidc":
+        sys.exit(
+            f"Refusing to print a {cfg.auth_type!r} credential. This script mints a "
+            "federated token for CI; set DATABRICKS_AUTH_TYPE=github-oidc."
+        )
     scheme, _, token = cfg.authenticate()["Authorization"].partition(" ")
     if scheme != "Bearer" or not token:
         sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {scheme!r}")

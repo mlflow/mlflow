@@ -102,6 +102,13 @@ jobs:
     # access, so its name is not review-specific.
     environment: ai-gateway
     timeout-minutes: 30
+    # Written by dev/mint_gateway_token.py, read by the steps that report token
+    # refreshes and scrub the transcript. Declared once at job level so those
+    # three steps cannot drift apart on the path — a silent rename would
+    # otherwise disable the scrubbing rather than fail.
+    env:
+      MINT_TOKEN_LOG: /tmp/mint-token.log
+      MINT_TOKEN_SECRETS: /tmp/minted-tokens
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -224,14 +231,9 @@ jobs:
           # workspace token endpoint URL, which the policy would reject.
           DATABRICKS_TOKEN_AUDIENCE: ${{ vars.DATABRICKS_ACCOUNT_ID }}
           ANTHROPIC_BASE_URL: ${{ vars.DATABRICKS_HOST }}/ai-gateway/anthropic
-          CLAUDE_CODE_API_KEY_HELPER_TTL_MS: "300000"
-          MINT_TOKEN_LOG: ${{ runner.temp }}/mint-token.log
-          # Every credential the helper mints, so the redaction step below can
-          # scrub it from the uploaded transcript. The agent shares this job's
-          # OIDC environment and can mint a token itself while reviewing an
-          # untrusted diff, and stream.sh tees raw tool output into that
-          # transcript.
-          MINT_TOKEN_SECRETS: ${{ runner.temp }}/minted-tokens
+          # Under the measured ~5 minute token lifetime, with margin. Setting it
+          # at the lifetime races the expiry rather than avoiding it.
+          CLAUDE_CODE_API_KEY_HELPER_TTL_MS: "120000"
           # The gateway's beta allowlist rejects several of the CLI's experimental
           # betas with HTTP 400, so they must be off on this path.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
@@ -269,6 +271,15 @@ jobs:
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
+            # This dumps the raw, unredacted transcript into the job log, ahead
+            # of the redaction step. A minted Databricks token is not a GitHub
+            # secret, so nothing masks it automatically the way it did when this
+            # ran on ANTHROPIC_API_KEY — register each one first.
+            if [ -s "$MINT_TOKEN_SECRETS" ]; then
+              while read -r token; do
+                [ -n "$token" ] && echo "::add-mask::$token"
+              done < "$MINT_TOKEN_SECRETS"
+            fi
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
@@ -281,8 +292,8 @@ jobs:
       - name: Report gateway token refreshes
         if: always()
         run: |
-          if [ -f "$RUNNER_TEMP/mint-token.log" ]; then
-            nl -ba "$RUNNER_TEMP/mint-token.log"
+          if [ -f "$MINT_TOKEN_LOG" ]; then
+            nl -ba "$MINT_TOKEN_LOG"
           else
             echo "apiKeyHelper never ran"
           fi
@@ -331,7 +342,7 @@ jobs:
           # minted itself. Without this the transcript has no model-credential
           # scrubbing, and it is uploaded as an artifact readable by anyone with
           # repo read access.
-          minted = Path(os.environ["RUNNER_TEMP"]) / "minted-tokens"
+          minted = Path(os.environ["MINT_TOKEN_SECRETS"])
           if minted.exists():
               for token in minted.read_text().split():
                   data = data.replace(token, "***")
@@ -395,7 +406,7 @@ jobs:
             const formatted = JSON.stringify(resultEvent, null, 2);
             resultLine += `\n<details><summary>${summary}</summary>\n\n\`\`\`json\n${formatted}\n\`\`\`\n\n</details>`;
             if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
-              resultLine += `\n\nThe model gateway is overloaded. Inference is served by the Databricks AI Gateway, not the Anthropic API, so check the workspace status and retry.`;
+              resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
             }
           } else if (failed) {
             resultLine += `\n\nSee [workflow logs](${jobRunUrl}) for details.`;
