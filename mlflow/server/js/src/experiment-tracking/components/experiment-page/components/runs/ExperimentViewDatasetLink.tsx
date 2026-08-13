@@ -2,15 +2,38 @@ import { Button, CopyIcon, TableIcon } from '@databricks/design-system';
 import type { RunDatasetWithTags } from '../../../../types';
 import { DatasetSourceTypes } from '../../../../types';
 import { FormattedMessage } from 'react-intl';
-import { getDatasetSourceUrl } from '../../../../utils/DatasetUtils';
+import { getDatasetSourceUrl, getEvaluationDatasetId } from '../../../../utils/DatasetUtils';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
+import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
 
 export interface DatasetLinkProps {
   datasetWithTags: RunDatasetWithTags;
+  experimentId?: string;
 }
 
-export function ExperimentViewDatasetLink({ datasetWithTags }: DatasetLinkProps): JSX.Element | null {
+export function ExperimentViewDatasetLink({ datasetWithTags, experimentId }: DatasetLinkProps): JSX.Element | null {
   const { dataset } = datasetWithTags;
+  const navigate = useNavigate();
+
+  if (dataset.sourceType === DatasetSourceTypes.EVALUATION_DATASET) {
+    const datasetId = getEvaluationDatasetId(datasetWithTags);
+    if (datasetId && experimentId) {
+      return (
+        <Button
+          componentId="mlflow.experiment.dataset_drawer.open_evaluation_dataset"
+          icon={<TableIcon />}
+          type="primary"
+          onClick={() => navigate(Routes.getExperimentPageDatasetDetailRoute(experimentId, datasetId))}
+        >
+          <FormattedMessage
+            defaultMessage="Open dataset"
+            description="Text for the button that opens the evaluation dataset detail page"
+          />
+        </Button>
+      );
+    }
+  }
 
   if (dataset.sourceType === DatasetSourceTypes.S3) {
     const url = getDatasetSourceUrl(datasetWithTags);

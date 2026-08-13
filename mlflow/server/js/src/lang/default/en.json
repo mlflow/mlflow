@@ -771,6 +771,10 @@
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
   },
+  "1LMI0B": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that opens the evaluation dataset detail page"
+  },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
