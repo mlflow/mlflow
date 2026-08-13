@@ -1,4 +1,4 @@
-import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, beforeAll, afterAll, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useSampledMetricHistory } from './useSampledMetricHistory';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
@@ -7,7 +7,7 @@ import React from 'react';
 import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
 import { IntlProvider } from 'react-intl';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
-import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
+import { QueryClient, QueryClientProvider, notifyManager } from '../../../../common/utils/reactQueryHooks';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
@@ -24,6 +24,21 @@ jest.mock('../../../sdk/SampledMetricHistoryService', () => ({
 }));
 
 jest.useFakeTimers();
+
+// React Query batches store notifications and flushes them in a deferred microtask. With fake
+// timers, the auto-refresh interval's notifications can land outside the test's act() scope,
+// producing "not wrapped in act(...)" warnings. Flushing each batch inside act() keeps those
+// async store updates within an act() scope.
+beforeAll(() => {
+  notifyManager.setBatchNotifyFunction((callback) => {
+    act(callback);
+  });
+});
+
+afterAll(() => {
+  const { unstable_batchedUpdates } = jest.requireActual<typeof import('react-dom')>('react-dom');
+  notifyManager.setBatchNotifyFunction(unstable_batchedUpdates);
+});
 
 const hookWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {
   const queryClient = new QueryClient();

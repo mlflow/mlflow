@@ -18,7 +18,8 @@ import threading
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -49,7 +50,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -129,7 +130,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -2977,7 +2978,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
@@ -5949,31 +5949,39 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload an artifact to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_path: Local path to the artifact to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifact(model_id, local_path)
+        return self._tracking_client.log_model_artifact(model_id, local_path, artifact_path)
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload a set of artifacts to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_dir: Local directory containing the artifacts to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir, artifact_path)
 
     def search_logged_models(
         self,
@@ -6820,17 +6828,20 @@ class MlflowClient:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+
+        resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
         return self._tracking_client.store.create_mcp_server_version(
             server_json=server_json,
-            display_name=display_name,
             source=source,
             status=status,
-            tools=tools,
+            tools=resolved_tools,
+            connect_options=connect_options,
         )
 
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
@@ -6862,17 +6873,35 @@ class MlflowClient:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
             version=version,
-            display_name=display_name,
             status=status,
             tools=tools,
+            connect_options=connect_options,
         )
+
+    def refresh_mcp_server_version_tools(
+        self,
+        name: str,
+        version: str,
+        mcp_server_access_headers: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+
+        current = self.get_mcp_server_version(name=name, version=version)
+        discovered_tools = discover_tools_for_server_json(
+            server_json=current.server_json,
+            headers=mcp_server_access_headers,
+        )
+        if dry_run:
+            return replace(current, tools=discovered_tools)
+        return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._tracking_client.store.delete_mcp_server_version(name=name, version=version)

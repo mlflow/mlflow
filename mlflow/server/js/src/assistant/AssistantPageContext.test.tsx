@@ -6,6 +6,7 @@ import {
   useAssistantPageContext,
   useAssistantPageContextActions,
 } from './AssistantPageContext';
+import { registerAssistantContextProvider } from './contextProviders';
 
 afterEach(() => {
   cleanup();
@@ -162,6 +163,37 @@ describe('useRegisterAssistantContext', () => {
     expect(ctx.current).not.toHaveProperty('selectedScorerName');
 
     unmount();
+  });
+});
+
+describe('useAssistantPageContextActions — getContext', () => {
+  it('merges reactively-registered context with pull-based dynamic providers', () => {
+    const { unmount } = renderHook(() => {
+      useRegisterAssistantContext('traceId', 'trace-123');
+    });
+    const unregister = registerAssistantContextProvider('customTraceView', () => ({ guide: 'authoring guide' }));
+
+    const { getContext } = renderHook(() => useAssistantPageContextActions()).result.current;
+    expect(getContext()).toMatchObject({
+      traceId: 'trace-123',
+      customTraceView: { guide: 'authoring guide' },
+    });
+
+    unregister();
+    expect(getContext()).not.toHaveProperty('customTraceView');
+    unmount();
+  });
+
+  it('a dynamic provider does not leak into the reactive store (only getContext sees it)', () => {
+    const unregister = registerAssistantContextProvider('dynamicKey', () => 'value');
+
+    const { result: ctx } = renderHook(() => useAssistantPageContext());
+    expect(ctx.current).not.toHaveProperty('dynamicKey');
+
+    const { getContext } = renderHook(() => useAssistantPageContextActions()).result.current;
+    expect(getContext()).toMatchObject({ dynamicKey: 'value' });
+
+    unregister();
   });
 });
 

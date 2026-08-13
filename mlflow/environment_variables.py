@@ -501,6 +501,16 @@ MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
 )
 
+#: Specifies whether to route Unity Catalog model-registry calls to the native
+#: ``/api/2.1/unity-catalog/*`` endpoints. When ``True``, the ``databricks-uc`` scheme instantiates
+#: the native store that issues requests against the native surface; when ``False`` (default), the
+#: legacy store using the ``/api/2.0/mlflow/unity-catalog/*`` endpoints is used. This is a static
+#: per-process choice read when the store is constructed, not an adaptive runtime fallback.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", False
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
@@ -622,6 +632,17 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
+#: Specifies whether client-side MCP tool auto-discovery is enabled.
+#: When ``True`` (default), omitting ``tools`` on MCP server version create
+#: allows Python client helpers to best-effort scrape the first usable
+#: ``server_json.remotes[]`` URL via ``mlflow[mcp]`` before sending the create
+#: request. When ``False``, omitted ``tools`` are sent/stored as null unless
+#: the caller provides an explicit tools value.
+#: (default: ``True``)
+MLFLOW_ENABLE_MCP_TOOL_DISCOVERY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MCP_TOOL_DISCOVERY", True
+)
+
 #: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
 #: This controls how long ONE individual predict/predict_stream request can take before timing out.
 #: If your model inference takes longer than this (e.g., long-running agent queries that take
@@ -691,6 +712,15 @@ MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_RE
 #: (default: ``None`` — all providers are allowed)
 MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
     "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
+#: Maximum size in bytes of an AI Gateway request body after decompression.
+#: Requests whose decompressed body exceeds this limit are rejected with HTTP 413.
+#: This bounds the memory a compressed request can consume, since a small compressed
+#: body can expand by several orders of magnitude.
+#: (default: ``104857600`` — 100 MB)
+MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE", int, 100 * 1024 * 1024
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
@@ -855,6 +885,13 @@ MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
 
+#: Base URL for the judge model endpoint used by the ``sap-ai-core:/`` provider.
+#: Supports both ``http://`` (for egress-gateway routing) and ``https://``.
+#: Aligns with the ``base_url`` parameter on ``mlflow.genai.make_judge``.
+#: Example: ``http://egress-gw.cluster.local/v2/inference/deployments/<id>/chat/completions``
+#: Required when using ``sap-ai-core:/<model>`` as the judge model URI. (default: unset)
+MLFLOW_GENAI_JUDGE_BASE_URL = _EnvironmentVariable("MLFLOW_GENAI_JUDGE_BASE_URL", str, None)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
@@ -935,6 +972,25 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When ``True`` (and MLflow is in isolated tracer provider mode, i.e.
+#: ``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``), MLflow also propagates its active span into the
+#: process-global OpenTelemetry context. This lets pure-OpenTelemetry libraries (e.g.
+#: strands-agents, LangChain, LlamaIndex) that read the global OTel context via
+#: ``opentelemetry.trace.get_current_span()`` nest their spans under an MLflow span created with
+#: ``@mlflow.trace`` or ``mlflow.start_span()``.
+#:
+#: .. warning::
+#:     Enabling this makes MLflow's active span visible to *all* OpenTelemetry instrumentation
+#:     in the process (e.g. FastAPI, ``requests``), which reduces the isolation that isolated
+#:     tracer provider mode normally provides. Leave this disabled unless you need pure-OTel
+#:     libraries to nest under MLflow spans. It has no effect in unified mode
+#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``), where the global context is used already.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT", False
 )
 
 #: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
@@ -1446,6 +1502,15 @@ _MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_I
 #: (default: ``False``)
 _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
 
+
+#: Internal flag to import the Databricks SDK at ``import mlflow`` time inside Databricks, so
+#: the telemetry consumer thread never performs a first-time import of it. Set to ``false`` to
+#: opt out. Must be set before ``import mlflow`` to take effect.
+#: (default: ``True``)
+_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK = _BooleanEnvironmentVariable(
+    "_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK", True
+)
+
 #: Internal environment variable to indicate which SGI is being used,
 #: e.g. "uvicorn" or "gunicorn".
 #: This should never be set by users or explicitly.
@@ -1536,6 +1601,15 @@ MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
 #: (default: ``300`` (5 minutes))
 MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
+)
+
+#: Default buffer time in seconds applied to the trace scoring window's upper bound.
+#: Traces that started within this buffer period before the current time are excluded from
+#: the scoring window, giving them time to finish before being evaluated. The buffer should
+#: exceed the expected trace duration; traces that remain IN_PROGRESS longer can still be skipped.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
 

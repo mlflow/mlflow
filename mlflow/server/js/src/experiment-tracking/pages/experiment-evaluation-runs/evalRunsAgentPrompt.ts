@@ -16,3 +16,6 @@ export const buildEvaluateAssistantPrompt = (
 Ask about my app (what it does, what framework it uses, whether traces already exist here), then recommend an approach: built-in scorers (Safety, RelevanceToQuery, Guidelines) vs custom, and evaluating existing traces vs a small \`eval_dataset\` with a \`predict_fn\`. Walk me through the minimal \`mlflow.genai.evaluate(...)\` setup.
 
 Run \`mlflow skills list\` rather than guessing at APIs.`;
+
+export const buildAnalyzeEvaluationRunAssistantPrompt = (runUuid: string): string =>
+  `Analyze evaluation run ${runUuid} and provide insights on the results`;

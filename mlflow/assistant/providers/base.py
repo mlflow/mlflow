@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
 from mlflow.assistant.types import Event
+
+ClientToolDelivery = Literal["tool", "structured", "unsupported"]
 
 
 @lru_cache(maxsize=10)
@@ -18,6 +20,13 @@ def load_config(name: str) -> ProviderConfig:
 def clear_config_cache() -> None:
     """Clear the config cache to pick up config changes."""
     load_config.cache_clear()
+
+
+def load_config_or_default(name: str) -> ProviderConfig:
+    try:
+        return load_config(name)
+    except RuntimeError:
+        return ProviderConfig()
 
 
 class ProviderNotConfiguredError(Exception):
@@ -58,6 +67,16 @@ class AssistantProvider(ABC):
     def allows_remote_access(self) -> bool:
         """Whether this provider can serve requests from remote clients."""
         return False
+
+    @property
+    def client_tool_delivery(self) -> ClientToolDelivery:
+        """How this provider delivers actions executed by the client.
+
+        ``tool`` pauses and resumes around a native client-tool call, ``structured`` encodes the
+        action in a schema-constrained final response, and ``unsupported`` cannot request
+        client-executed tools.
+        """
+        return "unsupported"
 
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:

@@ -11,15 +11,21 @@ from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 @experimental(version="3.15.0")
 @dataclass
+class ConnectOptionSettings:
+    hidden: bool = False
+
+
+@experimental(version="3.15.0")
+@dataclass
 class MCPServerVersion:
     name: str
     version: str
     server_json: dict[str, Any]
-    display_name: str | None = None
     status: MCPStatus = MCPStatus.DRAFT
     tools: list[MCPTool] | None = None
     aliases: list[str] = field(default_factory=list)
     tags: dict[str, str] = field(default_factory=dict)
+    connect_options: dict[str, ConnectOptionSettings] = field(default_factory=dict)
     source: str | None = None
     workspace: str | None = None
     created_by: str | None = None
@@ -46,12 +52,15 @@ class MCPServerVersion:
                 name=data["name"],
                 version=data["version"],
                 server_json=data["server_json"],
-                display_name=data.get("display_name"),
                 status=MCPStatus(data["status"]) if data.get("status") else MCPStatus.DRAFT,
                 tools=tools,
                 aliases=data.get("aliases") or [],
                 tags=data.get("tags") or {},
                 source=data.get("source"),
+                connect_options={
+                    k: ConnectOptionSettings(**v)
+                    for k, v in (data.get("connect_options") or {}).items()
+                },
                 workspace=data.get("workspace"),
                 created_by=data.get("created_by"),
                 last_updated_by=data.get("last_updated_by"),
