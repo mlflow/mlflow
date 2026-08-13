@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786605479088,
+  "lastUpdate": 1786617866111,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21869,6 +21869,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.767102000003351,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "45711841+darkdi@users.noreply.github.com",
+            "name": "Dmitry",
+            "username": "darkdi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6bc06f1221a67cd3db6a21f19a5e21c2e4fcf1d7",
+          "message": "Fix docstring `Args` entries that name a parameter the function does not take (#24925)\n\nSigned-off-by: darkdi <rantovov5@gmail.com>\nCo-authored-by: darkdi <rantovov5@gmail.com>",
+          "timestamp": "2026-08-13T19:43:06+09:00",
+          "tree_id": "e18b905e59c906f356b23c90764d5a8609e605b2",
+          "url": "https://github.com/mlflow/mlflow/commit/6bc06f1221a67cd3db6a21f19a5e21c2e4fcf1d7"
+        },
+        "date": 1786617864043,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.1433750999995,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.493072735852133,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.546311625849109,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.3541219406789935,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.840644664120552,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.776342400005888,
             "unit": "ms"
           }
         ]
