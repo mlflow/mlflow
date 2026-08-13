@@ -7,6 +7,26 @@ import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
+import { VIDEO_FILE_EXTENSIONS } from '@mlflow/mlflow/src/experiment-tracking/constants';
+
+/**
+ * Whether a logged-media artifact URL points at a video.
+ *
+ * getArtifactLocationUrl encodes the artifact path into the `path` query
+ * parameter rather than the URL path, so the extension has to be read from
+ * there; inspecting the pathname classifies every artifact as non-video.
+ */
+export const isVideoArtifactUrl = (url: string) => {
+  let candidate = url;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    candidate = parsed.searchParams.get('path') ?? parsed.pathname;
+  } catch {
+    // Relative or malformed URL; fall back to the raw string.
+  }
+  const extension = candidate.split('.').pop()?.toLowerCase();
+  return extension !== undefined && VIDEO_FILE_EXTENSIONS.includes(extension);
+};
 
 export const MIN_GRID_IMAGE_SIZE = 400;
 
@@ -72,7 +92,7 @@ export const ImageGridRunHeader = ({
 
 type ImagePlotProps = {
   imageUrl: string;
-  compressedImageUrl: string;
+  compressedImageUrl?: string;
   imageSize?: number;
   maxImageSize?: number;
 };
@@ -80,10 +100,17 @@ type ImagePlotProps = {
 export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSize }: ImagePlotProps) => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
+  const isVideo = isVideoArtifactUrl(imageUrl);
 
   const [imageLoading, setImageLoading] = useState(true);
 
   useEffect(() => {
+    // A video may have no poster, in which case there is nothing to preload and
+    // nothing to wait for.
+    if (!compressedImageUrl) {
+      setImageLoading(false);
+      return;
+    }
     // Load the image in the memory (should reuse the same request) in order to get the loading state
     setImageLoading(true);
     const img = new window.Image();
@@ -96,15 +123,27 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   }, [compressedImageUrl]);
 
   return (
-    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+    <div
+      css={{
+        width: imageSize || '100%',
+        height: imageSize || '100%',
+        minHeight: 0,
+        // Video fills the height the card has rather than being letterboxed into
+        // the square cell images use.
+        ...(isVideo ? { flex: 1, display: 'flex' } : {}),
+      }}
+    >
       <div css={{ display: 'contents' }}>
-        {compressedImageUrl === undefined || imageLoading ? (
+        {/* A video's poster is optional, so it renders as soon as the element
+            exists; only images wait on the compressed companion. */}
+        {!isVideo && (compressedImageUrl === undefined || imageLoading) ? (
           <div
             css={{
               width: '100%',
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
-              aspectRatio: '1',
+              aspectRatio: isVideo ? undefined : '1',
+              height: isVideo ? '100%' : undefined,
               justifyContent: 'center',
               alignItems: 'center',
             }}
@@ -118,22 +157,50 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               alignItems: 'center',
               justifyContent: 'center',
               width: imageSize || '100%',
-              aspectRatio: '1',
+              aspectRatio: isVideo ? undefined : '1',
+              height: isVideo ? '100%' : undefined,
+              minHeight: 0,
+              // Bound by height as well as width so a square image shrinks to fit a
+              // short card rather than overflowing it.
               maxWidth: maxImageSize,
-              maxHeight: maxImageSize,
+              maxHeight: maxImageSize ?? '100%',
               backgroundColor: theme.colors.backgroundSecondary,
               '.rc-image': {
                 cursor: 'pointer',
               },
             }}
           >
-            <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
-              <Image
-                src={compressedImageUrl}
-                preview={{ src: imageUrl }}
-                style={{ maxWidth: maxImageSize || '100%', maxHeight: maxImageSize || '100%' }}
+            {isVideo ? (
+              // Keyed on src so React swaps the element when the step changes
+              // rather than reusing the previously decoded stream. The webp
+              // companion is the poster, so the grid only decodes on play.
+              <video
+                key={imageUrl}
+                src={imageUrl}
+                poster={compressedImageUrl}
+                controls
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="logged video"
+                style={{
+                  maxWidth: maxImageSize || '100%',
+                  maxHeight: maxImageSize || '100%',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
               />
-            </ImagePreviewGroup>
+            ) : (
+              <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
+                <Image
+                  src={compressedImageUrl}
+                  preview={{ src: imageUrl }}
+                  style={{ maxWidth: maxImageSize || '100%', maxHeight: maxImageSize || '100%' }}
+                />
+              </ImagePreviewGroup>
+            )}
           </div>
         )}
       </div>
@@ -180,7 +247,14 @@ export const ImagePlotWithHistory = ({
   return (
     <ImagePlot
       imageUrl={getArtifactLocationUrl(metadataByStep[step].filepath, runUuid)}
-      compressedImageUrl={getArtifactLocationUrl(metadataByStep[step].compressed_filepath, runUuid)}
+      // The poster is optional for video, and building a URL from an absent
+      // compressed_filepath yields `path=undefined`, which fetches a 404 for
+      // every rendered card.
+      compressedImageUrl={
+        metadataByStep[step].compressed_filepath
+          ? getArtifactLocationUrl(metadataByStep[step].compressed_filepath, runUuid)
+          : undefined
+      }
       imageSize={imageSize}
     />
   );

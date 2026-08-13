@@ -1995,6 +1995,53 @@ def log_image(
     MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
+def log_video(
+    video: str,
+    key: str,
+    step: int | None = None,
+    timestamp: int | None = None,
+    poster: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image", None] = None,
+) -> None:
+    """
+    Logs a video against a key and step, the video counterpart of :py:func:`log_image`
+    time-stepped logging.
+
+    Videos are stored alongside logged images and share their step axis, so the MLflow
+    UI renders them in the metrics section with a step slider. This suits workloads
+    whose per-step artifact is an episode rather than a frame, such as reinforcement
+    learning rollouts.
+
+    The following video formats are supported: mp4, webm, mov.
+
+    MLflow does not transcode. The file is uploaded as given, so it must already be in a
+    format browsers can play; H.264 in an mp4 container is the safest choice.
+
+    Args:
+        video: Local path to the video file.
+        key: Video name, the series the step slider scrubs over. May only contain
+            alphanumerics, underscores (_), dashes (-), periods (.), spaces ( ), and
+            slashes (/).
+        step: Integer training step (iteration) at which the video was saved. Defaults
+            to 0.
+        timestamp: Time when this video was saved. Defaults to the current system time.
+        poster: Optional still shown before playback begins, accepting the same types as
+            :py:func:`log_image`. When omitted the browser renders its own first frame,
+            which requires downloading part of the video, so supplying a poster keeps a
+            grid of many videos cheap.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            for step, path in enumerate(rollout_paths):
+                mlflow.log_video(path, key="rollout", step=step)
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_video(run_id, video, key, step, timestamp, poster)
+
+
 def log_table(
     data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
