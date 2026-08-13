@@ -85,9 +85,17 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
-    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
-    # fails closed.
-    permissions: {}
+    # minted below. `id-token: write` grants GITHUB_TOKEN no repo scope; it only
+    # enables OIDC JWT issuance for the Databricks token exchange, so the
+    # fail-closed stance above is preserved.
+    permissions:
+      id-token: write
+    # The OIDC subject is pinned to `repo:<org>/<repo>:environment:ai-gateway`,
+    # which is stable across both triggers. Ref pinning would need two policies:
+    # `issue_comment` runs on the default branch, `pull_request` on the PR ref.
+    # The environment is shared by every workflow that needs gateway model
+    # access, so its name is not review-specific.
+    environment: ai-gateway
     timeout-minutes: 30
     steps:
       # Two app tokens with split scopes:
@@ -153,17 +161,26 @@ jobs:
           import os
           import sys
 
+          # The Databricks AI Gateway serves Claude through Foundation Model API
+          # endpoints, which are named `databricks-<model>` rather than by the
+          # first-party Anthropic IDs. The first-party IDs stay accepted as input
+          # so existing `/review -m claude-opus-5` comments keep working.
           MODEL_ALIASES = {
-              "fable": "claude-fable-5",
-              "opus": "claude-opus-5",
-              "sonnet": "claude-sonnet-5",
+              "fable": "databricks-claude-fable-5",
+              "opus": "databricks-claude-opus-5",
+              "sonnet": "databricks-claude-sonnet-5",
+              "claude-fable-5": "databricks-claude-fable-5",
+              "claude-opus-5": "databricks-claude-opus-5",
+              "claude-sonnet-5": "databricks-claude-sonnet-5",
           }
-          MODEL_CHOICES = [*MODEL_ALIASES, *MODEL_ALIASES.values()]
+          MODEL_CHOICES = [*MODEL_ALIASES, *dict.fromkeys(MODEL_ALIASES.values())]
           EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
 
           labels = {l["name"] for l in json.loads(os.environ["LABELS_JSON"])}
           big = bool(labels & {"size/M", "size/L", "size/XL"})
-          default_model = "claude-opus-5" if big else "claude-sonnet-5"
+          default_model = (
+              "databricks-claude-opus-5" if big else "databricks-claude-sonnet-5"
+          )
 
           body = sys.stdin.read().removeprefix("/review")
 
@@ -178,12 +195,49 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
+      # Workload identity federation: the job's GitHub OIDC JWT is exchanged for
+      # a short-lived Databricks OAuth token, so no model credential is stored as
+      # a GitHub secret. The gateway fronts Databricks-hosted Claude endpoints,
+      # so there is no Anthropic API key anywhere in the chain.
+      #
+      # The token lives ~1h, well past this job's 30m ceiling, so a single
+      # exchange suffices and no refresh helper is needed. Workflows that can run
+      # longer would need Claude Code's `apiKeyHelper` to re-mint mid-session
+      # (note `databricks auth token` cannot do this — it is U2M-only).
+      - name: Mint Databricks gateway token
+        env:
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_AUTH_TYPE: github-oidc
+          # Must equal the `audiences` entry on the service principal's
+          # federation policy. Without it the SDK defaults the audience to the
+          # workspace token endpoint URL, which the policy would reject.
+          DATABRICKS_TOKEN_AUDIENCE: ${{ vars.DATABRICKS_ACCOUNT_ID }}
+        run: |
+          : "${DATABRICKS_HOST:?Set the DATABRICKS_HOST repository variable}"
+          : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID repository variable}"
+          : "${DATABRICKS_TOKEN_AUDIENCE:?Set the DATABRICKS_ACCOUNT_ID repository variable}"
+          # The SDK owns the OIDC exchange protocol (fetching the Actions JWT and
+          # POSTing it to the workspace token endpoint), so the shape of that
+          # exchange is not hand-rolled here.
+          TOKEN=$(uv run --no-project --with databricks-sdk python -c '
+          from databricks.sdk.core import Config
+          print(Config().authenticate()["Authorization"].split(" ", 1)[1])
+          ')
+          echo "::add-mask::$TOKEN"
+          {
+            echo "ANTHROPIC_AUTH_TOKEN=$TOKEN"
+            echo "ANTHROPIC_BASE_URL=${DATABRICKS_HOST%/}/ai-gateway/anthropic"
+          } >> "$GITHUB_ENV"
+
       - name: Review
         id: review
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          # The gateway's beta allowlist rejects several of the CLI's experimental
+          # betas with HTTP 400, so they must be off on this path.
+          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
@@ -235,7 +289,8 @@ jobs:
       - name: Redact secrets from transcript
         if: always()
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          # ANTHROPIC_AUTH_TOKEN is already in the job env (set via GITHUB_ENV by
+          # the mint step), so it needs no binding here.
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
         run: |
@@ -248,7 +303,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
+          for name in ("ANTHROPIC_AUTH_TOKEN", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
