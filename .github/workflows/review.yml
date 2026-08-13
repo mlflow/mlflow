@@ -263,21 +263,14 @@ jobs:
 
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # stream.sh echoes tool_use inputs to the job log as the session runs,
-          # and that log is public on this repo, so a token the agent minted and
-          # passed to a command would appear there live. ::add-mask:: only affects
-          # output written after it is registered, so register each credential as
-          # it is minted rather than waiting for the failure dump below. This
-          # narrows the exposure window to the poll interval; it does not close it.
-          # Pre-created here, so the helper's own 0600 opener never applies —
-          # tighten it now rather than leaving the file at the runner's umask.
+          # Records the credentials this job hands to Claude Code so the redaction
+          # step can scrub them from the uploaded transcript. Deliberately not
+          # more than that: a token the agent exchanges itself never passes
+          # through the helper, so no amount of bookkeeping here can cover it.
+          # The real bounds are the principal's entitlements and the ~5 minute
+          # expiry, not this file.
           : > "$MINT_TOKEN_SECRETS"
           chmod 600 "$MINT_TOKEN_SECRETS"
-          tail -F "$MINT_TOKEN_SECRETS" 2>/dev/null | while read -r token; do
-            [ -n "$token" ] && echo "::add-mask::$token"
-          done &
-          MASK_PID=$!
-          trap 'kill "$MASK_PID" 2>/dev/null || true' EXIT
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.

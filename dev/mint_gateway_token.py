@@ -90,15 +90,15 @@ def log_diagnostics(expiry: datetime | None) -> None:
 def record_token(token: str) -> None:
     """Append the minted credential to ``MINT_TOKEN_SECRETS`` for later scrubbing.
 
-    A CI caller shares its job environment with whatever it runs, so an agent can
-    mint a token itself, and a transcript that tees raw tool output will capture
-    it. Recording every minted value gives a redaction step something concrete to
-    scrub; the alternative is a transcript with no credential scrubbing at all.
+    This covers only the credentials handed out by this script. A caller shares
+    its environment with whatever else it runs, so an agent can perform its own
+    exchange and obtain a token this file never sees — that residual exposure is
+    bounded by the principal's entitlements and the token's short life, not here.
     """
     if not (path := os.environ.get("MINT_TOKEN_SECRETS")):
         return
     try:
-        with open(path, "a", opener=lambda p, f: os.open(p, f, 0o600)) as f:
+        with open(path, "a") as f:
             f.write(f"{token}\n")
     except OSError as e:
         print(f"Could not write {path}: {e}", file=sys.stderr)
