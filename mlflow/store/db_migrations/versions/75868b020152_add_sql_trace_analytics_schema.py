@@ -13,7 +13,7 @@ from decimal import Decimal, InvalidOperation
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mssql
+from sqlalchemy.dialects import mssql, mysql
 
 from mlflow.tracing.constant import (
     CostKey,
@@ -181,17 +181,96 @@ def _add_dimension_attributes():
         op.add_column("spans", column)
 
 
+def _type_description(type_, dialect):
+    return str(type_.dialect_impl(dialect).compile(dialect=dialect))
+
+
+def _types_are_compatible(expected, actual, dialect):
+    # Frozen copy of trace_analytics.types_are_compatible() as of this revision. See
+    # _validate_existing_column for why the migration must not import the live helper.
+    #
+    # Dispatch on the generic expected type rather than dialect_impl(). Some drivers rewrite a
+    # generic type into a subclass that breaks the isinstance() family checks below: e.g. psycopg
+    # turns sa.Float into _PsycopgFloat, which derives from Numeric (not sa.Float), so a FLOAT(53)
+    # column would be wrongly rejected as incompatible with itself.
+    if isinstance(expected, sa.Text):
+        return isinstance(actual, sa.Text)
+    if isinstance(expected, sa.BigInteger):
+        return isinstance(actual, sa.BigInteger)
+    if isinstance(expected, sa.Integer):
+        return isinstance(actual, sa.Integer) and not isinstance(
+            actual, (sa.BigInteger, sa.SmallInteger)
+        )
+    if isinstance(expected, sa.Float):
+        return isinstance(actual, sa.Float)
+    if isinstance(expected, sa.Boolean):
+        if isinstance(actual, sa.Boolean):
+            return True
+        # MySQL has no native BOOLEAN type: it stores and reflects Boolean columns as TINYINT(1),
+        # so a reflected TINYINT(1) is the expected match on that dialect (e.g. when the online
+        # prepopulation utility added is_numeric_value before this migration validates it).
+        return isinstance(actual, mysql.TINYINT) and getattr(actual, "display_width", None) == 1
+    if isinstance(expected, sa.String):
+        # MySQL maps long String columns to TEXT via with_variant(), so a reflected Text column is
+        # an acceptable match for an expected String on that dialect.
+        if isinstance(actual, sa.Text):
+            return True
+        return isinstance(actual, sa.String) and expected.length == actual.length
+    return type(expected) is type(actual)
+
+
+def _normalized_false_default(default):
+    if default is None:
+        return False
+    normalized = str(default).strip().lower().split("::", maxsplit=1)[0]
+    normalized = normalized.strip("()'\"")
+    return normalized in {"0", "false"}
+
+
+def _validate_existing_column(table_name, expected, actual, dialect):
+    # Frozen copy of trace_analytics._validate_existing_column() (and its helpers above) as of this
+    # revision. The online prepopulation utility adds these columns from the live helper; a version
+    # skew or a hand-altered column could leave them with the wrong type, nullability, or default,
+    # in which case the backfill would write values the schema silently corrupts. Reject that here
+    # rather than depending on live application code, which a later release is free to change. The
+    # parity tests test_frozen_types_are_compatible_matches_the_live_helper and
+    # test_frozen_normalized_false_default_matches_the_live_helper keep the frozen helpers aligned.
+    problems = []
+    if not _types_are_compatible(expected.type, actual["type"], dialect):
+        problems.append(
+            "type "
+            f"{_type_description(actual['type'], dialect)}; expected "
+            f"{_type_description(expected.type, dialect)}"
+        )
+    if expected.nullable != actual["nullable"]:
+        problems.append(f"nullable={actual['nullable']}; expected nullable={expected.nullable}")
+    if expected.server_default is not None and not _normalized_false_default(actual.get("default")):
+        problems.append(
+            f"server default {actual.get('default')!r}; expected a false server default"
+        )
+
+    if problems:
+        raise RuntimeError(
+            f"Cannot apply trace analytics migration: existing column {table_name}.{expected.name} "
+            f"has incompatible schema ({'; '.join(problems)})"
+        )
+
+
 def _add_analytics_columns():
     # Add the frozen analytics columns that are not already present. The online prepopulation
-    # utility may have added some already, so this is add-if-missing rather than a plain add.
-    # Definitions come from the frozen _analytics_columns_by_table() so this historical migration
-    # keeps adding the same columns even after the live helper changes.
+    # utility may have added some already, so this is add-if-missing rather than a plain add, and
+    # any already-present column is validated so a skewed or hand-altered column fails the migration
+    # instead of silently corrupting the backfill. Definitions come from the frozen
+    # _analytics_columns_by_table() so this historical migration keeps adding the same columns even
+    # after the live helper changes.
     bind = op.get_bind()
     for table_name, columns in _analytics_columns_by_table().items():
-        existing = {column["name"] for column in sa.inspect(bind).get_columns(table_name)}
+        existing = {column["name"]: column for column in sa.inspect(bind).get_columns(table_name)}
         for column in columns:
-            if column.name not in existing:
-                op.add_column(table_name, column)
+            if actual := existing.get(column.name):
+                _validate_existing_column(table_name, column, actual, bind.dialect)
+                continue
+            op.add_column(table_name, column)
 
 
 def _drop_analytics_columns():

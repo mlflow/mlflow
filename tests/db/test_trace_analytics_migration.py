@@ -9,6 +9,8 @@ from unittest.mock import Mock
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import event
 from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 
@@ -992,6 +994,59 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
             column["name"] for column in inspector.get_columns("assessments")
         }
         assert "sql_trace_metric_daily_rollups" not in inspector.get_table_names()
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("table_name", "column", "match"),
+    [
+        # Wrong type: the online prepopulation utility, or a hand-altered column, left trace_name
+        # as an integer, so the string backfill would be silently corrupted.
+        (
+            "trace_info",
+            sa.Column("trace_name", sa.Integer(), nullable=True),
+            r"trace_info\.trace_name has incompatible schema",
+        ),
+        # Right type, wrong nullability. A false server default lets SQLite add the NOT NULL column.
+        (
+            "trace_info",
+            sa.Column(
+                "session_id",
+                sa.String(length=MAX_CHARS_IN_TRACE_INFO_METADATA),
+                nullable=False,
+                server_default="",
+            ),
+            r"session_id.*nullable=False; expected nullable=True",
+        ),
+        # is_numeric_value present with a non-false server default: a concurrent insert could store
+        # true, so the finalize-to-NOT-NULL step must not trust it.
+        (
+            "assessments",
+            sa.Column("is_numeric_value", sa.Boolean(), nullable=True, server_default=sa.true()),
+            r"is_numeric_value.*server default",
+        ),
+        # is_numeric_value present without any server default: a concurrent insert could leave NULL.
+        (
+            "assessments",
+            sa.Column("is_numeric_value", sa.Boolean(), nullable=True),
+            r"is_numeric_value.*server default",
+        ),
+    ],
+)
+def test_trace_analytics_migration_rejects_an_incompatible_existing_column(
+    tmp_path, table_name, column, match
+):
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            Operations(MigrationContext.configure(conn)).add_column(table_name, column)
+
+        with pytest.raises(RuntimeError, match=match):
+            command.upgrade(config, REVISION)
+
+        # _add_analytics_columns raises before _create_rollup_tables, so the rollups never appear.
+        assert "sql_trace_metric_daily_rollups" not in sa.inspect(engine).get_table_names()
     finally:
         engine.dispose()
 

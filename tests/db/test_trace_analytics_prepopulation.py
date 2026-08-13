@@ -641,6 +641,48 @@ def test_types_are_incompatible_for_non_boolean_tinyint(expected, actual, dialec
     assert not trace_analytics.types_are_compatible(expected, actual, dialect)
 
 
+@pytest.mark.parametrize(
+    ("expected", "actual", "dialect"),
+    [
+        # Compatible pairs, including the dialect-reflected types the live helper special-cases.
+        (sa.Float(precision=53), postgresql.DOUBLE_PRECISION(precision=53), postgresql.dialect()),
+        (
+            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
+            mysql.TEXT(),
+            mysql.dialect(),
+        ),
+        (sa.Boolean(), mysql.TINYINT(display_width=1), mysql.dialect()),
+        # Incompatible pairs must be rejected identically by the frozen copy.
+        (sa.Boolean(), mysql.TINYINT(display_width=4), mysql.dialect()),
+        (sa.Boolean(), mysql.INTEGER(), mysql.dialect()),
+        (sa.Integer(), sa.BigInteger(), sqlite.dialect()),
+        (sa.String(length=250), sa.String(length=500), sqlite.dialect()),
+    ],
+)
+def test_frozen_types_are_compatible_matches_the_live_helper(expected, actual, dialect):
+    assert MIGRATION_MODULE._types_are_compatible(
+        expected, actual, dialect
+    ) == trace_analytics.types_are_compatible(expected, actual, dialect)
+
+
+@pytest.mark.parametrize(
+    ("default", "expected"),
+    [
+        (None, False),
+        ("0", True),
+        ("false", True),
+        # Postgres reflects a boolean false default as "false::boolean"; MySQL as "0".
+        ("'false'::boolean", True),
+        ("(0)", True),
+        ("1", False),
+        ("true", False),
+    ],
+)
+def test_frozen_normalized_false_default_matches_the_live_helper(default, expected):
+    assert MIGRATION_MODULE._normalized_false_default(default) == expected
+    assert trace_analytics._normalized_false_default(default) == expected
+
+
 def test_prepopulation_conversion_semantics_match_the_frozen_migration():
     numeric_values = [
         None,
