@@ -87,7 +87,8 @@ class PredictResult:
 
             import uuid
             import requests
-            from mlflow.genai.simulators import PredictResult
+            import mlflow
+            from mlflow.genai.simulators import ConversationSimulator, PredictResult
 
 
             def predict_fn(input: list[dict], **kwargs) -> PredictResult:
@@ -100,6 +101,13 @@ class PredictResult:
                 # search for the trace the remote agent wrote using correlation_id
                 trace_id = _find_trace_by_correlation_id(correlation_id)
                 return PredictResult(response=response, trace_id=trace_id)
+
+
+            simulator = ConversationSimulator(
+                test_cases=[{"goal": "Get a summary of last quarter's sales"}],
+                max_turns=5,
+            )
+            traces = simulator.simulate(predict_fn)
     """
 
     response: Any
