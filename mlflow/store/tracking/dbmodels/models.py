@@ -372,9 +372,9 @@ class SqlExperimentTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(5000), nullable=True)
+    value = Column(Text, nullable=True)
     """
-    Value associated with tag: `String` (limit 5000 characters). Could be *null*.
+    Value associated with tag: `Text` (limited to 20000 characters by validation). Could be *null*.
     """
     experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
     """
