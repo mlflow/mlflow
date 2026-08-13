@@ -15,6 +15,7 @@ import {
   TRACE_ID_PREFIX,
 } from '../constants';
 import { defaultLogLevelForSpanType } from '../log_level';
+import { parseTraceIdV4 } from '../utils/trace_id';
 import { SpanEvent } from './span_event';
 import { SpanLink, SerializedSpanLink } from './span_link';
 import { SpanStatus, SpanStatusCode } from './span_status';
@@ -109,6 +110,17 @@ export class Span implements ISpan {
       this._attributesRegistry = new SpanAttributesRegistry(span);
     } else {
       this._attributesRegistry = new CachedSpanAttributesRegistry(span);
+    }
+
+    if (span.links?.length) {
+      this._links = span.links.map(
+        (link) =>
+          new SpanLink({
+            traceId: link.context.traceId,
+            spanId: link.context.spanId,
+            attributes: (link.attributes as Record<string, any>) ?? {},
+          }),
+      );
     }
   }
 
@@ -309,7 +321,6 @@ function convertStatusCodeToOTel(statusCode?: string): OTelSpanStatusCode {
 export class LiveSpan extends Span {
   // Internal only flag to allow mutating the ended span
   allowMutatingEndedSpan: boolean = false;
-  override _links: SpanLink[] = [];
 
   constructor(span: OTelSpan, traceId: string, span_type: SpanType) {
     super(span, true);
@@ -409,9 +420,10 @@ export class LiveSpan extends Span {
     });
     this._links.push(copiedLink);
 
-    const hexTraceId = copiedLink.traceId.startsWith(TRACE_ID_PREFIX)
-      ? copiedLink.traceId.slice(TRACE_ID_PREFIX.length)
-      : copiedLink.traceId;
+    const [, rawId] = parseTraceIdV4(copiedLink.traceId);
+    const hexTraceId = rawId?.startsWith(TRACE_ID_PREFIX)
+      ? rawId.slice(TRACE_ID_PREFIX.length)
+      : (rawId ?? copiedLink.traceId);
 
     this._span.addLink({
       context: {

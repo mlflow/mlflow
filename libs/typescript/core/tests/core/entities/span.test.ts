@@ -495,7 +495,7 @@ describe('Span', () => {
       }
     });
 
-    it('should not carry links when a new Span is created from an ended OTel span', () => {
+    it('should preserve OTel links when a new Span is created from an ended OTel span', () => {
       const traceId = 'tr-12345';
       const span = tracer.startSpan('test');
 
@@ -517,7 +517,12 @@ describe('Span', () => {
       const json = completedSpan.toJson();
 
       expect(json.links).toBeDefined();
-      expect(json.links).toHaveLength(0);
+      expect(json.links).toHaveLength(1);
+      expect(json.links![0]).toMatchObject({
+        trace_id: 'linked-trace',
+        span_id: 'abcdef0123456789',
+        attributes: { kind: 'follows_from' },
+      });
     });
 
     it('should serialize and deserialize links via LiveSpan toJson/fromJson', () => {
