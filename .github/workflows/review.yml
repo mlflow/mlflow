@@ -195,17 +195,22 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      # Workload identity federation: the job's GitHub OIDC JWT is exchanged for
-      # a short-lived Databricks OAuth token, so no model credential is stored as
-      # a GitHub secret. The gateway fronts Databricks-hosted Claude endpoints,
-      # so there is no Anthropic API key anywhere in the chain.
+      # Workload identity federation: Claude Code invokes `apiKeyHelper` to
+      # exchange the job's GitHub OIDC JWT for a Databricks OAuth token, so no
+      # model credential is stored as a GitHub secret and none is ever written to
+      # the job environment. The gateway fronts Databricks-hosted Claude
+      # endpoints, so no Anthropic API key exists anywhere in the chain.
       #
-      # The token lives ~1h, well past this job's 30m ceiling, so a single
-      # exchange suffices and no refresh helper is needed. Workflows that can run
-      # longer would need Claude Code's `apiKeyHelper` to re-mint mid-session
-      # (note `databricks auth token` cannot do this — it is U2M-only).
-      - name: Mint Databricks gateway token
+      # Refreshing is mandatory, not an optimization: the federated token expires
+      # in ~10 minutes (measured — the ~1h figure in the docs describes U2M
+      # tokens), well inside the 20m Claude cap below. The helper TTL is kept
+      # under that lifetime so the credential is replaced before it lapses.
+      # `databricks auth token` cannot serve as the helper — it is U2M-only.
+      - name: Review
+        id: review
         env:
+          # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
+          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
           DATABRICKS_AUTH_TYPE: github-oidc
@@ -213,28 +218,8 @@ jobs:
           # federation policy. Without it the SDK defaults the audience to the
           # workspace token endpoint URL, which the policy would reject.
           DATABRICKS_TOKEN_AUDIENCE: ${{ vars.DATABRICKS_ACCOUNT_ID }}
-        run: |
-          : "${DATABRICKS_HOST:?Set the DATABRICKS_HOST repository variable}"
-          : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID repository variable}"
-          : "${DATABRICKS_TOKEN_AUDIENCE:?Set the DATABRICKS_ACCOUNT_ID repository variable}"
-          # The SDK owns the OIDC exchange protocol (fetching the Actions JWT and
-          # POSTing it to the workspace token endpoint), so the shape of that
-          # exchange is not hand-rolled here.
-          TOKEN=$(uv run --no-project --with databricks-sdk python -c '
-          from databricks.sdk.core import Config
-          print(Config().authenticate()["Authorization"].split(" ", 1)[1])
-          ')
-          echo "::add-mask::$TOKEN"
-          {
-            echo "ANTHROPIC_AUTH_TOKEN=$TOKEN"
-            echo "ANTHROPIC_BASE_URL=${DATABRICKS_HOST%/}/ai-gateway/anthropic"
-          } >> "$GITHUB_ENV"
-
-      - name: Review
-        id: review
-        env:
-          # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
-          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
+          ANTHROPIC_BASE_URL: ${{ vars.DATABRICKS_HOST }}/ai-gateway/anthropic
+          CLAUDE_CODE_API_KEY_HELPER_TTL_MS: "300000"
           # The gateway's beta allowlist rejects several of the CLI's experimental
           # betas with HTTP 400, so they must be off on this path.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
@@ -242,12 +227,22 @@ jobs:
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
         run: |
+          : "${DATABRICKS_HOST:?Set the DATABRICKS_HOST repository variable}"
+          : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID repository variable}"
+          : "${DATABRICKS_TOKEN_AUDIENCE:?Set the DATABRICKS_ACCOUNT_ID repository variable}"
+
+          # Absolute path: the helper runs with Claude's working directory, which
+          # the agent may change during the session.
+          jq -n --arg cmd "uv run --no-project $GITHUB_WORKSPACE/dev/mint_gateway_token.py" \
+            '{apiKeyHelper: $cmd}' > /tmp/claude-settings.json
+
           OUTPUT_FILE="/tmp/output.jsonl"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
           timeout 20m claude \
+            --settings /tmp/claude-settings.json \
             --model "$MODEL" \
             --effort "$EFFORT" \
             --max-budget-usd 5 \
@@ -289,8 +284,8 @@ jobs:
       - name: Redact secrets from transcript
         if: always()
         env:
-          # ANTHROPIC_AUTH_TOKEN is already in the job env (set via GITHUB_ENV by
-          # the mint step), so it needs no binding here.
+          # No model credential to scrub: the Databricks token is minted inside
+          # Claude Code by `apiKeyHelper` and never reaches the job environment.
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
         run: |
@@ -303,7 +298,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("ANTHROPIC_AUTH_TOKEN", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
+          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
