@@ -426,6 +426,7 @@ const RunsCompareImpl = ({
             autoRefreshEnabled={autoRefreshEnabled}
             hideEmptyCharts={hideEmptyCharts}
             globalLineChartConfig={globalLineChartConfig}
+            useMetricDisplayName={false}
           />
         </RunsChartsDraggableCardsGridContextProvider>
       </RunsChartsTooltipWrapper>

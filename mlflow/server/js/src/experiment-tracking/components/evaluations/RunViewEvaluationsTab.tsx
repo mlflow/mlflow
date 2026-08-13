@@ -1,8 +1,7 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
@@ -47,7 +46,7 @@ import {
   RESULT_ASSESSMENT_NAME,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
-import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { useAssistant, useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
@@ -73,6 +72,7 @@ import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useC
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
+import { RunViewEvaluationAnalyzeButton } from './RunViewEvaluationAnalyzeButton';
 
 const ContextProviders = ({
   children,
@@ -99,6 +99,7 @@ const RunViewEvaluationsTabInner = ({
   showRefreshButton = false,
   hideCompareSelector = false,
   runType,
+  canUseAssistant,
 }: {
   experimentId: string;
   runUuid: string;
@@ -109,6 +110,7 @@ const RunViewEvaluationsTabInner = ({
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
   runType?: string;
+  canUseAssistant?: boolean;
 }) => {
   const isRegressionTest = runType === MLFLOW_RUN_TYPE_VALUE_TEST;
   const { theme } = useDesignSystemTheme();
@@ -428,6 +430,7 @@ const RunViewEvaluationsTabInner = ({
                 isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
                 isGroupedBySession={isGroupedBySession}
                 onToggleSessionGrouping={onToggleSessionGrouping}
+                addons={canUseAssistant ? <RunViewEvaluationAnalyzeButton runUuid={runUuid} /> : undefined}
               />
               {
                 // prettier-ignore
@@ -500,6 +503,9 @@ export const RunViewEvaluationsTab = ({
   hideCompareSelector?: boolean;
 }) => {
   const runType = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value;
+  // Gate toolbar slots before creating the React element: the Analyze button can render null
+  // when Assistant is unavailable, but a null-rendering element is still truthy to toolbar callers.
+  const { canUseAssistant } = useAssistant();
 
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -525,6 +531,7 @@ export const RunViewEvaluationsTab = ({
         runDisplayName={runDisplayName}
         data={artifactData}
         runTags={runTags}
+        actions={canUseAssistant ? <RunViewEvaluationAnalyzeButton runUuid={runUuid} /> : undefined}
       />
     );
   }
@@ -539,6 +546,7 @@ export const RunViewEvaluationsTab = ({
       showRefreshButton={showRefreshButton}
       hideCompareSelector={hideCompareSelector}
       runType={runType}
+      canUseAssistant={canUseAssistant}
     />
   );
 };

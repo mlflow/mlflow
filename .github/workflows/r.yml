@@ -48,14 +48,14 @@ jobs:
       run:
         working-directory: mlflow/R/mlflow
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
-      - uses: $/.github/actions/setup-python
-      - uses: $/.github/actions/setup-pyenv
-      - uses: $/.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2.12.1
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -68,7 +68,7 @@ jobs:
           os_name=$(lsb_release -ds | sed 's/\s/-/g')
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         # https://github.com/actions/cache/issues/810
         env:
