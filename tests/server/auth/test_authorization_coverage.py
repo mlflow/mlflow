@@ -46,6 +46,23 @@ def test_no_new_ungated_routes():
     )
 
 
+def test_all_dataset_routes_resolve_a_real_validator():
+    # Guard against a dataset route silently hitting the hard-deny lambda fallback in
+    # _find_validator (which test_no_new_ungated_routes would still count as gated).
+    real = set(a.DATASET_BEFORE_REQUEST_HANDLERS.values()) | set(
+        a.DATASET_EXACT_BEFORE_REQUEST_HANDLERS.values()
+    )
+    unresolved = sorted(
+        f"{method:6} {path}"
+        for path, method in _all_routes()
+        if "/mlflow/datasets/" in path and a._find_validator(_Req(path, method)) not in real
+    )
+    assert not unresolved, (
+        "Dataset routes that fall through to the hard-deny fallback instead of a real "
+        "validator (add them to DATASET_BEFORE_REQUEST_HANDLERS):\n" + "\n".join(unresolved)
+    )
+
+
 def test_known_ungated_markers_are_not_stale():
     matched = set()
     for path, method in _all_routes():
