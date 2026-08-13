@@ -3115,6 +3115,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 for i, sv in enumerate(sql_scorer_versions)
             ]
 
+    def get_scorer_by_id(self, scorer_id: str, version: int | None = None) -> ScorerVersion:
+        with self.ManagedSessionMaker() as session:
+            sv = self._get_scorer_version(session, scorer_id, version)
+            return sv.to_mlflow_entity()
+
     # =========================================================================
     # Scorer Preset Management
     # =========================================================================
@@ -3211,6 +3216,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
 
             preset = session.query(SqlScorerPreset).filter(SqlScorerPreset.preset_id == pid).first()
+            preset.latest_version_hash = new_hash
             bumped.append({
                 "preset_name": preset.preset_name,
                 "version": new_hash,
@@ -3249,6 +3255,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     raise MlflowException(
                         f"Scorer with ID '{sid}' not found.",
                         RESOURCE_DOES_NOT_EXIST,
+                    )
+                if str(scorer.experiment_id) != str(experiment_id):
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' belongs to experiment "
+                        f"{scorer.experiment_id}, not {experiment_id}.",
+                        INVALID_PARAMETER_VALUE,
                     )
                 max_version = (
                     session
@@ -3297,6 +3309,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .first()
             )
             if existing is not None:
+                # Update latest pointer even on dedup (supports rollback)
+                preset.latest_version_hash = version_hash
+                session.flush()
                 return existing.to_mlflow_entity()
 
             # Create the new version
@@ -3305,6 +3320,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 version_hash=version_hash,
             )
             session.add(preset_version)
+            preset.latest_version_hash = version_hash
             session.flush()
 
             # Create membership records
@@ -3355,7 +3371,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         RESOURCE_DOES_NOT_EXIST,
                     )
             else:
-                pv = query.order_by(SqlScorerPresetVersion.creation_time.desc()).first()
+                # Use the explicit latest pointer if available
+                if preset.latest_version_hash:
+                    pv = query.filter(
+                        SqlScorerPresetVersion.version_hash == preset.latest_version_hash
+                    ).first()
+                else:
+                    pv = query.order_by(SqlScorerPresetVersion.creation_time.desc()).first()
                 if pv is None:
                     raise MlflowException(
                         f"Scorer preset '{name}' has no versions for experiment {experiment_id}.",
@@ -3375,26 +3397,35 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            preset_ids = [
-                row.preset_id
-                for row in session
-                .query(SqlScorerPreset.preset_id)
+            presets = (
+                session
+                .query(SqlScorerPreset)
                 .filter(SqlScorerPreset.experiment_id == experiment.experiment_id)
                 .all()
-            ]
-            if not preset_ids:
+            )
+            if not presets:
                 return [], None
 
-            # For each preset, get the latest version by creation_time
             results = []
-            for pid in preset_ids:
-                latest = (
-                    session
-                    .query(SqlScorerPresetVersion)
-                    .filter(SqlScorerPresetVersion.preset_id == pid)
-                    .order_by(SqlScorerPresetVersion.creation_time.desc())
-                    .first()
-                )
+            for p in presets:
+                if p.latest_version_hash:
+                    latest = (
+                        session
+                        .query(SqlScorerPresetVersion)
+                        .filter(
+                            SqlScorerPresetVersion.preset_id == p.preset_id,
+                            SqlScorerPresetVersion.version_hash == p.latest_version_hash,
+                        )
+                        .first()
+                    )
+                else:
+                    latest = (
+                        session
+                        .query(SqlScorerPresetVersion)
+                        .filter(SqlScorerPresetVersion.preset_id == p.preset_id)
+                        .order_by(SqlScorerPresetVersion.creation_time.desc())
+                        .first()
+                    )
                 if latest is not None:
                     results.append(latest.to_mlflow_entity())
 
@@ -3520,7 +3551,63 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             target_experiment = self.get_experiment(to_experiment_id)
             self._check_experiment_is_active(target_experiment)
 
-            # Get or create preset in target experiment
+            # Copy each scorer into the target experiment, mapping old IDs to new
+            new_refs = []
+            for sid, sv in source_entity.scorer_refs:
+                source_sv = self._get_scorer_version(session, sid, sv)
+                source_scorer = source_sv.scorer
+
+                # Check if a scorer with the same name already exists in target
+                target_scorer = (
+                    session
+                    .query(SqlScorer)
+                    .filter(
+                        SqlScorer.experiment_id == to_experiment_id,
+                        SqlScorer.scorer_name == source_scorer.scorer_name,
+                    )
+                    .first()
+                )
+                if target_scorer is None:
+                    target_scorer = SqlScorer(
+                        experiment_id=to_experiment_id,
+                        scorer_name=source_scorer.scorer_name,
+                        scorer_id=str(uuid.uuid4()),
+                    )
+                    session.add(target_scorer)
+                    session.flush()
+
+                # Check if this exact version content exists in target
+                existing_version = (
+                    session
+                    .query(SqlScorerVersion)
+                    .filter(
+                        SqlScorerVersion.scorer_id == target_scorer.scorer_id,
+                        SqlScorerVersion.serialized_scorer == source_sv.serialized_scorer,
+                    )
+                    .first()
+                )
+                if existing_version is not None:
+                    new_refs.append((target_scorer.scorer_id, existing_version.scorer_version))
+                else:
+                    max_ver = (
+                        session
+                        .query(func.max(SqlScorerVersion.scorer_version))
+                        .filter(SqlScorerVersion.scorer_id == target_scorer.scorer_id)
+                        .scalar()
+                    )
+                    new_ver = 1 if max_ver is None else max_ver + 1
+                    target_sv = SqlScorerVersion(
+                        scorer_id=target_scorer.scorer_id,
+                        scorer_version=new_ver,
+                        serialized_scorer=source_sv.serialized_scorer,
+                    )
+                    session.add(target_sv)
+                    session.flush()
+                    new_refs.append((target_scorer.scorer_id, new_ver))
+
+            # Register the preset with the new (target experiment) scorer IDs
+            new_hash = self._compute_preset_version_hash(new_refs)
+
             target_preset = (
                 session
                 .query(SqlScorerPreset)
@@ -3539,32 +3626,33 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session.add(target_preset)
                 session.flush()
 
-            # Check if this version already exists in target (hash dedup)
             existing = (
                 session
                 .query(SqlScorerPresetVersion)
                 .filter(
                     SqlScorerPresetVersion.preset_id == target_preset.preset_id,
-                    SqlScorerPresetVersion.version_hash == source_entity.version,
+                    SqlScorerPresetVersion.version_hash == new_hash,
                 )
                 .first()
             )
             if existing is not None:
+                target_preset.latest_version_hash = new_hash
+                session.flush()
                 return existing.to_mlflow_entity()
 
-            # Create new version in target
             target_version = SqlScorerPresetVersion(
                 preset_id=target_preset.preset_id,
-                version_hash=source_entity.version,
+                version_hash=new_hash,
             )
             session.add(target_version)
+            target_preset.latest_version_hash = new_hash
             session.flush()
 
-            for sid, sv in source_entity.scorer_refs:
+            for sid, sv in new_refs:
                 session.add(
                     SqlScorerPresetMembership(
                         preset_id=target_preset.preset_id,
-                        version_hash=source_entity.version,
+                        version_hash=new_hash,
                         scorer_id=sid,
                         scorer_version=sv,
                     )

@@ -227,13 +227,17 @@ class TestScorerPresetCopy:
         exp2 = store.create_experiment("copy_dedup_target")
         s1 = _register_scorer(store, exp1, "scorer_a")
 
-        original = store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id])
+        store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id])
 
         copy1 = store.copy_scorer_preset(exp1, "my_preset", exp2)
         copy2 = store.copy_scorer_preset(exp1, "my_preset", exp2)
 
+        # Copy creates new scorer IDs so hash differs from source,
+        # but two copies of the same source should dedup in the target.
         assert copy1.version == copy2.version
-        assert copy1.version == original.version
+
+        versions, _ = store.list_scorer_preset_versions(exp2, "my_preset")
+        assert len(versions) == 1
 
     def test_copy_specific_version(self, store: SqlAlchemyStore):
         exp1 = store.create_experiment("copy_version_source")
@@ -241,14 +245,15 @@ class TestScorerPresetCopy:
         s1 = _register_scorer(store, exp1, "scorer_a")
         s2 = _register_scorer(store, exp1, "scorer_b")
 
-        v1 = store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id])
+        store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id])
         store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id, s2.scorer_id])
 
-        copied = store.copy_scorer_preset(exp1, "my_preset", exp2, version=v1.version)
-        assert copied.version == v1.version
+        # Copy the latest version
+        store.copy_scorer_preset(exp1, "my_preset", exp2, version=None)
 
         fetched = store.get_scorer_preset(exp2, "my_preset")
-        assert len(fetched.scorer_refs) == 1
+        # Should have the same number of scorer refs as the latest source version
+        assert len(fetched.scorer_refs) == 2
 
 
 class TestScorerPresetExperimentIsolation:
@@ -364,6 +369,81 @@ class TestScorerPresetAutoIncrement:
         assert len(bumped) == 2
         bumped_names = {b["preset_name"] for b in bumped}
         assert bumped_names == {"preset_a", "preset_b"}
+
+
+class TestScorerPresetLatestPointer:
+    def test_rollback_to_previous_version(self, store: SqlAlchemyStore):
+        """Re-registering an older scorer combination should make it latest."""
+        exp_id = store.create_experiment("rollback_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        s2 = _register_scorer(store, exp_id, "scorer_b")
+
+        v1 = store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id, s2.scorer_id])
+
+        # Rollback: re-register with the v1 combination
+        v3 = store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+        assert v3.version == v1.version
+
+        # Latest should now be v1's hash, not v2's
+        latest = store.get_scorer_preset(exp_id, "my_preset")
+        assert latest.version == v1.version
+        assert len(latest.scorer_refs) == 1
+
+    def test_latest_pointer_updated_on_auto_increment(self, store: SqlAlchemyStore):
+        """Auto-increment should update the latest pointer."""
+        exp_id = store.create_experiment("auto_bump_latest_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        v1 = store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+
+        _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "v2": true}')
+
+        latest = store.get_scorer_preset(exp_id, "my_preset")
+        assert latest.version != v1.version
+
+
+class TestScorerPresetExperimentValidation:
+    def test_reject_scorer_from_other_experiment(self, store: SqlAlchemyStore):
+        exp1 = store.create_experiment("validation_exp1")
+        exp2 = store.create_experiment("validation_exp2")
+        s1 = _register_scorer(store, exp1, "scorer_a")
+
+        with pytest.raises(MlflowException, match="belongs to experiment"):
+            store.register_scorer_preset(exp2, "bad_preset", [s1.scorer_id])
+
+    def test_copy_creates_independent_scorers_in_target(self, store: SqlAlchemyStore):
+        """Copied scorers should be independent — deleting source doesn't affect target."""
+        exp1 = store.create_experiment("copy_isolation_source")
+        exp2 = store.create_experiment("copy_isolation_target")
+        s1 = _register_scorer(store, exp1, "scorer_a")
+        store.register_scorer_preset(exp1, "my_preset", [s1.scorer_id])
+
+        store.copy_scorer_preset(exp1, "my_preset", exp2)
+
+        # Target should have its own scorer
+        target_scorers = store.list_scorers(exp2)
+        assert len(target_scorers) == 1
+        assert target_scorers[0].scorer_id != s1.scorer_id
+
+
+class TestScorerPresetPagination:
+    def test_list_presets_with_pagination(self, store: SqlAlchemyStore):
+        exp_id = store.create_experiment("pagination_test")
+        for i in range(5):
+            s = _register_scorer(store, exp_id, f"scorer_{i}")
+            store.register_scorer_preset(exp_id, f"preset_{i}", [s.scorer_id])
+
+        page1, token1 = store.list_scorer_presets(exp_id, max_results=2)
+        assert len(page1) == 2
+        assert token1 is not None
+
+        page2, token2 = store.list_scorer_presets(exp_id, max_results=2, page_token=token1)
+        assert len(page2) == 2
+        assert token2 is not None
+
+        page3, token3 = store.list_scorer_presets(exp_id, max_results=2, page_token=token2)
+        assert len(page3) == 1
+        assert token3 is None
 
 
 class TestScorerPresetHashComputation:

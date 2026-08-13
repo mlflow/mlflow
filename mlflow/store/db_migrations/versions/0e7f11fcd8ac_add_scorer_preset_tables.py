@@ -26,6 +26,7 @@ def upgrade():
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("preset_name", sa.String(length=256), nullable=False),
         sa.Column("preset_id", sa.String(length=36), nullable=False),
+        sa.Column("latest_version_hash", sa.String(length=64), nullable=True),
         sa.ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],

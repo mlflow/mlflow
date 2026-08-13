@@ -1723,6 +1723,9 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def get_scorer_by_id(self, scorer_id: str, version: int | None = None) -> ScorerVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
     def register_scorer_preset(
         self, experiment_id: str, name: str, scorer_ids: list[str]
     ) -> "ScorerPresetVersion":

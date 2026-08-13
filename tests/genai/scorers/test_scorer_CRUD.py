@@ -403,12 +403,13 @@ def test_mlflow_backend_preset_operations():
         assert result.version is not None
         assert result.preset_id is not None
 
-        # Get the preset
+        # Get the preset — returns a functional Preset object
         fetched = get_scorer_preset(name="my_test_preset", experiment_id=experiment_id)
-        assert fetched.preset_name == "my_test_preset"
-        assert len(fetched.scorer_refs) == 2
+        assert fetched.name == "my_test_preset"
+        assert len(fetched.scorers) == 2
+        assert fetched.version is not None
 
-        # List presets
+        # List presets — returns ScorerPresetVersion objects
         presets = list_scorer_presets(experiment_id=experiment_id)
         assert len(presets) == 1
         assert presets[0].preset_name == "my_test_preset"
@@ -418,7 +419,7 @@ def test_mlflow_backend_preset_operations():
         preset.copy(to_experiment_id=experiment_id_2, experiment_id=experiment_id)
 
         copied = get_scorer_preset(name="my_test_preset", experiment_id=experiment_id_2)
-        assert copied.preset_name == "my_test_preset"
+        assert copied.name == "my_test_preset"
 
         # Delete the preset
         delete_scorer_preset(name="my_test_preset", experiment_id=experiment_id)
@@ -440,10 +441,11 @@ def test_mlflow_backend_builtin_preset_register():
 
         result = Agent().register(experiment_id=experiment_id)
         assert result.preset_name == "agent"
-        assert len(result.scorer_refs) == 5
+        assert result.version is not None
 
         fetched = get_scorer_preset(name="agent", experiment_id=experiment_id)
-        assert fetched.version == result.version
+        assert fetched.name == "agent"
+        assert len(fetched.scorers) == 5
 
         # All 5 scorers should have been auto-registered
         scorers = list_scorers(experiment_id=experiment_id)

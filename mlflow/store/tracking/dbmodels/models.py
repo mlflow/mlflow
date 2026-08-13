@@ -2285,6 +2285,7 @@ class SqlScorerPreset(Base):
     )
     preset_name = Column(String(256), nullable=False)
     preset_id = Column(String(36), nullable=False)
+    latest_version_hash = Column(String(64), nullable=True)
 
     experiment = relationship("SqlExperiment", backref=backref("scorer_presets", cascade="all"))
 

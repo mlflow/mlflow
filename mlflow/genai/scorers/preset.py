@@ -64,6 +64,10 @@ class Preset:
 
         self._name = name
         self._scorers = list(scorers)
+        self._version: str | None = None
+        self._preset_id: str | None = None
+        self._experiment_id: str | None = None
+        self._creation_time: int | None = None
 
     @property
     def name(self) -> str:
@@ -72,6 +76,14 @@ class Preset:
     @property
     def scorers(self) -> list["Scorer"]:
         return list(self._scorers)
+
+    @property
+    def version(self) -> str | None:
+        return self._version
+
+    @property
+    def preset_id(self) -> str | None:
+        return self._preset_id
 
     def register(self, *, experiment_id: str | None = None):
         """Register this preset to the MLflow server for team sharing.
@@ -88,8 +100,20 @@ class Preset:
         store = _get_store()
         scorer_store = _get_scorer_store()
 
+        import json
+
         scorer_ids = []
         for s in self._scorers:
+            # Check if this scorer already exists with identical content
+            try:
+                existing = store.get_scorer(experiment_id, s.name)
+                existing_data = json.loads(existing._serialized_scorer)
+                new_data = s.model_dump()
+                if existing_data == new_data:
+                    scorer_ids.append(existing.scorer_id)
+                    continue
+            except Exception:
+                pass
             scorer_store.register_scorer(experiment_id, s)
             sv = store.get_scorer(experiment_id, s.name)
             scorer_ids.append(sv.scorer_id)

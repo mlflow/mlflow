@@ -433,6 +433,7 @@ CREATE TABLE scorer_presets (
 	experiment_id INTEGER NOT NULL,
 	preset_name VARCHAR(256) NOT NULL,
 	preset_id VARCHAR(36) NOT NULL,
+	latest_version_hash VARCHAR(64),
 	CONSTRAINT scorer_preset_pk PRIMARY KEY (preset_id),
 	CONSTRAINT fk_scorer_presets_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )

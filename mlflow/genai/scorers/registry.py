@@ -721,18 +721,35 @@ def delete_scorer(
 def get_scorer_preset(*, name: str, experiment_id: str | None = None, version: str | None = None):
     """Retrieve a registered scorer preset by name.
 
+    Returns a functional Preset that can be passed to ``evaluate()``.
+
     Args:
         name: The preset name.
         experiment_id: The experiment ID. If None, uses the active experiment.
         version: The preset version hash. If None, returns the latest version.
 
     Returns:
-        ScorerPresetVersion with experiment_id, preset_name, version hash,
-        scorer_refs (list of (scorer_id, scorer_version) tuples), and creation_time.
+        A Preset object with scorers hydrated from the stored references.
     """
+    from mlflow.genai.scorers.preset import Preset
+
     experiment_id = experiment_id or _get_experiment_id()
-    store = _get_store()
-    return store.get_scorer_preset(experiment_id, name, version)
+    scorer_store = _get_scorer_store()
+    preset_version = scorer_store._tracking_store.get_scorer_preset(experiment_id, name, version)
+
+    # Hydrate scorer refs into real Scorer instances
+    scorers = []
+    for scorer_id, scorer_ver in preset_version.scorer_refs:
+        scorer_version_entity = scorer_store._tracking_store.get_scorer_by_id(scorer_id, scorer_ver)
+        scorer = Scorer.model_validate(json.loads(scorer_version_entity._serialized_scorer))
+        scorers.append(scorer)
+
+    preset = Preset(name=preset_version.preset_name, scorers=scorers)
+    preset._version = preset_version.version
+    preset._preset_id = preset_version.preset_id
+    preset._experiment_id = preset_version.experiment_id
+    preset._creation_time = preset_version.creation_time
+    return preset
 
 
 def list_scorer_presets(*, experiment_id: str | None = None):
