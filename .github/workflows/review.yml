@@ -115,21 +115,14 @@ jobs:
           echo "JOB_RUN_URL=$JOB_RUN_URL" >> "$GITHUB_ENV"
       - name: React to comment
         if: github.event_name == 'issue_comment'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          github-token: ${{ steps.app-token-write.outputs.token }}
-          retries: 3
-          script: |
-            const { comment } = context.payload;
-            const message = `🚀 [Review running...](${process.env.JOB_RUN_URL})`;
-            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
-
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: comment.id,
-              body: updatedBody,
-            });
+        env:
+          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$JOB_RUN_URL" \
+            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

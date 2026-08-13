@@ -9,6 +9,7 @@ import pathlib
 import re
 import shutil
 import textwrap
+from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
@@ -49,6 +50,7 @@ from mlflow.transformers import (
     get_default_conda_env,
     get_default_pip_requirements,
 )
+from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
 from mlflow.types.schema import Array, ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -413,6 +415,31 @@ def test_basic_save_model_with_torch_dtype(text2text_generation_pipeline, model_
     assert loaded.model.dtype == torch.float32
 
 
+@contextmanager
+def _capture_transformers_log_messages():
+    # transformers >= 4.56.0 warns via `logger.warning_once` when the deprecated `torch_dtype`
+    # kwarg is passed to `from_pretrained`/`pipeline`, so capture the transformers logger output.
+    messages = []
+
+    class _CaptureHandler(logging.Handler):
+        def emit(self, record):
+            messages.append(record.getMessage())
+
+    handler = _CaptureHandler()
+    transformers_logger = logging.getLogger("transformers")
+    transformers_logger.addHandler(handler)
+    try:
+        yield messages
+    finally:
+        transformers_logger.removeHandler(handler)
+
+
+def _reset_transformers_warning_once_cache():
+    # `logger.warning_once` deduplicates for the lifetime of the process; reset it so a
+    # warning consumed by an earlier test cannot mask one triggered here.
+    transformers.utils.logging.warning_once.cache_clear()
+
+
 def test_load_model_does_not_emit_torch_dtype_deprecation_warning(
     text_classification_pipeline, model_path
 ):
@@ -427,25 +454,72 @@ def test_load_model_does_not_emit_torch_dtype_deprecation_warning(
     flavor_conf = Model.load(model_path).flavors[mlflow.transformers.FLAVOR_NAME]
     assert flavor_conf["torch_dtype"] == str(text_classification_pipeline.model.dtype)
 
-    # transformers >= 4.56.0 warns via `logger.warning_once` when the deprecated `torch_dtype`
-    # kwarg is passed to `from_pretrained`/`pipeline`, so capture the transformers logger output.
-    messages = []
-
-    class _CaptureHandler(logging.Handler):
-        def emit(self, record):
-            messages.append(record.getMessage())
-
-    handler = _CaptureHandler()
-    transformers_logger = logging.getLogger("transformers")
-    transformers_logger.addHandler(handler)
-    try:
+    _reset_transformers_warning_once_cache()
+    with _capture_transformers_log_messages() as messages:
         loaded = mlflow.transformers.load_model(model_path)
-    finally:
-        transformers_logger.removeHandler(handler)
 
     assert not any("torch_dtype` is deprecated" in msg for msg in messages)
     # The recorded dtype is still applied on load.
     assert loaded.model.dtype == text_classification_pipeline.model.dtype
+
+
+@pytest.mark.parametrize("dtype_kwarg", ["torch_dtype", "dtype"])
+def test_load_model_with_explicit_dtype_does_not_emit_deprecation_warning(
+    text_classification_pipeline, model_path, dtype_kwarg
+):
+    mlflow.transformers.save_model(
+        transformers_model=text_classification_pipeline,
+        path=model_path,
+    )
+
+    _reset_transformers_warning_once_cache()
+    original_pipeline = transformers.pipeline
+    with (
+        _capture_transformers_log_messages() as messages,
+        mock.patch("transformers.pipeline", side_effect=original_pipeline) as pipeline_spy,
+    ):
+        loaded = mlflow.transformers.load_model(model_path, **{dtype_kwarg: torch.float16})
+
+    assert not any("torch_dtype` is deprecated" in msg for msg in messages)
+    # Only the spelling the installed transformers version expects reaches `pipeline()`.
+    expected_kwarg = _get_torch_dtype_kwarg_name()
+    unexpected_kwarg = "torch_dtype" if expected_kwarg == "dtype" else "dtype"
+    assert pipeline_spy.call_args.kwargs[expected_kwarg] == torch.float16
+    assert unexpected_kwarg not in pipeline_spy.call_args.kwargs
+    # The explicitly requested dtype overrides the recorded one.
+    assert loaded.model.dtype == torch.float16
+
+
+def test_save_model_with_dict_input_dtype_does_not_emit_deprecation_warning(
+    text_classification_pipeline, model_path
+):
+    model_dict = {
+        "model": text_classification_pipeline.model,
+        "tokenizer": text_classification_pipeline.tokenizer,
+        "torch_dtype": torch.float16,
+    }
+    original_model_dict = dict(model_dict)
+
+    _reset_transformers_warning_once_cache()
+    original_pipeline = transformers.pipeline
+    with (
+        _capture_transformers_log_messages() as messages,
+        mock.patch("transformers.pipeline", side_effect=original_pipeline) as pipeline_spy,
+    ):
+        mlflow.transformers.save_model(
+            transformers_model=model_dict,
+            path=model_path,
+            task="text-classification",
+        )
+
+    assert not any("torch_dtype` is deprecated" in msg for msg in messages)
+    # The dtype is forwarded under the spelling the installed transformers version expects.
+    expected_kwarg = _get_torch_dtype_kwarg_name()
+    unexpected_kwarg = "torch_dtype" if expected_kwarg == "dtype" else "dtype"
+    assert pipeline_spy.call_args_list[0].kwargs[expected_kwarg] == torch.float16
+    assert unexpected_kwarg not in pipeline_spy.call_args_list[0].kwargs
+    # The caller's dict is not mutated.
+    assert model_dict == original_model_dict
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):

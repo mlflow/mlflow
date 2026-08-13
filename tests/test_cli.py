@@ -84,6 +84,10 @@ def test_server_static_prefix_validation():
         result = CliRunner().invoke(server, ["--static-prefix", "/mlflow/"])
         assert "--static-prefix should not end with a '/'." in result.output
         run_server_mock.assert_not_called()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--static-prefix", "/{user}"])
+        assert "--static-prefix must not contain '{' or '}'." in result.output
+        run_server_mock.assert_not_called()
 
 
 def test_server_cli_fails_when_workspace_env_set():

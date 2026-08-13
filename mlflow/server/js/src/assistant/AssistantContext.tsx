@@ -11,6 +11,7 @@ import {
   type AssistantPart,
   type ChatMessage,
   type PermissionRequest,
+  type PendingClientToolCall,
   type AssistantProviderSelection,
   type ProviderInfo,
   type ProvidersResponse,
@@ -25,10 +26,12 @@ import {
   getConfig,
   getProviders,
   resumeStream,
+  submitClientToolResult as submitClientToolResultApi,
   updateConfig,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
+import { getClientToolHandler } from './clientToolHandlers';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
@@ -150,6 +153,8 @@ const activeProviderFromSelection = (
       auto_selected: false,
       requires_api_key: selection.requiresApiKey ?? false,
       has_api_key: selection.hasApiKey ?? true,
+      // The gateway is always backed by OpenAICompatibleProvider server-side.
+      supports_client_tools: true,
       model_provider: selection.gatewayVendor,
       provider_model: selection.providerModel ?? null,
       model_options: selection.modelOptions ?? [],
@@ -163,6 +168,7 @@ const activeProviderFromSelection = (
     auto_selected: false,
     requires_api_key: provider?.requires_api_key ?? false,
     has_api_key: provider?.has_api_key ?? false,
+    supports_client_tools: provider?.supports_client_tools ?? false,
     model_options: provider?.model_options ?? [],
   };
 };
@@ -279,6 +285,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
+  const [pendingClientToolCall, setPendingClientToolCall] = useState<PendingClientToolCall | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
 
@@ -412,6 +419,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
   }, [closeStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
@@ -479,6 +487,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handlePermissionRequest = useCallback((request: PermissionRequest) => {
     setPendingPermission(request);
+  }, []);
+
+  const handleClientToolCall = useCallback((request: PendingClientToolCall) => {
+    setPendingClientToolCall(request);
   }, []);
 
   // Setup actions
@@ -609,6 +621,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       eventSourceRef.current = null;
       setActiveTools([]);
       setPendingPermission(null);
+      setPendingClientToolCall(null);
       closeStreamingMessage({ reason: TurnEndReason.Failed, error: errorMsg });
     },
     [closeStreamingMessage],
@@ -619,6 +632,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
     eventSourceRef.current = null;
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
@@ -642,6 +656,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       onInterrupted: interruptStreamingTurn,
       onUsage: handleUsage,
       onPermissionRequest: handlePermissionRequest,
+      onClientToolCall: handleClientToolCall,
     }),
     [
       writeStreamedText,
@@ -654,6 +669,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       interruptStreamingTurn,
       handleUsage,
       handlePermissionRequest,
+      handleClientToolCall,
     ],
   );
 
@@ -700,6 +716,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPersistedChat({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE });
     openTextBufferRef.current = '';
     setPendingPermission(null);
+    setPendingClientToolCall(null);
   }, [setPersistedChat]);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
@@ -733,6 +750,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
       // backend closes the orphaned tool call out as cancelled.
       setPendingPermission(null);
+      setPendingClientToolCall(null);
 
       // Add user message if prompt provided
       if (prompt) {
@@ -828,6 +846,67 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
   );
 
+  const submitClientToolResult = useCallback(
+    (content: string, isError = false) => {
+      if (!pendingClientToolCall) {
+        return;
+      }
+      // Target the request's originating session, not the current one, so a
+      // session change while the call was pending can't resolve the wrong turn.
+      const { sessionId: requestSessionId, requestId } = pendingClientToolCall;
+      setPendingClientToolCall(null);
+      setError(null);
+      setErrorCode(null);
+      setIsStreaming(true);
+
+      // The paused assistant placeholder keeps streaming — no new message; the
+      // resume stream continues accumulating into it until done.
+      const isCurrent = beginRequest();
+      submitClientToolResultApi(requestSessionId, requestId, content, isError, withGuard(isCurrent, streamCallbacks))
+        .then((result) => {
+          attachStreamIfCurrent(isCurrent, result);
+        })
+        .catch((err) => {
+          if (isCurrent()) {
+            failStreamingTurn(err instanceof Error ? err.message : 'Failed to resume');
+          }
+        });
+    },
+    [pendingClientToolCall, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+  );
+
+  // A client_tool_call needs no user interaction (unlike a permission prompt):
+  // look up the feature-registered handler for the tool name (see
+  // clientToolHandlers.ts), run it, and report the result to resume the stream.
+  // No registered handler (e.g. the owning feature isn't mounted) reports an
+  // error so the paused turn doesn't hang forever.
+  useEffect(() => {
+    if (!pendingClientToolCall) {
+      return;
+    }
+    let cancelled = false;
+    const { toolName, toolInput } = pendingClientToolCall;
+    const handler = getClientToolHandler(toolName);
+    if (!handler) {
+      submitClientToolResult(`No handler is registered for client tool "${toolName}".`, true);
+      return;
+    }
+    handler(toolInput)
+      .then((result) => {
+        if (!cancelled) {
+          submitClientToolResult(result.content, result.isError);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          submitClientToolResult(err instanceof Error ? err.message : 'Client tool execution failed', true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingClientToolCall, submitClientToolResult]);
+
   const handleSendMessage = useCallback(
     async (message: string) => {
       if (!sessionId) {
@@ -841,6 +920,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setErrorCode(null);
       setIsStreaming(true);
       setPendingPermission(null);
+      setPendingClientToolCall(null);
 
       // Add user message
       setMessages((prev) => [
@@ -936,6 +1016,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
   }, [sessionId, isStreaming, closeStreamingMessage]);
 
   const regenerateLastMessage = useCallback(async () => {
@@ -1040,6 +1121,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     needsApiKey,
     pendingPrompt,
     pendingPermission,
+    pendingClientToolCall,
     canUseAssistant,
     tokenUsage,
     // Actions
@@ -1055,6 +1137,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     refreshConfig,
     completeSetup,
     respondToPermission,
+    submitClientToolResult,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -1079,6 +1162,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   needsApiKey: false,
   pendingPrompt: null,
   pendingPermission: null,
+  pendingClientToolCall: null,
   canUseAssistant: false,
   tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
@@ -1093,6 +1177,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
   respondToPermission: () => {},
+  submitClientToolResult: () => {},
 };
 
 /**

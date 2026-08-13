@@ -344,6 +344,37 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
+def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
+    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/v1/traces", "GET") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/jobs/search", "GET") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is None
+
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/v1/traces", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/ajax-api/3.0/jobs/search", "GET") is not None
+    assert (
+        _find_fastapi_validator("/mlflow/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
+    )
+    # An unprefixed route root still resolves a validator: nothing serves that path
+    # once a prefix is configured, and this errs toward requiring auth.
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/api/2.0/mlflow/experiments/search", "GET") is None
+
+
+def test_find_fastapi_validator_leaves_prefixed_artifact_paths_to_flask(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    artifact_path = "/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl"
+
+    native = _find_fastapi_validator(artifact_path, "GET")
+    assert native.__qualname__ == "_get_fastapi_proxy_artifact_validator.<locals>.validator"
+
+    assert _find_fastapi_validator(f"/mlflow{artifact_path}", "GET") is None
+
+
 def test_proxy_artifact_mpu_path_detection():
     # MPU create/complete/abort paths should be recognized as proxy artifact paths
     for action in ("create", "complete", "abort"):
@@ -4409,6 +4440,44 @@ def test_gateway_auth_header_honors_internal_token(mock_auth_store, mock_auth_co
     assert user.username == "alice"
     mock_auth_store.get_user.assert_called_once_with("alice")
     mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_auth_header_honored_under_static_prefix(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/myprefix/gateway/proxy/my-endpoint/v1/responses",
+        authorization="Bearer sk-provider-key",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_internal_token_not_honored_on_non_gateway_prefixed_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # The internal token must not become a master password for non-gateway routes.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/myprefix/ajax-api/3.0/jobs/search",
+        authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_auth_store.get_user.assert_not_called()
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
 
 
 def test_gateway_auth_header_malformed_returns_none(mock_auth_store, mock_auth_config):

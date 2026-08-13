@@ -11,6 +11,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
   PermissionRequest,
+  PendingClientToolCall,
   ProvidersResponse,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
@@ -127,6 +128,7 @@ export interface SendMessageStreamCallbacks {
   onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
+  onClientToolCall?: (request: PendingClientToolCall) => void;
   onUsage?: (usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -149,8 +151,18 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
-    callbacks;
+  const {
+    onMessage,
+    onError,
+    onDone,
+    onStatus,
+    onToolUse,
+    onToolResult,
+    onInterrupted,
+    onPermissionRequest,
+    onClientToolCall,
+    onUsage,
+  } = callbacks;
 
   // Listen for 'message' events (contains assistant's response)
   // Backend sends: {"message": {"role": "assistant", "content": "..."}}
@@ -206,6 +218,25 @@ const attachStreamListeners = (
       });
     } catch (err) {
       onError('Failed to read a tool permission request from the assistant.');
+    }
+    eventSource.close();
+  });
+
+  // A 'client_tool_call' also ENDS the turn: the tool must be executed by the
+  // client (e.g. rendering an agent-authored UI spec), not the server. We
+  // surface it and close the stream; the result is delivered via
+  // submitClientToolResult, which opens a fresh stream to continue.
+  eventSource.addEventListener('client_tool_call', (event) => {
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      onClientToolCall?.({
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+      });
+    } catch (err) {
+      onError('Failed to read a client tool call from the assistant.');
     }
     eventSource.close();
   });
@@ -312,6 +343,33 @@ export const resumeStream = async (
     });
   } catch (error) {
     callbacks.onError('Failed to send your permission decision. Please try again.');
+    return { eventSource: null };
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { eventSource };
+};
+
+/**
+ * Resume a turn paused at a client_tool_call: POST the client-executed
+ * result, then open a fresh stream that continues from where the turn left
+ * off. Mirrors resumeStream's permission-prompt flow.
+ */
+export const submitClientToolResult = async (
+  sessionId: string,
+  requestId: string,
+  content: string,
+  isError: boolean,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/tool-result`), {
+      method: 'POST',
+      body: JSON.stringify({ request_id: requestId, content, is_error: isError }),
+    });
+  } catch (error) {
+    callbacks.onError('Failed to send the client tool result. Please try again.');
     return { eventSource: null };
   }
 
