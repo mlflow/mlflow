@@ -1264,8 +1264,8 @@ def _remote_agent_worker(
 
 @pytest.mark.notrackingurimock
 def test_multiprocess_remote_agent_trace_retrieval(tmp_path):
-    tracking_uri = f"sqlite:///{tmp_path}/mlflow.db"
-    mlflow.set_tracking_uri(tracking_uri)
+    tracking_uri = mlflow.get_tracking_uri()
+
     experiment_name = f"multiprocess-test-{uuid.uuid4().hex[:8]}"
     mlflow.set_experiment(experiment_name)
     experiment = mlflow.get_experiment_by_name(experiment_name)
@@ -1303,12 +1303,13 @@ def test_multiprocess_remote_agent_trace_retrieval(tmp_path):
         response = {"output": [{"role": "assistant", "content": "42"}]}
         return PredictResult(response=response, trace_id=remote_trace_id)
 
-    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
-        mock_invoke.side_effect = [
+    with patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        side_effect=[
             "Test message",
             '{"rationale": "Goal achieved!", "result": "yes"}',
-        ]
-
+        ],
+    ):
         simulator = ConversationSimulator(
             test_cases=[{"goal": "Test remote agent"}],
             max_turns=1,
