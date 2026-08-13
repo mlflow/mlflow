@@ -39,18 +39,23 @@ from databricks.sdk.core import Config
 
 
 def log_diagnostics(expiry: datetime | None) -> None:
-    """Record when this token was minted and when it expires.
+    """Record when this token was minted and how long it is valid for.
 
     Stdout is reserved for the bare credential, and a caller like Claude Code's
     `apiKeyHelper` captures stderr into its own process, so a stderr-only line
-    never reaches the surrounding log. Appending to ``MINT_TOKEN_LOG`` keeps both
-    facts observable: the line count shows whether a refresh actually fired, and
-    the expiry timestamps give the federated token's real lifetime, which any
-    caller's refresh interval has to stay under.
+    never reaches the surrounding log. ``MINT_TOKEN_LOG`` makes the line count
+    (did a refresh fire?) and the lifetime observable to whoever set the caller's
+    refresh interval.
 
     Diagnostics must never fail the exchange, so every step here is best-effort.
     """
-    line = f"{datetime.now(timezone.utc).isoformat()} minted, expires {expiry}"
+    # The SDK builds `expiry` from a naive local `datetime.now()`, so measuring it
+    # against an aware UTC clock is only accidentally correct on UTC runners.
+    # Match whatever tzinfo it carries — `datetime.now(None)` is naive local — and
+    # log the lifetime directly rather than leaving a subtraction to the reader.
+    now = datetime.now(expiry.tzinfo) if expiry else None
+    lifetime = f"{(expiry - now).total_seconds():.0f}s" if expiry and now else "unknown"
+    line = f"{datetime.now(timezone.utc).isoformat()} minted, lifetime {lifetime}"
     print(line, file=sys.stderr)
     if path := os.environ.get("MINT_TOKEN_LOG"):
         try:
@@ -78,7 +83,12 @@ def record_token(token: str) -> None:
 
 
 def main() -> None:
-    cfg = Config()
+    # Narrow the credential to gateway inference. The SDK's default `all-apis`
+    # would let a leaked token reach any workspace API the principal is entitled
+    # to, which is a wider blast radius than the Anthropic API key this replaces;
+    # `ai-gateway` is advertised by the workspace's OIDC discovery document and is
+    # the only capability a review actually needs.
+    cfg = Config(scopes=["ai-gateway"])
     # This script prints a credential on stdout, so it must never be reachable by
     # ambient auth. Without this guard, running it on a developer machine happily
     # resolves the default ~/.databrickscfg profile and prints that PAT instead.
