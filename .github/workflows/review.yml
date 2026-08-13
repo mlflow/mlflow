@@ -85,9 +85,14 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
-    # minted below. `id-token: write` grants GITHUB_TOKEN no repo scope; it only
-    # enables OIDC JWT issuance for the Databricks token exchange, so the
-    # fail-closed stance above is preserved.
+    # minted below, and `id-token: write` grants GITHUB_TOKEN no repo scope.
+    #
+    # It does widen the blast radius on the Databricks side, though: it puts
+    # ACTIONS_ID_TOKEN_REQUEST_TOKEN in the job env, which the agent shares while
+    # reading untrusted diffs, so the agent can mint the service principal's token
+    # and reach anything that principal is entitled to — not only gateway
+    # inference. The bound is therefore the SP's own entitlements, which are kept
+    # to workspace access alone, plus the token's ~10 minute life.
     permissions:
       id-token: write
     # The OIDC subject is pinned to `repo:<org>/<repo>:environment:ai-gateway`,
@@ -220,6 +225,13 @@ jobs:
           DATABRICKS_TOKEN_AUDIENCE: ${{ vars.DATABRICKS_ACCOUNT_ID }}
           ANTHROPIC_BASE_URL: ${{ vars.DATABRICKS_HOST }}/ai-gateway/anthropic
           CLAUDE_CODE_API_KEY_HELPER_TTL_MS: "300000"
+          MINT_TOKEN_LOG: ${{ runner.temp }}/mint-token.log
+          # Every credential the helper mints, so the redaction step below can
+          # scrub it from the uploaded transcript. The agent shares this job's
+          # OIDC environment and can mint a token itself while reviewing an
+          # untrusted diff, and stream.sh tees raw tool output into that
+          # transcript.
+          MINT_TOKEN_SECRETS: ${{ runner.temp }}/minted-tokens
           # The gateway's beta allowlist rejects several of the CLI's experimental
           # betas with HTTP 400, so they must be off on this path.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
@@ -259,6 +271,20 @@ jobs:
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
+          fi
+
+      # One line per apiKeyHelper invocation. A single line means the session
+      # finished inside one token's life and the refresh path went untested;
+      # several lines prove it fired. The expiry timestamps are the only direct
+      # measure of the federated token's lifetime, which the TTL above must
+      # stay under.
+      - name: Report gateway token refreshes
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/mint-token.log" ]; then
+            nl -ba "$RUNNER_TEMP/mint-token.log"
+          else
+            echo "apiKeyHelper never ran"
           fi
 
       - name: Validate review payload
@@ -301,6 +327,14 @@ jobs:
           for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
+          # Every Databricks token minted during the run, including any the agent
+          # minted itself. Without this the transcript has no model-credential
+          # scrubbing, and it is uploaded as an artifact readable by anyone with
+          # repo read access.
+          minted = Path(os.environ["RUNNER_TEMP"]) / "minted-tokens"
+          if minted.exists():
+              for token in minted.read_text().split():
+                  data = data.replace(token, "***")
           path.write_text(data)
           PY
 
@@ -361,7 +395,7 @@ jobs:
             const formatted = JSON.stringify(resultEvent, null, 2);
             resultLine += `\n<details><summary>${summary}</summary>\n\n\`\`\`json\n${formatted}\n\`\`\`\n\n</details>`;
             if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
-              resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
+              resultLine += `\n\nThe model gateway is overloaded. Inference is served by the Databricks AI Gateway, not the Anthropic API, so check the workspace status and retry.`;
             }
           } else if (failed) {
             resultLine += `\n\nSee [workflow logs](${jobRunUrl}) for details.`;

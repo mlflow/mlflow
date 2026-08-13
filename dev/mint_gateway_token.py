@@ -17,14 +17,62 @@ policy. Without it the SDK defaults the audience to the workspace token endpoint
 URL, which the policy rejects as a mismatch.
 
 Usage:
-  DATABRICKS_AUTH_TYPE=github-oidc uv run dev/mint_gateway_token.py
+  DATABRICKS_HOST=... DATABRICKS_CLIENT_ID=... DATABRICKS_TOKEN_AUDIENCE=... \
+    DATABRICKS_AUTH_TYPE=github-oidc uv run dev/mint_gateway_token.py
+
+`MINT_TOKEN_LOG` and `MINT_TOKEN_SECRETS` are optional; see the functions below.
 """
 
 from __future__ import annotations
 
+import os
 import sys
+from datetime import datetime, timezone
 
 from databricks.sdk.core import Config
+
+
+def log_diagnostics(cfg: Config) -> None:
+    """Record when this token was minted and when it expires.
+
+    Stdout is reserved for the bare credential, and a caller like Claude Code's
+    `apiKeyHelper` captures stderr into its own process, so a stderr-only line
+    never reaches the surrounding log. Appending to ``MINT_TOKEN_LOG`` keeps both
+    facts observable: the line count shows whether a refresh actually fired, and
+    the expiry timestamps give the federated token's real lifetime, which any
+    caller's refresh interval has to stay under.
+
+    Diagnostics must never fail the exchange, so every step here is best-effort.
+    """
+    try:
+        expiry = str(cfg.oauth_token().expiry)
+    except Exception as e:
+        expiry = f"unavailable ({e})"
+    line = f"{datetime.now(timezone.utc).isoformat()} minted, expires {expiry}"
+    print(line, file=sys.stderr)
+    if path := os.environ.get("MINT_TOKEN_LOG"):
+        try:
+            with open(path, "a") as f:
+                f.write(f"{line}\n")
+        except OSError as e:
+            print(f"Could not write {path}: {e}", file=sys.stderr)
+
+
+def record_token(token: str) -> None:
+    """Append the minted credential to ``MINT_TOKEN_SECRETS`` for later scrubbing.
+
+    A CI caller shares its job environment with whatever it runs, so an agent can
+    mint a token itself, and a transcript that tees raw tool output will capture
+    it. Recording every minted value gives a redaction step something concrete to
+    scrub; the alternative is a transcript with no credential scrubbing at all.
+    """
+    if not (path := os.environ.get("MINT_TOKEN_SECRETS")):
+        return
+    try:
+        with open(path, "a", opener=lambda p, f: os.open(p, f, 0o600)) as f:
+            f.write(f"{token}\n")
+    except OSError as e:
+        print(f"Could not write {path}: {e}", file=sys.stderr)
 
 
 def main() -> None:
@@ -32,14 +80,8 @@ def main() -> None:
     scheme, _, token = cfg.authenticate()["Authorization"].partition(" ")
     if scheme != "Bearer" or not token:
         sys.exit(f"Expected a Bearer credential from the OIDC exchange, got {scheme!r}")
-    # Diagnostics go to stderr so stdout stays consumable as the bare credential.
-    # The federated token's lifetime is far shorter than a U2M token's (~10 min
-    # observed, not the ~1h the docs quote for U2M), and the caller's refresh
-    # interval has to stay inside it.
-    try:
-        print(f"Databricks token expires at {cfg.oauth_token().expiry}", file=sys.stderr)
-    except Exception as e:  # diagnostics must never fail the exchange
-        print(f"Could not read token expiry: {e}", file=sys.stderr)
+    log_diagnostics(cfg)
+    record_token(token)
     print(token)
 
 
