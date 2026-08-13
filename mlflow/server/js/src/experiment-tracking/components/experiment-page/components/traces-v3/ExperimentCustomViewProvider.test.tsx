@@ -3,10 +3,12 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 
 import { ExperimentCustomViewProvider } from './ExperimentCustomViewProvider';
+import { useExperimentCustomViewDefinition } from './hooks/custom-view/useExperimentCustomViewDefinition';
 import { useAssistant } from '../../../../../assistant/AssistantContext';
 import type { ClientToolHandler } from '../../../../../assistant/clientToolHandlers';
 import type { AssistantContextProvider } from '../../../../../assistant/contextProviders';
 import type {
+  CustomView,
   CustomViewApplyResult,
   RenderCustomViewSpec,
 } from '@databricks/web-shared/model-trace-explorer/custom-view';
@@ -16,8 +18,10 @@ import type {
 // (and their inputs captured) so this test is isolated to the provider's own
 // wiring logic.
 jest.mock('./hooks/custom-view/useExperimentCustomViewDefinition', () => ({
-  useExperimentCustomViewDefinition: jest.fn(() => ({ views: [], isLoaded: true, persistView: undefined })),
+  useExperimentCustomViewDefinition: jest.fn(),
 }));
+
+const mockUseExperimentCustomViewDefinition = jest.mocked(useExperimentCustomViewDefinition);
 
 let mockCanEdit = { canEdit: true, isLoading: false };
 jest.mock('./hooks/custom-view/useCanEditExperimentCustomViews', () => ({
@@ -57,7 +61,13 @@ let capturedConnectorProviderProps:
   | { connector: { openAssistant?: (...args: any[]) => void; isStreaming?: boolean; isPending?: boolean } }
   | undefined;
 let capturedDefinitionProviderProps:
-  | { views: unknown[]; isLoaded: boolean; onPersistView?: unknown; canModifyPersistedViews?: boolean }
+  | {
+      views: unknown[];
+      isLoaded: boolean;
+      onPersistView?: unknown;
+      onDeleteView?: unknown;
+      canModifyPersistedViews?: boolean;
+    }
   | undefined;
 
 jest.mock('@databricks/web-shared/model-trace-explorer/custom-view', () => ({
@@ -106,6 +116,7 @@ describe('ExperimentCustomViewProvider', () => {
     capturedContextProvider = undefined;
     capturedConnectorProviderProps = undefined;
     capturedDefinitionProviderProps = undefined;
+    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true });
     mockCanEdit = { canEdit: true, isLoading: false };
     mockGetCurrentApplierSessionId.mockReturnValue('session-1');
     mockGetCustomViewAuthoringContext.mockReturnValue(null);
@@ -117,12 +128,17 @@ describe('ExperimentCustomViewProvider', () => {
     expect(screen.getByText('child content')).toBeInTheDocument();
   });
 
-  it('passes the loaded views and persist permission through to the definition provider', () => {
+  it('passes loaded views, mutation callbacks, and permission through to the definition provider', () => {
+    const persistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+    const deleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true, persistView, deleteView });
     makeAssistant();
     mockCanEdit = { canEdit: false, isLoading: false };
     renderProvider();
 
     expect(capturedDefinitionProviderProps?.isLoaded).toBe(true);
+    expect(capturedDefinitionProviderProps?.onPersistView).toBe(persistView);
+    expect(capturedDefinitionProviderProps?.onDeleteView).toBe(deleteView);
     expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);
   });
 

@@ -98,6 +98,7 @@ describe('useExperimentCustomViewDefinition', () => {
   let queryClient: QueryClient;
   let mockGetExperiment: jest.SpiedFunction<typeof MlflowService.getExperiment>;
   let mockSetExperimentTag: jest.SpiedFunction<typeof MlflowService.setExperimentTag>;
+  let mockDeleteExperimentTag: jest.SpiedFunction<typeof MlflowService.deleteExperimentTag>;
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -109,6 +110,7 @@ describe('useExperimentCustomViewDefinition', () => {
     jest.clearAllMocks();
     mockGetExperiment = jest.spyOn(MlflowService, 'getExperiment').mockResolvedValue(getExperimentResponse([]));
     mockSetExperimentTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+    mockDeleteExperimentTag = jest.spyOn(MlflowService, 'deleteExperimentTag').mockResolvedValue({});
   });
 
   describe('load path', () => {
@@ -386,14 +388,38 @@ describe('useExperimentCustomViewDefinition', () => {
     });
   });
 
+  describe('delete path', () => {
+    it('hard deletes the saved-view tag and invalidates the cached views', async () => {
+      const invalidateQueriesSpy = jest.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderDefinition(queryClient, EXPERIMENT_ID);
+      await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+      const deleteView = result.current.deleteView;
+      if (!deleteView) {
+        throw new Error('deleteView should be defined when an experiment id is present');
+      }
+      await deleteView('view-1');
+
+      expect(mockDeleteExperimentTag).toHaveBeenCalledWith({
+        experiment_id: EXPERIMENT_ID,
+        key: viewTagKey('view-1'),
+      });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['experiment-custom-views', EXPERIMENT_ID] }),
+      );
+    });
+  });
+
   describe('without an experiment id', () => {
-    it('reports loaded, exposes no persist callback, and never fetches', () => {
+    it('reports loaded, exposes no mutation callbacks, and never fetches', () => {
       const { result } = renderDefinition(queryClient, undefined);
 
       expect(result.current.isLoaded).toBe(true);
       expect(result.current.views).toEqual([]);
       expect(result.current.persistView).toBeUndefined();
+      expect(result.current.deleteView).toBeUndefined();
       expect(mockGetExperiment).not.toHaveBeenCalled();
+      expect(mockDeleteExperimentTag).not.toHaveBeenCalled();
     });
   });
 });
