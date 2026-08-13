@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 import os
@@ -4017,8 +4018,6 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
     - registry_client.create_prompt_version -> Mock(version=1)
     - registry_client.get_prompt_version -> minimal PromptVersion
     """
-    import contextlib
-
     fake_pv = _make_uc_prompt_version(name)
     mock_version = Mock(version=1)
     mock_registry_client = Mock()
@@ -4071,7 +4070,6 @@ def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
 
 
 def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_uri, caplog):
-    """D2 (UC branch): no UI link is logged when get_workspace_url() returns None."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
