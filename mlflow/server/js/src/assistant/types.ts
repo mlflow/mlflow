@@ -87,6 +87,8 @@ export interface PendingClientToolCall {
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
+  /** Whether the provider pauses for a result or ends after the browser executes the tool. */
+  continuation?: 'resume' | 'terminal';
 }
 
 /**
@@ -138,6 +140,9 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** How a provider delivers actions that must be executed by the client. */
+export type ClientToolDelivery = 'tool' | 'structured' | 'unsupported';
+
 /** One provider as reported by the `/providers` discovery endpoint. */
 export interface ProviderInfo {
   name: string;
@@ -148,13 +153,7 @@ export interface ProviderInfo {
   requires_api_key: boolean;
   has_api_key: boolean;
   allows_remote_access: boolean;
-  /**
-   * Whether this provider can pause a turn on a CLIENT-executed tool call (see
-   * `clientToolHandlers.ts`) and resume it once the client posts a result. False for
-   * CLI-based providers (Claude Code, Codex), which have no such mid-stream channel
-   * without MCP plumbing.
-   */
-  supports_client_tools: boolean;
+  client_tool_delivery: ClientToolDelivery;
   /** Curated model options for simple assistant controls; empty when provider decides. */
   model_options: string[];
 }
@@ -166,8 +165,8 @@ export interface ResolvedProviderInfo {
   auto_selected: boolean;
   requires_api_key: boolean;
   has_api_key: boolean;
-  /** See `ProviderInfo.supports_client_tools`. */
-  supports_client_tools: boolean;
+  /** See `ProviderInfo.client_tool_delivery`. */
+  client_tool_delivery: ClientToolDelivery;
   /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
   model_provider?: string | null;
   /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */

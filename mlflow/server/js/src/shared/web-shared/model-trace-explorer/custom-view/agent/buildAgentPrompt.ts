@@ -2,13 +2,14 @@
 // catalog / data-binding references and examples, the per-trace data snapshot,
 // and the MLflow Assistant authoring guide. Follows A2UI v0.9's "prompt-first"
 // contract: the schema + examples are embedded in the prompt and the model
-// passes the full message stream as the render_custom_view tool's "messages"
-// argument, which the host validates before processing.
+// delivers the full message stream through either the render_custom_view tool
+// or a schema-constrained final response, which the host validates before processing.
 
 import type { AgentAssessment } from '../customViewBuilders';
 import { A2UI_VERSION } from './validateA2uiMessages';
 
 export const RENDER_CUSTOM_VIEW_TOOL_NAME = 'render_custom_view';
+export type CustomViewDeliveryMode = 'tool' | 'structured';
 
 // One span's entry in the nodeMap JSON handed to the model. Keyed by span id,
 // this is just the trace's nodeMap serialized to plain JSON (no curated shape).
@@ -117,6 +118,20 @@ export const EXAMPLE: string = `Example — a heading plus a metrics row. Note: 
 }
 \`\`\``;
 
+const STRUCTURED_OUTPUT_RULES = [
+  `Output format rules (A2UI ${A2UI_VERSION}):`,
+  `1. Deliver the view in the provider's structured final response. Set "type" to "${RENDER_CUSTOM_VIEW_TOOL_NAME}", "text" to a short confirmation, "title" to a SHORT 2-5 word human-readable name, and "messages" to the complete A2UI message array described below. If the user is only asking a question and does not want the view changed, set "type" to "message", answer in "text", and return "title": "" and "messages": []. Do NOT call a render tool or wrap the response in a code fence.`,
+  ...OUTPUT_RULES.split('\n').slice(2),
+].join('\n');
+
+const STRUCTURED_EXAMPLE = EXAMPLE.replace(
+  '{ "title", "messages" } wrapper',
+  '{ "type", "text", "title", "messages" } envelope',
+).replace(
+  '{\n  "title": "Trace Summary",',
+  '{\n  "type": "render_custom_view",\n  "text": "Created a reusable trace summary view.",\n  "title": "Trace Summary",',
+);
+
 export const CARD_STYLE_EXAMPLE: string = `Example — a DECORATED card (apply this styling pattern to every card: titled heading, caption, then bound content). Here a summary card shows bound metrics and the root span's input via a "spanField" marker (note there is NO literal span id or per-trace value):
 \`\`\`json
 [
@@ -223,16 +238,16 @@ export const buildAgentDataSnapshot = (data: AgentTraceData): Record<string, unk
 };
 
 // Static authoring guide handed to MLflow Assistant via page context (the
-// assistant has no built-in knowledge of A2UI or the custom view). Delivery is
-// via a real `render_custom_view` tool call — see supports_client_tools on the
-// backend provider, which gates whether this guide is published at all. CLI
-// providers (Claude Code, Codex) have no mid-stream client-tool channel and are
-// not supported yet (see the fenced-block-convention follow-up in the plan).
-export const buildCustomViewAuthoringGuide = (): string => {
+// assistant has no built-in knowledge of A2UI or the custom view).
+export const buildCustomViewAuthoringGuide = (deliveryMode: CustomViewDeliveryMode = 'tool'): string => {
+  const deliveryInstruction =
+    deliveryMode === 'tool'
+      ? `When (and only when) the user asks you to build, change, or update the custom view, CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool. Pass two arguments: "title" (a short 2-5 word view name, e.g. "Trace Summary", "Span Cards" — NOT the user's raw words) and "messages" (the FULL A2UI message stream as a JSON array). Calling the tool is the ONLY way the view updates — do NOT print the JSON spec as a chat message or in a code fence, because nothing applies a spec that is merely written in chat (the view will silently stay unchanged). After the tool call succeeds, reply with a short natural-language confirmation of what changed. If the user is just asking a question (not requesting a view change), answer normally without calling the tool.`
+      : `When (and only when) the user asks you to build, change, or update the custom view, return the COMPLETE view using the provider's structured final-response schema. Set "type" to "${RENDER_CUSTOM_VIEW_TOOL_NAME}", include a short confirmation in "text", a short 2-5 word view name in "title", and the FULL A2UI message stream in "messages". If the user is just asking a question, set "type" to "message", answer in "text", and return an empty title and messages array.`;
   const intro = [
     'CUSTOM TRACE VIEW AUTHORING MODE.',
     'The user is viewing the "Custom View" tab of the MLflow trace explorer and wants you to BUILD or MODIFY an A2UI view ("custom view"). You author a REUSABLE, TRACE-AGNOSTIC TEMPLATE exactly ONCE: the host saves it and re-binds it to every trace the user cycles through WITHOUT calling you again. So you must NOT bake in the current trace\'s data. The "traceSample" in the context shows only the SHAPE of the data (so you can pick sensible sources and layout); never copy its concrete span ids, values, rows, or counts into the spec. Every data-bearing prop must be a binding MARKER (see the Data binding rules) that the host resolves per trace.',
-    `When (and only when) the user asks you to build, change, or update the custom view, CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool. Pass two arguments: "title" (a short 2-5 word view name, e.g. "Trace Summary", "Span Cards" — NOT the user's raw words) and "messages" (the FULL A2UI message stream as a JSON array). Calling the tool is the ONLY way the view updates — do NOT print the JSON spec as a chat message or in a code fence, because nothing applies a spec that is merely written in chat (the view will silently stay unchanged). After the tool call succeeds, reply with a short natural-language confirmation of what changed. If the user is just asking a question (not requesting a view change), answer normally without calling the tool.`,
+    deliveryInstruction,
     'Always pass the COMPLETE "messages" spec for the single view (not a diff) on every turn that updates it. When a "currentTemplate" is provided in the context, it is the existing reusable template (with its binding markers): KEEP its layout, component choices, and markers, and apply ONLY the change the user asked for. Do NOT replace markers with literal data and do NOT introduce trace-specific values. Re-pick the "title" whenever an edit changes what the view shows; keep the previous title for purely cosmetic edits (colors, spacing, minor wording).',
   ].join('\n');
 
@@ -241,8 +256,8 @@ export const buildCustomViewAuthoringGuide = (): string => {
     CATALOG_REFERENCE,
     BINDING_REFERENCE,
     LAYOUT_GUIDANCE,
-    OUTPUT_RULES,
-    EXAMPLE,
+    deliveryMode === 'structured' ? STRUCTURED_OUTPUT_RULES : OUTPUT_RULES,
+    deliveryMode === 'structured' ? STRUCTURED_EXAMPLE : EXAMPLE,
     CARD_STYLE_EXAMPLE,
     SPAN_CARD_EXAMPLE,
   ].join('\n\n');
