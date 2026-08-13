@@ -4,9 +4,10 @@
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Days untouched before sweeping, by last-commit author. Bots recreate their
-// branches from scratch, so a stale one is a leftover. null exempts humans,
-// whose branches may hold work that lives nowhere else.
-const STALE_DAYS = { bot: 30, human: null };
+// branches from scratch, so a stale one is a leftover. Human branches get a far
+// longer grace period, since they may hold work that lives nowhere else.
+const BOT_STALE_DAYS = 30;
+const HUMAN_STALE_DAYS = 180;
 
 // Bot-pushed and never has a PR, so it passes every other filter.
 const EXCLUDED = new Set(["gh-pages"]);
@@ -67,11 +68,7 @@ const findStaleBranches = async (github, { owner, repo }, protectedBranches) => 
         continue;
       }
 
-      const staleDays = STALE_DAYS[isBotCommit(ref.target) ? "bot" : "human"];
-      if (staleDays === null) {
-        continue;
-      }
-
+      const staleDays = isBotCommit(ref.target) ? BOT_STALE_DAYS : HUMAN_STALE_DAYS;
       const days = Math.floor((Date.now() - new Date(ref.target.committedDate)) / MS_PER_DAY);
       if (days <= staleDays) {
         continue;
