@@ -304,6 +304,8 @@ containing file dependencies). These files are *prepended* to the system path wh
 is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
+All code dependencies must either be included in these paths or available in the model's
+environment. Otherwise, loading the model may fail if external dependencies move or change.
 
 For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
 limitations, see the
@@ -330,6 +332,8 @@ containing file dependencies). These files are *prepended* to the system path wh
 is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
 between them to avoid import errors when loading the model.
+All code dependencies must either be included in these paths or available in the model's
+environment. Otherwise, loading the model may fail if external dependencies move or change.
 
 You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
 infer the model code paths. See ``infer_code_paths`` argument doc for details.
