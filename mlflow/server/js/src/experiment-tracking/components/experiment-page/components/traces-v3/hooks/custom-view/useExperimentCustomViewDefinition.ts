@@ -83,10 +83,11 @@ export type ExperimentCustomViewDefinition = {
   // Undefined (no experiment scope) → the host falls back to a session-local,
   // non-persisting engine.
   persistView?: (view: CustomView) => Promise<void>;
+  deleteView?: (id: string) => Promise<void>;
 };
 
 /**
- * Loads + persists the experiment's saved custom views, one experiment tag per
+ * Loads + persists/deletes the experiment's saved custom views, one experiment tag per
  * view (`mlflow.customView.view.v1.<id>`). Returns a no-op-free persist
  * callback only when an experiment id is present; without one the caller's
  * session-local fallback engages.
@@ -124,9 +125,24 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
     [persistMutation],
   );
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await MlflowService.deleteExperimentTag({ experiment_id: experimentId, key: viewTagKey(id) });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const deleteView = useCallback(
+    async (id: string) => {
+      await deleteMutation.mutateAsync(id);
+    },
+    [deleteMutation],
+  );
+
   return {
     views: views ?? [],
     isLoaded: experimentId ? !isLoading : true,
     persistView: experimentId ? persistView : undefined,
+    deleteView: experimentId ? deleteView : undefined,
   };
 };

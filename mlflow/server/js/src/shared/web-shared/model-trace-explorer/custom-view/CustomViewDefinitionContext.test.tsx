@@ -514,6 +514,61 @@ describe('useCustomViewDefinitionState', () => {
     }
   });
 
+  it('deletes a persisted view and clears the active selection', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const initialViews = [makeView('a'), makeView('b')];
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(initialViews, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(onDeleteView).toHaveBeenCalledWith('a');
+    expect(result.current.views.map((view) => view.id)).toEqual(['b']);
+    expect(result.current.activeViewId).toBeUndefined();
+  });
+
+  it('keeps the view and surfaces the error when deletion fails', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockRejectedValue(new Error('delete exploded'));
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(result.current.saveError).toBe('delete exploded');
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+    expect(result.current.activeViewId).toBe('a');
+    expect(result.current.isSaving).toBe(false);
+  });
+
+  it('does not allow an in-flight update to resurrect a deleted view', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a'));
+    });
+
+    expect(applied).toBe(false);
+    expect(result.current.views).toEqual([]);
+    expect(result.current.activeViewId).toBeUndefined();
+  });
+
   it('keeps isSaving true until the LAST of two overlapping mutations settles', async () => {
     // Two independently controllable persists so we can settle them out of order.
     const resolvers: Array<() => void> = [];
