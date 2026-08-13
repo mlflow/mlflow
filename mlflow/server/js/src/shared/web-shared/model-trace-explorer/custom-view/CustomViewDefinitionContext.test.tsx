@@ -38,13 +38,26 @@ describe('useCustomViewDefinitionState', () => {
       useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), true),
     );
     expect(withPersist.result.current.canPersist).toBe(true);
+    expect(withPersist.result.current.canDelete).toBe(false);
+
+    const withDelete = renderHook(() =>
+      useCustomViewDefinitionState(NO_VIEWS, true, noopPersistView, true, jest.fn<() => Promise<void>>()),
+    );
+    expect(withDelete.result.current.canDelete).toBe(true);
   });
 
   it('reports canPersist false when a persist callback exists but edit permission is denied', () => {
     const { result } = renderHook(() =>
-      useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), false),
+      useCustomViewDefinitionState(
+        NO_VIEWS,
+        true,
+        jest.fn<() => Promise<void>>(),
+        false,
+        jest.fn<() => Promise<void>>(),
+      ),
     );
     expect(result.current.canPersist).toBe(false);
+    expect(result.current.canDelete).toBe(false);
   });
 
   it('does not create or update working views when modification permission is denied', () => {
@@ -546,17 +559,31 @@ describe('useCustomViewDefinitionState', () => {
     expect(result.current.views).toEqual(SINGLE_VIEW);
     expect(result.current.activeViewId).toBe('a');
     expect(result.current.isSaving).toBe(false);
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a', { label: 'updated' }));
+    });
+    expect(applied).toBe(true);
+    expect(result.current.activeView?.label).toBe('updated');
   });
 
-  it('does not allow an in-flight update to resurrect a deleted view', async () => {
-    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+  it('rejects an update that lands while deletion is in flight', async () => {
+    let resolveDelete: () => void = () => {};
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
     const { result } = renderHook(() =>
       useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
     );
 
     act(() => result.current.selectView('a'));
-    await act(async () => {
-      await result.current.deleteView('a');
+    let deletePromise: Promise<void> | undefined;
+    act(() => {
+      deletePromise = result.current.deleteView('a');
     });
 
     let applied: boolean | undefined;
@@ -565,6 +592,13 @@ describe('useCustomViewDefinitionState', () => {
     });
 
     expect(applied).toBe(false);
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+
+    await act(async () => {
+      resolveDelete();
+      await deletePromise;
+    });
+
     expect(result.current.views).toEqual([]);
     expect(result.current.activeViewId).toBeUndefined();
   });

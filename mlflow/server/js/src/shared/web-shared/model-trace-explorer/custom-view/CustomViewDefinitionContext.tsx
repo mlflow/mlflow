@@ -24,6 +24,9 @@ export type CustomViewDefinitionContextValue = {
   // wired AND the host reports experiment edit permission). False for read-only
   // users and the session-local fallback outside the experiment provider.
   canPersist: boolean;
+  // Whether persisted views can be deleted (delete callback wired AND the host
+  // reports experiment edit permission).
+  canDelete: boolean;
   isSaving: boolean;
   // Whether the active view differs from its persisted counterpart (or has none).
   isDirty: boolean;
@@ -122,6 +125,7 @@ export const useCustomViewDefinitionState = (
   onDeleteView?: (id: string) => Promise<void>,
 ): CustomViewDefinitionContextValue => {
   const canPersist = Boolean(onPersistView) && Boolean(canModifyPersistedViews);
+  const canDelete = Boolean(onDeleteView) && Boolean(canModifyPersistedViews);
   const [views, setViews] = useState<CustomView[]>(initialViews);
   const [persistedViews, setPersistedViews] = useState<CustomView[]>(initialViews);
   // No view is selected by default: the host shows a "Select a custom view"
@@ -345,26 +349,30 @@ export const useCustomViewDefinitionState = (
   const deleteView = useCallback(
     async (id: string) => {
       setSaveError(undefined);
-      if (!canPersist) {
+      if (!canDelete || !onDeleteView) {
         return;
       }
       beginSaving();
+      // Tombstone before the backend request so an Assistant response that lands
+      // while deletion is in flight cannot update a view the user chose to delete.
+      deletedViewIdsRef.current.add(id);
       try {
-        if (onDeleteView && persistedViews.some((view) => view.id === id)) {
+        if (persistedViews.some((view) => view.id === id)) {
           await onDeleteView(id);
         }
         hasLocalEditsRef.current = true;
-        deletedViewIdsRef.current.add(id);
         setPersistedViews((prev) => prev.filter((view) => view.id !== id));
         setViews((prev) => prev.filter((view) => view.id !== id));
         setActiveViewId((current) => (current === id ? undefined : current));
       } catch (error) {
+        // The view remains when persistence fails, so allow subsequent updates.
+        deletedViewIdsRef.current.delete(id);
         setSaveError(error instanceof Error ? error.message : 'Failed to delete the custom view.');
       } finally {
         endSaving();
       }
     },
-    [canPersist, onDeleteView, persistedViews, beginSaving, endSaving],
+    [canDelete, onDeleteView, persistedViews, beginSaving, endSaving],
   );
 
   return {
@@ -375,6 +383,7 @@ export const useCustomViewDefinitionState = (
     draftName,
     isLoaded,
     canPersist,
+    canDelete,
     isSaving,
     isDirty,
     isActivePersisted,

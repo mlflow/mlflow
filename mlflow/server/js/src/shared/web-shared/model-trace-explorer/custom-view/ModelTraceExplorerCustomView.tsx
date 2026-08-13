@@ -257,7 +257,9 @@ export const ModelTraceExplorerCustomView = ({
   // background selection change (e.g. an assistant apply) can't retarget the
   // rename.
   const [renameTargetId, setRenameTargetId] = useState<string | undefined>(undefined);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  // Capture the delete target so a background selection change cannot retarget
+  // the confirmation modal to another view.
+  const [deleteTarget, setDeleteTarget] = useState<Pick<CustomView, 'id' | 'name'> | undefined>(undefined);
 
   const surfaceId = activeView ? surfaceIdForView(activeView) : '';
   const surface = activeView ? processor.model.getSurface(surfaceId) : undefined;
@@ -617,13 +619,19 @@ export const ModelTraceExplorerCustomView = ({
     cv.renameView(renameTargetId, name);
   };
 
-  const handleDelete = () => {
-    const id = cv.activeViewId;
-    if (!id) {
+  const handleOpenDelete = () => {
+    if (!activeView) {
       return;
     }
-    cv.deleteView(id);
-    setDeleteModalOpen(false);
+    setDeleteTarget({ id: activeView.id, name: activeView.name });
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) {
+      return;
+    }
+    cv.deleteView(deleteTarget.id);
+    setDeleteTarget(undefined);
   };
 
   // Shown for a view that has not been saved yet (empty user-provided name): the
@@ -746,7 +754,7 @@ export const ModelTraceExplorerCustomView = ({
               />
             </AssistantSparkleButton>
           )}
-          {activeView && cv.isActivePersisted && cv.canPersist && (
+          {activeView && cv.isActivePersisted && (cv.canPersist || cv.canDelete) && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <Button
@@ -760,55 +768,60 @@ export const ModelTraceExplorerCustomView = ({
                 />
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end" minWidth={150}>
-                <DropdownMenu.Item
-                  componentId="shared.model-trace-explorer.custom-view.rename"
-                  onClick={handleOpenRename}
-                  disabled={cv.isActivePersistedUnreadable}
-                >
-                  <DropdownMenu.IconWrapper>
-                    <PencilIcon />
-                  </DropdownMenu.IconWrapper>
-                  <FormattedMessage
-                    defaultMessage="Rename view"
-                    description="Menu item to rename the current custom trace view"
-                  />
-                  {cv.isActivePersistedUnreadable && (
-                    <Tooltip
-                      componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
-                      side="right"
-                      content={intl.formatMessage({
-                        defaultMessage: 'Rebuild this invalid view with the assistant and save it to enable renaming.',
-                        description:
-                          'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
-                      })}
-                    >
-                      <span
-                        css={{
-                          display: 'inline-flex',
-                          marginLeft: 'auto',
-                          paddingLeft: theme.spacing.xs,
-                          color: theme.colors.textSecondary,
-                          pointerEvents: 'all',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
+                {cv.canPersist && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.rename"
+                    onClick={handleOpenRename}
+                    disabled={cv.isActivePersistedUnreadable}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <PencilIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Rename view"
+                      description="Menu item to rename the current custom trace view"
+                    />
+                    {cv.isActivePersistedUnreadable && (
+                      <Tooltip
+                        componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
+                        side="right"
+                        content={intl.formatMessage({
+                          defaultMessage:
+                            'Rebuild this invalid view with the assistant and save it to enable renaming.',
+                          description:
+                            'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
+                        })}
                       >
-                        <InfoIcon aria-hidden />
-                      </span>
-                    </Tooltip>
-                  )}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  componentId="shared.model-trace-explorer.custom-view.delete-view-modal-open-button"
-                  onClick={() => setDeleteModalOpen(true)}
-                >
-                  <DropdownMenu.IconWrapper>
-                    <TrashIcon />
-                  </DropdownMenu.IconWrapper>
-                  <FormattedMessage
-                    defaultMessage="Delete view"
-                    description="Menu item to delete the current custom trace view"
-                  />
-                </DropdownMenu.Item>
+                        <span
+                          css={{
+                            display: 'inline-flex',
+                            marginLeft: 'auto',
+                            paddingLeft: theme.spacing.xs,
+                            color: theme.colors.textSecondary,
+                            pointerEvents: 'all',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <InfoIcon aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </DropdownMenu.Item>
+                )}
+                {cv.canDelete && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.delete-view-modal-open-button"
+                    onClick={handleOpenDelete}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <TrashIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Delete view"
+                      description="Menu item to delete the current custom trace view"
+                    />
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           )}
@@ -1076,12 +1089,12 @@ export const ModelTraceExplorerCustomView = ({
 
       <Modal
         componentId="shared.model-trace-explorer.custom-view.delete-view-modal"
-        visible={deleteModalOpen}
+        visible={Boolean(deleteTarget)}
         title={intl.formatMessage({
           defaultMessage: 'Delete view',
           description: 'Title of the delete-custom-view confirmation modal',
         })}
-        onCancel={() => setDeleteModalOpen(false)}
+        onCancel={() => setDeleteTarget(undefined)}
         onOk={handleDelete}
         okText={intl.formatMessage({
           defaultMessage: 'Delete',
@@ -1094,13 +1107,13 @@ export const ModelTraceExplorerCustomView = ({
         okButtonProps={{ danger: true }}
       >
         <Typography.Text>
-          {activeView?.name
+          {deleteTarget?.name
             ? intl.formatMessage(
                 {
                   defaultMessage: 'Delete the view "{name}"? This removes it from the experiment for everyone.',
                   description: 'Confirmation text when deleting a named custom trace view',
                 },
-                { name: activeView.name },
+                { name: deleteTarget.name },
               )
             : intl.formatMessage({
                 defaultMessage: 'Delete this view? This removes it from the experiment for everyone.',
