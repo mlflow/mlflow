@@ -431,6 +431,7 @@ def test_artifact_locations_are_scoped_to_workspace(workspace_tracking_store):
 
 
 def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
 
@@ -533,6 +534,7 @@ def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, m
 
 def test_create_experiment_requires_effective_artifact_root(workspace_tracking_store, monkeypatch):
     monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     workspace_tracking_store.artifact_root_uri = None
 
     class EmptyProvider:
