@@ -92,6 +92,7 @@ const mockUseAssistant = jest.mocked(useAssistant);
 const makeAssistant = (overrides: Record<string, unknown> = {}) => {
   const value = {
     openPanel: jest.fn(),
+    requestComposerFocus: jest.fn(),
     sendMessageWhenReady: jest.fn(),
     pendingAutomaticMessage: null,
     isStreaming: false,
@@ -156,6 +157,7 @@ describe('ExperimentCustomViewProvider', () => {
       expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
         newSession: true,
       });
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('reuses the current session (no reset) for a prompted edit without newSession', () => {
@@ -166,6 +168,7 @@ describe('ExperimentCustomViewProvider', () => {
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
       expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('submits structured-output instructions for a structured local provider', () => {
@@ -189,6 +192,7 @@ describe('ExperimentCustomViewProvider', () => {
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
       expect(assistant.sendMessageWhenReady).not.toHaveBeenCalled();
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('exposes the assistant context streaming state on the connector', () => {

@@ -267,6 +267,8 @@ export interface AssistantAgentState {
   needsApiKey: boolean;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
+  /** Whether the chat composer should receive focus once it is mounted */
+  pendingComposerFocus: boolean;
   /** A message waiting for Assistant setup or credentials before it can be sent automatically */
   pendingAutomaticMessage: PendingAutomaticMessage | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
@@ -296,6 +298,10 @@ export interface AssistantAgentActions {
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */
   clearPendingPrompt: () => void;
+  /** Focus the chat composer once it is available, without changing its text */
+  requestComposerFocus: () => void;
+  /** Clear a pending composer-focus request after it is consumed or abandoned */
+  clearComposerFocusRequest: () => void;
   /** Regenerate the last assistant response */
   regenerateLastMessage: () => void;
   /** Reset the conversation */
