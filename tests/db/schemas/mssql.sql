@@ -229,7 +229,7 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	CONSTRAINT "FK__experimen__exper__628FA481" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)

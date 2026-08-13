@@ -230,7 +230,7 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value MEDIUMTEXT,
 	experiment_id INTEGER NOT NULL,
 	PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
