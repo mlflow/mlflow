@@ -700,6 +700,9 @@ def test_prepopulation_conversion_semantics_match_the_frozen_migration():
         -(2**63) - 1,
         2**63,
         "not-a-number",
+        # Overflow: the frozen and live copies must agree that a huge integer is non-numeric.
+        10**400,
+        -(10**400),
     ]
     for value in numeric_values:
         assert MIGRATION_MODULE._finite_float_or_none(value) == prepopulation.finite_float_or_none(
@@ -727,7 +730,7 @@ def test_prepopulation_conversion_semantics_match_the_frozen_migration():
             migration_value, _ = MIGRATION_MODULE._bounded_string_or_none(value, max_length)
             assert migration_value == prepopulation._bounded_string_or_none(value, max_length)
 
-    assessment_values = [None, True, False, 1, 1.5, " yes ", "NO", "0.8", "text"]
+    assessment_values = [None, True, False, 1, 1.5, " yes ", "NO", "0.8", "text", 10**400]
     for value in assessment_values:
         assert MIGRATION_MODULE._assessment_aggregate(
             json.dumps(value)

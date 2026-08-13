@@ -1215,6 +1215,11 @@ def test_execute_backfill_updates_validates_supported_rowcounts(
         ("1.25", 1.25),
         (Decimal("1.25"), 1.25),
         ("not-a-number", None),
+        (float("nan"), None),
+        (float("inf"), None),
+        # A magnitude too large for a float must return None instead of raising OverflowError.
+        (10**400, None),
+        (-(10**400), None),
     ],
 )
 def test_trace_analytics_migration_finite_float_conversion(value, expected):
@@ -1238,7 +1243,80 @@ def test_trace_analytics_migration_finite_float_conversion(value, expected):
         (-(2**63) - 1, None),
         (2**63, None),
         ("not-a-number", None),
+        # Stays within Decimal precision and is rejected by the bigint range check without raising.
+        (10**400, None),
+        (-(10**400), None),
     ],
 )
 def test_trace_analytics_migration_token_count_conversion(value, expected):
     assert MIGRATION_MODULE._token_count_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value_json", "expected"),
+    [
+        ("true", (1.0, False)),
+        ("false", (0.0, False)),
+        ("1.5", (1.5, True)),
+        ("3", (3.0, True)),
+        ("yes", (1.0, False)),
+        ("no", (0.0, False)),
+        ("other", (None, False)),
+        ("NaN", (None, False)),
+        # A huge integer in the stored JSON must return (None, False) instead of raising.
+        (str(10**400), (None, False)),
+        (str(-(10**400)), (None, False)),
+    ],
+)
+def test_trace_analytics_migration_assessment_aggregate(value_json, expected):
+    assert MIGRATION_MODULE._assessment_aggregate(value_json) == expected
+
+
+def test_trace_analytics_migration_tolerates_out_of_range_numeric_values(tmp_path):
+    # A cost or assessment value too large to represent as a float reaches the backfill as a plain
+    # Python int (cost metadata and assessment values are stored as JSON text). Converting it must
+    # store NULL rather than raise OverflowError, which would crash the whole migration.
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            _seed_legacy_analytics_data(conn)
+            trace_metadata = _table(conn, "trace_request_metadata")
+            assessments = _table(conn, "assessments")
+            conn.execute(
+                trace_metadata
+                .update()
+                .where(
+                    trace_metadata.c.request_id == "trace-explicit",
+                    trace_metadata.c.key == TraceMetadataKey.COST,
+                )
+                .values(value=json.dumps({CostKey.TOTAL_COST: 10**400}))
+            )
+            conn.execute(
+                assessments
+                .update()
+                .where(assessments.c.assessment_id == "assessment-numeric")
+                .values(value=str(10**400))
+            )
+
+        command.upgrade(config, REVISION)
+
+        with engine.connect() as conn:
+            trace_info = _table(conn, "trace_info")
+            assert (
+                conn.execute(
+                    sa.select(trace_info.c.total_cost).where(
+                        trace_info.c.request_id == "trace-explicit"
+                    )
+                ).scalar_one()
+                is None
+            )
+            assessments = _table(conn, "assessments")
+            aggregate_value, is_numeric_value = conn.execute(
+                sa.select(assessments.c.aggregate_value, assessments.c.is_numeric_value).where(
+                    assessments.c.assessment_id == "assessment-numeric"
+                )
+            ).one()
+            assert aggregate_value is None
+            assert not is_numeric_value
+    finally:
+        engine.dispose()

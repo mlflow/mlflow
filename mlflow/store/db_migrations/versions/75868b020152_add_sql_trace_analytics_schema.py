@@ -1185,7 +1185,11 @@ def _assessment_aggregate(value_json):
     if isinstance(value, bool):
         return (1.0 if value else 0.0), False
     if isinstance(value, (int, float)):
-        value = float(value)
+        try:
+            value = float(value)
+        except OverflowError:
+            # Too large for a float: not a usable numeric aggregate, so treat it like inf/nan.
+            return None, False
         return (value, True) if math.isfinite(value) else (None, False)
     if isinstance(value, str):
         value = value.strip().lower()
@@ -1211,7 +1215,9 @@ def _finite_float_or_none(value):
         return None
     try:
         value = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # A magnitude too large for a float (e.g. a huge integer in cost metadata) is treated like
+        # inf: non-finite, so it stores as NULL rather than crashing the backfill batch.
         return None
     return value if math.isfinite(value) else None
 
