@@ -823,8 +823,21 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     assert litellm.suppress_debug_info is False
 
 
-def test_litellm_provider_list_printed_when_debug_logging(capsys):
+def test_litellm_debug_unsuppressed_when_debug_logging(monkeypatch):
     litellm.suppress_debug_info = True
+
+    # Capture litellm.suppress_debug_info at the moment cost_per_token runs. Asserting on
+    # the flag is deterministic; asserting that litellm prints its "Provider List" is not,
+    # because that side effect depends on the litellm version and does not fire for every
+    # model (it never prints for databricks-claude-sonnet-4-5 in current litellm).
+    suppress_during_call = {}
+    real_cost_per_token = litellm.cost_per_token
+
+    def spy_cost_per_token(*args, **kwargs):
+        suppress_during_call["value"] = litellm.suppress_debug_info
+        return real_cost_per_token(*args, **kwargs)
+
+    monkeypatch.setattr(litellm, "cost_per_token", spy_cost_per_token)
 
     _logger = logging.getLogger("mlflow.tracing.utils")
     original_level = _logger.level
@@ -837,10 +850,10 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
     finally:
         _logger.setLevel(original_level)
 
-    captured = capsys.readouterr()
-    assert "Provider List" in captured.out
-    # During the call to calculate cost, suppress was set to False
-    # We are asserting that suppress is reset to the original value after
+    # At DEBUG level the cost calculation un-suppresses litellm's debug output during the
+    # call so its diagnostics reach the logs...
+    assert suppress_during_call.get("value") is False
+    # ...and the original value is restored afterward.
     assert litellm.suppress_debug_info is True
 
 
