@@ -926,6 +926,7 @@ module.exports = {
   "mlflow.experiment.chat-session.metrics.persona-tooltip": "",
   "mlflow.experiment.chat-session.metrics.tokens-tag": "",
   "mlflow.experiment.chat-session.view-trace": "",
+  "mlflow.experiment.dataset_drawer.open_evaluation_dataset": "",
   "mlflow.experiment.edit.name": "",
   "mlflow.experiment.edit.trace-archival-retention": "",
   "mlflow.experiment.evaluations.ai-judge-tag": "",
