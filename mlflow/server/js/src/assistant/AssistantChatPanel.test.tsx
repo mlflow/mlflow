@@ -30,7 +30,7 @@ const mockSendMessage = jest.fn();
 const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
-const mockSendPendingAutomaticMessage = jest.fn();
+const mockForceSendPendingAutomaticMessage = jest.fn();
 const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
   void options;
   return Promise.resolve();
@@ -95,7 +95,7 @@ jest.mock('./AssistantContext', () => ({
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
     sendMessageWhenReady: jest.fn(),
-    sendPendingAutomaticMessage: mockSendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage: mockForceSendPendingAutomaticMessage,
     selectProvider: mockSelectProvider,
     prefillPrompt: jest.fn(),
     clearPendingPrompt: mockClearPendingPrompt,
@@ -146,7 +146,7 @@ describe('AssistantChatPanel', () => {
     mockSelectProvider.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
-    mockSendPendingAutomaticMessage.mockClear();
+    mockForceSendPendingAutomaticMessage.mockClear();
     mockRefreshConfig.mockClear();
     mockRespondToPermission.mockClear();
     mockUpdateConfig.mockClear();
@@ -343,7 +343,7 @@ describe('AssistantChatPanel', () => {
     await user.type(screen.getByPlaceholderText('sk-...'), 'sk-test');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    await waitFor(() => expect(mockSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockForceSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
     expect(mockSendMessage).not.toHaveBeenCalled();
     expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
   });
