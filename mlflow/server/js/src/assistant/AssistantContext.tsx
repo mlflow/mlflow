@@ -855,6 +855,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openTextBufferRef.current = '';
     setPendingPermission(null);
     setPendingClientToolCall(null);
+    // Intentionally preserve pendingComposerFocus: a new-session Custom View
+    // build requests focus before reset, and the fresh composer consumes it.
     setPendingAutomaticMessage(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
