@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786597488740,
+  "lastUpdate": 1786597731615,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21599,6 +21599,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.070249999998168,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "haoji.tang@databricks.com",
+            "name": "Haoji Tang",
+            "username": "tanghaoji"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "efcb31228cfc5f843d6fce4a3e75a6ea33e5a202",
+          "message": "[Custom View] Support local Assistant providers with structured responses (#25034)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>",
+          "timestamp": "2026-08-13T14:07:24+09:00",
+          "tree_id": "ae2f405cf765d295026a41ded2accb98ea22da65",
+          "url": "https://github.com/mlflow/mlflow/commit/efcb31228cfc5f843d6fce4a3e75a6ea33e5a202"
+        },
+        "date": 1786597729490,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.99350639999946,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.415684698113232,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.006067028985657,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.672293219299457,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.046783333332781,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.192479600002002,
             "unit": "ms"
           }
         ]
