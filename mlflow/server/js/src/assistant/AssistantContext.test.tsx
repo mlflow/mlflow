@@ -484,7 +484,7 @@ describe('AssistantContext — automatic message delivery', () => {
     expect(result.current.pendingAutomaticMessage?.message).toBe('build after key');
 
     await act(async () => {
-      result.current.sendPendingAutomaticMessage();
+      result.current.forceSendPendingAutomaticMessage();
     });
 
     expect(mockSendMessageStream).toHaveBeenCalledTimes(1);

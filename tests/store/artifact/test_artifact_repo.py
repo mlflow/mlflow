@@ -9,6 +9,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    _is_object_key_within_path,
     _sanitize_path_component_for_windows,
     _sanitize_path_for_windows,
 )
@@ -26,6 +27,24 @@ _PARENT_MODEL_FILE = _PARENT_MODEL_DIR + "/" + _MODEL_FILE
 _EMPTY_DIR = "emptydir"
 _DUMMY_FILE_SIZE = 123
 _EMPTY_FILE_SIZE = 0
+
+
+@pytest.mark.parametrize(
+    ("object_key", "path", "expected"),
+    [
+        ("anything", "", True),
+        ("root/foo", "root/foo", True),
+        ("root/foo/file.txt", "root/foo", True),
+        ("root/foo", "root/foo/", False),
+        ("root/foo/", "root/foo/", True),
+        ("root/foo/file.txt", "root/foo/", True),
+        ("root/foobar", "root/foo", False),
+        ("root/foo_baz", "root/foo", False),
+        ("/root/foo", "root/foo", False),
+    ],
+)
+def test_is_object_key_within_path(object_key, path, expected):
+    assert _is_object_key_within_path(object_key, path) is expected
 
 
 class ArtifactRepositoryImpl(ArtifactRepository):

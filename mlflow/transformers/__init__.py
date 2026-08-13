@@ -1643,7 +1643,9 @@ def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | Non
     # Copy so renaming the dtype key does not mutate the caller's dict
     model_dict = dict(model_dict)
     if dtype_val := model_dict.pop(_TORCH_DTYPE_KEY, None):
-        model_dict[_get_torch_dtype_kwarg_name()] = dtype_val
+        # setdefault so an explicit `dtype` entry wins over `torch_dtype`; the load path
+        # and transformers itself give `dtype` the same precedence
+        model_dict.setdefault(_get_torch_dtype_kwarg_name(), dtype_val)
 
     try:
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):

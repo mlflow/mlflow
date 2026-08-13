@@ -291,7 +291,7 @@ export interface AssistantAgentActions {
   /** Send immediately when ready, otherwise queue until setup or credentials are available */
   sendMessageWhenReady: (message: string, options?: SendMessageOptions) => void;
   /** Force-send the queued automatic message after external setup (e.g. API-key save) */
-  sendPendingAutomaticMessage: () => void;
+  forceSendPendingAutomaticMessage: () => void;
   /** Optimistically switch the active provider (persisted on the next send). */
   selectProvider: (selection: AssistantProviderSelection) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives setup/settings navigation) */

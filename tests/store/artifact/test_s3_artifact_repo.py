@@ -358,6 +358,27 @@ def test_delete_artifacts_single_object(s3_artifact_repo, tmp_path):
     assert s3_artifact_repo.list_artifacts() == []
 
 
+def test_delete_artifacts_preserves_prefix_siblings(s3_artifact_repo, tmp_path):
+    target = tmp_path / "target.txt"
+    sibling_dir_file = tmp_path / "keep.txt"
+    sibling_file = tmp_path / "foo_baz.txt"
+    target.write_text("target")
+    sibling_dir_file.write_text("sibling directory file")
+    sibling_file.write_text("sibling file")
+
+    s3_artifact_repo.log_artifact(target, artifact_path="foo")
+    s3_artifact_repo.log_artifact(sibling_dir_file, artifact_path="foobar")
+    s3_artifact_repo.log_artifact(sibling_file)
+
+    s3_artifact_repo.delete_artifacts("foo")
+
+    assert s3_artifact_repo.list_artifacts("foo") == []
+    assert [artifact.path for artifact in s3_artifact_repo.list_artifacts("foobar")] == [
+        "foobar/keep.txt"
+    ]
+    assert "foo_baz.txt" in [artifact.path for artifact in s3_artifact_repo.list_artifacts()]
+
+
 @pytest.mark.parametrize("artifact_path", ["subdir", "subdir/"])
 def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_path):
     subdir = tmp_path / "subdir"

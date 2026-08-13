@@ -1116,7 +1116,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     ],
   );
 
-  const sendPendingAutomaticMessage = useCallback(() => {
+  const forceSendPendingAutomaticMessage = useCallback(() => {
     if (!pendingAutomaticMessage) {
       return;
     }
@@ -1141,7 +1141,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       activeProvider &&
       !needsApiKey
     ) {
-      sendPendingAutomaticMessage();
+      forceSendPendingAutomaticMessage();
     }
   }, [
     pendingAutomaticMessage,
@@ -1150,7 +1150,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     activeProvider,
     needsApiKey,
-    sendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
   ]);
 
   const handleCancelSession = useCallback(() => {
@@ -1304,7 +1304,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     closePanel,
     sendMessage: handleSendMessage,
     sendMessageWhenReady,
-    sendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
     selectProvider,
     prefillPrompt,
     clearPendingPrompt,
@@ -1350,7 +1350,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   closePanel: () => {},
   sendMessage: () => {},
   sendMessageWhenReady: () => {},
-  sendPendingAutomaticMessage: () => {},
+  forceSendPendingAutomaticMessage: () => {},
   selectProvider: () => {},
   prefillPrompt: () => {},
   clearPendingPrompt: () => {},
