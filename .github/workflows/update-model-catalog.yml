@@ -21,7 +21,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -29,7 +29,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
@@ -43,6 +43,14 @@ jobs:
       - name: Fetch and transform model catalog
         run: uv run python dev/update_model_catalog.py
 
+      - name: Regenerate claude-code pricing snapshot
+        working-directory: libs/typescript
+        run: |
+          # --ignore-scripts skips the root `prepare` script, which builds every
+          # workspace package; sync:pricing only needs node and prettier.
+          npm ci --ignore-scripts
+          npm run -C integrations/claude-code sync:pricing
+
       - name: Run pre-commit on generated files
         run: |
           uv sync --locked --only-group lint
@@ -55,7 +63,7 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet mlflow/utils/model_catalog/; then
+          if git diff --quiet mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -78,7 +86,7 @@ jobs:
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           branch="update-model-catalog"
           git checkout -b "$branch"
-          git add mlflow/utils/model_catalog/
+          git add mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
           git commit -m "Update model catalog from upstream sources"
           git push -f -u origin "$branch"
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
