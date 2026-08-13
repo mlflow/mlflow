@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786604351248,
+  "lastUpdate": 1786605375833,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -21761,6 +21761,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.530040200002077,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "45089264+yangbaechu@users.noreply.github.com",
+            "name": "yangbaechu",
+            "username": "yangbaechu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6af9543433a01b44a7f612a11a6fa0dfc1b43b01",
+          "message": "Prevent object-store artifact deletion from removing sibling paths (#25024)\n\nSigned-off-by: Yang Geonhee <abab_1212@naver.com>",
+          "timestamp": "2026-08-13T07:14:51Z",
+          "tree_id": "545e29d463ce903172dda0a8d5e766fb21e307cc",
+          "url": "https://github.com/mlflow/mlflow/commit/6af9543433a01b44a7f612a11a6fa0dfc1b43b01"
+        },
+        "date": 1786605373929,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.95905825000008,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.313340307690838,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.023603158621034,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.3114108932047195,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.537452839285481,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.374106800003347,
             "unit": "ms"
           }
         ]
