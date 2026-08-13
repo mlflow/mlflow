@@ -497,23 +497,32 @@ async def expand_config(
             # Add tracing SDK test with the latest stable version
             if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
                 version = max(versions)  # Test against the latest stable version
+                # Recompute the version-dependent fields for `version`. Reusing the ones left
+                # over from the loop above would pin this job to whichever version happened to
+                # be iterated last, which is the minimum appended by `versions.append(...)`.
+                requirements = [f"{package_info.pip_release}=={version}"]
+                requirements.extend(get_matched_requirements(cfg.requirements or {}, str(version)))
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
                         flavor=flavor,
                         category="tracing-sdk",
                         job_name=f"{name} / tracing-sdk / {version}",
-                        install=install,
+                        install=make_pip_install_command(requirements),
                         # --import-mode=importlib is required for testing tracing SDK
                         # (mlflow-tracing) works properly, without being affected by environment.
-                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        run=remove_comments(cfg.run).replace(
+                            "pytest", "pytest --import-mode=importlib"
+                        ),
                         package=package_info.pip_release,
                         version=version,
-                        java=java,
+                        java=get_java_version(cfg.java, str(version)),
                         supported=version <= cfg.maximum,
                         free_disk_space=free_disk_space,
-                        python=python,
-                        runs_on=runs_on,
+                        python=get_python_version(
+                            cfg.python, package, str(version), package_info.repo
+                        ),
+                        runs_on=get_runs_on(cfg.runs_on, str(version)),
                     )
                 )
 
