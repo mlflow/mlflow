@@ -2407,6 +2407,13 @@ class SqlJob(Base):
     Stores additional job status details.
     """
 
+    creator = Column(String(255), nullable=True)
+    """
+    Username of the authenticated user who created the job: `String` (limit 255).
+    ``None`` for jobs created without authentication. Used by the basic-auth
+    plugin to enforce per-job ownership.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2443,6 +2450,7 @@ class SqlJob(Base):
             last_update_time=self.last_update_time,
             workspace=self.workspace,
             status_details=self.status_details,
+            creator=self.creator,
         )
 
 

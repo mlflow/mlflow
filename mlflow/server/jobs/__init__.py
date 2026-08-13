@@ -137,6 +137,23 @@ def job(
     return decorator
 
 
+def _current_authenticated_user() -> str | None:
+    """Return the authenticated username for the active request, or ``None``.
+
+    The basic-auth plugin stamps ``g.mlflow_authenticated_user`` in its
+    before-request hook; jobs record it as the creator so the plugin can enforce
+    per-job ownership. Returns ``None`` when auth is disabled or no
+    request context is active (e.g. a job resubmitted by the server itself).
+    """
+    try:
+        from flask import g, has_request_context
+    except Exception:
+        return None
+    if not has_request_context():
+        return None
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
 def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
@@ -220,7 +237,9 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    job = job_store.create_job(
+        fn_meta.name, serialized_params, timeout, creator=_current_authenticated_user()
+    )
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 

@@ -50,6 +50,7 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
@@ -63,6 +64,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
 )
 from mlflow.protos.label_schemas_pb2 import (
     CreateLabelSchema,
@@ -109,30 +116,39 @@ from mlflow.protos.review_queues_pb2 import (
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
     CreateAssessment,
+    CreateDataset,
     CreateExperiment,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
     CreatePresignedDownloadUrl,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
     DeleteAssessment,
+    DeleteDataset,
+    DeleteDatasetRecords,
+    DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -150,9 +166,13 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
+    GetDataset,
+    GetDatasetExperimentIds,
+    GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
     GetLoggedModel,
@@ -167,7 +187,9 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointGuardrailConfigs,
     ListGatewayEndpointBindings,
+    ListGatewayGuardrails,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
@@ -181,13 +203,17 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     QueryTraceMetrics,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
+    RemoveGuardrailFromEndpoint,
     RestoreExperiment,
     RestoreRun,
+    SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
     SearchTraces,
     SearchTracesV3,
+    SetDatasetTags,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
@@ -197,6 +223,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -204,12 +231,16 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+    UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import (
     GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayBudgetPolicies as ListGatewayBudgetPolicies,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayBudgetWindows as ListGatewayBudgetWindows,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints as ListGatewayEndpoints,
@@ -289,6 +320,8 @@ from mlflow.server.auth.routes import (
     CREATE_USER_UI,
     DELETE_ROLE,
     DELETE_USER,
+    DEMO_DELETE,
+    DEMO_GENERATE,
     GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
     GATEWAY_SECRETS_CONFIG,
@@ -298,6 +331,7 @@ from mlflow.server.auth.routes import (
     GET_CURRENT_USER,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
+    GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
@@ -306,7 +340,11 @@ from mlflow.server.auth.routes import (
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
     HOME,
+    INVOKE_GENAI_EVALUATE,
+    INVOKE_ISSUE_DETECTION,
     INVOKE_SCORER,
+    JOB_CANCEL,
+    JOB_GET,
     LIST_CURRENT_USER_PERMISSIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
@@ -1375,6 +1413,35 @@ def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
     return store.get_user(username).is_admin
+
+
+def _allow_authenticated():
+    """Authorize any authenticated user (authentication already happened upstream).
+
+    For routes intentionally open to every logged-in user because they expose no
+    tenant-scoped data — e.g. static capability discovery and demo-data onboarding.
+    """
+    return True
+
+
+def validate_is_job_owner():
+    """Authorize the caller for a job only if they created it.
+
+    Jobs carry no experiment scope, so ownership is the authorization boundary:
+    the recorded ``creator`` must match the caller (admins bypass upstream in
+    ``_before_request``). A job with no recorded creator, or a missing job, is
+    denied for non-admins.
+    """
+    from mlflow.server.jobs import get_job
+
+    job_id = _get_request_param("job_id")
+    try:
+        creator = get_job(job_id).creator
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return creator is not None and creator == authenticate_request().username
 
 
 def _is_workspace_admin(user_id: int, workspace: str) -> bool:
@@ -2632,6 +2699,10 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
+    # Minting a presigned upload URL grants direct write access to a run's
+    # artifacts, so it requires the same per-run UPDATE permission as writing
+    # through the proxied artifact upload paths.
+    CreatePresignedUploadUrl: validate_can_update_run,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
@@ -2673,10 +2744,23 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Routes for gateway budget policies
+    # Routes for gateway budget policies (admin-only, matching the write ops)
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
+    GetGatewayBudgetPolicy: sender_is_admin,
+    ListGatewayBudgetPolicies: sender_is_admin,
+    ListGatewayBudgetWindows: sender_is_admin,
+    # Guardrails: standalone CRUD is admin-only; endpoint-attached routes gate on
+    # the owning gateway endpoint (read to view, update to attach/detach/config).
+    CreateGatewayGuardrail: sender_is_admin,
+    GetGatewayGuardrail: sender_is_admin,
+    ListGatewayGuardrails: sender_is_admin,
+    DeleteGatewayGuardrail: sender_is_admin,
+    AddGuardrailToEndpoint: validate_can_update_gateway_endpoint,
+    RemoveGuardrailFromEndpoint: validate_can_update_gateway_endpoint,
+    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint,
+    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint,
     # Routes for gateway endpoint-model mappings
     AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
@@ -2854,11 +2938,26 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
     (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (GET_METRIC_HISTORY_BULK_INTERVAL_REST, "GET"): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # Invoke endpoints create runs/jobs in an experiment, so require update on it.
+    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    # Demo onboarding: generate populates a shared demo experiment (open to any
+    # authenticated user); delete hard-deletes it (admin-only).
+    (DEMO_GENERATE, "POST"): _allow_authenticated,
+    (DEMO_DELETE, "POST"): sender_is_admin,
+    # Gateway discovery returns static capability lists (no tenant data) — open to
+    # any authenticated user. Gateway/provider config can expose secret/provider
+    # settings — admin-only.
+    (GATEWAY_SUPPORTED_PROVIDERS, "GET"): _allow_authenticated,
+    (GATEWAY_SUPPORTED_MODELS, "GET"): _allow_authenticated,
+    (GATEWAY_PROVIDER_CONFIG, "GET"): sender_is_admin,
+    (GATEWAY_SECRETS_CONFIG, "GET"): sender_is_admin,
     # Online scoring configuration (excluded from the auto generated map above).
     (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
     (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
@@ -2928,6 +3027,175 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
     )
     for method in methods
 }
+
+
+# Evaluation Dataset and Issue routes were added to the tracking server without
+# authorization validators. Because ``_before_request`` allows any authenticated
+# request whose path resolves no validator, these routes were reachable by any
+# authenticated user regardless of their experiment permissions. Datasets and issues
+# are experiment-scoped, so their permissions are derived from the associated
+# experiment(s), mirroring how traces and runs are gated.
+def _dataset_experiment_permissions():
+    dataset_id = _get_request_param("dataset_id")
+    username = authenticate_request().username
+    try:
+        experiment_ids = _get_tracking_store().get_dataset_experiment_ids(dataset_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return [], []
+        raise
+    return experiment_ids, [_get_experiment_permission(eid, username) for eid in experiment_ids]
+
+
+def validate_can_read_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_read for p in permissions)
+
+
+def validate_can_update_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_update for p in permissions)
+
+
+def validate_can_delete_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_delete for p in permissions)
+
+
+def _experiment_ids_from_request():
+    if request.method == "GET":
+        return request.args.getlist("experiment_ids")
+    body = request.get_json(silent=True)
+    return list(body.get("experiment_ids", [])) if isinstance(body, dict) else []
+
+
+def validate_can_create_dataset():
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_update for eid in experiment_ids
+    )
+
+
+def validate_can_search_evaluation_datasets():
+    # Require the caller to scope the search to experiment(s) they can read, so an
+    # empty request cannot enumerate every dataset on the server.
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def _issue_experiment_permission():
+    issue_id = _get_request_param("issue_id")
+    username = authenticate_request().username
+    experiment_id = _get_tracking_store().get_issue(issue_id).experiment_id
+    return _get_experiment_permission(experiment_id, username)
+
+
+def validate_can_read_issue():
+    try:
+        return _issue_experiment_permission().can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_update_issue():
+    try:
+        return _issue_experiment_permission().can_update
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_create_issue():
+    experiment_id = (request.get_json(silent=True) or {}).get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_search_issues():
+    experiment_id = (request.get_json(silent=True) or {}).get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_read
+
+
+DATASET_BEFORE_REQUEST_HANDLERS = {
+    CreateDataset: validate_can_create_dataset,
+    GetDataset: validate_can_read_dataset,
+    DeleteDataset: validate_can_delete_dataset,
+    SearchEvaluationDatasets: validate_can_search_evaluation_datasets,
+    SetDatasetTags: validate_can_update_dataset,
+    DeleteDatasetTag: validate_can_update_dataset,
+    UpsertDatasetRecords: validate_can_update_dataset,
+    GetDatasetRecords: validate_can_read_dataset,
+    DeleteDatasetRecords: validate_can_update_dataset,
+    GetDatasetExperimentIds: validate_can_read_dataset,
+    AddDatasetToExperiments: validate_can_update_dataset,
+    RemoveDatasetFromExperiments: validate_can_update_dataset,
+}
+
+
+def get_dataset_before_request_handler(request_class):
+    return DATASET_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Every /mlflow/datasets/* route carries a path parameter or otherwise needs regex
+# matching, so they cannot live in the exact-match BEFORE_REQUEST_VALIDATORS table.
+DATASET_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_dataset_before_request_handler)
+    for method in methods
+    if handler in DATASET_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+ISSUE_BEFORE_REQUEST_HANDLERS = {
+    GetIssue: validate_can_read_issue,
+    UpdateIssue: validate_can_update_issue,
+}
+
+
+def get_issue_before_request_handler(request_class):
+    return ISSUE_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# GET/PATCH /mlflow/issues/<issue_id> carry a path parameter and need regex matching.
+ISSUE_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_before_request_handler)
+    for method in methods
+    if handler in ISSUE_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateIssue: validate_can_create_issue,
+    SearchIssues: validate_can_search_issues,
+}
+
+
+def get_issue_exact_before_request_handler(request_class):
+    return ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# CreateIssue (POST /mlflow/issues) and SearchIssues (POST /mlflow/issues/search) have
+# no path parameters, so they resolve through the exact-match validator table.
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_exact_before_request_handler)
+    for method in methods
+    if handler in ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
+
 
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
@@ -3017,6 +3285,14 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     return make_basic_auth_response()
 
 
+# Job routes carry a <job_id> path parameter, so they need regex matching. Both the
+# per-id fetch and cancel routes are gated on job ownership.
+JOB_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(JOB_GET), "GET"): validate_is_job_owner,
+    (_re_compile_path(JOB_CANCEL), "PATCH"): validate_is_job_owner,
+}
+
+
 def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
@@ -3048,6 +3324,48 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Dataset routes with path parameters (e.g. /mlflow/datasets/<dataset_id>/records).
+    # The whole /mlflow/datasets/ family is authorized here; an unknown path under the
+    # prefix is denied (fail-closed) so a future dataset route cannot silently skip auth.
+    if "/mlflow/datasets/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in DATASET_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return validator if validator is not None else lambda: False
+
+    # Job routes with path parameters (e.g. /mlflow/jobs/<job_id>,
+    # /mlflow/jobs/cancel/<job_id>). Ownership-gated; unknown job paths fail closed.
+    if "/mlflow/jobs/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in JOB_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return validator if validator is not None else lambda: False
+
+    # Per-issue routes with path parameters (e.g. /mlflow/issues/<issue_id>). Only the
+    # read/update-by-id routes are matched here; other /mlflow/issues/ paths (e.g. issue
+    # detection) keep their existing handling by falling through.
+    if "/mlflow/issues/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in ISSUE_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        if validator is not None:
+            return validator
+
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
     if "/mlflow/traces/" in req.path:
@@ -3062,6 +3380,52 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         return validator if validator is not None else lambda: False
 
     return None
+
+
+# --- Fail-closed authorization net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED) ---
+# Routes intentionally reachable without per-resource authorization.
+_PUBLIC_ROUTE_SUFFIXES = (
+    "/mlflow/server-info",  # server capability discovery; carries no tenant data
+)
+
+# Routes whose handler performs its own authorization (e.g. filtering results by
+# the caller's readable experiments) instead of registering a before-request
+# validator.
+_HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
+    "/mlflow/runs/search",  # _search_runs -> auth.filter_experiment_ids(...)
+    "/graphql",  # GraphQL PROTECTED_FIELDS field-level gating
+)
+
+# Route families that ship without an authorization validator are temporarily
+# listed here so the fail-closed default does not break them, while the CI coverage
+# test still blocks any NEW ungated route. This list is currently empty: all known
+# route families have been gated. A new
+# entry here should be a temporary, tracked exception (a route awaiting a validator),
+# not a permanent home. When empty, the fail-closed flag can be flipped on safely.
+_KNOWN_UNGATED_ROUTE_MARKERS = ()
+
+
+def _is_known_ungated_route(path: str) -> bool:
+    return any(marker in path for marker in _KNOWN_UNGATED_ROUTE_MARKERS)
+
+
+def _authorized_outside_before_request(req) -> bool:
+    """True if the route's authorization is handled somewhere other than a
+    before-request validator: an explicit public allowlist, a self-authorizing
+    handler, or an after-request response filter.
+    """
+    path = req.path
+    method = req.method
+    if any(path.endswith(s) for s in _PUBLIC_ROUTE_SUFFIXES):
+        return True
+    if any(path.endswith(s) for s in _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
+        return True
+    if (path, method) in AFTER_REQUEST_HANDLERS:
+        return True
+    return any(
+        pat.fullmatch(path) and m == method
+        for (pat, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+    )
 
 
 @catch_mlflow_exception
@@ -3098,6 +3462,18 @@ def _before_request():
         if validator := _get_proxy_artifact_validator(request.method, request.view_args):
             if not validator():
                 return make_forbidden_response()
+    elif (
+        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        and not _authorized_outside_before_request(request)
+        and not _is_known_ungated_route(request.path)
+    ):
+        # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): an authenticated
+        # request to a route with no registered authorization decision is denied
+        # rather than silently allowed. To permit a new route, add a validator, an
+        # after-request filter, or an explicit allowlist entry. Grandfathered gaps
+        # (_KNOWN_UNGATED_ROUTE_MARKERS) are temporarily exempt and tracked in
+        # internal tracking. When the flag is off (default), behavior is unchanged.
+        return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):
@@ -3746,6 +4122,47 @@ def filter_list_scorers(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def filter_list_gateway_endpoints(resp: Response) -> None:
+    """Filter ``ListGatewayEndpoints`` responses to endpoints the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewayEndpoints.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(authenticate_request().username, "gateway_endpoint")
+    for row in list(response_message.endpoints):
+        if not can_read(row.endpoint_id):
+            response_message.endpoints.remove(row)
+    resp.data = message_to_json(response_message)
+
+
+def filter_list_gateway_model_definitions(resp: Response) -> None:
+    """Filter ``ListGatewayModelDefinitions`` responses to rows the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewayModelDefinitions.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(
+        authenticate_request().username, "gateway_model_definition"
+    )
+    for row in list(response_message.model_definitions):
+        if not can_read(row.model_definition_id):
+            response_message.model_definitions.remove(row)
+    resp.data = message_to_json(response_message)
+
+
+def filter_list_gateway_secrets(resp: Response) -> None:
+    """Filter ``ListGatewaySecretInfos`` responses to secrets the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewaySecretInfos.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(authenticate_request().username, "gateway_secret")
+    for row in list(response_message.secrets):
+        if not can_read(row.secret_id):
+            response_message.secrets.remove(row)
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -3765,6 +4182,10 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteGatewayEndpoint: delete_gateway_endpoint_permissions_cascade,
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
+    # Cross-resource gateway list endpoints: filter rows to what the caller can read.
+    ListGatewayEndpoints: filter_list_gateway_endpoints,
+    ListGatewayModelDefinitions: filter_list_gateway_model_definitions,
+    ListGatewaySecretInfos: filter_list_gateway_secrets,
     ListWorkspaces: filter_list_workspaces,
     CreateWorkspace: _seed_default_workspace_roles,
     DeleteWorkspace: _cleanup_workspace_permissions,

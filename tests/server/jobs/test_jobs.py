@@ -1088,3 +1088,21 @@ def test_subproc_entry_telemetry(tmp_path, monkeypatch):
 
     mock_set_telemetry.assert_called_once()
     mock_client.flush.assert_called_once()
+
+
+def test_create_job_records_creator(tmp_path: Path, workspaces_enabled):
+    # internal tracking: the authenticated user is recorded as the job creator so the
+    # basic-auth plugin can enforce per-job ownership. Covers both the base and
+    # workspace-aware stores via the workspaces_enabled fixture.
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    job = store.create_job("test.function", "{}", creator="alice")
+    assert job.creator == "alice"
+    assert store.get_job(job.job_id).creator == "alice"
+
+    # creator is optional (job created without authentication)
+    anon = store.create_job("test.function", "{}")
+    assert anon.creator is None
+    assert store.get_job(anon.job_id).creator is None
