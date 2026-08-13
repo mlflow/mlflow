@@ -3994,12 +3994,11 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.created_timestamp > 0
 
 
-# ─── D2/D3 tests: register_prompt UI discoverability ─────────────────────────
+# ─── D2 tests: register_prompt UI discoverability ────────────────────────────
 #
-# D2 and D3 side-effects fire ONLY from the Unity Catalog branch of
-# register_prompt (when is_databricks_unity_catalog_uri returns True). Tests
-# mock the UC registry backend so the UC branch runs without a live Databricks
-# connection.
+# D2 fires ONLY from the Unity Catalog branch of register_prompt (when
+# is_databricks_unity_catalog_uri returns True). Tests mock the UC registry
+# backend so the UC branch runs without a live Databricks connection.
 
 
 def _make_uc_prompt_version(name: str, version: int = 1):
@@ -4017,8 +4016,6 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
     - registry_client.create_prompt -> no-op
     - registry_client.create_prompt_version -> Mock(version=1)
     - registry_client.get_prompt_version -> minimal PromptVersion
-    - get_workspace_url -> fake workspace URL
-    - set_experiment_tag -> tracked via a real MlflowClient method backed by tracking_uri
     """
     import contextlib
 
@@ -4049,7 +4046,8 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
 
 def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
     """D2 (UC branch): register_prompt emits an INFO log with the Catalog Explorer URL when
-    get_workspace_url() returns a workspace URL and the name is a 3-part UC name."""
+    get_workspace_url() returns a workspace URL and the name is a 3-part UC name.
+    """
     fake_workspace_url = "https://my-workspace.azuredatabricks.net"
     client = MlflowClient(tracking_uri=tracking_uri)
 
@@ -4088,72 +4086,3 @@ def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_u
                 )
 
     assert "/explore/data/" not in "\n".join(caplog.messages)
-
-
-def test_register_prompt_uc_branch_sets_experiment_tag(tracking_uri):
-    """D3 (UC branch): after register_prompt with a 3-part UC name and an active experiment
-    (set via set_experiment so _get_experiment_id() resolves it), the experiment tag
-    mlflow.promptRegistryLocation is set to 'catalog.schema'."""
-    experiment = mlflow.set_experiment("test_d3_uc_experiment")
-    experiment_id = experiment.experiment_id
-    client = MlflowClient(tracking_uri=tracking_uri)
-
-    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
-        with mock.patch(
-            "mlflow.tracking.client.get_workspace_url",
-            return_value=None,
-        ):
-            client.register_prompt(
-                name="catalog.schema.my_prompt",
-                template="Answer: {{question}}",
-            )
-
-    fetched = client.get_experiment(experiment_id)
-    assert fetched.tags.get("mlflow.promptRegistryLocation") == "catalog.schema"
-
-
-def test_register_prompt_uc_branch_tag_failure_does_not_break_registration(tracking_uri):
-    """D3 best-effort: if set_experiment_tag raises, register_prompt still returns a
-    PromptVersion without propagating the exception."""
-    client = MlflowClient(tracking_uri=tracking_uri)
-    mlflow.set_experiment("test_d3_best_effort")
-
-    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
-        with mock.patch(
-            "mlflow.tracking.client.get_workspace_url",
-            return_value=None,
-        ):
-            with mock.patch.object(
-                client,
-                "set_experiment_tag",
-                side_effect=Exception("simulated tag failure"),
-            ):
-                # Must NOT raise
-                pv = client.register_prompt(
-                    name="catalog.schema.my_prompt",
-                    template="Answer: {{question}}",
-                )
-
-    from mlflow.entities.model_registry.prompt_version import PromptVersion
-
-    assert isinstance(pv, PromptVersion)
-
-
-def test_register_prompt_uc_branch_no_tag_for_non_uc_name(tracking_uri):
-    """D3: for a non-3-part UC name the promptRegistryLocation tag is not set."""
-    experiment = mlflow.set_experiment("test_d3_uc_non3part")
-    experiment_id = experiment.experiment_id
-    client = MlflowClient(tracking_uri=tracking_uri)
-
-    with _uc_register_prompt_patches("my_prompt", tracking_uri):
-        with mock.patch(
-            "mlflow.tracking.client.get_workspace_url",
-            return_value=None,
-        ):
-            client.register_prompt(
-                name="my_prompt",
-                template="Hello {{name}}",
-            )
-
-    fetched = client.get_experiment(experiment_id)
-    assert "mlflow.promptRegistryLocation" not in (fetched.tags or {})
