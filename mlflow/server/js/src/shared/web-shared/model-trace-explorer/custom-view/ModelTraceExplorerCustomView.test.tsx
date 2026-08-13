@@ -845,7 +845,7 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(createItem.querySelector('[data-disabled-tooltip]')).toBeInTheDocument();
 
     // Dispatch directly because userEvent intentionally refuses pointer events on disabled items.
-    // The context guard must also keep the authoring UI closed.
+    // The handler guard must also keep the authoring UI closed.
     fireEvent.click(createItem);
     expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
   });

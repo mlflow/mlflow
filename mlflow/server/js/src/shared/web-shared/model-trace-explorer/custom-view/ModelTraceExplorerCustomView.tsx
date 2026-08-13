@@ -581,7 +581,7 @@ export const ModelTraceExplorerCustomView = ({
   // is collected later, on first save. startNewView sets isDraft so the authoring
   // empty state renders even when other saved views already exist.
   const handleCreateView = () => {
-    if (!cv.canPersist) {
+    if (!cv.canPersist || cv.hasReachedViewLimit) {
       return;
     }
     cv.startNewView('');
