@@ -22,6 +22,7 @@ from sqlalchemy import (
     UnicodeText,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -372,7 +373,7 @@ class SqlExperimentTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(Text, nullable=True)
+    value = Column(Text().with_variant(MEDIUMTEXT, "mysql"), nullable=True)
     """
     Value associated with tag: `Text` (limited to 20000 characters by validation). Could be *null*.
     """

@@ -2037,7 +2037,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker(read_only=False) as session:
-            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()

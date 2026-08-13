@@ -6,6 +6,7 @@ Create Date: 2026-08-13 16:36:37.291014
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 # revision identifiers, used by Alembic.
 revision = "17e22815139b"
@@ -20,12 +21,12 @@ def upgrade():
     # batch.html#running-batch-migrations-for-sqlite-and-other-databases)
     # We specify existing_type, existing_nullable, existing_server_default
     # because MySQL alter column statements require a full column description.
-    # TEXT avoids exceeding MySQL's maximum VARCHAR width with the utf8mb4 charset.
+    # MEDIUMTEXT provides enough capacity for 20,000 characters with the MySQL utf8mb4 charset.
     with op.batch_alter_table("experiment_tags") as batch_op:
         batch_op.alter_column(
             "value",
             existing_type=sa.String(5000),
-            type_=sa.Text(),
+            type_=sa.Text().with_variant(MEDIUMTEXT, "mysql"),
             existing_nullable=True,
             existing_server_default=None,
         )
