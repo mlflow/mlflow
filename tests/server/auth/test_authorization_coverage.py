@@ -78,6 +78,19 @@ def test_known_ungated_markers_are_not_stale():
     )
 
 
+def test_unknown_issue_subpath_fails_closed():
+    # An unrecognized /mlflow/issues/ path resolves to a denying validator (not None), so
+    # it is denied even with MLFLOW_BASIC_AUTH_FAIL_CLOSED off, matching the dataset/trace
+    # branches, rather than silently falling through.
+    v = a._find_validator(_Req("/api/3.0/mlflow/issues/i-1/comments", "POST"))
+    assert v is not None
+    assert v() is False
+    # The invoke route is exempt from that hard-deny: it either has its own validator or is
+    # still tracked in the debt list, never the fail-closed fallback.
+    invoke = "/ajax-api/3.0/mlflow/issues/invoke"
+    assert a._is_known_ungated_route(invoke) or (invoke, "POST") in a.BEFORE_REQUEST_VALIDATORS
+
+
 def _fastapi_native_routes():
     # Routers served directly by FastAPI (Flask is mounted separately and authorized by
     # _before_request, so it is out of scope for this guard).
