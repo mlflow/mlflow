@@ -66,7 +66,7 @@ class DummyLMWithUsage(DummyLM):
                     },
                 )
 
-            return super().__call__(prompt, messages, **kwargs)
+            return super().__call__(prompt=prompt, messages=messages, **kwargs)
 
 
 def test_autolog_lm():
