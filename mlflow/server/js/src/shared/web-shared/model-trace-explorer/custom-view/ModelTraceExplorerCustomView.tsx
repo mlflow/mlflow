@@ -480,6 +480,17 @@ export const ModelTraceExplorerCustomView = ({
     [surfaceId, pendingFeedbackVersion],
   );
 
+  const getStagedFeedbackValue = useCallback(
+    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) => {
+      if (!surfaceId) {
+        return undefined;
+      }
+      return pendingFeedbackRef.current.get(surfaceId)?.get(feedbackEntryKey(entry))?.value;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
   const managedSurfacesRef = useRef<Set<string>>(new Set());
   const managedSurfaceTemplateFingerprintsRef = useRef<Map<string, string>>(new Map());
 
@@ -1241,6 +1252,7 @@ export const ModelTraceExplorerCustomView = ({
                   enabled: true,
                   traceId,
                   hasStagedFeedback,
+                  getStagedFeedbackValue,
                   submitStagedFeedback,
                   getFeedbackResetVersion,
                 }}

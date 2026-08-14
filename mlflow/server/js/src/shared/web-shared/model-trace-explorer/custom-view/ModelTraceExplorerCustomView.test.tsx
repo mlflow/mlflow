@@ -15,6 +15,7 @@ import { CustomViewDefinitionProvider, useOptionalCustomViewDefinition } from '.
 import { latchDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
 import { toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
 import type { CreateAssessmentPayload } from '../api';
+import { shouldUseTracesV4API } from '../FeatureUtils';
 import { ModelSpanType, type ModelTrace, type ModelTraceSpanNode } from '../ModelTrace.types';
 import {
   ModelTraceExplorerViewStateContext,
@@ -478,6 +479,7 @@ const specWithTitle = (title: string): RenderCustomViewSpec => ({
 describe('ModelTraceExplorerCustomView', () => {
   beforeEach(() => {
     mockUseCustomViewAssistantBridge.mockReset();
+    jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
     // The latch is module-level state owned by the page's context plugin; clear
     // it so a test that sets it can't retarget a later test's apply.
     latchDispatchedCustomViewApplyTarget(undefined);
@@ -1181,6 +1183,23 @@ describe('ModelTraceExplorerCustomView', () => {
         source: { source_type: 'HUMAN', source_id: 'test-user@example.com' },
         feedback: { value: true },
       });
+    });
+
+    it('keeps the staged radio selection when thumbs feedback refreshes the view', async () => {
+      jest.mocked(shouldUseTracesV4API).mockReturnValue(true);
+      const posted = captureAssessmentPosts();
+      setBridge();
+      renderWithViews([feedbackPrimitivesView]);
+      await selectView(/name-feedback-primitives/);
+
+      const accurate = await screen.findByRole('radio', { name: 'Accurate' });
+      await userEvent.click(accurate);
+      await userEvent.click(screen.getByRole('button', { name: 'Thumbs up' }));
+
+      await waitFor(() => expect(posted).toHaveLength(1));
+      await screen.findByText('Feedback submitted');
+      expect(screen.getByRole('radio', { name: 'Accurate' })).toBeChecked();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Submit review' })).toBeEnabled());
     });
 
     it('reflects a bound thumbs value as the selected button', async () => {

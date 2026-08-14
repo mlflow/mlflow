@@ -27,6 +27,10 @@ export interface FeedbackStatusContextValue {
   // entries staged under that same `formId`. Reactive: flips as RadioGroup /
   // FeedbackInputText inputs stage or clear.
   hasStagedFeedback: (formId?: string) => boolean;
+  // Returns the staged value for a logical feedback entry. RadioGroup uses it
+  // to preserve an in-progress selection when assessment data refreshes and
+  // causes the A2UI surface to re-bind without changing its template.
+  getStagedFeedbackValue: (entry: { name: string; spanId?: string; formId?: string }) => string | undefined;
   // Flushes staged RadioGroup / FeedbackInputText feedback for the given form.
   // Only entries sharing this `formId` are submitted, so one form's submit never
   // flushes another form's staged feedback. Failed dimensions stay staged for
@@ -43,6 +47,7 @@ const FeedbackStatusContext = createContext<FeedbackStatusContextValue>({
   enabled: false,
   traceId: '',
   hasStagedFeedback: () => false,
+  getStagedFeedbackValue: () => undefined,
   submitStagedFeedback: () => Promise.resolve({ submitted: 0 }),
   getFeedbackResetVersion: () => 0,
 });
