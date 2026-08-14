@@ -292,6 +292,14 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
         assert f.read() == file_a_text
 
 
+def test_download_file_missing_key_raises_resource_does_not_exist(s3_artifact_root, tmp_path):
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    with pytest.raises(MlflowException, match="Failed to download") as exc_info:
+        repo._download_file("missing.txt", tmp_path / "missing.txt")
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_get_s3_file_upload_extra_args():
     os.environ.setdefault(
         "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
