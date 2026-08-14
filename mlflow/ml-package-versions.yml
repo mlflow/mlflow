@@ -485,7 +485,9 @@ transformers:
           "hf_transfer",
           "torch",
           "torchvision",
-          "tensorflow",
+          # TensorFlow < 2.19 is built against numpy 1.x and crashes ("_ARRAY_API not found")
+          # under the numpy 2.x that the rest of this set resolves to.
+          "tensorflow>=2.19",
           "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
