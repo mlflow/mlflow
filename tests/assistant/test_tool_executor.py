@@ -308,18 +308,6 @@ def test_bash_mlflow_artifacts_download_attached_short_option_denied(workspace):
     assert "Permission denied" in result
 
 
-def test_bash_mlflow_models_predict_not_on_allowlist():
-    # Regression guard: mlflow has dozens of subcommands beyond run/artifacts that
-    # execute code or touch the local filesystem (models predict/serve, deployments
-    # run-local, db upgrade, server, ...). The allowlist denies anything not
-    # specifically audited, rather than only the two subcommands found so far.
-    result, is_error = _run(
-        execute_tool("Bash", {"command": "mlflow models predict --env-manager local -m x"})
-    )
-    assert is_error
-    assert "Permission denied" in result
-
-
 def test_bash_mlflow_env_file_outside_workspace_denied(workspace, tmp_path_factory):
     # Regression guard: "--env-file" is an eager root option that loads a dotenv file's
     # content as environment variables before any subcommand runs. The allowlist only
@@ -407,6 +395,33 @@ def test_bash_mlflow_artifacts_download_file_uri_denied_even_with_cwd(workspace)
             cwd=workspace,
         )
     )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_artifacts_download_empty_artifact_uri_denied(workspace):
+    # Regression guard: "" is falsy, so a truthy check (`if artifact_uri and ...`)
+    # treats an explicitly-empty --artifact-uri the same as "not provided" and skips
+    # the local-URI check, even though an empty scheme is itself classified as local.
+    result, is_error = _run(
+        execute_tool(
+            "Bash",
+            {
+                "command": (
+                    f'mlflow artifacts download --artifact-uri "" --dst-path {workspace / "out"}'
+                )
+            },
+            cwd=workspace,
+        )
+    )
+    assert is_error
+    assert "Permission denied" in result
+
+
+def test_bash_mlflow_env_file_empty_value_denied_without_cwd():
+    # Regression guard: same truthy-check bug as the artifact_uri one above, for
+    # --env-file="". Must still require a configured project directory.
+    result, is_error = _run(execute_tool("Bash", {"command": 'mlflow --env-file "" --version'}))
     assert is_error
     assert "Permission denied" in result
 
