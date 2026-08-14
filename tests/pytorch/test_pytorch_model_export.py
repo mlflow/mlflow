@@ -746,8 +746,12 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_path)
@@ -783,8 +787,12 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_uri=model_uri)
