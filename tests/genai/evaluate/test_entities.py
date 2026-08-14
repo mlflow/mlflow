@@ -36,7 +36,7 @@ def test_get_expectation_assessments_skips_null_values():
         request_id="req-1",
         inputs={"question": "test"},
         outputs="answer",
-        expectations={"expected_response": None, "expected_facts": ["a"]},
+        expectations={"expected_response": None, "score": float("nan"), "expected_facts": ["a"]},
     )
 
     with mock.patch("mlflow.genai.evaluation.entities.get_context") as mock_context:

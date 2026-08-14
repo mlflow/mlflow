@@ -191,7 +191,7 @@ class EvalItem:
         for name, value in self.expectations.items():
             # A Spark DataFrame column of dicts is read back as a struct whose fields are the
             # union of every row's keys, so rows that omitted an expectation carry it as null
-            if value is None:
+            if is_none_or_nan(value):
                 continue
             source_id = get_context().get_user_name()
             expectations.append(
