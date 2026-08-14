@@ -235,7 +235,7 @@ check_and_install_min_py_version() {
   check_and_install_uv
 
   # Get the minimum supported version for development purposes
-  min_py_version="3.10"
+  min_py_version="3.11"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold
