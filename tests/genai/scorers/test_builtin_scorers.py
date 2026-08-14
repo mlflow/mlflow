@@ -1522,22 +1522,23 @@ def test_user_frustration_with_session():
 
 
 @pytest.mark.parametrize(
-    "scorer_cls",
+    ("scorer_cls", "kwargs"),
     [
-        UserFrustration,
-        ConversationCompleteness,
-        ConversationalSafety,
-        ConversationalToolCallEfficiency,
-        ConversationalRoleAdherence,
-        KnowledgeRetention,
+        (UserFrustration, {}),
+        (ConversationCompleteness, {}),
+        (ConversationalSafety, {}),
+        (ConversationalToolCallEfficiency, {}),
+        (ConversationalRoleAdherence, {}),
+        (KnowledgeRetention, {}),
+        (ConversationalGuidelines, {"guidelines": "Be polite"}),
     ],
 )
-def test_session_level_scorers_require_trace_column(scorer_cls):
+def test_session_level_scorers_require_trace_column(scorer_cls, kwargs):
     # BuiltInScorer precedes SessionLevelScorer in the MRO; without an explicit
     # re-declaration its empty default shadows SessionLevelScorer's {"trace"}.
     from mlflow.genai.scorers.builtin_scorers import MissingColumnsException
 
-    scorer = scorer_cls()
+    scorer = scorer_cls(**kwargs)
     assert scorer.required_columns == {"trace"}
 
     with pytest.raises(MissingColumnsException, match="trace"):
