@@ -93,7 +93,7 @@ def _detect_environment() -> str | None:
 
 def _detect_agent() -> str | None:
     """Return the coding agent driving this process, if one can be identified."""
-    # Keep these heuristics aligned with https://github.com/cli/cli/tree/trunk/internal/agents.
+    # https://www.npmjs.com/package/std-env#agent-detection
     if agent := os.environ.get("AI_AGENT", "").strip():
         if _AGENT_NAME_PATTERN.fullmatch(agent):
             return agent.lower()
