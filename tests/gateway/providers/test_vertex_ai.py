@@ -74,6 +74,18 @@ def test_headers_use_bearer_token():
     assert provider.headers == {"Authorization": "Bearer mock-access-token"}
 
 
+def test_get_headers_strips_client_authorization():
+    provider = _make_provider()
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer inbound-token", "X-Custom": "value"}
+    )
+    # The forwarded client Authorization must not shadow the Vertex OAuth Bearer,
+    # otherwise Google rejects the passthrough request with a 401.
+    assert merged["X-Custom"] == "value"
+    auth_headers = [v for k, v in merged.items() if k.lower() == "authorization"]
+    assert auth_headers == ["Bearer mock-access-token"]
+
+
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "Vertex AI"

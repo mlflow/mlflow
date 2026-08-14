@@ -120,6 +120,16 @@ def test_get_headers_uses_server_key_by_default():
     assert merged["X-Custom"] == "value"
 
 
+def test_get_headers_strips_client_authorization():
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "X-Custom": "value"}
+    )
+    assert merged["x-api-key"] == "key"
+    assert "authorization" not in {k.lower() for k in merged}
+    assert merged["X-Custom"] == "value"
+
+
 @pytest.mark.parametrize(
     "user_agent",
     [

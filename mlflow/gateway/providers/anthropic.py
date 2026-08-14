@@ -577,6 +577,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-api-key", None)
+            else:
+                # The inbound Authorization authenticates the client to the gateway,
+                # not to the upstream provider. Forwarding it would shadow the
+                # provider's own credentials (e.g. the Vertex AI OAuth Bearer) and
+                # get the upstream call rejected, so drop it here.
+                client_headers = {
+                    k: v for k, v in client_headers.items() if k.lower() != "authorization"
+                }
             result_headers = client_headers | result_headers
 
         return result_headers
