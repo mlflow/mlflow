@@ -883,6 +883,7 @@ module.exports = {
   "mlflow.charts.difference_plot.overflow_menu.set_as_baseline": "",
   "mlflow.charts.difference_plot.overflow_menu.trigger": "",
   "mlflow.charts.image-plot.run-name-tooltip": "",
+  "mlflow.charts.image_grid_configure.show_run_params": "",
   "mlflow.charts.line-chart-expressions-add-new": "",
   "mlflow.charts.line-chart-expressions-remove": "",
   "mlflow.charts.line_chart_configure.display_points.auto.tooltip": "",
