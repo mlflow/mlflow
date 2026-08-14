@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
+      - ".claude/scripts/anthropic-proxy.mjs"
       - ".claude/skills/pr-review/**"
 
 concurrency:
@@ -179,9 +180,10 @@ jobs:
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
       # The Claude step never sees the real API key: the proxy holds it and the
-      # CLI talks to the proxy with a random per-run client key. Both keys are
-      # passed via stdin (printf is a bash builtin) so they appear in no
-      # process's env or argv.
+      # CLI talks to the proxy with a random per-run client key. The real key
+      # is passed via stdin (printf is a bash builtin) so it appears in no
+      # process's env or argv, and --disable-sigusr1 blocks same-UID processes
+      # from recovering it through a signal-triggered inspector session.
       - name: Start Anthropic proxy
         id: proxy
         env:
@@ -190,9 +192,10 @@ jobs:
           CLIENT_KEY=$(openssl rand -hex 32)
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
           printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
-            | env -u ANTHROPIC_API_KEY node .claude/scripts/anthropic-proxy.mjs &
+            | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
+              > /tmp/anthropic-proxy.log 2>&1 &
           timeout 10 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
-            || { echo "::error::Anthropic proxy failed to start"; exit 1; }
+            || { echo "::error::Anthropic proxy failed to start"; cat /tmp/anthropic-proxy.log; exit 1; }
 
       - name: Review
         id: review
@@ -228,6 +231,12 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # The runner stops reading the proxy's stdout once its own step ends, so
+      # the proxy writes to a file and we dump it here for diagnosability.
+      - name: Show proxy log
+        if: always()
+        run: cat /tmp/anthropic-proxy.log || true
 
       - name: Validate review payload
         run: |
