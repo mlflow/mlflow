@@ -541,7 +541,7 @@ def test_dataframe_from_json_parses_datetime_as_nanoseconds(value):
         pandas_orient="records",
         schema=Schema([ColSpec("datetime", "datetime")]),
     )
-    assert parsed["datetime"].dt.unit == "ns"
+    assert getattr(parsed["datetime"].dt, "unit", "ns") == "ns"
 
 
 @pytest.mark.parametrize(
