@@ -49,6 +49,16 @@ _TIMESTAMP_RE = re.compile(r"^[0-9T:.Z\-]+\s+")
 # colorizes FAILED / the test name); both must be stripped before the nodeid regex.
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
+# Jest's default reporter prints, per failing file: a `FAIL <path>` header, then one
+# bullet (`  ● <suite chain> <test name>`) block per failing test whose first body line
+# is the assertion message. The file path is only on the FAIL line, so the parser threads
+# it onto each following bullet to build a "<file> <sep> <suite chain> <sep> <test>" id.
+# Both regexes tolerate leading whitespace since the reporter indents the bullet two
+# spaces (the timestamp strip already removes the Actions prefix). `(?: \(.*\))?` drops
+# the trailing `(1.2 s)` timing.
+_JEST_FAIL_FILE_RE = re.compile(r"^\s*FAIL\s+(\S+\.test\.[jt]sx?)")
+_JEST_FAIL_TEST_RE = re.compile(r"^\s*●\s+(.+?)(?:\s+\(\d[\d.]*\s*m?s\))?\s*$")
+
 
 @dataclasses.dataclass
 class FlakyTest:
@@ -160,6 +170,41 @@ def parse_pytest_failures(log: str) -> dict[str, str]:
     return failures
 
 
+def parse_jest_failures(log: str) -> dict[str, str]:
+    """{test id: first-line error} parsed from a raw jest Actions log. Empty if none found.
+
+    A jest test id is "<file> <sep> <describe chain> <sep> <test name>" (matching how
+    jest's reporter renders it, joined by the same separator), so a reader can jump
+    straight to the failing test from the report. Pure function (no I/O) so it can be
+    unit-tested against captured log snippets, guarding the format-fragile regexes
+    against reporter/Actions log-format drift.
+    """
+    failures: dict[str, str] = {}
+    current_file: str | None = None
+    lines = log.splitlines()
+    for i, raw in enumerate(lines):
+        line = _TIMESTAMP_RE.sub("", _ANSI_RE.sub("", raw))
+        if m := _JEST_FAIL_FILE_RE.match(line):
+            # A new `FAIL <path>` header rebinds the file every subsequent ● attaches to.
+            current_file = m.group(1)
+            continue
+        if not current_file:
+            continue
+        if m := _JEST_FAIL_TEST_RE.match(line):
+            title = m.group(1).strip()
+            # The assertion message is the first non-blank body line after the ● header.
+            error = next(
+                (
+                    stripped
+                    for nxt in lines[i + 1 :]
+                    if (stripped := _TIMESTAMP_RE.sub("", _ANSI_RE.sub("", nxt)).strip())
+                ),
+                "",
+            )
+            failures.setdefault(f"{current_file} › {title}", error[:300])
+    return failures
+
+
 @dataclasses.dataclass(frozen=True)
 class Framework:
     """A test framework the detector can mine, decoupling the shared CI-history mining
@@ -175,6 +220,7 @@ class Framework:
 
 FRAMEWORKS: dict[str, Framework] = {
     "pytest": Framework("MLflow tests", parse_pytest_failures),
+    "jest": Framework("JS", parse_jest_failures),
 }
 
 

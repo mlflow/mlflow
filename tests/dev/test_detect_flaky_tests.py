@@ -9,6 +9,7 @@ from detect_flaky_tests import (
     Framework,
     failing_tests_from_log,
     gh_api_objects,
+    parse_jest_failures,
     parse_pytest_failures,
 )
 
@@ -67,6 +68,49 @@ def test_error_message_is_truncated():
 
 def test_empty_log_yields_no_failures():
     assert parse_pytest_failures("") == {}
+
+
+# A captured jest failure block as its default reporter renders it: a `FAIL <path>`
+# header (with a trailing `(7.812 s)` timing), then one bullet block per failing test
+# (`  <bullet> <suite chain> <test>`) whose first body line is the assertion message.
+# ANSI SGR codes and the Actions ISO-timestamp prefix wrap the real lines and must be
+# stripped first.
+_JEST_TIMESTAMP = "2026-07-20T10:00:00.1234567Z "
+_JEST_LOG = (
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m FAIL \x1b[0m src/\x1b[1m__flaky_probe__.test.tsx\x1b[0m "
+    "(7.812 s)\n"
+    f"{_JEST_TIMESTAMP}  \x1b[31m✕\x1b[0m top level failing test (1 ms)\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m  ● \x1b[1mFlaky probe suite › renders the widget\x1b[0m\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}    expect(received).toBe(expected) // Object.is equality\n"
+    f"{_JEST_TIMESTAMP}    Expected: 3\n"
+    f"{_JEST_TIMESTAMP}    Received: 2\n"
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m  ● \x1b[1mtop level failing test\x1b[0m\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}    expect(received).toBe(expected) // Object.is equality\n"
+)
+
+
+def test_parses_jest_file_suite_and_test_into_id_with_error():
+    assert parse_jest_failures(_JEST_LOG) == {
+        "src/__flaky_probe__.test.tsx › Flaky probe suite › renders the widget": (
+            "expect(received).toBe(expected) // Object.is equality"
+        ),
+        "src/__flaky_probe__.test.tsx › top level failing test": (
+            "expect(received).toBe(expected) // Object.is equality"
+        ),
+    }
+
+
+def test_jest_test_without_a_preceding_fail_file_is_ignored():
+    # A bare ● with no `FAIL <path>` header before it has no file to attach to; the
+    # detector must not emit a fileless id.
+    assert parse_jest_failures("2026-07-20T10:00:00Z   ● Some suite › a test\n") == {}
+
+
+def test_jest_empty_log_yields_no_failures():
+    assert parse_jest_failures("") == {}
 
 
 def test_gh_api_objects_parses_concatenated_pages(monkeypatch):
