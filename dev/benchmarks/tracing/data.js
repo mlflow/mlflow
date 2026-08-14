@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786689773995,
+  "lastUpdate": 1786692140557,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -22409,6 +22409,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.807901199999833,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pattara.sk127@gmail.com",
+            "name": "Pat Sukprasert",
+            "username": "PattaraS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "298cfa19fa4cb101c1052e9916eacccc69beb0ce",
+          "message": "[1/6] basic-auth: fail-closed authorization net + coverage guard (#25065)\n\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>",
+          "timestamp": "2026-08-14T15:20:51+08:00",
+          "tree_id": "8ab586f04d600587befc692c96fc73515d08028e",
+          "url": "https://github.com/mlflow/mlflow/commit/298cfa19fa4cb101c1052e9916eacccc69beb0ce"
+        },
+        "date": 1786692139006,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.475386449999576,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.355222181818735,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.513222559440141,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.53045526548714,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.902641341666737,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 23.657878200000937,
             "unit": "ms"
           }
         ]
