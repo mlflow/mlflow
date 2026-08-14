@@ -18,6 +18,7 @@ import {
   SparkleFillIcon,
   SparkleIcon,
   Tooltip,
+  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -45,7 +46,7 @@ import { validateAndPrepareMessages, validateTemplate } from './agent/validateA2
 import { resolveTemplate } from './resolveTemplate';
 import { useCustomViewAssistantBridge } from './assistant/useCustomViewAssistantBridge';
 import { getDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
-import type { RenderCustomViewSpec } from './assistant/customViewSpecApplier';
+import { CustomViewValidationError, type RenderCustomViewSpec } from './assistant/customViewSpecApplier';
 import {
   CUSTOM_VIEW_CATALOG_ID,
   type CustomViewData,
@@ -54,7 +55,7 @@ import {
   getMetricsFromTraceInfo,
   mapToAgentAssessments,
 } from './customViewBuilders';
-import { type CustomView, type CustomViewApplyTarget } from './customViewDefinition';
+import { type CustomView, type CustomViewApplyTarget, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 import { useCustomViewDefinition } from './CustomViewDefinitionContext';
 
 // Deterministic surface id per view so React/A2UI reuse the same surface across
@@ -240,6 +241,7 @@ export const ModelTraceExplorerCustomView = ({
 
   // The prompt typed in the empty-state box before/while a view is being built.
   const [instruction, setInstruction] = useState('');
+  const [isAwaitingAssistantDispatch, setIsAwaitingAssistantDispatch] = useState(false);
 
   const isInitialBuilding = cv.isBuilding;
   const { stopBuilding } = cv;
@@ -255,6 +257,19 @@ export const ModelTraceExplorerCustomView = ({
   // background selection change (e.g. an assistant apply) can't retarget the
   // rename.
   const [renameTargetId, setRenameTargetId] = useState<string | undefined>(undefined);
+  // Capture the delete target so a background selection change cannot retarget
+  // the confirmation modal to another view.
+  const [deleteTarget, setDeleteTarget] = useState<Pick<CustomView, 'id' | 'name'> | undefined>(undefined);
+
+  const viewLimitReachedMessage = intl.formatMessage(
+    {
+      defaultMessage:
+        'This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.',
+      description:
+        'Explains that no more custom trace views can be created because the per-experiment limit is reached',
+    },
+    { maxViews: MAX_CUSTOM_VIEWS_PER_EXPERIMENT },
+  );
 
   const surfaceId = activeView ? surfaceIdForView(activeView) : '';
   const surface = activeView ? processor.model.getSurface(surfaceId) : undefined;
@@ -275,6 +290,7 @@ export const ModelTraceExplorerCustomView = ({
   // for an EXISTING view the authoring-context latch is authoritative instead
   // (see onSpec). Consumed (cleared) by the spec it launched.
   const pendingApplyTargetRef = useRef<CustomViewApplyTarget | undefined>(undefined);
+  const hasObservedPendingDispatchRef = useRef(false);
 
   // The rebuild effect mutates the processor model AFTER render (creating new
   // surface objects). We render by reading the SurfaceModel out of the processor
@@ -290,7 +306,7 @@ export const ModelTraceExplorerCustomView = ({
   const prepareTemplate = (spec: RenderCustomViewSpec): A2uiMessage[] => {
     const result = validateTemplate(spec);
     if (!result.ok) {
-      throw new Error(result.error);
+      throw new CustomViewValidationError(result.error);
     }
     return result.messages;
   };
@@ -397,6 +413,8 @@ export const ModelTraceExplorerCustomView = ({
       draftViewIdRef.current = id;
     },
   });
+  const { isStreaming: isAssistantStreaming, isPending: isAssistantPending, clearApplyError } = assistant;
+  const { startBuilding } = cv;
 
   useEffect(() => {
     setInstruction('');
@@ -457,7 +475,7 @@ export const ModelTraceExplorerCustomView = ({
   // call is applied via onSpec. Used by the empty state.
   const handleSubmitPrompt = () => {
     const prompt = instruction.trim();
-    if (!cv.canPersist || !prompt || !assistant.openAssistant) {
+    if (!cv.canPersist || !prompt || !assistant.openAssistant || assistant.isPending || isAwaitingAssistantDispatch) {
       return;
     }
     try {
@@ -484,12 +502,48 @@ export const ModelTraceExplorerCustomView = ({
       instruction: prompt,
       createdAtMs: Date.now(),
     };
-    setInstruction('');
-    // Clear any leftover error from a prior failed build so the skeleton effect
-    // (which cancels on applyError) doesn't immediately suppress this retry.
-    assistant.clearApplyError();
-    cv.startBuilding();
+    hasObservedPendingDispatchRef.current = false;
+    setIsAwaitingAssistantDispatch(true);
   };
+
+  // A queued automatic message may wait on provider setup or an API key. Keep
+  // the prompt form visible until the Assistant actually begins streaming. If
+  // the panel closes first, its queue is cleared and this launch is abandoned
+  // without entering the building skeleton.
+  useEffect(() => {
+    if (!isAwaitingAssistantDispatch) {
+      return;
+    }
+    if (activeView) {
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+      return;
+    }
+    if (isAssistantStreaming) {
+      setInstruction('');
+      clearApplyError();
+      startBuilding();
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+      return;
+    }
+    if (isAssistantPending) {
+      hasObservedPendingDispatchRef.current = true;
+      return;
+    }
+    if (hasObservedPendingDispatchRef.current) {
+      pendingApplyTargetRef.current = undefined;
+      hasObservedPendingDispatchRef.current = false;
+      setIsAwaitingAssistantDispatch(false);
+    }
+  }, [
+    isAwaitingAssistantDispatch,
+    activeView,
+    isAssistantStreaming,
+    isAssistantPending,
+    clearApplyError,
+    startBuilding,
+  ]);
 
   // Clears the building skeleton once the built view exists (success) or the
   // spec apply failed (error). Do NOT clear on the isStreaming falling edge -
@@ -527,7 +581,7 @@ export const ModelTraceExplorerCustomView = ({
   // is collected later, on first save. startNewView sets isDraft so the authoring
   // empty state renders even when other saved views already exist.
   const handleCreateView = () => {
-    if (!cv.canPersist) {
+    if (!cv.canPersist || cv.hasReachedViewLimit) {
       return;
     }
     cv.startNewView('');
@@ -573,6 +627,21 @@ export const ModelTraceExplorerCustomView = ({
     }
     setRenameModalOpen(false);
     cv.renameView(renameTargetId, name);
+  };
+
+  const handleOpenDelete = () => {
+    if (!activeView) {
+      return;
+    }
+    setDeleteTarget({ id: activeView.id, name: activeView.name });
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) {
+      return;
+    }
+    cv.deleteView(deleteTarget.id);
+    setDeleteTarget(undefined);
   };
 
   // Shown for a view that has not been saved yet (empty user-provided name): the
@@ -652,6 +721,8 @@ export const ModelTraceExplorerCustomView = ({
                     <DropdownMenu.Item
                       componentId="shared.model-trace-explorer.custom-view.create-view"
                       onClick={handleCreateView}
+                      disabled={cv.hasReachedViewLimit}
+                      disabledReason={cv.hasReachedViewLimit ? viewLimitReachedMessage : undefined}
                     >
                       <DropdownMenu.IconWrapper>
                         <PlusIcon />
@@ -695,7 +766,7 @@ export const ModelTraceExplorerCustomView = ({
               />
             </AssistantSparkleButton>
           )}
-          {activeView && cv.isActivePersisted && cv.canPersist && (
+          {activeView && cv.isActivePersisted && (cv.canPersist || cv.canDelete) && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <Button
@@ -709,43 +780,60 @@ export const ModelTraceExplorerCustomView = ({
                 />
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end" minWidth={150}>
-                <DropdownMenu.Item
-                  componentId="shared.model-trace-explorer.custom-view.rename"
-                  onClick={handleOpenRename}
-                  disabled={cv.isActivePersistedUnreadable}
-                >
-                  <DropdownMenu.IconWrapper>
-                    <PencilIcon />
-                  </DropdownMenu.IconWrapper>
-                  <FormattedMessage
-                    defaultMessage="Rename view"
-                    description="Menu item to rename the current custom trace view"
-                  />
-                  {cv.isActivePersistedUnreadable && (
-                    <Tooltip
-                      componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
-                      side="right"
-                      content={intl.formatMessage({
-                        defaultMessage: 'Rebuild this invalid view with the assistant and save it to enable renaming.',
-                        description:
-                          'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
-                      })}
-                    >
-                      <span
-                        css={{
-                          display: 'inline-flex',
-                          marginLeft: 'auto',
-                          paddingLeft: theme.spacing.xs,
-                          color: theme.colors.textSecondary,
-                          pointerEvents: 'all',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
+                {cv.canPersist && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.rename"
+                    onClick={handleOpenRename}
+                    disabled={cv.isActivePersistedUnreadable}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <PencilIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Rename view"
+                      description="Menu item to rename the current custom trace view"
+                    />
+                    {cv.isActivePersistedUnreadable && (
+                      <Tooltip
+                        componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
+                        side="right"
+                        content={intl.formatMessage({
+                          defaultMessage:
+                            'Rebuild this invalid view with the assistant and save it to enable renaming.',
+                          description:
+                            'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
+                        })}
                       >
-                        <InfoIcon aria-hidden />
-                      </span>
-                    </Tooltip>
-                  )}
-                </DropdownMenu.Item>
+                        <span
+                          css={{
+                            display: 'inline-flex',
+                            marginLeft: 'auto',
+                            paddingLeft: theme.spacing.xs,
+                            color: theme.colors.textSecondary,
+                            pointerEvents: 'all',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <InfoIcon aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </DropdownMenu.Item>
+                )}
+                {cv.canDelete && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.delete-view-modal-open-button"
+                    onClick={handleOpenDelete}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <TrashIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Delete view"
+                      description="Menu item to delete the current custom trace view"
+                    />
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           )}
@@ -890,7 +978,9 @@ export const ModelTraceExplorerCustomView = ({
                 <div>
                   <AssistantSparkleButton
                     componentId="shared.model-trace-explorer.custom-view.build"
-                    disabled={!instruction.trim()}
+                    disabled={
+                      !instruction.trim() || assistant.isPending || assistant.isStreaming || isAwaitingAssistantDispatch
+                    }
                     onClick={handleSubmitPrompt}
                   >
                     <FormattedMessage
@@ -1007,6 +1097,41 @@ export const ModelTraceExplorerCustomView = ({
             }
           }}
         />
+      </Modal>
+
+      <Modal
+        componentId="shared.model-trace-explorer.custom-view.delete-view-modal"
+        visible={Boolean(deleteTarget)}
+        title={intl.formatMessage({
+          defaultMessage: 'Delete view',
+          description: 'Title of the delete-custom-view confirmation modal',
+        })}
+        onCancel={() => setDeleteTarget(undefined)}
+        onOk={handleDelete}
+        okText={intl.formatMessage({
+          defaultMessage: 'Delete',
+          description: 'Confirm button label on the delete-custom-view modal',
+        })}
+        cancelText={intl.formatMessage({
+          defaultMessage: 'Cancel',
+          description: 'Cancel button label on the delete-custom-view modal',
+        })}
+        okButtonProps={{ danger: true }}
+      >
+        <Typography.Text>
+          {deleteTarget?.name
+            ? intl.formatMessage(
+                {
+                  defaultMessage: 'Delete the view "{name}"? This removes it from the experiment for everyone.',
+                  description: 'Confirmation text when deleting a named custom trace view',
+                },
+                { name: deleteTarget.name },
+              )
+            : intl.formatMessage({
+                defaultMessage: 'Delete this view? This removes it from the experiment for everyone.',
+                description: 'Confirmation text when deleting an unnamed custom trace view',
+              })}
+        </Typography.Text>
       </Modal>
     </div>
   );

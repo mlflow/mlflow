@@ -14,7 +14,11 @@ from mlflow.entities.multipart_upload import (
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    MultipartUploadMixin,
+    _is_object_key_within_path,
+)
 from mlflow.utils.credentials import get_default_host_creds
 
 
@@ -223,7 +227,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         try:
             blobs = container_client.list_blobs(name_starts_with=dest_path)
-            blob_list = list(blobs)
+            blob_list = [blob for blob in blobs if _is_object_key_within_path(blob.name, dest_path)]
             if not blob_list:
                 raise MlflowException(f"No such file or directory: '{dest_path}'")
 

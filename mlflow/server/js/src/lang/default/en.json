@@ -575,6 +575,10 @@
     "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
     "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
   },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
+  },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
@@ -2211,6 +2215,10 @@
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
   },
+  "7b9zBN": {
+    "defaultMessage": "Delete the view \"{name}\"? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting a named custom trace view"
+  },
   "7cd+cQ": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for displaying the experiment trace archival retention"
@@ -2958,6 +2966,10 @@
   "AanBxl": {
     "defaultMessage": "my-endpoint",
     "description": "Placeholder for endpoint name input"
+  },
+  "Aar6YZ": {
+    "defaultMessage": "Delete view",
+    "description": "Menu item to delete the current custom trace view"
   },
   "AawxF/": {
     "defaultMessage": "Edit Endpoint Name",
@@ -4974,6 +4986,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
   },
   "JWxMHS": {
     "defaultMessage": "Created",
@@ -7983,6 +7999,10 @@
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
   },
+  "WFT25v": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label on the delete-custom-view modal"
+  },
   "WGN2f3": {
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
@@ -9798,6 +9818,10 @@
   "dmN/nA": {
     "defaultMessage": "Name",
     "description": "Queue settings: name field label"
+  },
+  "dnoeCa": {
+    "defaultMessage": "Delete view",
+    "description": "Title of the delete-custom-view confirmation modal"
   },
   "dp7Jva": {
     "defaultMessage": "Cancel",
@@ -13771,6 +13795,10 @@
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
   },
+  "tcQ02J": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button label on the delete-custom-view modal"
+  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -14147,6 +14175,10 @@
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
   },
+  "vfJdto": {
+    "defaultMessage": "This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.",
+    "description": "Explains that no more custom trace views can be created because the per-experiment limit is reached"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
@@ -14186,6 +14218,10 @@
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
+  },
+  "vsxMvp": {
+    "defaultMessage": "Delete this view? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting an unnamed custom trace view"
   },
   "vtQvcd": {
     "defaultMessage": "Save version",

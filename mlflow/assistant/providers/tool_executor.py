@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -13,7 +14,6 @@ _FILE_TOOLS = {"Read", "Write", "Edit"}
 # Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 
-RENDER_CUSTOM_VIEW_TOOL_NAME = "render_custom_view"
 # Tools executed on the CLIENT (browser), not the server: the assistant loop pauses the turn and
 # waits for a client-submitted result instead of routing the call through execute_tool/the static
 # permission gate. See openai_compatible.py's tool loop.

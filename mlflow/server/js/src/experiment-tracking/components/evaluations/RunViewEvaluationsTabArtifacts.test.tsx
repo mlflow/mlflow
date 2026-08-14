@@ -32,6 +32,10 @@ jest.mock('../run-page/hooks/useSearchRunsQuery', () => ({
   useSearchRunsQuery: () => ({ data: undefined, loading: false }),
 }));
 
+jest.mock('../../pages/experiment-scorers/hooks/useScorerDescriptions', () => ({
+  useScorerDescriptions: () => ({}),
+}));
+
 jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   shouldEnableImprovedEvalRunsComparison: () => mockShouldEnableImprovedEvalRunsComparison,
 }));

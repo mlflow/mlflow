@@ -51,6 +51,7 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
@@ -64,6 +65,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
 )
 from mlflow.protos.label_schemas_pb2 import (
     CreateLabelSchema,
@@ -110,12 +117,14 @@ from mlflow.protos.review_queues_pb2 import (
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
     CreateAssessment,
+    CreateDataset,
     CreateExperiment,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
@@ -128,6 +137,9 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     CreateWorkspace,
     DeleteAssessment,
+    DeleteDataset,
+    DeleteDatasetRecords,
+    DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayBudgetPolicy,
@@ -151,6 +163,9 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
+    GetDataset,
+    GetDatasetExperimentIds,
+    GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
@@ -182,13 +197,16 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     QueryTraceMetrics,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
+    SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
     SearchTraces,
     SearchTracesV3,
+    SetDatasetTags,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
@@ -205,6 +223,7 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+    UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import (
     GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
@@ -337,6 +356,7 @@ from mlflow.server.handlers import (
     _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
+    _get_normalized_request_json,
     _get_request_message,
     _get_tracking_store,
     _get_validated_flask_request_json,
@@ -2931,6 +2951,204 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+
+# Evaluation datasets are experiment-scoped: derive permissions from the associated
+# experiment(s), like runs and traces.
+def _dataset_experiment_permissions():
+    dataset_id = _get_request_param("dataset_id")
+    username = authenticate_request().username
+    try:
+        experiment_ids = _get_tracking_store().get_dataset_experiment_ids(dataset_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return [], []
+        raise
+    return experiment_ids, [_get_experiment_permission(eid, username) for eid in experiment_ids]
+
+
+def validate_can_read_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_read for p in permissions)
+
+
+def validate_can_update_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_update for p in permissions)
+
+
+def validate_can_delete_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_delete for p in permissions)
+
+
+def _experiment_ids_from_request():
+    # Read experiment_ids from JSON when present, else query args (like _get_request_param).
+    if request.is_json:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            return list(body.get("experiment_ids", []))
+    return request.args.getlist("experiment_ids")
+
+
+def validate_can_create_dataset():
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_update for eid in experiment_ids
+    )
+
+
+def validate_can_search_evaluation_datasets():
+    # Require the caller to scope the search to experiment(s) they can read, so an
+    # empty request cannot enumerate every dataset on the server.
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_add_dataset_to_experiments():
+    # Also require UPDATE on the experiment(s) being attached, not just the dataset's
+    # current ones, so a caller can't link an experiment they don't control.
+    if not validate_can_update_dataset():
+        return False
+    username = authenticate_request().username
+    added = _experiment_ids_from_request()
+    return bool(added) and all(
+        _get_experiment_permission(eid, username).can_update for eid in added
+    )
+
+
+# {dataset_id}-based routes; regex-matched (path parameters).
+DATASET_BEFORE_REQUEST_HANDLERS = {
+    GetDataset: validate_can_read_dataset,
+    DeleteDataset: validate_can_delete_dataset,
+    SetDatasetTags: validate_can_update_dataset,
+    DeleteDatasetTag: validate_can_update_dataset,
+    UpsertDatasetRecords: validate_can_update_dataset,
+    GetDatasetRecords: validate_can_read_dataset,
+    DeleteDatasetRecords: validate_can_update_dataset,
+    GetDatasetExperimentIds: validate_can_read_dataset,
+    AddDatasetToExperiments: validate_can_add_dataset_to_experiments,
+    RemoveDatasetFromExperiments: validate_can_update_dataset,
+}
+
+
+def get_dataset_before_request_handler(request_class):
+    return DATASET_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+DATASET_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_dataset_before_request_handler)
+    for method in methods
+    if handler in DATASET_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+# create/search have no path parameters; register them in the exact-match table so the
+# {dataset_id} regex can't shadow /datasets/search or /datasets/create.
+DATASET_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateDataset: validate_can_create_dataset,
+    SearchEvaluationDatasets: validate_can_search_evaluation_datasets,
+}
+
+
+def get_dataset_exact_before_request_handler(request_class):
+    return DATASET_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_dataset_exact_before_request_handler)
+    for method in methods
+    if handler in DATASET_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
+
+
+# Issues are experiment-scoped: authorize from the associated experiment.
+def _issue_experiment_permission():
+    issue_id = _get_request_param("issue_id")
+    username = authenticate_request().username
+    experiment_id = _get_tracking_store().get_issue(issue_id).experiment_id
+    return _get_experiment_permission(experiment_id, username)
+
+
+def validate_can_read_issue():
+    try:
+        return _issue_experiment_permission().can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_update_issue():
+    try:
+        return _issue_experiment_permission().can_update
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_create_issue():
+    # Use the same normalizer as the handler so a legacy double-encoded body is decoded
+    # rather than crashing the auth check with a 500 (a str has no .get).
+    experiment_id = _get_normalized_request_json().get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_search_issues():
+    experiment_id = _get_normalized_request_json().get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_read
+
+
+ISSUE_BEFORE_REQUEST_HANDLERS = {
+    GetIssue: validate_can_read_issue,
+    UpdateIssue: validate_can_update_issue,
+}
+
+
+def get_issue_before_request_handler(request_class):
+    return ISSUE_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Regex-matched (path parameter).
+ISSUE_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_before_request_handler)
+    for method in methods
+    if handler in ISSUE_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateIssue: validate_can_create_issue,
+    SearchIssues: validate_can_search_issues,
+}
+
+
+def get_issue_exact_before_request_handler(request_class):
+    return ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Create/search have no path parameters -> exact-match table.
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_exact_before_request_handler)
+    for method in methods
+    if handler in ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
+
+
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
@@ -3050,6 +3268,34 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Whole /mlflow/datasets/ family; unknown paths under the prefix fail closed.
+    if "/mlflow/datasets/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in DATASET_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return validator if validator is not None else lambda: False
+
+    # Whole /mlflow/issues/ family; unknown paths fail closed, except the not-yet-gated
+    # routes tracked in _KNOWN_UNGATED_ROUTE_MARKERS (e.g. invoke), which fall through.
+    if "/mlflow/issues/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in ISSUE_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        if validator is not None:
+            return validator
+        if not _is_known_ungated_route(req.path):
+            return lambda: False
+
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
     if "/mlflow/traces/" in req.path:
@@ -3064,6 +3310,102 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         return validator if validator is not None else lambda: False
 
     return None
+
+
+# Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
+_PUBLIC_ROUTE_SUFFIXES = (
+    "/mlflow/server-info",  # capability discovery; no tenant data
+)
+
+# Routes that self-authorize (e.g. filter results by the caller) rather than via a
+# before-request validator.
+_HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
+    "/mlflow/runs/search",
+    "/graphql",
+)
+
+# Ungated route families, temporarily exempt from fail-closed until each is gated
+# (removed one at a time; when empty the flag can be flipped on).
+_KNOWN_UNGATED_ROUTE_MARKERS = (
+    "/mlflow/issues/invoke",
+    "/mlflow/jobs/",
+    "/gateway/budgets/",
+    "/gateway/guardrails/",
+    "/gateway/provider-config",
+    "/gateway/secrets/",
+    "/gateway/supported-providers",
+    "/gateway/supported-models",
+    "/gateway/endpoints/list",
+    "/gateway/model-definitions/list",
+    "/mlflow/artifacts/presigned-upload-url",
+    "/mlflow/demo/",
+    "/mlflow/genai/evaluate/invoke",
+    "/api/2.0/mlflow/metrics/get-history-bulk-interval",
+)
+
+# Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
+# that lack an authorization validator. Empty today — a coverage test asserts every native
+# route resolves a validator. Runtime fail-closed enforcement for FastAPI is a follow-up.
+_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS = ()
+
+
+def _is_known_ungated_route(path: str) -> bool:
+    # Anchor markers to a segment boundary: "/mlflow/issues" matches "/mlflow/issues"
+    # and "/mlflow/issues/..." but not "/mlflow/issues-other".
+    for marker in _KNOWN_UNGATED_ROUTE_MARKERS:
+        if marker.endswith("/"):
+            if marker in path:
+                return True
+            continue
+        start = 0
+        while (idx := path.find(marker, start)) != -1:
+            end = idx + len(marker)
+            if end == len(path) or path[end] == "/":
+                return True
+            start = idx + 1
+    return False
+
+
+_API_VERSION_PREFIX_RE = re.compile(r"/(?:ajax-)?api/\d+\.\d+")
+
+
+def _matches_route_suffix(path: str, suffixes: tuple[str, ...]) -> bool:
+    # Match a suffix only as a whole path (e.g. /graphql) or directly under an API
+    # version prefix — never as an incidental tail of an unrelated route.
+    for suffix in suffixes:
+        if path == suffix:
+            return True
+        if path.endswith(suffix) and _API_VERSION_PREFIX_RE.fullmatch(path[: -len(suffix)]):
+            return True
+    return False
+
+
+def _strip_static_prefix(path: str) -> str:
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and path.startswith(static_prefix):
+        return path[len(static_prefix) :]
+    return path
+
+
+def _authorized_outside_before_request(req) -> bool:
+    # Authorized outside a before-request validator: public allowlist, a
+    # self-authorizing handler, or an after-request filter.
+    path = req.path
+    method = req.method
+    # Suffix matching anchors on the API version prefix, so strip any configured
+    # static prefix first (mirroring _find_fastapi_validator); otherwise public/internal
+    # routes would wrongly fail closed under --static-prefix.
+    unprefixed = _strip_static_prefix(path)
+    if _matches_route_suffix(unprefixed, _PUBLIC_ROUTE_SUFFIXES):
+        return True
+    if _matches_route_suffix(unprefixed, _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
+        return True
+    if (path, method) in AFTER_REQUEST_HANDLERS:
+        return True
+    return any(
+        pat.fullmatch(path) and m == method
+        for (pat, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+    )
 
 
 @catch_mlflow_exception
@@ -3097,9 +3439,20 @@ def _before_request():
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
-        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
-            if not validator():
+        proxy_validator = _get_proxy_artifact_validator(request.method, request.view_args)
+        if proxy_validator is None:
+            # Unrecognized method on a proxy-artifact URL: fail closed when the flag is on.
+            if MLFLOW_BASIC_AUTH_FAIL_CLOSED.get():
                 return make_forbidden_response()
+        elif not proxy_validator():
+            return make_forbidden_response()
+    elif (
+        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        and not _authorized_outside_before_request(request)
+        and not _is_known_ungated_route(request.path)
+    ):
+        # No authorization decision resolved for this route: deny (fail-closed).
+        return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):

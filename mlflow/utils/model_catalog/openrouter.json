@@ -1008,6 +1008,24 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "nvidia/nemotron-3.5-lightning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-14"
+    },
     "openai/gpt-3.5-turbo": {
       "mode": "chat",
       "context_window": {

@@ -12,7 +12,7 @@ import type { RenderCustomViewSpec } from './assistant/customViewSpecApplier';
 import { useCustomViewAssistantBridge, type CustomViewAssistantBridge } from './assistant/useCustomViewAssistantBridge';
 import { CustomViewDefinitionProvider, useOptionalCustomViewDefinition } from './CustomViewDefinitionContext';
 import { latchDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
-import { toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
+import { MAX_CUSTOM_VIEWS_PER_EXPERIMENT, toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
 import type { ModelTrace } from '../ModelTrace.types';
 
 // Mock the assistant bridge so the tests drive the component purely off its
@@ -67,6 +67,7 @@ const setBridge = (overrides: Partial<CustomViewAssistantBridge> = {}): CustomVi
     isAvailable: true,
     openAssistant: jest.fn(),
     isStreaming: false,
+    isPending: false,
     applyError: undefined,
     clearApplyError: jest.fn(),
     ...overrides,
@@ -114,6 +115,7 @@ const renderWithProvider = () =>
 
 const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: CustomView[] = [persistedView]) => {
   const onPersistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+  const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
   render(
     <IntlProvider locale="en" messages={{}}>
       <DesignSystemProvider>
@@ -122,6 +124,7 @@ const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: Cust
             views={views}
             isLoaded
             onPersistView={onPersistView}
+            onDeleteView={onDeleteView}
             canModifyPersistedViews={canModifyPersistedViews}
           >
             <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
@@ -130,7 +133,7 @@ const renderWithPersistProvider = (canModifyPersistedViews: boolean, views: Cust
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onPersistView };
+  return { onPersistView, onDeleteView };
 };
 
 const renderWithChangingPermission = (canModifyPersistedViews: boolean) => {
@@ -297,6 +300,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
   it('hands the typed prompt to the assistant and shows the building skeleton on submit', async () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant });
     renderCustomView();
 
@@ -312,16 +316,12 @@ describe('ModelTraceExplorerCustomView', () => {
 
   it('keeps the building skeleton after streaming ends until a view is created', () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant, isStreaming: false });
     const { rerender } = renderCustomView();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
     fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
-    expect(screen.getByText('Building this view…')).toBeInTheDocument();
-
-    // Streaming starts: the skeleton stays.
-    setBridge({ openAssistant, isStreaming: true });
-    rerender(customView());
     expect(screen.getByText('Building this view…')).toBeInTheDocument();
 
     // Streaming finishes but render_custom_view has not applied a view yet. The
@@ -332,32 +332,30 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.getByText('Building this view…')).toBeInTheDocument();
   });
 
-  it('does not revert to the prompt after a start timeout (no timeout guard)', () => {
-    jest.useFakeTimers();
-    try {
-      setBridge({ isStreaming: false });
-      renderCustomView();
+  it('keeps the prompt visible while queued and abandons cleanly when the queue is cleared', () => {
+    const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isPending: true }));
+    setBridge({ openAssistant });
+    const { rerender } = renderCustomView();
 
-      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
-      fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
-      expect(screen.getByText('Building this view…')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Show me the failed spans' } });
+    fireEvent.click(screen.getByRole('button', { name: /Build with Assistant/ }));
 
-      // The MLflow connector never reports streaming, so an old start-timeout
-      // guard would have flashed the prompt back before render_custom_view
-      // completed. With no such guard, the skeleton persists past any window.
-      act(() => {
-        jest.advanceTimersByTime(60_000);
-      });
+    expect(screen.getByRole('textbox')).toHaveValue('Show me the failed spans');
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeDisabled();
+    expect(screen.queryByText('Building this view…')).not.toBeInTheDocument();
 
-      expect(screen.getByText('Building this view…')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
-    } finally {
-      jest.useRealTimers();
-    }
+    setBridge({ openAssistant, isPending: false });
+    rerender(customView());
+
+    expect(screen.getByRole('textbox')).toHaveValue('Show me the failed spans');
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeEnabled();
+    expect(screen.queryByText('Building this view…')).not.toBeInTheDocument();
   });
 
   it('clears the building skeleton and surfaces the error when the spec apply fails', () => {
     const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
     setBridge({ openAssistant });
     const { rerender } = renderCustomView();
 
@@ -520,6 +518,96 @@ describe('ModelTraceExplorerCustomView', () => {
 
     // A readable view: rename is enabled (not aria-disabled).
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).toBeInTheDocument();
+  });
+
+  it('hides Delete view when the provider does not supply a delete callback', async () => {
+    setBridge();
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient()}>
+            <CustomViewDefinitionProvider
+              views={[persistedView]}
+              isLoaded
+              onPersistView={noopPersistView}
+              canModifyPersistedViews
+            >
+              <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+            </CustomViewDefinitionProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+
+    expect(screen.getByRole('menuitem', { name: /Rename view/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Delete view/ })).not.toBeInTheDocument();
+  });
+
+  it('confirms and deletes the selected persisted view', async () => {
+    setBridge();
+    const { onDeleteView } = renderWithPersistProvider(true);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+    await user.click(screen.getByRole('menuitem', { name: /Delete view/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Delete view/ });
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    expect(onDeleteView).toHaveBeenCalledWith('v1');
+    expect(await screen.findByText('Build a custom trace view')).toBeInTheDocument();
+  });
+
+  it('deletes the view the modal was opened for when selection changes in the background', async () => {
+    setBridge();
+    const viewA = makeView('v1');
+    const viewB = makeView('v2');
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const selectViewRef: { current?: (id: string) => void } = {};
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient()}>
+            <CustomViewDefinitionProvider
+              views={[viewA, viewB]}
+              isLoaded
+              onPersistView={noopPersistView}
+              onDeleteView={onDeleteView}
+              canModifyPersistedViews
+            >
+              <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+              <SelectViewProbe selectViewRef={selectViewRef} />
+            </CustomViewDefinitionProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /name-v1/ }));
+    await user.click(screen.getByRole('button', { name: 'More view options' }));
+    await user.click(screen.getByRole('menuitem', { name: /Delete view/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Delete view/ });
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+
+    act(() => selectViewRef.current?.('v2'));
+    expect(within(dialog).getByText(/Delete the view "name-v1"/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(onDeleteView).toHaveBeenCalledWith('v1');
+    expect(onDeleteView).not.toHaveBeenCalledWith('v2');
+    expect(await screen.findByRole('button', { name: /name-v2/ })).toBeInTheDocument();
   });
 
   it('disables (not hides) Rename view for an unreadable persisted view', async () => {
@@ -536,6 +624,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
     // Rename is rendered but disabled (not removed from the menu).
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('disables Rename for a valid-shape view whose template fails validation (Case-2 unreadable derived at selection)', async () => {
@@ -555,6 +644,7 @@ describe('ModelTraceExplorerCustomView', () => {
 
     await user.click(screen.getByRole('button', { name: 'More view options' }));
     expect(screen.getByRole('menuitem', { name: /Rename view/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: /Delete view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renames the selected view: prefills the current name and persists the trimmed new name against the saved template', async () => {
@@ -740,6 +830,36 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
     // The switcher shows the unsaved-view fallback label.
     expect(screen.getByRole('button', { name: /Untitled custom view/ })).toBeInTheDocument();
+  });
+
+  it('disables Create view at the per-experiment view limit', async () => {
+    setBridge();
+    const maxViews = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT }, (_unused, index) =>
+      makeView(`limit-${index}`),
+    );
+    renderWithPersistProvider(true, maxViews);
+
+    await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    const createItem = screen.getByRole('menuitem', { name: /Create view/ });
+    expect(createItem).toHaveAttribute('aria-disabled', 'true');
+    expect(createItem.querySelector('[data-disabled-tooltip]')).toBeInTheDocument();
+
+    // Dispatch directly because userEvent intentionally refuses pointer events on disabled items.
+    // The handler guard must also keep the authoring UI closed.
+    fireEvent.click(createItem);
+    expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps Create view enabled one view below the limit', async () => {
+    setBridge();
+    const belowLimit = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1 }, (_unused, index) =>
+      makeView(`limit-${index}`),
+    );
+    renderWithPersistProvider(true, belowLimit);
+
+    await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
+
+    expect(screen.getByRole('menuitem', { name: /Create view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('prompts for a name on the first save of a newly built view and persists with it', async () => {

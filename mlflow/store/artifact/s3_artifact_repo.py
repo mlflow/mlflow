@@ -33,6 +33,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
+    _is_object_key_within_path,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -547,7 +548,8 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                keys.append({"Key": file_path})
+                if _is_object_key_within_path(file_path, dest_path):
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=bucket, Delete={"Objects": keys}, **self._bucket_owner_params
