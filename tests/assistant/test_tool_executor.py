@@ -226,6 +226,30 @@ def test_bash_mlflow_run_allowed_with_full_access():
     assert not is_error
 
 
+def test_bash_mlflow_run_help_allowed_without_cwd():
+    # Regression guard: "mlflow run --help" just prints usage, it doesn't execute any
+    # entry point, so the hard "run" denial must not apply to it.
+    result, is_error = _run(execute_tool("Bash", {"command": "mlflow run --help"}))
+    assert not is_error
+
+
+def test_bash_mlflow_artifacts_download_help_allowed_without_cwd():
+    # Regression guard: "--dst-path must be set" must not apply to "--help", which
+    # doesn't touch the filesystem at all regardless of which subcommand it's on.
+    result, is_error = _run(execute_tool("Bash", {"command": "mlflow artifacts download --help"}))
+    assert not is_error
+
+
+def test_bash_non_string_command_denied_not_raised():
+    # Regression guard: malformed tool-call JSON (e.g. a model emitting
+    # {"command": 123}) makes "".strip() raise AttributeError on a non-string value.
+    # This must be caught the same way non-string file_path is, rather than
+    # propagating out of static_permission_error/execute_tool.
+    result, is_error = _run(execute_tool("Bash", {"command": 123}))
+    assert is_error
+    assert "Permission denied" in result
+
+
 def test_bash_mlflow_run_actually_denies_entry_point_execution(tmp_path):
     # End-to-end regression guard: reproduces the exact RCE this closes. An MLproject
     # entry point can run arbitrary shell commands; before this fix, "mlflow run <path>"
@@ -531,8 +555,8 @@ def test_bash_allows_mlflow_commands():
 
 def test_bash_allows_mlflow_help():
     # Regression guard: Click adds an implicit "--help" on every group, parsed under
-    # the key "help". _MLFLOW_HARMLESS_ROOT_OPTIONS must include it, or the "unrecognized
-    # root option" defensive check denies the documented-as-allowed "mlflow --help".
+    # the key "help", and root-only paths (e.g. "mlflow --help") are never in
+    # _MLFLOW_ARTIFACT_FILE_PARAMS or equal to ("run",), so they're allowed by default.
     result, is_error = _run(execute_tool("Bash", {"command": "mlflow --help"}))
     assert not is_error
 

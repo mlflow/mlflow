@@ -4,6 +4,7 @@ import os
 import shlex
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
@@ -50,8 +51,6 @@ def _is_local_artifact_uri(uri: str) -> bool:
     # to a LocalArtifactRepository rooted at the raw path -- unlike runs:/, models:/,
     # s3://, etc., which go through real tracked/remote storage. A single-letter scheme
     # is a Windows drive letter (e.g. "C:\\...") misparsed by urlparse, also local.
-    from urllib.parse import urlparse
-
     scheme = urlparse(uri).scheme.lower()
     return scheme in ("", "file") or len(scheme) == 1
 
@@ -134,6 +133,12 @@ def _mlflow_command_denial(argv: list[str], cwd: Path | None) -> str | None:
         if (denial := _require_workspace_path(env_file, cwd, "--env-file")) is not None:
             return denial
 
+    # A subcommand's own "--help" just prints usage and exits; it can't run or touch
+    # anything on its own, regardless of which subcommand it's attached to, so it must
+    # be exempted from the checks below the same way root-level --help/--version are.
+    if params.get("help"):
+        return None
+
     # "mlflow run <uri>" executes the target project's entry-point ``command:`` via a
     # real shell (see mlflow/projects/backend/local.py), regardless of cwd. There's no
     # argument to validate here: the entry point is arbitrary shell content by design,
@@ -183,7 +188,13 @@ def static_permission_error(
         return None
 
     if tool_name == "Bash":
-        command = tool_input.get("command", "").strip()
+        command = tool_input.get("command", "")
+        if not isinstance(command, str):
+            # Malformed tool-call JSON (e.g. a model emitting {"command": 123} or
+            # {"command": null}) would otherwise raise AttributeError on .strip()
+            # below, escaping this function instead of returning a denial.
+            return "Permission denied: malformed command"
+        command = command.strip()
         try:
             argv = shlex.split(command)
         except ValueError:
@@ -275,7 +286,10 @@ async def _execute_bash(
     # Stripped the same way static_permission_error strips before its own shlex.split, so
     # the two can't tokenize argv[0] differently (e.g. a leading non-ASCII whitespace
     # character that str.strip() removes but shlex's default whitespace set does not).
-    command = tool_input.get("command", "").strip()
+    command = tool_input.get("command", "")
+    if not isinstance(command, str):
+        return "No command provided", True
+    command = command.strip()
     if not command:
         return "No command provided", True
 
