@@ -1,8 +1,39 @@
 const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
+const UI_SOURCE_PREFIX = "mlflow/server/js/src/";
+const UI_SOURCE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".css", ".scss", ".less"];
+const UI_SOURCE_EXCLUDES = [".test.", ".stories.", "__snapshots__/"];
+
+const MEDIA_PATTERNS = [
+  /!\[[^\]]*\]\([^)]+\)/, // markdown image
+  /<(img|video)\b/i,
+  /https:\/\/github\.com\/user-attachments\/assets\//i,
+  /https:\/\/(user-images|private-user-images)\.githubusercontent\.com\//i,
+  /https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i,
+];
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hasUiChanges(files) {
+  return files.some(({ filename }) => {
+    if (!filename.startsWith(UI_SOURCE_PREFIX)) {
+      return false;
+    }
+    if (!UI_SOURCE_EXTENSIONS.some((ext) => filename.endsWith(ext))) {
+      return false;
+    }
+    return !UI_SOURCE_EXCLUDES.some((pattern) => filename.includes(pattern));
+  });
+}
+
+function hasVisibleMedia(body) {
+  // Strip HTML comments first. The PR template ships a "screenshot, video" hint as a comment,
+  // and media pasted inside a comment block isn't rendered either.
+  const visible = (body || "").replace(/<!--[\s\S]*?-->/g, "");
+  return MEDIA_PATTERNS.some((pattern) => pattern.test(visible));
 }
 
 async function getRecentActivity(github, username) {
@@ -174,6 +205,28 @@ ${activitySection}
         "The PR description is missing required sections. " +
         "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
+  }
+
+  if (!hasVisibleMedia(body)) {
+    try {
+      const files = await github.paginate(github.rest.pulls.listFiles, {
+        owner,
+        repo,
+        pull_number: issue_number,
+        per_page: 100,
+      });
+      if (hasUiChanges(files)) {
+        messages.push(
+          "#### &#x1F5BC;&#xFE0F; Missing screenshot\n\n" +
+            "This PR changes front-end code, but the description doesn't show what the change " +
+            "looks like. Please attach a screenshot or screen recording of the UI change so " +
+            "reviewers can see it without checking out the branch. If the change isn't visible " +
+            "in the UI, feel free to ignore this."
+        );
+      }
+    } catch (e) {
+      console.log("Failed to fetch changed files:", e);
+    }
   }
 
   if (messages.length > 0) {
